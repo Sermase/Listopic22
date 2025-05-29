@@ -51,7 +51,7 @@
     height: 90px; /* Ajusta esta altura según el tamaño deseado para tu logo */
     width: auto;  /* Mantiene la proporción */
     display: block; /* Evita espacio extra debajo de la imagen si es inline */
-    transition: transform 0.2s ease-in-out;
+    transition: transform 0.2s ease-in-out, height 0.3s ease; /* Added height transition */
 }
 .app-logo:hover {
     transform: scale(1.05); /* Un ligero zoom al pasar el ratón */
@@ -543,6 +543,15 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
     .detail-content { flex-direction: column; }
     .criterion-item input[name="criteria_title[]"] { flex-basis: 100%; }
     .criterion-item input[name="criteria_label_left[]"], .criterion-item input[name="criteria_label_right[]"] { flex-basis: calc(50% - 1rem); }
+    
+    /* Logo adjustments for medium screens */
+    .app-logo-container {
+        top: 10px;
+        left: 10px;
+    }
+    .app-logo {
+        height: 60px; /* Further reduced from 70px */
+    }
 }
 
 @media (max-width: 480px) {
@@ -558,7 +567,31 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
     .criterion-item input[name="criteria_label_left[]"], .criterion-item input[name="criteria_label_right[]"] { flex-basis: 100%; }
     .criterion-item .criterion-weighted-label { width: 100%; margin-left: 0; justify-content: flex-start; margin-top: 0.5rem; padding-left: 0; }
     .criterion-item .remove-button { margin-left: auto; margin-top: 0.5rem; }
+
+    /* Logo adjustments for small screens */
+    .app-logo-container {
+        top: 8px;
+        left: 8px;
+    }
+    .app-logo {
+        height: 50px; /* Further reduced from 55px */
+    }
 }
+
+/* Added a more specific breakpoint for very small devices if needed, based on previous report structure */
+@media (max-width: 360px) {
+    .app-logo-container {
+        top: 5px;
+        left: 5px;
+    }
+    .app-logo {
+        height: 40px; /* Further reduced from 50px */
+    }
+    /* Other 360px styles from previous responsiveness pass would go here if they existed */
+    /* For example, if brand-title size was also adjusted at 360px: */
+    /* h1.brand-title { font-size: 2.2em; } */
+}
+
 
 /* --- Tema Claro --- */
 body.light-theme {
@@ -1046,14 +1079,26 @@ body.light-theme .header-action-button:hover {
 
 @media (max-width: 480px) {
     .header-actions-container {
-        top: 8px;
-        right: 8px;
-        gap: 5px;
+        top: 5px; /* Adjusted from 8px */
+        right: 5px; /* Adjusted from 8px */
+        gap: 5px; /* Remains 5px, seems appropriate */
     }
     .header-action-button {
-        width: 38px;
-        height: 38px;
-        font-size: 1em;
+        width: 36px; /* Adjusted from 38px */
+        height: 36px; /* Adjusted from 38px */
+        font-size: 0.95em; /* Adjusted from 1em for icons */
+    }
+}
+
+@media (max-width: 360px) {
+    .header-actions-container {
+        gap: 4px; /* Further reduce gap */
+        /* top: 5px; right: 5px; already set by 480px, can be kept or overridden if needed */
+    }
+    .header-action-button {
+        width: 32px; /* Further reduce size */
+        height: 32px; /* Further reduce size */
+        font-size: 0.85em; /* Further reduce icon size */
     }
 }
 
