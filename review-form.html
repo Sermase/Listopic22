@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-<script src="app.js"></script>
+<!-- Firebase SDKs - Añadido defer y los SDKs faltantes -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js" defer></script>
 
 <head>
     <meta charset="UTF-8">
@@ -101,7 +103,23 @@
         </div>
     </main>
     <footer> Listopic... Tu rincón personal de valoraciones. </footer>
-    <script src="app.js" defer></script>
+    <!-- Listopic App Modules -->
+    <script src="js/config.js" defer></script>
+    <script src="js/firebaseService.js" defer></script>
+    <script src="js/uiUtils.js" defer></script>
+    <script src="js/themeManager.js" defer></script>
+    <script src="js/placesService.js" defer></script>
+    <script src="js/authService.js" defer></script>
+    <script src="js/page-index.js" defer></script> <!-- Considerar si todos estos page-* son necesarios en esta página específica -->
+    <script src="js/page-auth.js" defer></script>
+    <script src="js/page-list-form.js" defer></script>
+    <script src="js/page-review-form.js" defer></script> <!-- Este es el específico para esta página -->
+    <script src="js/page-list-view.js" defer></script>
+    <script src="js/page-detail-view.js" defer></script>
+    <script src="js/page-grouped-detail-view.js" defer></script>
+
+    <!-- Main application orchestrator -->
+    <script src="js/main.js" defer></script>
     <div class="user-session-controls">
         <span id="user-info-display"></span>
         <button id="logout-button" style="display:none;" class="button-link danger">Cerrar Sesión</button>
