@@ -25,7 +25,7 @@
     --input-bg: rgba(0, 0, 0, 0.35);
     --input-border: rgba(255, 255, 255, 0.25);
     --input-focus-border: var(--accent-color-primary);
-    --main-button-text: var(--primary-bg); /* Texto para botones con fondo de acento */
+    --main-button-text: #1A1D24; /* UPDATED: Was var(--primary-bg), now dark grey for better contrast on accent BGs */
     --main-button-hover-bg: #fbc02d; /* Hover para botones principales */
     --danger-color: #D9534F; /* Color para acciones peligrosas */
     --danger-hover-bg: #C9302C;
@@ -51,7 +51,7 @@
     height: 90px; /* Ajusta esta altura según el tamaño deseado para tu logo */
     width: auto;  /* Mantiene la proporción */
     display: block; /* Evita espacio extra debajo de la imagen si es inline */
-    transition: transform 0.2s ease-in-out;
+    transition: transform 0.2s ease-in-out, height 0.3s ease; /* Added height transition */
 }
 .app-logo:hover {
     transform: scale(1.05); /* Un ligero zoom al pasar el ratón */
@@ -543,6 +543,15 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
     .detail-content { flex-direction: column; }
     .criterion-item input[name="criteria_title[]"] { flex-basis: 100%; }
     .criterion-item input[name="criteria_label_left[]"], .criterion-item input[name="criteria_label_right[]"] { flex-basis: calc(50% - 1rem); }
+    
+    /* Logo adjustments for medium screens */
+    .app-logo-container {
+        top: 10px;
+        left: 10px;
+    }
+    .app-logo {
+        height: 60px; /* Further reduced from 70px */
+    }
 }
 
 @media (max-width: 480px) {
@@ -558,7 +567,31 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
     .criterion-item input[name="criteria_label_left[]"], .criterion-item input[name="criteria_label_right[]"] { flex-basis: 100%; }
     .criterion-item .criterion-weighted-label { width: 100%; margin-left: 0; justify-content: flex-start; margin-top: 0.5rem; padding-left: 0; }
     .criterion-item .remove-button { margin-left: auto; margin-top: 0.5rem; }
+
+    /* Logo adjustments for small screens */
+    .app-logo-container {
+        top: 8px;
+        left: 8px;
+    }
+    .app-logo {
+        height: 50px; /* Further reduced from 55px */
+    }
 }
+
+/* Added a more specific breakpoint for very small devices if needed, based on previous report structure */
+@media (max-width: 360px) {
+    .app-logo-container {
+        top: 5px;
+        left: 5px;
+    }
+    .app-logo {
+        height: 40px; /* Further reduced from 50px */
+    }
+    /* Other 360px styles from previous responsiveness pass would go here if they existed */
+    /* For example, if brand-title size was also adjusted at 360px: */
+    /* h1.brand-title { font-size: 2.2em; } */
+}
+
 
 /* --- Tema Claro --- */
 body.light-theme {
@@ -576,7 +609,7 @@ body.light-theme {
     --title-color: #1A1D24;                    /* Títulos más oscuros */
 
     /* Opción 2: Ajustarlos ligeramente (ej. un poco más oscuros/saturados) */
-    --accent-color-primary: #F5A623;    /* Amarillo/Naranja más intenso */
+    --accent-color-primary: #EAA600;    /* UPDATED: Was #F5A623. Darker yellow/orange for better contrast on links/icons */
     --accent-color-secondary: #D9405F;  /* Rosa más intenso */
     --accent-color-tertiary: #05B88A;   /* Verde más intenso */
     --accent-color-quaternary: #0E7899; /* Azul más intenso */
@@ -589,7 +622,7 @@ body.light-theme {
     --input-border: #B0B8C0;               /* Borde de inputs gris medio, más visible */
     --input-focus-border: var(--accent-color-primary); /* Mantenemos el acento para el foco */
     --main-button-text: #333740;           /* Texto oscuro para acento amarillo/naranja */
-    --main-button-hover-bg: #EAA600;       /* Hover del botón principal (versión más oscura del acento) */
+    --main-button-hover-bg: #D49100;       /* UPDATED: Was #EAA600. Darker to complement new --accent-color-primary */
     --danger-color: #D9534F;               /* Se puede mantener el mismo rojo */
     --danger-hover-bg: #C9302C;            /* Y su hover */
     
@@ -603,6 +636,18 @@ body.light-theme .form-textarea::placeholder,
 body.light-theme .search-input::placeholder {
     color: #8892A0; /* Placeholder gris un poco más oscuro */
 }
+
+/* UPDATED: Specific styles for list circles in light theme for better icon contrast */
+body.light-theme #list-circles-ul a {
+    background-color: rgba(0,0,0,0.04); 
+    border: 1px solid rgba(0,0,0,0.08);
+}
+body.light-theme #list-circles-ul a:hover {
+    background-color: rgba(0,0,0,0.07);
+    border-color: rgba(0,0,0,0.12);
+}
+/* Icon color will use the updated --accent-color-primary for light theme */
+
 
 body.light-theme .tag-filter-button {
     background-color: #E9EDF0; /* Fondo gris más claro */
@@ -634,6 +679,15 @@ body.light-theme .ranking-table td {
 body.light-theme .ranking-row:hover {
     background-color: rgba(0,0,0,0.03); /* Hover muy sutil en tema claro */
 }
+
+/* UPDATED: Edit button text color for light theme */
+body.light-theme .edit-button {
+    color: #FFFFFF; /* White text for better contrast on green background */
+}
+body.light-theme .edit-button:hover {
+    color: #FFFFFF; /* Ensure hover state also has white text */
+}
+
 
 /* --- Estilos para el botón de cambio de tema --- */
 .theme-toggle-button {
@@ -931,3 +985,246 @@ body.light-theme .user-menu-divider {
   background-color: #E5E7EB; /* Lighter divider for light theme */
 }
 /* La llave de cierre extra que estaba aquí ha sido eliminada. */
+
+
+/* --- Header Action Buttons (Search, User Profile, Theme Toggle) --- */
+.header-actions-container {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    z-index: 1005; /* Ensure it's above most other content */
+    display: flex;
+    gap: 10px; /* Space between buttons */
+}
+
+.header-action-button {
+    background-color: var(--container-bg);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
+    border-radius: 50%;
+    width: 45px; /* Consistent size */
+    height: 45px; /* Consistent size */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em; /* Icon size */
+    padding: 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+}
+
+.header-action-button:hover {
+    background-color: var(--accent-color-primary);
+    color: var(--main-button-text); /* Uses the corrected variable for dark text on accent */
+    border-color: var(--accent-color-primary);
+    transform: translateY(-1px);
+}
+
+.header-action-button i {
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Specific adjustments if .user-profile-button needs to retain its original class for JS */
+/* but also adopt .header-action-button styles */
+.user-profile-button.header-action-button {
+    /* It will inherit all .header-action-button styles */
+    /* No specific overrides needed unless its behavior must differ */
+}
+
+/* Adjust .user-profile-menu-container as it's now a flex item */
+.user-profile-menu-container {
+    position: relative; /* Was fixed, now relative to the flex container */
+    top: auto;          /* Reset fixed positioning */
+    right: auto;        /* Reset fixed positioning */
+    z-index: auto;      /* Reset z-index or manage within header-actions-container */
+}
+/* The .user-profile-button itself is now styled by .header-action-button */
+/* The .user-menu dropdown positioning might need adjustment if it was based on fixed parent */
+.user-menu {
+    /* top: calc(100% + 8px); /* This should still work if .user-profile-menu-container is relative */
+    /* right: 0; */ /* This should still work */
+}
+
+
+/* Light theme adjustments for new buttons/container */
+body.light-theme .header-action-button {
+  background-color: #FFFFFF;
+  color: var(--text-color); /* Uses light theme text color */
+  border-color: var(--input-border); /* Uses light theme input border */
+}
+body.light-theme .header-action-button:hover {
+  background-color: var(--accent-color-primary); /* Uses light theme accent */
+  /* Ensure main-button-text for light theme is set correctly for light theme accent bg */
+  color: var(--main-button-text); 
+  border-color: var(--accent-color-primary);
+}
+
+/* Responsive adjustments for header actions container */
+@media (max-width: 768px) {
+    .header-actions-container {
+        top: 10px;
+        right: 10px;
+        gap: 8px;
+    }
+    .header-action-button {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1em;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-actions-container {
+        top: 5px; /* Adjusted from 8px */
+        right: 5px; /* Adjusted from 8px */
+        gap: 5px; /* Remains 5px, seems appropriate */
+    }
+    .header-action-button {
+        width: 36px; /* Adjusted from 38px */
+        height: 36px; /* Adjusted from 38px */
+        font-size: 0.95em; /* Adjusted from 1em for icons */
+    }
+}
+
+@media (max-width: 360px) {
+    .header-actions-container {
+        gap: 4px; /* Further reduce gap */
+        /* top: 5px; right: 5px; already set by 480px, can be kept or overridden if needed */
+    }
+    .header-action-button {
+        width: 32px; /* Further reduce size */
+        height: 32px; /* Further reduce size */
+        font-size: 0.85em; /* Further reduce icon size */
+    }
+}
+
+
+/* --- User Profile Page Styles --- */
+#profile-picture-placeholder {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+#profile-picture-placeholder img {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 3px solid var(--input-border);
+    object-fit: cover;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+#profile-picture-placeholder .fa-user-circle { /* Default icon if no image */
+    font-size: 100px; /* Adjust as needed */
+    color: var(--accent-color-primary);
+    line-height: 1; /* Ensure it aligns well if it's the only thing */
+}
+
+
+#profile-display-name {
+    font-family: var(--brand-font);
+    font-size: clamp(1.8em, 4vw, 2.5em);
+    color: var(--title-color);
+    margin-top: 10px;
+    margin-bottom: 5px;
+    text-align: center;
+    font-weight: 600;
+}
+
+#profile-email {
+    font-size: 1em;
+    color: var(--secondary-text-color);
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+#profile-my-lists, #profile-my-reviews {
+    margin-bottom: 35px;
+    padding: 20px;
+    background-color: rgba(0,0,0,0.1); /* Subtle background for sections */
+    border-radius: 8px;
+    text-align: left; /* Align section content to left */
+}
+
+#profile-my-lists h3, #profile-my-reviews h3 {
+    font-family: 'Cormorant Garamond', serif;
+    color: var(--accent-color-secondary);
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--input-border);
+    padding-bottom: 10px;
+    font-size: 1.5em;
+}
+
+#profile-my-lists ul {
+    list-style: none;
+    padding: 0;
+}
+
+#profile-my-lists ul li {
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(var(--accent-color-primary-rgb), 0.1);
+}
+#profile-my-lists ul li:last-child {
+    border-bottom: none;
+}
+#profile-my-lists ul li a {
+    color: var(--text-color);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+#profile-my-lists ul li a:hover {
+    color: var(--accent-color-primary);
+}
+
+
+#my-reviews-container .review-item-placeholder { /* Example class for styling individual reviews later */
+    padding: 10px;
+    margin-bottom:10px;
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 5px;
+}
+
+
+/* Light theme adjustments for profile page sections */
+body.light-theme #profile-picture-placeholder img {
+    border: 3px solid var(--input-border); /* Uses light theme input border */
+}
+
+/* Style for dynamically created profile image */
+.profile-image-dynamic {
+    width: 120px; /* Matches existing #profile-picture-placeholder img style */
+    height: 120px;
+    border-radius: 50%;
+    border: 3px solid var(--input-border);
+    object-fit: cover;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    display: block; /* Or inline-block if preferred for layout */
+    margin: 0 auto 20px auto; /* Centering if it's a block */
+}
+
+
+body.light-theme #profile-my-lists, 
+body.light-theme #profile-my-reviews {
+    background-color: rgba(0,0,0,0.03); /* Very light background for sections */
+    border: 1px solid var(--input-border);
+}
+
+body.light-theme #profile-my-lists h3, 
+body.light-theme #profile-my-reviews h3 {
+    border-bottom: 1px solid var(--input-border); /* Uses light theme input border */
+}
+
+body.light-theme #profile-my-lists ul li {
+    border-bottom: 1px solid rgba(var(--accent-color-primary-rgb), 0.2); /* Slightly more visible in light */
+}
+body.light-theme #profile-my-lists ul li a {
+    color: var(--text-color); /* Uses light theme text color */
+}
+body.light-theme #profile-my-lists ul li a:hover {
+    color: var(--accent-color-primary); /* Uses light theme accent */
+}
