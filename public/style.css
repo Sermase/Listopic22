@@ -942,6 +942,7 @@ body.light-theme footer {
   text-align: left;
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;
+  box-sizing: border-box; /* Ensure padding is included in the 100% width */
 }
 .user-menu a:hover, .user-menu button:hover {
   background-color: rgba(var(--accent-color-primary-rgb), 0.15);
@@ -994,6 +995,7 @@ body.light-theme .user-menu-divider {
     right: 15px;
     z-index: 1005; /* Ensure it's above most other content */
     display: flex;
+    align-items: center; /* Explicitly align items vertically to the center */
     gap: 10px; /* Space between buttons */
 }
 
@@ -1012,6 +1014,7 @@ body.light-theme .user-menu-divider {
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     cursor: pointer;
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+    box-sizing: border-box; /* Ensure padding/border don't affect final size unexpectedly */
 }
 
 .header-action-button:hover {
@@ -1041,6 +1044,9 @@ body.light-theme .user-menu-divider {
     top: auto;          /* Reset fixed positioning */
     right: auto;        /* Reset fixed positioning */
     z-index: auto;      /* Reset z-index or manage within header-actions-container */
+    display: flex;      /* Make it a flex container to align its child button if needed */
+    align-items: center;/* Align its child (the button) centrally */
+    box-sizing: border-box; /* Ensure padding/border don't affect final size unexpectedly */
 }
 /* The .user-profile-button itself is now styled by .header-action-button */
 /* The .user-menu dropdown positioning might need adjustment if it was based on fixed parent */
