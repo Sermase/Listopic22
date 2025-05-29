@@ -6,7 +6,7 @@ ListopicApp.config = {
         authDomain: "listopic.firebaseapp.com",
         databaseURL: "https://listopic-default-rtdb.europe-west1.firebasedatabase.app",
         projectId: "listopic",
-        storageBucket: "listopic.appspot.com", // Asegúrate que sea listopic.appspot.com o el correcto
+        storageBucket: "listopic.firebasestorage.app", // Asegúrate que sea listopic.appspot.com o el correcto
         messagingSenderId: "851333213702",
         appId: "1:851333213702:web:e8c2f3b1aa098d923d5d87"
     },
