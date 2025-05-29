@@ -1044,9 +1044,11 @@ body.light-theme .user-menu-divider {
     top: auto;          /* Reset fixed positioning */
     right: auto;        /* Reset fixed positioning */
     z-index: auto;      /* Reset z-index or manage within header-actions-container */
-    display: flex;      /* Make it a flex container to align its child button if needed */
-    align-items: center;/* Align its child (the button) centrally */
+    /* display: flex;      Removed: Let parent flex container handle alignment of this block */
+    /* align-items: center; Removed: Button inside has fixed size, should align correctly */
     box-sizing: border-box; /* Ensure padding/border don't affect final size unexpectedly */
+    /* Purpose of this container is to be a positioned anchor for the absolute .user-menu */
+    /* and a flex item in .header-actions-container. Its size will be that of its child button. */
 }
 /* The .user-profile-button itself is now styled by .header-action-button */
 /* The .user-menu dropdown positioning might need adjustment if it was based on fixed parent */
