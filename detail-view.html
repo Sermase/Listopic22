@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listopic - Detalle Reseña</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <!-- <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script> -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="app-logo-container">
+    <a href="Index.html" title="Ir a la página de inicio">
+        <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo"> <!-- ¡Asegúrate de que la ruta src sea correcta! -->
+    </a>
+</div>
+
+    <main>
+        <div class="container">
+                <button id="theme-toggle-button" class="theme-toggle-button" title="Cambiar tema">
+                    <i class="fas fa-moon"></i> <!-- Icono inicial, cambiará con JS -->
+                </button>
+            <a href="list-view.html" class="back-button">← Volver al Ranking</a> <!-- JS will update href -->
+            <p class="detail-list-name" id="detail-list-name">Estás viendo en Listopic: [Cargando...]</p>
+            
+            <h2 id="detail-restaurant-name">[Cargando nombre del elemento...]</h2>
+            <p class="detail-dish-name" id="detail-dish-name"></p>
+            
+            <div class="detail-content">
+                <div class="detail-image-area">
+                    <img src="https://via.placeholder.com/600x400.png?text=Cargando+imagen..." alt="Foto del elemento" id="detail-image">
+                </div>
+                <div class="detail-info-area">
+                    <div class="detail-overall-score-container">
+                        <span>Valoración General</span>
+                        <strong class="detail-overall-score" id="detail-score-value">?.?</strong>
+                    </div>
+                    <ul class="detail-ratings-list" id="detail-ratings">
+                        <li>Cargando valoraciones detalladas...</li>
+                    </ul>
+                    <div id="detail-location-container" style="display: none;"> <!-- Hidden by default, shown by JS if data exists -->
+                        <div class="detail-location">
+                            <a href="#" target="_blank" title="Ver en Google Maps" id="detail-location-link">
+                                <i class="fa-solid fa-map-marker-alt"></i>
+                                <span id="detail-location-text"></span> <!-- ID AÑADIDO AQUÍ -->
+                            </a>
+                        </div>
+                    </div>
+                     <div class="detail-no-location" style="display: none;"> <!-- Shown by JS if no location -->
+                        <i class="fa-solid fa-ban"></i>
+                        <span>Ubicación no disponible</span>
+                    </div>
+
+                    <div class="detail-comment" id="detail-comment-container" style="display: none;">
+                        <h4>Comentario:</h4>
+                        <p id="detail-comment-text"></p>
+                    </div>
+                    <div class="detail-tags-area" id="detail-tags-container" style="display: none;">
+                        <h4>Etiquetas:</h4>
+                        <div id="detail-tags"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="detail-actions">
+                <a href="review-form.html" role="button" class="edit-button"><i class="fas fa-edit"></i> Editar Reseña</a>
+                <button type="button" class="delete-button danger"><i class="fas fa-trash-alt"></i> Eliminar Reseña</button>
+            </div>
+        </div>
+    </main>
+    <footer> Listopic... Tu rincón personal de valoraciones. </footer>
+          
+    <!-- Listopic App Modules -->
+    <script src="js/config.js" defer></script>
+    <script src="js/firebaseService.js" defer></script>
+    <script src="js/uiUtils.js" defer></script>
+    <script src="js/themeManager.js" defer></script>
+    <script src="js/placesService.js" defer></script>
+    <script src="js/authService.js" defer></script>
+    <script src="js/page-index.js" defer></script>
+    <script src="js/page-auth.js" defer></script>
+    <script src="js/page-list-form.js" defer></script>
+    <script src="js/page-review-form.js" defer></script>
+    <script src="js/page-list-view.js" defer></script>
+    <script src="js/page-detail-view.js" defer></script>
+    <script src="js/page-grouped-detail-view.js" defer></script>
+
+    <!-- Main application orchestrator -->
+    <script src="js/main.js" defer></script>
+
+
+    <div class="user-session-controls">
+        <span id="user-info-display"></span>
+        <button id="logout-button" style="display:none;" class="button-link danger">Cerrar Sesión</button>
+    </div>
+    
+</body>
+</html>

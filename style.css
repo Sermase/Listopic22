@@ -1,0 +1,933 @@
+/* Archivo: style.css (Updated for Listopic - v15.1 fixes) */
+
+/* --- Variables de Color y Diseño --- */
+:root {
+    --primary-bg: #0A1931; 
+    --container-bg: rgba(23, 38, 63, 0.7); /* Fondo de contenedores principales, semi-transparente */
+    --text-color: #E0E0E0; 
+    --title-color: #FFFFFF; 
+    --accent-color-primary: #FFD166; 
+    --accent-color-secondary: #f56ead; 
+    --accent-color-tertiary: #06D6A0; 
+    --accent-color-quaternary: #118AB2; 
+    --accent-color-quinary: #FF9A8B; 
+
+    --accent-color-primary-rgb: 255,209,102; /* Para usar en rgba() */
+    --accent-color-secondary-rgb: 245,107,173; /* Para usar en rgba() */
+    --accent-color-tertiary-rgb: 6,214,160; /* Para usar en rgba() */
+    --accent-color-quaternary-rgb: 17,138,178; /* Para usar en rgba() */
+    --danger-color-rgb: 217,83,79; /* Para usar en rgba() */
+
+    --footer-bg: rgba(0, 0, 0, 0.4);
+    --footer-text-color: rgba(255, 255, 255, 0.7);
+    --footer-height: 50px;
+
+    --input-bg: rgba(0, 0, 0, 0.35);
+    --input-border: rgba(255, 255, 255, 0.25);
+    --input-focus-border: var(--accent-color-primary);
+    --main-button-text: var(--primary-bg); /* Texto para botones con fondo de acento */
+    --main-button-hover-bg: #fbc02d; /* Hover para botones principales */
+    --danger-color: #D9534F; /* Color para acciones peligrosas */
+    --danger-hover-bg: #C9302C;
+    
+    --brand-font: 'Poppins', sans-serif; /* Fuente para la marca/títulos principales */
+    /* --primary-bg: #1A1D24;  <-- Esta línea estaba en una segunda definición de :root, la he movido/consolidado aquí si es el valor deseado para el tema oscuro. Si #0A1931 es el correcto, elimina esta. Asumiré #0A1931 por ahora. */
+    --secondary-text-color: rgba(224, 224, 224, 0.7); /* Ejemplo para tema oscuro */
+
+    /* Nuevas para el placeholder del icono */
+    --icon-placeholder-bg: rgba(0, 0, 0, 0.25); /* Fondo para el div del icono */
+    --icon-placeholder-color: var(--accent-color-primary); /* Color del icono Font Awesome */
+}
+
+/* --- App Logo --- */
+.app-logo-container {
+    position: fixed; /* Se mantiene fijo en la pantalla al hacer scroll */
+    top: 15px;
+    left: 15px;
+    z-index: 1002; /* Para asegurar que esté por encima de la mayoría del contenido, similar al botón de tema */
+}
+
+.app-logo {
+    height: 90px; /* Ajusta esta altura según el tamaño deseado para tu logo */
+    width: auto;  /* Mantiene la proporción */
+    display: block; /* Evita espacio extra debajo de la imagen si es inline */
+    transition: transform 0.2s ease-in-out;
+}
+.app-logo:hover {
+    transform: scale(1.05); /* Un ligero zoom al pasar el ratón */
+}
+/* Ya no se necesita una segunda definición de :root */
+
+/* Decorative corner blobs (Simplified with CSS) */
+body::before, body::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    opacity: 0.5;
+    z-index: -1; 
+    filter: blur(50px); 
+}
+
+body::before { 
+    width: clamp(200px, 30vw, 400px);
+    height: clamp(200px, 30vw, 400px);
+    background-color: var(--accent-color-tertiary); 
+    top: -10%;
+    left: -10%;
+    transform: rotate(30deg);
+    animation: slowDrift 20s infinite alternate ease-in-out;
+}
+
+body::after { 
+    width: clamp(250px, 35vw, 450px);
+    height: clamp(250px, 35vw, 450px);
+    background-color: var(--accent-color-secondary); 
+    bottom: -12%;
+    right: -12%;
+    transform: rotate(-25deg);
+    animation: slowDriftReverse 25s infinite alternate ease-in-out;
+}
+
+@keyframes slowDrift {
+    0% { transform: translate(0,0) rotate(30deg) scale(1); }
+    100% { transform: translate(20px, -15px) rotate(40deg) scale(1.1); }
+}
+@keyframes slowDriftReverse {
+    0% { transform: translate(0,0) rotate(-25deg) scale(1); }
+    100% { transform: translate(-18px, 12px) rotate(-35deg) scale(1.08); }
+}
+
+
+/* --- Estilos Generales del Cuerpo --- */
+body {
+    font-family: 'Poppins', sans-serif;
+    color: var(--text-color);
+    background-color: var(--primary-bg); 
+    background-attachment: fixed;
+    margin: 0;
+    padding: 20px 20px calc(var(--footer-height) + 20px) 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+    line-height: 1.6;
+    font-weight: 300;
+    overflow-x: hidden; 
+}
+
+/* --- Título Principal "Listopic" --- */
+h1.brand-title { 
+    font-family: var(--brand-font);
+    font-weight: 700; 
+    color: var(--title-color);
+    margin-top: 0;
+    margin-bottom: 30px; 
+    font-size: clamp(3em, 8vw, 4.5em); 
+    letter-spacing: 1.5px;
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+    text-align: center;
+    animation: fadeInUpScale 0.8s ease-out 0.2s backwards;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Estilos para los pétalos del logo */
+.logo-petal {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: var(--accent-color);
+    position: relative;
+    margin: 0 2px;
+    opacity: 0.8;
+    animation: float 5s ease-in-out infinite;
+}
+
+.logo-petal.p1 { animation-delay: 0s; background-color: #ff6b6b; }
+.logo-petal.p2 { animation-delay: 0.2s; background-color: #4ecdc4; }
+.logo-petal.p3 { animation-delay: 0.4s; background-color: #45b7d1; }
+.logo-petal.p4 { animation-delay: 0.6s; background-color: #ff9f43; }
+.logo-petal.p5 { animation-delay: 0.8s; background-color: #5f27cd; }
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+/*
+/*h1.brand-title .logo-petal { 
+ /*   display: inline-block;
+ /*   width: 0.5em; 
+ /*   height: 0.7em;
+ /*   border-radius: 50% 50% 0 0 / 80% 80% 0 0 ; /*/* Forma del pétalo */
+ /*   margin: 0 0.1em; /* Aumentamos ligeramente el margen horizontal para más espacio */
+ /*   transform-origin: bottom center;
+ /*   box-shadow: 1px 1px 3px rgba(0,0,0,0.25); /* Sombra sutil para dar profundidad */
+ /*   transition: transform 0.3s ease-out; /* Para posibles interacciones futuras */
+/*}
+.logo-petal.p1 { background-color: var(--accent-color-primary); transform: rotate(-60deg) translateY(-0.1em); }
+.logo-petal.p2 { background-color: var(--accent-color-secondary); transform: rotate(-30deg) translateY(-0.05em); }
+.logo-petal.p3 { background-color: var(--accent-color-tertiary); transform: rotate(0deg); }
+.logo-petal.p4 { background-color: var(--accent-color-quaternary); transform: rotate(30deg) translateY(-0.05em); }
+.logo-petal.p5 { background-color: var(--accent-color-quinary); transform: rotate(60deg) translateY(-0.1em); }
+*/
+
+h1:not(.brand-title), .container h2 { 
+    font-family: 'Cormorant Garamond', serif; 
+    color: var(--title-color); 
+    margin-top: 0; margin-bottom: 25px; 
+    font-size: clamp(2.2em, 6vw, 3em); 
+    font-weight: 600; letter-spacing: 1px; 
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.2); 
+    text-align: center; 
+    animation: fadeInUpScale 0.8s ease-out 0.2s backwards; 
+}
+.container h2 { margin-bottom: 30px; }
+
+
+/* --- Estructura Principal --- */
+main { width: 100%; display: flex; flex-direction: column; align-items: center; padding-top: 10px; flex-grow: 1; } /* Reducido padding-top */
+
+.container { 
+    /* El .container ahora es solo un limitador de ancho invisible y un agrupador lógico */
+    /* Todas las propiedades visuales de "marco" deben estar comentadas o eliminadas */
+    /* background-color: var(--container-bg); */ 
+    /* padding: clamp(25px, 4vw, 40px) clamp(20px, 5vw, 50px); */
+    /* border-radius: 20px; */
+    /* border: 1px solid rgba(255, 255, 255, 0.15); */ /* Eliminado/Comentado */
+    /* box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35); */ /* Eliminado/Comentado */
+    /* backdrop-filter: blur(10px); */ /* Eliminado/Comentado */
+    /* -webkit-backdrop-filter: blur(10px); */ /* Eliminado/Comentado */
+
+    max-width: 900px; 
+    width: 95%; 
+    text-align: center; 
+    margin: 0 auto 30px auto; /* Centrado horizontal y margen inferior */
+}
+
+/* === ESTILOS PARA LA PÁGINA PRINCIPAL (index.html) === */
+.list-collection-container { margin-top: 20px; }
+.list-collection-container h2 { font-size: clamp(1.8em, 5vw, 2.5em); margin-bottom: 20px; }
+#list-circles-ul { list-style: none; padding: 0; margin: 0 0 30px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+#list-circles-ul li { min-width: 150px; }
+#list-circles-ul a { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 130px; height: 130px; padding: 15px; border-radius: 50%; background-color: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-color); text-decoration: none; transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+#list-circles-ul a i { font-size: 2.5em; margin-bottom: 10px; color: var(--accent-color-primary); }
+#list-circles-ul a span { font-size: 0.9em; text-align: center; font-weight: 400; display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#list-circles-ul a:hover { transform: translateY(-5px) scale(1.05); background-color: rgba(255, 255, 255, 0.15); box-shadow: 0 8px 20px rgba(var(--accent-color-primary-rgb, 255,209,102), 0.3); }
+.add-list-button { display: inline-flex; align-items: center; padding: 12px 25px; background-color: transparent; border: 2px dashed rgba(255, 255, 255, 0.4); color: var(--text-color); text-decoration: none; border-radius: 8px; font-size: 1em; font-weight: 400; transition: all 0.3s ease; cursor: pointer; }
+.add-list-button i { margin-right: 10px; font-size: 1.2em; color: rgba(255, 255, 255, 0.6); transition: color 0.3s ease; }
+.add-list-button:hover { background-color: rgba(var(--accent-color-primary-rgb, 255,209,102), 0.1); border-style: solid; border-color: var(--accent-color-primary); color: var(--accent-color-primary); }
+.add-list-button:hover i { color: var(--accent-color-primary); }
+
+
+/* --- Footer --- */
+footer { position: fixed; bottom: 0; left: 0; width: 100%; background-color: var(--footer-bg); color: var(--footer-text-color); text-align: center; padding: 15px 0; font-size: 0.9em; height: var(--footer-height); z-index: 100; box-sizing: border-box; }
+
+/* --- Animations --- */
+@keyframes fadeInUpScale { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+
+/* Ajustes para elementos movidos fuera del .container en list-view.html */
+/* Estos se aplican cuando .table-container y .add-review-button son hijos directos de main */
+main > .table-container {
+    width: 100%; /* Ocupa el ancho disponible en main, respetando el padding del body */
+    /* max-width: 1200px; /* Opcional: si quieres un límite específico más grande que 900px */
+    max-width: 1300px; /* Límite para que no sea excesivamente ancha */
+    margin-left: auto; margin-right: auto; /* Centrar si el espacio es mayor */
+    margin-top: 25px;    /* Espacio respecto a los filtros/búsqueda que están en .container */
+    margin-bottom: 25px; /* Espacio antes del botón de añadir */
+    box-sizing: border-box; /* Para que el padding del body no cause problemas de ancho */
+    /* Los estilos de box-shadow, border-radius, etc., ya están en .table-container */
+}
+
+main > .add-review-button.submit-button {
+    /* main tiene align-items: center, por lo que el botón se centrará. */
+    /* Si quieres darle un ancho máximo o específico, puedes hacerlo aquí. */
+    /* Ejemplo: max-width: 300px; */
+    /* No es necesario width: 100% a menos que quieras que ocupe toda la línea */
+}
+
+/* --- GENERAL FORM STYLES --- */
+.form-container { max-width: 700px; }
+.form-group { margin-bottom: 20px; text-align: left; }
+.form-group label { display: block; margin-bottom: 8px; font-weight: 400; }
+.form-input, .form-textarea { width: 100%; padding: 12px 15px; background-color: var(--input-bg); border: 1px solid var(--input-border); border-radius: 6px; color: var(--text-color); font-family: 'Poppins', sans-serif; font-size: 1em; box-sizing: border-box; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+.form-input:focus, .form-textarea:focus { outline: none; border-color: var(--input-focus-border); box-shadow: 0 0 0 3px rgba(var(--accent-color-primary-rgb, 255,209,102), 0.3); }
+.form-textarea { min-height: 100px; resize: vertical; }
+.form-input::placeholder, .form-textarea::placeholder { color: rgba(255, 255, 255, 0.5); }
+.form-divider { border: 0; height: 1px; background-color: rgba(255,255,255,0.15); margin: 30px 0; }
+.form-actions { text-align: right; margin-top: 30px; }
+
+/* Buttons */
+.button, button, input[type="submit"], input[type="button"], .add-review-button, .submit-button, .edit-button, .delete-button, .add-button, .list-action-button { padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 1em; text-decoration: none; display: inline-block; text-align: center; transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease; }
+.button:active, button:active, input[type="submit"]:active, input[type="button"]:active { transform: translateY(1px); }
+
+.submit-button, .add-review-button { background-color: var(--accent-color-primary); color: var(--main-button-text); }
+.submit-button:hover, .add-review-button:hover { background-color: var(--main-button-hover-bg); box-shadow: 0 4px 15px rgba(var(--accent-color-primary-rgb, 255,209,102), 0.3); }
+.edit-button { background-color: var(--accent-color-tertiary); color: var(--main-button-text); }
+.edit-button:hover { background-color: #05a984; box-shadow: 0 4px 15px rgba(var(--accent-color-tertiary-rgb, 6,214,160), 0.3); }
+.delete-button.danger, .delete-list-button.danger, .remove-button.danger { background-color: var(--danger-color); color: white; }
+.delete-button.danger:hover, .delete-list-button.danger:hover, .remove-button.danger:hover { background-color: var(--danger-hover-bg); box-shadow: 0 4px 15px rgba(var(--danger-color-rgb, 217,83,79), 0.3); }
+.add-button { background-color: var(--accent-color-quaternary); color: white; margin-top: 10px; }
+.add-button:hover { background-color: #0f7694; }
+.back-button { display: inline-block; margin-bottom: 25px; color: var(--accent-color-primary); text-decoration: none; font-weight: 400; transition: color 0.2s ease; }
+.back-button:hover { color: var(--main-button-hover-bg); }
+
+/* LIST-FORM: Criteria & Tags */
+.criteria-group, .tags-group { border: 1px solid rgba(255,255,255,0.2); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+.criteria-group legend, .tags-group legend { padding: 0 10px; color: var(--accent-color-secondary); font-weight: 600; }
+.criterion-item, .tag-item { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; background-color: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; }
+.criterion-item input[name="criteria_title[]"] { flex-grow: 2; }
+.criterion-item input[name^="criteria_label"] { flex-grow: 1; }
+.tag-item input { flex-grow: 1; }
+.remove-button { padding: 5px 10px; font-size: 1.2em; line-height: 1; }
+
+/* REVIEW-FORM: Image Upload */
+.image-upload-area { border: 2px dashed var(--input-border); border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.3s ease, background-color 0.3s ease; }
+.image-upload-area.drag-over { border-style: solid; border-color: var(--accent-color-primary); background-color: rgba(var(--accent-color-primary-rgb, 255,209,102), 0.05); }
+.upload-instructions i { font-size: 3em; color: var(--accent-color-primary); margin-bottom: 10px; }
+.upload-instructions p { margin: 5px 0; font-size: 0.9em; }
+.file-input-hidden { display: none; }
+.image-upload-area .url-input { margin-top: 5px; }
+.image-preview img { max-width: 100%; max-height: 200px; margin-top: 15px; border-radius: 6px; border: 1px solid var(--input-border); }
+#image-actions button { background-color: var(--accent-color-secondary); color: white; border: none; padding: 8px 12px; margin: 5px; border-radius: 5px; cursor: pointer; font-size: 0.9em; }
+#image-actions button:hover { opacity: 0.9; }
+
+/* REVIEW-FORM: Tag Selection (Checkboxes) */
+.tag-selection { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 5px; }
+.tag-checkbox { background-color: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 15px; border: 1px solid transparent; cursor: pointer; transition: background-color 0.2s, border-color 0.2s, color 0.2s; font-size: 0.9em; display: inline-flex; align-items: center; color: var(--text-color); }
+.tag-checkbox:hover { background-color: rgba(255,255,255,0.2); }
+.tag-checkbox input[type="checkbox"] { appearance: none; -webkit-appearance: none; -moz-appearance: none; margin-right: 8px; width: 16px; height: 16px; border: 1px solid var(--input-border); border-radius: 3px; background-color: var(--input-bg); cursor: pointer; position: relative; vertical-align: middle; outline: none; flex-shrink: 0; transition: background-color 0.2s, border-color 0.2s; }
+.tag-checkbox input[type="checkbox"]:checked { background-color: var(--accent-color-primary); border-color: var(--accent-color-primary); }
+.tag-checkbox input[type="checkbox"]:checked::before { content: '✔'; font-size: 12px; font-weight: bold; color: var(--primary-bg); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
+.tag-checkbox.selected { background-color: var(--accent-color-primary); color: var(--primary-bg); border-color: var(--accent-color-primary); font-weight: 500; }
+.tag-checkbox.selected input[type="checkbox"] { border-color: var(--primary-bg); }
+
+/* REVIEW-FORM: Restaurant Suggestions */
+.suggestions-box { border: 1px solid var(--input-border); border-top: none; border-radius: 0 0 6px 6px; background-color: var(--primary-bg); max-height: 200px; overflow-y: auto; }
+.suggestions-box ul { list-style: none; padding: 0; margin: 0; }
+.suggestions-box li { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid var(--input-border); text-align: left; }
+.suggestions-box li:last-child { border-bottom: none; }
+.suggestions-box li:hover { background-color: var(--input-bg); }
+.suggestions-box p { padding: 10px 15px; font-style: italic; opacity: 0.7; }
+
+/* Styles for criteria sliders in forms */
+.slider-group { margin-bottom: 20px; text-align: left; }
+.slider-group label { display: block; margin-bottom: 8px; font-weight: 400; }
+.slider-value-display { display: inline-block; min-width: 35px; margin-left: 10px; font-weight: 600; color: var(--accent-color-primary); background-color: rgba(0,0,0,0.2); padding: 3px 8px; border-radius: 4px; font-size: 0.9em; text-align: center; }
+.rating-slider { width: 100%; margin: 8px 0; accent-color: var(--accent-color-secondary); cursor: pointer; }
+.rating-slider::-webkit-slider-thumb { background: var(--accent-color-secondary); border-radius: 50%; padding:2px; }
+.rating-slider::-moz-range-thumb { background: var(--accent-color-secondary); border-radius: 50%; border:none; height: 16px; width: 16px; }
+.slider-range-labels { display: flex; justify-content: space-between; font-size: 0.8em; color: rgba(255,255,255,0.6); padding: 0 2px; }
+
+/* LIST-VIEW: Table & Filters */
+.list-header-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:15px; margin-bottom: 15px; } /* Reducido margin-bottom */
+.list-header-actions h2 { margin-bottom: 0; text-align: left; }
+.list-actions { display: flex; gap: 10px; }
+.list-action-button { font-size: 0.9em; padding: 8px 15px; }
+.list-action-button i { margin-right: 6px; }
+
+.search-filter-container { margin-bottom: 20px; display: flex; justify-content: center; }
+.search-input { width: 100%; max-width: 400px; padding: 12px 15px; background-color: var(--input-bg); border: 1px solid var(--input-border); border-radius: 6px; color: var(--text-color); font-size: 1em; }
+.search-input:focus { outline: none; border-color: var(--input-focus-border); }
+.tag-filter-container { margin-bottom: 25px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.tag-filter-button { background-color: rgba(255,255,255,0.1); color: var(--text-color); padding: 8px 15px; border-radius: 20px; font-size: 0.9em; transition: background-color 0.2s, color 0.2s; }
+.tag-filter-button:hover { background-color: rgba(255,255,255,0.2); }
+.tag-filter-button.selected { background-color: var(--accent-color-secondary); color: white; font-weight: 600; }
+
+.table-container { 
+    overflow-x: auto; 
+    border-radius: 12px; /* Redondeo para el contenedor */
+    overflow: hidden; /* Importante para que el border-radius afecte a la tabla interna */
+    /* Sombra y borde para tema oscuro se manejan por defecto, tema claro tiene su propio borde */
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15); /* Sombra sutil para ambos temas */
+    /* margin-bottom ya está en main > .table-container */
+} 
+
+.ranking-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    table-layout: fixed; /* MUY IMPORTANTE para anchos de columna predecibles */
+    font-size: 0.95em; 
+    /* margin-bottom: 25px;  Movido a .table-container o main > .table-container */
+}
+
+/* Estilos base para th y td (tema oscuro por defecto) */
+.ranking-table th, .ranking-table td { 
+    padding: 12px 15px; 
+    text-align: left; 
+    border-bottom: 1px solid rgba(255,255,255,0.1); 
+    vertical-align: middle; /* Asegurar alineación vertical */
+}
+.ranking-table th { 
+    background-color: rgba(0,0,0,0.2); 
+    font-weight: 600; 
+    color: var(--accent-color-primary); 
+    white-space: nowrap; /* Evita que el texto de la cabecera se parta, excepto criterios */
+}
+/* Permitir que las cabeceras de criterios se dividan */
+.ranking-table th.score-col {
+    white-space: normal;
+    hyphens: auto;
+}
+
+.ranking-table th.sortable { cursor: pointer; }
+.ranking-table th.sortable:hover { background-color: rgba(0,0,0,0.3); }
+.ranking-table th.sorted-asc::after { content: " ▲"; font-size: 0.8em; }
+.ranking-table th.sorted-desc::after { content: " ▼"; font-size: 0.8em; }
+
+.ranking-row { cursor: pointer; transition: background-color 0.2s ease; }
+.ranking-row:hover { background-color: rgba(255,255,255,0.07); } /* Ligero aumento en hover */
+
+/* Redondeo de esquinas de la tabla (solo para la primera y última cabecera) */
+/* El redondeo inferior se maneja mejor con el contenedor y overflow:hidden */
+.ranking-table th:first-child { border-top-left-radius: 12px; } /* Coincide con .table-container */
+.ranking-table th:last-child { border-top-right-radius: 12px; } /* Coincide con .table-container */
+.ranking-table tr:last-child td { 
+    border-bottom: none; /* No borde inferior para la última fila de datos */
+}
+
+/* Definición de anchos y estilos para columnas específicas */
+.ranking-row { cursor: pointer; transition: background-color 0.2s ease; }
+.ranking-row:hover { background-color: rgba(255,255,255,0.05); }
+.ranking-row td { vertical-align: middle; }
+
+/* --- INICIO: Correcciones para tamaño de imagen e icono placeholder --- */
+.ranking-table .col-image { /* Clase para la celda <td> */
+    width: 60px;  /* Ancho fijo para la celda que contiene la imagen/icono */
+    min-width: 60px; /* Evitar que se encoja demasiado */
+    height: 60px; /* Alto fijo */
+    padding: 5px;   /* Padding alrededor de la imagen/icono */
+    text-align: center;
+    vertical-align: middle; /* Asegurar que el contenido esté centrado verticalmente */
+}
+.ranking-table th.col-image { /* Para la cabecera, si es necesario ajustar */
+    width: 70px; /* Un poco más para compensar paddings si los tuviera el th */
+    min-width: 70px;
+}
+
+.ranking-item-image { /* Para las imágenes reales */
+    width: 50px;   /* (60px celda - 2*5px padding) */
+    height: 50px;  /* (60px celda - 2*5px padding) */
+    object-fit: cover; /* Cubre el espacio, puede recortar pero mantiene proporción */
+    border-radius: 5px; /* Mismo borde que tenías */
+    display: inline-block; /* Ajustado para respetar el padding de la celda */
+    border: none; /* Quitar el borde si el contenedor .col-image ya lo simula o no se quiere */
+    margin: auto; /* Centrar si es inline-block y la celda es flex */
+}
+
+.ranking-item-icon-placeholder { /* Contenedor para el icono Font Awesome */
+    width: 50px;   /* (60px celda - 2*5px padding) */
+    height: 50px;
+    display: inline-flex; /* Ajustado para respetar padding y centrar contenido */
+    align-items: center;
+    justify-content: center;
+    background-color: var(--icon-placeholder-bg, rgba(0,0,0,0.25)); /* Fondo para el icono */
+    border-radius: 5px; /* Mismo borde que las imágenes */
+    box-sizing: border-box;
+    margin: auto;
+}
+.ranking-item-icon-placeholder i { /* El icono Font Awesome en sí */
+    font-size: 1.8em; /* Ajusta el tamaño del icono (ej. 1.5em, 2em) */
+    color: var(--icon-placeholder-color, var(--accent-color-primary)); /* Color del icono */
+}
+
+/* Limpieza de duplicados que estaban al final de la sección de imagen */
+/* .ranking-table .col-image { ... } */ /* Ya definido arriba */
+/* .ranking-table td { ... } */ /* Estilos base ya definidos */
+/* .ranking-table th { ... } */ /* Estilos base ya definidos */
+/* --- FIN: Correcciones para tamaño de imagen e icono placeholder --- */
+
+/* Estilos para columnas específicas */
+.ranking-table td {
+  vertical-align: middle; /* Alinear el contenido de la celda verticalmente */
+  padding: 10px; /* Agregar un poco de espacio entre el contenido y los bordes */
+}
+
+.ranking-table th {
+  text-align: left; /* Alinear el contenido de la celda horizontalmente */
+  padding: 10px; /* Agregar un poco de espacio entre el contenido y los bordes */
+}
+
+.ranking-table th.col-element, .ranking-table td.col-element {
+    min-width: 180px; /* Un mínimo para que no se comprima demasiado */
+    /* width: 30%; /* Opcional, si se prefiere porcentaje */
+}
+.ranking-table .col-element .restaurant-name,
+.ranking-table .col-element .dish-name-sub {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+.ranking-table .col-element .restaurant-name { font-weight: 600; }
+.ranking-table .col-element .dish-name-sub { font-size: 0.9em; opacity: 0.8; }
+.ranking-table th.score-col, .ranking-table td.score-col { text-align: center; font-weight: 600; width: 80px; }
+.ranking-table .col-general .overall-score { font-size: 1.3em; color: var(--accent-color-primary); }
+.ranking-table .col-location a { color: var(--accent-color-tertiary); font-size: 1.3em; }
+.ranking-table .col-location a:hover { color: #05a984; }
+.ranking-table .col-location .location-no-link { color: rgba(255,255,255,0.4); font-size: 1.3em; }
+.ranking-table .non-weighted-cell { /* Para estilizar las celdas de criterios no ponderados */
+    font-style: italic;
+    opacity: 0.7;
+    font-size: 0.9em;
+}
+small.non-weighted-header { /* Para (NP) en cabeceras */
+    font-size: 0.8em;
+    font-weight: normal;
+    opacity: 0.7;
+}
+/* Para la columna de puntuación general */
+.ranking-table th.col-general, .ranking-table td.col-general { 
+    width: 100px; text-align: center; 
+}
+
+
+/* DETAIL-VIEW Specifics */
+.detail-list-name { font-size: 0.9em; color: rgba(255,255,255,0.7); margin-bottom: 5px; text-align: center; }
+#detail-restaurant-name { margin-bottom: 5px; }
+.detail-dish-name { font-size: 1.1em; color: var(--accent-color-quinary); margin-bottom: 25px; text-align: center; font-weight: 400; }
+.detail-content { display: flex; flex-wrap: wrap; gap: 30px; margin-bottom: 30px; }
+.detail-image-area { flex: 1; min-width: 280px; }
+.detail-image-area img { width: 100%; max-height: 400px; object-fit: cover; border-radius: 10px; border: 1px solid var(--input-border); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+/* Para el placeholder de icono en detail-view */
+.detail-image-icon-placeholder {
+    width: 100%;
+    height: 300px; /* Ajusta a la altura deseada para el placeholder grande */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--icon-placeholder-bg, rgba(0,0,0,0.25));
+    border-radius: 10px;
+    border: 1px solid var(--input-border);
+}
+.detail-image-icon-placeholder i {
+    font-size: 5em; /* Icono más grande para detail-view */
+    color: var(--icon-placeholder-color, var(--accent-color-primary));
+}
+
+
+.detail-info-area { flex: 1; min-width: 280px; text-align: left; background-color: rgba(0,0,0,0.15); padding: 20px; border-radius: 8px; }
+.detail-overall-score-container { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.detail-overall-score-container span { display: block; font-size: 1em; opacity: 0.8; }
+.detail-overall-score { font-size: 3em; font-weight: 700; color: var(--accent-color-primary); }
+.detail-ratings-list { list-style: none; padding: 0; margin: 0 0 20px 0; }
+.detail-ratings-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.detail-ratings-list li:last-child { border-bottom: none; }
+.detail-ratings-list .rating-label { opacity: 0.9; }
+.detail-ratings-list .rating-value { font-weight: 600; color: var(--accent-color-secondary); }
+small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic; }
+
+
+#detail-location-container { margin-bottom: 20px; }
+.detail-location a, .detail-no-location { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-color-tertiary); text-decoration: none; padding: 8px 12px; background-color: rgba(var(--accent-color-tertiary-rgb, 6,214,160), 0.1); border-radius: 6px; transition: background-color 0.2s; }
+.detail-location a:hover { background-color: rgba(var(--accent-color-tertiary-rgb, 6,214,160), 0.2); }
+.detail-no-location { color: rgba(255,255,255,0.5); background-color: rgba(255,255,255,0.05); }
+.detail-no-location i { opacity: 0.7; }
+
+.detail-comment, .detail-tags-area { margin-bottom: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); }
+.detail-comment h4, .detail-tags-area h4 { margin-top: 0; margin-bottom: 10px; color: var(--accent-color-quaternary); font-weight: 600; }
+#detail-comment-text { line-height: 1.7; opacity: 0.95; }
+#detail-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-detail { background-color: var(--accent-color-secondary); color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.85em; }
+.detail-actions { margin-top: 30px; display: flex; justify-content: flex-end; gap: 15px; }
+
+/* Media Queries for smaller screens */
+@media (max-width: 768px) {
+    .list-header-actions { flex-direction: column; align-items: stretch; }
+    .list-header-actions h2 { text-align: center; }
+    .list-actions { justify-content: center; }
+    .detail-content { flex-direction: column; }
+    .criterion-item input[name="criteria_title[]"] { flex-basis: 100%; }
+    .criterion-item input[name="criteria_label_left[]"], .criterion-item input[name="criteria_label_right[]"] { flex-basis: calc(50% - 1rem); }
+}
+
+@media (max-width: 480px) {
+    h1.brand-title { font-size: 2.5em; }
+    .container h2 { font-size: 1.8em; }
+    .button, button, input[type="submit"], .add-review-button, .submit-button, .edit-button, .delete-button, .add-button { width: 100%; margin-bottom: 10px; }
+    .form-actions, .detail-actions { display: flex; flex-direction: column; gap:10px; }
+    .detail-actions .button, .detail-actions button { margin-bottom: 0; }
+    .list-action-button span { display: none; } 
+    .list-action-button i { margin-right: 0; }
+    #list-circles-ul a { width: 100px; height: 100px; }
+    #list-circles-ul a i { font-size: 2em; }
+    .criterion-item input[name="criteria_label_left[]"], .criterion-item input[name="criteria_label_right[]"] { flex-basis: 100%; }
+    .criterion-item .criterion-weighted-label { width: 100%; margin-left: 0; justify-content: flex-start; margin-top: 0.5rem; padding-left: 0; }
+    .criterion-item .remove-button { margin-left: auto; margin-top: 0.5rem; }
+}
+
+/* --- Tema Claro --- */
+body.light-theme {
+  /* Variables base del tema claro. Las de :root son para el tema oscuro por defecto. */
+  /* Las variables como --background-color, --surface-color, etc., que estaban aquí comentadas */
+  /* y no se usaban directamente, se eliminan para mayor claridad. */
+  /* Usamos las variables específicas como --primary-bg, --text-color, etc. */
+
+  /* Asegúrate de que los elementos usen estas variables, por ejemplo: */
+  /* background-color: var(--background-color); */
+  /* color: var(--primary-text-color); */
+    --primary-bg: #F0F2F5;                     /* Fondo principal claro, ej. gris muy pálido */
+    --container-bg: rgba(255, 255, 255, 0.85);  /* Contenedores blancos o casi blancos, semi-transparentes */
+    --text-color: #333740;                     /* Texto principal oscuro */
+    --title-color: #1A1D24;                    /* Títulos más oscuros */
+
+    /* Opción 2: Ajustarlos ligeramente (ej. un poco más oscuros/saturados) */
+    --accent-color-primary: #F5A623;    /* Amarillo/Naranja más intenso */
+    --accent-color-secondary: #D9405F;  /* Rosa más intenso */
+    --accent-color-tertiary: #05B88A;   /* Verde más intenso */
+    --accent-color-quaternary: #0E7899; /* Azul más intenso */
+    --accent-color-quinary: #FF7A60;    /* Salmón más intenso */
+
+    --footer-bg: rgba(220, 223, 228, 0.7); /* Footer gris claro semi-transparente */
+    --footer-text-color: #555B66;          /* Texto del footer gris medio */
+
+    --input-bg: #FFFFFF;                   /* Fondo de inputs blanco */
+    --input-border: #B0B8C0;               /* Borde de inputs gris medio, más visible */
+    --input-focus-border: var(--accent-color-primary); /* Mantenemos el acento para el foco */
+    --main-button-text: #333740;           /* Texto oscuro para acento amarillo/naranja */
+    --main-button-hover-bg: #EAA600;       /* Hover del botón principal (versión más oscura del acento) */
+    --danger-color: #D9534F;               /* Se puede mantener el mismo rojo */
+    --danger-hover-bg: #C9302C;            /* Y su hover */
+    
+    --icon-placeholder-bg: rgba(0, 0, 0, 0.06); /* Fondo muy sutil para placeholders de iconos */
+    --icon-placeholder-color: var(--accent-color-primary); /* Color del icono placeholder */
+}
+
+/* Ajustes específicos para tema claro */
+body.light-theme .form-input::placeholder, 
+body.light-theme .form-textarea::placeholder, 
+body.light-theme .search-input::placeholder {
+    color: #8892A0; /* Placeholder gris un poco más oscuro */
+}
+
+body.light-theme .tag-filter-button {
+    background-color: #E9EDF0; /* Fondo gris más claro */
+    color: var(--text-color);  /* Texto oscuro (ya definido en variable) */
+    border: 1px solid #CCD1D6; /* Borde sutil pero visible */
+}
+body.light-theme .tag-filter-button:hover {
+    background-color: #DDE1E5; /* Gris un poco más oscuro al pasar el ratón */
+    border-color: #BCC1C6;
+}
+body.light-theme .tag-filter-button.selected {
+    background-color: var(--accent-color-secondary); /* Usa el acento secundario del tema claro */
+    color: #FFFFFF; /* Texto blanco para contraste */
+    border-color: var(--accent-color-secondary);
+}
+
+body.light-theme .table-container {
+    border: 1px solid var(--input-border); /* Borde consistente con inputs */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08); /* Sombra más sutil para tema claro */
+}
+body.light-theme .ranking-table th {
+    background-color: #E9ECEF; /* Fondo de cabecera muy claro */
+    color: var(--title-color); /* Texto de cabecera oscuro */
+    border-bottom: 1px solid #D4DAE0; /* Borde inferior más definido */
+}
+body.light-theme .ranking-table td {
+    border-bottom: 1px solid #E1E6EB; /* Borde de celdas más claro pero visible */
+}
+body.light-theme .ranking-row:hover {
+    background-color: rgba(0,0,0,0.03); /* Hover muy sutil en tema claro */
+}
+
+/* --- Estilos para el botón de cambio de tema --- */
+.theme-toggle-button {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  background-color: var(--container-bg); /* Usa el color de fondo de los contenedores del tema actual */
+  color: var(--text-color); /* Usa el color de texto del tema actual */
+  border: 1px solid var(--input-border); /* Usa el color de borde de input del tema actual */
+  border-radius: 50%;
+  width: 45px;
+  height: 45px;
+  display: flex; /* Asegura que flexbox esté aplicado */
+  align-items: center; /* Centra verticalmente el icono */
+  justify-content: center; /* Centra horizontalmente el icono */
+  font-size: 1.2em; /* Ajusta el tamaño base para el icono si es necesario */
+  padding: 0; /* Elimina padding si interfiere con el centrado del icono */
+  z-index: 1001;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+}
+
+.theme-toggle-button:hover {
+  background-color: var(--accent-color-primary); /* Usa el color de acento primario del tema actual */
+  color: var(--main-button-text); /* Usa el color de texto de botón principal del tema actual */
+  border-color: var(--accent-color-primary); /* Usa el color de acento primario del tema actual */
+  transform: translateY(-1px);
+}
+
+.theme-toggle-button i {
+  line-height: 1; /* Ayuda a centrar verticalmente el icono de FontAwesome */
+  display: flex; /* Para asegurar que el icono se comporte como un bloque flexible */
+  align-items: center;
+  justify-content: center;
+}
+
+/* Media Queries Adicionales para tablas */
+@media (max-width: 768px) {
+    .ranking-table {
+        font-size: 0.9em; /* Reducir un poco la fuente */
+    }
+    .ranking-table th, .ranking-table td {
+        padding: 10px 8px; /* Reducir padding */
+    }
+    .ranking-table th.col-image, .ranking-table td.col-image {
+        width: 55px; 
+        min-width: 55px;
+    }
+    .ranking-item-image, .ranking-item-icon-placeholder {
+        width: 40px; 
+        height: 40px;
+    }
+    .ranking-item-icon-placeholder i { font-size: 1.5em; }
+    .ranking-table th.score-col, .ranking-table td.score-col { width: 65px; }
+    .ranking-table th.col-general, .ranking-table td.col-general { width: 85px; }
+}
+
+@media (max-width: 600px) {
+    .ranking-table th.col-location, .ranking-table td.col-location {
+        display: none; /* Ocultar columna de ubicación en pantallas muy pequeñas */
+    }
+    .ranking-table {
+        font-size: 0.85em; /* Reducir aún más la fuente */
+    }
+     .ranking-table th, .ranking-table td {
+        padding: 8px 6px; /* Reducir más padding */
+    }
+}
+
+/* --- Estilos para Grouped Detail View (grouped-detail-view.html) --- */
+.grouped-detail-header {
+    text-align: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--input-border);
+}
+.grouped-detail-header h2 {
+    font-size: clamp(1.8em, 5vw, 2.5em); 
+    color: var(--title-color);
+    margin-bottom: 5px;
+}
+.grouped-detail-header #list-name-subheader {
+    font-size: 1em;
+    color: var(--secondary-text-color);
+    margin-top: 0;
+}
+
+.group-summary-section, .group-images-section, .individual-reviews-section {
+    margin-bottom: 30px;
+}
+
+.group-summary-section.card, .group-images-section.card {
+    padding: 20px;
+    text-align: left; /* Sobrescribir el text-align:center del .container si es necesario */
+}
+.group-summary-section h3, .group-images-section h3, .individual-reviews-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: var(--accent-color-secondary); 
+    border-bottom: 2px solid var(--accent-color-primary);
+    padding-bottom: 8px;
+    text-align: left;
+}
+
+.summary-score .score-value, .summary-count .count-value {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: var(--accent-color-tertiary); 
+}
+
+.image-gallery-placeholder {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.gallery-thumbnail {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid var(--input-border);
+    transition: transform 0.2s ease;
+}
+.gallery-thumbnail:hover {
+    transform: scale(1.05);
+    border-color: var(--accent-color-primary);
+}
+
+.review-card {
+    background-color: var(--container-bg); /* O var(--surface-color) si lo tienes */
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    text-align: left;
+}
+.review-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px dashed var(--input-border); padding-bottom: 8px;}
+.review-card-header h4 { margin: 0; font-size: 1.1em; }
+.review-card-score strong { font-size: 1.2em; color: var(--accent-color-primary); } 
+.review-card-body { display: flex; gap: 15px; margin-bottom: 10px; }
+.review-card-image-container { flex-basis: 120px; flex-shrink: 0; }
+.review-card-image { width: 100%; height: auto; max-height: 120px; object-fit: cover; border-radius: 6px; }
+.review-card-no-image { width: 120px; height: 120px; background-color: var(--icon-placeholder-bg); display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 2em; color: var(--icon-placeholder-color); }
+.review-card-details { flex-grow: 1; }
+.review-card-details ul { list-style: none; padding: 0; margin: 0; font-size: 0.9em; }
+.review-card-details ul li { margin-bottom: 4px; }
+.review-card-comment-section { margin-bottom: 10px; font-size: 0.95em; }
+.review-card-comment-empty { opacity: 0.7; font-style: italic; }
+.review-card-actions { text-align: right; margin-top: 10px; }
+.review-card-actions .button-link { font-size: 0.9em; padding: 6px 12px; }
+
+body.light-theme .review-card {
+    background-color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
+/* Footer (already defined earlier, ensuring it's consistent) */
+/* The footer style from lines 183-184 was very basic. */
+/* The more complete footer style (similar to what I provided before) is now integrated near the top. */
+/* This section can be removed if the footer style at the top is now the definitive one. */
+/* For now, I'll assume the earlier, more complete footer definition is active. */
+
+body.light-theme footer {
+    border-top: 1px solid #D1D5DB; /* Borde para tema claro */
+} 
+
+/* --- Animations --- */
+@keyframes fadeInUpScale { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+
+
+
+
+/* NUEVO: Contenedor para el menú de perfil */
+.user-profile-menu-container {
+    position: fixed;
+    top: 15px;
+    /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
+    /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
+    right: 70px; 
+    z-index: 1002; /* Por encima del botón de tema, pero debajo del menú desplegable */
+  }
+
+
+/* --- User Profile Menu --- */
+.user-profile-button {
+  /* position: fixed;  <-- Eliminado para que dependa del contenedor */
+  /* top: 15px;        <-- Eliminado */
+  /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
+  /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
+  /* right: 70px;      <-- Eliminado */
+  position: relative; /* Para el posicionamiento absoluto del menú hijo */
+  background-color: var(--container-bg);
+  color: var(--text-color);
+  border: 1px solid var(--input-border);
+  border-radius: 50%;
+  width: 45px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3em; /* Icon size */
+  padding: 0;
+  /* z-index: 1001;  <-- Manejado por .user-profile-menu-container y .user-menu */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+}
+
+.user-profile-button:hover {
+  background-color: var(--accent-color-primary);
+  color: var(--main-button-text);
+  border-color: var(--accent-color-primary);
+  transform: translateY(-1px);
+}
+
+.user-profile-button i {
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-menu {
+  position: absolute;
+  top: calc(100% + 8px); /* Below the button with a small gap */
+  right: 0;
+  background-color: var(--container-bg); /* Consistente con el botón y otros contenedores */
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  min-width: 200px;
+  z-index: 1003; /* Above user button and theme button */
+  padding: 8px 0;
+  display: none; /* Hidden by default, toggled by JS */
+  flex-direction: column; /* If using display:flex for .is-active */
+}
+
+.user-menu.is-active {
+  display: flex; /* Or display: block; */
+}
+
+.user-menu a, .user-menu button { /* Assuming links or buttons for menu items */
+  display: block;
+  padding: 10px 20px;
+  color: var(--text-color);
+  text-decoration: none;
+  font-size: 0.95em;
+  background-color: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.user-menu a:hover, .user-menu button:hover {
+  background-color: rgba(var(--accent-color-primary-rgb), 0.15);
+  color: var(--accent-color-primary);
+}
+
+.user-menu-divider {
+  height: 1px;
+  margin: 8px 0;
+  background-color: var(--input-border);
+  border: 0;
+}
+
+/* Light theme adjustments for User Profile Menu */
+body.light-theme .user-profile-button {
+  background-color: #FFFFFF;
+  color: var(--text-color);
+  border-color: var(--input-border);
+}
+body.light-theme .user-profile-button:hover {
+  background-color: var(--accent-color-primary);
+  color: var(--main-button-text); /* Ensure this var is appropriate for light theme accent */
+  border-color: var(--accent-color-primary);
+}
+
+body.light-theme .user-menu {
+  background-color: #FFFFFF; /* Lighter background for dropdown in light mode */
+  border-color: #D1D5DB; /* Consistent light theme border */
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+body.light-theme .user-menu a, 
+body.light-theme .user-menu button {
+  color: var(--text-color);
+}
+body.light-theme .user-menu a:hover,
+body.light-theme .user-menu button:hover {
+  background-color: #f0f0f0; /* Light grey hover for items */
+  color: var(--accent-color-primary);
+}
+body.light-theme .user-menu-divider {
+  background-color: #E5E7EB; /* Lighter divider for light theme */
+}
+/* La llave de cierre extra que estaba aquí ha sido eliminada. */

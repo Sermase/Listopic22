@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+<!-- Firestore es necesario para cargar las listas en la página de inicio -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listopic - Crear/Editar Lista</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="app-logo-container">
+    <a href="Index.html" title="Ir a la página de inicio">
+        <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo"> <!-- ¡Asegúrate de que la ruta src sea correcta! -->
+    </a>
+</div> <!-- Cierre del app-logo-container que faltaba o estaba mal ubicado -->
+    <main>
+        <div class="container form-container">
+                <button id="theme-toggle-button" class="theme-toggle-button" title="Cambiar tema">
+                    <i class="fas fa-moon"></i> <!-- Icono inicial, cambiará con JS -->
+                </button>
+            <a href="index.html" class="back-button">← Cancelar y Volver a Mis Listas</a>
+            <h2>Crear Nueva Lista de Valoración</h2> <!-- JS cambiará esto si es editar -->
+            <form id="list-form" action="#" method="POST">
+                <input type="hidden" name="categoryId" value="defaultCategory">
+                <div class="form-group">
+                    <label for="list-name">Nombre de la Lista:</label>
+                    <input type="text" id="list-name" name="name" required class="form-input" placeholder="Ej: Mejores Cafés de Especialidad 2024">
+                </div>
+                <hr class="form-divider">
+                <fieldset class="criteria-group">
+                    <legend>Criterios de Valoración (Barras)</legend>
+                    <div id="criteria-list">
+                        <!-- Los criterios se añadirán aquí o se cargarán si se edita -->
+                        <!-- Plantilla comentada de cómo se verá un criterio (actualizada más abajo en app.js)
+                        <div class="criterion-item">
+                            <input type="text" name="criteria_title[]" placeholder="Título (Ej: Acidez)" class="form-input criterion-input" required>
+                            <input type="text" name="criteria_label_left[]" placeholder="Texto Izquierda (Ej: Malo)" class="form-input criterion-input">
+                            <input type="text" name="criteria_label_right[]" placeholder="Texto Derecha (Ej: Excelente)" class="form-input criterion-input">
+                            <label class="criterion-weighted-label">
+                                <input type="checkbox" name="criteria_isWeighted[]" class="criterion-weighted-checkbox" checked> Pondera
+                            </label>
+                            <button type="button" class="remove-button danger" title="Eliminar criterio">×</button>
+                        </div>
+                        -->
+                    </div>
+                    <button type="button" id="add-criterion-btn" class="add-button"><i class="fas fa-plus"></i> Añadir Criterio</button>
+                </fieldset>
+                <hr class="form-divider">
+                <fieldset class="tags-group">
+                    <legend>Etiquetas Disponibles para esta Lista</legend>
+                    <div id="tags-list">
+                        <!-- Las etiquetas se añadirán aquí o se cargarán si se edita -->
+                    </div>
+                    <button type="button" id="add-tag-btn" class="add-button"><i class="fas fa-plus"></i> Añadir Etiqueta</button>
+                </fieldset>
+                <div class="form-actions">
+                    <button type="submit" class="submit-button">Guardar Lista</button>
+                </div>
+            </form>
+        </div>
+    </main>
+    <footer> Listopic... Tu rincón personal de valoraciones. </footer>
+           
+    <!-- Listopic App Modules -->
+    <script src="js/config.js" defer></script>
+    <script src="js/firebaseService.js" defer></script>
+    <script src="js/uiUtils.js" defer></script>
+    <script src="js/themeManager.js" defer></script>
+    <script src="js/placesService.js" defer></script>
+    <script src="js/authService.js" defer></script>
+    <script src="js/page-index.js" defer></script>
+    <script src="js/page-auth.js" defer></script>
+    <script src="js/page-list-form.js" defer></script>
+    <script src="js/page-review-form.js" defer></script>
+    <script src="js/page-list-view.js" defer></script>
+    <script src="js/page-detail-view.js" defer></script>
+    <script src="js/page-grouped-detail-view.js" defer></script>
+
+    <!-- Main application orchestrator -->
+    <script src="js/main.js" defer></script>
+
+
+    <div class="user-session-controls">
+        <span id="user-info-display"></span>
+        <button id="logout-button" style="display:none;" class="button-link danger">Cerrar Sesión</button>
+    </div>
+    
+</body>
+</html>

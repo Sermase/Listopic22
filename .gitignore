@@ -1,0 +1,4 @@
+.env
+node_modules/
+# Firebase admin SDK key
+listopic-ser-firebase-adminsdk-key.json

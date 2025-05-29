@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listopic (App de Valoraciones)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDKs - Asegúrate de que app.js los utilice o inicialice Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <!-- Firestore es necesario para cargar las listas en la página de inicio -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="app-logo-container">
+    <a href="Index.html" title="Ir a la página de inicio">
+        <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo"> <!-- ¡Asegúrate de que la ruta src sea correcta! -->
+    </a>
+</div> <!-- Cierre del app-logo-container que faltaba o estaba mal ubicado -->
+    <main>
+        <div class="container">
+                <button id="theme-toggle-button" class="theme-toggle-button" title="Cambiar tema">
+                    <i class="fas fa-moon"></i> <!-- Icono inicial, cambiará con JS -->
+                </button>
+            <h1 class="brand-title"> <span class="logo-petal p1"></span> <span class="logo-petal p2"></span> Hmm...<!--List<span class="logo-petal p3"></span>pic --><span class="logo-petal p4"></span> <span class="logo-petal p5"></span> </h1>
+            <!-- Contenedor para las listas (círculos) -->
+            <nav class="list-collection-container">
+                <!-- <h2>Mis Listas de Valoración</h2> -->
+                <ul id="list-circles-ul">
+                    <!-- Las listas se cargarán aquí por JavaScript -->
+                    <li><p>Cargando listas...</p></li>
+                </ul>
+                <a href="list-form.html" class="add-list-button" title="Crear nueva lista">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>Crear Nueva Lista</span>
+                </a>
+            </nav>
+        </div>
+    </main>
+    <footer> Listopic... Tu rincón personal de valoraciones. </footer>
+
+   <!-- Listopic App Modules -->
+   <script src="js/config.js" defer></script>
+   <script src="js/firebaseService.js" defer></script>
+   <script src="js/uiUtils.js" defer></script>
+   <script src="js/themeManager.js" defer></script>
+   <script src="js/placesService.js" defer></script>
+   <script src="js/authService.js" defer></script>
+   <script src="js/page-index.js" defer></script>
+   <script src="js/page-auth.js" defer></script>
+   <script src="js/page-list-form.js" defer></script>
+   <script src="js/page-review-form.js" defer></script>
+   <script src="js/page-list-view.js" defer></script>
+   <script src="js/page-detail-view.js" defer></script>
+   <script src="js/page-grouped-detail-view.js" defer></script>
+
+   <!-- Main application orchestrator -->
+   <script src="js/main.js" defer></script>
+
+   
+    <!-- Contenedor principal para el botón de usuario y su menú -->
+<div class="user-profile-menu-container">
+    <button class="user-profile-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
+        <i class="fas fa-user-circle"></i> <!-- Icono de usuario sugerido (Font Awesome) -->
+    </button>
+    <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
+        <a href="/perfil" role="menuitem">Perfil</a> <!-- Deberás crear estas páginas/rutas -->
+        <a href="/datos" role="menuitem">Datos</a>   <!-- Deberás crear estas páginas/rutas -->
+        <a href="/listas" role="menuitem">Listas</a> <!-- Deberás crear estas páginas/rutas -->
+        <a href="/reviews" role="menuitem">Reviews</a> <!-- Deberás crear estas páginas/rutas -->
+        <hr class="user-menu-divider">
+        <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
+    </div>
+</div>
+
+</body>
+</html>

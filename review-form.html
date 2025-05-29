@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="app.js"></script>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listopic - Añadir/Editar Reseña</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="app-logo-container">
+    <a href="Index.html" title="Ir a la página de inicio">
+        <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo"> <!-- ¡Asegúrate de que la ruta src sea correcta! -->
+    </a>
+</div> <!-- Cierre del app-logo-container que faltaba o estaba mal ubicado -->
+    <main>
+        <div class="container form-container">
+                <button id="theme-toggle-button" class="theme-toggle-button" title="Cambiar tema">
+                    <i class="fas fa-moon"></i> <!-- Icono inicial, cambiará con JS -->
+                </button>
+            <a href="list-view.html" class="back-button">← Cancelar y Volver al Ranking</a> <!-- JS will update href -->
+            <h2>Añadir Nueva Reseña</h2>
+            <form id="review-form" action="#" method="POST">
+                <input type="hidden" id="review-form-listId" name="listId">
+                
+                <div class="form-group">
+                    <label for="restaurant-name-search">Buscar Restaurante/Elemento por nombre:</label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <input type="text" id="restaurant-name-search-input" class="form-input" placeholder="Ej: La Pizzería Genial">
+                        <button type="button" id="search-by-name-btn" class="add-button" style="padding: 8px 15px; white-space: nowrap;">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                    </div>
+                    <button type="button" id="find-nearby-btn" class="add-button" style="font-size:0.9em; padding: 8px 15px; width: auto; margin-bottom:10px;">
+                        <i class="fas fa-map-marker-alt"></i> O bien, Ubicarme y Buscar Cercanos
+                    </button>
+                    <div id="restaurant-suggestions" class="suggestions-box"></div>
+                    <input type="hidden" id="restaurant-name" name="restaurant" required> <!-- Campo oculto para el nombre final -->
+                </div>
+
+                <div class="form-group">
+                    <label for="dish-name">Nombre del Plato/Variedad (Opcional):</label>
+                    <input type="text" id="dish-name" name="dish" class="form-input" placeholder="Ej: Tarta de la Abuela, Café Etíope Yirgacheffe">
+                </div>
+                
+                <div class="form-group">
+                    <label for="location-url">Ubicación (URL Google Maps - Opcional):</label>
+                    <input type="url" id="location-url" name="location[url]" class="form-input" placeholder="https://maps.app.goo.gl/...">
+                    <label for="location-text" style="margin-top:8px;">Nombre visible de la ubicación (Opcional):</label>
+                    <input type="text" id="location-text" name="location[text]" class="form-input" placeholder="Ej: Centro Comercial XYZ, Sucursal Centro">
+                </div>
+                
+                <hr class="form-divider">
+                <h3>Valoraciones</h3>
+                <div id="dynamic-rating-criteria" class="form-group"><p style="opacity: 0.7; font-style: italic;">Cargando criterios...</p></div>
+                <hr class="form-divider">
+                
+                <div class="form-group">
+                    <label>Foto:</label>
+                    <div class="image-upload-area" id="image-drop-area">
+                        <div class="upload-instructions">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Arrastra imagen aquí o haz clic para seleccionar</p>
+                        </div>
+                        <input type="file" id="photo-file" name="photo_file" accept="image/*" class="file-input-hidden">
+                        <div id="image-actions" style="margin-top:10px;">
+                            <button type="button" id="browse-gallery-btn"><i class="fas fa-images"></i> Desde Galería</button>
+                            <button type="button" id="use-camera-btn"><i class="fas fa-camera"></i> Usar Cámara</button>
+                        </div>
+                        <p style="margin-top:15px; font-size:0.9em;">o introduce una URL:</p>
+                        <input type="url" id="photo-url" name="imageUrl" class="form-input url-input" placeholder="https://ejemplo.com/imagen.jpg">
+                        <div class="image-preview" style="margin-top:15px;"></div>
+                    </div>
+                </div>
+                
+                <hr class="form-divider">
+                <div class="form-group">
+                    <label>Etiquetas (Opcional):</label>
+                    <div id="dynamic-tag-selection" class="tag-selection"> 
+                        <p style="opacity:0.7;font-style:italic;">Cargando etiquetas...</p> 
+                    </div>
+                </div>
+
+                <hr class="form-divider">
+                <div class="form-group">
+                    <label for="comment">Comentario (Opcional):</label>
+                    <textarea id="comment" name="comment" rows="5" class="form-textarea" placeholder="Describe tu experiencia, notas, detalles..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="submit-button">Guardar Reseña</button>
+                </div>
+            </form>
+        </div>
+    </main>
+    <footer> Listopic... Tu rincón personal de valoraciones. </footer>
+    <script src="app.js" defer></script>
+    <div class="user-session-controls">
+        <span id="user-info-display"></span>
+        <button id="logout-button" style="display:none;" class="button-link danger">Cerrar Sesión</button>
+    </div>
+    
+</body>
+</html>

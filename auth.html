@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autenticación - Listopic</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: var(--primary-bg, #121212); /* Fallback background */
+            color: var(--text-color, #e0e0e0); /* Fallback text color */
+            font-family: 'Arial', sans-serif; /* Fallback font */
+        }
+        .auth-container {
+            background-color: var(--container-bg, rgba(30, 30, 30, 0.8));
+            padding: 30px 40px;
+            border-radius: var(--border-radius-large, 12px);
+            box-shadow: var(--shadow-elevation-medium, 0 8px 16px rgba(0,0,0,0.3));
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+        .auth-container h1 {
+            color: var(--accent-color-primary, #FFD166);
+            margin-bottom: 25px;
+            font-size: 2.5em;
+        }
+        .form-toggle {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            border: 1px solid var(--border-color, #444);
+            border-radius: var(--border-radius-medium, 8px);
+            overflow: hidden;
+        }
+        .form-toggle button {
+            flex: 1;
+            padding: 12px;
+            background-color: transparent;
+            color: var(--text-color, #e0e0e0);
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .form-toggle button.active {
+            background-color: var(--accent-color-primary, #FFD166);
+            color: var(--primary-bg, #121212);
+        }
+        .form-toggle button:not(.active):hover {
+            background-color: rgba(var(--accent-color-primary-rgb, 255,209,102), 0.2);
+        }
+        .auth-form {
+            display: none;
+        }
+        .auth-form.active {
+            display: block;
+        }
+        .auth-form h2 {
+            color: var(--text-color, #e0e0e0);
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        .auth-form .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .auth-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--secondary-text-color, #aaa);
+        }
+        .auth-form .form-input {
+            width: 100%; /* Usa 100% y box-sizing */
+            padding: 10px;
+            border: 1px solid var(--border-color, #444);
+            border-radius: var(--border-radius-small, 4px);
+            background-color: var(--input-bg, #222);
+            color: var(--text-color, #e0e0e0);
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        .auth-form .form-input:focus {
+            border-color: var(--accent-color-primary, #FFD166);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(var(--accent-color-primary-rgb, 255,209,102), 0.3);
+        }
+        .submit-button {
+            width: 100%;
+            padding: 12px;
+            font-size: 1.1em;
+            background-color: var(--accent-color-primary, #FFD166);
+            color: var(--primary-bg, #121212);
+            border: none;
+            border-radius: var(--border-radius-medium, 8px);
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-weight: bold;
+        }
+        .submit-button:hover {
+            background-color: var(--accent-color-primary-dark, #f0b94d); /* Define esta variable en style.css */
+        }
+        .submit-button:disabled {
+            background-color: var(--disabled-bg, #555);
+            color: var(--disabled-text-color, #999);
+            cursor: not-allowed;
+        }
+        .or-divider {
+            margin: 25px 0;
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: var(--secondary-text-color, #aaa);
+        }
+        .or-divider::before,
+        .or-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid var(--border-color, #444);
+        }
+        .or-divider:not(:empty)::before {
+            margin-right: .5em;
+        }
+        .or-divider:not(:empty)::after {
+            margin-left: .5em;
+        }
+        .google-btn {
+            background-color: #DB4437;
+            color: white;
+            border: none;
+            padding: 12px 15px;
+            border-radius: var(--border-radius-medium, 8px);
+            cursor: pointer;
+            font-size: 1em;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: background-color 0.3s ease;
+            font-weight: 500;
+        }
+        .google-btn:hover {
+            background-color: #C33A2C;
+        }
+        .google-btn i {
+            font-size: 1.2em;
+        }
+        #message-area {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: var(--border-radius-small, 4px);
+            font-weight: 500;
+            text-align: center;
+            line-height: 1.4;
+        }
+        #message-area.success {
+            background-color: rgba(var(--accent-color-tertiary-rgb, 6,214,160), 0.2);
+            color: var(--accent-color-tertiary, #06D6A0);
+            border: 1px solid var(--accent-color-tertiary, #06D6A0);
+        }
+        #message-area.error {
+            background-color: rgba(var(--danger-color-rgb, 217,83,79), 0.15);
+            color: var(--danger-color, #d9534f);
+            border: 1px solid var(--danger-color, #d9534f);
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h1>Listopic</h1>
+        <div class="form-toggle">
+            <button id="show-login" class="active">Iniciar Sesión</button>
+            <button id="show-register">Registrarse</button>
+        </div>
+
+        <form id="login-form" class="auth-form active">
+            <h2>Iniciar Sesión</h2>
+            <div class="form-group">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" name="email" class="form-input" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="login-password">Contraseña</label>
+                <input type="password" id="login-password" name="password" class="form-input" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="submit-button">Entrar</button>
+        </form>
+
+        <form id="register-form" class="auth-form">
+            <h2>Crear Cuenta</h2>
+            <div class="form-group">
+                <label for="register-username">Nombre de Usuario</label>
+                <input type="text" id="register-username" name="username" class="form-input" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="register-email">Email</label>
+                <input type="email" id="register-email" name="email" class="form-input" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="register-password">Contraseña (mín. 6 caracteres)</label>
+                <input type="password" id="register-password" name="password" class="form-input" minlength="6" required autocomplete="new-password">
+            </div>
+            <button type="submit" class="submit-button">Registrarse</button>
+        </form>
+
+        <div id="message-area" style="display:none;"></div>
+
+        <div class="or-divider">o</div>
+
+        <button id="google-login-btn" class="google-btn">
+            <i class="fab fa-google"></i> Continuar con Google
+        </button>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <!-- <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script> -->
+    
+    <script>
+        // This inline script handles the auth form logic specifically for auth.html
+        document.addEventListener('DOMContentLoaded', () => {
+            // This check is to ensure firebase is available from the SDKs loaded above
+            if (typeof firebase === 'undefined' || typeof firebase.auth === 'undefined') {
+                console.error("auth.html: Firebase SDK not loaded correctly before inline script execution.");
+                alert("Error de inicialización. Por favor, recarga la página.");
+                return;
+            }
+            const authInstance = firebase.auth(); 
+
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const showLoginBtn = document.getElementById('show-login');
+            const showRegisterBtn = document.getElementById('show-register');
+            const messageArea = document.getElementById('message-area');
+            const googleLoginBtn = document.getElementById('google-login-btn');
+
+            function toggleForms(showLogin) {
+                if (showLogin) {
+                    loginForm.classList.add('active');
+                    registerForm.classList.remove('active');
+                    showLoginBtn.classList.add('active');
+                    showRegisterBtn.classList.remove('active');
+                } else {
+                    loginForm.classList.remove('active');
+                    registerForm.classList.add('active');
+                    showLoginBtn.classList.remove('active');
+                    showRegisterBtn.classList.add('active');
+                }
+                messageArea.style.display = 'none';
+                messageArea.textContent = '';
+            }
+
+            showLoginBtn.addEventListener('click', () => toggleForms(true));
+            showRegisterBtn.addEventListener('click', () => toggleForms(false));
+
+            function displayMessage(message, isError = false) {
+                messageArea.textContent = message;
+                messageArea.className = isError ? 'error' : 'success';
+                messageArea.style.display = 'block';
+            }
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                const submitButton = loginForm.querySelector('.submit-button');
+                submitButton.disabled = true;
+                submitButton.textContent = 'Entrando...';
+                messageArea.style.display = 'none';
+
+                try {
+                    await authInstance.signInWithEmailAndPassword(email, password);
+                    // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
+                } catch (error) {
+                    console.error('Error en login:', error);
+                    displayMessage(getFirebaseErrorMessage(error), true);
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Entrar';
+                }
+            });
+
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('register-username').value;
+                const email = document.getElementById('register-email').value;
+                const password = document.getElementById('register-password').value;
+                const submitButton = registerForm.querySelector('.submit-button');
+                submitButton.disabled = true;
+                submitButton.textContent = 'Registrando...';
+                messageArea.style.display = 'none';
+
+                try {
+                    const userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
+                    await userCredential.user.updateProfile({
+                        displayName: username
+                    });
+                     // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
+                } catch (error) {
+                    console.error('Error en registro:', error);
+                    displayMessage(getFirebaseErrorMessage(error), true);
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Registrarse';
+                }
+            });
+
+            googleLoginBtn.addEventListener('click', () => {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                messageArea.style.display = 'none';
+                authInstance.signInWithPopup(provider)
+                    .then((result) => {
+                        console.log('Usuario logueado con Google:', result.user);
+                         // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
+                    }).catch((error) => {
+                        console.error('Error con Google Sign-In:', error);
+                        displayMessage(getFirebaseErrorMessage(error), true);
+                    });
+            });
+            
+            // This onAuthStateChanged is specific to auth.html to redirect upon successful login/registration *on this page*.
+            // The global onAuthStateChanged in authService.js handles other cases (e.g., already logged in when visiting auth.html).
+            authInstance.onAuthStateChanged((user) => {
+                if (user) {
+                    // Check if ListopicApp and its services are loaded, which indicates main.js might be running or has run
+                    if (window.ListopicApp && window.ListopicApp.services) {
+                         // If main.js's authService is expected to handle redirection, this might be redundant
+                         // or could be a fallback. For clarity, let authService.js handle global redirection.
+                         console.log('auth.html (inline script) onAuthStateChanged: User logged in. Global authService should redirect.');
+                    } else {
+                        // Fallback if ListopicApp/main.js hasn't fully initialized redirection logic yet
+                        console.log('auth.html (inline script) onAuthStateChanged: User logged in, ListopicApp not fully ready, redirecting from here.');
+                        window.location.href = 'Index.html';
+                    }
+                }
+            });
+
+            function getFirebaseErrorMessage(error) {
+                switch (error.code) {
+                    case 'auth/invalid-email':
+                        return 'El formato del email es incorrecto.';
+                    case 'auth/user-disabled':
+                        return 'Esta cuenta de usuario ha sido deshabilitada.';
+                    case 'auth/user-not-found':
+                        return 'No se encontró ningún usuario con este email.';
+                    case 'auth/wrong-password':
+                        return 'La contraseña es incorrecta.';
+                    case 'auth/email-already-in-use':
+                        return 'Este email ya está registrado.';
+                    case 'auth/weak-password':
+                        return 'La contraseña es demasiado débil. Debe tener al menos 6 caracteres.';
+                    case 'auth/operation-not-allowed':
+                        return 'El inicio de sesión con email/contraseña no está habilitado.';
+                    case 'auth/popup-closed-by-user':
+                        return 'Ventana de inicio de sesión cerrada por el usuario.';
+                    case 'auth/cancelled-popup-request':
+                        return 'Se canceló la solicitud de inicio de sesión.';
+                    case 'auth/popup-blocked':
+                        return 'El navegador bloqueó la ventana emergente. Habilítalas para este sitio.';
+                    default:
+                        return error.message || 'Ha ocurrido un error desconocido.';
+                }
+            }
+        });
+    </script>
+
+           
+    <!-- Listopic App Modules -->
+    <script src="js/config.js" defer></script>
+    <script src="js/firebaseService.js" defer></script>
+    <script src="js/uiUtils.js" defer></script>
+    <script src="js/themeManager.js" defer></script>
+    <script src="js/placesService.js" defer></script>
+    <script src="js/authService.js" defer></script>
+    <script src="js/page-index.js" defer></script>
+    <script src="js/page-auth.js" defer></script>
+    <script src="js/page-list-form.js" defer></script>
+    <script src="js/page-review-form.js" defer></script>
+    <script src="js/page-list-view.js" defer></script>
+    <script src="js/page-detail-view.js" defer></script>
+    <script src="js/page-grouped-detail-view.js" defer></script>
+
+    <!-- Main application orchestrator -->
+    <script src="js/main.js" defer></script>
+
+
+</body>
+</html>

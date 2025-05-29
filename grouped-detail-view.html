@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+<!-- Firestore es necesario para cargar las listas en la página de inicio -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle del Elemento - Listopic</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="app-logo-container">
+        <a href="Index.html" title="Ir a la página de inicio">
+            <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo">
+        </a>
+    </div>
+
+    <main>
+        <div class="container">
+            <button id="theme-toggle-button" class="theme-toggle-button" title="Cambiar tema">
+                <i class="fas fa-moon"></i>
+            </button>
+            <a href="#" class="back-button" id="back-to-list-view"><i class="fas fa-arrow-left"></i> Volver a la Lista</a>
+            
+            <div class="grouped-detail-header">
+                <h2 id="group-title">Cargando detalle del elemento...</h2>
+                <p id="list-name-subheader">Lista: Cargando...</p>
+            </div>
+
+            <section class="group-summary-section card">
+                <h3>Resumen del Grupo</h3>
+                <div id="group-average-score" class="summary-score">
+                    Puntuación Media General: <span class="score-value">N/A</span>
+                </div>
+                <div id="group-review-count" class="summary-count">
+                    Número de Reseñas: <span class="count-value">N/A</span>
+                </div>
+                <!-- Aquí podríamos añadir medias de criterios específicos si las calculamos -->
+            </section>
+
+            <section class="group-images-section card">
+                <h3>Galería de Imágenes</h3>
+                <div id="group-image-gallery" class="image-gallery-placeholder">
+                    <p>Cargando imágenes...</p>
+                    <!-- Las imágenes se cargarán aquí. Por ahora, un placeholder. -->
+                </div>
+            </section>
+
+            <section class="individual-reviews-section">
+                <h3>Reseñas Individuales</h3>
+                <div id="individual-reviews-list" class="reviews-list-container">
+                    <p>Cargando reseñas individuales...</p>
+                    <!-- Las reseñas individuales se cargarán aquí -->
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <footer>
+        Listopic... Tu rincón personal de valoraciones.
+    </footer>
+
+          
+    <!-- Listopic App Modules -->
+    <script src="js/config.js" defer></script>
+    <script src="js/firebaseService.js" defer></script>
+    <script src="js/uiUtils.js" defer></script>
+    <script src="js/themeManager.js" defer></script>
+    <script src="js/placesService.js" defer></script>
+    <script src="js/authService.js" defer></script>
+    <script src="js/page-index.js" defer></script>
+    <script src="js/page-auth.js" defer></script>
+    <script src="js/page-list-form.js" defer></script>
+    <script src="js/page-review-form.js" defer></script>
+    <script src="js/page-list-view.js" defer></script>
+    <script src="js/page-detail-view.js" defer></script>
+    <script src="js/page-grouped-detail-view.js" defer></script>
+
+    <!-- Main application orchestrator -->
+    <script src="js/main.js" defer></script>
+
+
+    <div class="user-session-controls">
+        <span id="user-info-display"></span>
+        <button id="logout-button" style="display:none;" class="button-link danger">Cerrar Sesión</button>
+    </div>
+    
+</body>
+</html>
