@@ -24,14 +24,36 @@
         <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo"> <!-- ¡Asegúrate de que la ruta src sea correcta! -->
     </a>
 </div> <!-- Cierre del app-logo-container que faltaba o estaba mal ubicado -->
-    <main>
-        <div class="container">
-                <button id="theme-toggle-button" class="theme-toggle-button" title="Cambiar tema">
-                    <i class="fas fa-moon"></i> <!-- Icono inicial, cambiará con JS -->
-                </button>
-            <h1 class="brand-title"> <span class="logo-petal p1"></span> <span class="logo-petal p2"></span> Hmm...<!--List<span class="logo-petal p3"></span>pic --><span class="logo-petal p4"></span> <span class="logo-petal p5"></span> </h1>
-            <!-- Contenedor para las listas (círculos) -->
-            <nav class="list-collection-container">
+
+<!-- New container for header action buttons -->
+<div class="header-actions-container">
+    <button id="search-button" class="header-action-button" aria-label="Search">
+        <i class="fas fa-search"></i>
+    </button>
+    <div class="user-profile-menu-container"> <!-- Keep original container for its specific JS logic -->
+        <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
+            <i class="fas fa-user-circle"></i>
+        </button>
+        <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
+            <a href="profile.html" role="menuitem">Perfil</a> <!-- Link is correct -->
+            <a href="profile.html#profile-email" role="menuitem">Datos</a> <!-- Updated Datos link -->
+            <a href="profile.html#profile-my-lists" role="menuitem">Listas</a> <!-- Updated Listas link -->
+            <a href="profile.html#profile-my-reviews" role="menuitem">Reviews</a> <!-- Updated Reviews link -->
+            <hr class="user-menu-divider">
+            <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
+        </div>
+    </div>
+    <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
+        <i class="fas fa-moon"></i> <!-- Icono inicial, cambiará con JS -->
+    </button>
+</div>
+
+<main>
+    <div class="container">
+        <!-- Theme toggle button was here, moved to header-actions-container -->
+        <h1 class="brand-title"> <span class="logo-petal p1"></span> <span class="logo-petal p2"></span> Hmm...<!--List<span class="logo-petal p3"></span>pic --><span class="logo-petal p4"></span> <span class="logo-petal p5"></span> </h1>
+        <!-- Contenedor para las listas (círculos) -->
+        <nav class="list-collection-container">
                 <!-- <h2>Mis Listas de Valoración</h2> -->
                 <ul id="list-circles-ul">
                     <!-- Las listas se cargarán aquí por JavaScript -->
@@ -65,20 +87,7 @@
    <script src="js/main.js" defer></script>
 
    
-    <!-- Contenedor principal para el botón de usuario y su menú -->
-<div class="user-profile-menu-container">
-    <button class="user-profile-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
-        <i class="fas fa-user-circle"></i> <!-- Icono de usuario sugerido (Font Awesome) -->
-    </button>
-    <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
-        <a href="/perfil" role="menuitem">Perfil</a> <!-- Deberás crear estas páginas/rutas -->
-        <a href="/datos" role="menuitem">Datos</a>   <!-- Deberás crear estas páginas/rutas -->
-        <a href="/listas" role="menuitem">Listas</a> <!-- Deberás crear estas páginas/rutas -->
-        <a href="/reviews" role="menuitem">Reviews</a> <!-- Deberás crear estas páginas/rutas -->
-        <hr class="user-menu-divider">
-        <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
-    </div>
-</div>
+    <!-- User profile menu container is now part of header-actions-container -->
 
 </body>
 </html>
