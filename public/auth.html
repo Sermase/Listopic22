@@ -322,7 +322,7 @@
                         userType: 'basico', // Valor inicial por defecto
                         followersCount: 0, // Valor inicial
                         followingCount: 0, // Valor inicial
-                        badges: ["Básico"], // Array vacío inicialmente
+                        badges: [], // Array vacío inicialmente, para cumplir con Array<Reference>
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp del servidor
                         dateOfBirth: null, // Nuevo campo, no se recoge en el formulario actual
                         residence: ""      // Nuevo campo, no se recoge en el formulario actual
