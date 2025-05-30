@@ -301,11 +301,38 @@
                 messageArea.style.display = 'none';
 
                 try {
+                    // Crear el usuario en Firebase Authentication
                     const userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
-                    await userCredential.user.updateProfile({
+                    const user = userCredential.user;
+
+                    // Actualizar el perfil de Firebase Auth (displayName)
+                    await user.updateProfile({
                         displayName: username
                     });
-                     // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
+
+                    // Guardar la información adicional del usuario en Firestore
+                    const db = firebase.firestore(); // Asegúrate de que Firestore está inicializado
+                    const userDocRef = db.collection('users').doc(user.uid);
+
+                    const newUserDocument = {
+                        username: username,
+                        email: email,
+                        bio: "", // Valor inicial
+                        photoUrl: user.photoURL || "", // Tomar de Auth si existe, sino vacío
+                        userType: 'basico', // Valor inicial por defecto
+                        followersCount: 0, // Valor inicial
+                        followingCount: 0, // Valor inicial
+                        badges: [], // Array vacío inicialmente
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp del servidor
+                        dateOfBirth: null, // Nuevo campo, no se recoge en el formulario actual
+                        residence: ""      // Nuevo campo, no se recoge en el formulario actual
+                    };
+
+                    await userDocRef.set(newUserDocument);
+
+                    console.log('Usuario registrado en Auth y datos guardados en Firestore:', user.uid);
+                    // La redirección será manejada por el listener onAuthStateChanged 
+                    // ya sea en este script o en authService.js
                 } catch (error) {
                     console.error('Error en registro:', error);
                     displayMessage(getFirebaseErrorMessage(error), true);
