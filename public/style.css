@@ -543,7 +543,7 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
     .detail-content { flex-direction: column; }
     .criterion-item input[name="criteria_title[]"] { flex-basis: 100%; }
     .criterion-item input[name="criteria_label_left[]"], .criterion-item input[name="criteria_label_right[]"] { flex-basis: calc(50% - 1rem); }
-    
+
     /* Logo adjustments for medium screens */
     .app-logo-container {
         top: 10px;
@@ -639,7 +639,7 @@ body.light-theme .search-input::placeholder {
 
 /* UPDATED: Specific styles for list circles in light theme for better icon contrast */
 body.light-theme #list-circles-ul a {
-    background-color: rgba(0,0,0,0.04); 
+    background-color: rgba(0,0,0,0.04);
     border: 1px solid rgba(0,0,0,0.08);
 }
 body.light-theme #list-circles-ul a:hover {
@@ -1015,6 +1015,7 @@ body.light-theme .user-menu-divider {
     cursor: pointer;
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
     box-sizing: border-box; /* Ensure padding/border don't affect final size unexpectedly */
+    flex-shrink: 0; /* Prevent buttons from shrinking if container space is tight */
 }
 
 .header-action-button:hover {
@@ -1047,6 +1048,7 @@ body.light-theme .user-menu-divider {
     /* display: flex;      Removed: Let parent flex container handle alignment of this block */
     /* align-items: center; Removed: Button inside has fixed size, should align correctly */
     box-sizing: border-box; /* Ensure padding/border don't affect final size unexpectedly */
+    flex-shrink: 0; /* Also prevent this container from shrinking */
     /* Purpose of this container is to be a positioned anchor for the absolute .user-menu */
     /* and a flex item in .header-actions-container. Its size will be that of its child button. */
 }
@@ -1067,7 +1069,7 @@ body.light-theme .header-action-button {
 body.light-theme .header-action-button:hover {
   background-color: var(--accent-color-primary); /* Uses light theme accent */
   /* Ensure main-button-text for light theme is set correctly for light theme accent bg */
-  color: var(--main-button-text); 
+  color: var(--main-button-text);
   border-color: var(--accent-color-primary);
 }
 
@@ -1203,6 +1205,13 @@ body.light-theme #profile-picture-placeholder img {
     border: 3px solid var(--input-border); /* Uses light theme input border */
 }
 
+/* --- Profile Page Specific Container Width --- */
+.profile-page-container {
+    max-width: 1100px !important; /* Increased from default 900px for .container. Using !important to ensure override if needed. */
+}
+/* End Profile Page Specific Container Width */
+
+
 /* Style for dynamically created profile image */
 .profile-image-dynamic {
     width: 120px; /* Matches existing #profile-picture-placeholder img style */
@@ -1216,13 +1225,13 @@ body.light-theme #profile-picture-placeholder img {
 }
 
 
-body.light-theme #profile-my-lists, 
+body.light-theme #profile-my-lists,
 body.light-theme #profile-my-reviews {
     background-color: rgba(0,0,0,0.03); /* Very light background for sections */
     border: 1px solid var(--input-border);
 }
 
-body.light-theme #profile-my-lists h3, 
+body.light-theme #profile-my-lists h3,
 body.light-theme #profile-my-reviews h3 {
     border-bottom: 1px solid var(--input-border); /* Uses light theme input border */
 }
