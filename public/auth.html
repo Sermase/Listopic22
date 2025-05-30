@@ -330,11 +330,17 @@
 
                     await userDocRef.set(newUserDocument);
 
-                    console.log('Usuario registrado en Auth y datos guardados en Firestore:', user.uid);
+                    console.log('Firestore: Documento de usuario CREADO/ACTUALIZADO para UID:', user.uid);
+                    // Este log es para confirmar que la línea anterior (await) se completó.
+
+                    console.log('Registro completo en Auth y Firestore para el usuario:', user.uid, 'con email:', email);
                     // La redirección será manejada por el listener onAuthStateChanged 
                     // ya sea en este script o en authService.js
                 } catch (error) {
-                    console.error('Error en registro:', error);
+                    console.error('Error detallado durante el proceso de registro:', error);
+                    if (error.code && error.message) {
+                        console.error(`Firebase Error Code: ${error.code}, Message: ${error.message}`);
+                    }
                     displayMessage(getFirebaseErrorMessage(error), true);
                 } finally {
                     submitButton.disabled = false;
