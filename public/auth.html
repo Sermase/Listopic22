@@ -300,40 +300,20 @@
                 submitButton.textContent = 'Registrando...';
                 messageArea.style.display = 'none';
 
+                // Asegurarse de que ListopicApp y sus servicios estén disponibles
+                if (!window.ListopicApp || !window.ListopicApp.services || !window.ListopicApp.services.createUserInAuthAndFirestore || !window.ListopicApp.services.showNotification) {
+                    console.error("Servicios de ListopicApp no están listos. Asegúrate de que firebaseService.js (o similar) se haya cargado y ejecutado.");
+                    displayMessage("Error de inicialización de la aplicación. Intenta de nuevo.", true);
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Registrarse';
+                    return;
+                }
+
                 try {
-                    // Crear el usuario en Firebase Authentication
-                    const userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
-                    const user = userCredential.user;
-
-                    // Actualizar el perfil de Firebase Auth (displayName)
-                    await user.updateProfile({
-                        displayName: username
-                    });
-
-                    // Guardar la información adicional del usuario en Firestore
-                    const db = firebase.firestore(); // Asegúrate de que Firestore está inicializado
-                    const userDocRef = db.collection('users').doc(user.uid);
-
-                    const newUserDocument = {
-                        username: username,
-                        email: email,
-                        bio: "", // Valor inicial
-                        photoUrl: user.photoURL || "", // Tomar de Auth si existe, sino vacío
-                        userType: 'basico', // Valor inicial por defecto
-                        followersCount: 0, // Valor inicial
-                        followingCount: 0, // Valor inicial
-                        badges: [], // Array vacío inicialmente, para cumplir con Array<Reference>
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp del servidor
-                        dateOfBirth: null, // Nuevo campo, no se recoge en el formulario actual
-                        residence: ""      // Nuevo campo, no se recoge en el formulario actual
-                    };
-
-                    await userDocRef.set(newUserDocument);
-
-                    console.log('Firestore: Documento de usuario CREADO/ACTUALIZADO para UID:', user.uid);
-                    // Este log es para confirmar que la línea anterior (await) se completó.
-
-                    console.log('Registro completo en Auth y Firestore para el usuario:', user.uid, 'con email:', email);
+                    const user = await ListopicApp.services.createUserInAuthAndFirestore(email, password, username);
+                    console.log('Usuario creado y datos guardados en Firestore para UID:', user.uid);
+                    ListopicApp.services.showNotification('¡Usuario registrado y perfil creado exitosamente!', 'success');
+                    
                     // La redirección será manejada por el listener onAuthStateChanged 
                     // ya sea en este script o en authService.js
                 } catch (error) {
@@ -341,7 +321,12 @@
                     if (error.code && error.message) {
                         console.error(`Firebase Error Code: ${error.code}, Message: ${error.message}`);
                     }
-                    displayMessage(getFirebaseErrorMessage(error), true);
+                    // La notificación de error ahora la maneja el servicio, pero podemos mostrar un mensaje local también si queremos.
+                    // O confiar en la notificación del servicio.
+                    // Por ahora, mostraremos el error localmente también, ya que getFirebaseErrorMessage está aquí.
+                    // Si showNotification en el servicio ya muestra el error.message, esto podría ser redundante.
+                    ListopicApp.services.showNotification(getFirebaseErrorMessage(error) || error.message, 'error');
+                    // displayMessage(getFirebaseErrorMessage(error), true); // Opcional si el servicio ya notifica
                 } finally {
                     submitButton.disabled = false;
                     submitButton.textContent = 'Registrarse';
@@ -354,10 +339,15 @@
                 authInstance.signInWithPopup(provider)
                     .then((result) => {
                         console.log('Usuario logueado con Google:', result.user);
+                        // Aquí también podrías querer asegurar que el usuario de Google tenga un documento en Firestore
+                        // similar a como lo haces en el registro normal, si es la primera vez que inicia sesión.
+                        // Esto se podría manejar en el onAuthStateChanged global de authService.js
+                        ListopicApp.services.showNotification('Inicio de sesión con Google exitoso.', 'success');
                          // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
                     }).catch((error) => {
                         console.error('Error con Google Sign-In:', error);
-                        displayMessage(getFirebaseErrorMessage(error), true);
+                        ListopicApp.services.showNotification(getFirebaseErrorMessage(error) || error.message, 'error');
+                        // displayMessage(getFirebaseErrorMessage(error), true); // Opcional
                     });
             });
             
@@ -422,6 +412,7 @@
     <script src="js/page-list-view.js" defer></script>
     <script src="js/page-detail-view.js" defer></script>
     <script src="js/page-grouped-detail-view.js" defer></script>
+    <!-- Asegúrate de que firebaseService.js se carga antes que main.js si main.js depende de él -->
 
     <!-- Main application orchestrator -->
     <script src="js/main.js" defer></script>

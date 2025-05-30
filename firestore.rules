@@ -3,10 +3,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Reglas para la colección 'users'
     match /users/{userId} { // <-- CAMBIO CLAVE: Sin /{document=**} para aplicar al documento del usuario
+        // Un usuario autenticado puede leer cualquier perfil (ajusta si quieres más privacidad)
+      allow read: if request.auth != null;
       // Un usuario puede crear su propio documento de perfil.
-      // Un usuario puede leer y actualizar su propio documento de perfil.
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId; // Permite la creación
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Un usuario puede actualizar y borrar su propio documento de perfil.
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
       // Considera si quieres permitir la eliminación y bajo qué condiciones
       // allow delete: if request.auth != null && request.auth.uid == userId;
 
