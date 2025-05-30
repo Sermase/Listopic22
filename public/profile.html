@@ -3,88 +3,340 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Profile - Listopic</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Cormorant+Garamond:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
+    <title>Editar Perfil - Listopic</title>
+    <link rel="stylesheet" href="style.css"> <!-- Asume que tienes tu style.css global -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            background-color: var(--primary-bg, #121212);
+            color: var(--text-color, #e0e0e0);
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding-top: 60px; /* Espacio para el header fijo */
+        }
+        .profile-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: var(--container-bg, #1e1e1e);
+            border-bottom: 1px solid var(--border-color, #444);
+            box-shadow: var(--shadow-elevation-low, 0 2px 4px rgba(0,0,0,0.2));
+            z-index: 1000;
+            box-sizing: border-box;
+        }
+        .profile-header h1 {
+            margin: 0;
+            font-size: 1.5em;
+            color: var(--text-color, #e0e0e0);
+        }
+        .save-button {
+            padding: 8px 15px;
+            font-size: 0.9em;
+            background-color: var(--accent-color-secondary, #06D6A0); /* Verde por defecto */
+            color: var(--primary-bg, #121212);
+            border: none;
+            border-radius: var(--border-radius-medium, 8px);
+            cursor: pointer;
+            transition: background-color 0.3s ease, opacity 0.3s ease, color 0.3s ease;
+            font-weight: bold;
+        }
+        .save-button:disabled {
+            background-color: var(--disabled-bg, #555);
+            color: var(--disabled-text-color, #999) !important;
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .save-button.has-changes {
+            background-color: var(--accent-color-primary, #FFD166); /* Amarillo cuando hay cambios */
+            color: var(--primary-bg, #121212);
+        }
+        .profile-container {
+            max-width: 700px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: var(--container-bg-secondary, rgba(40, 40, 40, 0.9));
+            border-radius: var(--border-radius-large, 12px);
+            box-shadow: var(--shadow-elevation-medium, 0 8px 16px rgba(0,0,0,0.3));
+        }
+        .profile-form .form-group {
+            margin-bottom: 20px;
+        }
+        .profile-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--secondary-text-color, #aaa);
+        }
+        .profile-form .form-input,
+        .profile-form .form-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color, #444);
+            border-radius: var(--border-radius-small, 4px);
+            background-color: var(--input-bg, #222);
+            color: var(--text-color, #e0e0e0);
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        .profile-form .form-input:focus,
+        .profile-form .form-textarea:focus {
+            border-color: var(--accent-color-primary, #FFD166);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(var(--accent-color-primary-rgb, 255,209,102), 0.3);
+        }
+        .profile-form .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        #profile-message-area {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: var(--border-radius-small, 4px);
+            font-weight: 500;
+            text-align: center;
+            line-height: 1.4;
+            display: none; /* Oculto por defecto */
+        }
+        #profile-message-area.success {
+            background-color: rgba(var(--accent-color-tertiary-rgb, 6,214,160), 0.2);
+            color: var(--accent-color-tertiary, #06D6A0);
+            border: 1px solid var(--accent-color-tertiary, #06D6A0);
+        }
+        #profile-message-area.error {
+            background-color: rgba(var(--danger-color-rgb, 217,83,79), 0.15);
+            color: var(--danger-color, #d9534f);
+            border: 1px solid var(--danger-color, #d9534f);
+        }
+        .profile-photo-preview-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .profile-photo-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 10px;
+            border: 3px solid var(--border-color, #444);
+            background-color: var(--input-bg, #333); /* Fondo mientras carga o si no hay imagen */
+        }
+        .form-static-text {
+            padding: 10px;
+            background-color: var(--input-bg, #222);
+            border-radius: var(--border-radius-small, 4px);
+            color: var(--secondary-text-color, #aaa);
+            word-break: break-all;
+        }
+    </style>
 </head>
 <body>
-
-    <!-- New container for header action buttons -->
-    <div class="header-actions-container">
-        <button id="search-button" class="header-action-button" aria-label="Search">
-            <i class="fas fa-search"></i>
-        </button>
-        <div class="user-profile-menu-container"> <!-- Keep original container for its specific JS logic -->
-            <button id="user-profile-button" class="user-profile-button header-action-button" aria-label="User menu" aria-haspopup="true" aria-expanded="false">
-                <i class="fas fa-user-circle"></i>
-            </button>
-            <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="user-profile-button">
-                <a href="profile.html" role="menuitem" id="user-menu-profile-link">Perfil</a>
-                <hr class="user-menu-divider">
-                <button id="user-menu-logout-button" role="menuitem">Cerrar Sesión</button>
-            </div>
-        </div>
-        <button id="theme-toggle-button" class="theme-toggle-button header-action-button" aria-label="Toggle theme">
-            <i class="fas fa-sun"></i> 
-        </button>
+    <div class="profile-header">
+        <a href="index.html" style="text-decoration: none; color: var(--text-color, #e0e0e0); font-size: 1.2em;"><i class="fas fa-arrow-left"></i></a>
+        <h1>Editar Perfil</h1>
+        <button id="save-profile-button" class="save-button" disabled>Guardar</button>
     </div>
-    
-    <main class="profile-container">
-        <div class="container">
-            <div class="app-logo-container">
-                <a href="Index.html" title="Ir a la página de inicio">
-                    <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo">
-                </a>
+
+    <div class="profile-container">
+        <form id="profile-form" class="profile-form">
+            <div class="profile-photo-preview-container">
+                <img id="profile-photo-preview" src="img/placeholder-avatar.png" alt="Vista previa de foto" class="profile-photo-preview">
+                 <!-- Asegúrate de tener una imagen placeholder en img/placeholder-avatar.png -->
             </div>
+
+            <div class="form-group">
+                <label for="profile-photo-url">URL de Foto de Perfil</label>
+                <input type="url" id="profile-photo-url" name="photoUrl" class="form-input" placeholder="https://ejemplo.com/imagen.jpg">
+            </div>
+
+            <div class="form-group">
+                <label for="profile-bio">Biografía</label>
+                <textarea id="profile-bio" name="bio" class="form-textarea" rows="4" placeholder="Cuéntanos algo sobre ti..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="profile-dob">Fecha de Nacimiento</label>
+                <input type="date" id="profile-dob" name="dateOfBirth" class="form-input">
+            </div>
+
+            <div class="form-group">
+                <label for="profile-residence">Lugar de Residencia</label>
+                <input type="text" id="profile-residence" name="residence" class="form-input" placeholder="Ej: Madrid, España">
+            </div>
+
+            <div class="form-group">
+                <label>Nombre de Usuario</label>
+                <p id="profile-username" class="form-static-text">-</p>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <p id="profile-email" class="form-static-text">-</p>
+            </div>
+        </form>
+        <div id="profile-message-area"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof firebase === 'undefined' || !firebase.auth || !firebase.firestore) {
+                console.error("profile.html: Firebase SDKs no cargados.");
+                alert("Error de inicialización. Por favor, recarga la página.");
+                return;
+            }
+
+            const auth = firebase.auth();
+            const db = firebase.firestore();
+            let currentUser = null;
+            let originalProfileData = {};
+
+            const profileForm = document.getElementById('profile-form');
+            const saveButton = document.getElementById('save-profile-button');
+            const messageArea = document.getElementById('profile-message-area');
+            const photoUrlInput = document.getElementById('profile-photo-url');
+            const photoPreview = document.getElementById('profile-photo-preview');
+            const bioInput = document.getElementById('profile-bio');
+            const dobInput = document.getElementById('profile-dob');
+            const residenceInput = document.getElementById('profile-residence');
+            const usernameDisplay = document.getElementById('profile-username');
+            const emailDisplay = document.getElementById('profile-email');
+
+            function displayMessage(message, isError = false) {
+                messageArea.textContent = message;
+                messageArea.className = isError ? 'error' : 'success';
+                messageArea.style.display = 'block';
+                setTimeout(() => { messageArea.style.display = 'none'; }, 4000);
+            }
+
+            function formatDateForInput(timestamp) {
+                if (!timestamp || typeof timestamp.toDate !== 'function') return '';
+                const date = timestamp.toDate();
+                return date.toISOString().split('T')[0]; // YYYY-MM-DD
+            }
+
+            function updatePhotoPreviewDisplay(url) {
+                photoPreview.src = url || 'img/placeholder-avatar.png'; // Fallback a placeholder
+            }
             
-            <div class="profile-header">
-                <div id="profile-picture-placeholder" class="profile-picture">
-                    <i class="fas fa-user-circle"></i>
-                </div>
-                <h2 id="profile-display-name">Loading...</h2>
-                <p id="profile-email">Loading...</p>
-            </div>
+            photoUrlInput.addEventListener('input', () => {
+                updatePhotoPreviewDisplay(photoUrlInput.value);
+                checkChanges(); // Verificar cambios al modificar la URL
+            });
 
-            <div class="profile-section">
-                <h3>Mis Listas</h3>
-                <div class="profile-content">
-                    <ul id="my-lists-ul" class="profile-list">
-                        <li>Cargando listas...</li>
-                    </ul>
-                </div>
-            </div>
+            async function loadUserProfile(user) {
+                usernameDisplay.textContent = user.displayName || 'N/A';
+                emailDisplay.textContent = user.email || 'N/A';
+                const userDocRef = db.collection('users').doc(user.uid);
+                try {
+                    const docSnap = await userDocRef.get();
+                    if (docSnap.exists()) {
+                        originalProfileData = docSnap.data();
+                        bioInput.value = originalProfileData.bio || '';
+                        photoUrlInput.value = originalProfileData.photoUrl || '';
+                        updatePhotoPreviewDisplay(originalProfileData.photoUrl);
+                        dobInput.value = formatDateForInput(originalProfileData.dateOfBirth);
+                        residenceInput.value = originalProfileData.residence || '';
+                    } else {
+                        originalProfileData = { bio: '', photoUrl: user.photoURL || '', dateOfBirth: null, residence: '' };
+                         // Si no hay doc, inicializar con algunos datos de Auth si existen
+                        photoUrlInput.value = originalProfileData.photoUrl;
+                        updatePhotoPreviewDisplay(originalProfileData.photoUrl);
+                        console.warn("Documento de perfil no encontrado, usando valores por defecto/Auth.");
+                    }
+                } catch (error) {
+                    console.error("Error cargando perfil:", error);
+                    displayMessage("Error al cargar tu perfil.", true);
+                }
+                checkChanges(); // Estado inicial del botón
+            }
 
-            <div class="profile-section">
-                <h3>Mis Reseñas</h3>
-                <div id="my-reviews-container" class="profile-content">
-                    <p>Cargando reseñas...</p>
-                </div>
-            </div>
-        </div>
-    </main>
+            function checkChanges() {
+                let hasChanged = false;
+                if (bioInput.value.trim() !== (originalProfileData.bio || '')) hasChanged = true;
+                if (photoUrlInput.value.trim() !== (originalProfileData.photoUrl || '')) hasChanged = true;
+                
+                const formDateString = dobInput.value;
+                const originalDateString = formatDateForInput(originalProfileData.dateOfBirth);
+                if (formDateString !== originalDateString) hasChanged = true;
 
-    <footer>
-        <p>&copy; <span id="current-year"></span> Listopic. All rights reserved.</p>
-    </footer>
+                if (residenceInput.value.trim() !== (originalProfileData.residence || '')) hasChanged = true;
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+                saveButton.disabled = !hasChanged;
+                if (hasChanged) {
+                    saveButton.classList.add('has-changes');
+                } else {
+                    saveButton.classList.remove('has-changes');
+                }
+                return hasChanged;
+            }
 
-    <!-- App Scripts -->
-    <script src="js/config.js"></script>
-    <script src="js/firebaseService.js"></script>
-    <script src="js/authService.js"></script>
-    <script src="js/themeManager.js"></script>
-    <script src="js/uiUtils.js"></script>
-    <script src="js/page-profile.js"></script> 
-    <script src="js/main.js"></script>
+            async function saveProfileChanges() {
+                if (!currentUser || !checkChanges()) return;
+
+                saveButton.disabled = true;
+                saveButton.textContent = 'Guardando...';
+
+                const updatedData = {
+                    bio: bioInput.value.trim(),
+                    photoUrl: photoUrlInput.value.trim(),
+                    residence: residenceInput.value.trim(),
+                    dateOfBirth: dobInput.value ? firebase.firestore.Timestamp.fromDate(new Date(dobInput.value)) : null
+                };
+
+                try {
+                    const userDocRef = db.collection('users').doc(currentUser.uid);
+                    await userDocRef.update(updatedData);
+
+                    if (currentUser.photoURL !== updatedData.photoUrl || currentUser.displayName !== originalProfileData.username /* si username fuera editable */) {
+                         // Actualizar photoURL en Firebase Auth si cambió
+                        const authProfileUpdates = {};
+                        if (currentUser.photoURL !== updatedData.photoUrl) {
+                            authProfileUpdates.photoURL = updatedData.photoUrl;
+                        }
+                        // Si el username fuera editable y diferente al displayName de Auth, se añadiría aquí.
+                        // if (currentUser.displayName !== updatedData.username) {
+                        //    authProfileUpdates.displayName = updatedData.username;
+                        // }
+                        if (Object.keys(authProfileUpdates).length > 0) {
+                            await currentUser.updateProfile(authProfileUpdates);
+                        }
+                    }
+                    
+                    originalProfileData = { ...originalProfileData, ...updatedData };
+                    displayMessage("Perfil actualizado con éxito.", false);
+                } catch (error) {
+                    console.error("Error guardando perfil:", error);
+                    displayMessage("Error al guardar: " + error.message, true);
+                } finally {
+                    saveButton.textContent = 'Guardar';
+                    checkChanges(); 
+                }
+            }
+
+            ['input', 'change'].forEach(eventType => {
+                profileForm.addEventListener(eventType, checkChanges);
+            });
+            saveButton.addEventListener('click', saveProfileChanges);
+
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    loadUserProfile(user);
+                } else {
+                    currentUser = null;
+                    window.location.href = 'auth.html'; 
+                }
+            });
+        });
+    </script>
 </body>
 </html>
