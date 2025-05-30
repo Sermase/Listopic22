@@ -41,10 +41,11 @@ service cloud.firestore {
     match /badges/{badgeId} {
       allow read: if true;
       // Generalmente, los badges se gestionan desde el backend o la consola.
-      // Si los usuarios NO deben modificarlos desde el cliente, usa: allow write: if false;
-      // La regla original permitía escritura si el UID coincidía, lo cual es inusual para badges globales.
-      // Para este ejemplo, la mantendré como estaba en tu archivo original, pero considera cambiarla a 'if false'.
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Si los usuarios NO deben modificarlos desde el cliente, la regla más segura es:
+      allow write: if false;
+      // Si por alguna razón específica un usuario autenticado pudiera escribir en un badge si el ID del badge es su UID (muy inusual):
+      // allow write: if request.auth != null && request.auth.uid == badgeId;
     }
   }
 }
+
