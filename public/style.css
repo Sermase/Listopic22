@@ -691,10 +691,14 @@ body.light-theme .edit-button:hover {
 
 /* --- Estilos para el botón de cambio de tema --- */
 .theme-toggle-button {
-  position: fixed;
+  /*position: fixed;
   top: 15px;
   right: 15px;
   background-color: var(--container-bg); /* Usa el color de fondo de los contenedores del tema actual */
+  /* position: fixed, top, right, y z-index se eliminan para permitir que este botón
+     sea un elemento flex dentro de .header-actions-container.
+     Su estilo visual principal debería provenir de .header-action-button si se usan juntos. */
+     background-color: var(--container-bg); /* Estas propiedades podrían ser redundantes si .header-action-button siempre está aplicado */
   color: var(--text-color); /* Usa el color de texto del tema actual */
   border: 1px solid var(--input-border); /* Usa el color de borde de input del tema actual */
   border-radius: 50%;
@@ -705,7 +709,7 @@ body.light-theme .edit-button:hover {
   justify-content: center; /* Centra horizontalmente el icono */
   font-size: 1.2em; /* Ajusta el tamaño base para el icono si es necesario */
   padding: 0; /* Elimina padding si interfiere con el centrado del icono */
-  z-index: 1001;
+  /*z-index: 1001;*/
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
 }
