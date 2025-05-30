@@ -22,6 +22,8 @@
     --footer-text-color: rgba(255, 255, 255, 0.7);
     --footer-height: 50px;
 
+    --border-color: rgba(255, 255, 255, 0.2); /* Color de borde general */
+    --border-color-light: rgba(255, 255, 255, 0.1); /* Borde más sutil */
     --input-bg: rgba(0, 0, 0, 0.35);
     --input-border: rgba(255, 255, 255, 0.25);
     --input-focus-border: var(--accent-color-primary);
@@ -29,6 +31,18 @@
     --main-button-hover-bg: #fbc02d; /* Hover para botones principales */
     --danger-color: #D9534F; /* Color para acciones peligrosas */
     --danger-hover-bg: #C9302C;
+    --disabled-bg: #555;
+    --disabled-text-color: #999;
+
+    --container-bg-secondary: rgba(23, 38, 63, 0.85); /* Un poco más opaco que el container-bg principal */
+
+    --border-radius-small: 4px;
+    --border-radius-medium: 8px;
+    --border-radius-large: 12px;
+
+    --shadow-elevation-low: 0 2px 4px rgba(0,0,0,0.15);
+    --shadow-elevation-medium: 0 6px 12px rgba(0,0,0,0.2);
+    --shadow-elevation-high: 0 10px 20px rgba(0,0,0,0.25);
     
     --brand-font: 'Poppins', sans-serif; /* Fuente para la marca/títulos principales */
     /* --primary-bg: #1A1D24;  <-- Esta línea estaba en una segunda definición de :root, la he movido/consolidado aquí si es el valor deseado para el tema oscuro. Si #0A1931 es el correcto, elimina esta. Asumiré #0A1931 por ahora. */
@@ -265,6 +279,11 @@ main > .add-review-button.submit-button {
 .button:active, button:active, input[type="submit"]:active, input[type="button"]:active { transform: translateY(1px); }
 
 .submit-button, .add-review-button { background-color: var(--accent-color-primary); color: var(--main-button-text); }
+.primary-button { background-color: var(--accent-color-primary); color: var(--main-button-text); }
+.primary-button:hover { background-color: var(--main-button-hover-bg); box-shadow: 0 4px 15px rgba(var(--accent-color-primary-rgb), 0.3); }
+
+.secondary-button { background-color: var(--accent-color-quaternary); color: white; }
+.secondary-button:hover { background-color: #0f7694; box-shadow: 0 4px 15px rgba(var(--accent-color-quaternary-rgb), 0.3); }
 .submit-button:hover, .add-review-button:hover { background-color: var(--main-button-hover-bg); box-shadow: 0 4px 15px rgba(var(--accent-color-primary-rgb, 255,209,102), 0.3); }
 .edit-button { background-color: var(--accent-color-tertiary); color: var(--main-button-text); }
 .edit-button:hover { background-color: #05a984; box-shadow: 0 4px 15px rgba(var(--accent-color-tertiary-rgb, 6,214,160), 0.3); }
@@ -1115,15 +1134,36 @@ body.light-theme .header-action-button:hover {
 }
 
 
-/* --- Estilos para la página de perfil --- */
-.profile-container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-    padding-top: 100px; /* Espacio para el logo fijo */
+/* --- Estilos para la página de perfil (profile.html) --- */
+/* Estilos para el encabezado fijo de la página de perfil */
+.page-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: var(--container-bg);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: var(--shadow-elevation-low);
+    z-index: 1000; /* Debe estar por debajo de .header-actions-container y modales */
+    box-sizing: border-box;
+}
+.page-header h1 {
+    margin: 0;
+    font-size: 1.5em;
+    color: var(--text-color);
 }
 
-.profile-header {
+.profile-container {
+    max-width: 800px;
+    margin: 20px auto; /* Margen superior ajustado ya que body tiene padding-top */
+    padding: 20px; /* Padding interno del contenedor del perfil */
+}
+
+.user-info-card { /* Reemplaza al antiguo .profile-header */
     text-align: center;
     margin-bottom: 40px;
     padding: 20px;
@@ -1132,57 +1172,56 @@ body.light-theme .header-action-button:hover {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.profile-picture {
+#profile-photo-display { /* Para la imagen de perfil clickeable */
     width: 120px;
     height: 120px;
     margin: 0 auto 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--icon-placeholder-bg);
     border-radius: 50%;
     overflow: hidden;
+    object-fit: cover;
+    border: 3px solid var(--border-color);
+    background-color: var(--input-bg); /* Fondo mientras carga o si no hay imagen */
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+#profile-photo-display:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(var(--accent-color-primary-rgb), 0.5);
 }
 
-.profile-picture i {
-    font-size: 80px;
-    color: var(--accent-color-primary);
-}
-
-.profile-header h2 {
+#profile-display-name { /* Ya existía, se mantiene y ajusta si es necesario */
     margin: 10px 0 5px;
     color: var(--title-color);
     font-size: 1.8em;
+    font-family: var(--brand-font);
+    font-weight: 600;
 }
 
-.profile-header p {
-    color: var(--secondary-text-color);
-    margin: 0;
-    font-size: 1.1em;
-}
-
-.profile-section {
-    background: var(--container-bg);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 30px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.profile-section h3 {
+#profile-username-display {
     color: var(--accent-color-primary);
-    font-size: 1.4em;
-    margin-top: 0;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--input-border);
+    font-size: 1.1em;
+    margin-bottom: 15px;
 }
 
-.profile-content {
+#profile-bio-display {
+    color: var(--secondary-text-color);
+    margin-bottom: 15px;
+    white-space: pre-wrap; /* Para respetar saltos de línea en la bio */
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+#profile-email-display { /* Ya existía, se mantiene */
+    font-size: 0.9em;
+    color: var(--secondary-text-color);
+    margin-bottom: 20px;
+}
+
+.edit-profile-button { /* Para el botón "Editar Perfil" */
     margin-top: 15px;
 }
 
-.profile-list {
+.profile-item-list { /* Para #my-lists-ul y #my-reviews-ul */
     list-style: none;
     padding: 0;
     margin: 0;
@@ -1191,26 +1230,166 @@ body.light-theme .header-action-button:hover {
 .profile-list li {
     padding: 12px 15px;
     margin-bottom: 10px;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(var(--accent-color-primary-rgb), 0.05);
     border-radius: 6px;
     transition: background-color 0.2s;
 }
-
 .profile-list li:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--accent-color-primary-rgb), 0.1);
 }
+.profile-list li a {
+    color: var(--text-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+.profile-list li a:hover {
+    color: var(--accent-color-primary);
+}
+
+/* Profile Stats Section */
+.profile-stats {
+    display: flex;
+    justify-content: space-around;
+    background-color: var(--container-bg-secondary);
+    padding: 20px;
+    border-radius: var(--border-radius-medium);
+    margin-bottom: 30px;
+    box-shadow: var(--shadow-elevation-low);
+}
+.stat-item {
+    text-align: center;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: var(--border-radius-small);
+    transition: background-color 0.2s ease;
+}
+.stat-item:hover {
+    background-color: rgba(var(--accent-color-primary-rgb), 0.1);
+}
+.stat-item .count {
+    font-size: 1.8em;
+    font-weight: bold;
+    display: block;
+    color: var(--text-color);
+}
+.stat-item .label {
+    font-size: 0.9em;
+    color: var(--secondary-text-color);
+}
+
+/* Profile Sections (Mis Listas, Mis Reseñas) */
+.profile-section { /* Ya existía, se adapta */
+    background: var(--container-bg-secondary);
+    border-radius: var(--border-radius-medium);
+    padding: 20px;
+    margin-bottom: 30px;
+    box-shadow: var(--shadow-elevation-low);
+}
+.profile-section h3 { /* Ya existía, se adapta */
+    color: var(--accent-color-secondary); /* Cambiado de primary a secondary para variedad */
+    font-size: 1.4em;
+    margin-top: 0;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Modal Styles */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    z-index: 1050; /* Above header actions */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.7); /* Semi-transparent black overlay */
+    align-items: center;
+    justify-content: center;
+}
+.modal.active {
+    display: flex; /* Use flex to center content */
+}
+.modal-content {
+    background-color: var(--container-bg);
+    margin: auto;
+    padding: 25px;
+    border-radius: var(--border-radius-large);
+    box-shadow: var(--shadow-elevation-high);
+    width: 90%;
+    max-width: 500px; /* Default max-width */
+    position: relative;
+    animation: fadeInUpScale 0.3s ease-out forwards;
+}
+.modal-content.photo-modal-content {
+    max-width: 600px;
+    text-align: center;
+}
+.close-button {
+    color: var(--secondary-text-color);
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+.close-button:hover, .close-button:focus {
+    color: var(--text-color);
+}
+
+/* Save button specific to modals, if different from global .button or .submit-button */
+.save-button { /* This class was used in profile.html modals */
+    /* Inherits from .button, or define specific styles here */
+    /* Example: if it needs to be distinct from .submit-button */
+    background-color: var(--accent-color-tertiary); /* Default green */
+    color: var(--primary-bg); /* Dark text on light green */
+}
+.save-button:disabled {
+    background-color: var(--disabled-bg);
+    color: var(--disabled-text-color) !important; /* Ensure override */
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+.save-button.has-changes {
+    background-color: var(--accent-color-primary); /* Yellow when changes pending */
+    color: var(--main-button-text); /* Dark text on yellow */
+}
+
+#enlarged-profile-photo {
+    max-width: 100%;
+    max-height: 70vh; /* Limit height */
+    border-radius: var(--border-radius-medium);
+    margin-bottom: 15px;
+    border: 2px solid var(--border-color);
+}
+#photo-edit-controls {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: rgba(0,0,0,0.1);
+    border-radius: var(--border-radius-small);
+}
+#photo-edit-controls .form-group {
+    margin-bottom: 15px;
+}
+#photo-edit-controls input[type="file"],
+#photo-edit-controls input[type="url"] {
+    margin-bottom: 10px;
+}
+
 
 /* Ajustes responsivos */
 @media (max-width: 768px) {
     .profile-container {
         padding: 15px;
         padding-top: 90px;
+        margin-top: 0; /* Body padding-top handles space for fixed header */
     }
-    
-    .profile-header {
+    .user-info-card {
         padding: 15px;
     }
-    
     .profile-picture {
         width: 100px;
         height: 100px;
@@ -1219,13 +1398,19 @@ body.light-theme .header-action-button:hover {
     .profile-picture i {
         font-size: 60px;
     }
+    .modal-content {
+        padding: 20px;
+    }
 }
 
 @media (max-width: 480px) {
-    .profile-header h2 {
+    #profile-display-name {
         font-size: 1.5em;
     }
-    
+    .user-info-card {
+        margin-bottom: 25px;
+    }
+    .profile-stats { margin-bottom: 25px; flex-direction: column; gap: 15px; }
     .profile-section {
         padding: 15px;
     }
@@ -1233,19 +1418,12 @@ body.light-theme .header-action-button:hover {
 
 /* --- User Profile Page Styles --- */
 #profile-picture-placeholder {
-    margin-bottom: 20px;
+    /* This ID might be from an older version or a different approach. */
+    /* The current profile.html uses #profile-photo-display directly. */
+    /* If #profile-picture-placeholder is still used as a container, style it here. */
+    /* For now, assuming #profile-photo-display is the primary element. */
     text-align: center;
 }
-
-#profile-picture-placeholder img {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    border: 3px solid var(--input-border);
-    object-fit: cover;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-}
-
 #profile-picture-placeholder .fa-user-circle { /* Default icon if no image */
     font-size: 100px; /* Adjust as needed */
     color: var(--accent-color-primary);
@@ -1253,22 +1431,11 @@ body.light-theme .header-action-button:hover {
 }
 
 
-#profile-display-name {
-    font-family: var(--brand-font);
-    font-size: clamp(1.8em, 4vw, 2.5em);
-    color: var(--title-color);
-    margin-top: 10px;
-    margin-bottom: 5px;
-    text-align: center;
-    font-weight: 600;
-}
+/* #profile-display-name and #profile-email styles are now part of .user-info-card section */
 
-#profile-email {
-    font-size: 1em;
-    color: var(--secondary-text-color);
-    margin-bottom: 30px;
-    text-align: center;
-}
+/* #profile-my-lists and #profile-my-reviews are now styled by .profile-section */
+/* The specific ul and li styles are covered by .profile-item-list */
+
 
 #profile-my-lists, #profile-my-reviews {
     margin-bottom: 35px;
@@ -1277,37 +1444,10 @@ body.light-theme .header-action-button:hover {
     border-radius: 8px;
     text-align: left; /* Align section content to left */
 }
-
 #profile-my-lists h3, #profile-my-reviews h3 {
-    font-family: 'Cormorant Garamond', serif;
-    color: var(--accent-color-secondary);
-    margin-top: 0;
-    margin-bottom: 15px;
-    border-bottom: 1px solid var(--input-border);
-    padding-bottom: 10px;
-    font-size: 1.5em;
+    /* These are now styled by .profile-section h3 */
 }
 
-#profile-my-lists ul {
-    list-style: none;
-    padding: 0;
-}
-
-#profile-my-lists ul li {
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(var(--accent-color-primary-rgb), 0.1);
-}
-#profile-my-lists ul li:last-child {
-    border-bottom: none;
-}
-#profile-my-lists ul li a {
-    color: var(--text-color);
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-#profile-my-lists ul li a:hover {
-    color: var(--accent-color-primary);
-}
 
 
 #my-reviews-container .review-item-placeholder { /* Example class for styling individual reviews later */
@@ -1319,8 +1459,8 @@ body.light-theme .header-action-button:hover {
 
 
 /* Light theme adjustments for profile page sections */
-body.light-theme #profile-picture-placeholder img {
-    border: 3px solid var(--input-border); /* Uses light theme input border */
+body.light-theme #profile-photo-display {
+    border-color: var(--input-border); /* Uses light theme input border */
 }
 
 /* Style for dynamically created profile image */
@@ -1336,23 +1476,41 @@ body.light-theme #profile-picture-placeholder img {
 }
 
 
-body.light-theme #profile-my-lists, 
-body.light-theme #profile-my-reviews {
+body.light-theme .user-info-card,
+body.light-theme .profile-stats,
+body.light-theme .profile-section {
     background-color: rgba(0,0,0,0.03); /* Very light background for sections */
     border: 1px solid var(--input-border);
 }
-
-body.light-theme #profile-my-lists h3, 
-body.light-theme #profile-my-reviews h3 {
+body.light-theme .profile-section h3 {
     border-bottom: 1px solid var(--input-border); /* Uses light theme input border */
 }
-
-body.light-theme #profile-my-lists ul li {
+body.light-theme .profile-list li {
     border-bottom: 1px solid rgba(var(--accent-color-primary-rgb), 0.2); /* Slightly more visible in light */
+    background-color: rgba(0,0,0,0.02);
 }
-body.light-theme #profile-my-lists ul li a {
+body.light-theme .profile-list li:hover {
+    background-color: rgba(0,0,0,0.05);
+}
+body.light-theme .profile-list li a {
     color: var(--text-color); /* Uses light theme text color */
 }
-body.light-theme #profile-my-lists ul li a:hover {
+body.light-theme .profile-list li a:hover {
     color: var(--accent-color-primary); /* Uses light theme accent */
+}
+
+body.light-theme .modal-content {
+    background-color: var(--primary-bg); /* Light theme page background */
+    border: 1px solid var(--input-border);
+}
+body.light-theme .save-button {
+    background-color: var(--accent-color-tertiary);
+    color: white; /* Text on green */
+}
+body.light-theme .save-button.has-changes {
+    background-color: var(--accent-color-primary);
+    color: var(--main-button-text); /* Dark text on yellow */
+}
+body.light-theme #photo-edit-controls {
+    background-color: rgba(0,0,0,0.05);
 }

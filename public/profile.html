@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editar Perfil - Listopic</title>
+    <title>Mi Perfil - Listopic</title>
     <link rel="stylesheet" href="style.css"> <!-- Asume que tienes tu style.css global -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
-            background-color: var(--primary-bg, #121212);
-            color: var(--text-color, #e0e0e0);
             font-family: 'Arial', sans-serif;
             margin: 0;
             padding-top: 60px; /* Espacio para el header fijo */
@@ -29,10 +27,10 @@
             z-index: 1000;
             box-sizing: border-box;
         }
-        .profile-header h1 {
+        .page-header h1 { /* Cambiado de .profile-header a .page-header para evitar confusión */
             margin: 0;
             font-size: 1.5em;
-            color: var(--text-color, #e0e0e0);
+            color: var(--text-color);
         }
         .save-button {
             padding: 8px 15px;
@@ -56,13 +54,12 @@
             color: var(--primary-bg, #121212);
         }
         .profile-container {
-            max-width: 700px;
+            max-width: 800px;
             margin: 20px auto;
             padding: 20px;
-            background-color: var(--container-bg-secondary, rgba(40, 40, 40, 0.9));
-            border-radius: var(--border-radius-large, 12px);
-            box-shadow: var(--shadow-elevation-medium, 0 8px 16px rgba(0,0,0,0.3));
         }
+
+        /* Estilos para el formulario dentro del modal */
         .profile-form .form-group {
             margin-bottom: 20px;
         }
@@ -93,6 +90,7 @@
             min-height: 100px;
             resize: vertical;
         }
+
         #profile-message-area {
             margin-top: 15px;
             padding: 10px;
@@ -112,6 +110,8 @@
             color: var(--danger-color, #d9534f);
             border: 1px solid var(--danger-color, #d9534f);
         }
+
+        /* User Info Section */
         .profile-photo-preview-container {
             display: flex;
             flex-direction: column;
@@ -126,6 +126,7 @@
             margin-bottom: 10px;
             border: 3px solid var(--border-color, #444);
             background-color: var(--input-bg, #333); /* Fondo mientras carga o si no hay imagen */
+            cursor: pointer; /* Para indicar que se puede hacer clic */
         }
         .form-static-text {
             padding: 10px;
@@ -134,57 +135,211 @@
             color: var(--secondary-text-color, #aaa);
             word-break: break-all;
         }
+
+        .user-info-card {
+            background-color: var(--container-bg-secondary);
+            padding: 25px;
+            border-radius: var(--border-radius-large);
+            box-shadow: var(--shadow-elevation-medium);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .user-info-card h2 { margin-top: 10px; margin-bottom: 5px; color: var(--text-color); }
+        .user-info-card .username { color: var(--accent-color-primary); font-size: 1.1em; margin-bottom: 15px; }
+        .user-info-card .user-bio { color: var(--secondary-text-color); margin-bottom: 15px; white-space: pre-wrap; }
+        .edit-profile-button {
+            margin-top: 15px;
+            padding: 10px 20px;
+        }
+
+        /* Stats Section */
+        .profile-stats {
+            display: flex;
+            justify-content: space-around;
+            background-color: var(--container-bg-secondary);
+            padding: 20px;
+            border-radius: var(--border-radius-medium);
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-elevation-low);
+        }
+        .stat-item {
+            text-align: center;
+            cursor: pointer;
+        }
+        .stat-item:hover { color: var(--accent-color-primary); }
+        .stat-item .count { font-size: 1.8em; font-weight: bold; display: block; color: var(--text-color); }
+        .stat-item .label { font-size: 0.9em; color: var(--secondary-text-color); }
+
+        /* Sections for Lists and Reviews */
+        .profile-section {
+            background-color: var(--container-bg-secondary);
+            padding: 20px;
+            border-radius: var(--border-radius-medium);
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-elevation-low);
+        }
+        .profile-section h3 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            color: var(--accent-color-secondary);
+        }
+        .profile-item-list { list-style: none; padding: 0; }
+        .profile-item-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color-light, #333);
+            color: var(--text-color);
+        }
+        .profile-item-list li:last-child { border-bottom: none; }
+        .profile-item-list a { color: var(--accent-color-primary); text-decoration: none; }
+        .profile-item-list a:hover { text-decoration: underline; }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background-color: var(--container-bg, #1e1e1e);
+            margin: auto;
+            padding: 25px;
+            border-radius: var(--border-radius-large);
+            box-shadow: var(--shadow-elevation-high);
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+        .modal-content.photo-modal-content { max-width: 600px; text-align: center; }
+        .close-button {
+            color: var(--secondary-text-color, #aaa);
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover, .close-button:focus { color: var(--text-color); }
+        #enlarged-profile-photo {
+            max-width: 100%;
+            max-height: 70vh;
+            border-radius: var(--border-radius-medium);
+            margin-bottom: 15px;
+        }
+        #photo-edit-controls { margin-top: 15px; }
+        #photo-edit-controls input[type="file"], #photo-edit-controls input[type="url"] { margin-bottom: 10px; }
+
     </style>
 </head>
 <body>
-    <div class="profile-header">
+    <div class="page-header">
         <a href="index.html" style="text-decoration: none; color: var(--text-color, #e0e0e0); font-size: 1.2em;"><i class="fas fa-arrow-left"></i></a>
-        <h1>Editar Perfil</h1>
-        <button id="save-profile-button" class="save-button" disabled>Guardar</button>
+        <h1>Mi Perfil</h1>
+        <span>&nbsp;</span> <!-- Placeholder for right alignment if needed -->
     </div>
 
     <div class="profile-container">
-        <form id="profile-form" class="profile-form">
+        <div class="user-info-card">
             <div class="profile-photo-preview-container">
-                <img id="profile-photo-preview" src="img/placeholder-avatar.png" alt="Vista previa de foto" class="profile-photo-preview">
-                 <!-- Asegúrate de tener una imagen placeholder en img/placeholder-avatar.png -->
+                <img id="profile-photo-display" src="img/placeholder-avatar.png" alt="Foto de perfil" class="profile-photo-preview">
             </div>
+            <h2 id="profile-display-name">Cargando...</h2>
+            <p class="username" id="profile-username-display">@cargando...</p>
+            <p class="user-bio" id="profile-bio-display">Cargando biografía...</p>
+            <p id="profile-email-display" style="font-size:0.9em; color: var(--secondary-text-color); margin-bottom:10px;">cargando@email.com</p>
+            <button id="open-edit-profile-modal-button" class="button primary-button edit-profile-button">Editar Perfil</button>
+        </div>
 
-            <div class="form-group">
-                <label for="profile-photo-url">URL de Foto de Perfil</label>
-                <input type="url" id="profile-photo-url" name="photoUrl" class="form-input" placeholder="https://ejemplo.com/imagen.jpg">
+        <div class="profile-stats">
+            <div class="stat-item" id="followers-stat">
+                <span class="count" id="followers-count">0</span>
+                <span class="label">Seguidores</span>
             </div>
+            <div class="stat-item" id="following-stat">
+                <span class="count" id="following-count">0</span>
+                <span class="label">Siguiendo</span>
+            </div>
+        </div>
 
-            <div class="form-group">
-                <label for="profile-bio">Biografía</label>
-                <textarea id="profile-bio" name="bio" class="form-textarea" rows="4" placeholder="Cuéntanos algo sobre ti..."></textarea>
-            </div>
+        <div class="profile-section">
+            <h3>Mis Listas</h3>
+            <ul id="my-lists-ul" class="profile-item-list">
+                <li>Cargando listas...</li>
+            </ul>
+        </div>
 
-            <div class="form-group">
-                <label for="profile-dob">Fecha de Nacimiento</label>
-                <input type="date" id="profile-dob" name="dateOfBirth" class="form-input">
-            </div>
+        <div class="profile-section">
+            <h3>Mis Reseñas</h3>
+            <ul id="my-reviews-ul" class="profile-item-list">
+                <li>Cargando reseñas...</li>
+            </ul>
+        </div>
 
-            <div class="form-group">
-                <label for="profile-residence">Lugar de Residencia</label>
-                <input type="text" id="profile-residence" name="residence" class="form-input" placeholder="Ej: Madrid, España">
-            </div>
-
-            <div class="form-group">
-                <label>Nombre de Usuario</label>
-                <p id="profile-username" class="form-static-text">-</p>
-            </div>
-            <div class="form-group">
-                <label>Email</label>
-                <p id="profile-email" class="form-static-text">-</p>
-            </div>
-        </form>
         <div id="profile-message-area"></div>
+    </div>
+
+    <!-- Modal para Editar Datos del Perfil -->
+    <div id="edit-profile-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="close-edit-modal-button">&times;</span>
+            <h2>Editar Información</h2>
+            <form id="profile-edit-form" class="profile-form">
+                <div class="form-group">
+                    <label for="modal-profile-bio">Biografía</label>
+                    <textarea id="modal-profile-bio" name="bio" class="form-textarea" rows="4" placeholder="Cuéntanos algo sobre ti..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="modal-profile-dob">Fecha de Nacimiento</label>
+                    <input type="date" id="modal-profile-dob" name="dateOfBirth" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="modal-profile-residence">Lugar de Residencia</label>
+                    <input type="text" id="modal-profile-residence" name="residence" class="form-input" placeholder="Ej: Madrid, España">
+                </div>
+                <button type="submit" id="save-profile-button" class="save-button" disabled>Guardar Cambios</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Ver/Editar Foto de Perfil -->
+    <div id="photo-view-modal" class="modal">
+        <div class="modal-content photo-modal-content">
+            <span class="close-button" id="close-photo-modal-button">&times;</span>
+            <img id="enlarged-profile-photo" src="img/placeholder-avatar.png" alt="Foto de perfil ampliada">
+            <button id="open-photo-edit-button" class="button secondary-button">Cambiar Foto</button>
+            <div id="photo-edit-controls" style="display:none; margin-top: 20px;" class="profile-form">
+                <div class="form-group">
+                    <label for="modal-photo-file">Subir nueva foto:</label>
+                    <input type="file" id="modal-photo-file" name="photoFile" class="form-input" accept="image/*">
+                </div>
+                <p style="text-align: center; margin:10px 0; color: var(--secondary-text-color)">o</p>
+                <div class="form-group">
+                    <label for="modal-photo-url">Pegar URL de imagen:</label>
+                    <input type="url" id="modal-photo-url" name="photoUrl" class="form-input" placeholder="https://ejemplo.com/imagen.jpg">
+                </div>
+                <button id="save-new-photo-button" class="save-button">Guardar Foto</button>
+            </div>
+        </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -196,19 +351,42 @@
 
             const auth = firebase.auth();
             const db = firebase.firestore();
+            const storage = firebase.storage();
             let currentUser = null;
             let originalProfileData = {};
 
-            const profileForm = document.getElementById('profile-form');
+            // Elementos de la página principal del perfil
+            const profilePhotoDisplay = document.getElementById('profile-photo-display');
+            const displayNameDisplay = document.getElementById('profile-display-name');
+            const usernameDisplay = document.getElementById('profile-username-display');
+            const bioDisplay = document.getElementById('profile-bio-display');
+            const emailDisplay = document.getElementById('profile-email-display');
+            const followersCountDisplay = document.getElementById('followers-count');
+            const followingCountDisplay = document.getElementById('following-count');
+            const myListsUl = document.getElementById('my-lists-ul');
+            const myReviewsUl = document.getElementById('my-reviews-ul');
+            const openEditProfileModalButton = document.getElementById('open-edit-profile-modal-button');
+
+            // Elementos del Modal de Edición de Datos
+            const editProfileModal = document.getElementById('edit-profile-modal');
+            const profileEditForm = document.getElementById('profile-edit-form');
             const saveButton = document.getElementById('save-profile-button');
+            const closeEditModalButton = document.getElementById('close-edit-modal-button');
+            const modalBioInput = document.getElementById('modal-profile-bio');
+            const modalDobInput = document.getElementById('modal-profile-dob');
+            const modalResidenceInput = document.getElementById('modal-profile-residence');
+
+            // Elementos del Modal de Foto
+            const photoViewModal = document.getElementById('photo-view-modal');
+            const closePhotoModalButton = document.getElementById('close-photo-modal-button');
+            const enlargedProfilePhoto = document.getElementById('enlarged-profile-photo');
+            const openPhotoEditButton = document.getElementById('open-photo-edit-button');
+            const photoEditControls = document.getElementById('photo-edit-controls');
+            const modalPhotoFileInput = document.getElementById('modal-photo-file');
+            const modalPhotoUrlInput = document.getElementById('modal-photo-url');
+            const saveNewPhotoButton = document.getElementById('save-new-photo-button');
+
             const messageArea = document.getElementById('profile-message-area');
-            const photoUrlInput = document.getElementById('profile-photo-url');
-            const photoPreview = document.getElementById('profile-photo-preview');
-            const bioInput = document.getElementById('profile-bio');
-            const dobInput = document.getElementById('profile-dob');
-            const residenceInput = document.getElementById('profile-residence');
-            const usernameDisplay = document.getElementById('profile-username');
-            const emailDisplay = document.getElementById('profile-email');
 
             function displayMessage(message, isError = false) {
                 messageArea.textContent = message;
@@ -223,52 +401,105 @@
                 return date.toISOString().split('T')[0]; // YYYY-MM-DD
             }
 
-            function updatePhotoPreviewDisplay(url) {
-                photoPreview.src = url || 'img/placeholder-avatar.png'; // Fallback a placeholder
+            function updateProfilePhotoViews(url) {
+                const photoSrc = url || 'img/placeholder-avatar.png';
+                profilePhotoDisplay.src = photoSrc;
+                enlargedProfilePhoto.src = photoSrc;
             }
-            
-            photoUrlInput.addEventListener('input', () => {
-                updatePhotoPreviewDisplay(photoUrlInput.value);
-                checkChanges(); // Verificar cambios al modificar la URL
-            });
 
             async function loadUserProfile(user) {
-                usernameDisplay.textContent = user.displayName || 'N/A';
-                emailDisplay.textContent = user.email || 'N/A';
+                displayNameDisplay.textContent = user.displayName || 'Usuario';
+                emailDisplay.textContent = user.email || 'Email no disponible';
+                updateProfilePhotoViews(user.photoURL);
+
                 const userDocRef = db.collection('users').doc(user.uid);
                 try {
                     const docSnap = await userDocRef.get();
                     if (docSnap.exists()) {
                         originalProfileData = docSnap.data();
-                        bioInput.value = originalProfileData.bio || '';
-                        photoUrlInput.value = originalProfileData.photoUrl || '';
-                        updatePhotoPreviewDisplay(originalProfileData.photoUrl);
-                        dobInput.value = formatDateForInput(originalProfileData.dateOfBirth);
-                        residenceInput.value = originalProfileData.residence || '';
+                        usernameDisplay.textContent = `@${originalProfileData.username}` || '@usuario';
+                        bioDisplay.textContent = originalProfileData.bio || 'No hay biografía disponible.';
+                        updateProfilePhotoViews(originalProfileData.photoUrl); // Firestore data might be more up-to-date
+                        followersCountDisplay.textContent = originalProfileData.followersCount || 0;
+                        followingCountDisplay.textContent = originalProfileData.followingCount || 0;
+
+                        // Populate modal fields (for editing)
+                        modalBioInput.value = originalProfileData.bio || '';
+                        modalDobInput.value = formatDateForInput(originalProfileData.dateOfBirth);
+                        modalResidenceInput.value = originalProfileData.residence || '';
+                        modalPhotoUrlInput.value = originalProfileData.photoUrl || '';
+
                     } else {
-                        originalProfileData = { bio: '', photoUrl: user.photoURL || '', dateOfBirth: null, residence: '' };
-                         // Si no hay doc, inicializar con algunos datos de Auth si existen
-                        photoUrlInput.value = originalProfileData.photoUrl;
-                        updatePhotoPreviewDisplay(originalProfileData.photoUrl);
+                        // Initialize with some defaults if Firestore doc doesn't exist
+                        originalProfileData = { username: user.displayName, bio: '', photoUrl: user.photoURL, dateOfBirth: null, residence: '', followersCount: 0, followingCount: 0 };
+                        usernameDisplay.textContent = `@${user.displayName || 'usuario'}`;
+                        bioDisplay.textContent = 'No hay biografía disponible.';
+                        modalPhotoUrlInput.value = user.photoURL || '';
                         console.warn("Documento de perfil no encontrado, usando valores por defecto/Auth.");
                     }
                 } catch (error) {
                     console.error("Error cargando perfil:", error);
                     displayMessage("Error al cargar tu perfil.", true);
                 }
-                checkChanges(); // Estado inicial del botón
+                checkProfileDataChanges(); // Estado inicial del botón de guardar en modal
+                loadUserLists(user.uid);
+                loadUserReviews(user.uid);
             }
 
-            function checkChanges() {
+            async function loadUserLists(userId) {
+                myListsUl.innerHTML = '<li>Cargando listas...</li>';
+                try {
+                    const querySnapshot = await db.collection('lists').where('ownerId', '==', userId).orderBy('createdAt', 'desc').limit(10).get();
+                    if (querySnapshot.empty) {
+                        myListsUl.innerHTML = '<li>Aún no has creado ninguna lista.</li>';
+                        return;
+                    }
+                    myListsUl.innerHTML = ''; // Clear loading
+                    querySnapshot.forEach(doc => {
+                        const list = doc.data();
+                        const listItem = document.createElement('li');
+                        listItem.innerHTML = `<a href="list-view.html?listId=${doc.id}">${list.name || 'Lista sin nombre'}</a>`;
+                        myListsUl.appendChild(listItem);
+                    });
+                } catch (error) {
+                    console.error("Error cargando listas:", error);
+                    myListsUl.innerHTML = '<li>Error al cargar tus listas.</li>';
+                }
+            }
+
+            async function loadUserReviews(userId) {
+                myReviewsUl.innerHTML = '<li>Cargando reseñas...</li>';
+                try {
+                    // Asumiendo que las reseñas están en una colección 'reviews' y tienen un campo 'userId'
+                    const querySnapshot = await db.collectionGroup('reviews').where('userId', '==', userId).orderBy('createdAt', 'desc').limit(10).get();
+                    if (querySnapshot.empty) {
+                        myReviewsUl.innerHTML = '<li>Aún no has escrito ninguna reseña.</li>';
+                        return;
+                    }
+                    myReviewsUl.innerHTML = ''; // Clear loading
+                    querySnapshot.forEach(doc => {
+                        const review = doc.data();
+                        const reviewItem = document.createElement('li');
+                        // Idealmente, el enlace llevaría a la reseña específica o al elemento reseñado
+                        reviewItem.innerHTML = `<a href="detail-view.html?reviewId=${doc.id}&listId=${review.listId}">${review.restaurantName || review.itemName || 'Reseña sin título'}</a> (Lista: ${review.listName || 'N/A'})`;
+                        myReviewsUl.appendChild(reviewItem);
+                    });
+                } catch (error) {
+                    console.error("Error cargando reseñas:", error);
+                    myReviewsUl.innerHTML = '<li>Error al cargar tus reseñas.</li>';
+                }
+            }
+
+
+            function checkProfileDataChanges() {
                 let hasChanged = false;
-                if (bioInput.value.trim() !== (originalProfileData.bio || '')) hasChanged = true;
-                if (photoUrlInput.value.trim() !== (originalProfileData.photoUrl || '')) hasChanged = true;
-                
-                const formDateString = dobInput.value;
+                if (modalBioInput.value.trim() !== (originalProfileData.bio || '')) hasChanged = true;
+
+                const formDateString = modalDobInput.value;
                 const originalDateString = formatDateForInput(originalProfileData.dateOfBirth);
                 if (formDateString !== originalDateString) hasChanged = true;
 
-                if (residenceInput.value.trim() !== (originalProfileData.residence || '')) hasChanged = true;
+                if (modalResidenceInput.value.trim() !== (originalProfileData.residence || '')) hasChanged = true;
 
                 saveButton.disabled = !hasChanged;
                 if (hasChanged) {
@@ -279,53 +510,118 @@
                 return hasChanged;
             }
 
-            async function saveProfileChanges() {
-                if (!currentUser || !checkChanges()) return;
+            async function saveProfileDataChanges() {
+                if (!currentUser || !checkProfileDataChanges()) return;
 
                 saveButton.disabled = true;
                 saveButton.textContent = 'Guardando...';
 
                 const updatedData = {
-                    bio: bioInput.value.trim(),
-                    photoUrl: photoUrlInput.value.trim(),
-                    residence: residenceInput.value.trim(),
-                    dateOfBirth: dobInput.value ? firebase.firestore.Timestamp.fromDate(new Date(dobInput.value)) : null
+                    bio: modalBioInput.value.trim(),
+                    residence: modalResidenceInput.value.trim(),
+                    dateOfBirth: modalDobInput.value ? firebase.firestore.Timestamp.fromDate(new Date(modalDobInput.value)) : null
                 };
 
                 try {
                     const userDocRef = db.collection('users').doc(currentUser.uid);
                     await userDocRef.update(updatedData);
 
-                    if (currentUser.photoURL !== updatedData.photoUrl || currentUser.displayName !== originalProfileData.username /* si username fuera editable */) {
-                         // Actualizar photoURL en Firebase Auth si cambió
-                        const authProfileUpdates = {};
-                        if (currentUser.photoURL !== updatedData.photoUrl) {
-                            authProfileUpdates.photoURL = updatedData.photoUrl;
-                        }
-                        // Si el username fuera editable y diferente al displayName de Auth, se añadiría aquí.
-                        // if (currentUser.displayName !== updatedData.username) {
-                        //    authProfileUpdates.displayName = updatedData.username;
-                        // }
-                        if (Object.keys(authProfileUpdates).length > 0) {
-                            await currentUser.updateProfile(authProfileUpdates);
-                        }
-                    }
-                    
+                    // Actualizar la UI y los datos originales
                     originalProfileData = { ...originalProfileData, ...updatedData };
+                    bioDisplay.textContent = updatedData.bio || 'No hay biografía disponible.';
+                    // Aquí podrías también actualizar la visualización de fecha de nacimiento y residencia si se muestran en la página principal.
+
                     displayMessage("Perfil actualizado con éxito.", false);
+                    editProfileModal.classList.remove('active');
                 } catch (error) {
                     console.error("Error guardando perfil:", error);
                     displayMessage("Error al guardar: " + error.message, true);
                 } finally {
                     saveButton.textContent = 'Guardar';
-                    checkChanges(); 
+                    checkProfileDataChanges();
                 }
             }
 
-            ['input', 'change'].forEach(eventType => {
-                profileForm.addEventListener(eventType, checkChanges);
+            // Event Listeners para el modal de edición de datos
+            openEditProfileModalButton.addEventListener('click', () => {
+                // Asegurarse de que el modal tiene los datos más recientes antes de mostrar
+                modalBioInput.value = originalProfileData.bio || '';
+                modalDobInput.value = formatDateForInput(originalProfileData.dateOfBirth);
+                modalResidenceInput.value = originalProfileData.residence || '';
+                checkProfileDataChanges(); // Resetear estado del botón guardar
+                editProfileModal.classList.add('active');
             });
-            saveButton.addEventListener('click', saveProfileChanges);
+            closeEditModalButton.addEventListener('click', () => editProfileModal.classList.remove('active'));
+            profileEditForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                saveProfileDataChanges();
+            });
+            [modalBioInput, modalDobInput, modalResidenceInput].forEach(input => {
+                input.addEventListener('input', checkProfileDataChanges);
+            });
+
+            // Event Listeners para el modal de foto
+            profilePhotoDisplay.addEventListener('click', () => {
+                updateProfilePhotoViews(originalProfileData.photoUrl || currentUser.photoURL);
+                photoEditControls.style.display = 'none'; // Ocultar controles de edición al abrir
+                modalPhotoFileInput.value = ''; // Limpiar input file
+                modalPhotoUrlInput.value = originalProfileData.photoUrl || ''; // Rellenar con URL actual
+                photoViewModal.classList.add('active');
+            });
+            closePhotoModalButton.addEventListener('click', () => photoViewModal.classList.remove('active'));
+            openPhotoEditButton.addEventListener('click', () => {
+                photoEditControls.style.display = 'block';
+            });
+
+            saveNewPhotoButton.addEventListener('click', async () => {
+                if (!currentUser) return;
+                saveNewPhotoButton.disabled = true;
+                saveNewPhotoButton.textContent = 'Guardando...';
+
+                const file = modalPhotoFileInput.files[0];
+                const url = modalPhotoUrlInput.value.trim();
+                let newPhotoUrl = originalProfileData.photoUrl;
+
+                try {
+                    if (file) {
+                        const filePath = `profileImages/${currentUser.uid}/${Date.now()}_${file.name}`;
+                        const fileRef = storage.ref(filePath);
+                        const uploadTask = await fileRef.put(file);
+                        newPhotoUrl = await uploadTask.ref.getDownloadURL();
+                    } else if (url && url !== originalProfileData.photoUrl) {
+                        newPhotoUrl = url;
+                    }
+
+                    if (newPhotoUrl && newPhotoUrl !== (originalProfileData.photoUrl || currentUser.photoURL) ) {
+                        await db.collection('users').doc(currentUser.uid).update({ photoUrl: newPhotoUrl });
+                        await currentUser.updateProfile({ photoURL: newPhotoUrl });
+                        originalProfileData.photoUrl = newPhotoUrl;
+                        updateProfilePhotoViews(newPhotoUrl);
+                        displayMessage("Foto de perfil actualizada.", false);
+                    }
+                    photoViewModal.classList.remove('active');
+                } catch (error) {
+                    console.error("Error actualizando foto:", error);
+                    displayMessage("Error al actualizar la foto: " + error.message, true);
+                } finally {
+                    saveNewPhotoButton.disabled = false;
+                    saveNewPhotoButton.textContent = 'Guardar Foto';
+                }
+            });
+
+            // Event listeners para estadísticas (funcionalidad no disponible)
+            document.getElementById('followers-stat').addEventListener('click', () => {
+                alert('Próximamente: Ver lista de seguidores.');
+            });
+            document.getElementById('following-stat').addEventListener('click', () => {
+                alert('Próximamente: Ver lista de usuarios seguidos.');
+            });
+
+            // Cerrar modales al hacer clic fuera del contenido
+            window.addEventListener('click', (event) => {
+                if (event.target === editProfileModal) editProfileModal.classList.remove('active');
+                if (event.target === photoViewModal) photoViewModal.classList.remove('active');
+            });
 
             auth.onAuthStateChanged(user => {
                 if (user) {
@@ -333,7 +629,7 @@
                     loadUserProfile(user);
                 } else {
                     currentUser = null;
-                    window.location.href = 'auth.html'; 
+                    window.location.href = 'auth.html';
                 }
             });
         });
