@@ -698,7 +698,7 @@ body.light-theme .edit-button:hover {
   /* position: fixed, top, right, y z-index se eliminan para permitir que este botón
      sea un elemento flex dentro de .header-actions-container.
      Su estilo visual principal debería provenir de .header-action-button si se usan juntos. */
-     background-color: var(--container-bg); /* Estas propiedades podrían ser redundantes si .header-action-button siempre está aplicado */
+    background-color: var(--container-bg); /* Estas propiedades podrían ser redundantes si .header-action-button siempre está aplicado */
   color: var(--text-color); /* Usa el color de texto del tema actual */
   border: 1px solid var(--input-border); /* Usa el color de borde de input del tema actual */
   border-radius: 50%;
@@ -1114,6 +1114,122 @@ body.light-theme .header-action-button:hover {
     }
 }
 
+
+/* --- Estilos para la página de perfil --- */
+.profile-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    padding-top: 100px; /* Espacio para el logo fijo */
+}
+
+.profile-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 20px;
+    background: var(--container-bg);
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.profile-picture {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--icon-placeholder-bg);
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.profile-picture i {
+    font-size: 80px;
+    color: var(--accent-color-primary);
+}
+
+.profile-header h2 {
+    margin: 10px 0 5px;
+    color: var(--title-color);
+    font-size: 1.8em;
+}
+
+.profile-header p {
+    color: var(--secondary-text-color);
+    margin: 0;
+    font-size: 1.1em;
+}
+
+.profile-section {
+    background: var(--container-bg);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.profile-section h3 {
+    color: var(--accent-color-primary);
+    font-size: 1.4em;
+    margin-top: 0;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--input-border);
+}
+
+.profile-content {
+    margin-top: 15px;
+}
+
+.profile-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.profile-list li {
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.profile-list li:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Ajustes responsivos */
+@media (max-width: 768px) {
+    .profile-container {
+        padding: 15px;
+        padding-top: 90px;
+    }
+    
+    .profile-header {
+        padding: 15px;
+    }
+    
+    .profile-picture {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .profile-picture i {
+        font-size: 60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .profile-header h2 {
+        font-size: 1.5em;
+    }
+    
+    .profile-section {
+        padding: 15px;
+    }
+}
 
 /* --- User Profile Page Styles --- */
 #profile-picture-placeholder {

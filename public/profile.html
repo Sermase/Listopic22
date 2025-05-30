@@ -34,41 +34,37 @@
         </button>
     </div>
     
-    <main>
-        <div class="app-logo-container">
-            <a href="Index.html" title="Ir a la página de inicio">
-                <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo"> <!-- ¡Asegúrate de que la ruta src sea correcta! -->
-            </a>
+    <main class="profile-container">
         <div class="container">
-            <!--
-            <h1 class="brand-title section-title">User Profile</h1>
-            -->
-            <div id="profile-picture-placeholder" style="text-align: center; margin-bottom: 20px;">
-                <!-- Placeholder for profile picture or icon -->
-                 <i class="fas fa-user-circle" style="font-size: 80px; color: var(--accent-color-primary);"></i>
-                <!-- <img src="" alt="Profile Picture" style="width: 100px; height: 100px; border-radius: 50%; display: none;"> -->
+            <div class="app-logo-container">
+                <a href="Index.html" title="Ir a la página de inicio">
+                    <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo">
+                </a>
+            </div>
+            
+            <div class="profile-header">
+                <div id="profile-picture-placeholder" class="profile-picture">
+                    <i class="fas fa-user-circle"></i>
+                </div>
+                <h2 id="profile-display-name">Loading...</h2>
+                <p id="profile-email">Loading...</p>
             </div>
 
-            <h2 id="profile-display-name" style="text-align: center;">Loading...</h2>
-            <p id="profile-email" style="text-align: center; margin-bottom: 30px;">Loading...</p>
-
-            <div id="profile-my-lists" style="margin-bottom: 30px;">
-                <h3>My Lists</h3>
-                <ul id="my-lists-ul">
-                    <!-- Lists will be populated here by JavaScript -->
-                    <li>Lists loading...</li>
-                </ul>
-            </div>
-
-            <div id="profile-my-reviews" style="margin-bottom: 30px;">
-                <h3>My Reviews</h3>
-                <div id="my-reviews-container">
-                    <!-- Reviews will be populated here by JavaScript -->
-                    <p>Reviews loading...</p>
+            <div class="profile-section">
+                <h3>Mis Listas</h3>
+                <div class="profile-content">
+                    <ul id="my-lists-ul" class="profile-list">
+                        <li>Cargando listas...</li>
+                    </ul>
                 </div>
             </div>
 
-            <!-- Redundant logout button removed from here -->
+            <div class="profile-section">
+                <h3>Mis Reseñas</h3>
+                <div id="my-reviews-container" class="profile-content">
+                    <p>Cargando reseñas...</p>
+                </div>
+            </div>
         </div>
     </main>
 
