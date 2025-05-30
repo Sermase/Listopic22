@@ -543,7 +543,7 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
     .detail-content { flex-direction: column; }
     .criterion-item input[name="criteria_title[]"] { flex-basis: 100%; }
     .criterion-item input[name="criteria_label_left[]"], .criterion-item input[name="criteria_label_right[]"] { flex-basis: calc(50% - 1rem); }
-    
+
     /* Logo adjustments for medium screens */
     .app-logo-container {
         top: 10px;
@@ -639,7 +639,7 @@ body.light-theme .search-input::placeholder {
 
 /* UPDATED: Specific styles for list circles in light theme for better icon contrast */
 body.light-theme #list-circles-ul a {
-    background-color: rgba(0,0,0,0.04); 
+    background-color: rgba(0,0,0,0.04);
     border: 1px solid rgba(0,0,0,0.08);
 }
 body.light-theme #list-circles-ul a:hover {
@@ -1069,7 +1069,7 @@ body.light-theme .header-action-button {
 body.light-theme .header-action-button:hover {
   background-color: var(--accent-color-primary); /* Uses light theme accent */
   /* Ensure main-button-text for light theme is set correctly for light theme accent bg */
-  color: var(--main-button-text); 
+  color: var(--main-button-text);
   border-color: var(--accent-color-primary);
 }
 
@@ -1225,13 +1225,13 @@ body.light-theme #profile-picture-placeholder img {
 }
 
 
-body.light-theme #profile-my-lists, 
+body.light-theme #profile-my-lists,
 body.light-theme #profile-my-reviews {
     background-color: rgba(0,0,0,0.03); /* Very light background for sections */
     border: 1px solid var(--input-border);
 }
 
-body.light-theme #profile-my-lists h3, 
+body.light-theme #profile-my-lists h3,
 body.light-theme #profile-my-reviews h3 {
     border-bottom: 1px solid var(--input-border); /* Uses light theme input border */
 }
