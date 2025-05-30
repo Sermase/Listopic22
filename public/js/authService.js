@@ -4,7 +4,7 @@ ListopicApp.authService = (() => {
     // Dependencies:
     // ListopicApp.services.auth (Firebase auth instance)
     // DOM elements: 'userProfileBtn', 'userMenuDropdown', 'logoutBtnUserMenu', 'userInfoDisplay', 'logout-button'
-/*
+
     function init() {
         if (!ListopicApp.services || !ListopicApp.services.auth) {
             console.error("authService.init: Firebase auth service not available. Ensure firebaseService.js is loaded and initialized before authService.js");
@@ -115,4 +115,4 @@ ListopicApp.authService = (() => {
     };
 })();
 
-*/
+
