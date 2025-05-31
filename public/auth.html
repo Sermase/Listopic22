@@ -283,7 +283,12 @@
                     // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
                 } catch (error) {
                     console.error('Error en login:', error);
-                    displayMessage(getFirebaseErrorMessage(error), true);
+                    // Usar showNotification para consistencia con otros manejadores de error
+                    if (window.ListopicApp && window.ListopicApp.services && window.ListopicApp.services.showNotification) {
+                        ListopicApp.services.showNotification(getFirebaseErrorMessage(error), 'error');
+                    } else {
+                        displayMessage(getFirebaseErrorMessage(error), true); // Fallback si el servicio no está listo
+                    }
                 } finally {
                     submitButton.disabled = false;
                     submitButton.textContent = 'Entrar';
@@ -351,23 +356,6 @@
                     });
             });
             
-            // This onAuthStateChanged is specific to auth.html to redirect upon successful login/registration *on this page*.
-            // The global onAuthStateChanged in authService.js handles other cases (e.g., already logged in when visiting auth.html).
-            authInstance.onAuthStateChanged((user) => {
-                if (user) {
-                    // Check if ListopicApp and its services are loaded, which indicates main.js might be running or has run
-                    if (window.ListopicApp && window.ListopicApp.services) {
-                         // If main.js's authService is expected to handle redirection, this might be redundant
-                         // or could be a fallback. For clarity, let authService.js handle global redirection.
-                         console.log('auth.html (inline script) onAuthStateChanged: User logged in. Global authService should redirect.');
-                    } else {
-                        // Fallback if ListopicApp/main.js hasn't fully initialized redirection logic yet
-                        console.log('auth.html (inline script) onAuthStateChanged: User logged in, ListopicApp not fully ready, redirecting from here.');
-                        window.location.href = 'Index.html';
-                    }
-                }
-            });
-
             function getFirebaseErrorMessage(error) {
                 switch (error.code) {
                     case 'auth/invalid-email':
