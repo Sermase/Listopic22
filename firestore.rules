@@ -1,20 +1,53 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write access to users' own data (example)
-    // Assumes you have a collection 'users' where each document ID is a user's UID
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Reglas para la colección 'users'
+    match /users/{userId} { // <-- CAMBIO CLAVE: Sin /{document=**} para aplicar al documento del usuario
+        // Un usuario autenticado puede leer cualquier perfil (ajusta si quieres más privacidad)
+      allow read: if request.auth != null;
+      // Un usuario puede crear su propio documento de perfil.
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Un usuario puede actualizar y borrar su propio documento de perfil.
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
+      // Considera si quieres permitir la eliminación y bajo qué condiciones
+      // allow delete: if request.auth != null && request.auth.uid == userId;
+
+      // Reglas para la subcolección 'following' dentro de cada usuario
+      match /following/{followId} {
+        // Cualquiera autenticado puede leer a quién sigue un usuario (ajusta si es necesario)
+        allow read: if request.auth != null;
+        // Solo el propietario del perfil puede añadir o quitar seguimientos
+        allow create, delete: if request.auth != null && request.auth.uid == userId;
+        // allow update: if request.auth != null && request.auth.uid == userId; // Si permites actualizar seguimientos
+      }
     }
 
-    // Allow read/write access to shared lists (example, adjust path as needed)
-    // Assumes you have a collection 'lists'
-    // This rule allows any authenticated user to read/write any list.
-    // You might want to refine this to allow only specific users to write to specific lists.
-    match /lists/{listId}/{document=**} {
-      allow read, write: if request.auth != null;
+    // Reglas para la colección 'lists'
+    match /lists/{listId} { // <-- CAMBIO CLAVE: Sin /{document=**} para aplicar a los documentos de lista
+      // Cualquiera puede leer las listas (o solo autenticados: if request.auth != null;)
+      allow read: if true;
+      // Solo un usuario autenticado puede crear una lista si el ownerId coincide con su uid
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      // Solo el propietario de la lista puede actualizarla o borrarla
+      allow update, delete: if request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.ownerId == request.auth.uid;
+
+      // Reglas para la subcolección 'reviews' dentro de 'lists'
+      match /reviews/{reviewId} {
+         allow read: if true; // O si request.auth != null;
+         allow create: if request.auth != null && request.resource.data.userId == request.auth.uid && request.resource.data.listId == listId;
+         allow update, delete: if request.auth != null && get(/databases/$(database)/documents/lists/$(listId)/reviews/$(reviewId)).data.userId == request.auth.uid;
+      }
     }
 
-    // Add other rules for other collections as needed
+    // Reglas para la colección 'badges' (ejemplo: solo lectura pública)
+    match /badges/{badgeId} {
+      allow read: if true;
+      // Generalmente, los badges se gestionan desde el backend o la consola.
+      // Si los usuarios NO deben modificarlos desde el cliente, la regla más segura es:
+      allow write: if false;
+      // Si por alguna razón específica un usuario autenticado pudiera escribir en un badge si el ID del badge es su UID (muy inusual):
+      // allow write: if request.auth != null && request.auth.uid == badgeId;
+    }
   }
 }
+

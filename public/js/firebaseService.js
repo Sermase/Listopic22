@@ -12,6 +12,59 @@ ListopicApp.services = (() => {
     const storage = firebase.storage();
     const db = firebase.firestore();
 
+    // Función para mostrar notificaciones
+    function showNotification(message, type = 'info') {
+        let notificationContainer = document.getElementById('notification-container');
+        if (!notificationContainer) {
+            notificationContainer = document.createElement('div');
+            notificationContainer.id = 'notification-container';
+            notificationContainer.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            `;
+            document.body.appendChild(notificationContainer);
+        }
+
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`; // Puedes definir estas clases en style.css
+        notification.style.cssText = `
+            padding: 15px 25px;
+            border-radius: 4px;
+            color: white;
+            background-color: ${type === 'error' ? 'var(--danger-color, #f44336)' : type === 'success' ? 'var(--accent-color-tertiary, #4CAF50)' : 'var(--accent-color-secondary, #2196F3)'};
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideInNotification 0.5s forwards, fadeOutNotification 0.5s 4.5s forwards;
+        `;
+        
+        notification.textContent = message;
+        notificationContainer.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+            if (notificationContainer.children.length === 0) {
+                notificationContainer.remove();
+            }
+        }, 5000); // Tiempo total antes de remover el elemento
+    }
+
+    // Agregar estilos para las animaciones de notificación (solo una vez)
+    if (!document.getElementById('notification-animation-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-animation-styles';
+        style.textContent = `
+            @keyframes slideInNotification { to { transform: translateX(0); opacity: 1; } }
+            @keyframes fadeOutNotification { to { transform: translateX(100%); opacity: 0; } }
+        `;
+        document.head.appendChild(style);
+    }
+
     // Function to get lists by user ID
     const getListsByUserId = async (userId) => {
         if (!userId) {
@@ -56,11 +109,47 @@ ListopicApp.services = (() => {
         }
     };
 
+    // Función para crear usuario en Auth y Firestore
+    const createUserInAuthAndFirestore = async (email, password, username) => {
+        // 1. Crear usuario en Firebase Auth
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+
+        // 2. Actualizar perfil con el nombre de usuario
+        await user.updateProfile({
+            displayName: username
+        });
+
+        // 3. Crear documento en Firestore con todos los campos deseados
+        const newUserDocument = {
+            username: username,
+            email: email,
+            bio: "", // Valor inicial
+            photoUrl: user.photoURL || "", // Tomar de Auth si existe, sino vacío
+            userType: 'basico', // Valor inicial por defecto
+            followersCount: 0, // Valor inicial
+            followingCount: 0, // Valor inicial
+            badges: [], // Array vacío inicialmente
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp del servidor
+            dateOfBirth: null, // Nuevo campo, se inicializa como null
+            residence: ""      // Nuevo campo, se inicializa vacío
+        };
+
+        // 4. Guardar en Firestore
+        await db.collection('users').doc(user.uid).set(newUserDocument);
+        
+        // 5. Devolver el user para confirmación
+        return user;
+    };
+
+
     return {
         auth: auth,
         storage: storage,
         db: db,
         getListsByUserId: getListsByUserId,
-        getReviewsByUserId: getReviewsByUserId
+        getReviewsByUserId: getReviewsByUserId,
+        createUserInAuthAndFirestore: createUserInAuthAndFirestore,
+        showNotification: showNotification
     };
 })();
