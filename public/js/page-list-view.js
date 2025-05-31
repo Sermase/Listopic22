@@ -59,10 +59,24 @@ ListopicApp.pageListView = (() => {
                     editListLink.href = `list-form.html?editListId=${state.currentListId}`;
                 }
 
+                console.log('Fetching from URL:', `${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`);
                 fetch(`${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`)
-                    .then(res => {
-                        if (!res.ok) throw new Error(`Error HTTP al cargar reseñas agrupadas: ${res.statusText}`);
-                        return res.json();
+                    .then(async res => {
+                        const responseText = await res.text();
+                        console.log('Response status:', res.status, res.statusText);
+                        console.log('Response headers:', [...res.headers.entries()]);
+                        console.log('Response text:', responseText);
+                        
+                        if (!res.ok) {
+                            throw new Error(`HTTP error! status: ${res.status} - ${responseText}`);
+                        }
+                        
+                        try {
+                            return JSON.parse(responseText);
+                        } catch (e) {
+                            console.error('Failed to parse JSON:', e);
+                            throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}...`);
+                        }
                     })
                     .then(groupedDataResponse => {
                         listTitleElement.textContent = groupedDataResponse.listName || "Ranking Agrupado";
