@@ -35,9 +35,10 @@ ListopicApp.pageProfile = {
         this.elements.email = document.getElementById('profile-email');
         this.elements.myListsUl = document.getElementById('my-lists-ul');
         this.elements.myReviewsContainer = document.getElementById('my-reviews-container');
-        this.elements.logoutButton = document.getElementById('logout-button');
-        this.elements.userMenuLogoutButton = document.getElementById('user-menu-logout-button');
+        // this.elements.logoutButton = document.getElementById('logout-button'); // This ID was for a removed button
+        // this.elements.userMenuLogoutButton = document.getElementById('user-menu-logout-button'); // This ID is from the old profile.html header menu
 
+        // The logout button in the standardized header is #logoutBtnUserMenu and should be handled by a global listener in main.js or authService.js
 
         ListopicApp.authService.onAuthStateChangedPromise()
             .then(user => {
@@ -69,19 +70,8 @@ ListopicApp.pageProfile = {
             });
         }
 
-        // Also add listener to the user menu logout button if it exists on this page
-        if (this.elements.userMenuLogoutButton) {
-             this.elements.userMenuLogoutButton.addEventListener('click', () => {
-                ListopicApp.authService.logoutUser()
-                .then(() => {
-                    // Redirect is handled by onAuthStateChanged in main.js or authService
-                })
-                .catch(error => {
-                     ListopicApp.uiUtils.showFeedback(`Logout failed: ${error.message}`, 'error', 5000);
-                });
-            });
-        }
-
+        // Removed event listener for 'user-menu-logout-button' as it's no longer the correct ID
+        // and logout from the header menu should be handled globally.
 
         // Initial placeholder messages
         if (this.elements.myListsUl) {
@@ -117,8 +107,9 @@ ListopicApp.pageProfile = {
             if (iconElement) iconElement.style.display = 'none'; // Hide icon if image is shown
         } else {
             if (iconElement) iconElement.style.display = 'block'; // Show icon
-            let imgElement = this.elements.profilePicturePlaceholder.querySelector('img');
-            if (imgElement) imgElement.style.display = 'none'; // Hide image placeholder if no photoURL
+            // Be specific about hiding only the dynamically added profile image if no photoURL
+            const dynamicImgElement = this.elements.profilePicturePlaceholder.querySelector('img.profile-image-dynamic');
+            if (dynamicImgElement) dynamicImgElement.style.display = 'none';
         }
     },
 

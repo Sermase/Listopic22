@@ -114,5 +114,3 @@ ListopicApp.authService = (() => {
         init
     };
 })();
-
-

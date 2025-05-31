@@ -91,11 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ListopicApp.pageAuth && ListopicApp.pageAuth.init) {
             ListopicApp.pageAuth.init();
         }
-    } else if (pagePath.includes('profile.html')) {
-        // Inicializar la lógica específica de la página de perfil
-        if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
-            ListopicApp.pageProfile.init();
-        }
     } else {
         console.warn("MAIN.JS: No se detectó una página conocida para inicializar lógica específica. Path:", pagePath);
     }
