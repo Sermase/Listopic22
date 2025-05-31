@@ -61,8 +61,19 @@ ListopicApp.pageListView = (() => {
 
                 console.log('Fetching from URL:', `${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`);
                 
-                // Get the current user's ID token and make the fetch request
-                auth.currentUser.getIdToken()
+                // Ensure auth is initialized and get the current user's ID token
+                if (!ListopicApp.authService) {
+                    throw new Error('Auth service not available');
+                }
+
+                // Wait for auth to be initialized and get the current user
+                return ListopicApp.authService.onAuthStateChangedPromise()
+                    .then(user => {
+                        if (!user) {
+                            throw new Error('No user is currently signed in');
+                        }
+                        return user.getIdToken();
+                    })
                     .then(idToken => {
                         return fetch(`${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`, {
                             headers: {
