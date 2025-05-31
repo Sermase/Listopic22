@@ -246,29 +246,45 @@
     </style>
 </head>
 <body>
-    <div class="page-header">
-        <a href="index.html" style="text-decoration: none; color: var(--text-color, #e0e0e0); font-size: 1.2em;"><i class="fas fa-arrow-left"></i></a>
-        <h1>Mi Perfil</h1>
-        <span>&nbsp;</span> <!-- Placeholder for right alignment if needed -->
-    </div>
 
-    <div class="profile-container">
-        <div class="user-info-card">
-            <div class="profile-photo-preview-container">
-                <img id="profile-photo-display" src="img/placeholder-avatar.png" alt="Foto de perfil" class="profile-photo-preview">
-            </div>
-            <h2 id="profile-display-name">Cargando...</h2>
-            <p class="username" id="profile-username-display">@cargando...</p>
-            <p class="user-bio" id="profile-bio-display">Cargando biografía...</p>
-            <p id="profile-email-display" style="font-size:0.9em; color: var(--secondary-text-color); margin-bottom:10px;">cargando@email.com</p>
-            <button id="open-edit-profile-modal-button" class="button primary-button edit-profile-button">Editar Perfil</button>
+    <div class="app-logo-container">
+    <a href="Index.html" title="Ir a la página de inicio">
+        <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo">
+    </a>
+</div>
+
+<div class="header-actions-container">
+    <button id="search-button" class="header-action-button" aria-label="Search">
+        <i class="fas fa-search"></i>
+    </button>
+    <div class="user-profile-menu-container">
+        <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
+            <i class="fas fa-user-circle"></i>
+        </button>
+        <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
+            <a href="profile.html" role="menuitem">Perfil</a>
+            <a href="profile.html#profile-email" role="menuitem">Datos</a>
+            <a href="profile.html#profile-my-lists" role="menuitem">Listas</a>
+            <a href="profile.html#profile-my-reviews" role="menuitem">Reviews</a>
+            <hr class="user-menu-divider">
+            <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
         </div>
+    </div>
+    <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
+        <i class="fas fa-moon"></i>
+    </button>
+</div>
 
-        <div class="profile-stats">
-            <div class="stat-item" id="followers-stat">
-                <span class="count" id="followers-count">0</span>
-                <span class="label">Seguidores</span>
-            </div>
+    <main>
+        <div class="container profile-page-container">
+            <h1 class="brand-title section-title">User Profile</h1>
+
+            <div id="profile-picture-placeholder" style="text-align: center; margin-bottom: 20px;">
+                <!-- Placeholder for profile picture or icon -->
+                 <i class="fas fa-user-circle" style="font-size: 80px; color: var(--accent-color-primary);"></i>
+                <!-- <img src="" alt="Profile Picture" style="width: 100px; height: 100px; border-radius: 50%; display: none;"> -->
+
+          </div>
             <div class="stat-item" id="following-stat">
                 <span class="count" id="following-count">0</span>
                 <span class="label">Siguiendo</span>
@@ -334,6 +350,8 @@
                 <button id="save-new-photo-button" class="save-button">Guardar Foto</button>
             </div>
         </div>
+
+
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -634,5 +652,6 @@
             });
         });
     </script>
+
 </body>
 </html>

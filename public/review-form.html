@@ -20,14 +20,35 @@
 <body>
     <div class="app-logo-container">
     <a href="Index.html" title="Ir a la página de inicio">
-        <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo"> <!-- ¡Asegúrate de que la ruta src sea correcta! -->
+        <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo">
     </a>
-</div> <!-- Cierre del app-logo-container que faltaba o estaba mal ubicado -->
+</div>
+
+<div class="header-actions-container">
+    <button id="search-button" class="header-action-button" aria-label="Search">
+        <i class="fas fa-search"></i>
+    </button>
+    <div class="user-profile-menu-container">
+        <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
+            <i class="fas fa-user-circle"></i>
+        </button>
+        <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
+            <a href="profile.html" role="menuitem">Perfil</a>
+            <a href="profile.html#profile-email" role="menuitem">Datos</a>
+            <a href="profile.html#profile-my-lists" role="menuitem">Listas</a>
+            <a href="profile.html#profile-my-reviews" role="menuitem">Reviews</a>
+            <hr class="user-menu-divider">
+            <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
+        </div>
+    </div>
+    <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
+        <i class="fas fa-moon"></i>
+    </button>
+</div>
+
     <main>
         <div class="container form-container">
-                <button id="theme-toggle-button" class="theme-toggle-button" title="Cambiar tema">
-                    <i class="fas fa-moon"></i> <!-- Icono inicial, cambiará con JS -->
-                </button>
+            <!-- Removed theme-toggle-button from here -->
             <a href="list-view.html" class="back-button">← Cancelar y Volver al Ranking</a> <!-- JS will update href -->
             <h2>Añadir Nueva Reseña</h2>
             <form id="review-form" action="#" method="POST">

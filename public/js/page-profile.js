@@ -25,7 +25,7 @@ ListopicApp.pageProfile = {
         // </div>
         // We'll need to adjust the HTML or create these elements if they don't exist.
         // For now, directly get the planned icon from profile.html
-        this.elements.profilePictureIcon = this.elements.profilePicturePlaceholder.querySelector('i'); 
+        this.elements.profilePictureIcon = this.elements.profilePicturePlaceholder.querySelector('i');
         // Let's add an img tag dynamically for now if needed, or ensure it's in the HTML.
         // For now, let's assume an img tag will be dynamically created or use one if present.
         // To simplify, the HTML has a placeholder icon. We'll hide it and show an img if photoURL exists.
@@ -68,7 +68,7 @@ ListopicApp.pageProfile = {
                     });
             });
         }
-        
+
         // Also add listener to the user menu logout button if it exists on this page
         if (this.elements.userMenuLogoutButton) {
              this.elements.userMenuLogoutButton.addEventListener('click', () => {
