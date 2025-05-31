@@ -60,7 +60,16 @@ ListopicApp.pageListView = (() => {
                 }
 
                 console.log('Fetching from URL:', `${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`);
-                fetch(`${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`)
+                
+                // Get the current user's ID token and make the fetch request
+                auth.currentUser.getIdToken()
+                    .then(idToken => {
+                        return fetch(`${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`, {
+                            headers: {
+                                'Authorization': `Bearer ${idToken}`
+                            }
+                        });
+                    })
                     .then(async res => {
                         const responseText = await res.text();
                         console.log('Response status:', res.status, res.statusText);
