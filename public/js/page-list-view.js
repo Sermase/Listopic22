@@ -61,13 +61,29 @@ ListopicApp.pageListView = (() => {
 
                 console.log('Fetching from URL:', `${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`);
                 
-                // Ensure auth is initialized and get the current user's ID token
-                if (!ListopicApp.authService) {
-                    throw new Error('Auth service not available');
-                }
+                // Wait for the auth service to be available
+                const checkAuthService = () => {
+                    return new Promise((resolve, reject) => {
+                        const check = () => {
+                            if (ListopicApp.authService && 
+                                typeof ListopicApp.authService.onAuthStateChangedPromise === 'function') {
+                                resolve();
+                            } else if (Date.now() - startTime > 5000) { // 5 second timeout
+                                reject(new Error('Auth service not available after timeout'));
+                            } else {
+                                setTimeout(check, 100);
+                            }
+                        };
+                        const startTime = Date.now();
+                        check();
+                    });
+                };
 
-                // Wait for auth to be initialized and get the current user
-                return ListopicApp.authService.onAuthStateChangedPromise()
+                return checkAuthService()
+                    .then(() => {
+                        // Now that we're sure authService is available, get the current user
+                        return ListopicApp.authService.onAuthStateChangedPromise();
+                    })
                     .then(user => {
                         if (!user) {
                             throw new Error('No user is currently signed in');
