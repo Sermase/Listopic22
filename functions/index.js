@@ -16,11 +16,21 @@ const db = admin.firestore();
 setGlobalOptions({ region: "europe-west1" }); // Asegúrate que esta es tu región deseada
 
 exports.groupedReviews = onRequest(
-  // Si no usas setGlobalOptions, puedes poner las opciones aquí:
-  // { region: "europe-west1", memory: "256MiB", timeoutSeconds: 60 },
-  async (req, res) => { // El manejador de la solicitud
-    // Usa el middleware de CORS
-    cors(req, res, async () => {
+    { region: "europe-west1" },
+    async (req, res) => {
+      // Configuración manual de CORS para depuración
+      res.set('Access-Control-Allow-Origin', '*'); // O 'http://127.0.0.1:5500'
+      res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+      if (req.method === 'OPTIONS') {
+        // Solicitud preflight de CORS
+        res.status(204).send('');
+        return;
+      }
+  
+      // Luego envuelve el resto con el middleware cors para asegurar que también lo maneje
+      cors(req, res, async () => {
         const listId = req.query.listId;
 
         if (!listId) {
