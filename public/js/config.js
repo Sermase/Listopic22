@@ -14,6 +14,9 @@ ListopicApp.config = {
     },
     API_BASE_URL: '/api',
     API_BASE_URL_FUNCTIONS: 'https://europe-west1-listopic.cloudfunctions.net',
-    GOOGLE_PLACES_API_KEY: 'AIzaSyDXUk2b2VZu6Ui-HlBMZeMeQGBvzaSpHvE' // Tu clave de API de Google Places
+    FUNCTION_URLS: {
+        groupedReviews: "https://groupedreviews-jz4x2l2cfq-ew.a.run.app" // <--- URL DE CLOUD RUN
+   }
+    // GOOGLE_PLACES_API_KEY: 'AIzaSyDXUk2b2VZu6Ui-HlBMZeMeQGBvzaSpHvE' // Tu clave de API de Google Places
 
 };

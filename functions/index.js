@@ -1,6 +1,9 @@
-const functions = require("firebase-functions");
+// functions/index.js (Para firebase-functions v5.x.x y v6.x.x)
+const {onRequest} = require("firebase-functions/v2/https");
+const {setGlobalOptions} = require("firebase-functions/v2"); // Para opciones globales
+const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
-const cors = require("cors")({origin: true}); // Asegúrate de haber ejecutado: npm install cors
+const cors = require("cors")({origin: true});
 
 // Inicializar Firebase Admin SDK solo una vez
 if (admin.apps.length === 0) {
@@ -8,20 +11,25 @@ if (admin.apps.length === 0) {
 }
 const db = admin.firestore();
 
-exports.groupedReviews = functions
-    .region('europe-west1') // Especifica tu región aquí
-    .https.onRequest((req, res) => {
-    
+// Establecer opciones globales, como la región, para todas las funciones en este archivo
+// (Si solo tienes una función, también puedes pasar las opciones directamente a onRequest)
+setGlobalOptions({ region: "europe-west1" }); // Asegúrate que esta es tu región deseada
+
+exports.groupedReviews = onRequest(
+  // Si no usas setGlobalOptions, puedes poner las opciones aquí:
+  // { region: "europe-west1", memory: "256MiB", timeoutSeconds: 60 },
+  async (req, res) => { // El manejador de la solicitud
+    // Usa el middleware de CORS
     cors(req, res, async () => {
         const listId = req.query.listId;
 
         if (!listId) {
-            functions.logger.warn("groupedReviews: listId no proporcionado.");
+            logger.warn("groupedReviews: listId no proporcionado.", {structuredData: true});
             res.status(400).send({ error: "listId es requerido." });
             return;
         }
 
-        functions.logger.info(`groupedReviews: Procesando para listId: ${listId}`);
+        logger.info(`groupedReviews: Procesando para listId: ${listId}`, {structuredData: true});
 
         try {
             const listDocRef = db.collection("lists").doc(listId);
@@ -29,7 +37,7 @@ exports.groupedReviews = functions
             
             const reviews = [];
             reviewsSnapshot.forEach(doc => reviews.push({ id: doc.id, ...doc.data() }));
-            functions.logger.info(`groupedReviews: Encontradas ${reviews.length} reseñas para listId: ${listId}`);
+            logger.info(`groupedReviews: Encontradas ${reviews.length} reseñas para listId: ${listId}`, {structuredData: true});
 
             const grouped = {};
             reviews.forEach(review => {
@@ -69,7 +77,7 @@ exports.groupedReviews = functions
 
             const listDoc = await listDocRef.get();
             const listData = listDoc.exists ? listDoc.data() : {};
-            functions.logger.info(`groupedReviews: Datos de lista obtenidos para listId: ${listId}, Nombre: ${listData.name}`);
+            logger.info(`groupedReviews: Datos de lista obtenidos para listId: ${listId}, Nombre: ${listData.name}`, {structuredData: true});
 
             const responsePayload = { 
                 listName: listData.name || "Lista Desconocida",
@@ -78,15 +86,13 @@ exports.groupedReviews = functions
                 groupedReviews: groupedReviewsArray 
             };
             
-            functions.logger.info(`groupedReviews: Respuesta enviada para listId: ${listId} con ${groupedReviewsArray.length} grupos.`);
+            logger.info(`groupedReviews: Respuesta enviada para listId: ${listId} con ${groupedReviewsArray.length} grupos.`, {structuredData: true});
             res.status(200).json(responsePayload);
 
         } catch (error) {
-            functions.logger.error(`Error en Cloud Function groupedReviews para listId: ${listId}`, error);
+            logger.error(`Error en Cloud Function groupedReviews para listId: ${listId}`, error, {structuredData: true});
             res.status(500).send({ error: "Error interno del servidor al obtener reseñas agrupadas.", details: error.message });
         }
-    });
-});
-
-// Puedes añadir otras funciones aquí si es necesario
-// exports.otraFuncion = functions.region('europe-west1').https.onRequest(...);
+    }); // Cierre del manejador cors
+  } // Cierre del manejador de la solicitud
+); // Cierre de onRequest
