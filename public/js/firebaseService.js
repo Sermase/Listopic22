@@ -157,6 +157,7 @@ ListopicApp.services = (() => {
             // Re-lanzar el error para que sea capturado por el llamador (auth.html)
             throw error;
         }
+        showNotification('Fin del intento de creación de usuario', 'info');
     };
 
 
