@@ -58,39 +58,40 @@ document.addEventListener('DOMContentLoaded', () => {
     // For pages that require auth, their init functions should ideally check ListopicApp.state.auth.currentUser
     // or this router should check before calling init. For now, let authService handle redirection.
 
-    if (isIndexPage) {
-        if (ListopicApp.pageIndex && ListopicApp.pageIndex.init) {
-            ListopicApp.pageIndex.init();
-        }
-    } else if (pagePath.includes('review-form.html')) {
-        if (ListopicApp.pageReviewForm && ListopicApp.pageReviewForm.init) {
-            ListopicApp.pageReviewForm.init();
-        }
-    } else if (pagePath.includes('list-form.html')) {
-        if (ListopicApp.pageListForm && ListopicApp.pageListForm.init) {
-            ListopicApp.pageListForm.init();
-        }
-    } else if (pagePath.includes('list-view.html')) {
-        if (ListopicApp.pageListView && ListopicApp.pageListView.init) {
-            ListopicApp.pageListView.init();
-        }
-    } else if (pagePath.includes('detail-view.html')) {
-        if (ListopicApp.pageDetailView && ListopicApp.pageDetailView.init) {
-            ListopicApp.pageDetailView.init();
-        }
-    } else if (pagePath.includes('grouped-detail-view.html')) {
-        if (ListopicApp.pageGroupedDetailView && ListopicApp.pageGroupedDetailView.init) {
-            ListopicApp.pageGroupedDetailView.init();
-        }
-    } else if (pagePath.includes('auth.html')) {
-        // auth.html has its own inline script for form handling.
-        // ListopicApp.authService.init() handles the global auth state changes
-        // and redirection logic related to auth.html.
-        // Call pageAuth.init() if it has any specific tasks beyond what's inline in auth.html
-        // and what authService covers.
-        if (ListopicApp.pageAuth && ListopicApp.pageAuth.init) {
-            ListopicApp.pageAuth.init();
-        }
+    // if (isIndexPage) {
+    //     if (ListopicApp.pageIndex && ListopicApp.pageIndex.init) {
+    //         ListopicApp.pageIndex.init();
+    //     }
+    // } else if (pagePath.includes('review-form.html')) {
+    //     if (ListopicApp.pageReviewForm && ListopicApp.pageReviewForm.init) {
+    //         ListopicApp.pageReviewForm.init();
+    //     }
+    // } else if (pagePath.includes('list-form.html')) {
+    //     if (ListopicApp.pageListForm && ListopicApp.pageListForm.init) {
+    //         ListopicApp.pageListForm.init();
+    //     }
+    // } else if (pagePath.includes('list-view.html')) {
+    //     if (ListopicApp.pageListView && ListopicApp.pageListView.init) {
+    //         ListopicApp.pageListView.init();
+    //     }
+    // } else if (pagePath.includes('detail-view.html')) {
+    //     if (ListopicApp.pageDetailView && ListopicApp.pageDetailView.init) {
+    //         ListopicApp.pageDetailView.init();
+    //     }
+    // } else if (pagePath.includes('grouped-detail-view.html')) {
+    //     if (ListopicApp.pageGroupedDetailView && ListopicApp.pageGroupedDetailView.init) {
+    //         ListopicApp.pageGroupedDetailView.init();
+    //     }
+    // } else if (pagePath.includes('auth.html')) {
+    //     // auth.html has its own inline script for form handling.
+    //     // ListopicApp.authService.init() handles the global auth state changes
+    //     // and redirection logic related to auth.html.
+    //     // Call pageAuth.init() if it has any specific tasks beyond what's inline in auth.html
+    //     // and what authService covers.
+    //     if (ListopicApp.pageAuth && ListopicApp.pageAuth.init) {
+    //         ListopicApp.pageAuth.init();
+    //     }
+
     } else if (pagePath.includes('profile.html')) {
         // Inicializar la lógica específica de la página de perfil
         if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
