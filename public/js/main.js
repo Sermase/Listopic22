@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("main.js: Usuario no autenticado y no en auth.html. Esperando redirección de authService.");
             return;
         } else {
-            Usuario autenticado, o página pública que no requiere autenticación (como index, si se decide)
+            // Usuario autenticado, o página pública que no requiere autenticación (como index, si se decide)
             if (isIndexPage) {
                  if(ListopicApp.pageIndex && ListopicApp.pageIndex.init) {
                     ListopicApp.pageIndex.init();
