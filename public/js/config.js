@@ -13,4 +13,6 @@ ListopicApp.config = {
         appId: "1:851333213702:web:e8c2f3b1aa098d923d5d87"
     },
     API_BASE_URL: '/api'
+    GOOGLE_PLACES_API_KEY: 'AIzaSyDXUk2b2VZu6Ui-HlBMZeMeQGBvzaSpHvE' // Tu clave de API de Google Places
+
 };
