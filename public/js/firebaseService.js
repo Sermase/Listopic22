@@ -156,6 +156,11 @@ ListopicApp.services = (() => {
             showNotification('No se ha creado nada!', 'error');
             // Re-lanzar el error para que sea capturado por el llamador (auth.html)
             throw error;
+
+            // Si el usuario está logueado y está intentando acceder a auth.html, redirigirlo a Index.
+            if (isAuthPage) {
+            window.location.href = 'Index.html';
+            }
         }
         showNotification('Fin del intento de creación de usuario', 'info');
     };
