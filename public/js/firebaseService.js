@@ -153,6 +153,7 @@ ListopicApp.services = (() => {
             return user;
         } catch (error) {
             console.error('[firebaseService] Error detallado en createUserInAuthAndFirestore:', error);
+            showNotification('No se ha creado nada!', 'error');
             // Re-lanzar el error para que sea capturado por el llamador (auth.html)
             throw error;
         }
