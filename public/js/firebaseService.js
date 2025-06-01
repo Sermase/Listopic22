@@ -111,35 +111,51 @@ ListopicApp.services = (() => {
 
     // Función para crear usuario en Auth y Firestore
     const createUserInAuthAndFirestore = async (email, password, username) => {
-        // 1. Crear usuario en Firebase Auth
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
+        try {
+            console.log('[firebaseService] Iniciando createUserInAuthAndFirestore con:', email, username);
+            // 1. Crear usuario en Firebase Auth
+            console.log('[firebaseService] Paso 1: Creando usuario en Auth...');
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            const user = userCredential.user;
+            console.log('[firebaseService] Usuario creado en Auth:', user.uid);
 
-        // 2. Actualizar perfil con el nombre de usuario
-        await user.updateProfile({
-            displayName: username
-        });
+            // 2. Actualizar perfil con el nombre de usuario
+            console.log('[firebaseService] Paso 2: Actualizando perfil en Auth...');
+            await user.updateProfile({
+                displayName: username
+            });
+            console.log('[firebaseService] Perfil actualizado en Auth.');
 
-        // 3. Crear documento en Firestore con todos los campos deseados
-        const newUserDocument = {
-            username: username,
-            email: email,
-            bio: "", // Valor inicial
-            photoUrl: user.photoURL || "", // Tomar de Auth si existe, sino vacío
-            userType: 'basico', // Valor inicial por defecto
-            followersCount: 0, // Valor inicial
-            followingCount: 0, // Valor inicial
-            badges: [], // Array vacío inicialmente
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp del servidor
-            dateOfBirth: null, // Nuevo campo, se inicializa como null
-            residence: ""      // Nuevo campo, se inicializa vacío
-        };
+            // 3. Crear documento en Firestore con todos los campos deseados
+            const newUserDocument = {
+                username: username,
+                email: email,
+                bio: "", // Valor inicial
+                photoUrl: user.photoURL || "", // Tomar de Auth si existe, sino vacío
+                userType: 'basico', // Valor inicial por defecto
+                followersCount: 0, // Valor inicial
+                followingCount: 0, // Valor inicial
+                badges: [], // Array vacío inicialmente
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp del servidor
+                dateOfBirth: null, // Nuevo campo, se inicializa como null
+                residence: ""      // Nuevo campo, se inicializa vacío
+            };
+            console.log('[firebaseService] Paso 3: Documento a guardar en Firestore:', newUserDocument);
 
-        // 4. Guardar en Firestore
-        await db.collection('users').doc(user.uid).set(newUserDocument);
-        
-        // 5. Devolver el user para confirmación
-        return user;
+            // 4. Guardar en Firestore
+            console.log('[firebaseService] Paso 4: Guardando en Firestore en users/' + user.uid);
+            await db.collection('users').doc(user.uid).set(newUserDocument);
+            showNotification('Documento de usuario guardado en Firestore.', 'success');
+            console.log('[firebaseService] Documento guardado en Firestore exitosamente.');
+
+
+            // 5. Devolver el user para confirmación
+            return user;
+        } catch (error) {
+            console.error('[firebaseService] Error detallado en createUserInAuthAndFirestore:', error);
+            // Re-lanzar el error para que sea capturado por el llamador (auth.html)
+            throw error;
+        }
     };
 
 
