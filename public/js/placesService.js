@@ -87,6 +87,7 @@ ListopicApp.placesService = (() => {
              fetchUrl += `&keywords=${encodeURIComponent(searchKeywords)}`;
         }
 
+        console.log('[placesService] Fetching nearby restaurants from URL:', fetchUrl);
         try {
             const response = await fetch(fetchUrl);
             if (!response.ok) {
@@ -122,6 +123,7 @@ ListopicApp.placesService = (() => {
             url += `&latitude=${userLatitude}&longitude=${userLongitude}`;
         }
 
+        console.log('[placesService] Searching restaurants by name from URL:', url);
         try {
             const response = await fetch(url);
             if (!response.ok) {
