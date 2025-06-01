@@ -1,3 +1,4 @@
+// functions/index.js
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
@@ -5,10 +6,10 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // Permitir CORS para todas las funciones HTTP (ajusta para producción)
-const cors = require("cors")({origin: true});
+const cors = require("cors")({origin: true}); // Asegúrate de haber ejecutado npm install cors en la carpeta functions
 
-exports.groupedReviews = functions.https.onRequest((req, res) => {
-    cors(req, res, async () => { // Envolver en 'cors'
+exports.groupedReviews = functions.https.onRequest((req, res) => { // INICIO DE LA FUNCIÓN PRINCIPAL
+    cors(req, res, async () => { // INICIO DE LA FUNCIÓN ASÍNCRONA DENTRO DE CORS
         const listId = req.query.listId;
 
         if (!listId) {
@@ -16,16 +17,16 @@ exports.groupedReviews = functions.https.onRequest((req, res) => {
             return;
         }
 
-        try {
+        try { // INICIO DEL BLOQUE TRY
             const reviewsSnapshot = await db.collection("lists").doc(listId).collection("reviews").get();
             const reviews = [];
             reviewsSnapshot.forEach(doc => reviews.push({ id: doc.id, ...doc.data() }));
 
             const grouped = {};
-            reviews.forEach(review => {
+            reviews.forEach(review => { // INICIO DEL BUCLE reviews.forEach
                 // Usamos establishmentName e itemName como se discutió
-                const key = `<span class="math-inline">\{review\.establishmentName \|\| "N/A"\}\-</span>{review.itemName || ""}`;
-                if (!grouped[key]) {
+                const key = `${review.establishmentName || "N/A"}-${review.itemName || ""}`;
+                if (!grouped[key]) { // INICIO DEL IF !grouped[key]
                     grouped[key] = {
                         establishmentName: review.establishmentName,
                         itemName: review.itemName,
@@ -34,50 +35,43 @@ exports.groupedReviews = functions.https.onRequest((req, res) => {
                         avgGeneralScore: 0,
                         thumbnailUrl: null,
                         groupTags: new Set(),
-                        // Incluye listId y los IDs de las reseñas si el frontend los necesita para la navegación
                         listId: listId, 
                         reviewIds: [] 
                     };
-                }
+                } // CIERRE DEL IF !grouped[key]
                 grouped[key].itemCount++;
                 grouped[key].totalGeneralScore += review.overallRating || 0;
                 if (review.photoUrl && !grouped[key].thumbnailUrl) {
                     grouped[key].thumbnailUrl = review.photoUrl;
                 }
-                if (review.userTags && Array.isArray(review.userTags)) {
+                if (review.userTags && Array.isArray(review.userTags)) { // INICIO DEL IF review.userTags
                     review.userTags.forEach(tag => grouped[key].groupTags.add(tag));
-                }
+                } // CIERRE DEL IF review.userTags
                 grouped[key].reviewIds.push(review.id);
-            });
+            }); // CIERRE DEL BUCLE reviews.forEach
 
-            const groupedReviewsArray = Object.values(grouped).map(group => {
+            const groupedReviewsArray = Object.values(grouped).map(group => { // INICIO DEL MAP
                 group.avgGeneralScore = group.itemCount > 0 ? parseFloat((group.totalGeneralScore / group.itemCount).toFixed(1)) : 0;
                 group.groupTags = Array.from(group.groupTags);
                 delete group.totalGeneralScore;
                 return group;
-            });
+            }); // CIERRE DEL MAP
             
             groupedReviewsArray.sort((a, b) => (b.avgGeneralScore || 0) - (a.avgGeneralScore || 0));
 
-            // Para que page-list-view.js reciba el nombre de la lista y tags disponibles,
-            // también podrías obtenerlos aquí y añadirlos a la respuesta.
             const listDoc = await db.collection("lists").doc(listId).get();
             const listData = listDoc.exists ? listDoc.data() : {};
 
             res.status(200).json({ 
                 listName: listData.name || "Lista Desconocida",
-                criteria: listData.criteriaDefinition || {}, // page-list-view.js puede necesitar esto
-                tags: listData.availableTags || [],       // page-list-view.js puede necesitar esto
+                criteria: listData.criteriaDefinition || {},
+                tags: listData.availableTags || [],
                 groupedReviews: groupedReviewsArray 
             });
 
-        } catch (error) {
+        } catch (error) { // INICIO DEL BLOQUE CATCH
             console.error("Error en Cloud Function groupedReviews:", error);
             res.status(500).send({ error: "Error interno del servidor al obtener reseñas agrupadas." });
-        }
-    });
-});
-
-// Aquí también irían tus futuras Cloud Functions para el proxy de Google Places,
-// para eliminar listas y sus subcolecciones, etc.
-```
+        } // CIERRE DEL BLOQUE CATCH
+    }); // CIERRE DE LA FUNCIÓN ASÍNCRONA DENTRO DE CORS
+}); // CIERRE DE LA FUNCIÓN PRINCIPAL exports.groupedReviews
