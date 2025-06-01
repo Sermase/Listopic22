@@ -145,9 +145,9 @@ ListopicApp.services = (() => {
             // 4. Guardar en Firestore
             console.log('[firebaseService] Paso 4: Guardando en Firestore en users/' + user.uid);
             await db.collection('users').doc(user.uid).set(newUserDocument);
-            showNotification('Documento de usuario guardado en Firestore.', 'success');
+            showNotification('Usuario creado y perfil completo guardado.', 'info'); // Notificación de éxito global de la función
             console.log('[firebaseService] Documento guardado en Firestore exitosamente.');
-
+            window.location.href = 'Index.html';
 
             // 5. Devolver el user para confirmación
             return user;
@@ -156,13 +156,7 @@ ListopicApp.services = (() => {
             showNotification('No se ha creado nada!', 'error');
             // Re-lanzar el error para que sea capturado por el llamador (auth.html)
             throw error;
-
-            // Si el usuario está logueado y está intentando acceder a auth.html, redirigirlo a Index.
-            if (isAuthPage) {
-            window.location.href = 'Index.html';
-            }
         }
-        showNotification('Fin del intento de creación de usuario', 'info');
     };
 
 
