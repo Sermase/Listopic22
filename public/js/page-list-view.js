@@ -91,11 +91,17 @@ ListopicApp.pageListView = (() => {
                         return user.getIdToken();
                     })
                     .then(idToken => {
-                        return fetch(`${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`, {
-                            headers: {
-                                'Authorization': `Bearer ${idToken}`
-                            }
-                        });
+                        const apiUrl = `${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`;
+                console.log('Haciendo petición a:', apiUrl);
+                return fetch(apiUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Accept': 'application/json'  // Asegurarse de que esperamos JSON
+                    }
+                }).catch(error => {
+                    console.error('Error en la petición fetch:', error);
+                    throw error;
+                });
                     })
                     .then(async res => {
                         const responseText = await res.text();
