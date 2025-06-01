@@ -1,18 +1,11 @@
 window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageListForm = (() => {
-    // Dependencies:
-    // ListopicApp.services.db (Firestore instance)
-    // ListopicApp.services.auth
-    // firebase.firestore.FieldValue for timestamps
+    const db = ListopicApp.services.db;
+    const auth = ListopicApp.services.auth;
 
     function init() {
         console.log('Initializing List Form page logic with actual code...');
         
-        const db = ListopicApp.services.db;
-        const auth = ListopicApp.services.auth;
-        // const state = ListopicApp.state; // Access shared state if needed for this page
-
-        // --- Start of code moved from app.js's list-form.html block ---
         const listForm = document.getElementById('list-form');
 
         if (listForm) {
@@ -21,32 +14,56 @@ ListopicApp.pageListForm = (() => {
             const addTagBtnLF = document.getElementById('add-tag-btn');
             const tagsListLF = document.getElementById('tags-list');
 
-            const createCriterionItem = (criterionKey, data = {}) => { // data here is from criteriaDefinition's value
+            // MODIFICADO: createCriterionItem para reflejar la estructura detallada del criterio
+            const createCriterionItem = (criterionKeyFromDb = null, data = {}) => {
                 const div = document.createElement('div');
-                div.className = 'criterion-item form-group';
-                const isWeightedChecked = (data.isWeighted === undefined || data.isWeighted === true || data.isWeighted === 'true') ? 'checked' : '';
-                const initialHiddenValue = (data.isWeighted === undefined || data.isWeighted === true || data.isWeighted === 'true') ? 'true' : 'false';
+                div.className = 'criterion-item form-group'; // form-group para consistencia
 
+                const domKey = criterionKeyFromDb || `new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+                const label = data.label || '';
+                const labelMin = data.labelMin || '';
+                const labelMax = data.labelMax || '';
+                const isPonderable = data.ponderable === undefined ? true : data.ponderable;
+                const minVal = data.min !== undefined ? data.min : 0;
+                const maxVal = data.max !== undefined ? data.max : 10;
+                const stepVal = data.step !== undefined ? data.step : 0.1; // Default step 0.1, user requested 0.05 as possible
+
+                // Usamos un contenedor para los detalles del slider para mejor layout con CSS
                 div.innerHTML = `
-                    <input type="text" name="criteria_title[]" placeholder="Título (Ej: Sabor)" class="form-input criterion-input" value="${ListopicApp.uiUtils.escapeHtml(data.title || '')}" required>
-                    <input type="text" name="criteria_label_left[]" placeholder="Etiqueta Izquierda (Ej: Malo)" class="form-input criterion-input" value="${ListopicApp.uiUtils.escapeHtml(data.label_left || '')}"> <!-- Visual, not directly in criteriaDefinition -->
-                    <input type="text" name="criteria_label_right[]" placeholder="Etiqueta Derecha (Ej: Excelente)" class="form-input criterion-input" value="${ListopicApp.uiUtils.escapeHtml(data.label_right || '')}"> <!-- Visual, not directly in criteriaDefinition -->
-                    <label class="criterion-weighted-label" title="Marcar si este criterio debe contar para la puntuación general">
-                        <input type="checkbox" name="criteria_isWeighted_checkbox" class="criterion-weighted-checkbox" ${data.ponderable ? 'checked' : ''}> Pondera
-                    </label>
-                    <input type="hidden" name="criteria_isWeighted[]" value="${initialHiddenValue}">
-                    <button type="button" class="remove-button danger" title="Eliminar criterio">×</button>`;
-
-                const checkbox = div.querySelector('.criterion-weighted-checkbox');
-                const hiddenInput = div.querySelector('input[name="criteria_isWeighted[]"]');
-                checkbox.addEventListener('change', () => {
-                    hiddenInput.value = checkbox.checked ? 'true' : 'false';
-                });
-                // Store the key for easier transformation later
-                const titleInput = div.querySelector('input[name="criteria_title[]"]');
-                if (criterionKey) {
-                    titleInput.dataset.criterionKey = criterionKey;
-                }
+                    <div class="criterion-main-input">
+                        <label for="criteria_label_${domKey}">Nombre del Criterio:</label>
+                        <input type="text" id="criteria_label_${domKey}" name="criteria_label_${domKey}" placeholder="Ej: Sabor, Ambiente" class="form-input criterion-input" value="<span class="math-inline">\{ListopicApp\.uiUtils\.escapeHtml\(label\)\}" required data\-criterion\-key\-from\-db\="</span>{ListopicApp.uiUtils.escapeHtml(criterionKeyFromDb || '')}">
+                    </div>
+                    <div class="criterion-slider-config">
+                        <div>
+                            <label for="criteria_labelMin_${domKey}">Etiqueta Mínima:</label>
+                            <input type="text" id="criteria_labelMin_${domKey}" name="criteria_labelMin_${domKey}" placeholder="Ej: Malo" class="form-input criterion-input-small" value="<span class="math-inline">\{ListopicApp\.uiUtils\.escapeHtml\(labelMin\)\}"\>
+</div\>
+<div\>
+<label for\="criteria\_labelMax\_</span>{domKey}">Etiqueta Máxima:</label>
+                            <input type="text" id="criteria_labelMax_${domKey}" name="criteria_labelMax_${domKey}" placeholder="Ej: Excelente" class="form-input criterion-input-small" value="<span class="math-inline">\{ListopicApp\.uiUtils\.escapeHtml\(labelMax\)\}"\>
+</div\>
+<div\>
+<label for\="criteria\_min\_</span>{domKey}">Valor Mín.:</label>
+                            <input type="number" id="criteria_min_${domKey}" name="criteria_min_${domKey}" class="form-input criterion-input-xtra-small" value="<span class="math-inline">\{minVal\}" step\="any" title\="Valor mínimo"\>
+</div\>
+<div\>
+<label for\="criteria\_max\_</span>{domKey}">Valor Máx.:</label>
+                            <input type="number" id="criteria_max_${domKey}" name="criteria_max_${domKey}" class="form-input criterion-input-xtra-small" value="<span class="math-inline">\{maxVal\}" step\="any" title\="Valor máximo"\>
+</div\>
+<div\>
+<label for\="criteria\_step\_</span>{domKey}">Paso:</label>
+                            <input type="number" id="criteria_step_${domKey}" name="criteria_step_${domKey}" class="form-input criterion-input-xtra-small" value="<span class="math-inline">\{stepVal\}" step\="any" min\="0\.01" title\="Incremento \(ej\: 0\.1, 0\.5, 1\)"\>
+</div\>
+</div\>
+<div class\="criterion\-options"\>
+<label class\="criterion\-weighted\-label" title\="Marcar si este criterio debe contar para la puntuación general"\>
+<input type\="checkbox" name\="criteria\_isPonderable\_</span>{domKey}" class="criterion-weighted-checkbox" ${isPonderable ? 'checked' : ''}> Pondera para la media
+                        </label>
+                        <button type="button" class="remove-button danger" title="Eliminar criterio">×</button>
+                    </div>
+                    `;
                 return div;
             };
 
@@ -60,7 +77,10 @@ ListopicApp.pageListForm = (() => {
             };
 
             if (addCritBtnLF && critListLF) {
-                addCritBtnLF.addEventListener('click', () => critListLF.appendChild(createCriterionItem()));
+                addCritBtnLF.addEventListener('click', () => {
+                     // Añadir con valores por defecto, incluyendo step=0.5 como un default común
+                    critListLF.appendChild(createCriterionItem(null, { ponderable: true, min: 0, max: 10, step: 0.5, labelMin: "Malo", labelMax: "Bueno" }));
+                });
             }
             if (addTagBtnLF && tagsListLF) {
                 addTagBtnLF.addEventListener('click', () => tagsListLF.appendChild(createTagItem()));
@@ -93,16 +113,11 @@ ListopicApp.pageListForm = (() => {
 
                         if (critListLF) {
                             critListLF.innerHTML = '';
-                            // Transform criteriaDefinition map to form fields
+                            // MODIFICADO: Cargar desde criteriaDefinition (mapa)
                             if (listData.criteriaDefinition && typeof listData.criteriaDefinition === 'object') {
-                                for (const key in listData.criteriaDefinition) {
-                                    const critDef = listData.criteriaDefinition[key];
-                                    // Adapt createCriterionItem or how you populate it.
-                                    // For simplicity, we'll assume the old structure for now and it needs mapping.
-                                    // This part needs careful mapping from new model to old form structure if form isn't updated.
-                                    // Let's assume createCriterionItem expects { title: 'Sabor', ponderable: true }
-                                    // and the title input will be used to generate the key.
-                                    critListLF.appendChild(createCriterionItem(key, { title: critDef.label, ponderable: critDef.ponderable /*, visual info if needed */ }));
+                                for (const keyInDb in listData.criteriaDefinition) {
+                                    const critDefObject = listData.criteriaDefinition[keyInDb];
+                                    critListLF.appendChild(createCriterionItem(keyInDb, critDefObject));
                                 }
                             }
                         }
@@ -115,12 +130,14 @@ ListopicApp.pageListForm = (() => {
                     })
                     .catch(error => {
                         console.error("Error cargando lista para editar:", error);
-                        alert(`No se pudo cargar la lista: ${error.message}`);
+                        ListopicApp.services.showNotification(`No se pudo cargar la lista: ${error.message}`, 'error');
                         if (listFormTitleH2) listFormTitleH2.textContent = 'Crear Nueva Lista de Valoración';
                     });
             } else {
                 if (listFormTitleH2) listFormTitleH2.textContent = 'Crear Nueva Lista de Valoración';
-                if (critListLF && critListLF.children.length === 0) critListLF.appendChild(createCriterionItem(null, {title: '', ponderable: true})); // Add a default empty one
+                if (critListLF && critListLF.children.length === 0) {
+                     critListLF.appendChild(createCriterionItem(null, { ponderable: true, min: 0, max: 10, step: 0.5, labelMin: "Malo", labelMax: "Bueno" }));
+                }
                 if (tagsListLF && tagsListLF.children.length === 0) tagsListLF.appendChild(createTagItem(""));
             }
 
@@ -131,42 +148,66 @@ ListopicApp.pageListForm = (() => {
 
                 const currentUser = auth.currentUser;
                 if (!currentUser) {
-                    alert("Debes estar autenticado para guardar una lista.");
+                    ListopicApp.services.showNotification("Debes estar autenticado para guardar una lista.", 'error');
                     if (submitButton) submitButton.disabled = false;
                     return;
                 }
 
-                const formData = new FormData(listForm);
+                const formData = new FormData(listForm); // No se usa directamente para criteria ahora
                 const listDataPayload = {
-                    name: formData.get('name'),
-                    userId: currentUser.uid, // Reference to users/{userId}
-                    categoryId: formData.get('categoryId'), // Added categoryId from form
-                    isPublic: true, // Default or get from form
+                    name: formData.get('name'), // Asumiendo que el input de nombre de lista tiene name="name"
+                    userId: currentUser.uid,
+                    categoryId: formData.get('categoryId') || "defaultCategory", // Asegurar un valor por defecto
+                    isPublic: true, // Por defecto, podrías añadir un input para esto
                     criteriaDefinition: {},
-                    availableTags: formData.getAll('tags[]').map(tag => tag.trim()).filter(tag => tag !== ''),
-                    reviewCount: 0,
-                    reactions: {},
-                    commentsCount: 0
+                    availableTags: [], // Se llenará desde los inputs de tags
+                    reviewCount: listIdToEdit ? (await db.collection('lists').doc(listIdToEdit).get()).data().reviewCount || 0 : 0, // Mantener si se edita
+                    reactions: listIdToEdit ? (await db.collection('lists').doc(listIdToEdit).get()).data().reactions || {} : {}, // Mantener si se edita
+                    commentsCount: listIdToEdit ? (await db.collection('lists').doc(listIdToEdit).get()).data().commentsCount || 0 : {}, // Mantener si se edita
                 };
 
-                const titles = formData.getAll('criteria_title[]');
-                // const labelsLeft = formData.getAll('criteria_label_left[]'); // For visual, not directly in criteriaDefinition
-                // const labelsRight = formData.getAll('criteria_label_right[]'); // For visual, not directly in criteriaDefinition
-                const areWeighted = formData.getAll('criteria_isWeighted[]');
+                // MODIFICADO: Recolectar criterios para el mapa criteriaDefinition
+                const criterionItems = critListLF.querySelectorAll('.criterion-item');
+                criterionItems.forEach(item => {
+                    const domKeySuffix = item.querySelector('input[name^="criteria_label_"]').name.substring("criteria_label_".length);
+                    
+                    const labelInput = item.querySelector(`input[name="criteria_label_${domKeySuffix}"]`);
+                    const label = labelInput.value.trim();
+                    if (!label) return; 
 
-                for (let i = 0; i < titles.length; i++) {
-                    if (titles[i]?.trim()) {
-                        const title = titles[i].trim();
-                        const key = title.toLowerCase().replace(/[^a-z0-9]/g, '') || `criterion${i}`; // Generate a key
-                        listDataPayload.criteriaDefinition[key] = {
-                            label: title, // This is the display name
-                            ponderable: areWeighted[i] === 'true',
-                            visual: 'slider' // Default, or get from form if you add that option
-                        };
+                    let criterionMapKey = labelInput.dataset.criterionKeyFromDb || label.toLowerCase().replace(/[^a-z0-9_]/g, '').replace(/\s+/g, '_');
+                    if (!labelInput.dataset.criterionKeyFromDb && listDataPayload.criteriaDefinition[criterionMapKey]) {
+                         criterionMapKey = `<span class="math-inline">\{criterionMapKey\}\_</span>{Date.now().toString().slice(-5)}`;
                     }
-                }
- // Corregido: Muestra el payload real que se intenta guardar
- console.log("Intentando guardar en Firestore (listDataPayload):", JSON.stringify(listDataPayload, null, 2));
+                    
+                    const minVal = parseFloat(item.querySelector(`input[name="criteria_min_${domKeySuffix}"]`).value);
+                    const maxVal = parseFloat(item.querySelector(`input[name="criteria_max_${domKeySuffix}"]`).value);
+                    const stepVal = parseFloat(item.querySelector(`input[name="criteria_step_${domKeySuffix}"]`).value);
+
+                    listDataPayload.criteriaDefinition[criterionMapKey] = {
+                        label: label,
+                        ponderable: item.querySelector(`input[name="criteria_isPonderable_${domKeySuffix}"]`).checked,
+                        type: 'slider',
+                        labelMin: item.querySelector(`input[name="criteria_labelMin_${domKeySuffix}"]`).value.trim(),
+                        labelMax: item.querySelector(`input[name="criteria_labelMax_${domKeySuffix}"]`).value.trim(),
+                        min: isNaN(minVal) ? 0 : minVal,
+                        max: isNaN(maxVal) ? 10 : maxVal,
+                        step: isNaN(stepVal) || stepVal <= 0 ? 0.1 : stepVal, // Asegurar step positivo
+                    };
+                });
+
+                // Recolectar etiquetas
+                const tagInputs = tagsListLF.querySelectorAll('input[name="tags[]"]');
+                tagInputs.forEach(input => {
+                    const tagValue = input.value.trim();
+                    if (tagValue) {
+                        listDataPayload.availableTags.push(tagValue);
+                    }
+                });
+                listDataPayload.availableTags = [...new Set(listDataPayload.availableTags)]; // Eliminar duplicados
+
+
+                console.log("Intentando guardar en Firestore (listDataPayload):", JSON.stringify(listDataPayload, null, 2));
 
                 try {
                     let savedListId;
@@ -180,11 +221,11 @@ ListopicApp.pageListForm = (() => {
                         const docRef = await db.collection('lists').add(listDataPayload);
                         savedListId = docRef.id;
                     }
-                    alert(`Lista ${listIdToEdit ? 'actualizada' : 'creada'} con éxito!`);
+                    ListopicApp.services.showNotification(`Lista ${listIdToEdit ? 'actualizada' : 'creada'} con éxito!`, 'success');
                     window.location.href = `list-view.html?listId=${savedListId}`;
                 } catch (error) {
                     console.error('Error al guardar la lista:', error);
-                    alert(`No se pudo guardar la lista: ${error.message}`);
+                    ListopicApp.services.showNotification(`No se pudo guardar la lista: ${error.message}`, 'error');
                 } finally {
                     if (submitButton) submitButton.disabled = false;
                 }
@@ -192,7 +233,6 @@ ListopicApp.pageListForm = (() => {
         } else {
             console.warn("LIST-FORM: listForm element not found.");
         }
-        // --- End of code moved from app.js ---
     }
 
     return {

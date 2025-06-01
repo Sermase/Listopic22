@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 
-<!-- Firebase SDKs - Añadido defer y los SDKs faltantes -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js" defer></script>
@@ -48,14 +47,13 @@
 
     <main>
         <div class="container form-container">
-            <!-- Removed theme-toggle-button from here -->
-            <a href="list-view.html" class="back-button">← Cancelar y Volver al Ranking</a> <!-- JS will update href -->
+            <a href="list-view.html" class="back-button">← Cancelar y Volver al Ranking</a>
             <h2>Añadir Nueva Reseña</h2>
             <form id="review-form" action="#" method="POST">
                 <input type="hidden" id="review-form-listId" name="listId">
                 
                 <div class="form-group">
-                    <label for="restaurant-name-search">Buscar Restaurante/Elemento por nombre:</label>
+                    <label for="restaurant-name-search">Buscar Establecimiento/Elemento por nombre:</label>
                     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                         <input type="text" id="restaurant-name-search-input" class="form-input" placeholder="Ej: La Pizzería Genial">
                         <button type="button" id="search-by-name-btn" class="add-button" style="padding: 8px 15px; white-space: nowrap;">
@@ -66,12 +64,12 @@
                         <i class="fas fa-map-marker-alt"></i> O bien, Ubicarme y Buscar Cercanos
                     </button>
                     <div id="restaurant-suggestions" class="suggestions-box"></div>
-                    <input type="hidden" id="restaurant-name" name="restaurant" required> <!-- Campo oculto para el nombre final -->
+                    <input type="hidden" id="establishment-name" name="establishmentName" required> {/* MODIFICADO: id y name */}
                 </div>
 
                 <div class="form-group">
-                    <label for="dish-name">Nombre del Plato/Variedad (Opcional):</label>
-                    <input type="text" id="dish-name" name="dish" class="form-input" placeholder="Ej: Tarta de la Abuela, Café Etíope Yirgacheffe">
+                    <label for="item-name">Nombre del Producto/Plato (Opcional):</label> {/* MODIFICADO: label for */}
+                    <input type="text" id="item-name" name="itemName" class="form-input" placeholder="Ej: Tarta de la Abuela, Café Etíope Yirgacheffe"> {/* MODIFICADO: id y name */}
                 </div>
                 
                 <div class="form-group">
@@ -124,26 +122,23 @@
         </div>
     </main>
     <footer> Listopic... Tu rincón personal de valoraciones. </footer>
-    <!-- Listopic App Modules -->
     <script src="js/config.js" defer></script>
     <script src="js/firebaseService.js" defer></script>
     <script src="js/uiUtils.js" defer></script>
     <script src="js/themeManager.js" defer></script>
     <script src="js/placesService.js" defer></script>
     <script src="js/authService.js" defer></script>
-    <script src="js/page-index.js" defer></script> <!-- Considerar si todos estos page-* son necesarios en esta página específica -->
+    <script src="js/page-index.js" defer></script>
     <script src="js/page-auth.js" defer></script>
     <script src="js/page-list-form.js" defer></script>
-    <script src="js/page-review-form.js" defer></script> <!-- Este es el específico para esta página -->
+    <script src="js/page-review-form.js" defer></script>
     <script src="js/page-list-view.js" defer></script>
     <script src="js/page-detail-view.js" defer></script>
     <script src="js/page-grouped-detail-view.js" defer></script>
 
-    <!-- Main application orchestrator -->
     <script src="js/main.js" defer></script>
     <div class="user-session-controls">
         <span id="user-info-display"></span>
-        <!-- Redundant logout-button removed from here -->
     </div>
     
 </body>
