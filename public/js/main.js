@@ -58,39 +58,39 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("main.js: Usuario no autenticado y no en auth.html. Esperando redirección de authService.");
             return;
         } else {
-            // Usuario autenticado, o página pública que no requiere autenticación (como index, si se decide)
-            // if (isIndexPage) {
-            //     if (ListopicApp.pageIndex && ListopicApp.pageIndex.init) {
-            //         ListopicApp.pageIndex.init();
-            //     }
-            // } else if (pageName === 'review-form.html') {
-            //     if (ListopicApp.pageReviewForm && ListopicApp.pageReviewForm.init) {
-            //         ListopicApp.pageReviewForm.init();
-            //     }
-            // } else if (pageName === 'list-form.html') {
-            //     if (ListopicApp.pageListForm && ListopicApp.pageListForm.init) {
-            //         ListopicApp.pageListForm.init();
-            //     }
-            // } else if (pageName === 'list-view.html') {
-            //     if (ListopicApp.pageListView && ListopicApp.pageListView.init) {
-            //         ListopicApp.pageListView.init();
-            //     }
-            // } else if (pageName === 'detail-view.html') {
-            //     if (ListopicApp.pageDetailView && ListopicApp.pageDetailView.init) {
-            //         ListopicApp.pageDetailView.init();
-            //     }
-            // } else if (pageName === 'grouped-detail-view.html') {
-            //     if (ListopicApp.pageGroupedDetailView && ListopicApp.pageGroupedDetailView.init) {
-            //         ListopicApp.pageGroupedDetailView.init();
-            //     }
-            // } else if (pageName === 'profile.html') {
-            //     if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
-            //         ListopicApp.pageProfile.init();
-            //     }
-            // } else {
-            //     // Esta es la línea 95 en la estructura original del if/else if
-            //     console.warn("MAIN.JS: No se detectó una página conocida para inicializar lógica específica. Path:", pagePath, "Resolved pageName:", pageName);
-            // }
+            Usuario autenticado, o página pública que no requiere autenticación (como index, si se decide)
+            if (isIndexPage) {
+                 if(ListopicApp.pageIndex && ListopicApp.pageIndex.init) {
+                    ListopicApp.pageIndex.init();
+                }
+            } else if (pageName === 'review-form.html') {
+                if (ListopicApp.pageReviewForm && ListopicApp.pageReviewForm.init) {
+                    ListopicApp.pageReviewForm.init();
+                }
+            } else if (pageName === 'list-form.html') {
+                if (ListopicApp.pageListForm && ListopicApp.pageListForm.init) {
+                    ListopicApp.pageListForm.init();
+                }
+            } else if (pageName === 'list-view.html') {
+                if (ListopicApp.pageListView && ListopicApp.pageListView.init) {
+                    ListopicApp.pageListView.init();
+                }
+            } else if (pageName === 'detail-view.html') {
+                if (ListopicApp.pageDetailView && ListopicApp.pageDetailView.init) {
+                    ListopicApp.pageDetailView.init();
+                }
+            } else if (pageName === 'grouped-detail-view.html') {
+                if (ListopicApp.pageGroupedDetailView && ListopicApp.pageGroupedDetailView.init) {
+                    ListopicApp.pageGroupedDetailView.init();
+                }
+            } else if (pageName === 'profile.html') {
+                if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
+                    ListopicApp.pageProfile.init();
+                }
+            } else {
+                // Esta es la línea 95 en la estructura original del if/else if
+                console.warn("MAIN.JS: No se detectó una página conocida para inicializar lógica específica. Path:", pagePath, "Resolved pageName:", pageName);
+            }
         }
     }).catch(error => {
         console.error("main.js: Error durante la comprobación del estado de autenticación:", error);
