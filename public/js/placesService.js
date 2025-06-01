@@ -86,16 +86,37 @@ ListopicApp.placesService = (() => {
         if (searchKeywords) {
              fetchUrl += `&keywords=${encodeURIComponent(searchKeywords)}`;
         }
+        console.log('[placesService] Fetching URL:', fetchUrl);
 
-        console.log('[placesService] Fetching nearby restaurants from URL:', fetchUrl);
         try {
             const response = await fetch(fetchUrl);
+            console.log('[placesService] Response status:', response.status, response.statusText);
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `Error HTTP: ${response.status}`);
+                const contentType = response.headers.get("content-type");
+                let errorDataMessage = `Error HTTP: ${response.status} ${response.statusText}`;
+                if (contentType && contentType.includes("application/json")) {
+                    const errorData = await response.json().catch(() => null);
+                    if (errorData && errorData.message) {
+                        errorDataMessage = errorData.message;
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error('[placesService] Non-JSON error response text:', errorText.substring(0, 500));
+                    errorDataMessage = `Error del servidor (no JSON): ${response.status}. Respuesta: ${errorText.substring(0,100)}...`;
+                }
+                throw new Error(errorDataMessage);
             }
-            const places = await response.json();
-            displayPlaceSuggestions(places, suggestionsBox);
+
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const places = await response.json();
+                displayPlaceSuggestions(places, suggestionsBox);
+            } else {
+                const responseText = await response.text();
+                console.error('[placesService] Expected JSON but received:', contentType, responseText.substring(0, 500));
+                throw new Error(`Respuesta inesperada del servidor. Se esperaba JSON pero se recibió ${contentType}.`);
+            }
         } catch (error) {
             console.error("Error fetching nearby restaurants with context:", error);
             if (suggestionsBox) suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error al buscar: ${error.message}</p>`;
@@ -122,16 +143,36 @@ ListopicApp.placesService = (() => {
         if (userLatitude && userLongitude) {
             url += `&latitude=${userLatitude}&longitude=${userLongitude}`;
         }
+        console.log('[placesService] Fetching URL (searchRestaurantsByName):', url);
 
-        console.log('[placesService] Searching restaurants by name from URL:', url);
         try {
             const response = await fetch(url);
+            console.log('[placesService] Response status (searchRestaurantsByName):', response.status, response.statusText);
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `Error HTTP: ${response.status}`);
+                const contentType = response.headers.get("content-type");
+                let errorDataMessage = `Error HTTP: ${response.status} ${response.statusText}`;
+                if (contentType && contentType.includes("application/json")) {
+                    const errorData = await response.json().catch(() => null);
+                    if (errorData && errorData.message) {
+                        errorDataMessage = errorData.message;
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error('[placesService] Non-JSON error response text (searchRestaurantsByName):', errorText.substring(0, 500));
+                    errorDataMessage = `Error del servidor (no JSON): ${response.status}. Respuesta: ${errorText.substring(0,100)}...`;
+                }
+                throw new Error(errorDataMessage);
             }
-            const places = await response.json();
-            displayPlaceSuggestions(places, suggestionsBox);
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const places = await response.json();
+                displayPlaceSuggestions(places, suggestionsBox);
+            } else {
+                const responseText = await response.text();
+                console.error('[placesService] Expected JSON but received (searchRestaurantsByName):', contentType, responseText.substring(0, 500));
+                throw new Error(`Respuesta inesperada del servidor. Se esperaba JSON pero se recibió ${contentType}.`);
+            }
         } catch (error) {
             console.error("Error searching restaurants by name:", error);
             if (suggestionsBox) suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error en búsqueda por nombre: ${error.message}</p>`;
