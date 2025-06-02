@@ -122,6 +122,19 @@ ListopicApp.pageReviewForm = (() => {
             const establishmentNameHiddenInput = document.getElementById('establishment-name'); 
             const itemNameInput = document.getElementById('item-name'); 
 
+            // Botón y contenedor para campos de ubicación manual
+            const toggleManualLocationBtn = document.getElementById('toggle-manual-location-btn');
+            const manualLocationFieldsDiv = document.getElementById('manual-location-fields');
+
+            if (toggleManualLocationBtn && manualLocationFieldsDiv) {
+                toggleManualLocationBtn.addEventListener('click', () => {
+                    const isHidden = manualLocationFieldsDiv.style.display === 'none';
+                    manualLocationFieldsDiv.style.display = isHidden ? 'block' : 'none';
+                    toggleManualLocationBtn.innerHTML = isHidden ? 
+                        '<i class="fas fa-chevron-up"></i> Ocultar Detalles de Ubicación Manual' : 
+                        '<i class="fas fa-chevron-down"></i> Añadir/Editar Detalles de Ubicación Manualmente';
+                });
+            }
             if (backButtonReview && listId) {
                 const fromGrouped = urlParams.get('fromGrouped');
                 const fromEstablishment = urlParams.get('fromEstablishment');
@@ -295,6 +308,12 @@ ListopicApp.pageReviewForm = (() => {
                                             if(locationPlaceIdInput) locationPlaceIdInput.value = placeData.googlePlaceId || '';
                                             // Podrías rellenar city-g, postalCode-g, country-g si los guardas en placeData y los tienes en el form
 
+                                            // Si hay datos de ubicación, mostrar los campos manuales para posible edición
+                                            if (manualLocationFieldsDiv && (placeData.name || placeData.address)) {
+                                                manualLocationFieldsDiv.style.display = 'block';
+                                                if(toggleManualLocationBtn) toggleManualLocationBtn.innerHTML = '<i class="fas fa-chevron-up"></i> Ocultar Detalles de Ubicación Manual';
+                                            }
+
                                         } else {
                                             console.warn(`Al editar reseña, no se encontró el lugar con placeId: ${reviewData.placeId}`);
                                             // Fallback a antiguos campos si placeId no resuelve
@@ -333,6 +352,14 @@ ListopicApp.pageReviewForm = (() => {
                             uiUtils.clearPreviewGlobal(imagePreviewContainerReview, photoUrlInputReview, photoFileInputReview);
                             state.selectedFileForUpload = null;
                             state.currentSelectedPlaceInfo = null;
+
+                            // PRE-RELLENAR item-name con el nombre de la lista
+                            if (itemNameInput && state.currentListNameForSearch) {
+                                itemNameInput.value = state.currentListNameForSearch;
+                                console.log(`Pre-rellenado itemName con el nombre de la lista: "${state.currentListNameForSearch}"`);
+                            }
+                            if (manualLocationFieldsDiv) manualLocationFieldsDiv.style.display = 'none';
+                            if (toggleManualLocationBtn) toggleManualLocationBtn.innerHTML = '<i class="fas fa-chevron-down"></i> Añadir/Editar Detalles de Ubicación Manualmente';
                         }
                     })
                     .catch(error => {
@@ -388,6 +415,10 @@ ListopicApp.pageReviewForm = (() => {
                         placeToProcess = state.currentSelectedPlaceInfo; // Este ya tiene name, addressFormatted, lat, lon, etc.
                         // Asegurarse de que el nombre principal para buscar/crear sea el del input oculto (que viene de place.name)
                         placeToProcess.name = establishmentNameFromSearchOrHidden || placeToProcess.name;
+                        // Añadir region manual si el usuario la especificó y Google no la dio
+                        if (manualRegion && !placeToProcess.region) {
+                             placeToProcess.region = manualRegion;
+                        }
                         placeIdToSave = await findOrCreatePlace(placeToProcess, null, currentUser.uid);
                         state.currentSelectedPlaceInfo = null; // Limpiar estado
                         document.getElementById('restaurant-suggestions').innerHTML = ''; // Limpiar sugerencias
