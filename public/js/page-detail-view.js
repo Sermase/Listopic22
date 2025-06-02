@@ -116,20 +116,52 @@ ListopicApp.pageDetailView = (() => {
                     });
                 })
                 .then(reviewData => { // reviewData ya está disponible y la lista también se cargó
-                    // Manejo de ubicación (se revisará en 1.c)
-                    if (reviewData.location && (reviewData.location.url || reviewData.location.text)) {
-                        if (detailLocationLinkEl && reviewData.location.url) detailLocationLinkEl.href = reviewData.location.url;
-                        else if (detailLocationLinkEl) detailLocationLinkEl.removeAttribute('href');
+                    // --- INICIO DE LA NUEVA LÓGICA DE UBICACIÓN ---
+                    if (reviewData.placeId) {
+                        db.collection('places').doc(reviewData.placeId).get()
+                            .then(placeDoc => {
+                                if (placeDoc.exists) {
+                                    const placeData = placeDoc.data();
+                                    if (detailLocationContainerEl && (placeData.address || placeData.name || placeData.googleMapsUrl)) {
+                                        if (detailLocationLinkEl && placeData.googleMapsUrl) {
+                                            detailLocationLinkEl.href = placeData.googleMapsUrl;
+                                            detailLocationLinkEl.style.pointerEvents = "auto";
+                                        } else if (detailLocationLinkEl && placeData.googlePlaceId) {
+                                            detailLocationLinkEl.href = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.googlePlaceId}`;
+                                            detailLocationLinkEl.style.pointerEvents = "auto";
+                                        } else if (detailLocationLinkEl) {
+                                             detailLocationLinkEl.removeAttribute('href');
+                                             detailLocationLinkEl.style.pointerEvents = "none";
+                                        }
 
-                        if (detailLocationTextEl) detailLocationTextEl.textContent = reviewData.location.text || reviewData.establishmentName;
-                        
-                        if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'none';
-                        if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'block';
+                                        if (detailLocationTextEl) {
+                                            detailLocationTextEl.textContent = placeData.address || placeData.name; // Mostrar dirección o nombre del lugar
+                                        }
+                                        
+                                        if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'none';
+                                        detailLocationContainerEl.style.display = 'block';
+                                    } else {
+                                        if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                                        if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+                                    }
+                                } else {
+                                    console.warn(`Lugar con ID ${reviewData.placeId} no encontrado para la reseña ${reviewId}`);
+                                    if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                                    if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+                                }
+                            })
+                            .catch(error => {
+                                console.error("Error obteniendo datos del lugar para la vista de detalle:", error);
+                                if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                                if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+                            });
                     } else {
+                        // No hay placeId en la reseña
                         if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
                         if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
                     }
-
+                    // --- FIN DE LA NUEVA LÓGICA DE UBICACIÓN ---
+                    
                     // Comentario
                     if (detailCommentContainerEl && detailCommentTextEl) {
                         if (reviewData.comment) {

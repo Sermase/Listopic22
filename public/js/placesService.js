@@ -14,31 +14,84 @@ ListopicApp.placesService = (() => {
                 li.textContent = `${place.name} (${addressInfo})`;
                 li.style.cursor = 'pointer';
                 li.onclick = () => {
-                    document.getElementById('restaurant-name-search-input').value = place.name; // Input visible
-                    // MODIFICADO: Actualizar el input oculto correcto
-                    document.getElementById('establishment-name').value = place.name; // Input oculto con el nuevo ID
-
-                    const locationUrlInput = document.getElementById('location-url');
-                    if (locationUrlInput) {
-                        // Esta URL es un placeholder, se debería construir mejor si se usa directamente un placeId
-                        // o si tu API de Places devuelve una URL directa.
-                        locationUrlInput.value = place.place_id ? `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${place.place_id}` : '';
-                    }
-                    const locationTextInput = document.getElementById('location-text');
-                    if (locationTextInput) {
-                        locationTextInput.value = addressInfo;
-                    }
-                    
                     if (window.ListopicApp && window.ListopicApp.state) {
-                        window.ListopicApp.state.currentSelectedPlaceInfo = {
+                        const placeDetails = { // Objeto para almacenar detalles del lugar
                             placeId: place.place_id,
                             name: place.name,
-                            address: addressInfo,
-                            latitude: place.geometry && place.geometry.location ? place.geometry.location.lat : null,
-                            longitude: place.geometry && place.geometry.location ? place.geometry.location.lng : null,
-                            // Podrías añadir la URL de Google Maps aquí si la construyes
-                            mapsUrl: place.place_id ? `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${place.place_id}` : ''
+                            addressFormatted: place.formatted_address || place.vicinity, // Dirección formateada
+                            latitude: place.geometry?.location?.lat ? place.geometry.location.lat() : (place.geometry?.location?.latitude || null),
+                            longitude: place.geometry?.location?.lng ? place.geometry.location.lng() : (place.geometry?.location?.longitude || null),
+                            mapsUrl: place.place_id ? `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${place.place_id}` : (place.geometry?.location ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.geometry.location.lat()},${place.geometry.location.lng()}` : ''),
+                            // Inicializar componentes de dirección
+                            streetAddress: '',
+                            city: '',
+                            postalCode: '',
+                            region: '', // Para provincia/estado
+                            country: ''
                         };
+
+                        // Intentar extraer componentes de dirección si están disponibles (Google Places API detallada)
+                        if (place.address_components) {
+                            for (const component of place.address_components) {
+                                if (component.types.includes('street_number')) {
+                                    placeDetails.streetAddress = `${component.long_name} ${placeDetails.streetAddress}`;
+                                }
+                                if (component.types.includes('route')) {
+                                    placeDetails.streetAddress = `${placeDetails.streetAddress} ${component.long_name}`.trim();
+                                }
+                                if (component.types.includes('locality') || component.types.includes('postal_town')) {
+                                    placeDetails.city = component.long_name;
+                                }
+                                if (component.types.includes('administrative_area_level_2') && !placeDetails.region) { // Provincia en España
+                                    placeDetails.region = component.long_name;
+                                }
+                                if (component.types.includes('administrative_area_level_1') && !placeDetails.region) { // Comunidad Autónoma en España o Estado
+                                    placeDetails.region = component.long_name; // Usar esto si nivel 2 no está o se prefiere
+                                }
+                                if (component.types.includes('country')) {
+                                    placeDetails.country = component.long_name;
+                                }
+                                if (component.types.includes('postal_code')) {
+                                    placeDetails.postalCode = component.long_name;
+                                }
+                            }
+                        }
+                        // Si la dirección de la calle no se formó bien, usar la formateada como fallback
+                        if (!placeDetails.streetAddress && placeDetails.addressFormatted) {
+                            placeDetails.streetAddress = placeDetails.addressFormatted.split(',')[0]; // Intento simple
+                        }
+
+                        window.ListopicApp.state.currentSelectedPlaceInfo = placeDetails;
+                        console.log("placesService: currentSelectedPlaceInfo actualizado:", window.ListopicApp.state.currentSelectedPlaceInfo);
+
+                        // Actualizar los campos del formulario en review-form.html
+                        const establishmentNameInput = document.getElementById('restaurant-name-search-input'); // El input visible
+                        const establishmentNameHidden = document.getElementById('establishment-name');     // El oculto
+                        const locationDisplayNameInput = document.getElementById('location-display-name');
+                        const locationAddressManualInput = document.getElementById('location-address-manual');
+                        const locationRegionManualInput = document.getElementById('location-region-manual');
+                        const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
+                        // Campos ocultos
+                        const locationLatInput = document.getElementById('location-latitude');
+                        const locationLonInput = document.getElementById('location-longitude');
+                        const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
+                        const locationCityGInput = document.getElementById('location-city-g');
+                        const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
+                        const locationCountryGInput = document.getElementById('location-country-g');
+
+                        if (establishmentNameInput) establishmentNameInput.value = placeDetails.name;
+                        if (establishmentNameHidden) establishmentNameHidden.value = placeDetails.name; // Para la lógica de findOrCreatePlace
+                        if (locationDisplayNameInput) locationDisplayNameInput.value = placeDetails.name; // Nombre del lugar para el usuario
+                        if (locationAddressManualInput) locationAddressManualInput.value = placeDetails.addressFormatted || placeDetails.streetAddress; // Dirección completa o de calle
+                        if (locationRegionManualInput) locationRegionManualInput.value = placeDetails.region; // Región/Provincia
+                        if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeDetails.mapsUrl;
+                        
+                        if(locationLatInput) locationLatInput.value = placeDetails.latitude || "";
+                        if(locationLonInput) locationLonInput.value = placeDetails.longitude || "";
+                        if(locationPlaceIdInput) locationPlaceIdInput.value = placeDetails.placeId || "";
+                        if(locationCityGInput) locationCityGInput.value = placeDetails.city || "";
+                        if(locationPostalCodeGInput) locationPostalCodeGInput.value = placeDetails.postalCode || "";
+                        if(locationCountryGInput) locationCountryGInput.value = placeDetails.country || "";
                     } else {
                         console.warn("ListopicApp.state not defined, currentSelectedPlaceInfo not updated in placesService.");
                     }
