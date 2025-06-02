@@ -20,8 +20,10 @@ ListopicApp.state = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("MAIN.JS: DOMContentLoaded disparado."); // <--- LOG 1
+
     if (!ListopicApp.services || !ListopicApp.services.auth || !ListopicApp.services.storage || !ListopicApp.services.db) {
-        console.error("main.js: Firebase services (auth, storage, db) not available. Check load order of config.js and firebaseService.js.");
+        console.error("MAIN.JS: Firebase services (auth, storage, db) no disponibles."); // <--- LOG 2 (si entra aquí)
         // Podrías mostrar un error al usuario aquí si la app no puede funcionar.
         const body = document.querySelector('body');
         if (body) {
@@ -29,43 +31,57 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return;
     }
+    console.log("MAIN.JS: Servicios de Firebase comprobados, parecen estar disponibles."); // <--- LOG 3
 
     if (ListopicApp.themeManager && ListopicApp.themeManager.init) {
+        console.log("MAIN.JS: Inicializando ThemeManager..."); // <--- LOG 4
         ListopicApp.themeManager.init();
     } else {
-        console.error("main.js: ThemeManager not available.");
+        console.error("MAIN.JS: ThemeManager no disponible."); // <--- LOG 5 (si entra aquí)
     }
 
     if (ListopicApp.authService && ListopicApp.authService.init) {
+        console.log("MAIN.JS: Inicializando AuthService..."); // <--- LOG 6
         ListopicApp.authService.init();
     } else {
-        console.error("main.js: AuthService not available.");
+        console.error("MAIN.JS: AuthService no disponible."); // <--- LOG 7 (si entra aquí)
     }
 
     const pagePath = window.location.pathname;
     const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1).toLowerCase(); // Convertido a minúsculas para consistencia
+    console.log("MAIN.JS: pagePath detectado:", pagePath); // <--- LOG 8
+    console.log("MAIN.JS: pageName calculado:", pageName); // <--- LOG 9
     const isIndexPage = pageName === '' || pageName === 'index.html';
 
     // Esperar a que el estado de autenticación se resuelva antes de inicializar páginas protegidas
+    console.log("MAIN.JS: Esperando resolución de onAuthStateChangedPromise..."); // <--- LOG 10
     ListopicApp.authService.onAuthStateChangedPromise().then(user => {
+        console.log("MAIN.JS: onAuthStateChangedPromise resuelta. Usuario:", user ? user.uid : 'No hay usuario'); // <--- LOG 11
+
         if (pageName === 'auth.html') {
+            console.log("MAIN.JS: Es auth.html, intentando inicializar pageAuth..."); // <--- LOG 12
             if (ListopicApp.pageAuth && ListopicApp.pageAuth.init) {
                 ListopicApp.pageAuth.init(); // pageAuth puede tener lógica incluso si el usuario ya está logueado (para redirigir)
             }
         } else if (!user) {
             // Si no es la página de autenticación y no hay usuario, authService ya debería haber redirigido.
             // No se inicializa ninguna otra lógica de página.
-            console.log("main.js: Usuario no autenticado y no en auth.html. Esperando redirección de authService.");
+            console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService debería redirigir."); // <--- LOG 13
             return;
         } else {
             // Usuario autenticado, o página pública que no requiere autenticación (como index, si se decide)
+            console.log("MAIN.JS: Usuario autenticado o página pública. Procediendo a inicializar lógica de página específica."); // <--- LOG 14
             if (isIndexPage) {
+                console.log("MAIN.JS: Es Index page, intentando inicializar pageIndex..."); // <--- LOG 15
                  if(ListopicApp.pageIndex && ListopicApp.pageIndex.init) {
                     ListopicApp.pageIndex.init();
                 }
             } else if (pageName === 'review-form.html') {
+                console.log("MAIN.JS: Es review-form.html, intentando inicializar pageReviewForm..."); // <--- LOG 16
                 if (ListopicApp.pageReviewForm && ListopicApp.pageReviewForm.init) {
-                    ListopicApp.pageReviewForm.init();
+                    ListopicApp.pageReviewForm.init(); // Aquí es donde se llamaría a tu init
+                } else {
+                    console.error("MAIN.JS: ListopicApp.pageReviewForm.init no encontrado!"); // <--- LOG 17 (si falta)
                 }
             } else if (pageName === 'list-form.html') {
                 if (ListopicApp.pageListForm && ListopicApp.pageListForm.init) {
@@ -89,13 +105,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 // Esta es la línea 95 en la estructura original del if/else if
-                console.warn("MAIN.JS: No se detectó una página conocida para inicializar lógica específica. Path:", pagePath, "Resolved pageName:", pageName);
+                console.warn("MAIN.JS: No se detectó una página conocida. pageName:", pageName); // <--- LOG si ninguna coincide
             }
         }
     }).catch(error => {
-        console.error("main.js: Error durante la comprobación del estado de autenticación:", error);
+        console.error("MAIN.JS: Error en onAuthStateChangedPromise:", error); // <--- LOG 18 (si la promesa falla)
         // Manejar error crítico si la autenticación no se puede verificar
     });
 
-    console.log("--- Listopic main.js: Fin del script de inicialización ---");
+    console.log("MAIN.JS: Fin del script de inicialización de main.js."); // <--- LOG 19
 });
