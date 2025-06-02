@@ -45,118 +45,71 @@
     </button>
 </div>
 
-    <main>
-        <div class="container form-container">
-            <a href="list-view.html" class="back-button">← Cancelar y Volver al Ranking</a>
-            <h2>Añadir Nueva Reseña</h2>
-            <form id="review-form" action="#" method="POST">
-                <input type="hidden" id="review-form-listId" name="listId">
-                
-                <div class="form-group">
-                    <label for="restaurant-name-search">Buscar Establecimiento/Elemento por nombre:</label>
-                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                        <input type="text" id="restaurant-name-search-input" class="form-input" placeholder="Ej: La Pizzería Genial">
-                        <button type="button" id="search-by-name-btn" class="add-button" style="padding: 8px 15px; white-space: nowrap;">
-                            <i class="fas fa-search"></i> Buscar
-                        </button>
-                    </div>
-                    <button type="button" id="find-nearby-btn" class="add-button" style="font-size:0.9em; padding: 8px 15px; width: auto; margin-bottom:10px;">
-                        <i class="fas fa-map-marker-alt"></i> O bien, Ubicarme y Buscar Cercanos
+<main>
+    <div class="container form-container">
+        <a href="list-view.html" class="back-button">← Cancelar y Volver al Ranking</a>
+        <h2>Añadir Nueva Reseña</h2>
+        <form id="review-form" action="#" method="POST">
+            <input type="hidden" id="review-form-listId" name="listId">
+            
+            <div class="form-group">
+                <label for="restaurant-name-search-input">Buscar Establecimiento/Elemento por nombre:</label>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input type="text" id="restaurant-name-search-input" class="form-input" placeholder="Ej: La Pizzería Genial">
+                    <button type="button" id="search-by-name-btn" class="add-button" style="padding: 8px 15px; white-space: nowrap;">
+                        <i class="fas fa-search"></i> Buscar
                     </button>
-                    <div id="restaurant-suggestions" class="suggestions-box"></div>
-                    <input type="hidden" id="establishment-name" name="establishmentName" required>
                 </div>
+                <button type="button" id="find-nearby-btn" class="add-button" style="font-size:0.9em; padding: 8px 15px; width: auto; margin-bottom:10px;">
+                    <i class="fas fa-map-marker-alt"></i> O bien, Ubicarme y Buscar Cercanos
+                </button>
+                <div id="restaurant-suggestions" class="suggestions-box"></div>
+                <input type="hidden" id="establishment-name" name="establishmentName" required>
+            </div>
 
-                <div class="form-group">
-                    <label for="item-name">Producto/Plato (puedes ser específico o dejarlo así):</label>
-                    <input type="text" id="item-name" name="itemName" class="form-input" placeholder="Ej: Tarta de la Abuela, Café Etíope Yirgacheffe">
+            <div class="form-group">
+                <label for="item-name">Nombre del Producto/Plato:</label> 
+                <input type="text" id="item-name" name="itemName" class="form-input" placeholder="Ej: Tarta de la Abuela, Café Etíope Yirgacheffe">
+            </div>
+            
+            <div class="form-group">
+                <label>Ubicación del Establecimiento/Lugar</label>
                 </div>
-                
-                <div class="form-group">
-                    <!-- <label>Ubicación del Establecimiento/Lugar</label> -->
-                    <p style="font-size: 0.85em; opacity: 0.7; margin-bottom: 10px;">
-                        Usa la búsqueda de arriba para encontrar lugares con Google Places. O bien, puedes añadir manualmente los datos de la ubicación.
-                    </p>
-                    <button type="button" id="toggle-manual-location-btn" class="button secondary-button" style="margin-bottom: 15px; font-size: 0.9em;">
-                        <i class="fas fa-chevron-down"></i> Añadir/Editar Detalles de Ubicación Manualmente
-                    </button>
-
-                    <div id="manual-location-fields" style="display: none; border: 1px solid var(--border-color-light); padding: 15px; border-radius: var(--border-radius-medium);">
-                        <p style="font-size: 0.8em; opacity: 0.6; margin-top: 0;">
-                            (Rellena esto si no encuentras el lugar con la búsqueda o es un sitio personalizado)
-                        </p>
-                        <label for="location-display-name">Nombre del Lugar Personalizado (o descripción breve):</label>
-                        <input type="text" id="location-display-name" name="locationDisplayName" class="form-input" placeholder="Ej: Casa de mi abuela, Puesto en el mercado local">
-
-                        <label for="location-address-manual" style="margin-top:8px;">Dirección (manual, si aplica):</label>
-                        
-                        <div style="display: flex; gap: 5px; align-items: center;"> 
-                            <input type="text" id="location-address-manual" name="locationAddressManual" class="form-input" placeholder="Ej: Calle Falsa 123, Ciudad" style="flex-grow: 1;">
-                            <button type="button" id="get-current-address-btn" class="button secondary-button" title="Obtener dirección actual" style="padding: 8px 12px; font-size:0.9em; flex-shrink: 0;">
-                                <i class="fas fa-map-marker-alt"></i>
-                            </button>
-                            <div id="manual-location-fields" style="display: none; border: 1px solid var(--border-color-light); padding: 15px; border-radius: var(--border-radius-medium);">
-                            </div>
-                        </div>
-                            
-                        <label for="location-region-manual" style="margin-top:8px;">Región/Provincia (manual, si aplica):</label>
-                        <input type="text" id="location-region-manual" name="locationRegionManual" class="form-input" placeholder="Ej: Madrid, Bizkaia">
-
-                        <label for="location-google-maps-url-manual" style="margin-top:8px;">URL de Google Maps (opcional, si aplica):</label>
-                        <input type="url" id="location-google-maps-url-manual" name="locationGoogleMapsUrlManual" class="form-input" placeholder="https://maps.app.goo.gl/...">
+            
+            <hr class="form-divider">
+            <h3>Valoraciones</h3>
+            <div id="dynamic-rating-criteria" class="form-group"><p style="opacity: 0.7; font-style: italic;">Cargando criterios...</p></div>
+            <hr class="form-divider">
+            
+            <div class="form-group">
+                <label for="photo-file">Foto:</label> <div class="image-upload-area" id="image-drop-area">
+                    <div class="upload-instructions">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Arrastra imagen aquí o haz clic en "Foto" para seleccionar</p>
                     </div>
-                    
-                    <!-- Campos ocultos para datos de Google Places o coordenadas -->
-                    <input type="hidden" id="location-latitude" name="locationLatitude">
-                    <input type="hidden" id="location-longitude" name="locationLongitude">
-                    <input type="hidden" id="location-googlePlaceId" name="locationGooglePlaceId">
-                    <!-- Campos ocultos adicionales para datos específicos de Google que podrías querer guardar -->
-                    <input type="hidden" id="location-city-g" name="locationCityG">
-                    <input type="hidden" id="location-postalCode-g" name="locationPostalCodeG">
-                    <input type="hidden" id="location-country-g" name="locationCountryG">
-                </div>
-                <hr class="form-divider">
-                <h3>Valoraciones</h3>
-                <div id="dynamic-rating-criteria" class="form-group"><p style="opacity: 0.7; font-style: italic;">Cargando criterios...</p></div>
-                <hr class="form-divider">
-                
-                <div class="form-group">
-                    <label>Foto:</label>
-                    <div class="image-upload-area" id="image-drop-area">
-                        <div class="upload-instructions">
-                            <i class="fas fa-cloud-upload-alt"></i>
-                            <p>Arrastra imagen aquí o haz clic para seleccionar</p>
-                        </div>
-                        <input type="file" id="photo-file" name="photo_file" accept="image/*" class="file-input-hidden">
-                        <div id="image-actions" style="margin-top:10px;">
-                            <button type="button" id="browse-gallery-btn"><i class="fas fa-images"></i> Desde Galería</button>
-                            <button type="button" id="use-camera-btn"><i class="fas fa-camera"></i> Usar Cámara</button>
-                        </div>
-                        <p style="margin-top:15px; font-size:0.9em;">o introduce una URL:</p>
-                        <input type="url" id="photo-url" name="imageUrl" class="form-input url-input" placeholder="https://ejemplo.com/imagen.jpg">
-                        <div class="image-preview" style="margin-top:15px;"></div>
+                    <input type="file" id="photo-file" name="photo_file" accept="image/*" class="file-input-hidden">
                     </div>
+            </div>
+            
+            <hr class="form-divider">
+            
+            <fieldset class="form-group"> <legend>Etiquetas (Opcional):</legend>
+                <div id="dynamic-tag-selection" class="tag-selection"> 
+                    <p style="opacity:0.7;font-style:italic;">Cargando etiquetas...</p> 
                 </div>
-                
-                <hr class="form-divider">
-                <div class="form-group">
-                    <label>Etiquetas (Opcional):</label>
-                    <div id="dynamic-tag-selection" class="tag-selection"> 
-                        <p style="opacity:0.7;font-style:italic;">Cargando etiquetas...</p> 
-                    </div>
-                </div>
+            </fieldset>
 
-                <hr class="form-divider">
-                <div class="form-group">
-                    <label for="comment">Comentario. ¿O se trata de una receta y quieres compartirla? :) (Opcional):</label>
-                    <textarea id="comment" name="comment" rows="5" class="form-textarea" placeholder="Describe tu experiencia, notas, detalles..."></textarea>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="submit-button">Guardar Reseña</button>
-                </div>
-            </form>
-        </div>
-    </main>
+            <hr class="form-divider">
+            <div class="form-group">
+                <label for="comment">Comentario. ¿O se trata de una receta y quieres compartirla? :) (Opcional):</label>
+                <textarea id="comment" name="comment" rows="5" class="form-textarea" placeholder="Describe tu experiencia, notas, detalles..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="submit-button">Guardar Reseña</button>
+            </div>
+        </form>
+    </div>
+</main>
     <footer> Listopic... Tu rincón personal de valoraciones. </footer>
     <script src="js/config.js" defer></script>
     <script src="js/firebaseService.js" defer></script>
