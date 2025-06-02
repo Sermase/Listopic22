@@ -85,9 +85,8 @@ ListopicApp.authService = (() => {
                 if (logoutButton) {
                     logoutButton.style.display = 'inline-block';
                 }
-                // Si el usuario está logueado y está intentando acceder a auth.html, redirigirlo a Index.
+                //Si el usuario está logueado y está intentando acceder a auth.html, redirigirlo a Index.
                 if (isAuthPage) {
-                console.log("Redireccionado a la página principal.");
                 window.location.href = 'Index.html';
                 }
             } else {
