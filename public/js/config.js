@@ -19,8 +19,8 @@ ListopicApp.config = {
         // Añade las URLs para las nuevas funciones de Places. Estas URLs las obtendrás después de desplegarlas.
          // Tendrán un formato similar a la de groupedReviews, pero con sus nombres.
          // Ejemplo (los hashes serán diferentes):
-        placesNearbyRestaurants: "https://europe-west1-listopic.cloudfunctions.net/placesNearbyRestaurants", 
-        placesTextSearch: "https://europe-west1-listopic.cloudfunctions.net/placesTextSearch"
+        placesNearbyRestaurants: "https://placesnearbyrestaurants-jz4x2l2cfq-ew.a.run.app", 
+        placesTextSearch: "https://placestextsearch-jz4x2l2cfq-ew.a.run.app"
     },
     GOOGLE_PLACES_API_KEY: 'AIzaSyDXUk2b2VZu6Ui-HlBMZeMeQGBvzaSpHvE' // Tu clave de API de Google Places
 
