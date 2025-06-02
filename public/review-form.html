@@ -89,23 +89,14 @@
                         <input type="text" id="location-display-name" name="locationDisplayName" class="form-input" placeholder="Ej: Casa de mi abuela, Puesto en el mercado local">
 
                         <label for="location-address-manual" style="margin-top:8px;">Dirección (manual, si aplica):</label>
-                        <input type="text" id="location-address-manual" name="locationAddressManual" class="form-input" placeholder="Ej: Calle Falsa 123, Ciudad">
                         
-                        <div id="manual-location-fields" style="display: none; border: 1px solid var(--border-color-light); padding: 15px; border-radius: var(--border-radius-medium);">
-                            <label for="location-address-manual" style="margin-top:8px;">Dirección (manual, si aplica):</label>
-                            <div style="display: flex; gap: 5px; align-items: center;"> {/* Contenedor para input y botón */}
-                                <input type="text" id="location-address-manual" name="locationAddressManual" class="form-input" placeholder="Ej: Calle Falsa 123, Ciudad" style="flex-grow: 1;">
-                                <button type="button" id="get-current-address-btn" class="button secondary-button" title="Obtener dirección actual" style="padding: 8px 12px; font-size:0.9em; flex-shrink: 0;">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                </button>
-                            </div>
-                            
-                            <label for="location-region-manual" style="margin-top:8px;">Región/Provincia (manual, si aplica):</label>
-                            <input type="text" id="location-region-manual" name="locationRegionManual" class="form-input" placeholder="Ej: Madrid, Bizkaia">
-    
-                            {/* ... (campo location-google-maps-url-manual y campos ocultos como antes) ... */}
+                        <div style="display: flex; gap: 5px; align-items: center;"> 
+                            <input type="text" id="location-address-manual" name="locationAddressManual" class="form-input" placeholder="Ej: Calle Falsa 123, Ciudad" style="flex-grow: 1;">
+                            <button type="button" id="get-current-address-btn" class="button secondary-button" title="Obtener dirección actual" style="padding: 8px 12px; font-size:0.9em; flex-shrink: 0;">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </button>
                         </div>
-
+                            
                         <label for="location-region-manual" style="margin-top:8px;">Región/Provincia (manual, si aplica):</label>
                         <input type="text" id="location-region-manual" name="locationRegionManual" class="form-input" placeholder="Ej: Madrid, Bizkaia">
 

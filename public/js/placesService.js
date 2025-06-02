@@ -21,7 +21,11 @@ ListopicApp.placesService = (() => {
                             addressFormatted: place.formatted_address || place.vicinity,
                             latitude: place.geometry?.location?.lat || null,
                             longitude: place.geometry?.location?.lng || null,
-                            mapsUrl: place.place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${place.place_id}` : (place.geometry?.location?.lat ? `https://www.google.com/maps/search/?api=1&query=${place.geometry.location.lat},${place.geometry.location.lng}` : ''),
+                            mapsUrl: place.place_id 
+                                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.place_id}` 
+                                : (place.geometry?.location?.lat && place.geometry?.location?.lng 
+                                    ? `https://www.google.com/maps/search/?api=1&query=${place.geometry.location.lat},${place.geometry.location.lng}` 
+                                    : ''),
                             // Inicializar componentes de dirección
                             streetAddress: '',
                             city: '',
