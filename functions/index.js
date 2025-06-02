@@ -1,9 +1,9 @@
-// functions/index.js (Para firebase-functions v5.x.x y v6.x.x)
+// functions/index.js (Sintaxis para firebase-functions v5.x.x / v6.x.x y Cloud Functions 2ª Gen)
 const {onRequest} = require("firebase-functions/v2/https");
-const {setGlobalOptions} = require("firebase-functions/v2"); // Para opciones globales
+const {setGlobalOptions} = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
-const cors = require("cors")({origin: true});
+const cors = require("cors")({origin: true}); // Habilita CORS para todos los orígenes
 
 // Inicializar Firebase Admin SDK solo una vez
 if (admin.apps.length === 0) {
@@ -11,30 +11,22 @@ if (admin.apps.length === 0) {
 }
 const db = admin.firestore();
 
-// Establecer opciones globales, como la región, para todas las funciones en este archivo
-// (Si solo tienes una función, también puedes pasar las opciones directamente a onRequest)
-setGlobalOptions({ region: "europe-west1" }); // Asegúrate que esta es tu región deseada
+// Establecer la región globalmente para todas las funciones v2 en este archivo
+setGlobalOptions({ region: "europe-west1" }); // Asegúrate que esta es tu región
 
 exports.groupedReviews = onRequest(
-    { region: "europe-west1" },
-    async (req, res) => {
-      // Configuración manual de CORS para depuración
-      res.set('Access-Control-Allow-Origin', '*'); // O 'http://127.0.0.1:5500'
-      res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-      if (req.method === 'OPTIONS') {
-        // Solicitud preflight de CORS
-        res.status(204).send('');
-        return;
-      }
-  
-      // Luego envuelve el resto con el middleware cors para asegurar que también lo maneje
-      cors(req, res, async () => {
+  // No necesitas repetir las opciones de región aquí si usaste setGlobalOptions,
+  // pero puedes añadir otras opciones específicas de la función si es necesario:
+  // { memory: "256MiB", timeoutSeconds: 60 },
+  async (req, res) => { // El manejador de la solicitud
+    // Usa el middleware de CORS para manejar la solicitud
+    cors(req, res, async () => {
         const listId = req.query.listId;
 
         if (!listId) {
             logger.warn("groupedReviews: listId no proporcionado.", {structuredData: true});
+            // Asegúrate de que la respuesta de error también sea manejada por CORS si es necesario,
+            // aunque el envoltorio principal de cors() debería cubrir esto.
             res.status(400).send({ error: "listId es requerido." });
             return;
         }
@@ -104,5 +96,5 @@ exports.groupedReviews = onRequest(
             res.status(500).send({ error: "Error interno del servidor al obtener reseñas agrupadas.", details: error.message });
         }
     }); // Cierre del manejador cors
-  } // Cierre del manejador de la solicitud
+  } // Cierre del manejador de la solicitud (async (req, res) => { ... })
 ); // Cierre de onRequest
