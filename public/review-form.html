@@ -68,17 +68,51 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="item-name">Nombre del Producto/Plato (Opcional):</label>
+                    <label for="item-name">Producto/Plato (puedes ser específico o dejarlo así):</label>
                     <input type="text" id="item-name" name="itemName" class="form-input" placeholder="Ej: Tarta de la Abuela, Café Etíope Yirgacheffe">
                 </div>
                 
                 <div class="form-group">
-                    <label for="location-url">Ubicación (URL Google Maps - Opcional):</label>
-                    <input type="url" id="location-url" name="location[url]" class="form-input" placeholder="https://maps.app.goo.gl/...">
-                    <label for="location-text" style="margin-top:8px;">Nombre visible de la ubicación (Opcional):</label>
-                    <input type="text" id="location-text" name="location[text]" class="form-input" placeholder="Ej: Centro Comercial XYZ, Sucursal Centro">
+                    <!-- <label>Ubicación del Establecimiento/Lugar</label> -->
+                    <p style="font-size: 0.85em; opacity: 0.7; margin-bottom: 10px;">
+                        Usa la búsqueda de arriba para encontrar lugares con Google Places. O bien, puedes añadir manualmente los datos de la ubicación.
+                    </p>
+                    <button type="button" id="toggle-manual-location-btn" class="button secondary-button" style="margin-bottom: 15px; font-size: 0.9em;">
+                        <i class="fas fa-chevron-down"></i> Añadir/Editar Detalles de Ubicación Manualmente
+                    </button>
+
+                    <div id="manual-location-fields" style="display: none; border: 1px solid var(--border-color-light); padding: 15px; border-radius: var(--border-radius-medium);">
+                        <p style="font-size: 0.8em; opacity: 0.6; margin-top: 0;">
+                            (Rellena esto si no encuentras el lugar con la búsqueda o es un sitio personalizado)
+                        </p>
+                        <label for="location-display-name">Nombre del Lugar Personalizado (o descripción breve):</label>
+                        <input type="text" id="location-display-name" name="locationDisplayName" class="form-input" placeholder="Ej: Casa de mi abuela, Puesto en el mercado local">
+
+                        <label for="location-address-manual" style="margin-top:8px;">Dirección (manual, si aplica):</label>
+                        
+                        <div style="display: flex; gap: 5px; align-items: center;"> 
+                            <input type="text" id="location-address-manual" name="locationAddressManual" class="form-input" placeholder="Ej: Calle Falsa 123, Ciudad" style="flex-grow: 1;">
+                            <button type="button" id="get-current-address-btn" class="button secondary-button" title="Obtener dirección actual" style="padding: 8px 12px; font-size:0.9em; flex-shrink: 0;">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </button>
+                        </div>
+                            
+                        <label for="location-region-manual" style="margin-top:8px;">Región/Provincia (manual, si aplica):</label>
+                        <input type="text" id="location-region-manual" name="locationRegionManual" class="form-input" placeholder="Ej: Madrid, Bizkaia">
+
+                        <label for="location-google-maps-url-manual" style="margin-top:8px;">URL de Google Maps (opcional, si aplica):</label>
+                        <input type="url" id="location-google-maps-url-manual" name="locationGoogleMapsUrlManual" class="form-input" placeholder="https://maps.app.goo.gl/...">
+                    </div>
+                    
+                    <!-- Campos ocultos para datos de Google Places o coordenadas -->
+                    <input type="hidden" id="location-latitude" name="locationLatitude">
+                    <input type="hidden" id="location-longitude" name="locationLongitude">
+                    <input type="hidden" id="location-googlePlaceId" name="locationGooglePlaceId">
+                    <!-- Campos ocultos adicionales para datos específicos de Google que podrías querer guardar -->
+                    <input type="hidden" id="location-city-g" name="locationCityG">
+                    <input type="hidden" id="location-postalCode-g" name="locationPostalCodeG">
+                    <input type="hidden" id="location-country-g" name="locationCountryG">
                 </div>
-                
                 <hr class="form-divider">
                 <h3>Valoraciones</h3>
                 <div id="dynamic-rating-criteria" class="form-group"><p style="opacity: 0.7; font-style: italic;">Cargando criterios...</p></div>
@@ -112,7 +146,7 @@
 
                 <hr class="form-divider">
                 <div class="form-group">
-                    <label for="comment">Comentario (Opcional):</label>
+                    <label for="comment">Comentario. ¿O se trata de una receta y quieres compartirla? :) (Opcional):</label>
                     <textarea id="comment" name="comment" rows="5" class="form-textarea" placeholder="Describe tu experiencia, notas, detalles..."></textarea>
                 </div>
                 <div class="form-actions">

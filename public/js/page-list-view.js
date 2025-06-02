@@ -299,25 +299,31 @@ ListopicApp.pageListView = (() => {
                     }
                     if (confirm(`¿Eliminar "${listTitleElement.textContent || 'esta lista'}" y todas sus reseñas? Esta acción no se puede deshacer.`)) {
                         try {
-                            ListopicApp.services.showNotification("Eliminando lista...", "info");
-                            const reviewsSnapshot = await db.collection('lists').doc(state.currentListId).collection('reviews').get();
-                            const batch = db.batch();
-                            reviewsSnapshot.forEach(doc => {
-                                batch.delete(doc.ref);
-                            });
-                            await batch.commit(); 
-                            await db.collection('lists').doc(state.currentListId).delete(); 
+                            ListopicApp.services.showNotification("Eliminando lista y su contenido...", "info");
+
+                            // Asumimos que tienes una Cloud Function Callable llamada 'deleteListAndContent'
+                            // Esta función se encargaría de borrar la lista y todas sus subcolecciones (reviews)
+                            const deleteListFunction = firebase.functions().httpsCallable('deleteListAndContent');
                             
-                            ListopicApp.services.showNotification('¡Lista eliminada!', 'success');
+                            // Llamar a la función con el listId
+                            const result = await deleteListFunction({ listId: state.currentListId });
+
+                            // La función podría devolver un mensaje de éxito o simplemente completarse
+                            if (result && result.data && result.data.message) {
+                                ListopicApp.services.showNotification(result.data.message, 'success');
+                            } else {
+                                ListopicApp.services.showNotification('¡Lista eliminada con éxito!', 'success');
+                            }
+                            
                             window.location.href = 'index.html';
                         } catch (error) {
-                            console.error('Error deleting list:', error);
-                            ListopicApp.services.showNotification(`Error al eliminar la lista: ${error.message}`, 'error');
+                            console.error('Error llamando a la función de eliminar lista:', error);
+                            // El 'error.message' contendrá el mensaje que enviaste desde la HttpsError
+                            ListopicApp.services.showNotification(`Error al eliminar la lista: ${error.message || 'Error desconocido.'}`, 'error');
                         }
                     }
                 });
             }
-
         } else { // Fin de if (elementos principales del DOM existen)
             console.warn("LIST-VIEW (Agrupada): Faltan elementos esenciales del DOM para inicializar la página (ej. #list-title, #ranking-tbody).");
         }
