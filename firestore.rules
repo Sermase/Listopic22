@@ -17,23 +17,25 @@ service cloud.firestore {
       allow read: if resource.data.isPublic == true || 
                      (request.auth != null && resource.data.userId == request.auth.uid);
       allow create: if request.auth != null &&
-                       request.resource.data.userId == request.auth.uid &&
-                       request.resource.data.name is string &&
-                       request.resource.data.name.size() > 0 &&
-                       request.resource.data.isPublic is bool &&
-                       request.resource.data.criteriaDefinition is map &&
-                       request.resource.data.availableTags is list &&
-                       (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time) &&
-                       (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
-      allow update: if request.auth != null &&
-                       resource.data.userId == request.auth.uid &&
-                       request.resource.data.userId == resource.data.userId &&
-                       request.resource.data.name is string &&
-                       request.resource.data.name.size() > 0 &&
-                       request.resource.data.isPublic is bool &&
-                       request.resource.data.criteriaDefinition is map &&
-                       request.resource.data.availableTags is list &&
-                       (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.name is string &&
+                      request.resource.data.name.size() > 0 &&
++                     request.resource.data.categoryId is string && // Añadir esta línea
+                      request.resource.data.isPublic is bool &&
+                      request.resource.data.criteriaDefinition is map &&
+                      request.resource.data.availableTags is list &&
+                      (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time) &&
+                      (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
+    allow update: if request.auth != null &&
+                      resource.data.userId == request.auth.uid &&
+                      request.resource.data.userId == resource.data.userId &&
+                      request.resource.data.name is string &&
+                      request.resource.data.name.size() > 0 &&
++                     request.resource.data.categoryId is string && // Añadir esta línea
+                      request.resource.data.isPublic is bool &&
+                      request.resource.data.criteriaDefinition is map &&
+                      request.resource.data.availableTags is list &&
+                      (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid; // Considerar la lógica de borrado con contribuciones
 
       match /reviews/{reviewId} {

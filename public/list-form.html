@@ -54,11 +54,15 @@
             <a href="index.html" class="back-button">← Cancelar y Volver a Mis Listas</a>
             <h2>Crear Nueva Lista de Valoración</h2> <!-- JS cambiará esto si es editar -->
             <form id="list-form" action="#" method="POST">
-                <input type="hidden" name="categoryId" value="defaultCategory">
                 <div class="form-group">
                     <label for="list-name">Nombre de la Lista:</label>
                     <input type="text" id="list-name" name="name" required class="form-input" placeholder="Ej: Mejores Cafés de Especialidad 2024">
                 </div>
+                
+                <div class="form-group">
+                    <label for="list-category">Categoría de la Lista:</label>
+                    <input type="text" id="list-category" name="categoryId" class="form-input" placeholder="Ej: Comida, Películas, Libros..." value="Hmm..."> </div>
+                
                 <hr class="form-divider">
                 <fieldset class="criteria-group">
                     <legend>Criterios de Valoración (Barras)</legend>

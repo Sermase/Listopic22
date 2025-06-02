@@ -139,6 +139,12 @@ ListopicApp.pageListForm = (() => {
                     if (listFormTitleH2) listFormTitleH2.textContent = 'Editar Lista de Valoración';
                     if (listNameInput) listNameInput.value = listData.name;
 
+                    // NUEVO: Rellenar el campo de categoría
+                    const categoryInput = document.getElementById('list-category');
+                    if (categoryInput) {
+                        categoryInput.value = listData.categoryName || listData.categoryId || 'Hmm...'; // Usamos categoryName o categoryId si existen, sino el defecto
+                    }
+
                     if (critListLF) {
                         critListLF.innerHTML = '';
                         if (listData.criteriaDefinition && typeof listData.criteriaDefinition === 'object') {
@@ -181,16 +187,22 @@ ListopicApp.pageListForm = (() => {
                 submitButton.disabled = false;
                 return;
             }
-            
-            const categoryIdInput = listForm.querySelector('input[name="categoryId"]');
+            // const categoryIdInput = listForm.querySelector('input[name="categoryId"]'); // Ya no es un input oculto con ese name fijo
+            const categoryInput = document.getElementById('list-category'); // El nuevo input visible
+
             const listDataPayload = {
                 name: listNameInput ? listNameInput.value.trim() : "Lista sin nombre",
-                userId: currentUser.uid, // userId del propietario
-                categoryId: categoryIdInput ? categoryIdInput.value : "defaultCategory",
-                isPublic: true, // O tomar de un input si lo añades
-                criteriaDefinition: {},
-                availableTags: [],
-                reviewCount: 0, reactions: {}, commentsCount: 0 // Para nuevas listas
+                userId: currentUser.uid,
+                // Usamos 'categoryId' como clave en Firestore, y leemos del input visible.
+                // Si está vacío, ponemos "defaultCategory" (o "General", o lo que prefieras como valor por defecto).
+                categoryId: "Hmm...", // <--- ASIGNA EL VALOR FIJO AQUÍ
+                isPublic: true, // Puedes hacerlo un campo visible si quieres
+                criteriaDefinition: {}, // Se llenará después
+                availableTags: [],      // Se llenará después
+                // Valores iniciales para nuevas listas, se mantendrán si se edita
+                reviewCount: 0,
+                reactions: {},
+                commentsCount: 0
             };
 
             if(listIdToEdit) { // Si estamos editando, mantener los contadores existentes
