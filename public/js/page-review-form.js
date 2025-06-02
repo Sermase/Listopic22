@@ -130,8 +130,23 @@ ListopicApp.pageReviewForm = (() => {
             const locationRegionManualInput = document.getElementById('location-region-manual'); // Input de región manual (para autocompletar)
             // ... otros inputs de ubicación si quieres autocompletarlos (ciudad, código postal)
 
+            // LOGS DE DEPURACIÓN:
+            if (!toggleManualLocationBtn) {
+                console.error("page-review-form.js: Botón #toggle-manual-location-btn NO ENCONTRADO.");
+            } else {
+                console.log("page-review-form.js: Botón #toggle-manual-location-btn ENCONTRADO.", toggleManualLocationBtn);
+            }
+
+            if (!manualLocationFieldsDiv) {
+                console.error("page-review-form.js: Div #manual-location-fields NO ENCONTRADO.");
+            } else {
+                console.log("page-review-form.js: Div #manual-location-fields ENCONTRADO.", manualLocationFieldsDiv);
+            }
+
             if (toggleManualLocationBtn && manualLocationFieldsDiv) {
                 toggleManualLocationBtn.addEventListener('click', () => {
+                    // LOG DE DEPURACIÓN AL HACER CLIC:
+                    console.log("page-review-form.js: Botón toggleManualLocationBtn clickeado.");
                     const isHidden = manualLocationFieldsDiv.style.display === 'none';
                     manualLocationFieldsDiv.style.display = isHidden ? 'block' : 'none';
                     toggleManualLocationBtn.innerHTML = isHidden ?
