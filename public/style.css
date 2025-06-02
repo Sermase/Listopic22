@@ -297,9 +297,51 @@ main > .add-review-button.submit-button {
 /* LIST-FORM: Criteria & Tags */
 .criteria-group, .tags-group { border: 1px solid rgba(255,255,255,0.2); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
 .criteria-group legend, .tags-group legend { padding: 0 10px; color: var(--accent-color-secondary); font-weight: 600; }
-.criterion-item, .tag-item { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; background-color: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; }
-.criterion-item input[name="criteria_title[]"] { flex-grow: 2; }
-.criterion-item input[name^="criteria_label"] { flex-grow: 1; }
+
+.criterion-item {
+    display: flex;
+    flex-direction: column; /* Para apilar los inputs principales y luego las opciones */
+    gap: 10px;
+    background-color: rgba(0,0,0,0.1);
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+}
+.criterion-main-input, .criterion-slider-config, .criterion-options {
+    display: flex;
+    flex-wrap: wrap; /* Permitir que los elementos internos se envuelvan */
+    gap: 10px; /* Espacio entre elementos internos */
+    align-items: center; /* Alinear verticalmente si hay diferentes alturas */
+}
+.criterion-main-input label, .criterion-slider-config label {
+    font-size: 0.9em;
+    color: var(--secondary-text-color);
+    margin-bottom: 4px; /* Menos margen para etiquetas de sub-campos */
+    display: block; /* Para que ocupen su línea antes del input */
+}
+.criterion-slider-config > div { /* Cada par de label+input en la configuración del slider */
+    flex: 1 1 auto; /* Permitir que crezcan y se encojan, base automática */
+    min-width: 120px; /* Ancho mínimo para cada cajita de config */
+}
+
+.criterion-input { /* El input de nombre del criterio principal */
+    flex-grow: 1; /* Que ocupe el espacio disponible */
+}
+.criterion-input-small { /* Para etiquetas min/max */
+    width: 100%; /* Ocupar el ancho de su div contenedor */
+}
+.criterion-input-xtra-small { /* Para min/max/step numéricos */
+    width: 100%; /* Ocupar el ancho de su div contenedor */
+}
+.criterion-options {
+    justify-content: space-between; /* Ponderable a la izq, botón de borrar a la der */
+    margin-top: 10px;
+}
+.criterion-weighted-label {
+    font-size: 0.95em;
+}
+
+.tag-item { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; background-color: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; }
 .tag-item input { flex-grow: 1; }
 .remove-button { padding: 5px 10px; font-size: 1.2em; line-height: 1; }
 

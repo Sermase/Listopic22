@@ -1,362 +1,327 @@
 window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageListView = (() => {
-    // Dependencies:
-    // ListopicApp.config.API_BASE_URL
-    // ListopicApp.services.auth
-    // ListopicApp.state (for currentListId, allGroupedItems, currentListAvailableTags)
-    // ListopicApp.uiUtils (potentially, if any common UI functions are used)
+    // Variables para mantener el estado de la ordenación y filtros (locales al módulo)
+    let currentSortColumn = 'avgGeneralScore';
+    let currentSortDirection = 'desc';
+    let activeTagFilters = new Set();
+    let currentListIconClass = 'fa-solid fa-list'; // Icono por defecto
+
+    // Elementos del DOM (se asignarán en init)
+    let listTitleElement, rankingTbody, searchInput, tagFilterContainer, rankingTable, 
+        addReviewButton, editListLink, deleteListButton;
+
+    // Funciones auxiliares (definidas fuera de init para que estén disponibles)
+    function getListIconClass_ListView(listName) {
+        if (!listName) return 'fa-solid fa-list';
+        const listNameLower = listName.toLowerCase();
+        if (listNameLower.includes('tarta') || listNameLower.includes('pastel') || listNameLower.includes('torta')) return 'fa-solid fa-birthday-cake';
+        if (listNameLower.includes('pizza')) return 'fa-solid fa-pizza-slice';
+        if (listNameLower.includes('hamburguesa') || listNameLower.includes('burger')) return 'fa-solid fa-hamburger';
+        if (listNameLower.includes('taco') || listNameLower.includes('mexican') || listNameLower.includes('nacho')) return 'fa-solid fa-pepper-hot';
+        if (listNameLower.includes('café') || listNameLower.includes('coffee')) return 'fa-solid fa-coffee';
+        if (listNameLower.includes('sushi') || listNameLower.includes('japo')) return 'fa-solid fa-fish';
+        if (listNameLower.includes('helado') || listNameLower.includes('ice cream')) return 'fa-solid fa-ice-cream';
+        return 'fa-solid fa-list';
+    }
+
+    function renderTableHeaders_ListView_Grouped() {
+        const tableHeadRow = rankingTable.querySelector('thead tr');
+        if (!tableHeadRow) return;
+        tableHeadRow.innerHTML = '';
+
+        const baseHeaders = [
+            { text: 'Foto', class: 'col-image', sortable: false },
+            { text: 'Elemento', class: 'sortable col-element', 'data-column': 'establishmentName', sortable: true },
+            { text: 'Nº Reseñas', class: 'sortable score-col', 'data-column': 'itemCount', sortable: true },
+            { text: 'Media General', class: 'sortable score-col col-general', 'data-column': 'avgGeneralScore', sortable: true }
+        ];
+        
+        // Podrías añadir aquí las cabeceras de criterios dinámicos si ListopicApp.state.currentListCriteriaDefinitions está poblado
+        // y tu Cloud Function devuelve las medias por criterio. Por ahora, usamos las base.
+
+        baseHeaders.forEach(headerConfig => {
+            const th = document.createElement('th');
+            th.textContent = headerConfig.text || '';
+            th.className = headerConfig.class || '';
+            th.scope = 'col';
+            if (headerConfig.sortable) {
+                th.dataset.column = headerConfig['data-column'];
+                th.addEventListener('click', () => handleSort_ListView_Grouped(headerConfig['data-column']));
+            }
+            tableHeadRow.appendChild(th);
+        });
+        updateSortIndicators_ListView_Grouped();
+    }
+
+    function renderTagFilters_ListView() {
+        const uiUtils = ListopicApp.uiUtils; // Asegurar acceso a uiUtils
+        if (!tagFilterContainer) return;
+        tagFilterContainer.innerHTML = '';
+        if (ListopicApp.state.currentListAvailableTags && ListopicApp.state.currentListAvailableTags.length > 0) { 
+            ListopicApp.state.currentListAvailableTags.forEach(tag => {
+                const button = document.createElement('button');
+                button.className = 'tag-filter-button';
+                button.textContent = uiUtils.escapeHtml(tag); // Usar uiUtils para escapar
+                button.dataset.tag = tag;
+                button.addEventListener('click', toggleTagFilter_ListView_Grouped);
+                tagFilterContainer.appendChild(button);
+            });
+        } else {
+            tagFilterContainer.innerHTML = '<p>No hay etiquetas para filtrar en esta lista.</p>';
+        }
+    }
+    
+    function renderTable_ListView_Grouped(groupedItemsToRender) {
+        const uiUtils = ListopicApp.uiUtils; // Asegurar acceso a uiUtils
+        rankingTbody.innerHTML = '';
+        const numCols = rankingTable.querySelector('thead tr')?.children.length || 4;
+        if (groupedItemsToRender.length === 0) {
+            rankingTbody.innerHTML = `<tr><td colspan="${numCols}">No hay elementos que coincidan.</td></tr>`;
+            return;
+        }
+        groupedItemsToRender.forEach(group => {
+            const row = rankingTbody.insertRow();
+            row.className = 'ranking-row';
+            row.dataset.listId = group.listId || ListopicApp.state.currentListId;
+            row.dataset.establishment = group.establishmentName;
+            row.dataset.item = group.itemName || "";
+
+            const imageCell = row.insertCell();
+            imageCell.classList.add('col-image');
+            if (group.thumbnailUrl) {
+                imageCell.innerHTML = `<img src="${uiUtils.escapeHtml(group.thumbnailUrl)}" alt="${uiUtils.escapeHtml(group.itemName || group.establishmentName)}" class="ranking-item-image">`;
+            } else {
+                imageCell.innerHTML = `<div class="ranking-item-icon-placeholder"><i class="${currentListIconClass}"></i></div>`;
+            }
+
+            const elementCell = row.insertCell();
+            elementCell.classList.add('col-element');
+            const itemText = group.itemName ? ` - ${uiUtils.escapeHtml(group.itemName)}` : '';
+            elementCell.innerHTML = `<span class="restaurant-name">${uiUtils.escapeHtml(group.establishmentName) || 'N/A'}</span><span class="dish-name-sub">${itemText}</span>`;
+
+            const itemCountCell = row.insertCell();
+            itemCountCell.classList.add('score-col');
+            itemCountCell.textContent = group.itemCount;
+
+            const avgGeneralScoreCell = row.insertCell();
+            avgGeneralScoreCell.classList.add('score-col', 'col-general');
+            avgGeneralScoreCell.innerHTML = `<span class="overall-score">${(group.avgGeneralScore !== undefined ? group.avgGeneralScore : 0).toFixed(1)}</span>`;
+        });
+    }
+
+    function applyFiltersAndSort_ListView_Grouped() {
+        let filteredItems = [...ListopicApp.state.allGroupedItems]; 
+        const searchTerm = searchInput.value.toLowerCase();
+
+        if (searchTerm) {
+            filteredItems = filteredItems.filter(group =>
+                (group.establishmentName && group.establishmentName.toLowerCase().includes(searchTerm)) ||
+                (group.itemName && group.itemName.toLowerCase().includes(searchTerm))
+            );
+        }
+
+        if (activeTagFilters.size > 0) {
+            filteredItems = filteredItems.filter(group => {
+                if (!group.groupTags || group.groupTags.length === 0) return false;
+                return [...activeTagFilters].every(filterTag => group.groupTags.includes(filterTag));
+            });
+        }
+
+        filteredItems.sort((a, b) => {
+            let valA, valB;
+            if (currentSortColumn === 'establishmentName') { valA = a.establishmentName?.toLowerCase() || ''; valB = b.establishmentName?.toLowerCase() || ''; }
+            else if (currentSortColumn === 'avgGeneralScore') { valA = a.avgGeneralScore; valB = b.avgGeneralScore; }
+            else if (currentSortColumn === 'itemCount') { valA = a.itemCount; valB = b.itemCount; }
+            else { valA = a[currentSortColumn]; valB = b[currentSortColumn]; }
+
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                return currentSortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            return currentSortDirection === 'asc' ? (valA || 0) - (valB || 0) : (valB || 0) - (valA || 0);
+        });
+        renderTable_ListView_Grouped(filteredItems);
+        updateSortIndicators_ListView_Grouped();
+    }
+
+    function updateSortIndicators_ListView_Grouped() {
+        if (!rankingTable) return;
+        rankingTable.querySelectorAll('thead th.sortable').forEach(th => {
+            th.classList.remove('sorted-asc', 'sorted-desc');
+            if (th.dataset.column === currentSortColumn) {
+                th.classList.add(currentSortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
+            }
+        });
+    }
+
+    function handleSort_ListView_Grouped(columnKey) {
+        if (currentSortColumn === columnKey) {
+            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSortColumn = columnKey;
+            currentSortDirection = (columnKey === 'establishmentName') ? 'asc' : 'desc';
+        }
+        applyFiltersAndSort_ListView_Grouped();
+    }
+
+    function toggleTagFilter_ListView_Grouped(event) {
+        const clickedTag = event.target.dataset.tag;
+        if (!clickedTag) return;
+        if (activeTagFilters.has(clickedTag)) activeTagFilters.delete(clickedTag);
+        else activeTagFilters.add(clickedTag);
+        event.target.classList.toggle('selected');
+        applyFiltersAndSort_ListView_Grouped();
+    }
 
     function init() {
-        console.log('Initializing List View page logic with actual code...');
+        console.log('Initializing List View page logic...');
         
-        const API_BASE_URL = ListopicApp.config.API_BASE_URL;
         const auth = ListopicApp.services.auth;
+        const db = ListopicApp.services.db; // Necesario para eliminar lista
         const state = ListopicApp.state;
+        // uiUtils ya está en el scope global de ListopicApp.uiUtils si es necesario
 
-        // --- Start of code moved from app.js's list-view.html block ---
-        const listTitleElement = document.getElementById('list-title');
-        const rankingTbody = document.getElementById('ranking-tbody');
-        const searchInput = document.querySelector('.search-input');
-        const tagFilterContainer = document.querySelector('.tag-filter-container');
-        const rankingTable = document.querySelector('.ranking-table');
+        // Asignar elementos del DOM a las variables del módulo
+        listTitleElement = document.getElementById('list-title');
+        rankingTbody = document.getElementById('ranking-tbody');
+        searchInput = document.querySelector('.search-input');
+        tagFilterContainer = document.querySelector('.tag-filter-container');
+        rankingTable = document.querySelector('.ranking-table');
+        addReviewButton = document.querySelector('.add-review-button');
+        editListLink = document.getElementById('edit-list-link');
+        deleteListButton = document.getElementById('delete-list-button');
+        
+        // Reiniciar estado para esta página
+        state.allGroupedItems = []; 
+        state.currentListAvailableTags = [];
+        activeTagFilters = new Set(); // Reiniciar filtros activos
+        currentSortColumn = 'avgGeneralScore'; // Restablecer ordenación por defecto
+        currentSortDirection = 'desc';
 
-        let currentListIconClass = 'fa-solid fa-list'; // This can remain local to this module's scope
-        // 'allGroupedItems' and 'currentListAvailableTags' will be managed via ListopicApp.state if they need to persist
-        // or be accessed by other modules. For now, assume they are fetched and used within this scope.
-        // Let's define them here if they are primarily managed by this page's logic.
-        state.allGroupedItems = state.allGroupedItems || [];
-        state.currentListAvailableTags = state.currentListAvailableTags || [];
 
+        const urlParamsList = new URLSearchParams(window.location.search);
+        const currentListIdFromURL = urlParamsList.get('listId');
+        state.currentListId = currentListIdFromURL; 
+
+        // Logs para depuración
+        console.log("PAGE-LIST-VIEW: Raw window.location.search:", window.location.search);
+        console.log("PAGE-LIST-VIEW: Parsed listId from URL:", currentListIdFromURL);
+        console.log("PAGE-LIST-VIEW: state.currentListId set to:", state.currentListId);
 
         if (listTitleElement && rankingTbody && searchInput && tagFilterContainer && rankingTable) {
-            let currentSortColumn = 'avgGeneralScore'; // local state for sorting
-            let currentSortDirection = 'desc'; // local state for sorting
-            let activeTagFilters = new Set(); // local state for filtering
-
-            const urlParamsList = new URLSearchParams(window.location.search);
-            const currentListIdFromURL = urlParamsList.get('listId');
-            state.currentListId = currentListIdFromURL; // Update shared state
-
-            function getListIconClass_ListView(listName) {
-                if (!listName) return 'fa-solid fa-list';
-                const listNameLower = listName.toLowerCase();
-                if (listNameLower.includes('tarta') || listNameLower.includes('pastel') || listNameLower.includes('torta')) return 'fa-solid fa-birthday-cake';
-                if (listNameLower.includes('pizza')) return 'fa-solid fa-pizza-slice';
-                if (listNameLower.includes('hamburguesa') || listNameLower.includes('burger')) return 'fa-solid fa-hamburger';
-                if (listNameLower.includes('taco') || listNameLower.includes('mexican') || listNameLower.includes('nacho')) return 'fa-solid fa-pepper-hot';
-                if (listNameLower.includes('café') || listNameLower.includes('coffee')) return 'fa-solid fa-coffee';
-                if (listNameLower.includes('sushi') || listNameLower.includes('japo')) return 'fa-solid fa-fish';
-                if (listNameLower.includes('helado') || listNameLower.includes('ice cream')) return 'fa-solid fa-ice-cream';
-                return 'fa-solid fa-list';
-            }
-
             if (state.currentListId) {
-                const addBtnList = document.querySelector('.add-review-button');
-                if (addBtnList) addBtnList.href = `review-form.html?listId=${state.currentListId}`;
+                if (addReviewButton) addReviewButton.href = `review-form.html?listId=${state.currentListId}`;
+                if (editListLink) editListLink.href = `list-form.html?editListId=${state.currentListId}`;
 
-                const editListLink = document.getElementById('edit-list-link');
-                if (editListLink) {
-                    editListLink.href = `list-form.html?editListId=${state.currentListId}`;
-                }
-
-                console.log('Fetching from URL:', `${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`);
-                
-                // Wait for the auth service to be available
-                const checkAuthService = () => {
-                    return new Promise((resolve, reject) => {
-                        const check = () => {
-                            if (ListopicApp.authService && 
-                                typeof ListopicApp.authService.onAuthStateChangedPromise === 'function') {
-                                resolve();
-                            } else if (Date.now() - startTime > 5000) { // 5 second timeout
-                                reject(new Error('Auth service not available after timeout'));
-                            } else {
-                                setTimeout(check, 100);
-                            }
-                        };
-                        const startTime = Date.now();
-                        check();
-                    });
-                };
-
-                return checkAuthService()
-                    .then(() => {
-                        // Now that we're sure authService is available, get the current user
-                        return ListopicApp.authService.onAuthStateChangedPromise();
-                    })
-                    .then(user => {
-                        if (!user) {
-                            throw new Error('No user is currently signed in');
-                        }
-                        return user.getIdToken();
-                    })
-                    .then(idToken => {
-                        const apiUrl = `${API_BASE_URL}/lists/${state.currentListId}/grouped-reviews`;
-                console.log('Haciendo petición a:', apiUrl);
-                return fetch(apiUrl, {
-                    headers: {
-                        'Authorization': `Bearer ${idToken}`,
-                        'Accept': 'application/json'  // Asegurarse de que esperamos JSON
+                auth.currentUser?.getIdToken(true) // Forzar refresco del token por si acaso
+                .then(idToken => {
+                    // Si tu función no requiere autenticación, puedes omitir el envío del token.
+                    // Si SÍ requiere, asegúrate de que la función lo verifique.
+                    const headers = idToken ? { 'Authorization': `Bearer ${idToken}`, 'Accept': 'application/json' } : {'Accept': 'application/json'};
+                    
+                    const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
+                    if (!functionUrl) {
+                        throw new Error("URL de la función groupedReviews no configurada en ListopicApp.config.FUNCTION_URLS");
                     }
-                }).catch(error => {
-                    console.error('Error en la petición fetch:', error);
-                    throw error;
-                });
-                    })
-                    .then(async res => {
-                        const responseText = await res.text();
-                        console.log('Response status:', res.status, res.statusText);
-                        console.log('Response headers:', [...res.headers.entries()]);
-                        console.log('Response text:', responseText);
-                        
-                        if (!res.ok) {
-                            throw new Error(`HTTP error! status: ${res.status} - ${responseText}`);
-                        }
-                        
+                    const fetchUrl = `${functionUrl}?listId=${state.currentListId}`; 
+                    
+                    console.log('Fetching grouped reviews from (Cloud Function v2 URL):', fetchUrl);
+                    return fetch(fetchUrl, { headers: headers });
+                })
+                .then(async res => {
+                    if (!res.ok) {
+                        const errorText = await res.text();
+                        console.error("Raw error response from CF:", errorText);
+                        let detail = errorText.substring(0, 200); 
                         try {
-                            return JSON.parse(responseText);
-                        } catch (e) {
-                            console.error('Failed to parse JSON:', e);
-                            throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}...`);
-                        }
-                    })
-                    .then(groupedDataResponse => {
-                        listTitleElement.textContent = groupedDataResponse.listName || "Ranking Agrupado";
-                        state.currentListAvailableTags = groupedDataResponse.tags || []; // Update shared state
-                        currentListIconClass = getListIconClass_ListView(groupedDataResponse.listName);
-
-                        state.allGroupedItems = groupedDataResponse.groupedReviews || []; // Update shared state
-                        if (!Array.isArray(state.allGroupedItems)) {
-                            console.error("Formato de reseñas agrupadas inesperado:", state.allGroupedItems);
-                            state.allGroupedItems = [];
-                            rankingTbody.innerHTML = `<tr><td colspan="100%">Formato de datos agrupados inesperado.</td></tr>`;
-                        } else {
-                            renderTableHeaders_ListView_Grouped();
-                            renderTagFilters_ListView();
-                            applyFiltersAndSort_ListView_Grouped();
-                        }
-                    })
-                    .catch(error => {
-                        console.error("LIST-VIEW (Agrupada): Error en fetch:", error);
-                        listTitleElement.textContent = "Error al cargar lista";
-                        rankingTbody.innerHTML = `<tr><td colspan="100%" style="color:var(--danger-color);">${error.message}</td></tr>`;
-                    });
-
-            } else {
-                listTitleElement.textContent = "Error: Lista no especificada";
-                rankingTbody.innerHTML = `<tr><td colspan="100%">Selecciona una lista válida.</td></tr>`;
-            }
-
-            function renderTableHeaders_ListView_Grouped() {
-                const tableHeadRow = rankingTable.querySelector('thead tr');
-                if (!tableHeadRow) return;
-                tableHeadRow.innerHTML = '';
-
-                const headers = [
-                    { text: 'Foto', class: 'col-image', sortable: false },
-                    { text: 'Elemento (Restaurante/Plato)', class: 'sortable col-element', 'data-column': 'restaurant', sortable: true },
-                    { text: 'Nº Reseñas', class: 'sortable score-col', 'data-column': 'itemCount', sortable: true },
-                    { text: 'Media General', class: 'sortable score-col col-general', 'data-column': 'avgGeneralScore', sortable: true }
-                ];
-
-                headers.forEach(headerConfig => {
-                    const th = document.createElement('th');
-                    th.textContent = headerConfig.text || '';
-                    th.className = headerConfig.class || '';
-                    th.scope = 'col';
-                    if (headerConfig.sortable) {
-                        th.dataset.column = headerConfig['data-column'];
-                        th.addEventListener('click', () => handleSort_ListView_Grouped(headerConfig['data-column']));
+                            const errorJson = JSON.parse(errorText);
+                            if (errorJson && errorJson.error) {
+                                detail = typeof errorJson.error === 'string' ? errorJson.error : (errorJson.error.message || JSON.stringify(errorJson.error));
+                            } else if (errorJson) {
+                                detail = JSON.stringify(errorJson).substring(0,200);
+                            }
+                        } catch (e) { /* no era JSON */ }
+                        throw new Error(`Error HTTP ${res.status} al obtener reseñas agrupadas: ${detail}`);
                     }
-                    tableHeadRow.appendChild(th);
-                });
-                updateSortIndicators_ListView_Grouped();
-            }
-
-            function renderTagFilters_ListView() {
-                if (!tagFilterContainer) return;
-                tagFilterContainer.innerHTML = '';
-                if (state.currentListAvailableTags.length > 0) { // Use shared state
-                    state.currentListAvailableTags.forEach(tag => {
-                        const button = document.createElement('button');
-                        button.className = 'tag-filter-button';
-                        button.textContent = ListopicApp.uiUtils.escapeHtml(tag);
-                        button.dataset.tag = tag;
-                        button.addEventListener('click', toggleTagFilter_ListView_Grouped);
-                        tagFilterContainer.appendChild(button);
-                    });
-                } else {
-                    tagFilterContainer.innerHTML = '<p>No hay etiquetas para filtrar en esta lista.</p>';
-                }
-            }
-
-            function applyFiltersAndSort_ListView_Grouped() {
-                let filteredItems = [...state.allGroupedItems]; // Use shared state
-                const searchTerm = searchInput.value.toLowerCase();
-
-                if (searchTerm) {
-                    filteredItems = filteredItems.filter(group =>
-                        (group.restaurant && group.restaurant.toLowerCase().includes(searchTerm)) ||
-                        (group.dish && group.dish.toLowerCase().includes(searchTerm))
-                    );
-                }
-
-                if (activeTagFilters.size > 0) {
-                    filteredItems = filteredItems.filter(group => {
-                        if (!group.groupTags || group.groupTags.length === 0) {
-                            return false;
-                        }
-                        return [...activeTagFilters].every(filterTag => group.groupTags.includes(filterTag));
-                    });
-                }
-
-                filteredItems.sort((a, b) => {
-                    let valA, valB;
-                    if (currentSortColumn === 'avgGeneralScore') { valA = a.avgGeneralScore; valB = b.avgGeneralScore; }
-                    else if (currentSortColumn === 'restaurant') { valA = a.restaurant?.toLowerCase() || ''; valB = b.restaurant?.toLowerCase() || ''; }
-                    else if (currentSortColumn === 'itemCount') { valA = a.itemCount; valB = b.itemCount; }
-                    else { valA = a[currentSortColumn]; valB = b[currentSortColumn]; }
-
-                    if (typeof valA === 'string' && typeof valB === 'string') {
-                        return currentSortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                    return res.json();
+                })
+                .then(responsePayload => {
+                    if (!responsePayload || typeof responsePayload !== 'object') {
+                        throw new Error("Respuesta inesperada o vacía de la Cloud Function.");
                     }
-                    return currentSortDirection === 'asc' ? valA - valB : valB - valA;
-                });
-                renderTable_ListView_Grouped(filteredItems);
-                updateSortIndicators_ListView_Grouped();
-            }
+                    listTitleElement.textContent = responsePayload.listName || "Ranking Agrupado";
+                    state.currentListAvailableTags = responsePayload.tags || [];
+                    state.currentListCriteriaDefinitions = responsePayload.criteria || {}; 
+                    currentListIconClass = getListIconClass_ListView(responsePayload.listName);
+                    
+                    renderTableHeaders_ListView_Grouped(); 
+                    renderTagFilters_ListView();
 
-            function renderTable_ListView_Grouped(groupedItemsToRender) {
-                rankingTbody.innerHTML = '';
-                const numCols = rankingTable.querySelector('thead tr')?.children.length || 4;
-                if (groupedItemsToRender.length === 0) {
-                    rankingTbody.innerHTML = `<tr><td colspan="${numCols}">No hay elementos que coincidan.</td></tr>`;
-                    return;
-                }
-                groupedItemsToRender.forEach(group => {
-                    const row = rankingTbody.insertRow();
-                    row.className = 'ranking-row';
-                    row.dataset.listId = group.listId;
-                    row.dataset.restaurant = group.restaurant;
-                    row.dataset.dish = group.dish || "";
-
-                    const imageCell = row.insertCell();
-                    imageCell.classList.add('col-image');
-                    if (group.thumbnailUrl) {
-                        imageCell.innerHTML = `<img src="${ListopicApp.uiUtils.escapeHtml(group.thumbnailUrl)}" alt="${ListopicApp.uiUtils.escapeHtml(group.dish || group.restaurant)}" class="ranking-item-image">`;
+                    state.allGroupedItems = responsePayload.groupedReviews || [];
+                    if (!Array.isArray(state.allGroupedItems)) {
+                         console.error("Formato de reseñas agrupadas inesperado:", state.allGroupedItems);
+                         state.allGroupedItems = [];
+                         if(rankingTbody) rankingTbody.innerHTML = `<tr><td colspan="${rankingTable.querySelector('thead tr')?.children.length || 4}">Formato de datos agrupados inesperado.</td></tr>`;
                     } else {
-                        imageCell.innerHTML = `<div class="ranking-item-icon-placeholder"><i class="${currentListIconClass}"></i></div>`;
+                        applyFiltersAndSort_ListView_Grouped();
                     }
+                })
+                .catch(error => {
+                    console.error("LIST-VIEW (Agrupada): Error en fetch o procesamiento:", error);
+                    if(listTitleElement) listTitleElement.textContent = "Error al cargar lista";
+                    if(rankingTbody) rankingTbody.innerHTML = `<tr><td colspan="${rankingTable?.querySelector('thead tr')?.children.length || 4}" style="color:var(--danger-color);">${error.message}</td></tr>`;
+                    ListopicApp.services.showNotification(`Error al cargar la lista: ${error.message}`, "error");
+                });
+            } else {
+                if(listTitleElement) listTitleElement.textContent = "Error: Lista no especificada";
+                if(rankingTbody) rankingTbody.innerHTML = `<tr><td colspan="4">ID de lista no especificado en la URL.</td></tr>`;
+                ListopicApp.services.showNotification("ID de lista no especificado en la URL.", "error");
+            }
 
-                    const elementCell = row.insertCell();
-                    elementCell.classList.add('col-element');
-                    const dishText = group.dish ? ` - ${ListopicApp.uiUtils.escapeHtml(group.dish)}` : '';
-                    elementCell.innerHTML = `<span class="restaurant-name">${ListopicApp.uiUtils.escapeHtml(group.restaurant) || 'N/A'}</span><span class="dish-name-sub">${dishText}</span>`;
-
-                    const itemCountCell = row.insertCell();
-                    itemCountCell.classList.add('score-col');
-                    itemCountCell.textContent = group.itemCount;
-
-                    const avgGeneralScoreCell = row.insertCell();
-                    avgGeneralScoreCell.classList.add('score-col', 'col-general');
-                    avgGeneralScoreCell.innerHTML = `<span class="overall-score">${group.avgGeneralScore.toFixed(1)}</span>`;
+            // Listeners de UI (solo si los elementos existen)
+            if (rankingTbody) {
+                rankingTbody.addEventListener('click', (event) => {
+                    const row = event.target.closest('.ranking-row');
+                    if (row && row.dataset.listId && row.dataset.establishment !== undefined) {
+                        const listId = row.dataset.listId;
+                        const establishment = encodeURIComponent(row.dataset.establishment);
+                        const item = encodeURIComponent(row.dataset.item);
+                        window.location.href = `grouped-detail-view.html?listId=${listId}&establishment=${establishment}&item=${item}`;
+                    }
                 });
             }
+            if(searchInput) searchInput.addEventListener('input', applyFiltersAndSort_ListView_Grouped);
 
-            function updateSortIndicators_ListView_Grouped() {
-                rankingTable.querySelectorAll('thead th.sortable').forEach(th => {
-                    th.classList.remove('sorted-asc', 'sorted-desc');
-                    if (th.dataset.column === currentSortColumn) {
-                        th.classList.add(currentSortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
+            if (deleteListButton) {
+                deleteListButton.addEventListener('click', async () => {
+                    if (!state.currentListId) {
+                         ListopicApp.services.showNotification("ID de lista no disponible para eliminar.", "error");
+                         return;
                     }
-                });
-            }
-
-            function handleSort_ListView_Grouped(columnKey) {
-                if (currentSortColumn === columnKey) {
-                    currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
-                } else {
-                    currentSortColumn = columnKey;
-                    currentSortDirection = (columnKey === 'restaurant') ? 'asc' : 'desc';
-                }
-                applyFiltersAndSort_ListView_Grouped();
-            }
-
-            function toggleTagFilter_ListView_Grouped(event) {
-                const clickedTag = event.target.dataset.tag;
-                if (!clickedTag) return;
-
-                if (activeTagFilters.has(clickedTag)) {
-                    activeTagFilters.delete(clickedTag);
-                    event.target.classList.remove('selected');
-                } else {
-                    activeTagFilters.add(clickedTag);
-                    event.target.classList.add('selected');
-                }
-                console.log("Filtros de etiquetas activos:", activeTagFilters);
-                applyFiltersAndSort_ListView_Grouped();
-            }
-
-            rankingTbody.addEventListener('click', (event) => {
-                const row = event.target.closest('.ranking-row');
-                if (row && row.dataset.listId && row.dataset.restaurant !== undefined) {
-                    const listId = row.dataset.listId;
-                    const restaurant = encodeURIComponent(row.dataset.restaurant);
-                    const dish = encodeURIComponent(row.dataset.dish);
-                    window.location.href = `grouped-detail-view.html?listId=${listId}&restaurant=${restaurant}&dish=${dish}`;
-                }
-            });
-
-            searchInput.addEventListener('input', applyFiltersAndSort_ListView_Grouped);
-
-            const deleteListBtn = document.getElementById('delete-list-button');
-            if (deleteListBtn) {
-                deleteListBtn.addEventListener('click', async () => {
-                    if (confirm(`¿Eliminar "${listTitleElement.textContent || 'esta lista'}" y todas sus reseñas?`)) {
-                        const idToken = await auth.currentUser?.getIdToken(true);
-                        const headers = {};
-                        if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
-                        
+                    if (confirm(`¿Eliminar "${listTitleElement.textContent || 'esta lista'}" y todas sus reseñas? Esta acción no se puede deshacer.`)) {
                         try {
-                            const response = await fetch(`${API_BASE_URL}/lists/${state.currentListId}`, { 
-                                method: 'DELETE',
-                                headers: headers 
+                            ListopicApp.services.showNotification("Eliminando lista...", "info");
+                            const reviewsSnapshot = await db.collection('lists').doc(state.currentListId).collection('reviews').get();
+                            const batch = db.batch();
+                            reviewsSnapshot.forEach(doc => {
+                                batch.delete(doc.ref);
                             });
+                            await batch.commit(); 
+                            await db.collection('lists').doc(state.currentListId).delete(); 
                             
-                            if (!response.ok && response.status !== 204) { // 204 No Content is a success for DELETE
-                                throw new Error(`HTTP error: ${response.status}`);
-                            }
-                            
-                            alert('¡Lista eliminada!');
+                            ListopicApp.services.showNotification('¡Lista eliminada!', 'success');
                             window.location.href = 'index.html';
                         } catch (error) {
                             console.error('Error deleting list:', error);
-                            alert('Error al eliminar la lista. Por favor, inténtalo de nuevo.');
+                            ListopicApp.services.showNotification(`Error al eliminar la lista: ${error.message}`, 'error');
                         }
                     }
                 });
             }
-        } else {
-            console.warn("LIST-VIEW (Agrupada): Faltan elementos esenciales del DOM.");
-        }
-        // --- End of code moved from app.js ---
 
-        // Logic for '.add-review-button' specific to list-view.html (if any beyond href)
-        const addReviewBtnPage = document.querySelector('.add-review-button'); // Ensure this is specific enough or use ID
-        if (addReviewBtnPage && addReviewBtnPage.closest('main').querySelector('#list-title')) { // Check if it's on list-view page
-            addReviewBtnPage.addEventListener('click', (e) => {
-                if (state.currentListId) { // currentListId should be set when list-view loads
-                    e.preventDefault();
-                    window.location.href = `review-form.html?listId=${state.currentListId}`;
-                } else if (!addReviewBtnPage.href.includes('listId=')) { // If href not already set by fetch
-                     e.preventDefault();
-                     console.warn("List ID not available for Add Review button on List View.");
-                     alert("Por favor, espera a que la lista se cargue completamente o vuelve a intentarlo.");
-                }
-                // If href already contains listId (set by fetch), default action is fine.
-            });
+        } else { // Fin de if (elementos principales del DOM existen)
+            console.warn("LIST-VIEW (Agrupada): Faltan elementos esenciales del DOM para inicializar la página (ej. #list-title, #ranking-tbody).");
         }
-    }
+    } // Cierre de init
 
     return {
         init

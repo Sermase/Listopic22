@@ -1,212 +1,211 @@
 window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageDetailView = (() => {
-    // Dependencies:
-    // ListopicApp.config.API_BASE_URL
-    // ListopicApp.services.auth
-    // ListopicApp.state (for currentListCriteriaDefinitions)
-    // ListopicApp.uiUtils (potentially)
-
     function init() {
-        console.log('Initializing Detail View page logic with actual code...');
+        console.log('Initializing Detail View page logic...');
 
-        const API_BASE_URL = ListopicApp.config.API_BASE_URL;
+        const API_BASE_URL = ListopicApp.config.API_BASE_URL_FUNCTIONS || ListopicApp.config.API_BASE_URL; // Asumimos que esto llamará a una Cloud Function
         const auth = ListopicApp.services.auth;
+        const db = ListopicApp.services.db; // Para obtener la definición de la lista directamente
         const state = ListopicApp.state; 
-        // const uiUtils = ListopicApp.uiUtils; // Not directly used in original block, but good to keep in mind
+        const uiUtils = ListopicApp.uiUtils;
 
-        // --- Start of code moved from app.js's detail-view.html block ---
         const params = new URLSearchParams(window.location.search);
         const reviewId = params.get('id');
-        const listIdForPage = params.get('listId'); // Used for back button and edit link
+        const listIdForPage = params.get('listId'); 
 
-        const backButton = document.querySelector('.container a.back-button'); // Ensure this selector is specific enough
+        const detailEstablishmentNameEl = document.getElementById('detail-restaurant-name'); // Asumimos que el ID HTML no cambia, solo el contenido
+        const detailItemNameEl = document.getElementById('detail-dish-name'); // Asumimos que el ID HTML no cambia
+        const detailImageEl = document.getElementById('detail-image');
+        const detailScoreValueEl = document.getElementById('detail-score-value');
+        const detailRatingsListEl = document.getElementById('detail-ratings');
+        const detailLocationLinkEl = document.getElementById('detail-location-link');
+        const detailLocationTextEl = document.getElementById('detail-location-text'); // ID añadido en HTML
+        const detailNoLocationDivEl = document.querySelector('.detail-no-location');
+        const detailLocationContainerEl = document.getElementById('detail-location-container');
+        const detailCommentContainerEl = document.getElementById('detail-comment-container');
+        const detailCommentTextEl = document.getElementById('detail-comment-text');
+        const detailTagsContainerEl = document.getElementById('detail-tags-container');
+        const detailTagsDivEl = document.getElementById('detail-tags');
+        const detailListNameEl = document.getElementById('detail-list-name'); // El <p> que muestra el nombre de la lista
+
+        const backButton = document.querySelector('.container a.back-button');
         const editButton = document.querySelector('.edit-button'); 
+        const deleteButton = document.querySelector('.delete-button.danger');
 
         if (backButton && listIdForPage) {
-            const restaurantParam = params.get('fromRestaurant');
-            const dishParam = params.get('fromDish');
-            if (restaurantParam) { // Means it came from grouped-detail-view
-                backButton.href = `grouped-detail-view.html?listId=${listIdForPage}&restaurant=${encodeURIComponent(restaurantParam)}&dish=${encodeURIComponent(dishParam || '')}`;
-            } else { // Came from list-view
+            // MODIFICADO: Usar los nuevos nombres de parámetros si vienen de grouped-detail-view
+            const fromEstablishmentParam = params.get('fromEstablishment');
+            const fromItemParam = params.get('fromItem');
+            if (fromEstablishmentParam) { 
+                backButton.href = `grouped-detail-view.html?listId=${listIdForPage}&establishment=${encodeURIComponent(fromEstablishmentParam)}&item=${encodeURIComponent(fromItemParam || '')}`;
+            } else { 
                 backButton.href = `list-view.html?listId=${listIdForPage}`;
             }
         }
 
-        if (reviewId) {
-            fetch(`${API_BASE_URL}/reviews/${reviewId}`)
-                .then(res => {
-                    if (!res.ok) throw new Error(`Error al cargar reseña: ${res.statusText}`);
-                    return res.json();
-                })
-                .then(async reviewData => {
-                    document.getElementById('detail-restaurant-name').textContent = reviewData.restaurant;
-                    document.getElementById('detail-dish-name').textContent = reviewData.dish || '';
+        if (reviewId && listIdForPage) { // Necesitamos ambos para obtener la reseña y la definición de criterios de la lista
+            // 1. Obtener la reseña
+            db.collection('lists').doc(listIdForPage).collection('reviews').doc(reviewId).get()
+                .then(reviewDoc => {
+                    if (!reviewDoc.exists) {
+                        throw new Error(`Reseña no encontrada.`);
+                    }
+                    const reviewData = reviewDoc.data();
+
+                    // MODIFICADO: Usar establishmentName e itemName
+                    if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = reviewData.establishmentName;
+                    if (detailItemNameEl) detailItemNameEl.textContent = reviewData.itemName || '';
                     
-                    const detailListNamelink = document.getElementById('detail-list-name-link');
-                    if(detailListNamelink && reviewData.listId && reviewData.listName) {
-                        detailListNamelink.textContent = reviewData.listName;
-                        detailListNamelink.href = `list-view.html?listId=${reviewData.listId}`;
-                    } else if (detailListNamelink) {
-                         detailListNamelink.textContent = "Lista Desconocida";
-                         detailListNamelink.href="#";
-                    }
-
-
-                    const detailImage = document.getElementById('detail-image');
-                    if (reviewData.imageUrl) {
-                        detailImage.src = reviewData.imageUrl;
-                        detailImage.alt = `Foto de ${reviewData.dish || reviewData.restaurant}`;
-                        detailImage.style.display = 'block';
-                        const placeholderIcon = detailImage.parentNode.querySelector('.detail-image-icon-placeholder');
-                        if(placeholderIcon) placeholderIcon.style.display = 'none'; // Hide placeholder
-                    } else {
-                        detailImage.style.display = 'none'; // Hide image tag
-                        let placeholderIconDiv = detailImage.parentNode.querySelector('.detail-image-icon-placeholder');
-                        if (!placeholderIconDiv) { // Create if not exists
-                            placeholderIconDiv = document.createElement('div');
-                            placeholderIconDiv.className = 'detail-image-icon-placeholder';
-                            detailImage.parentNode.insertBefore(placeholderIconDiv, detailImage.nextSibling);
-                        }
-                        placeholderIconDiv.innerHTML = `<i class="fa-solid fa-image"></i>`; // Default icon
-                        placeholderIconDiv.style.display = 'flex'; // Show placeholder
-                    }
-
-                    state.currentListCriteriaDefinitions = []; // Reset from shared state
-                    if (reviewData.listId) {
-                        try {
-                            const listRes = await fetch(`${API_BASE_URL}/lists/${reviewData.listId}`);
-                            if (listRes.ok) {
-                                const listDefinitionForScore = await listRes.json();
-                                state.currentListCriteriaDefinitions = listDefinitionForScore.criteria || [];
+                    if (detailImageEl) {
+                        if (reviewData.photoUrl) {
+                            detailImageEl.src = reviewData.photoUrl;
+                            detailImageEl.alt = `Foto de ${reviewData.itemName || reviewData.establishmentName}`;
+                            detailImageEl.style.display = 'block';
+                            const placeholderIcon = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
+                            if(placeholderIcon) placeholderIcon.style.display = 'none';
+                        } else {
+                            detailImageEl.style.display = 'none';
+                            let placeholderIconDiv = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
+                            if (!placeholderIconDiv) {
+                                placeholderIconDiv = document.createElement('div');
+                                placeholderIconDiv.className = 'detail-image-icon-placeholder';
+                                detailImageEl.parentNode.insertBefore(placeholderIconDiv, detailImageEl.nextSibling);
                             }
-                        } catch (err) {
-                            console.warn("Error cargando definiciones de criterios para el score:", err);
+                            placeholderIconDiv.innerHTML = `<i class="fa-solid fa-image"></i>`;
+                            placeholderIconDiv.style.display = 'flex';
                         }
                     }
 
-                    const scoreValueEl = document.getElementById('detail-score-value');
-                    let totalScore = 0;
-                    let numWeightedRatings = 0;
-                    if (reviewData.ratings && typeof reviewData.ratings === 'object' && state.currentListCriteriaDefinitions.length > 0) {
-                        for (const ratingKey in reviewData.ratings) {
-                            const criterionDef = state.currentListCriteriaDefinitions.find(c => c.title.toLowerCase().replace(/[^a-z0-9]/g, '') === ratingKey);
-                            if (criterionDef && criterionDef.isWeighted !== false) {
-                                totalScore += parseFloat(reviewData.ratings[ratingKey]);
-                                numWeightedRatings++;
+                    // 2. Obtener la definición de la lista para los criterios y el nombre de la lista
+                    return db.collection('lists').doc(listIdForPage).get().then(listDoc => {
+                        if (!listDoc.exists) {
+                            throw new Error("Lista asociada no encontrada.");
+                        }
+                        const listData = listDoc.data();
+                        state.currentListCriteriaDefinitions = listData.criteriaDefinition || {}; // Guardar el mapa de criterios
+
+                        if(detailListNameEl && listData.name) {
+                            detailListNameEl.innerHTML = `Estás viendo en Listopic: <a href="list-view.html?listId=${listIdForPage}">${uiUtils.escapeHtml(listData.name)}</a>`;
+                        } else if (detailListNameEl) {
+                             detailListNameEl.textContent = "Estás viendo en Listopic: Lista Desconocida";
+                        }
+
+                        // Calcular y mostrar la puntuación general (overallRating ya debería estar en reviewData)
+                        if (detailScoreValueEl) {
+                             detailScoreValueEl.textContent = reviewData.overallRating !== undefined ? reviewData.overallRating.toFixed(1) : 'N/A';
+                        }
+
+                        // Renderizar valoraciones detalladas usando el mapa de criterios de la lista
+                        if (detailRatingsListEl) {
+                            detailRatingsListEl.innerHTML = '';
+                            if (reviewData.scores && typeof reviewData.scores === 'object' && 
+                                typeof state.currentListCriteriaDefinitions === 'object' && Object.keys(state.currentListCriteriaDefinitions).length > 0) {
+                                for (const [critKey, critDef] of Object.entries(state.currentListCriteriaDefinitions)) {
+                                    if (reviewData.scores[critKey] !== undefined) {
+                                        const li = document.createElement('li');
+                                        const weightedText = critDef.ponderable === false ? ' <small class="non-weighted-detail">(No pondera)</small>' : '';
+                                        li.innerHTML = `<span class="rating-label">${uiUtils.escapeHtml(critDef.label)}${weightedText}</span> <span class="rating-value">${parseFloat(reviewData.scores[critKey]).toFixed(1)}</span>`;
+                                        detailRatingsListEl.appendChild(li);
+                                    }
+                                }
+                            } else {
+                                detailRatingsListEl.innerHTML = '<li>No hay valoraciones detalladas.</li>';
                             }
                         }
-                    }
-                    scoreValueEl.textContent = numWeightedRatings > 0 ? (totalScore / numWeightedRatings).toFixed(1) : 'N/A';
+                        return reviewData; // Pasar reviewData para la siguiente cadena de promesas si es necesario
+                    });
+                })
+                .then(reviewData => { // reviewData ya está disponible y la lista también se cargó
+                    // Manejo de ubicación (se revisará en 1.c)
+                    if (reviewData.location && (reviewData.location.url || reviewData.location.text)) {
+                        if (detailLocationLinkEl && reviewData.location.url) detailLocationLinkEl.href = reviewData.location.url;
+                        else if (detailLocationLinkEl) detailLocationLinkEl.removeAttribute('href');
 
-                    const ratingsListEl = document.getElementById('detail-ratings');
-                    ratingsListEl.innerHTML = '';
-                    if (reviewData.ratings && Object.keys(reviewData.ratings).length > 0 && state.currentListCriteriaDefinitions.length > 0) {
-                        state.currentListCriteriaDefinitions.forEach(crit => {
-                            const safeKey = crit.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-                            if (reviewData.ratings[safeKey] !== undefined) {
-                                const li = document.createElement('li');
-                                const weightedText = crit.isWeighted === false ? ' <small class="non-weighted-detail">(No pondera)</small>' : '';
-                                li.innerHTML = `<span class="rating-label">${ListopicApp.uiUtils.escapeHtml(crit.title)}${weightedText}</span> <span class="rating-value">${parseFloat(reviewData.ratings[safeKey]).toFixed(1)}</span>`;
-                                ratingsListEl.appendChild(li);
-                            }
-                        });
+                        if (detailLocationTextEl) detailLocationTextEl.textContent = reviewData.location.text || reviewData.establishmentName;
+                        
+                        if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'none';
+                        if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'block';
                     } else {
-                        ratingsListEl.innerHTML = '<li>No hay valoraciones detalladas.</li>';
+                        if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                        if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
                     }
 
-                    const locLink = document.getElementById('detail-location-link');
-                    const locText = document.getElementById('detail-location-text');
-                    const noLocDiv = document.querySelector('.detail-no-location');
-                    const locContainer = document.getElementById('detail-location-container');
-
-                    if (reviewData.location && reviewData.location.url) {
-                        locLink.href = reviewData.location.url;
-                        locText.textContent = reviewData.location.text || reviewData.restaurant;
-                        if (noLocDiv) noLocDiv.style.display = 'none';
-                        if (locContainer) locContainer.style.display = 'block';
-                    } else if (reviewData.googlePlaceInfo && reviewData.googlePlaceInfo.placeId) {
-                        locLink.href = `https://maps.google.com/?q=place_id:${reviewData.googlePlaceInfo.placeId}`;
-                        locText.textContent = reviewData.googlePlaceInfo.name || reviewData.googlePlaceInfo.address || reviewData.restaurant;
-                        if (noLocDiv) noLocDiv.style.display = 'none';
-                        if (locContainer) locContainer.style.display = 'block';
-                    } else {
-                        if (locContainer) locContainer.style.display = 'none';
-                        if (noLocDiv) noLocDiv.style.display = 'flex';
+                    // Comentario
+                    if (detailCommentContainerEl && detailCommentTextEl) {
+                        if (reviewData.comment) {
+                            detailCommentTextEl.textContent = uiUtils.escapeHtml(reviewData.comment);
+                            detailCommentContainerEl.style.display = 'block';
+                        } else {
+                            detailCommentContainerEl.style.display = 'none';
+                        }
                     }
 
-                    const commentContainer = document.getElementById('detail-comment-container');
-                    const commentText = document.getElementById('detail-comment-text');
-                    if (reviewData.comment) {
-                        commentText.textContent = ListopicApp.uiUtils.escapeHtml(reviewData.comment);
-                        if (commentContainer) commentContainer.style.display = 'block';
-                    } else {
-                        if (commentContainer) commentContainer.style.display = 'none';
+                    // Etiquetas
+                    if (detailTagsContainerEl && detailTagsDivEl) {
+                        if (reviewData.userTags && reviewData.userTags.length > 0) {
+                            detailTagsDivEl.innerHTML = reviewData.userTags.map(tag => `<span class="tag-detail">${uiUtils.escapeHtml(tag)}</span>`).join('');
+                            detailTagsContainerEl.style.display = 'block';
+                        } else {
+                            detailTagsContainerEl.style.display = 'none';
+                        }
                     }
-
-                    const tagsContainer = document.getElementById('detail-tags-container');
-                    const tagsDiv = document.getElementById('detail-tags');
-                    if (reviewData.tags && reviewData.tags.length > 0) {
-                        tagsDiv.innerHTML = reviewData.tags.map(tag => `<span class="tag-detail">${ListopicApp.uiUtils.escapeHtml(tag)}</span>`).join('');
-                        if (tagsContainer) tagsContainer.style.display = 'block';
-                    } else {
-                        if (tagsContainer) tagsContainer.style.display = 'none';
-                    }
-
+                    
+                    // Botón de Editar
                     if (editButton) {
-                        let editHref = `review-form.html?listId=${reviewData.listId || listIdForPage}&editId=${reviewId}`;
-                        const restaurantParam = params.get('fromRestaurant');
-                        const dishParam = params.get('fromDish');
-                        if(restaurantParam) {
-                            editHref += `&fromGrouped=true&fromRestaurant=${encodeURIComponent(restaurantParam)}&fromDish=${encodeURIComponent(dishParam || '')}`;
+                        // MODIFICADO: Usar los nuevos nombres de parámetros para el enlace de edición
+                        let editHref = `review-form.html?listId=${listIdForPage}&editId=${reviewId}`;
+                        const fromEstablishmentParam = params.get('fromEstablishment');
+                        const fromItemParam = params.get('fromItem');
+                        if(fromEstablishmentParam) {
+                            editHref += `&fromGrouped=true&fromEstablishment=${encodeURIComponent(fromEstablishmentParam)}&fromItem=${encodeURIComponent(fromItemParam || '')}`;
                         }
                         editButton.href = editHref;
                     }
                 })
                 .catch(error => {
                     console.error("Error fetching review details for detail view:", error);
-                    document.getElementById('detail-restaurant-name').textContent = "Error al cargar la reseña";
+                    if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = "Error al cargar la reseña";
+                    ListopicApp.services.showNotification(error.message, "error");
                 });
         } else {
-            console.error("DETAIL-VIEW: reviewId no encontrado en la URL.");
-            document.getElementById('detail-restaurant-name').textContent = "Error: Falta ID de reseña";
+            const errorMsg = "Error: Falta ID de reseña o ID de lista en la URL.";
+            console.error("DETAIL-VIEW:", errorMsg);
+            if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = errorMsg;
+            ListopicApp.services.showNotification(errorMsg, "error");
         }
 
-        const deleteButton = document.querySelector('.delete-button.danger');
         if (deleteButton) {
             deleteButton.addEventListener('click', async () => {
-                const reviewIdToDelete = new URLSearchParams(window.location.search).get('id');
-                if (confirm('¿Estás seguro de que quieres eliminar esta reseña?')) {
+                if (!reviewId || !listIdForPage) {
+                     ListopicApp.services.showNotification("No se puede eliminar: falta ID de reseña o lista.", "error");
+                     return;
+                }
+                if (confirm('¿Estás seguro de que quieres eliminar esta reseña? Esta acción no se puede deshacer.')) {
                     try {
-                        const idToken = await auth.currentUser?.getIdToken(true);
-                        const headers = {};
-                        if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
-            
-                        const response = await fetch(`${API_BASE_URL}/reviews/${reviewIdToDelete}`, { 
-                            method: 'DELETE',
-                            headers: headers 
-                        });
+                        // No se necesita token para eliminar desde el cliente si las reglas de Firestore lo permiten
+                        await db.collection('lists').doc(listIdForPage).collection('reviews').doc(reviewId).delete();
                         
-                        if (!response.ok && response.status !== 204) { // 204 No Content is success
-                            throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
-                        }
+                        ListopicApp.services.showNotification('Reseña eliminada.', 'success');
                         
-                        alert('Reseña eliminada.');
-                        // Navigate back based on where the user came from
-                        const restaurantParam = params.get('fromRestaurant');
-                        const dishParam = params.get('fromDish');
-                        if (restaurantParam) { // Came from grouped-detail-view
-                            window.location.href = `grouped-detail-view.html?listId=${listIdForPage}&restaurant=${encodeURIComponent(restaurantParam)}&dish=${encodeURIComponent(dishParam || '')}`;
-                        } else { // Came from list-view
+                        // Considerar actualizar reviewCount en la lista (idealmente con Cloud Function)
+                        // await db.collection('lists').doc(listIdForPage).update({
+                        //     reviewCount: firebase.firestore.FieldValue.increment(-1)
+                        // });
+
+                        const fromEstablishmentParam = params.get('fromEstablishment');
+                        const fromItemParam = params.get('fromItem');
+                        if (fromEstablishmentParam) { 
+                            window.location.href = `grouped-detail-view.html?listId=${listIdForPage}&establishment=${encodeURIComponent(fromEstablishmentParam)}&item=${encodeURIComponent(fromItemParam || '')}`;
+                        } else { 
                             window.location.href = `list-view.html?listId=${listIdForPage}`;
                         }
                     } catch (error) {
                         console.error('Error al eliminar la reseña:', error);
-                        alert('No se pudo eliminar la reseña. Por favor, inténtalo de nuevo.');
+                        ListopicApp.services.showNotification(`No se pudo eliminar la reseña: ${error.message}`, 'error');
                     }
                 }
             });
         }
-        // --- End of code moved from app.js ---
     }
 
     return {
