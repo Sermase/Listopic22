@@ -297,15 +297,57 @@ main > .add-review-button.submit-button {
 /* LIST-FORM: Criteria & Tags */
 .criteria-group, .tags-group { border: 1px solid rgba(255,255,255,0.2); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
 .criteria-group legend, .tags-group legend { padding: 0 10px; color: var(--accent-color-secondary); font-weight: 600; }
-
+/* --- Estilos para LIST-FORM: Criterios (Actualizado) --- */
 .criterion-item {
     display: flex;
     flex-direction: column; /* Para apilar los inputs principales y luego las opciones */
-    gap: 10px;
-    background-color: rgba(0,0,0,0.1);
+    gap: 15px; /* Espacio entre las secciones internas del criterio */
+    background-color: rgba(var(--text-color-rgb, 224, 224, 224), 0.05); /* Fondo muy sutil */
     padding: 15px;
-    border-radius: 6px;
-    margin-bottom: 15px;
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--border-radius-medium);
+    margin-bottom: 20px; /* Más espacio entre criterios */
+}
+
+.criterion-main-input {
+    display: flex;
+    flex-direction: column; /* Label encima del input */
+}
+.criterion-main-input label {
+    margin-bottom: 5px;
+    font-weight: 500; /* Hacer el nombre del criterio un poco más destacado */
+}
+.criterion-main-input input.criterion-input { /* El input para el nombre/label del criterio */
+    width: 100%; /* Ocupar todo el ancho */
+}
+
+.criterion-slider-config {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Layout responsive para los campos de config */
+    gap: 10px 15px; /* Espacio vertical y horizontal */
+    border-top: 1px solid var(--border-color-light);
+    border-bottom: 1px solid var(--border-color-light);
+    padding: 15px 0;
+}
+.criterion-slider-config > div { /* Cada cajita de label + input */
+    display: flex;
+    flex-direction: column;
+}
+.criterion-slider-config label {
+    font-size: 0.85em;
+    color: var(--secondary-text-color);
+    margin-bottom: 4px;
+}
+.criterion-input-small, .criterion-input-xtra-small {
+    width: 100%; /* Que ocupen el ancho de su celda en el grid */
+    font-size: 0.9em; /* Un poco más pequeños */
+}
+
+.criterion-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
 }
 .criterion-main-input, .criterion-slider-config, .criterion-options {
     display: flex;
@@ -313,32 +355,27 @@ main > .add-review-button.submit-button {
     gap: 10px; /* Espacio entre elementos internos */
     align-items: center; /* Alinear verticalmente si hay diferentes alturas */
 }
-.criterion-main-input label, .criterion-slider-config label {
-    font-size: 0.9em;
-    color: var(--secondary-text-color);
-    margin-bottom: 4px; /* Menos margen para etiquetas de sub-campos */
-    display: block; /* Para que ocupen su línea antes del input */
-}
-.criterion-slider-config > div { /* Cada par de label+input en la configuración del slider */
-    flex: 1 1 auto; /* Permitir que crezcan y se encojan, base automática */
-    min-width: 120px; /* Ancho mínimo para cada cajita de config */
-}
 
-.criterion-input { /* El input de nombre del criterio principal */
-    flex-grow: 1; /* Que ocupe el espacio disponible */
-}
-.criterion-input-small { /* Para etiquetas min/max */
-    width: 100%; /* Ocupar el ancho de su div contenedor */
-}
-.criterion-input-xtra-small { /* Para min/max/step numéricos */
-    width: 100%; /* Ocupar el ancho de su div contenedor */
-}
-.criterion-options {
-    justify-content: space-between; /* Ponderable a la izq, botón de borrar a la der */
-    margin-top: 10px;
-}
 .criterion-weighted-label {
     font-size: 0.95em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.criterion-weighted-label input[type="checkbox"] { /* Estilos del checkbox de ponderación */
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-color-primary);
+}
+
+/* Light theme adjustments para criterios */
+body.light-theme .criterion-item {
+    background-color: rgba(0,0,0,0.02);
+    border-color: rgba(0,0,0,0.1);
+}
+body.light-theme .criterion-slider-config {
+    border-top-color: rgba(0,0,0,0.08);
+    border-bottom-color: rgba(0,0,0,0.08);
 }
 
 .tag-item { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; background-color: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; }
@@ -373,6 +410,37 @@ main > .add-review-button.submit-button {
 .suggestions-box li:last-child { border-bottom: none; }
 .suggestions-box li:hover { background-color: var(--input-bg); }
 .suggestions-box p { padding: 10px 15px; font-style: italic; opacity: 0.7; }
+
+/* REVIEW-FORM: Botón Obtener Dirección Actual y contenedor de campos manuales */
+#get-current-address-btn {
+    padding: 8px 12px !important; /* Usar !important con precaución, solo si es necesario para sobrescribir .button */
+    font-size: 0.9em !important;
+    flex-shrink: 0;
+    line-height: 1.2; /* Ajustar para el icono */
+}
+
+.input-with-button-beside {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.input-with-button-beside .form-input {
+    flex-grow: 1;
+}
+.input-with-button-beside .button { /* El botón al lado */
+    flex-shrink: 0;
+}
+
+#manual-location-fields {
+    display: none; /* Controlado con JS */
+    border: 1px solid var(--border-color-light);
+    padding: 20px;
+    border-radius: var(--border-radius-medium);
+    margin-top: 10px;
+    background-color: rgba(var(--text-color-rgb, 224, 224, 224), 0.03);
+}
+#manual-location-fields label { margin-top: 10px; font-size: 0.9em; }
+#manual-location-fields input.form-input { margin-bottom: 5px; }
 
 /* Styles for criteria sliders in forms */
 .slider-group { margin-bottom: 20px; text-align: left; }
@@ -708,6 +776,11 @@ body.light-theme #list-circles-ul a:hover {
     border-color: rgba(0,0,0,0.12);
 }
 /* Icon color will use the updated --accent-color-primary for light theme */
+body.light-theme #manual-location-fields {
+    background-color: rgba(0,0,0,0.01);
+    border-color: rgba(0,0,0,0.08);
+}
+
 
 
 body.light-theme .tag-filter-button {
@@ -1549,6 +1622,22 @@ body.light-theme .profile-list li a {
 body.light-theme .profile-list li a:hover {
     color: var(--accent-color-primary); /* Uses light theme accent */
 }
+
+/* Profile Message Area */
+#profile-message-area {
+    margin-top: 15px;
+    padding: 12px 15px;
+    border-radius: var(--border-radius-small);
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.4;
+    display: none; /* Oculto por defecto, JS lo muestra */
+    font-size: 0.9em;
+}
+#profile-message-area.success { background-color: rgba(var(--accent-color-tertiary-rgb), 0.15); color: var(--accent-color-tertiary); border: 1px solid var(--accent-color-tertiary); }
+#profile-message-area.error { background-color: rgba(var(--danger-color-rgb), 0.15); color: var(--danger-color); border: 1px solid var(--danger-color); }
+
+
 
 body.light-theme .modal-content {
     background-color: var(--primary-bg); /* Light theme page background */

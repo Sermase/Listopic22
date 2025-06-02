@@ -125,16 +125,73 @@ ListopicApp.pageReviewForm = (() => {
             // Botón y contenedor para campos de ubicación manual
             const toggleManualLocationBtn = document.getElementById('toggle-manual-location-btn');
             const manualLocationFieldsDiv = document.getElementById('manual-location-fields');
+            const getCurrentAddressBtn = document.getElementById('get-current-address-btn'); // NUEVO BOTÓN
+            const locationAddressManualInput = document.getElementById('location-address-manual'); // Input de dirección manual
+            const locationRegionManualInput = document.getElementById('location-region-manual'); // Input de región manual (para autocompletar)
+            // ... otros inputs de ubicación si quieres autocompletarlos (ciudad, código postal)
 
             if (toggleManualLocationBtn && manualLocationFieldsDiv) {
                 toggleManualLocationBtn.addEventListener('click', () => {
                     const isHidden = manualLocationFieldsDiv.style.display === 'none';
                     manualLocationFieldsDiv.style.display = isHidden ? 'block' : 'none';
-                    toggleManualLocationBtn.innerHTML = isHidden ? 
-                        '<i class="fas fa-chevron-up"></i> Ocultar Detalles de Ubicación Manual' : 
+                    toggleManualLocationBtn.innerHTML = isHidden ?
+                        '<i class="fas fa-chevron-up"></i> Ocultar Detalles de Ubicación Manual' :
                         '<i class="fas fa-chevron-down"></i> Añadir/Editar Detalles de Ubicación Manualmente';
                 });
             }
+
+            // LÓGICA PARA EL NUEVO BOTÓN DE OBTENER DIRECCIÓN
+            if (getCurrentAddressBtn && locationAddressManualInput) {
+                getCurrentAddressBtn.addEventListener('click', async () => {
+                    if (!navigator.geolocation) {
+                        ListopicApp.services.showNotification("La geolocalización no es soportada por este navegador.", "warn");
+                        return;
+                    }
+
+                    getCurrentAddressBtn.disabled = true;
+                    getCurrentAddressBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; // Feedback visual
+
+                    try {
+                        const position = await new Promise((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+                        });
+
+                        const { latitude, longitude } = position.coords;
+                        console.log("Geolocalización obtenida:", latitude, longitude);
+
+                        // Llamar a la Cloud Function para geocodificación inversa
+                        const functionUrl = ListopicApp.config.FUNCTION_URLS.reverseGeocode; // Necesitaremos añadir esto a config.js
+                        if (!functionUrl || functionUrl.includes("xxxxxxxxxx")) {
+                            throw new Error("URL de la función reverseGeocode no configurada.");
+                        }
+
+                        const response = await fetch(`${functionUrl}?lat=${latitude}&lon=${longitude}`);
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({ message: `Error HTTP ${response.status}`}));
+                            throw new Error(errorData.message || `Error ${response.status} del servicio de geocodificación.`);
+                        }
+
+                        const data = await response.json();
+                        if (data.address) {
+                            locationAddressManualInput.value = data.address; // Dirección formateada completa
+                            if (data.region && locationRegionManualInput) {
+                                locationRegionManualInput.value = data.region;
+                            }
+                            ListopicApp.services.showNotification("Dirección obtenida.", "success");
+                        } else {
+                            throw new Error("No se pudo obtener una dirección para la ubicación.");
+                        }
+
+                    } catch (error) {
+                        console.error("Error obteniendo dirección actual:", error);
+                        ListopicApp.services.showNotification(`Error al obtener dirección: ${error.message}`, "error");
+                    } finally {
+                        getCurrentAddressBtn.disabled = false;
+                        getCurrentAddressBtn.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
+                    }
+                });
+            }
+
             if (backButtonReview && listId) {
                 const fromGrouped = urlParams.get('fromGrouped');
                 const fromEstablishment = urlParams.get('fromEstablishment');

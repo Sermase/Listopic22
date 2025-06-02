@@ -266,3 +266,71 @@ exports.deleteListAndAssociatedReviews = onCall(
         throw new HttpsError('internal', 'Ocurrió un error al eliminar la lista.', error.message);
     }
 });
+
+// NUEVA FUNCIÓN: reverseGeocode
+exports.reverseGeocode = onRequest(async (req, res) => {
+  cors(req, res, async () => {
+    const { lat, lon } = req.query;
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY; // Reutilizamos la misma clave de API
+
+    if (!lat || !lon) {
+      logger.warn("reverseGeocode: Latitud (lat) y longitud (lon) son requeridas.", {query: req.query, structuredData: true});
+      return res.status(400).json({ message: "Latitud y longitud son requeridas." });
+    }
+    if (!apiKey) {
+      logger.error("reverseGeocode: GOOGLE_PLACES_API_KEY no está disponible como variable de entorno del proceso.", {structuredData: true});
+      return res.status(500).json({ message: "Error de configuración del servidor (API Key no encontrada)." });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${apiKey}&language=es`;
+    
+    logger.info("reverseGeocode: Fetching Google Geocoding API", {url: url.replace(apiKey, "REDACTED_API_KEY"), structuredData: true});
+
+    try {
+      const geocodeResponse = await fetch(url);
+      const geocodeData = await geocodeResponse.json();
+
+      if (geocodeData.status === "OK" && geocodeData.results && geocodeData.results.length > 0) {
+        const firstResult = geocodeData.results[0];
+        const formattedAddress = firstResult.formatted_address;
+        
+        // Extraer componentes específicos si se necesitan
+        let region = '';
+        let city = '';
+        let postalCode = '';
+
+        firstResult.address_components.forEach(component => {
+            if (component.types.includes('administrative_area_level_2') && !region) { // Provincia
+                region = component.long_name;
+            }
+            if (component.types.includes('administrative_area_level_1') && !region) { // Comunidad Autónoma / Estado más general
+                region = component.long_name;
+            }
+            if (component.types.includes('locality')) {
+                city = component.long_name;
+            }
+            if (component.types.includes('postal_code')) {
+                postalCode = component.long_name;
+            }
+        });
+
+        res.status(200).json({ 
+            address: formattedAddress,
+            region: region, // Para autocompletar el campo región si lo tienes
+            city: city,
+            postalCode: postalCode
+            // puedes añadir más componentes si los necesitas
+        });
+      } else if (geocodeData.status === "ZERO_RESULTS") {
+        logger.warn("reverseGeocode: Google Geocoding API devolvió ZERO_RESULTS para:", {lat, lon, structuredData: true} );
+        res.status(404).json({ message: "No se encontró dirección para las coordenadas proporcionadas." });
+      } else {
+        logger.error("reverseGeocode: Error desde Google Geocoding API", {status: geocodeData.status, error_message: geocodeData.error_message, structuredData: true});
+        res.status(500).json({ message: `Error de la API de Geocodificación de Google: ${geocodeData.status}`, details: geocodeData.error_message });
+      }
+    } catch (error) {
+      logger.error("reverseGeocode: Error al contactar Google Geocoding API", error, {structuredData: true});
+      res.status(500).json({ message: "Error interno al obtener la dirección.", error: error.message });
+    }
+  });
+});

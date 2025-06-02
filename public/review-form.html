@@ -68,14 +68,14 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="item-name">Nombre del Producto/Plato:</label>
+                    <label for="item-name">Producto/Plato (puedes ser específico o dejarlo así):</label>
                     <input type="text" id="item-name" name="itemName" class="form-input" placeholder="Ej: Tarta de la Abuela, Café Etíope Yirgacheffe">
                 </div>
                 
                 <div class="form-group">
-                    <label>Ubicación del Establecimiento/Lugar</label>
+                    <!-- <label>Ubicación del Establecimiento/Lugar</label> -->
                     <p style="font-size: 0.85em; opacity: 0.7; margin-bottom: 10px;">
-                        Usa la búsqueda de arriba para encontrar lugares con Google Places.
+                        Usa la búsqueda de arriba para encontrar lugares con Google Places. O bien, puedes añadir manualmente los datos de la ubicación.
                     </p>
                     <button type="button" id="toggle-manual-location-btn" class="button secondary-button" style="margin-bottom: 15px; font-size: 0.9em;">
                         <i class="fas fa-chevron-down"></i> Añadir/Editar Detalles de Ubicación Manualmente
@@ -91,6 +91,21 @@
                         <label for="location-address-manual" style="margin-top:8px;">Dirección (manual, si aplica):</label>
                         <input type="text" id="location-address-manual" name="locationAddressManual" class="form-input" placeholder="Ej: Calle Falsa 123, Ciudad">
                         
+                        <div id="manual-location-fields" style="display: none; border: 1px solid var(--border-color-light); padding: 15px; border-radius: var(--border-radius-medium);">
+                            <label for="location-address-manual" style="margin-top:8px;">Dirección (manual, si aplica):</label>
+                            <div style="display: flex; gap: 5px; align-items: center;"> {/* Contenedor para input y botón */}
+                                <input type="text" id="location-address-manual" name="locationAddressManual" class="form-input" placeholder="Ej: Calle Falsa 123, Ciudad" style="flex-grow: 1;">
+                                <button type="button" id="get-current-address-btn" class="button secondary-button" title="Obtener dirección actual" style="padding: 8px 12px; font-size:0.9em; flex-shrink: 0;">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </button>
+                            </div>
+                            
+                            <label for="location-region-manual" style="margin-top:8px;">Región/Provincia (manual, si aplica):</label>
+                            <input type="text" id="location-region-manual" name="locationRegionManual" class="form-input" placeholder="Ej: Madrid, Bizkaia">
+    
+                            {/* ... (campo location-google-maps-url-manual y campos ocultos como antes) ... */}
+                        </div>
+
                         <label for="location-region-manual" style="margin-top:8px;">Región/Provincia (manual, si aplica):</label>
                         <input type="text" id="location-region-manual" name="locationRegionManual" class="form-input" placeholder="Ej: Madrid, Bizkaia">
 
@@ -140,7 +155,7 @@
 
                 <hr class="form-divider">
                 <div class="form-group">
-                    <label for="comment">Comentario (Opcional):</label>
+                    <label for="comment">Comentario. ¿O se trata de una receta y quieres compartirla? :) (Opcional):</label>
                     <textarea id="comment" name="comment" rows="5" class="form-textarea" placeholder="Describe tu experiencia, notas, detalles..."></textarea>
                 </div>
                 <div class="form-actions">
