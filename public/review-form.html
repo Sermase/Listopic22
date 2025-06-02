@@ -72,11 +72,31 @@
                     <input type="text" id="item-name" name="itemName" class="form-input" placeholder="Ej: Tarta de la Abuela, Café Etíope Yirgacheffe">
                 </div>
                 
+                <!-- NUEVA SECCIÓN DE UBICACIÓN DETALLADA -->
                 <div class="form-group">
-                    <label for="location-url">Ubicación (URL Google Maps - Opcional):</label>
-                    <input type="url" id="location-url" name="location[url]" class="form-input" placeholder="https://maps.app.goo.gl/...">
-                    <label for="location-text" style="margin-top:8px;">Nombre visible de la ubicación (Opcional):</label>
-                    <input type="text" id="location-text" name="location[text]" class="form-input" placeholder="Ej: Centro Comercial XYZ, Sucursal Centro">
+                    <label>Ubicación del Establecimiento/Lugar</label>
+                    <p style="font-size: 0.85em; opacity: 0.7; margin-bottom: 10px;">
+                        Usa la búsqueda de arriba para encontrar lugares con Google Places. Si no lo encuentras o es un lugar personalizado (ej. "Casa de la abuela"), introduce los detalles manualmente aquí abajo.
+                    </p>
+
+                    <label for="location-display-name">Nombre del Lugar (o descripción breve):</label>
+                    <input type="text" id="location-display-name" name="locationDisplayName" class="form-input" placeholder="Ej: Pizzería Vesuvio (autocompletado por búsqueda) o Tarta casera de mi abuela">
+
+                    <label for="location-address-manual" style="margin-top:8px;">Dirección (manual, si aplica):</label>
+                    <input type="text" id="location-address-manual" name="locationAddressManual" class="form-input" placeholder="Ej: Calle Falsa 123, Ciudad">
+                    
+                    <label for="location-region-manual" style="margin-top:8px;">Región/Provincia (manual, si aplica):</label>
+                    <input type="text" id="location-region-manual" name="locationRegionManual" class="form-input" placeholder="Ej: Madrid, Bizkaia">
+
+                    <label for="location-google-maps-url-manual" style="margin-top:8px;">URL de Google Maps (opcional, si aplica):</label>
+                    <input type="url" id="location-google-maps-url-manual" name="locationGoogleMapsUrlManual" class="form-input" placeholder="https://maps.app.goo.gl/...">
+                    
+                    <input type="hidden" id="location-latitude" name="locationLatitude">
+                    <input type="hidden" id="location-longitude" name="locationLongitude">
+                    <input type="hidden" id="location-googlePlaceId" name="locationGooglePlaceId">
+                    <input type="hidden" id="location-city-g" name="locationCityG">
+                    <input type="hidden" id="location-postalCode-g" name="locationPostalCodeG">
+                    <input type="hidden" id="location-country-g" name="locationCountryG">
                 </div>
                 
                 <hr class="form-divider">
