@@ -18,10 +18,10 @@ ListopicApp.placesService = (() => {
                         const placeDetails = { // Objeto para almacenar detalles del lugar
                             placeId: place.place_id,
                             name: place.name,
-                            addressFormatted: place.formatted_address || place.vicinity, // Dirección formateada
-                            latitude: place.geometry?.location?.lat ? place.geometry.location.lat() : (place.geometry?.location?.latitude || null),
-                            longitude: place.geometry?.location?.lng ? place.geometry.location.lng() : (place.geometry?.location?.longitude || null),
-                            mapsUrl: place.place_id ? `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${place.place_id}` : (place.geometry?.location ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.geometry.location.lat()},${place.geometry.location.lng()}` : ''),
+                            addressFormatted: place.formatted_address || place.vicinity,
+                            latitude: place.geometry?.location?.lat || null,
+                            longitude: place.geometry?.location?.lng || null,
+                            mapsUrl: place.place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${place.place_id}` : (place.geometry?.location?.lat ? `https://www.google.com/maps/search/?api=1&query=${place.geometry.location.lat},${place.geometry.location.lng}` : ''),
                             // Inicializar componentes de dirección
                             streetAddress: '',
                             city: '',
