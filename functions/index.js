@@ -4,6 +4,7 @@ const {setGlobalOptions} = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const cors = require("cors")({origin: true}); // Habilita CORS para todos los orígenes
+const fetch = require("node-fetch"); // Para v2 de node-fetch (CommonJS)
 
 // Inicializar Firebase Admin SDK solo una vez
 if (admin.apps.length === 0) {
@@ -15,10 +16,11 @@ const db = admin.firestore();
 setGlobalOptions({ region: "europe-west1" }); // Asegúrate que esta es tu región
 
 exports.groupedReviews = onRequest(
-  // No necesitas repetir las opciones de región aquí si usaste setGlobalOptions,
-  // pero puedes añadir otras opciones específicas de la función si es necesario:
-  // { memory: "256MiB", timeoutSeconds: 60 },
-  async (req, res) => { // El manejador de la solicitud
+  {
+    // Opciones específicas de la función si son necesarias, ej:
+    // memory: "256MiB", timeoutSeconds: 60
+  },
+  async (req, res) => {
     // Usa el middleware de CORS para manejar la solicitud
     cors(req, res, async () => {
         const listId = req.query.listId;
@@ -96,5 +98,87 @@ exports.groupedReviews = onRequest(
             res.status(500).send({ error: "Error interno del servidor al obtener reseñas agrupadas.", details: error.message });
         }
     }); // Cierre del manejador cors
-  } // Cierre del manejador de la solicitud (async (req, res) => { ... })
-); // Cierre de onRequest
+  }
+);
+
+// NUEVA FUNCIÓN: placesNearbyRestaurants
+exports.placesNearbyRestaurants = onRequest(async (req, res) => {
+  cors(req, res, async () => {
+    const { latitude, longitude, keywords } = req.query;
+    // Acceder a la clave de API desde las variables de entorno configuradas en Firebase/Google Cloud
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+
+    if (!latitude || !longitude) {
+      logger.warn("placesNearbyRestaurants: Latitud y longitud son requeridas.", {query: req.query});
+      return res.status(400).json({ message: "Latitud y longitud son requeridas." });
+    }
+    if (!apiKey) {
+      logger.error("placesNearbyRestaurants: GOOGLE_PLACES_API_KEY no está configurada en las variables de entorno de la función.");
+      return res.status(500).json({ message: "Error de configuración del servidor (Places API)." });
+    }
+
+    const radius = 2000; // Radio en metros (ajusta según necesidad)
+    const types = "restaurant|cafe|bar|bakery|meal_takeaway|food|point_of_interest";
+    let url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=${encodeURIComponent(types)}&key=${apiKey}&language=es`;
+
+    if (keywords && keywords.trim() !== "") {
+      url += `&keyword=${encodeURIComponent(keywords.trim())}`;
+    }
+
+    logger.info("placesNearbyRestaurants: Fetching Google Places", {url: url.replace(apiKey, "REDACTED_API_KEY")});
+
+    try {
+      const placesResponse = await fetch(url);
+      const placesData = await placesResponse.json();
+
+      if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
+        res.status(200).json(placesData.results || []);
+      } else {
+        logger.error("placesNearbyRestaurants: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message});
+        res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message });
+      }
+    } catch (error) {
+      logger.error("placesNearbyRestaurants: Error al contactar Google Places API", error);
+      res.status(500).json({ message: "Error interno al buscar lugares cercanos.", error: error.message });
+    }
+  });
+});
+
+// NUEVA FUNCIÓN: placesTextSearch
+exports.placesTextSearch = onRequest(async (req, res) => {
+  cors(req, res, async () => {
+    const { query, latitude, longitude } = req.query;
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+
+    if (!query) {
+      logger.warn("placesTextSearch: El término de búsqueda (query) es requerido.", {query: req.query});
+      return res.status(400).json({ message: "El término de búsqueda (query) es requerido." });
+    }
+    if (!apiKey) {
+        logger.error("placesTextSearch: GOOGLE_PLACES_API_KEY no está configurada en las variables de entorno de la función.");
+        return res.status(500).json({ message: "Error de configuración del servidor (Places API)." });
+    }
+
+    let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}&language=es&type=establishment`; // 'establishment' es más general
+
+    if (latitude && longitude) {
+      url += `&location=${latitude},${longitude}&radius=20000`; // Radio más grande para búsquedas por texto
+    }
+    logger.info("placesTextSearch: Fetching Google Places", {url: url.replace(apiKey, "REDACTED_API_KEY")});
+
+    try {
+      const placesResponse = await fetch(url);
+      const placesData = await placesResponse.json();
+
+      if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
+        res.status(200).json(placesData.results || []);
+      } else {
+        logger.error("placesTextSearch: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message});
+        res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message });
+      }
+    } catch (error) {
+      logger.error("placesTextSearch: Error al contactar Google Places API", error);
+      res.status(500).json({ message: "Error interno al buscar lugares por texto.", error: error.message });
+    }
+  });
+});
