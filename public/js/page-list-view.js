@@ -82,7 +82,8 @@ ListopicApp.pageListView = (() => {
         groupedItemsToRender.forEach(group => {
             const row = rankingTbody.insertRow();
             row.className = 'ranking-row';
-            row.dataset.listId = group.listId || ListopicApp.state.currentListId;
+            row.dataset.listId = group.listId || ListopicApp.state.currentListId; 
+            row.dataset.placeId = group.placeId; // CAMBIO: Añadir data-place-id. La CF groupedReviews debe devolverlo.
             row.dataset.establishment = group.establishmentName;
             row.dataset.item = group.itemName || "";
 
@@ -281,11 +282,15 @@ ListopicApp.pageListView = (() => {
             if (rankingTbody) {
                 rankingTbody.addEventListener('click', (event) => {
                     const row = event.target.closest('.ranking-row');
-                    if (row && row.dataset.listId && row.dataset.establishment !== undefined) {
+                    if (row && row.dataset.listId && row.dataset.placeId !== undefined) { // CAMBIO: Esperar data-place-id
                         const listId = row.dataset.listId;
-                        const establishment = encodeURIComponent(row.dataset.establishment);
+                        const placeId = row.dataset.placeId; // CAMBIO: Usar placeId
                         const item = encodeURIComponent(row.dataset.item);
-                        window.location.href = `grouped-detail-view.html?listId=${listId}&establishment=${establishment}&item=${item}`;
+
+                        // CAMBIO: Pasar placeId en lugar de establishment
+                        window.location.href = `grouped-detail-view.html?listId=${listId}&placeId=${placeId}&item=${item}`;
+                    } else if (row) { // Log si falta algo
+                        console.warn("Clic en fila, pero faltan data-attributes:", row.dataset);
                     }
                 });
             }

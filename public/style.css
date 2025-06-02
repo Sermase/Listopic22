@@ -1654,3 +1654,73 @@ body.light-theme .save-button.has-changes {
 body.light-theme #photo-edit-controls {
     background-color: rgba(0,0,0,0.05);
 }
+
+/* Estilos para listas y reseñas en el perfil */
+.profile-list-item, .profile-review-item {
+    background-color: var(--container-bg); /* Un fondo sutil */
+    padding: 15px;
+    margin-bottom: 12px;
+    border-radius: var(--border-radius-medium);
+    border: 1px solid var(--border-color-light);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.profile-list-item:hover, .profile-review-item:hover {
+    box-shadow: var(--shadow-elevation-low);
+    transform: translateY(-2px);
+}
+
+.profile-list-item a, .profile-review-item a {
+    text-decoration: none;
+    color: var(--text-color);
+    display: block;
+}
+
+.profile-list-item-name, .profile-review-item-title {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--accent-color-primary);
+    margin-bottom: 8px;
+    display: block;
+}
+
+.profile-list-item-meta, .profile-review-item-meta {
+    font-size: 0.85em;
+    color: var(--secondary-text-color);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px; /* Espacio entre meta items */
+}
+.profile-list-item-meta span, .profile-review-item-meta span {
+    display: inline-flex;
+    align-items: center;
+}
+.profile-list-item-meta i, .profile-review-item-meta i {
+    margin-right: 6px;
+    color: var(--accent-color-secondary);
+}
+
+.profile-review-item-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.profile-review-rating {
+    font-weight: bold;
+    color: var(--accent-color-tertiary);
+    font-size: 1em;
+}
+.profile-review-rating .fa-star {
+    color: var(--accent-color-primary); /* O el color que prefieras para la estrella */
+    font-size: 0.9em;
+}
+
+/* Placeholder y errores en listas/reseñas del perfil */
+.loading-placeholder, .error-placeholder {
+    color: var(--secondary-text-color);
+    font-style: italic;
+    padding: 10px 0;
+}
+.error-placeholder {
+    color: var(--danger-color);
+}
