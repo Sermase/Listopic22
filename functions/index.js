@@ -113,8 +113,8 @@ exports.placesNearbyRestaurants = onRequest(async (req, res) => {
       return res.status(400).json({ message: "Latitud y longitud son requeridas." });
     }
     if (!apiKey) {
-      logger.error("placesNearbyRestaurants: GOOGLE_PLACES_API_KEY no está configurada en las variables de entorno de la función.");
-      return res.status(500).json({ message: "Error de configuración del servidor (Places API)." });
+      logger.error("placesNearbyRestaurants: GOOGLE_PLACES_API_KEY no está disponible como variable de entorno del proceso.", {env_keys: Object.keys(process.env)});
+      return res.status(500).json({ message: "Error de configuración del servidor (Places API Key no encontrada)." });
     }
 
     const radius = 2000; // Radio en metros (ajusta según necesidad)
@@ -134,8 +134,8 @@ exports.placesNearbyRestaurants = onRequest(async (req, res) => {
       if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
         res.status(200).json(placesData.results || []);
       } else {
-        logger.error("placesNearbyRestaurants: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message});
-        res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message });
+        logger.error("placesNearbyRestaurants: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message, info_messages: placesData.info_messages});
+        res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message || placesData.info_messages });
       }
     } catch (error) {
       logger.error("placesNearbyRestaurants: Error al contactar Google Places API", error);
@@ -155,8 +155,8 @@ exports.placesTextSearch = onRequest(async (req, res) => {
       return res.status(400).json({ message: "El término de búsqueda (query) es requerido." });
     }
     if (!apiKey) {
-        logger.error("placesTextSearch: GOOGLE_PLACES_API_KEY no está configurada en las variables de entorno de la función.");
-        return res.status(500).json({ message: "Error de configuración del servidor (Places API)." });
+        logger.error("placesTextSearch: GOOGLE_PLACES_API_KEY no está disponible como variable de entorno del proceso.", {env_keys: Object.keys(process.env)});
+        return res.status(500).json({ message: "Error de configuración del servidor (Places API Key no encontrada)." });
     }
 
     let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}&language=es&type=establishment`; // 'establishment' es más general
@@ -173,8 +173,8 @@ exports.placesTextSearch = onRequest(async (req, res) => {
       if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
         res.status(200).json(placesData.results || []);
       } else {
-        logger.error("placesTextSearch: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message});
-        res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message });
+        logger.error("placesTextSearch: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message, info_messages: placesData.info_messages});
+        res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message || placesData.info_messages });
       }
     } catch (error) {
       logger.error("placesTextSearch: Error al contactar Google Places API", error);

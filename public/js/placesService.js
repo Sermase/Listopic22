@@ -60,8 +60,13 @@ ListopicApp.placesService = (() => {
         const userLatitude = state.userLatitude;
         const userLongitude = state.userLongitude;
         const currentListNameForSearch = state.currentListNameForSearch;
-        // API_BASE_URL apuntará a Cloud Functions para estos endpoints
-        const API_BASE_URL = ListopicApp.config.API_BASE_URL_FUNCTIONS || ListopicApp.config.API_BASE_URL; // Usar una URL específica para functions si es diferente
+        
+        const functionUrl = ListopicApp.config.FUNCTION_URLS.placesNearbyRestaurants;
+        if (!functionUrl || functionUrl.includes("xxxxxxxxxx")) { // Chequeo adicional por si la URL no está bien configurada
+            console.error("URL de la función placesNearbyRestaurants no configurada o es un placeholder.");
+            if (suggestionsBox) suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error de configuración: URL de servicio no disponible.</p>`;
+            return;
+        }
 
         if (!userLatitude || !userLongitude) {
              suggestionsBox.innerHTML = '<p style="color:var(--warning-color);">Por favor, pulsa "Ubicarme" primero.</p>';
@@ -77,7 +82,7 @@ ListopicApp.placesService = (() => {
 
         suggestionsBox.innerHTML = `<p>Buscando lugares cercanos ${searchKeywords ? 'relacionados con "' + searchKeywords + '"': ''}...</p>`;
 
-        let fetchUrl = `${API_BASE_URL}/places/nearby-restaurants?latitude=${userLatitude}&longitude=${userLongitude}`;
+        let fetchUrl = `${functionUrl}?latitude=${userLatitude}&longitude=${userLongitude}`;
         if (searchKeywords) {
              fetchUrl += `&keywords=${encodeURIComponent(searchKeywords)}`;
         }
@@ -108,8 +113,13 @@ ListopicApp.placesService = (() => {
         const state = window.ListopicApp.state || {};
         const userLatitude = state.userLatitude;
         const userLongitude = state.userLongitude;
-        const API_BASE_URL = ListopicApp.config.API_BASE_URL_FUNCTIONS || ListopicApp.config.API_BASE_URL;
-
+        
+        const functionUrl = ListopicApp.config.FUNCTION_URLS.placesTextSearch;
+        if (!functionUrl || functionUrl.includes("xxxxxxxxxx")) { // Chequeo adicional
+            console.error("URL de la función placesTextSearch no configurada o es un placeholder.");
+            if (suggestionsBox) suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error de configuración: URL de servicio no disponible.</p>`;
+            return;
+        }
 
         if (!query || query.trim() === "") {
             suggestionsBox.innerHTML = '<p>Introduce un término de búsqueda.</p>';
@@ -117,7 +127,7 @@ ListopicApp.placesService = (() => {
         }
         suggestionsBox.innerHTML = `<p>Buscando "${query}"...</p>`;
 
-        let url = `${API_BASE_URL}/places/text-search?query=${encodeURIComponent(query)}`;
+        let url = `${functionUrl}?query=${encodeURIComponent(query)}`;
         if (userLatitude && userLongitude) {
             url += `&latitude=${userLatitude}&longitude=${userLongitude}`;
         }
