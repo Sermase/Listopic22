@@ -149,6 +149,12 @@ ListopicApp.pageListForm = (() => {
                         }
                     }
                     if (tagsListLF) { /* ... lógica para cargar tags ... */ }
+                    tagsListLF.innerHTML = ''; // Limpiar por si acaso
+                    if (listData.availableTags && Array.isArray(listData.availableTags)) {
+                        listData.availableTags.forEach(tagText => {
+                            tagsListLF.appendChild(createTagItem(tagText)); // createTagItem ya la tienes definida
+                        });
+                    }
                 })
                 .catch(error => { /* ... manejo de error ... */ });
         } else {
