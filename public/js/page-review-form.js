@@ -1,5 +1,68 @@
 window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageReviewForm = (() => {
+    // Nueva función auxiliar dentro del IIFE de pageReviewForm
+    async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUserId) {
+        const db = ListopicApp.services.db; // Acceder a db
+        let placeId = null;
+        let placeDocData = {};
+
+        if (placeDataFromGoogle && placeDataFromGoogle.placeId) {
+            // Intento 1: Buscar por Google Place ID
+            const querySnapshot = await db.collection('places')
+                                        .where('googlePlaceId', '==', placeDataFromGoogle.placeId)
+                                        .limit(1)
+                                        .get();
+            if (!querySnapshot.empty) {
+                const placeDoc = querySnapshot.docs[0];
+                placeId = placeDoc.id;
+                console.log("Lugar encontrado por Google Place ID:", placeId, placeDoc.data());
+                // Opcional: Actualizar el lugar con datos frescos de Google si es necesario
+                // await placeDoc.ref.update({ ...datos frescos ..., updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                return placeId;
+            } else {
+                // No encontrado por googlePlaceId, preparar para crear
+                placeDocData = {
+                    name: placeDataFromGoogle.name || "Establecimiento Desconocido",
+                    address: placeDataFromGoogle.address || null,
+                    location: { // Firestore geopoint
+                        latitude: placeDataFromGoogle.latitude || null,
+                        longitude: placeDataFromGoogle.longitude || null,
+                    },
+                    googlePlaceId: placeDataFromGoogle.placeId,
+                    googleMapsUrl: placeDataFromGoogle.mapsUrl || null,
+                };
+            }
+        } else if (manualPlaceData && manualPlaceData.name) {
+            console.warn("Creando lugar basado en entrada manual. Podría generar duplicados si no se maneja con cuidado.");
+            placeDocData = {
+                name: manualPlaceData.name,
+                address: manualPlaceData.address || null,
+                location: { // Firestore geopoint
+                    latitude: manualPlaceData.latitude || null,
+                    longitude: manualPlaceData.longitude || null,
+                },
+            };
+        } else {
+            throw new Error("No hay suficiente información para encontrar o crear un lugar.");
+        }
+
+        placeDocData.aggregatedOverallRating = 0;
+        placeDocData.totalReviews = 0;
+        placeDocData.mainImageUrl = null;
+        placeDocData.createdByUserId = currentUserId;
+        placeDocData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        placeDocData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+        if(manualPlaceData) { // Añadir campos opcionales si existen en manualPlaceData
+            if(manualPlaceData.region) placeDocData.region = manualPlaceData.region;
+            // ... otros campos como city, postalCode, country si los capturas
+        }
+
+        const placeRef = await db.collection('places').add(placeDocData);
+        console.log("Nuevo lugar creado con ID:", placeRef.id);
+        return placeRef.id;
+    }
+
     function init() {
         console.log('Initializing Review Form page logic with actual code...');
         
@@ -173,15 +236,39 @@ ListopicApp.pageReviewForm = (() => {
                                 .then(reviewDoc => {
                                     if (!reviewDoc.exists) throw new Error("Reseña para editar no encontrada.");
                                     const reviewData = reviewDoc.data();
-                                    
-                                    if (establishmentNameSearchInput) establishmentNameSearchInput.value = reviewData.establishmentName || '';
-                                    if (establishmentNameHiddenInput) establishmentNameHiddenInput.value = reviewData.establishmentName || '';
-                                    if (itemNameInput) itemNameInput.value = reviewData.itemName || '';
-                                    
-                                    if (reviewData.location) { 
-                                        document.getElementById('location-url').value = reviewData.location.url || '';
-                                        document.getElementById('location-text').value = reviewData.location.text || '';
+
+                                    // Cargar datos del lugar desde la colección 'places'
+                                    if (reviewData.placeId) {
+                                        db.collection('places').doc(reviewData.placeId).get()
+                                            .then(placeDoc => {
+                                                if (placeDoc.exists) {
+                                                    const placeData = placeDoc.data();
+                                                    if (establishmentNameSearchInput) establishmentNameSearchInput.value = placeData.name || '';
+                                                    if (establishmentNameHiddenInput) establishmentNameHiddenInput.value = placeData.name || '';
+                                                    
+                                                    const locationTextManualInput = document.getElementById('location-text-manual');
+                                                    if (locationTextManualInput) locationTextManualInput.value = placeData.address || '';
+                                                    
+                                                    const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
+                                                    if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeData.googleMapsUrl || '';
+
+                                                    // Podrías rellenar otros campos de ubicación manual si los tienes y están en placeData
+                                                } else {
+                                                    console.warn("REVIEW-FORM: Documento de lugar no encontrado para placeId:", reviewData.placeId);
+                                                     if (establishmentNameSearchInput) establishmentNameSearchInput.value = reviewData.establishmentName || 'Lugar no encontrado'; // Fallback a antiguo campo si existe
+                                                     if (establishmentNameHiddenInput) establishmentNameHiddenInput.value = reviewData.establishmentName || 'Lugar no encontrado';
+                                                }
+                                            })
+                                            .catch(err => {
+                                                console.error("REVIEW-FORM: Error al cargar datos del lugar para editar:", err);
+                                                ListopicApp.services.showNotification(`Error al cargar detalles del lugar: ${err.message}`, 'error');
+                                            });
+                                    } else if (reviewData.establishmentName) { // Fallback para reseñas antiguas sin placeId
+                                         if (establishmentNameSearchInput) establishmentNameSearchInput.value = reviewData.establishmentName || '';
+                                         if (establishmentNameHiddenInput) establishmentNameHiddenInput.value = reviewData.establishmentName || '';
+                                         if (reviewData.location && document.getElementById('location-text-manual')) document.getElementById('location-text-manual').value = reviewData.location.text || '';
                                     }
+                                    if (itemNameInput) itemNameInput.value = reviewData.itemName || '';
 
                                     if (reviewData.photoUrl) {
                                         uiUtils.showPreviewGlobal(reviewData.photoUrl, imagePreviewContainerReview);
@@ -226,25 +313,62 @@ ListopicApp.pageReviewForm = (() => {
                 }
 
                 const formData = new FormData(reviewForm);
-                
-                const establishmentNameValue = establishmentNameHiddenInput.value; 
+                const establishmentNameFromSearch = establishmentNameHiddenInput.value;
                 const itemNameValue = itemNameInput.value;
+                const manualLocationText = document.getElementById('location-text-manual')?.value.trim(); // Asumiendo que este input existe
 
-                if (!establishmentNameValue) {
+                if (!establishmentNameFromSearch && (!manualLocationText || manualLocationText === '')) {
                     ListopicApp.services.showNotification("El nombre del establecimiento es obligatorio.", 'error');
                     if (submitButton) submitButton.disabled = false;
                     return;
                 }
 
-                const reviewDataPayload = {
-                    userId: currentUser.uid,
-                    listId: listId, 
-                    establishmentName: establishmentNameValue,
-                    itemName: itemNameValue,
-                    comment: formData.get('comment'),
-                    scores: {},
-                    userTags: formData.getAll('tags'), 
-                };
+                let placeIdToSave;
+
+                try {
+                    if (state.currentSelectedPlaceInfo) {
+                        // Se usó Google Places
+                        placeIdToSave = await findOrCreatePlace(state.currentSelectedPlaceInfo, null, currentUser.uid);
+                        
+                        // Poblar campos manuales con la info de Google Places y limpiar estado
+                        const locationTextManualInput = document.getElementById('location-text-manual');
+                        if (locationTextManualInput) locationTextManualInput.value = state.currentSelectedPlaceInfo.address || state.currentSelectedPlaceInfo.name;
+                        
+                        const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
+                        if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = state.currentSelectedPlaceInfo.mapsUrl || '';
+                        
+                        // Limpiar el input de búsqueda visible si se usó Google Places para evitar confusión
+                        // if (establishmentNameSearchInput) establishmentNameSearchInput.value = state.currentSelectedPlaceInfo.name;
+                        // if (establishmentNameHiddenInput) establishmentNameHiddenInput.value = state.currentSelectedPlaceInfo.name;
+
+                        state.currentSelectedPlaceInfo = null;
+                        document.getElementById('restaurant-suggestions').innerHTML = ''; // Limpiar sugerencias
+
+                    } else {
+                        // Entrada manual del lugar
+                        const manualPlaceData = {
+                            name: establishmentNameFromSearch || manualLocationText, // Usar el del input de búsqueda si está, sino el manual
+                            address: manualLocationText, // O un campo de dirección manual más específico
+                            // latitude: ..., // Si capturas lat/lon manual
+                            // longitude: ...,
+                            // region: ..., // Si capturas region manual
+                        };
+                        placeIdToSave = await findOrCreatePlace(null, manualPlaceData, currentUser.uid);
+                    }
+
+                    if (!placeIdToSave) {
+                        throw new Error("No se pudo obtener o crear un ID de lugar.");
+                    }
+
+                    const reviewDataPayload = {
+                        userId: currentUser.uid,
+                        listId: listId,
+                        placeId: placeIdToSave, // <--- GUARDAR EL placeId
+                        itemName: itemNameValue,
+                        comment: formData.get('comment'),
+                        scores: {},
+                        userTags: formData.getAll('tags'),
+                    };
 
                 for (const [key, value] of formData.entries()) {
                     if (key.startsWith('ratings[')) {
@@ -252,7 +376,7 @@ ListopicApp.pageReviewForm = (() => {
                         reviewDataPayload.scores[criterionKey] = parseFloat(value);
                     }
                 }
-                
+
                 let totalWeightedScore = 0;
                 let ponderableCriteriaCount = 0;
                 if (typeof state.currentListCriteriaDefinitions === 'object' && Object.keys(state.currentListCriteriaDefinitions).length > 0) {
@@ -265,12 +389,11 @@ ListopicApp.pageReviewForm = (() => {
                 }
                 reviewDataPayload.overallRating = ponderableCriteriaCount > 0 ? parseFloat((totalWeightedScore / ponderableCriteriaCount).toFixed(2)) : 0;
 
-                let finalImageUrl = photoUrlInputReview.value;
+                let finalImageUrl = photoUrlInputReview.value.trim();
                 if (state.selectedFileForUpload && storage) {
-                    const user = auth.currentUser;
-                    if (user) {
+                    if (currentUser) {
                         const fileName = `${Date.now()}-${state.selectedFileForUpload.name}`;
-                        const storagePath = `reviews/${user.uid}/${listId}/${fileName}`;
+                        const storagePath = `reviews/${currentUser.uid}/${listId}/${fileName}`;
                         const storageRef = storage.ref(storagePath);
                         try {
                             const uploadTaskSnapshot = await storageRef.put(state.selectedFileForUpload);
@@ -279,7 +402,7 @@ ListopicApp.pageReviewForm = (() => {
                             console.error('Error uploading image to Firebase Storage:', error);
                             ListopicApp.services.showNotification(`Error uploading image: ${error.message}`, 'error');
                             if (submitButton) submitButton.disabled = false;
-                            return; 
+                            return;
                         }
                     } else {
                         ListopicApp.services.showNotification('User not authenticated, cannot upload image.', 'error');
@@ -287,17 +410,16 @@ ListopicApp.pageReviewForm = (() => {
                         return;
                     }
                 }
-                
-                if (finalImageUrl !== undefined && finalImageUrl.trim() !== '') {
+
+                if (finalImageUrl && finalImageUrl !== '') {
                     reviewDataPayload.photoUrl = finalImageUrl;
-                } else if (reviewIdToEdit && imagePreviewContainerReview.querySelector('img') && !state.selectedFileForUpload && !photoUrlInputReview.value) {
+                } else if (reviewIdToEdit && imagePreviewContainerReview.querySelector('img') && !state.selectedFileForUpload && (!photoUrlInputReview || photoUrlInputReview.value.trim() === '')) {
                     reviewDataPayload.photoUrl = firebase.firestore.FieldValue.delete();
                 } else {
                     delete reviewDataPayload.photoUrl;
                 }
-                
-                try {
-                    const listRef = db.collection('lists').doc(listId);
+
+                const listRef = db.collection('lists').doc(listId);
                     
                     if (reviewIdToEdit) {
                         reviewDataPayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -310,9 +432,14 @@ ListopicApp.pageReviewForm = (() => {
 
                     ListopicApp.services.showNotification(`Reseña ${reviewIdToEdit ? 'actualizada' : 'guardada'} con éxito!`, 'success');
                     
+                    // IMPORTANTE: Aquí es donde idealmente se llamaría a una Cloud Function
+                    // para actualizar los agregados en el documento /places/{placeIdToSave}
+                    // y el reviewCount en /lists/{listId}
+                    // Ejemplo: updatePlaceAggregates(placeIdToSave); updateListReviewCount(listId, !reviewIdToEdit);
+
                     const fromGrouped = urlParams.get('fromGrouped');
-                    const fromEstablishment = urlParams.get('fromEstablishment'); 
-                    const fromItem = urlParams.get('fromItem');
+                    const fromEstablishment = urlParams.get('fromEstablishment');
+                    const fromItem = urlParams.get('fromItem'); // Puede ser null o vacío
                     if (fromGrouped === 'true' && fromEstablishment) {
                         window.location.href = `grouped-detail-view.html?listId=${listId}&establishment=${encodeURIComponent(fromEstablishment)}&item=${encodeURIComponent(fromItem || '')}`;
                     } else {
@@ -320,7 +447,7 @@ ListopicApp.pageReviewForm = (() => {
                     }
 
                 } catch (error) {
-                    console.error('Error al guardar la reseña:', error);
+                    console.error('Error al guardar la reseña (con lógica de places):', error);
                     ListopicApp.services.showNotification(`No se pudo guardar la reseña: ${error.message}`, 'error');
                 } finally {
                     if (submitButton) submitButton.disabled = false;
