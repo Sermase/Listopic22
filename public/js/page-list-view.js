@@ -246,6 +246,11 @@ ListopicApp.pageListView = (() => {
                     return res.json();
                 })
                 .then(responsePayload => {
+                    const listName = responsePayload.listName || "Nombre de Lista Desconocido";
+                    // Asumimos que tu Cloud Function 'groupedReviews' ahora devuelve el categoryId de la lista
+                    const category = responsePayload.categoryId || "Hmm..."; 
+                    ListopicApp.uiUtils.updatePageHeaderInfo(category, listName);
+                    
                     if (!responsePayload || typeof responsePayload !== 'object') {
                         throw new Error("Respuesta inesperada o vacía de la Cloud Function.");
                     }
