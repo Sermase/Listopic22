@@ -1,25 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
-
-
 <head>
-
-      <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
-
-<link rel="icon" type="image/ png" sizes="16x16" href="/img/favicon-16x16.png">
-
-<link rel="icon" type="image/ png" sizes="32x32" href="/img/favicon-32x32.png">
-
-<link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
-
-
-<meta property="og:title" content="Listopic - Tu Rincón Personal de Valoraciones">
-    <meta property="og:description" content="Crea, comparte y descubre listas de valoración personalizadas sobre cualquier tema que te apasione. Pero de momento sólo Hmm...">
-    <meta property="og:image" content="https://listopic.web.app/public/img/listopic-logo400.png"> 
-    <meta property="og:url" content="https://listopic.web.app/index.html"> <meta property="og:type" content="website">
-
-
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Listopic (App de Valoraciones)</title>
@@ -27,7 +8,34 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    
+
+    <!-- ***** -->
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+    <link rel="icon" type="image/ png" sizes="16x16" href="/img/favicon-16x16.png">
+    <link rel="icon" type="image/ png" sizes="32x32" href="/img/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+    <meta property="og:title" content="Listopic - Tu Rincón Personal de Valoraciones">
+    <meta property="og:description" content="Crea, comparte y descubre listas de valoración personalizadas sobre cualquier tema que te apasione. Pero de momento sólo Hmm...">
+    <meta property="og:image" content="https://listopic.web.app/public/img/listopic-logo400.png"> 
+    <meta property="og:url" content="https://listopic.web.app/index.html"> <meta property="og:type" content="website">
+
+     <!-- Main application orchestrator -->
+   <script src="js/main.js" defer></script>
+    <!-- Listopic App Modules -->
+   <script src="js/config.js" defer></script>
+   <script src="js/firebaseService.js" defer></script>
+   <script src="js/uiUtils.js" defer></script>
+   <script src="js/themeManager.js" defer></script>
+   <script src="js/placesService.js" defer></script>
+   <script src="js/authService.js" defer></script>
+   <script src="js/page-index.js" defer></script>
+   <script src="js/page-auth.js" defer></script>
+   <script src="js/page-list-form.js" defer></script>
+   <script src="js/page-review-form.js" defer></script>
+   <script src="js/page-list-view.js" defer></script>
+   <script src="js/page-detail-view.js" defer></script>
+   <script src="js/page-grouped-detail-view.js" defer></script>
+
     <!-- Firebase SDKs - Asegúrate de que app.js los utilice o inicialice Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
@@ -36,43 +44,54 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js" defer></script>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-</head>
-<body>
-    <!--<div class="app-logo-container">
-    <a href="Index.html" title="Ir a la página de inicio">
-        <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo">--> <!-- ¡Asegúrate de que la ruta src sea correcta! -->
-    <!--</a> 
-</div> --> <!-- Cierre del app-logo-container que faltaba o estaba mal ubicado -->
 
-<!-- New container for header action buttons -->
-<div class="header-actions-container">
-    <div class="app-logo-container">
-        <a href="Index.html" title="Ir a la página de inicio">
-            <img src="listopic-logo.png" alt="Listopic Logo" class="app-logo"> <!-- ¡Asegúrate de que la ruta src sea correcta! -->
-        </a>
-    </div>
-    <button id="search-button" class="header-action-button" aria-label="Search">
-        <i class="fas fa-search"></i>
-    </button>
-    <div class="user-profile-menu-container"> <!-- Keep original container for its specific JS logic -->
-        <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
-            <i class="fas fa-user-circle"></i>
-        </button>
-        <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
-            <a href="profile.html" role="menuitem">Perfil</a> <!-- Link is correct -->
-            <a href="profile.html#profile-email" role="menuitem">Datos</a> <!-- Updated Datos link -->
-            <a href="profile.html#profile-my-lists" role="menuitem">Listas</a> <!-- Updated Listas link -->
-            <a href="profile.html#profile-my-reviews" role="menuitem">Reviews</a> <!-- Updated Reviews link -->
-            <hr class="user-menu-divider">
-            <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
+    <!-- *****New container for header action buttons -->
+    <div class="header-actions-container">
+        <div class="header-left-content">
+            <div class="app-logo-container">
+                <a href="Index.html" title="Ir a la página de inicio">
+                    <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
+                </a>
+            </div>
+            <!-- <div class="header-dynamic-page-info">
+                <span id="page-category-name"></span>
+                <span id="page-list-name-separator" style="display: none;"> - </span>
+                <span id="page-list-name"></span>
+            </div> -->
+        </div>
+
+        <div class="header-right-actions">
+            <button id="search-button" class="header-action-button" aria-label="Search">
+                <i class="fas fa-search"></i>
+            </button>
+            <div class="user-profile-menu-container">
+                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
+                    <i class="fas fa-user-circle"></i>
+                </button>
+                <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
+                    <a href="profile.html" role="menuitem">Perfil</a>
+                    <a href="profile.html#profile-email" role="menuitem">Datos</a>
+                    <a href="profile.html#profile-my-lists" role="menuitem">Listas</a>
+                    <a href="profile.html#profile-my-reviews" role="menuitem">Reviews</a>
+                    <hr class="user-menu-divider">
+                    <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
+                </div>
+            </div>
+            <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
+                <i class="fas fa-moon"></i>
+            </button>
         </div>
     </div>
-    <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
-        <i class="fas fa-moon"></i> <!-- Icono inicial, cambiará con JS -->
-    </button>
-</div>
+    <!-- ***** -->
 
-<main>
+
+
+
+</head>
+
+<body>
+
+    <main>
     <div class="container">
         <!-- Theme toggle button was here, moved to header-actions-container -->
         <h1 class="brand-title"> <span class="logo-petal p1"></span> <span class="logo-petal p2"></span> Hmm...<!--List<span class="logo-petal p3"></span>pic --><span class="logo-petal p4"></span> <span class="logo-petal p5"></span> </h1>
@@ -92,26 +111,6 @@
     </main>
     <footer> Listopic... Tu rincón personal de valoraciones. </footer>
 
-   <!-- Listopic App Modules -->
-   <script src="js/config.js" defer></script>
-   <script src="js/firebaseService.js" defer></script>
-   <script src="js/uiUtils.js" defer></script>
-   <script src="js/themeManager.js" defer></script>
-   <script src="js/placesService.js" defer></script>
-   <script src="js/authService.js" defer></script>
-   <script src="js/page-index.js" defer></script>
-   <script src="js/page-auth.js" defer></script>
-   <script src="js/page-list-form.js" defer></script>
-   <script src="js/page-review-form.js" defer></script>
-   <script src="js/page-list-view.js" defer></script>
-   <script src="js/page-detail-view.js" defer></script>
-   <script src="js/page-grouped-detail-view.js" defer></script>
-
-   <!-- Main application orchestrator -->
-   <script src="js/main.js" defer></script>
-
-   
-    <!-- User profile menu container is now part of header-actions-container -->
 
 </body>
 </html>
