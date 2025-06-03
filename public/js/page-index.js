@@ -88,6 +88,8 @@ ListopicApp.pageIndex = (() => {
                 }
             });
         }
+        ListopicApp.uiUtils.updatePageHeaderInfo("Hmm..."); // Solo muestra "Hmm..."
+
     }
 
     return {
