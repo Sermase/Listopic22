@@ -120,6 +120,11 @@ body {
     background-attachment: fixed;
     margin: 0;
     padding: 20px 20px calc(var(--footer-height) + 20px) 20px;
+    /* padding-top: 80px; 
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-bottom: calc(var(--footer-height) + 20px); 
+    */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1127,14 +1132,66 @@ body.light-theme .user-menu-divider {
 
 
 /* --- Header Action Buttons (Search, User Profile, Theme Toggle) --- */
-.header-actions-container {
+.header-actions-container { /* Este es tu contenedor principal del header fijo */
     position: fixed;
-    top: 15px;
-    right: 15px;
-    z-index: 1005; /* Ensure it's above most other content */
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 0 20px; 
+    z-index: 1005; /* Ya lo tienes alto */
     display: flex;
-    align-items: center; /* Explicitly align items vertically to the center */
-    gap: 10px; /* Space between buttons */
+    justify-content: space-between; /* CLAVE: para separar izquierda y derecha */
+    align-items: center;
+    height: 60px; /* O la altura que definiste */
+    box-sizing: border-box;
+}
+.header-left-content {
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Espacio entre el logo y el texto dinámico */
+    overflow: hidden; /* Para ayudar a contener el texto si se vuelve muy largo */
+}
+
+.header-dynamic-page-info {
+    display: flex; /* Para alinear los spans si es necesario, aunque con white-space: nowrap es menos crítico */
+    align-items: baseline; /* Alinea el texto por la base */
+    color: var(--title-color); /* Color base del texto */
+    font-family: 'Poppins', serif; /* La fuente que te gusta */
+    font-weight: 600; /* El grosor que te gusta */
+    font-size: 2em; /* Ajusta este tamaño. Un h2 suele ser más grande (2.2em+), 
+                         pero para el header quizás quieras algo más comedido. 
+                         Prueba con valores entre 1.2em y 1.8em. */
+    letter-spacing: 0.5px; /* Un poco de espaciado si quieres */
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.15); /* Sombra más sutil para header */
+
+    white-space: nowrap; /* Para que no se parta en varias líneas */
+    overflow: hidden;    /* Oculta el texto que no quepa */
+    text-overflow: ellipsis; /* Muestra "..." si el texto es muy largo */
+    flex-shrink: 1; /* Permitir que se encoja si es necesario */
+    min-width: 0;   /* Ayuda a flex-shrink con overflow */
+    /* max-width: calc(100vw - 300px);  Un max-width puede ser útil para evitar que 
+                                      empuje a los iconos de la derecha. 
+                                      Este valor es un ejemplo, ajústalo. */                                
+}
+
+#page-category-name {
+    color: var(--accent-color-primary); /* La categoría en color de acento */
+    /* Puedes añadir un margin-right si quieres más espacio antes del separador */
+}
+
+#page-list-name-separator {
+    margin: 5px;
+    font-size: 0.25em; /* Pequeño espacio alrededor del guion */
+}
+
+#page-list-name {
+    color: var(--title-color); /* El nombre de la lista con el color de título normal */
+}
+
+.header-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px; /* Espacio entre los botones de acción */
 }
 
 .header-action-button {
