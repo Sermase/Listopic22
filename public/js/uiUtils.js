@@ -134,5 +134,27 @@ ListopicApp.uiUtils = {
              .replace(/>/g, "&gt;")
              .replace(/"/g, "&quot;")
              .replace(/'/g, "&#039;");
+    },
+
+updatePageHeaderInfo: function(categoryName = "Hmm...", listName = null) {
+    const categoryEl = document.getElementById('page-category-name');
+    const separatorEl = document.getElementById('page-list-name-separator');
+    const listNameEl = document.getElementById('page-list-name');
+
+    if (categoryEl) {
+        categoryEl.textContent = this.escapeHtml(categoryName);
     }
+
+    if (listName && listNameEl && separatorEl) {
+        listNameEl.textContent = this.escapeHtml(listName);
+        separatorEl.style.display = 'inline'; // Muestra el separador " - "
+        listNameEl.style.display = 'inline';
+    } else if (listNameEl && separatorEl) {
+        listNameEl.textContent = '';
+        separatorEl.style.display = 'none'; // Oculta el separador y el nombre de la lista
+        listNameEl.style.display = 'none';
+    }
+}
 };
+
+

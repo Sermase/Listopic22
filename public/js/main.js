@@ -22,6 +22,14 @@ ListopicApp.state = {
 document.addEventListener('DOMContentLoaded', () => {
     console.log("MAIN.JS: DOMContentLoaded disparado."); // <--- LOG 1
 
+// 1. Cargar elementos comunes PRIMERO
+// if (ListopicApp.commonUI && ListopicApp.commonUI.loadCommonElements) {
+//     console.log("MAIN.JS: Cargando elementos comunes (header/footer)...");
+//     ListopicApp.commonUI.loadCommonElements();
+// } else {
+//     console.error("MAIN.JS: commonUI no disponible para cargar header/footer.");
+// }
+
     if (!ListopicApp.services || !ListopicApp.services.auth || !ListopicApp.services.storage || !ListopicApp.services.db) {
         console.error("MAIN.JS: Firebase services (auth, storage, db) no disponibles."); // <--- LOG 2 (si entra aquí)
         // Podrías mostrar un error al usuario aquí si la app no puede funcionar.

@@ -92,16 +92,15 @@
     <main>
         <div class="container">
             <!-- Removed theme-toggle-button from here -->
-            <a href="index.html" class="back-button">← Volver a Mis Listas</a>
+            <!-- <a href="index.html" class="back-button">← Volver a Mis Listas</a> -->
             <div class="list-header-actions">
-                 <h2 id="list-title">[Cargando nombre de la lista...]</h2>
-                 <div class="list-actions">
-                     <a href="#" id="edit-list-link" class="list-action-button edit-button" title="Editar esta lista"><i class="fa-solid fa-pencil"></i> <span>Editar Lista</span></a>
-                     <button type="button" id="delete-list-button" class="list-action-button delete-button danger" title="Eliminar esta lista"><i class="fa-solid fa-trash-can"></i> <span>Eliminar Lista</span></button>
-                 </div>
+                 <h2 id="list-title">[Cargando nombre de la lista...]</h2>              
             </div>
             <div class="search-filter-container">
                 <input type="search" placeholder="Buscar en la lista..." class="search-input form-input">
+                <a href="review-form.html" role="button" class="add-review-button submit-button">
+                    <i class="fas fa-plus-circle"></i> Añadir Nuevo Elemento
+                </a>
             </div>
             <div class="tag-filter-container">
                 <!-- Los filtros de etiquetas se cargarán aquí por JavaScript -->
@@ -126,31 +125,12 @@
                 </tbody>
             </table>
         </div>
-        <a href="review-form.html" role="button" class="add-review-button submit-button">
-            <i class="fas fa-plus-circle"></i> Añadir Nuevo Elemento
-        </a>
+        <div class="list-actions">
+            <a href="#" id="edit-list-link" class="list-action-button edit-button" title="Editar esta lista"><i class="fa-solid fa-pencil"></i> <span>Editar Lista</span></a>
+            <button type="button" id="delete-list-button" class="list-action-button delete-button danger" title="Eliminar esta lista"><i class="fa-solid fa-trash-can"></i> <span>Eliminar Lista</span></button>
+        </div>
     </main>
     <footer> Listopic... Tu rincón personal de valoraciones. </footer>
-       
-    <!-- Listopic App Modules -->
-       <script src="js/config.js" defer></script>
-       <script src="js/firebaseService.js" defer></script>
-       <script src="js/uiUtils.js" defer></script>
-       <script src="js/themeManager.js" defer></script>
-       <script src="js/placesService.js" defer></script>
-       <script src="js/authService.js" defer></script>
-       <script src="js/page-index.js" defer></script>
-       <script src="js/page-auth.js" defer></script>
-       <script src="js/page-list-form.js" defer></script>
-       <script src="js/page-review-form.js" defer></script>
-       <script src="js/page-list-view.js" defer></script>
-       <script src="js/page-detail-view.js" defer></script>
-       <script src="js/page-grouped-detail-view.js" defer></script>
-   
-       <!-- Main application orchestrator -->
-       <script src="js/main.js" defer></script>
-
-
     
 </body>
 </html>

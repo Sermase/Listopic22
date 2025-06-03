@@ -255,8 +255,8 @@ main > .table-container {
     /* max-width: 1200px; /* Opcional: si quieres un límite específico más grande que 900px */
     max-width: 1300px; /* Límite para que no sea excesivamente ancha */
     margin-left: auto; margin-right: auto; /* Centrar si el espacio es mayor */
-    margin-top: 25px;    /* Espacio respecto a los filtros/búsqueda que están en .container */
-    margin-bottom: 25px; /* Espacio antes del botón de añadir */
+    margin-top: 2px;    /* Espacio respecto a los filtros/búsqueda que están en .container */
+    margin-bottom: 20px; /* Espacio antes del botón de añadir */
     box-sizing: border-box; /* Para que el padding del body no cause problemas de ancho */
     /* Los estilos de box-shadow, border-radius, etc., ya están en .table-container */
 }
@@ -269,6 +269,7 @@ main > .add-review-button.submit-button {
 }
 
 /* --- GENERAL FORM STYLES --- */
+
 .form-container { max-width: 700px; }
 .form-group { margin-bottom: 20px; text-align: left; }
 .form-group label { display: block; margin-bottom: 8px; font-weight: 400; }
@@ -296,7 +297,7 @@ main > .add-review-button.submit-button {
 .delete-button.danger:hover, .delete-list-button.danger:hover, .remove-button.danger:hover { background-color: var(--danger-hover-bg); box-shadow: 0 4px 15px rgba(var(--danger-color-rgb, 217,83,79), 0.3); }
 .add-button { background-color: var(--accent-color-quaternary); color: white; margin-top: 10px; }
 .add-button:hover { background-color: #0f7694; }
-.back-button { display: inline-block; margin-bottom: 25px; color: var(--accent-color-primary); text-decoration: none; font-weight: 400; transition: color 0.2s ease; }
+.back-button { display: inline-block; margin-bottom: 2px; color: var(--accent-color-primary); text-decoration: none; font-weight: 400; transition: color 0.2s ease; }
 .back-button:hover { color: var(--main-button-hover-bg); }
 
 /* LIST-FORM: Criteria & Tags */
@@ -457,17 +458,22 @@ body.light-theme .criterion-slider-config {
 .slider-range-labels { display: flex; justify-content: space-between; font-size: 0.8em; color: rgba(255,255,255,0.6); padding: 0 2px; }
 
 /* LIST-VIEW: Table & Filters */
-.list-header-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:15px; margin-bottom: 15px; } /* Reducido margin-bottom */
-.list-header-actions h2 { margin-bottom: 0; text-align: left; }
-.list-actions { display: flex; gap: 10px; }
+.list-header-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:15px; margin-bottom: 3px; } /* Reducido margin-bottom */
+.list-header-actions h2 { margin-bottom: 0;margin-top: 40px; text-align: left; }
+.list-actions { display: flex; gap: 5px; }
 .list-action-button { font-size: 0.9em; padding: 8px 15px; }
 .list-action-button i { margin-right: 6px; }
 
-.search-filter-container { margin-bottom: 20px; display: flex; justify-content: center; }
-.search-input { width: 100%; max-width: 400px; padding: 12px 15px; background-color: var(--input-bg); border: 1px solid var(--input-border); border-radius: 6px; color: var(--text-color); font-size: 1em; }
+.add-review-button.submit-button{
+    width: 100%;
+    right: 0;
+    margin-left: 20px
+}
+.search-filter-container { width: 100%; margin-bottom: 10px; display: flex; justify-content: left; }
+.search-input { width: 100%; max-width: 400px; padding: 8px 15px; background-color: var(--input-bg); border: 1px solid var(--input-border); border-radius: 6px; color: var(--text-color); font-size: 1em; }
 .search-input:focus { outline: none; border-color: var(--input-focus-border); }
-.tag-filter-container { margin-bottom: 25px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-.tag-filter-button { background-color: rgba(255,255,255,0.1); color: var(--text-color); padding: 8px 15px; border-radius: 20px; font-size: 0.9em; transition: background-color 0.2s, color 0.2s; }
+.tag-filter-container { margin-bottom: 0px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.tag-filter-button { background-color: rgba(255,255,255,0.1); color: var(--text-color); padding: 3px 15px; border-radius: 20px; font-size: 0.9em; transition: background-color 0.2s, color 0.2s; }
 .tag-filter-button:hover { background-color: rgba(255,255,255,0.2); }
 .tag-filter-button.selected { background-color: var(--accent-color-secondary); color: white; font-weight: 600; }
 
@@ -672,7 +678,7 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
 /* Media Queries for smaller screens */
 @media (max-width: 768px) {
     .list-header-actions { flex-direction: column; align-items: stretch; }
-    .list-header-actions h2 { text-align: center; }
+    .list-header-actions h2 { text-align: left; }
     .list-actions { justify-content: center; }
     .detail-content { flex-direction: column; }
     .criterion-item input[name="criteria_title[]"] { flex-basis: 100%; }
@@ -1138,7 +1144,7 @@ body.light-theme .user-menu-divider {
     left: 0;
     width: 100%;
     padding: 0 20px; 
-    z-index: 1005; /* Ya lo tienes alto */
+    /* background-color: rgba(var(--primary-bg-rgb, 10, 25, 49), 0.3); Fondo translúcido    z-index: 1005; Ya lo tienes alto */
     display: flex;
     justify-content: space-between; /* CLAVE: para separar izquierda y derecha */
     align-items: center;
@@ -1781,3 +1787,4 @@ body.light-theme #photo-edit-controls {
 .error-placeholder {
     color: var(--danger-color);
 }
+
