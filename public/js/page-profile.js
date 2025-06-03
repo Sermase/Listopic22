@@ -251,8 +251,8 @@ ListopicApp.pageProfile = {
             const placePromises = placeIds.map(id => db.collection('places').doc(id).get());
 
             const [listDocsSnaps, placeDocsSnaps] = await Promise.all([
-                listIds.length > 0 ? Promise.all(listPromises) : Promise.resolve([]),
-                placeIds.length > 0 ? Promise.all(placePromises) : Promise.resolve([])
+             listIds.length > 0 ? Promise.all(listPromises) : Promise.resolve([]),
+             placeIds.length > 0 ? Promise.all(placePromises) : Promise.resolve([])
             ]);
 
             const listsMap = new Map();
@@ -271,9 +271,8 @@ ListopicApp.pageProfile = {
                     listName: listInfo ? listInfo.name : 'Lista Desconocida',
                     establishmentName: placeInfo ? placeInfo.name : 'Lugar Desconocido' 
                 };
-            });
-            
-            console.log("page-profile: Enriched reviews:", enrichedReviews);
+            }).filter(review => review !== null); // Filtrar nulos si añades la comprobación comentada arriba
+
             this.renderUserReviews(enrichedReviews);
 
         } catch (error) {

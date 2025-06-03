@@ -56,7 +56,7 @@ ListopicApp.pageGroupedDetailView = (() => {
 
         const imageHtml = review.photoUrl ?
             `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de la reseña" class="review-card-image" ${reviewImageIndex !== -1 ? `data-lightbox-index="${reviewImageIndex}"` : ''}>` :
-            '<div class="review-card-no-image"><img src="listopic-logo.png" alt="Sin foto" class="grayscale-placeholder"></div>';
+            '<div class="review-card-no-image"><img src="img/favicon-32x32.png" alt="Sin foto" class="grayscale-placeholder"></div>';
 
         const commentHtml = review.comment ?
             `<p class="review-card-comment">${uiUtils.escapeHtml(review.comment)}</p>` :
