@@ -1200,34 +1200,49 @@ body.light-theme .user-menu-divider {
     gap: 9px; /* Espacio entre los botones de acción */
 }
 
-.header-action-button, a.header-action-button {
+/* En style.css */
+
+/* Estilo general para los botones de acción del header, incluyendo los que son enlaces */
+.header-action-button, 
+a.header-action-button { /* Importante añadir 'a.header-action-button' */
     background-color: var(--container-bg);
-    color: var(--text-color);
+    color: var(--text-color); /* Para el color del icono */
     border: 1px solid var(--input-border);
     border-radius: 50%;
-    width: 45px; /* Consistent size */
-    height: 45px; /* Consistent size */
+    width: 45px;
+    height: 45px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2em; /* Icon size */
+    font-size: 1.2em; /* Tamaño del icono */
     padding: 0;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     cursor: pointer;
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
-    box-sizing: border-box; /* Ensure padding/border don't affect final size unexpectedly */
-    flex-shrink: 0; /* Prevent buttons from shrinking if container space is tight */
-    text-decoration: none; 
-
+    box-sizing: border-box;
+    flex-shrink: 0;
+    
+    text-decoration: none; /* CLAVE: Quita el subrayado de los enlaces */
 }
 
-.header-action-button:hover, a.header-action-button:hover {
+/* Para asegurar que el icono DENTRO del enlace tome el color correcto */
+a.header-action-button i {
+    color: inherit; /* Hereda el color de su padre 'a.header-action-button' */
+}
+
+/* Hover state */
+.header-action-button:hover,
+a.header-action-button:hover {
     background-color: var(--accent-color-primary);
-    color: var(--main-button-text); /* Uses the corrected variable for dark text on accent */
+    color: var(--main-button-text); /* Asegura que el icono cambie de color */
     border-color: var(--accent-color-primary);
     transform: translateY(-1px);
     text-decoration: none; /* Mantener sin subrayado en hover */
+}
 
+/* El icono dentro del hover del enlace */
+a.header-action-button:hover i {
+    color: inherit; /* Heredará el color del 'a:hover' */
 }
 
 .header-action-button i {
