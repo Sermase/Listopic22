@@ -280,7 +280,16 @@
 
                 try {
                     await authInstance.signInWithEmailAndPassword(email, password);
-                    // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
+
+
+
+
+
+                    
+                    if (isUserLoggedIn) {
+                        window.location.href = 'Index.html';
+                    }
+                    // ****************************************Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
                 } catch (error) {
                     console.error('Error en login:', error);
                     // Usar showNotification para consistencia con otros manejadores de error
@@ -319,7 +328,12 @@
                     console.log('Usuario creado y datos guardados en Firestore para UID:', user.uid);
                     ListopicApp.services.showNotification('¡Usuario registrado y perfil creado exitosamente!', 'success');
                     
-                    // La redirección será manejada por el listener onAuthStateChanged 
+                    
+                    
+                    if (isUserLoggedIn) {
+                        window.location.href = 'Index.html';
+                    }
+                    // ^*****************************La redirección será manejada por el listener onAuthStateChanged 
                     // ya sea en este script o en authService.js
                 } catch (error) {
                     console.error('Error detallado durante el proceso de registro:', error);
@@ -348,7 +362,12 @@
                         // similar a como lo haces en el registro normal, si es la primera vez que inicia sesión.
                         // Esto se podría manejar en el onAuthStateChanged global de authService.js
                         ListopicApp.services.showNotification('Inicio de sesión con Google exitoso.', 'success');
-                         // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
+                         
+                        
+                        if (isUserLoggedIn) {
+                        window.location.href = 'Index.html';
+                    }
+                        // **************************Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
                     }).catch((error) => {
                         console.error('Error con Google Sign-In:', error);
                         ListopicApp.services.showNotification(getFirebaseErrorMessage(error) || error.message, 'error');
