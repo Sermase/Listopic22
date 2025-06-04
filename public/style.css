@@ -1800,3 +1800,76 @@ body.light-theme #photo-edit-controls {
     color: var(--text-color); /* O un color de acento */
     font-weight: 600;
 }
+
+
+
+/* En style.css */
+
+.search-page-container h1.brand-title {
+    font-size: clamp(2.5em, 7vw, 3.5em); /* Un poco más pequeño que el de index */
+    margin-bottom: 25px;
+}
+
+.search-input-area {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+.large-search-input {
+    padding: 15px 20px; /* Más grande */
+    font-size: 1.1em;
+    flex-grow: 1;
+}
+
+.search-input-area .submit-button {
+    flex-shrink: 0; /* Para que el botón no se encoja */
+    padding: 15px 25px;
+}
+
+.entity-type-filters {
+    margin-bottom: 20px;
+    text-align: center; /* Centrar los botones de tipo */
+}
+.entity-type-filters p {
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+.entity-type-btn { /* Hereda de .tag-filter-button pero podemos especializar */
+    margin: 0 5px 10px 5px; /* Espacio alrededor */
+    /* Estilos para 'active' se pueden manejar con la clase .selected que ya tienes para .tag-filter-button */
+}
+.entity-type-btn.active { /* O usa .selected si reutilizas esa clase */
+    background-color: var(--accent-color-primary);
+    color: var(--main-button-text);
+    border: 1px solid var(--accent-color-primary);
+}
+
+
+.advanced-filters-trigger {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.search-results-container {
+    margin-top: 20px;
+    /* Aquí irán los estilos para las tarjetas de resultados */
+}
+.search-placeholder {
+    color: var(--secondary-text-color);
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+
+/* Estilos para el modal de filtros (ya tienes estilos base para .modal y .modal-content) */
+#advanced-filters-content .form-group {
+    margin-bottom: 15px;
+}
+#advanced-filters-content label {
+    font-size: 0.95em;
+}
+#advanced-filters-content .form-input, 
+#advanced-filters-content select { /* Si usas select para categorías o insignias */
+    font-size: 0.95em;
+}

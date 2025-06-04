@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Listopic (App de Valoraciones)</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
+    <title>Buscar - Listopic</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-    <!-- ***** -->
+<!-- ***** -->
     <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
     <link rel="icon" type="image/ png" sizes="16x16" href="/img/favicon-16x16.png">
     <link rel="icon" type="image/ png" sizes="32x32" href="/img/favicon-32x32.png">
@@ -35,6 +33,7 @@
    <script src="js/page-list-view.js" defer></script>
    <script src="js/page-detail-view.js" defer></script>
    <script src="js/page-grouped-detail-view.js" defer></script>
+    <script src="js/page-search.js" defer></script> 
 
     <!-- Firebase SDKs - Asegúrate de que app.js los utilice o inicialice Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -62,7 +61,7 @@
 
         <div class="header-right-actions">
             <button id="search-button" class="header-action-button" aria-label="Search">
-                <a href="search.html" class="fas fa-search"></a>
+                <i class="fas fa-search"></i>
             </button>
             <div class="user-profile-menu-container">
                 <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
@@ -83,34 +82,55 @@
         </div>
     </div>
     <!-- ***** -->
-
-
-
-
-</head>
-
+  
+    </head>
 <body>
+        <main>
+        <div class="container search-page-container">
+            <h1 class="brand-title">Explora Listopic</h1>
 
-    <main>
-    <div class="container">
-        <!-- Theme toggle button was here, moved to header-actions-container -->
-        <h1 class="brand-title"> <span class="logo-petal p1"></span> <span class="logo-petal p2"></span> Hmm...<!--List<span class="logo-petal p3"></span>pic --><span class="logo-petal p4"></span> <span class="logo-petal p5"></span> </h1>
-        <!-- Contenedor para las listas (círculos) -->
-        <nav class="list-collection-container">
-                <!-- <h2>Mis Listas de Valoración</h2> -->
-                <ul id="list-circles-ul">
-                    <!-- Las listas se cargarán aquí por JavaScript -->
-                    <li><p>Cargando listas...</p></li>
-                </ul>
-                <a href="list-form.html" class="add-list-button" title="Crear nueva lista">
-                    <i class="fas fa-plus-circle"></i>
-                    <span>Crear Nueva Lista</span>
-                </a>
-            </nav>
+            <div class="search-input-area form-group">
+                <input type="search" id="main-search-input" class="form-input large-search-input" placeholder="Buscar elementos, listas, usuarios, lugares...">
+                <button type="button" id="execute-search-btn" class="submit-button primary-button"><i class="fas fa-search"></i> Buscar</button>
+            </div>
+
+            <div class="entity-type-filters form-group">
+                <p>Buscar en:</p>
+                <button class="tag-filter-button entity-type-btn active" data-type="all">Todo</button>
+                <button class="tag-filter-button entity-type-btn" data-type="items">Elementos</button>
+                <button class="tag-filter-button entity-type-btn" data-type="lists">Listas</button>
+                <button class="tag-filter-button entity-type-btn" data-type="places">Lugares</button>
+                <button class="tag-filter-button entity-type-btn" data-type="users">Usuarios</button>
+            </div>
+            
+            <div class="advanced-filters-trigger form-group">
+                <button type="button" id="open-advanced-filters-modal-btn" class="button secondary-button">
+                    <i class="fas fa-filter"></i> Filtros Avanzados
+                </button>
+            </div>
+
+            <div id="search-results-area" class="search-results-container">
+                <p class="search-placeholder">Introduce tu búsqueda para ver resultados.</p>
+                </div>
         </div>
     </main>
-    <footer> Listopic... Tu rincón personal de valoraciones. </footer>
+
+    <div id="advanced-filters-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="close-advanced-filters-modal-btn">&times;</span>
+            <h2>Filtros Avanzados</h2>
+            <div id="advanced-filters-content">
+                <p>Selecciona un tipo de entidad para ver filtros específicos.</p>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="apply-advanced-filters-btn" class="submit-button primary-button">Aplicar Filtros</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>Listopic... Tu rincón personal de valoraciones.</footer>
 
 
+    <script src="js/page-search.js" defer></script> 
 </body>
 </html>
