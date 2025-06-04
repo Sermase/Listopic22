@@ -1240,12 +1240,7 @@ a.header-action-button:hover {
     text-decoration: none; /* Mantener sin subrayado en hover */
 }
 
-/* El icono dentro del hover del enlace */
-a.header-action-button:hover i {
-    color: inherit; /* Heredará el color del 'a:hover' */
-}
-
-.header-action-button i {
+.header-action-button, a.header-action-button i {
     line-height: 1;
     display: flex;
     align-items: center;
