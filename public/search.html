@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscar - Listopic</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+
+  
+    </head>
+<body>
+        <main>
+        <div class="container search-page-container">
+            <h1 class="brand-title">Explora Listopic</h1>
+
+            <div class="search-input-area form-group">
+                <input type="search" id="main-search-input" class="form-input large-search-input" placeholder="Buscar elementos, listas, usuarios, lugares...">
+                <button type="button" id="execute-search-btn" class="submit-button primary-button"><i class="fas fa-search"></i> Buscar</button>
+            </div>
+
+            <div class="entity-type-filters form-group">
+                <p>Buscar en:</p>
+                <button class="tag-filter-button entity-type-btn active" data-type="all">Todo</button>
+                <button class="tag-filter-button entity-type-btn" data-type="items">Elementos</button>
+                <button class="tag-filter-button entity-type-btn" data-type="lists">Listas</button>
+                <button class="tag-filter-button entity-type-btn" data-type="places">Lugares</button>
+                <button class="tag-filter-button entity-type-btn" data-type="users">Usuarios</button>
+            </div>
+            
+            <div class="advanced-filters-trigger form-group">
+                <button type="button" id="open-advanced-filters-modal-btn" class="button secondary-button">
+                    <i class="fas fa-filter"></i> Filtros Avanzados
+                </button>
+            </div>
+
+            <div id="search-results-area" class="search-results-container">
+                <p class="search-placeholder">Introduce tu búsqueda para ver resultados.</p>
+                </div>
+        </div>
+    </main>
+
+    <div id="advanced-filters-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="close-advanced-filters-modal-btn">&times;</span>
+            <h2>Filtros Avanzados</h2>
+            <div id="advanced-filters-content">
+                <p>Selecciona un tipo de entidad para ver filtros específicos.</p>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="apply-advanced-filters-btn" class="submit-button primary-button">Aplicar Filtros</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>Listopic... Tu rincón personal de valoraciones.</footer>
+
+
+    <script src="js/page-search.js" defer></script> 
+</body>
+</html>
