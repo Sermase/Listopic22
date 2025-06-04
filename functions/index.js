@@ -5,6 +5,10 @@ const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const cors = require("cors")({origin: true});
 const fetch = require("node-fetch");
+const {onDocumentWritten} = require("firebase-functions/v2/firestore");
+const {initializeApp} = require("firebase-admin/app"); // Si no lo tienes ya
+const {getFirestore, FieldValue} = require("firebase-admin/firestore"); // Para FieldValue
+
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -140,6 +144,35 @@ exports.groupedReviews = onRequest(
             res.status(500).send({ error: "Error interno del servidor al obtener reseñas agrupadas.", details: error.message });
         }
     });
+});
+
+// --- FUNCIÓN updateListReviewCount ---
+exports.updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
+  const listId = event.params.listId;
+  // const reviewId = event.params.reviewId; // No lo usas directamente pero está disponible
+  const listRef = getFirestore().collection('lists').doc(listId);
+
+  // Si la reseña se ha creado
+  if (!event.data.before.exists && event.data.after.exists) {
+      logger.info(`Nueva reseña creada en lista ${listId}, incrementando contador.`);
+      return listRef.update({
+          reviewCount: FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp()
+      });
+  }
+  // Si la reseña se ha eliminado
+  else if (event.data.before.exists && !event.data.after.exists) {
+      logger.info(`Reseña eliminada de lista ${listId}, decrementando contador.`);
+      return listRef.update({
+          reviewCount: FieldValue.increment(-1),
+          updatedAt: FieldValue.serverTimestamp()
+      });
+  }
+  // Si es una actualización
+  else {
+      logger.info(`Reseña actualizada en lista ${listId}, contador no afectado.`);
+      return null;
+  }
 });
 
 // --- FUNCIÓN placesNearbyRestaurants ---

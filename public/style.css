@@ -1788,3 +1788,15 @@ body.light-theme #photo-edit-controls {
     color: var(--danger-color);
 }
 
+.review-author-info {
+    text-align: center;
+    margin-top: -15px; /* Para acercarlo un poco al título del plato si quieres */
+    margin-bottom: 20px;
+    font-size: 0.9em;
+    color: var(--secondary-text-color); /* O el color que prefieras */
+}
+
+.review-author-info strong {
+    color: var(--text-color); /* O un color de acento */
+    font-weight: 600;
+}
