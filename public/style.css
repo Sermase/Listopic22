@@ -1208,9 +1208,9 @@ a.header-action-button { /* Importante añadir 'a.header-action-button' */
     background-color: var(--container-bg);
     color: var(--text-color); /* Para el color del icono */
     border: 1px solid var(--input-border);
-    border-radius: 50%;
-    width: 45px;
-    height: 45px;
+    border-radius: 45%;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
