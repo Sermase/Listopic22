@@ -1200,7 +1200,7 @@ body.light-theme .user-menu-divider {
     gap: 9px; /* Espacio entre los botones de acción */
 }
 
-.header-action-button {
+.header-action-button, a.header-action-button {
     background-color: var(--container-bg);
     color: var(--text-color);
     border: 1px solid var(--input-border);
@@ -1219,7 +1219,7 @@ body.light-theme .user-menu-divider {
     flex-shrink: 0; /* Prevent buttons from shrinking if container space is tight */
 }
 
-.header-action-button:hover {
+.header-action-button:hover, a.header-action-button:hover {
     background-color: var(--accent-color-primary);
     color: var(--main-button-text); /* Uses the corrected variable for dark text on accent */
     border-color: var(--accent-color-primary);
