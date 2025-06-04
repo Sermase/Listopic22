@@ -1217,6 +1217,8 @@ body.light-theme .user-menu-divider {
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
     box-sizing: border-box; /* Ensure padding/border don't affect final size unexpectedly */
     flex-shrink: 0; /* Prevent buttons from shrinking if container space is tight */
+    text-decoration: none; 
+
 }
 
 .header-action-button:hover, a.header-action-button:hover {
@@ -1224,6 +1226,8 @@ body.light-theme .user-menu-divider {
     color: var(--main-button-text); /* Uses the corrected variable for dark text on accent */
     border-color: var(--accent-color-primary);
     transform: translateY(-1px);
+    text-decoration: none; /* Mantener sin subrayado en hover */
+
 }
 
 .header-action-button i {
