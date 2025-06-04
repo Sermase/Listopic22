@@ -147,7 +147,7 @@ ListopicApp.services = (() => {
             await db.collection('users').doc(user.uid).set(newUserDocument);
             showNotification('Usuario creado y perfil completo guardado.', 'info'); // Notificación de éxito global de la función
             console.log('[firebaseService] Documento guardado en Firestore exitosamente.');
-            window.location.href = 'Index.html';
+            
 
             // 5. Devolver el user para confirmación
             return user;

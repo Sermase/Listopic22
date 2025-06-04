@@ -1346,6 +1346,9 @@ a.header-action-button:hover {
         height: 36px; /* Adjusted from 38px */
         font-size: 0.95em; /* Adjusted from 1em for icons */
     }
+    .search-button {
+        margin-bottom: 10px;
+    }
 }
 
 @media (max-width: 360px) {

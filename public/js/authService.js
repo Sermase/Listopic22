@@ -26,15 +26,41 @@ ListopicApp.authService = (() => {
         isAuthPage = pageName.toLowerCase() === 'auth.html';
         console.log(`authService.init: isAuthPage se ha establecido a: ${isAuthPage} (Página actual: ${pageName})`);
 
-        // --- Lógica del Menú de Usuario (your existing code) ---
+        // --- Lógica del Menú de Usuario ---
         const userProfileButton = document.getElementById('userProfileBtn');
-        // ... (resto de tu lógica de menú de usuario sin cambios) ...
-        const userMenuLogoutButton = document.getElementById('logoutBtnUserMenu');
-        if (userMenuLogoutButton) {
-            userMenuLogoutButton.addEventListener('click', () => {
-                logoutUser();
-                // ... (resto de tu lógica de menú de usuario) ...
+        const userMenuDropdown = document.getElementById('userMenuDropdown');
+        if (userProfileButton && userMenuDropdown) {
+            userProfileButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const isActive = userMenuDropdown.classList.toggle('is-active');
+                userProfileButton.setAttribute('aria-expanded', isActive.toString());
             });
+
+            document.addEventListener('click', (event) => {
+                if (userMenuDropdown.classList.contains('is-active') &&
+                    !userMenuDropdown.contains(event.target) &&
+                    !userProfileButton.contains(event.target)) {
+                    userMenuDropdown.classList.remove('is-active');
+                    userProfileButton.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && userMenuDropdown.classList.contains('is-active')) {
+                    userMenuDropdown.classList.remove('is-active');
+                    userProfileButton.setAttribute('aria-expanded', 'false');
+                    userProfileButton.focus();
+                }
+            });
+
+            const userMenuLogoutButton = document.getElementById('logoutBtnUserMenu');
+            if (userMenuLogoutButton) {
+                userMenuLogoutButton.addEventListener('click', () => {
+                    logoutUser(); // Use centralized logout function
+                    userMenuDropdown.classList.remove('is-active');
+                    userProfileButton.setAttribute('aria-expanded', 'false');
+                });
+            }
         }
         // --- Fin de Lógica del Menú de Usuario ---
 
@@ -60,14 +86,8 @@ ListopicApp.authService = (() => {
                     logoutButton.style.display = 'inline-block';
                 }
 
-                // ✅ **REDIRECTION LOGIC HERE**
-                // Si el usuario está logueado y está intentando acceder a auth.html, redirigirlo a Index.html.
-                if (isAuthPage) {
-                console.log("authService.onAuthStateChanged: Usuario LOGUEADO y EN auth.html. ¡INTENTANDO REDIRIGIR a Index.html!");
-                    window.location.href = 'Index.html'; // Make sure filename matches (Index.html vs index.html)
-                }else {
-                console.log("authService.onAuthStateChanged: Usuario LOGUEADO pero NO en auth.html. No se redirige desde auth.html.");
-            }
+            console.log("authService.onAuthStateChanged: Usuario LOGUEADO. Redirección automática COMENTADA para depuración.");
+
             } else {
             console.log("authService.onAuthStateChanged: Usuario NO detectado (deslogueado).");
             console.log(`authService.onAuthStateChanged: Valor de isAuthPage en este punto: ${isAuthPage}`);

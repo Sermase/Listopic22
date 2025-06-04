@@ -282,6 +282,9 @@
                     await authInstance.signInWithEmailAndPassword(email, password);
                     // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
                     console.log("Login exitoso, authService.js manejará la redirección.");
+                    setTimeout(() => {
+                        window.location.href = 'Index.html'; // O la página a la que quieras ir post-registro
+                    }, 500); // Espera 1.5 segundos
                 } catch (error) {
                     console.error('Error en login:', error);
                     // Usar showNotification para consistencia con otros manejadores de error
@@ -317,22 +320,28 @@
 
                 try {
                     const user = await ListopicApp.services.createUserInAuthAndFirestore(email, password, username);
-                    console.log('Usuario creado y datos guardados en Firestore para UID:', user.uid);
+                    console.log('auth.html: Usuario creado y datos guardados en Firestore para UID:', user.uid);
                     ListopicApp.services.showNotification('¡Usuario registrado y perfil creado exitosamente!', 'success');
                     // La redirección será manejada por el listener onAuthStateChanged 
                     // ya sea en este script o en authService.js
                     console.log("Registro exitoso, authService.js manejará la redirección.");
-                } catch (error) {
-                    console.error('Error detallado durante el proceso de registro:', error);
-                    if (error.code && error.message) {
-                        console.error(`Firebase Error Code: ${error.code}, Message: ${error.message}`);
-                    }
-                    // La notificación de error ahora la maneja el servicio, pero podemos mostrar un mensaje local también si queremos.
-                    // O confiar en la notificación del servicio.
-                    // Por ahora, mostraremos el error localmente también, ya que getFirebaseErrorMessage está aquí.
-                    // Si showNotification en el servicio ya muestra el error.message, esto podría ser redundante.
-                    ListopicApp.services.showNotification(getFirebaseErrorMessage(error) || error.message, 'error');
-                    // displayMessage(getFirebaseErrorMessage(error), true); // Opcional si el servicio ya notifica
+                // Mostrar mensaje de éxito de auth.html antes de que onAuthStateChanged en authService pueda redirigir
+                if (window.ListopicApp && window.ListopicApp.services && window.ListopicApp.services.showNotification) {
+                    ListopicApp.services.showNotification('¡Usuario registrado y perfil creado exitosamente! Redirigiendo...', 'success');
+                } else {
+                    displayMessage('¡Usuario registrado y perfil creado exitosamente! Redirigiendo...', false); // Fallback
+                }
+                console.log('auth.html: Registro teóricamente exitoso (Auth + Firestore). Redirección COMENTADA.');
+
+                // Forzar la redirección desde aquí explícitamente DESPUÉS del éxito total.
+                // Podrías añadir un pequeño delay para que el usuario vea el mensaje.
+                //+++++++++++++++++++++++++++++++++++++++++++++
+                setTimeout(() => {
+                    window.location.href = 'Index.html'; // O la página a la que quieras ir post-registro
+                }, 1500); // Espera 1.5 segundos
+            
+            } catch (error) {
+                console.error('auth.html: Error durante el proceso de registro capturado en la página:', error);
                 } finally {
                     submitButton.disabled = false;
                     submitButton.textContent = 'Registrarse';
@@ -351,6 +360,9 @@
                         ListopicApp.services.showNotification('Inicio de sesión con Google exitoso.', 'success');
                         // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
                         console.log("Login con Google exitoso, authService.js manejará la redirección.");
+                        setTimeout(() => {
+                            window.location.href = 'Index.html'; // O la página a la que quieras ir post-registro
+                        }, 500); // Espera 1.5 segundos
                     }).catch((error) => {
                         console.error('Error con Google Sign-In:', error);
                         ListopicApp.services.showNotification(getFirebaseErrorMessage(error) || error.message, 'error');
