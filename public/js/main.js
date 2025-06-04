@@ -111,6 +111,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
                     ListopicApp.pageProfile.init();
                 }
+                } else if (pageName === 'profile.html') {
+                if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
+                    ListopicApp.pageProfile.init();
+                }
+            } else if (pageName === 'search.html') { // NUEVA CONDICIÓN
+                if (ListopicApp.pageSearch && ListopicApp.pageSearch.init) {
+                    ListopicApp.pageSearch.init();
+                }
             } else {
                 // Esta es la línea 95 en la estructura original del if/else if
                 console.warn("MAIN.JS: No se detectó una página conocida. pageName:", pageName); // <--- LOG si ninguna coincide
