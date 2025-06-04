@@ -281,6 +281,7 @@
                 try {
                     await authInstance.signInWithEmailAndPassword(email, password);
                     // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
+                    console.log("Login exitoso, authService.js manejará la redirección.");
                 } catch (error) {
                     console.error('Error en login:', error);
                     // Usar showNotification para consistencia con otros manejadores de error
@@ -320,6 +321,7 @@
                     ListopicApp.services.showNotification('¡Usuario registrado y perfil creado exitosamente!', 'success');
                     // La redirección será manejada por el listener onAuthStateChanged 
                     // ya sea en este script o en authService.js
+                    console.log("Registro exitoso, authService.js manejará la redirección.");
                 } catch (error) {
                     console.error('Error detallado durante el proceso de registro:', error);
                     if (error.code && error.message) {
@@ -348,6 +350,7 @@
                         // Esto se podría manejar en el onAuthStateChanged global de authService.js
                         ListopicApp.services.showNotification('Inicio de sesión con Google exitoso.', 'success');
                         // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
+                        console.log("Login con Google exitoso, authService.js manejará la redirección.");
                     }).catch((error) => {
                         console.error('Error con Google Sign-In:', error);
                         ListopicApp.services.showNotification(getFirebaseErrorMessage(error) || error.message, 'error');
