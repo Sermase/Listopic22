@@ -50,7 +50,7 @@ ListopicApp.authService = (() => {
             }
 
             if (user) {
-            console.log(`authService.onAuthStateChanged: Usuario detectado (ID: ${user.uid}).`);
+            console.log(`authService.onAuthStateChanged: Usuario detectado (ID: ${user.uid}, Email: ${user.email}).`);
             console.log(`authService.onAuthStateChanged: Valor de isAuthPage en este punto: ${isAuthPage}`);
             console.log(`authService.onAuthStateChanged: Path actual: ${window.location.pathname}`);
                 if (userInfoDisplay) {
@@ -63,9 +63,11 @@ ListopicApp.authService = (() => {
                 // ✅ **REDIRECTION LOGIC HERE**
                 // Si el usuario está logueado y está intentando acceder a auth.html, redirigirlo a Index.html.
                 if (isAuthPage) {
-                    console.log("Usuario logueado en auth.html. Redirigiendo a Index.html...");
+                console.log("authService.onAuthStateChanged: Usuario LOGUEADO y EN auth.html. ¡INTENTANDO REDIRIGIR a Index.html!");
                     window.location.href = 'Index.html'; // Make sure filename matches (Index.html vs index.html)
-                }
+                }else {
+                console.log("authService.onAuthStateChanged: Usuario LOGUEADO pero NO en auth.html. No se redirige desde auth.html.");
+            }
             } else {
             console.log("authService.onAuthStateChanged: Usuario NO detectado (deslogueado).");
             console.log(`authService.onAuthStateChanged: Valor de isAuthPage en este punto: ${isAuthPage}`);
@@ -80,7 +82,7 @@ ListopicApp.authService = (() => {
                 // ✅ **REDIRECTION LOGIC HERE**
                 // Si el usuario no está logueado y NO está en la página de autenticación, redirigirlo a auth.html.
                 if (!isAuthPage) {
-                    console.log("Usuario no logueado y no en auth.html. Redirigiendo a auth.html...");
+                console.log("authService.onAuthStateChanged: Usuario NO LOGUEADO y NO en auth.html. ¡INTENTANDO REDIRIGIR a auth.html!");
                     window.location.href = 'auth.html';
                 } else {
                 console.log("authService.onAuthStateChanged: Usuario NO LOGUEADO y EN auth.html. No se redirige, permanece en auth.html.");
