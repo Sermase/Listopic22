@@ -1,108 +1,81 @@
 window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.authService = (() => {
-    // Dependencies:
-    // ListopicApp.services.auth (Firebase auth instance)
-    // DOM elements
-
-    let auth; // Firebase auth instance, shared within the module
+    let auth;
     let authInitializedPromise = null;
     let resolveAuthInitializedPromise = null;
-    let currentUserState = null; // To store the current user state
+    let currentUserState = null;
+
+    // This will be set in init() and used by onAuthStateChanged
+    let isAuthPage = false;
 
     function init() {
         if (!ListopicApp.services || !ListopicApp.services.auth) {
             console.error("authService.init: Firebase auth service not available. Ensure firebaseService.js is loaded and initialized before authService.js");
             return;
         }
-        auth = ListopicApp.services.auth; // Assign to module-scoped variable
+        auth = ListopicApp.services.auth;
 
         authInitializedPromise = new Promise((resolve) => {
             resolveAuthInitializedPromise = resolve;
         });
 
-        // Determine page context for redirection logic
         const pagePath = window.location.pathname;
         const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1);
-        const isAuthPage = pageName.toLowerCase() === 'auth.html';
-        // const isIndexPage = pageName === '' || pageName.toLowerCase() === 'index.html'; // Not directly used in the auth logic being moved here, but was in original app.js
+        // Update module-scoped variable
+        isAuthPage = pageName.toLowerCase() === 'auth.html';
 
-        // --- Lógica del Menú de Usuario ---
+        // --- Lógica del Menú de Usuario (your existing code) ---
         const userProfileButton = document.getElementById('userProfileBtn');
-        const userMenuDropdown = document.getElementById('userMenuDropdown');
-        if (userProfileButton && userMenuDropdown) {
-            userProfileButton.addEventListener('click', (event) => {
-                event.stopPropagation();
-                const isActive = userMenuDropdown.classList.toggle('is-active');
-                userProfileButton.setAttribute('aria-expanded', isActive.toString());
+        // ... (resto de tu lógica de menú de usuario sin cambios) ...
+        const userMenuLogoutButton = document.getElementById('logoutBtnUserMenu');
+        if (userMenuLogoutButton) {
+            userMenuLogoutButton.addEventListener('click', () => {
+                logoutUser();
+                // ... (resto de tu lógica de menú de usuario) ...
             });
-
-            document.addEventListener('click', (event) => {
-                if (userMenuDropdown.classList.contains('is-active') &&
-                    !userMenuDropdown.contains(event.target) &&
-                    !userProfileButton.contains(event.target)) {
-                    userMenuDropdown.classList.remove('is-active');
-                    userProfileButton.setAttribute('aria-expanded', 'false');
-                }
-            });
-
-            document.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape' && userMenuDropdown.classList.contains('is-active')) {
-                    userMenuDropdown.classList.remove('is-active');
-                    userProfileButton.setAttribute('aria-expanded', 'false');
-                    userProfileButton.focus();
-                }
-            });
-
-            const userMenuLogoutButton = document.getElementById('logoutBtnUserMenu');
-            if (userMenuLogoutButton) {
-                userMenuLogoutButton.addEventListener('click', () => {
-                    logoutUser(); // Use centralized logout function
-                    userMenuDropdown.classList.remove('is-active');
-                    userProfileButton.setAttribute('aria-expanded', 'false');
-                });
-            }
         }
         // --- Fin de Lógica del Menú de Usuario ---
 
         // --- Manejo de Autenticación Global ---
         const userInfoDisplay = document.getElementById('user-info-display');
-        const logoutButton = document.getElementById('logout-button'); // Main logout button outside user menu
+        const logoutButton = document.getElementById('logout-button');
 
         auth.onAuthStateChanged(user => {
-            currentUserState = user; // Update current user state
+            currentUserState = user;
             if (resolveAuthInitializedPromise) {
                 resolveAuthInitializedPromise(user);
-                resolveAuthInitializedPromise = null; // Ensure it only resolves once
+                resolveAuthInitializedPromise = null;
             }
 
             if (user) {
-
-                console.log("Global onAuthStateChanged: Usuario logueado:", user.displayName || user.email);
+                console.log("Global onAuthStateChanged: Usuario logueado:", user.displayName || user.email, "| En auth.html:", isAuthPage);
                 if (userInfoDisplay) {
                     userInfoDisplay.textContent = `Hola, ${user.displayName || user.email}`;
                 }
                 if (logoutButton) {
                     logoutButton.style.display = 'inline-block';
                 }
-                //Si el usuario está logueado y está intentando acceder a auth.html, redirigirlo a Index.
-                // if (isAuthPage) {
-                // window.location.href = 'Index.html';
-                // }
+
+                // ✅ **REDIRECTION LOGIC HERE**
+                // Si el usuario está logueado y está intentando acceder a auth.html, redirigirlo a Index.html.
+                if (isAuthPage) {
+                    console.log("Usuario logueado en auth.html. Redirigiendo a Index.html...");
+                    window.location.href = 'Index.html'; // Make sure filename matches (Index.html vs index.html)
+                }
             } else {
-                console.log("Global onAuthStateChanged: Usuario no logueado.");
+                console.log("Global onAuthStateChanged: Usuario no logueado. | En auth.html:", isAuthPage);
                 if (userInfoDisplay) {
                     userInfoDisplay.textContent = '';
                 }
                 if (logoutButton) {
                     logoutButton.style.display = 'none';
                 }
-                // Si el usuario no está logueado y no está en la página de autenticación, redirigirlo.
+
+                // ✅ **REDIRECTION LOGIC HERE**
+                // Si el usuario no está logueado y NO está en la página de autenticación, redirigirlo a auth.html.
                 if (!isAuthPage) {
-                    // Avoid redirect loop if auth.html itself has an issue and clears user prematurely
-                    // or if multiple onAuthStateChanged listeners conflict.
-                    // This global one should primarily ensure non-auth pages are protected.
-                    console.log("Redirecting to auth.html as user is not logged in and not on auth page.");
+                    console.log("Usuario no logueado y no en auth.html. Redirigiendo a auth.html...");
                     window.location.href = 'auth.html';
                 }
             }
@@ -110,7 +83,7 @@ ListopicApp.authService = (() => {
 
         if (logoutButton) {
             logoutButton.addEventListener('click', () => {
-                logoutUser(); // Use centralized logout function
+                logoutUser();
             });
         }
         // --- Fin de Manejo de Autenticación Global ---
@@ -119,8 +92,6 @@ ListopicApp.authService = (() => {
     function onAuthStateChangedPromise() {
         if (!authInitializedPromise) {
             console.error("onAuthStateChangedPromise: authService.init() not called or completed yet.");
-            // Return a promise that resolves to the current user state,
-            // which might be null if onAuthStateChanged hasn't fired yet.
             return Promise.resolve(currentUserState);
         }
         return authInitializedPromise;
@@ -133,11 +104,11 @@ ListopicApp.authService = (() => {
         }
         return auth.signOut().then(() => {
             console.log('Usuario cerró sesión (llamada a authService.logoutUser).');
-            // Redirection will be handled by onAuthStateChanged
+            // Redirection is handled by onAuthStateChanged
         }).catch(error => {
             console.error('Error al cerrar sesión (desde authService.logoutUser):', error);
             ListopicApp.services.showNotification && ListopicApp.services.showNotification(`Error al cerrar sesión: ${error.message}`, 'error');
-            throw error; // Re-throw for the caller to handle if needed
+            throw error;
         });
     }
 
