@@ -1300,7 +1300,7 @@ body.light-theme .header-action-button:hover {
         right: 10px;
         gap: 8px;
     }
-    .header-action-button {
+    .header-action-button, a.header-action-button {
         width: 40px;
         height: 40px;
         font-size: 1.1em;
@@ -1313,7 +1313,7 @@ body.light-theme .header-action-button:hover {
         right: 5px; /* Adjusted from 8px */
         gap: 5px; /* Remains 5px, seems appropriate */
     }
-    .header-action-button {
+    .header-action-button, a.header-action-button {
         width: 36px; /* Adjusted from 38px */
         height: 36px; /* Adjusted from 38px */
         font-size: 0.95em; /* Adjusted from 1em for icons */
@@ -1325,7 +1325,7 @@ body.light-theme .header-action-button:hover {
         gap: 4px; /* Further reduce gap */
         /* top: 5px; right: 5px; already set by 480px, can be kept or overridden if needed */
     }
-    .header-action-button {
+    .header-action-button, a.header-action-button {
         width: 32px; /* Further reduce size */
         height: 32px; /* Further reduce size */
         font-size: 0.85em; /* Further reduce icon size */
