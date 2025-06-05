@@ -51,6 +51,12 @@
     /* Nuevas para el placeholder del icono */
     --icon-placeholder-bg: rgba(0, 0, 0, 0.25); /* Fondo para el div del icono */
     --icon-placeholder-color: var(--accent-color-primary); /* Color del icono Font Awesome */
+
+    --primary-bg-rgb-values: 10, 25, 49; /* Para el color oscuro #0A1931 */
+    --header-gradient-opacity-bottom: 0.6; /* Opacidad en la parte inferior del header */
+    --header-gradient-opacity-top: 0.05;    /* Opacidad en la parte superior (casi transparente) */
+    --header-noise-opacity: 0.03;         /* Opacidad de la capa de "ruido" o granulado */
+    --header-height: 50px;
 }
 
 /* --- App Logo --- */
@@ -62,7 +68,7 @@
 }
 
 .app-logo {
-    height: 90px; /* Ajusta esta altura según el tamaño deseado para tu logo */
+    height: 70px; /* Ajusta esta altura según el tamaño deseado para tu logo */
     width: auto;  /* Mantiene la proporción */
     display: block; /* Evita espacio extra debajo de la imagen si es inline */
     transition: transform 0.2s ease-in-out, height 0.3s ease; /* Added height transition */
@@ -133,6 +139,7 @@ body {
     line-height: 1.6;
     font-weight: 300;
     overflow-x: hidden; 
+    padding-top: var(--header-height); /* Usa la misma variable para el padding */
 }
 
 /* --- Título Principal "Listopic" --- */
@@ -769,6 +776,11 @@ body.light-theme {
     
     --icon-placeholder-bg: rgba(0, 0, 0, 0.06); /* Fondo muy sutil para placeholders de iconos */
     --icon-placeholder-color: var(--accent-color-primary); /* Color del icono placeholder */
+
+    --primary-bg-rgb-values: 240, 242, 245; /* Para el color claro #F0F2F5 */
+    --header-gradient-opacity-bottom: 0.65;
+    --header-gradient-opacity-top: 0.1;
+    --header-noise-opacity: 0.04;
 }
 
 /* Ajustes específicos para tema claro */
@@ -1184,9 +1196,36 @@ body.light-theme .user-menu-divider {
     display: flex;
     justify-content: space-between; /* CLAVE: para separar izquierda y derecha */
     align-items: center;
-    height: 60px; /* O la altura que definiste */
+    height: 80px; /* O la altura que definiste */
     box-sizing: border-box;
+    z-index: 1005; /* Asegúrate de que sea suficientemente alto */
+    /* Capa base: Gradiente de transparencia progresiva */
+    /* Va desde más opaco abajo (usando el color de fondo primario del tema) 
+       hasta casi transparente arriba. */
+       background-image: linear-gradient(
+        to top, /* De abajo hacia arriba */
+        rgba(var(--primary-bg-rgb-values), 0), /* Color y opacidad en la parte inferior */
+        rgba(var(--primary-bg-rgb-values), 1)     /* Color y opacidad en la parte superior */
+        /* Si quieres que la parte superior sea completamente transparente, puedes usar:
+           transparent
+           en lugar de la segunda rgba()
+        */
+    );
+    background-size: 100% 100%; /* Asegura que el gradiente cubra todo el contenedor */
+    background-repeat: no-repeat;
+    
+    /* Necesario para posicionar correctamente el pseudo-elemento del granulado */
+    /* position: relative;  */
 }
+
+/* Capa de efecto granulado (superpuesta al gradiente) */
+.header-actions-container::before {
+    /* ... (content, position, width, height, pointer-events como antes) ... */
+    background-image: url('/path/to/your/noise.png');
+    background-repeat: repeat; /* Para que la imagen se repita y cubra el área */
+    opacity: var(--header-noise-opacity); 
+}
+
 .header-left-content {
     display: flex;
     align-items: center;
@@ -1325,7 +1364,8 @@ a.header-action-button:hover {
 /* Responsive adjustments for header actions container */
 @media (max-width: 768px) {
     .header-actions-container {
-        top: 10px;
+        height: var(--header-height); /* Usa la variable */
+        top: 0px;
         right: 10px;
         gap: 8px;
     }
@@ -1338,13 +1378,14 @@ a.header-action-button:hover {
 
 @media (max-width: 480px) {
     .header-actions-container {
-        top: 5px; /* Adjusted from 8px */
-        right: 5px; /* Adjusted from 8px */
-        gap: 5px; /* Remains 5px, seems appropriate */
+        height: 50px;
+        top: 0px; /* Adjusted from 8px */
+        right: 0px; /* Adjusted from 8px */
+        gap: 3px; /* Remains 5px, seems appropriate */
     }
     .header-action-button, a.header-action-button {
-        width: 36px; /* Adjusted from 38px */
-        height: 36px; /* Adjusted from 38px */
+        width: 30px; /* Adjusted from 38px */
+        height: 30px; /* Adjusted from 38px */
         font-size: 0.95em; /* Adjusted from 1em for icons */
     }
     .search-button {
