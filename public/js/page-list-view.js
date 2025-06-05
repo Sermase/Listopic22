@@ -311,11 +311,15 @@ ListopicApp.pageListView = (() => {
                         try {
                             ListopicApp.services.showNotification("Eliminando lista y su contenido...", "info");
 
-                            // Asumimos que tienes una Cloud Function Callable llamada 'deleteListAndContent'
-                            // Esta función se encargaría de borrar la lista y todas sus subcolecciones (reviews)
-                            // Correcto:
-                            const deleteListFunction = firebase.functions().httpsCallable('deleteListAndAssociatedReviews');
-                                
+                            // ===== INICIO DE LA CORRECCIÓN =====
+
+                            // 1. Especifica la REGIÓN correcta al inicializar las funciones
+                            const functions = firebase.app().functions('europe-west1');
+
+                            // 2. Usa el NOMBRE correcto de la función que exportaste
+                            const deleteListFunction = functions.httpsCallable('deleteListAndAssociatedReviews');
+                
+                            // ===== FIN DE LA CORRECCIÓN =====  
                             // Llamar a la función con el listId
                             const result = await deleteListFunction({ listId: state.currentListId });                            
                             
