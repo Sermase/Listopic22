@@ -161,8 +161,8 @@ h1.brand-title {
     background-color: var(--accent-color);
     position: relative;
     margin: 0 2px;
-    opacity: 0.8;
-    animation: float 5s ease-in-out infinite;
+    opacity: 0,7;
+    animation: float 1s ease-in-out infinite;
 }
 
 .logo-petal.p1 { animation-delay: 0s; background-color: #ff6b6b; }
@@ -175,23 +175,23 @@ h1.brand-title {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-5px); }
 }
-/*
-/*h1.brand-title .logo-petal { 
- /*   display: inline-block;
- /*   width: 0.5em; 
- /*   height: 0.7em;
- /*   border-radius: 50% 50% 0 0 / 80% 80% 0 0 ; /*/* Forma del pétalo */
- /*   margin: 0 0.1em; /* Aumentamos ligeramente el margen horizontal para más espacio */
- /*   transform-origin: bottom center;
- /*   box-shadow: 1px 1px 3px rgba(0,0,0,0.25); /* Sombra sutil para dar profundidad */
- /*   transition: transform 0.3s ease-out; /* Para posibles interacciones futuras */
-/*}
+
+/* h1.brand-title .logo-petal { 
+    display: inline-block;
+    width: 0.5em; 
+    height: 0.7em;
+    border-radius: 50% 50% 0 0 / 80% 80% 0 0 ; 
+    margin: 0 0.1em; 
+   transform-origin: bottom center;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.25); 
+   transition: transform 0.3s ease-out; 
+} */
 .logo-petal.p1 { background-color: var(--accent-color-primary); transform: rotate(-60deg) translateY(-0.1em); }
 .logo-petal.p2 { background-color: var(--accent-color-secondary); transform: rotate(-30deg) translateY(-0.05em); }
 .logo-petal.p3 { background-color: var(--accent-color-tertiary); transform: rotate(0deg); }
 .logo-petal.p4 { background-color: var(--accent-color-quaternary); transform: rotate(30deg) translateY(-0.05em); }
 .logo-petal.p5 { background-color: var(--accent-color-quinary); transform: rotate(60deg) translateY(-0.1em); }
-*/
+
 
 h1:not(.brand-title), .container h2 { 
     font-family: 'Cormorant Garamond', serif; 
@@ -235,8 +235,8 @@ main { width: 100%; display: flex; flex-direction: column; align-items: center; 
 #list-circles-ul a i { font-size: 2.5em; margin-bottom: 10px; color: var(--accent-color-primary); }
 #list-circles-ul a span { font-size: 0.9em; text-align: center; font-weight: 400; display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #list-circles-ul a:hover { transform: translateY(-5px) scale(1.05); background-color: rgba(255, 255, 255, 0.15); box-shadow: 0 8px 20px rgba(var(--accent-color-primary-rgb, 255,209,102), 0.3); }
-.add-list-button { display: inline-flex; align-items: center; padding: 12px 25px; background-color: transparent; border: 2px dashed rgba(255, 255, 255, 0.4); color: var(--text-color); text-decoration: none; border-radius: 8px; font-size: 1em; font-weight: 400; transition: all 0.3s ease; cursor: pointer; }
-.add-list-button i { margin-right: 10px; font-size: 1.2em; color: rgba(255, 255, 255, 0.6); transition: color 0.3s ease; }
+.add-list-button { display: inline-flex; align-items: center; padding: 12px 25px; background-color: transparent; border: 2px dashed var(--accent-color-primary); color: var(--text-color); text-decoration: none; border-radius: 8px; font-size: 1em; font-weight: 400; transition: all 0.3s ease; cursor: pointer; }
+.add-list-button i { margin-right: 10px; font-size: 1.2em; color: var(--accent-color-primary); transition: color 0.3s ease; }
 .add-list-button:hover { background-color: rgba(var(--accent-color-primary-rgb, 255,209,102), 0.1); border-style: solid; border-color: var(--accent-color-primary); color: var(--accent-color-primary); }
 .add-list-button:hover i { color: var(--accent-color-primary); }
 
@@ -747,6 +747,7 @@ body.light-theme {
     --container-bg: rgba(255, 255, 255, 0.85);  /* Contenedores blancos o casi blancos, semi-transparentes */
     --text-color: #333740;                     /* Texto principal oscuro */
     --title-color: #1A1D24;                    /* Títulos más oscuros */
+    --secondary-text-color: #858585;            /* Texto secundario un poco más oscuro */
 
     /* Opción 2: Ajustarlos ligeramente (ej. un poco más oscuros/saturados) */
     --accent-color-primary: #EAA600;    /* UPDATED: Was #F5A623. Darker yellow/orange for better contrast on links/icons */
