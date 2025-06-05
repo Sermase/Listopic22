@@ -1014,7 +1014,7 @@ body.light-theme footer {
   /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
   /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
   /* right: 70px;      <-- Eliminado */
-  position: relative; Para el posicionamiento absoluto del menú hijo
+  position: relative; 
   background-color: var(--container-bg);
   color: var(--text-color);
   border: 1px solid var(--input-border);
@@ -1309,7 +1309,7 @@ a.header-action-button:hover {
 
 
 /* Light theme adjustments for new buttons/container */
-body.light-theme .header-action-button,  {
+body.light-theme .header-action-button {
   background-color: #FFFFFF;
   color: var(--text-color); /* Uses light theme text color */
   border-color: var(--input-border); /* Uses light theme input border */
@@ -1871,6 +1871,7 @@ body.light-theme #photo-edit-controls {
     padding: 15px 20px; /* Más grande */
     font-size: 1.1em;
     flex-grow: 1;
+    width: 100%;
 }
 
 .search-input-area .submit-button {
