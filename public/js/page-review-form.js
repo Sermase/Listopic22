@@ -1,100 +1,83 @@
 window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageReviewForm = (() => {
-    async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUserId) {
-        const db = ListopicApp.services.db; // Acceder a db
-        let placeId = null;
-        let placeDocData = {}; // Datos a guardar/actualizar en /places
+    // En page-review-form.js
 
-        console.log("findOrCreatePlace: Recibido placeDataFromGoogle:", placeDataFromGoogle);
-        console.log("findOrCreatePlace: Recibido manualPlaceData:", manualPlaceData);
+async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUserId) {
+    const db = ListopicApp.services.db;
+    const placesRef = db.collection('places');
 
-        if (placeDataFromGoogle && placeDataFromGoogle.placeId) {
-            // Intento 1: Buscar por Google Place ID
-            const querySnapshot = await db.collection('places')
-                                        .where('googlePlaceId', '==', placeDataFromGoogle.placeId)
-                                        .limit(1)
-                                        .get();
-            if (!querySnapshot.empty) {
-                const placeDoc = querySnapshot.docs[0];
-                placeId = placeDoc.id;
-                console.log("Lugar encontrado por Google Place ID:", placeId, placeDoc.data());
-                // Opcional: Actualizar el lugar con datos frescos de Google si es necesario
-                // Aquí podrías decidir si actualizas campos como name, address, mapsUrl, etc.
-                // con los valores de placeDataFromGoogle si son más recientes o completos.
-                // await placeDoc.ref.update({ ...datos frescos ..., updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                return placeId;
-            } else {
-                // No encontrado por googlePlaceId, preparar para crear con datos de Google
-                placeDocData = {
-                    name: placeDataFromGoogle.name || "Establecimiento Desconocido",
-                    address: placeDataFromGoogle.addressFormatted || placeDataFromGoogle.streetAddress || null,
-                    city: placeDataFromGoogle.city || null,
-                    postalCode: placeDataFromGoogle.postalCode || null,
-                    region: placeDataFromGoogle.region || null,
-                    country: placeDataFromGoogle.country || null,
-                    location: {
-                        latitude: placeDataFromGoogle.latitude || null,
-                        longitude: placeDataFromGoogle.longitude || null,
-                    },
-                    googlePlaceId: placeDataFromGoogle.placeId,
-                    googleMapsUrl: placeDataFromGoogle.mapsUrl || null,
-                    // --- AÑADIR ESTOS CAMPOS ---
-                    googleRating: placeDataFromGoogle.rating || 0,
-                    googleUserRatingsTotal: placeDataFromGoogle.user_ratings_total || 0,
-                    // Campos que inicializamos para los contadores de Listopic
-                    reviewsCount: 0
-                };
-            }
-        } else if (manualPlaceData && manualPlaceData.name) {
-            // Entrada manual
-            console.warn("Creando lugar basado en entrada manual. La detección de duplicados es limitada.");
-            placeDocData = {
-                name: manualPlaceData.name,
-                address: manualPlaceData.address || null,
-                city: manualPlaceData.city || null, // Asumiendo que capturas esto
-                postalCode: manualPlaceData.postalCode || null, // Asumiendo que capturas esto
-                region: manualPlaceData.region || null,
-                country: manualPlaceData.country || null, // Asumiendo que capturas esto
-                location: {
-                    latitude: manualPlaceData.latitude || null, 
-                    longitude: manualPlaceData.longitude || null,
-                },
-                googlePlaceId: null, // No hay googlePlaceId para entradas manuales puras
-                googleMapsUrl: manualPlaceData.googleMapsUrl || null,
-            };
-        } else {
-            throw new Error("No hay suficiente información (nombre del lugar) para encontrar o crear un lugar.");
-        }
-
-        // Campos comunes para un nuevo lugar
-        placeDocData.aggregatedOverallRating = 0;
-        placeDocData.totalReviews = 0;
-        placeDocData.mainImageUrl = null;
-        placeDocData.createdByUserId = currentUserId;
-        placeDocData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-        placeDocData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    // --- 1. Buscar por el ID de Google Place (el más fiable) ---
+    if (placeDataFromGoogle && placeDataFromGoogle.placeId) {
+        console.log(`Buscando lugar por Google Place ID: ${placeDataFromGoogle.placeId}`);
+        const querySnapshot = await placesRef.where('googlePlaceId', '==', placeDataFromGoogle.placeId).limit(1).get();
         
-        // Limpiar campos nulos o vacíos antes de guardar si se prefiere
-        Object.keys(placeDocData).forEach(key => {
-            if (placeDocData[key] === null || placeDocData[key] === undefined || placeDocData[key] === '') {
-                delete placeDocData[key];
-            }
-            if (typeof placeDocData[key] === 'object' && placeDocData[key] !== null) {
-                 Object.keys(placeDocData[key]).forEach(subKey => {
-                    if (placeDocData[key][subKey] === null || placeDocData[key][subKey] === undefined || placeDocData[key][subKey] === '') {
-                        delete placeDocData[key][subKey];
-                    }
-                 });
-                 if(Object.keys(placeDocData[key]).length === 0) delete placeDocData[key];
-            }
-        });
-
-
-        console.log("findOrCreatePlace: Intentando añadir a /places con datos:", placeDocData);
-        const placeRef = await db.collection('places').add(placeDocData);
-        console.log("findOrCreatePlace: Nuevo lugar creado con ID:", placeRef.id);
-        return placeRef.id;
+        if (!querySnapshot.empty) {
+            const existingPlaceDoc = querySnapshot.docs[0];
+            console.log(`Lugar encontrado por Google Place ID. ID existente: ${existingPlaceDoc.id}`);
+            // Opcional: Podríamos actualizar el lugar existente con datos frescos de Google aquí si quisiéramos.
+            return existingPlaceDoc.id; // ¡Lugar encontrado! Devolvemos el ID existente.
+        }
     }
+
+    // --- 2. Si no se encuentra, buscar por coincidencia de Nombre y Dirección ---
+    // Usaremos los datos de Google si existen, si no, los manuales.
+    const searchName = (placeDataFromGoogle?.name) || (manualPlaceData?.name);
+    const searchAddress = (placeDataFromGoogle?.addressFormatted) || (manualPlaceData?.address);
+
+    if (searchName && searchAddress) {
+        console.log(`Buscando lugar por Nombre: "${searchName}" y Dirección: "${searchAddress}"`);
+        const querySnapshot = await placesRef
+                                    .where('name', '==', searchName)
+                                    .where('address', '==', searchAddress)
+                                    .limit(1).get();
+        
+        if (!querySnapshot.empty) {
+            const existingPlaceDoc = querySnapshot.docs[0];
+            console.log(`Lugar encontrado por Nombre y Dirección. ID existente: ${existingPlaceDoc.id}`);
+            
+            // ¡Importante! Si encontramos un lugar que fue introducido manualmente
+            // y ahora tenemos su googlePlaceId, lo actualizamos.
+            if (placeDataFromGoogle?.placeId && !existingPlaceDoc.data().googlePlaceId) {
+                console.log(`Actualizando lugar existente con Google Place ID: ${placeDataFromGoogle.placeId}`);
+                await existingPlaceDoc.ref.update({ googlePlaceId: placeDataFromGoogle.placeId });
+            }
+            return existingPlaceDoc.id; // ¡Lugar encontrado! Devolvemos el ID existente.
+        }
+    }
+
+    // --- 3. Si no se encuentra de ninguna forma, CREAR un nuevo lugar ---
+    console.log("No se encontró ningún lugar existente. Creando uno nuevo...");
+    
+    let dataToSave = {};
+    if (placeDataFromGoogle) {
+        dataToSave = {
+            name: placeDataFromGoogle.name || "Establecimiento Desconocido",
+            address: placeDataFromGoogle.addressFormatted || null,
+            location: new firebase.firestore.GeoPoint(placeDataFromGoogle.latitude, placeDataFromGoogle.longitude),
+            googlePlaceId: placeDataFromGoogle.placeId || null,
+            googleRating: placeDataFromGoogle.rating || 0,
+            googleUserRatingsTotal: placeDataFromGoogle.user_ratings_total || 0,
+            // ... otros campos de Google que quieras guardar
+        };
+    } else if (manualPlaceData) {
+        dataToSave = {
+            name: manualPlaceData.name,
+            address: manualPlaceData.address || null,
+            // ... otros campos manuales
+        };
+    } else {
+        throw new Error("No hay suficientes datos para crear un nuevo lugar.");
+    }
+    
+    // Añadir campos por defecto para un lugar nuevo
+    dataToSave.createdByUserId = currentUserId;
+    dataToSave.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    dataToSave.reviewsCount = 0; // Inicializamos el contador
+
+    const newPlaceRef = await placesRef.add(dataToSave);
+    console.log(`Nuevo lugar creado con ID: ${newPlaceRef.id}`);
+    return newPlaceRef.id;
+}
 
     function init() {
         console.log('Initializing Review Form page logic with actual code...');
