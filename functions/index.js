@@ -524,16 +524,15 @@ exports.updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/revie
 
   const db = getFirestore();
   const batch = db.batch();
+  // 1. Actualizar contador de la LISTA
+  const listRef = db.collection('lists').doc(listId);
+  batch.update(listRef, { reviewCount: FieldValue.increment(change) });
+  logger.info(`Contador 'reviewCount' en lista ${listId} se actualizará en ${change}.`);
 
-  // 1. Actualizar contador de reseñas del USUARIO
+  // 2. Actualizar contador de reseñas del USUARIO
   const userRef = db.collection('users').doc(userId);
   batch.update(userRef, { reviewsCount: FieldValue.increment(change) });
   logger.info(`Contador 'reviewsCount' en usuario ${userId} se actualizará en ${change}.`);
-
-// 2. Actualizar contador del USUARIO
-const userRef = db.collection('users').doc(userId);
-batch.update(userRef, { reviewsCount: FieldValue.increment(change) });
-logger.info(`Contador 'reviewsCount' en usuario ${userId} se actualizará en ${change}.`);
 
   // 3. Actualizar contador de reseñas del LUGAR (si tiene placeId)
   if (placeId) {
