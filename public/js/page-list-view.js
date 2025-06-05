@@ -313,11 +313,12 @@ ListopicApp.pageListView = (() => {
 
                             // Asumimos que tienes una Cloud Function Callable llamada 'deleteListAndContent'
                             // Esta función se encargaría de borrar la lista y todas sus subcolecciones (reviews)
-                            const deleteListFunction = firebase.functions().httpsCallable('deleteListAndContent');
-                            
+                            // Correcto:
+                            const deleteListFunction = firebase.functions().httpsCallable('deleteListAndAssociatedReviews');
+                                
                             // Llamar a la función con el listId
-                            const result = await deleteListFunction({ listId: state.currentListId });
-
+                            const result = await deleteListFunction({ listId: state.currentListId });                            
+                            
                             // La función podría devolver un mensaje de éxito o simplemente completarse
                             if (result && result.data && result.data.message) {
                                 ListopicApp.services.showNotification(result.data.message, 'success');
