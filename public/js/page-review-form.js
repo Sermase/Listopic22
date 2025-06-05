@@ -38,6 +38,11 @@ ListopicApp.pageReviewForm = (() => {
                     },
                     googlePlaceId: placeDataFromGoogle.placeId,
                     googleMapsUrl: placeDataFromGoogle.mapsUrl || null,
+                    // --- AÑADIR ESTOS CAMPOS ---
+                    googleRating: placeDataFromGoogle.rating || 0,
+                    googleUserRatingsTotal: placeDataFromGoogle.user_ratings_total || 0,
+                    // Campos que inicializamos para los contadores de Listopic
+                    reviewsCount: 0
                 };
             }
         } else if (manualPlaceData && manualPlaceData.name) {

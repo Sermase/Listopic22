@@ -226,6 +226,82 @@ ListopicApp.pageSearch = (() => {
         populateAdvancedFiltersModal(); // Poblar al inicio con "Todo" seleccionado
     }
 
+    // En page-search.js
+
+    function renderResults(results, description) {
+        if (!searchResultsAreaEl) return;
+        searchResultsAreaEl.innerHTML = '';
+
+        const descriptionEl = document.createElement('p');
+        descriptionEl.className = 'search-results-description';
+        descriptionEl.textContent = description || `Mostrando ${results.length} resultados.`;
+        searchResultsAreaEl.appendChild(descriptionEl);
+
+        if (results.length === 0) {
+            searchResultsAreaEl.innerHTML += '<p class="search-placeholder">No se encontraron resultados que coincidan con tu búsqueda.</p>';
+            return;
+        }
+
+        results.forEach(item => {
+            const uiUtils = ListopicApp.uiUtils;
+            let cardHtml = '';
+            
+            // Usamos un switch para construir la tarjeta según el tipo de resultado
+            switch (item.type) {
+                case 'list':
+                    cardHtml = `
+                        <a href="list-view.html?listId=${item.id}" class="search-card">
+                            <div class="search-card__icon-container">
+                                <i class="fas fa-list-alt"></i>
+                            </div>
+                            <div class="search-card__content">
+                                <h4 class="search-card__title">${uiUtils.escapeHtml(item.name)}</h4>
+                                <div class="search-card__tags">
+                                    <span class="info-tag info-tag--list"><i class="fas fa-stream"></i> Lista</span>
+                                    <span class="info-tag"><i class="fas fa-coffee"></i> ${uiUtils.escapeHtml(item.categoryId || 'General')}</span>
+                                    <span class="info-tag"><i class="fas fa-pencil-alt"></i> ${item.reviewCount || 0} reseñas</span>
+                                </div>
+                            </div>
+                        </a>
+                    `;
+                    break;
+                
+                case 'user': // Suponiendo que los resultados de usuario tengan esta estructura
+                    cardHtml = `
+                        <a href="profile.html?viewUserId=${item.id}" class="search-card">
+                            <div class="search-card__icon-container">
+                                ${item.photoUrl ? `<img src="${uiUtils.escapeHtml(item.photoUrl)}" alt="Avatar">` : '<i class="fas fa-user"></i>'}
+                            </div>
+                            <div class="search-card__content">
+                                <h4 class="search-card__title">${uiUtils.escapeHtml(item.displayName || item.username)}</h4>
+                                <div class="search-card__tags">
+                                    <span class="info-tag info-tag--user"><i class="fas fa-user"></i> Usuario</span>
+                                    <span class="info-tag"><i class="fas fa-user-friends"></i> ${item.followersCount || 0} seguidores</span>
+                                </div>
+                            </div>
+                        </a>
+                    `;
+                    break;
+                
+                // Aquí puedes añadir casos para 'place' e 'item' cuando implementes su búsqueda
+                case 'place':
+                     // ... estructura para un lugar ...
+                     break;
+
+                case 'item': // Un "item" es una reseña
+                     // ... estructura para una reseña ...
+                     break;
+
+                default:
+                    // Fallback por si llega un tipo desconocido
+                    cardHtml = `<div class="search-card"><p>Resultado desconocido: ${uiUtils.escapeHtml(item.name || 'Sin nombre')}</p></div>`;
+            }
+            
+            // Usamos insertAdjacentHTML que es eficiente para añadir bloques de HTML
+            searchResultsAreaEl.insertAdjacentHTML('beforeend', cardHtml);
+        });
+    }
+
     return {
         init
     };

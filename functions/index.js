@@ -494,4 +494,152 @@ exports.reverseGeocode = onRequest(async (req, res) => {
       res.status(500).json({ message: "Error interno al obtener la dirección.", error: error.message });
     }
   });
+  // ===================================================================
+// === NUEVAS FUNCIONES PARA CONTADORES Y DATOS AGREGADOS          ===
+// ===================================================================
+
+/**
+ * Trigger que se dispara cuando una reseña es creada, actualizada o eliminada.
+ * Actualiza los contadores de reseñas en los documentos de usuario, lugar e ítem.
+ */
+exports.updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
+  // Si es una actualización, no afecta a los contadores. Salimos.
+  if (event.data.before.exists && event.data.after.exists) {
+      logger.info(`Reseña ${event.params.reviewId} actualizada. No se modifican contadores.`);
+      return null;
+  }
+
+  // Determina si es una creación (incremento) o eliminación (decremento)
+  const change = event.data.before.exists ? -1 : 1;
+  const listId = event.params.listId;
+  const data = change === 1 ? event.data.after.data() : event.data.before.data();
+  
+  const {userId, placeId, itemId} = data;
+  
+  // Comprueba que los IDs necesarios existen
+  if (!userId) {
+      logger.warn(`La reseña ${event.params.reviewId} no tiene userId. No se puede actualizar contador de usuario.`);
+      return null;
+  }
+
+  const db = getFirestore();
+  const batch = db.batch();
+
+  // 1. Actualizar contador de reseñas del USUARIO
+  const userRef = db.collection('users').doc(userId);
+  batch.update(userRef, { reviewsCount: FieldValue.increment(change) });
+  logger.info(`Contador 'reviewsCount' en usuario ${userId} se actualizará en ${change}.`);
+
+// 2. Actualizar contador del USUARIO
+const userRef = db.collection('users').doc(userId);
+batch.update(userRef, { reviewsCount: FieldValue.increment(change) });
+logger.info(`Contador 'reviewsCount' en usuario ${userId} se actualizará en ${change}.`);
+
+  // 3. Actualizar contador de reseñas del LUGAR (si tiene placeId)
+  if (placeId) {
+      const placeRef = db.collection('places').doc(placeId);
+      batch.update(placeRef, { reviewsCount: FieldValue.increment(change) });
+      logger.info(`Contador 'reviewsCount' en lugar ${placeId} se actualizará en ${change}.`);
+  }
+
+  // 4. Actualizar contador de reseñas del ÍTEM (si tiene itemId)
+  if (itemId) {
+      const itemRef = db.collection('items').doc(itemId);
+      batch.update(itemRef, { reviewCount: FieldValue.increment(change) }); // Nota: el campo se llama reviewCount
+      logger.info(`Contador 'reviewCount' en ítem ${itemId} se actualizará en ${change}.`);
+  }
+  
+  // Ejecutar todas las actualizaciones en un solo lote
+  try {
+      await batch.commit();
+      logger.info("Lote de actualización de contadores de reseña completado.");
+  } catch (error) {
+      logger.error("Error al ejecutar el lote de actualización de contadores de reseña:", error);
+  }
+});
+
+
+/**
+* Trigger que se dispara cuando una lista es creada, actualizada o eliminada.
+* Actualiza los contadores de listas públicas y privadas en el documento del usuario.
+*/
+exports.updateUserStatsOnListChange = onDocumentWritten("lists/{listId}", async (event) => {
+  const db = getFirestore();
+  let userRef;
+  let updates = {};
+
+  // Caso 1: Se crea una lista NUEVA
+  if (!event.data.before.exists && event.data.after.exists) {
+      const listData = event.data.after.data();
+      userRef = db.collection('users').doc(listData.userId);
+      const fieldToIncrement = listData.isPublic ? 'publicListsCount' : 'privateListsCount';
+      updates[fieldToIncrement] = FieldValue.increment(1);
+      logger.info(`Nueva lista creada por ${listData.userId}. Incrementando ${fieldToIncrement}.`);
+  }
+  // Caso 2: Se elimina una lista
+  else if (event.data.before.exists && !event.data.after.exists) {
+      const listData = event.data.before.data();
+      userRef = db.collection('users').doc(listData.userId);
+      const fieldToDecrement = listData.isPublic ? 'publicListsCount' : 'privateListsCount';
+      updates[fieldToDecrement] = FieldValue.increment(-1);
+      logger.info(`Lista eliminada por ${listData.userId}. Decrementando ${fieldToDecrement}.`);
+  }
+  // Caso 3: Se actualiza una lista (nos interesa si cambia la privacidad)
+  else if (event.data.before.exists && event.data.after.exists) {
+      const beforeData = event.data.before.data();
+      const afterData = event.data.after.data();
+      if (beforeData.isPublic !== afterData.isPublic) {
+          userRef = db.collection('users').doc(afterData.userId);
+          const oldField = beforeData.isPublic ? 'publicListsCount' : 'privateListsCount';
+          const newField = afterData.isPublic ? 'publicListsCount' : 'privateListsCount';
+          updates[oldField] = FieldValue.increment(-1);
+          updates[newField] = FieldValue.increment(1);
+          logger.info(`Visibilidad de lista cambiada por ${afterData.userId}. Actualizando contadores.`);
+      } else {
+          return null; // No hay cambio en privacidad, no hacemos nada
+      }
+  }
+
+  if (userRef && Object.keys(updates).length > 0) {
+      try {
+          await userRef.update(updates);
+          logger.info("Contadores de listas del usuario actualizados correctamente.");
+      } catch(error) {
+          logger.error("Error actualizando contadores de listas del usuario:", error);
+      }
+  }
+});
+
+
+/**
+* Trigger que se dispara cuando un comentario es creado o eliminado.
+* Actualiza el contador de comentarios en el documento del usuario.
+* (Asume que los comentarios están en lists/{listId}/comments/{commentId})
+*/
+exports.updateUserStatsOnCommentChange = onDocumentWritten("lists/{listId}/comments/{commentId}", async (event) => {
+  // Si es una actualización, no afecta al contador. Salimos.
+  if (event.data.before.exists && event.data.after.exists) {
+      return null;
+  }
+
+  const change = event.data.before.exists ? -1 : 1;
+  const data = change === 1 ? event.data.after.data() : event.data.before.data();
+  const userId = data.userId;
+
+  if (!userId) {
+      logger.warn(`El comentario ${event.params.commentId} no tiene userId. No se puede actualizar contador.`);
+      return null;
+  }
+  
+  const userRef = getFirestore().collection('users').doc(userId);
+  logger.info(`Contador 'commentsCount' en usuario ${userId} se actualizará en ${change}.`);
+  
+  try {
+      await userRef.update({ commentsCount: FieldValue.increment(change) });
+      logger.info("Contador de comentarios del usuario actualizado.");
+  } catch(error) {
+      logger.error("Error actualizando contador de comentarios del usuario:", error);
+  }
+});
+
 });

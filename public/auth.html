@@ -192,6 +192,9 @@
                 <label for="login-password">Contraseña</label>
                 <input type="password" id="login-password" name="password" class="form-input" required autocomplete="current-password">
             </div>
+            <div style="text-align: right; margin-top: -10px; margin-bottom: 20px;">
+                <a href="#" id="forgot-password-link" style="color: var(--accent-color-primary); text-decoration: none; font-size: 0.9em;">¿Has olvidado tu contraseña?</a>
+            </div>
             <button type="submit" class="submit-button">Entrar</button>
         </form>
 
@@ -243,7 +246,36 @@
             const showRegisterBtn = document.getElementById('show-register');
             const messageArea = document.getElementById('message-area');
             const googleLoginBtn = document.getElementById('google-login-btn');
+            // AÑADIR ESTA LÓGICA
+            const forgotPasswordLink = document.getElementById('forgot-password-link');
 
+            forgotPasswordLink.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+
+                if (!email) {
+                    displayMessage('Por favor, introduce tu email en el campo de arriba y luego haz clic en el enlace de olvido de contraseña.', true);
+                    return;
+                }
+
+                // Desactivar el botón de login mientras se procesa para evitar clics dobles
+                const submitButton = loginForm.querySelector('.submit-button');
+                submitButton.disabled = true;
+                messageArea.style.display = 'none';
+
+                try {
+                    // Usamos la instancia de auth ya inicializada
+                    await authInstance.sendPasswordResetEmail(email);
+                    displayMessage('¡Revisa tu bandeja de entrada! Te hemos enviado un correo para restablecer tu contraseña.', false); // false para mensaje de éxito
+                } catch (error) {
+                    console.error('Error al enviar email de restablecimiento:', error);
+                    // Reutilizamos tu función para mostrar errores de Firebase
+                    displayMessage(getFirebaseErrorMessage(error), true);
+                } finally {
+                    submitButton.disabled = false;
+                }
+            });
+            // FIN DE LA LÓGICA A AÑADIR
             function toggleForms(showLogin) {
                 if (showLogin) {
                     loginForm.classList.add('active');
@@ -364,9 +396,46 @@
                             window.location.href = 'Index.html'; // O la página a la que quieras ir post-registro
                         }, 500); // Espera 1.5 segundos
                     }).catch((error) => {
-                        console.error('Error con Google Sign-In:', error);
-                        ListopicApp.services.showNotification(getFirebaseErrorMessage(error) || error.message, 'error');
-                        // displayMessage(getFirebaseErrorMessage(error), true); // Opcional
+                        // --- INICIO DE LA LÓGICA DE VINCULACIÓN ---
+
+                        // 1. Comprobar si el error es porque la cuenta ya existe con otro método
+                        if (error.code === 'auth/account-exists-with-different-credential') {
+                            // 2. Guardar la credencial de Google que se intentó usar.
+                            // Esta credencial contiene la información necesaria para vincular la cuenta más tarde.
+                            const pendingCred = error.credential;
+                            const email = error.email;
+
+                            // 3. Pedir al usuario su contraseña para verificar que es el dueño de la cuenta.
+                            // NOTA: Un prompt no es ideal en producción. Se recomienda un pequeño modal o formulario.
+                            const password = prompt(`Ya existe una cuenta con el email ${email}. Por favor, introduce tu contraseña para vincular tu cuenta de Google.`);
+                
+                            if (password) {
+                                // 4. Iniciar sesión con el método original (email y contraseña)
+                                authInstance.signInWithEmailAndPassword(email, password)
+                                    .then((userCredential) => {
+                                        // 5. Si el inicio de sesión es exitoso, vincular la credencial de Google
+                                        return userCredential.user.linkWithCredential(pendingCred);
+                                    })
+                                    .then(() => {
+                                        // 6. ¡Éxito! La cuenta de Google ha sido vinculada.
+                                        ListopicApp.services.showNotification('¡Tu cuenta de Google ha sido vinculada exitosamente!', 'success');
+                                        // La redirección la maneja onAuthStateChanged, que te llevará al Index.
+                                    })
+                                    .catch((linkError) => {
+                                        // Manejar errores del proceso de vinculación (ej. contraseña incorrecta)
+                                        console.error('Error al vincular la cuenta:', linkError);
+                                        displayMessage(getFirebaseErrorMessage(linkError), true);
+                                    });
+                            } else {
+                                // El usuario canceló el prompt
+                                displayMessage('Proceso de vinculación cancelado.', true);
+                            }
+                        } else {
+                            // --- FIN DE LA LÓGICA DE VINCULACIÓN ---
+                            console.error('Error con Google Sign-In:', error);
+                            ListopicApp.services.showNotification(getFirebaseErrorMessage(error) || error.message, 'error');
+                            // displayMessage(getFirebaseErrorMessage(error), true); // Opcional
+                        }
                     });
             });
             
@@ -380,6 +449,8 @@
                         return 'No se encontró ningún usuario con este email.';
                     case 'auth/wrong-password':
                         return 'La contraseña es incorrecta.';
+                    case 'auth/account-exists-with-different-credential':
+                        return 'Ya existe una cuenta con este email. Inicia sesión con tu método original para vincular tus cuentas.';
                     case 'auth/email-already-in-use':
                         return 'Este email ya está registrado.';
                     case 'auth/weak-password':
