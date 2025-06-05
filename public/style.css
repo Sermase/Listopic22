@@ -147,7 +147,7 @@ h1.brand-title {
     font-family: var(--brand-font);
     font-weight: 700; 
     color: var(--title-color);
-    margin-top: 10;
+    margin-top: 0;
     margin-bottom: 15px; 
     font-size: clamp(3em, 8vw, 4.5em); 
     letter-spacing: 1.5px;
