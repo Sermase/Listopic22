@@ -147,7 +147,7 @@ h1.brand-title {
     font-family: var(--brand-font);
     font-weight: 700; 
     color: var(--title-color);
-    margin-top: 0;
+    margin-top: 10;
     margin-bottom: 15px; 
     font-size: clamp(3em, 8vw, 4.5em); 
     letter-spacing: 1.5px;
@@ -306,7 +306,10 @@ main > .add-review-button.submit-button {
 .add-button:hover { background-color: #0f7694; }
 .back-button { display: inline-block; margin-bottom: 2px; color: var(--accent-color-primary); text-decoration: none; font-weight: 400; transition: color 0.2s ease; }
 .back-button:hover { color: var(--main-button-hover-bg); }
-.add-button, .add-button:hover { width: 100%; box-sizing: border-box; }
+#add-tag-btn {
+    width: 100%;
+    box-sizing: border-box; /* Buena práctica para que el padding no cause desbordamiento */
+}
 
 /* LIST-FORM: Criteria & Tags */
 .criteria-group, .tags-group { border: 1px solid rgba(255,255,255,0.2); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -746,9 +749,9 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
 }
 
 @media (max-width: 480px) {
-    h1.brand-title { font-size: 2em; }
-    .container h2 { font-size: 1.6em; }
-    .button, button, input[type="submit"], .add-review-button, .submit-button, .edit-button, .delete-button, .add-button { width: 30%; margin-bottom: 10px; }
+    h1.brand-title { font-size: 2.5em; }
+    .container h2 { font-size: 1.8em; }
+    .button, button, input[type="submit"], .add-review-button, .submit-button, .edit-button, .delete-button, .add-button { width: 100%; margin-bottom: 10px; }
     .form-actions, .detail-actions { display: flex; flex-direction: column; gap:10px; }
     .detail-actions .button, .detail-actions button { margin-bottom: 0; }
     .list-action-button span { display: none; } 
@@ -798,7 +801,6 @@ body.light-theme {
     --container-bg: rgba(255, 255, 255, 0.85);  /* Contenedores blancos o casi blancos, semi-transparentes */
     --text-color: #333740;                     /* Texto principal oscuro */
     --title-color: #1A1D24;                    /* Títulos más oscuros */
-    --secondary-text-color: #858585;            /* Texto secundario un poco más oscuro */
 
     /* Opción 2: Ajustarlos ligeramente (ej. un poco más oscuros/saturados) */
     --accent-color-primary: #EAA600;    /* UPDATED: Was #F5A623. Darker yellow/orange for better contrast on links/icons */
@@ -893,8 +895,8 @@ body.light-theme .edit-button:hover {
 
 /* --- Estilos para el botón de cambio de tema --- */
 .theme-toggle-button {
-  position: relative;
-  /*top: 15px;
+  /*position: fixed;
+  top: 15px;
   right: 15px;
   background-color: var(--container-bg); /* Usa el color de fondo de los contenedores del tema actual */
   /* position: fixed, top, right, y z-index se eliminan para permitir que este botón
@@ -1070,7 +1072,7 @@ body.light-theme footer {
   /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
   /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
   /* right: 70px;      <-- Eliminado */
-  position: relative; 
+  /* position: relative; Para el posicionamiento absoluto del menú hijo */
   background-color: var(--container-bg);
   color: var(--text-color);
   border: 1px solid var(--input-border);
@@ -1104,12 +1106,13 @@ body.light-theme footer {
 
 /* NUEVO: Contenedor para el menú de perfil */
 .user-profile-menu-container {
-    position: fixed;
-    top: 15px;
+    /* position: fixed;
+    top: 15px; */
     /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
     /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
-    right: 70px; 
-    z-index: 1002; /* Por encima del botón de tema, pero debajo del menú desplegable */
+    /* right: 70px; */
+    /* z-index: 1002; /* Por encima del botón de tema, pero debajo del menú desplegable */
+    position: relative;
   }
 
 
@@ -1243,6 +1246,7 @@ body.light-theme .user-menu-divider {
     height: 80px; /* O la altura que definiste */
     box-sizing: border-box;
     z-index: 1005; /* Asegúrate de que sea suficientemente alto */
+
     /* Capa base: Gradiente de transparencia progresiva */
     /* Va desde más opaco abajo (usando el color de fondo primario del tema) 
        hasta casi transparente arriba. */
@@ -1259,15 +1263,36 @@ body.light-theme .user-menu-divider {
     background-repeat: no-repeat;
     
     /* Necesario para posicionar correctamente el pseudo-elemento del granulado */
-    /* position: relative;  */
+    
+    pointer-events: none; /* Dejamos que los clics pasen a través del fondo */
 }
 
 /* Capa de efecto granulado (superpuesta al gradiente) */
 .header-actions-container::before {
-    /* ... (content, position, width, height, pointer-events como antes) ... */
-    background-image: url('/path/to/your/noise.png');
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    
+    /* Técnica para el granulado: Usaremos un SVG como data URI.
+       Este SVG genera un patrón de ruido fractal.
+       Puedes ajustar 'baseFrequency' para cambiar la "densidad/tamaño" del grano.
+       Valores más altos (ej. 0.75, 0.95) = grano más fino.
+       Valores más bajos (ej. 0.1, 0.25) = grano más grueso.
+       'numOctaves' añade detalle al ruido. */
+       background-image: url('/path/to/your/noise.png');
+       /* Opcionalmente, puedes controlar el tamaño de cada "tile" del ruido. 
+       Si no pones background-size, se ajustará al tamaño del SVG. */
+    background-size: 200px 200px; /* Ajusta esto para cambiar la escala del grano */
     background-repeat: repeat; /* Para que la imagen se repita y cubra el área */
-    opacity: var(--header-noise-opacity); 
+    opacity: var(--header-noise-opacity); /* Controla cuán visible es el granulado */
+    pointer-events: none; /* Para que no interfiera con los clics en el header */
+    
+    /* No se necesita z-index aquí si el ::before está en el mismo elemento
+       que tiene el gradiente como background-image. El ::before se renderizará
+       encima del background del elemento padre por defecto. */
 }
 
 .header-left-content {
@@ -1275,6 +1300,7 @@ body.light-theme .user-menu-divider {
     align-items: center;
     gap: 12px; /* Espacio entre el logo y el texto dinámico */
     overflow: hidden; /* Para ayudar a contener el texto si se vuelve muy largo */
+    /* pointer-events: auto; */
 }
 
 .header-dynamic-page-info {
@@ -1317,6 +1343,7 @@ body.light-theme .user-menu-divider {
     display: flex;
     align-items: center;
     gap: 9px; /* Espacio entre los botones de acción */
+    pointer-events: auto;
 }
 
 /* En style.css */
@@ -1328,8 +1355,8 @@ a.header-action-button { /* Importante añadir 'a.header-action-button' */
     color: var(--text-color); /* Para el color del icono */
     border: 1px solid var(--input-border);
     border-radius: 45%;
-    width: 45px;
-    height: 45px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1408,24 +1435,21 @@ a.header-action-button:hover {
 /* Responsive adjustments for header actions container */
 @media (max-width: 768px) {
     .header-actions-container {
-        height: var(--header-height); /* Usa la variable */
+        height: 75px; /* Usa la variable */
         top: 0px;
         right: 10px;
         gap: 8px;
     }
     .header-action-button, a.header-action-button {
-        width: 40px;
-        height: 40px;
+        width: 35px;
+        height: 35px;
         font-size: 1.1em;
     }
-    .search-button, .user-profile-button, .theme-toggle-button {
-        top: 8px;
-    }
-} 
+}
 
 @media (max-width: 480px) {
     .header-actions-container {
-        height: 50px;
+        height: 60px;
         top: 0px; /* Adjusted from 8px */
         right: 0px; /* Adjusted from 8px */
         gap: 3px; /* Remains 5px, seems appropriate */
@@ -1442,12 +1466,14 @@ a.header-action-button:hover {
 
 @media (max-width: 360px) {
     .header-actions-container {
-        gap: 4px; /* Further reduce gap */
+        gap: 1px; /* Further reduce gap */
+        height: 50px;
+        top: 0px;
         /* top: 5px; right: 5px; already set by 480px, can be kept or overridden if needed */
     }
     .header-action-button, a.header-action-button {
-        width: 32px; /* Further reduce size */
-        height: 32px; /* Further reduce size */
+        width: 28px; /* Further reduce size */
+        height: 28px; /* Further reduce size */
         font-size: 0.85em; /* Further reduce icon size */
     }
 }
@@ -1959,7 +1985,6 @@ body.light-theme #photo-edit-controls {
     padding: 15px 20px; /* Más grande */
     font-size: 1.1em;
     flex-grow: 1;
-    width: 100%;
 }
 
 .search-input-area .submit-button {
@@ -2014,6 +2039,22 @@ body.light-theme #photo-edit-controls {
     font-size: 0.95em;
 }
 
+#sort-order-select {
+    max-width: 250px; /* Evita que sea demasiado ancho */
+}
+.sort-controls-container {
+    display: flex;
+    justify-content: flex-end; /* Alinea el control a la derecha */
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+    margin-bottom: 0;
+}
+
+.sort-controls-container label {
+    margin-bottom: 0; /* Quitamos el margen inferior de la etiqueta */
+    font-weight: 500;
+}
 
 
 /* --- Estilos para Tarjetas de Resultado de Búsqueda --- */
