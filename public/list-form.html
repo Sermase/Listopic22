@@ -101,8 +101,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="list-category">Categoría de la Lista:</label>
-                    <input type="text" id="list-category" name="categoryId" class="form-input" placeholder="Ej: Comida, Películas, Libros..." value="Hmm..."> </div>
+                    <div class="form-group">
+                        <label for="list-category">Categoría de la Lista:</label>
+                        <select id="list-category" name="categoryId" class="form-input">
+                            <option value="Hmm...">Hmm...</option>
+                            </select>
+                    </div>
                 
                 <hr class="form-divider">
                 <fieldset class="criteria-group">
@@ -124,12 +128,23 @@
                     <button type="button" id="add-criterion-btn" class="add-button"><i class="fas fa-plus"></i> Añadir Criterio</button>
                 </fieldset>
                 <hr class="form-divider">
-                <fieldset class="tags-group">
+                <fieldset>
                     <legend>Etiquetas Disponibles para esta Lista</legend>
-                    <div id="tags-list">
-                        <!-- Las etiquetas se añadirán aquí o se cargarán si se edita -->
+                
+                    <div class="fixed-tags-group">
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="fixed-tags" value="Vegetariano">
+                            <span><i class="fas fa-leaf"></i> Vegetariano</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="fixed-tags" value="Sin gluten">
+                            <span><i class="fas fa-bread-slice"></i> Sin gluten</span>
+                        </label>
                     </div>
-                    <button type="button" id="add-tag-btn" class="add-button"><i class="fas fa-plus"></i> Añadir Etiqueta</button>
+                    <hr class="form-divider-light">
+                    <p>Añade etiquetas personalizadas:</p> <div id="tags-list">
+                        </div>
+                    <button type="button" id="add-tag-btn" class="add-button"><i class="fas fa-plus"></i> Añadir Etiqueta Personalizada</button>
                 </fieldset>
                 <div class="form-actions">
                     <button type="submit" class="submit-button">Guardar Lista</button>

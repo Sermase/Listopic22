@@ -306,6 +306,7 @@ main > .add-review-button.submit-button {
 .add-button:hover { background-color: #0f7694; }
 .back-button { display: inline-block; margin-bottom: 2px; color: var(--accent-color-primary); text-decoration: none; font-weight: 400; transition: color 0.2s ease; }
 .back-button:hover { color: var(--main-button-hover-bg); }
+.add-button, .add-button:hover { width: 100%; box-sizing: border-box; }
 
 /* LIST-FORM: Criteria & Tags */
 .criteria-group, .tags-group { border: 1px solid rgba(255,255,255,0.2); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -379,6 +380,49 @@ main > .add-review-button.submit-button {
     width: 16px;
     height: 16px;
     accent-color: var(--accent-color-primary);
+}
+
+/* En style.css (puedes añadirlo en la sección de formularios o etiquetas) */
+
+.fixed-tags-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.form-divider-light {
+    border: none;
+    height: 1px;
+    background-color: var(--border-color-light, rgba(255, 255, 255, 0.1));
+    margin: 20px 0;
+}
+.tag-checkbox input[type="checkbox"] {
+    display: none; /* Ocultamos el checkbox por defecto */
+}
+.tag-checkbox span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    background-color: var(--input-bg);
+    color: var(--secondary-text-color);
+    border-radius: 20px;
+    cursor: pointer;
+    border: 1px solid var(--border-color-light);
+    transition: all 0.2s ease;
+}
+.tag-checkbox span i {
+    opacity: 0.7;
+}
+/* Estilo cuando el checkbox está seleccionado */
+.tag-checkbox input[type="checkbox"]:checked + span {
+    background-color: var(--accent-color-primary);
+    color: #0A1931; /* Un color oscuro para el texto */
+    border-color: var(--accent-color-primary);
+    font-weight: 600;
+}
+.tag-checkbox input[type="checkbox"]:checked + span i {
+    opacity: 1;
 }
 
 /* Light theme adjustments para criterios */
@@ -1966,6 +2010,7 @@ body.light-theme #photo-edit-controls {
 #advanced-filters-content select { /* Si usas select para categorías o insignias */
     font-size: 0.95em;
 }
+
 
 
 /* --- Estilos para Tarjetas de Resultado de Búsqueda --- */
