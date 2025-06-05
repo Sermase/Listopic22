@@ -893,8 +893,8 @@ body.light-theme .edit-button:hover {
 
 /* --- Estilos para el botón de cambio de tema --- */
 .theme-toggle-button {
-  /*position: fixed;
-  top: 15px;
+  position: relative;
+  /*top: 15px;
   right: 15px;
   background-color: var(--container-bg); /* Usa el color de fondo de los contenedores del tema actual */
   /* position: fixed, top, right, y z-index se eliminan para permitir que este botón
@@ -1418,7 +1418,10 @@ a.header-action-button:hover {
         height: 40px;
         font-size: 1.1em;
     }
-}
+    .search-button, .user-profile-button, .theme-toggle-button {
+        top: 8px;
+    }
+} 
 
 @media (max-width: 480px) {
     .header-actions-container {
