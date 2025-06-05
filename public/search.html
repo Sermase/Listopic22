@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-<!-- ***** -->
+    <!-- ***** -->
     <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
     <link rel="icon" type="image/ png" sizes="16x16" href="/img/favicon-16x16.png">
     <link rel="icon" type="image/ png" sizes="32x32" href="/img/favicon-32x32.png">
@@ -33,7 +33,6 @@
    <script src="js/page-list-view.js" defer></script>
    <script src="js/page-detail-view.js" defer></script>
    <script src="js/page-grouped-detail-view.js" defer></script>
-    <script src="js/page-search.js" defer></script> 
 
     <!-- Firebase SDKs - Asegúrate de que app.js los utilice o inicialice Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -60,9 +59,9 @@
         </div>
 
         <div class="header-right-actions">
-            <button id="search-button" class="header-action-button" aria-label="Search">
+            <a href="search.html" id="search-link-button" class="search-button header-action-button" aria-label="Search">
                 <i class="fas fa-search"></i>
-            </button>
+            </a>
             <div class="user-profile-menu-container">
                 <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
                     <i class="fas fa-user-circle"></i>
