@@ -245,59 +245,96 @@ exports.placesTextSearch = onRequest(async (req, res) => {
   });
 });
 
-// --- FUNCIÓN CALLABLE: deleteListAndAssociatedReviews ---
-exports.deleteListAndAssociatedReviews = onCall(
-  async (data, context) => {
-    if (!context.auth) {
-        logger.warn("deleteListAndAssociatedReviews: Intento de llamada no autenticado.", {structuredData: true});
-        throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado para eliminar una lista.');
-    }
-    const callerUserId = context.auth.uid;
-    const listId = data.listId;
-    if (!listId) {
-        logger.warn(`deleteListAndAssociatedReviews: listId no proporcionado por el usuario ${callerUserId}.`, {structuredData: true});
-        throw new HttpsError('invalid-argument', 'Se requiere el ID de la lista (listId).');
-    }
-    logger.info(`deleteListAndAssociatedReviews: Usuario ${callerUserId} intentando eliminar lista ${listId}`, {structuredData: true});
-    const listRef = db.collection('lists').doc(listId);
-    try {
-        const listDoc = await listRef.get();
-        if (!listDoc.exists) {
-            logger.warn(`deleteListAndAssociatedReviews: Lista ${listId} no encontrada para el usuario ${callerUserId}.`, {structuredData: true});
-            throw new HttpsError('not-found', 'La lista no existe.');
-        }
-        const listData = listDoc.data();
-        if (listData.userId !== callerUserId) {
-            logger.error(`deleteListAndAssociatedReviews: Usuario ${callerUserId} no es propietario de la lista ${listId} (propietario: ${listData.userId}).`, {structuredData: true});
-            throw new HttpsError('permission-denied', 'No tienes permiso para eliminar esta lista.');
-        }
-        if (listData.isPublic === true) {
-            const reviewsRef = listRef.collection('reviews');
-            const otherUserReviewsSnapshot = await reviewsRef.where('userId', '!=', callerUserId).limit(1).get();
-            if (!otherUserReviewsSnapshot.empty) {
-                logger.warn(`deleteListAndAssociatedReviews: Intento de borrado de lista pública ${listId} por ${callerUserId} fallido: contiene reseñas de otros usuarios.`, {structuredData: true});
-                throw new HttpsError('failed-precondition', 'No se puede eliminar la lista porque es pública y contiene reseñas de otros usuarios.');
-            }
-        }
-        const allReviewsSnapshot = await listRef.collection('reviews').get();
-        if (!allReviewsSnapshot.empty) {
-            const batch = db.batch();
-            allReviewsSnapshot.docs.forEach(doc => {
-                batch.delete(doc.ref);
-            });
-            await batch.commit();
-            logger.info(`deleteListAndAssociatedReviews: Eliminadas ${allReviewsSnapshot.size} reseñas de la lista ${listId}`, {structuredData: true});
-        }
-        await listRef.delete();
-        logger.info(`deleteListAndAssociatedReviews: Lista ${listId} eliminada exitosamente por el usuario ${callerUserId}`, {structuredData: true});
-        return { success: true, message: 'Lista y sus reseñas eliminadas correctamente.' };
-    } catch (error) {
-        logger.error(`Error al eliminar la lista ${listId} para el usuario ${callerUserId}:`, error, {structuredData: true});
-        if (error.code && typeof error.code === 'string' && error.message ) { // Comprobar si es un HttpsError
-             throw error;
-        }
-        throw new HttpsError('internal', 'Ocurrió un error al eliminar la lista.', error.message);
-    }
+// --- FUNCIÓN CALLABLE: deleteListAndContent ---
+exports.deleteOrOrphanList = onCall({cors: true}, async (request) => {
+  const contextAuth = request.auth;
+  if (!contextAuth) {
+      logger.warn("deleteOrOrphanList: Intento de llamada no autenticado.");
+      throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
+  }
+
+  const callerUserId = contextAuth.uid;
+  const listId = request.data.listId;
+
+  if (!listId) {
+      logger.warn(`deleteOrOrphanList: listId no proporcionado por el usuario ${callerUserId}.`);
+      throw new HttpsError('invalid-argument', 'Se requiere el ID de la lista (listId).');
+  }
+
+  logger.info(`deleteOrOrphanList: Usuario ${callerUserId} solicitando acción sobre lista ${listId}.`);
+  const listRef = db.collection('lists').doc(listId);
+  const reviewsRef = listRef.collection('reviews');
+
+  try {
+      const listDoc = await listRef.get();
+      if (!listDoc.exists) {
+          throw new HttpsError('not-found', 'La lista no existe.');
+      }
+
+      const listData = listDoc.data();
+      if (listData.userId !== callerUserId) {
+          throw new HttpsError('permission-denied', 'No tienes permiso para modificar esta lista.');
+      }
+
+      // --- INICIO DE LA NUEVA LÓGICA ---
+
+      // Buscar si existen reseñas de OTROS usuarios en esta lista.
+      const otherUserReviewsSnapshot = await reviewsRef.where('userId', '!=', callerUserId).limit(1).get();
+
+      // Escenario 1: NO hay reseñas de otros usuarios. Procedemos a borrar todo.
+      if (otherUserReviewsSnapshot.empty) {
+          logger.info(`La lista ${listId} no tiene reseñas de otros usuarios. Procediendo con la eliminación completa.`);
+          
+          // Borrar todas las reseñas (que sabemos que son solo del propietario).
+          const allReviewsSnapshot = await reviewsRef.get();
+          if (!allReviewsSnapshot.empty) {
+              const deleteBatch = db.batch();
+              allReviewsSnapshot.docs.forEach(doc => deleteBatch.delete(doc.ref));
+              await deleteBatch.commit();
+              logger.info(`Eliminadas ${allReviewsSnapshot.size} reseñas del propietario de la lista ${listId}.`);
+          }
+          
+          // Borrar la lista en sí.
+          await listRef.delete();
+          logger.info(`Lista ${listId} eliminada exitosamente por ${callerUserId}.`);
+          
+          return { success: true, message: 'La lista y todas tus reseñas han sido eliminadas.' };
+      
+      // Escenario 2: SÍ hay reseñas de otros. Procedemos a desvincular/archivar.
+      } else {
+          logger.info(`La lista ${listId} tiene reseñas de otros usuarios. Procediendo a desvincular al propietario ${callerUserId}.`);
+          
+          const ownerReviewsSnapshot = await reviewsRef.where('userId', '==', callerUserId).get();
+
+          // Borrar solo las reseñas del propietario original.
+          if (!ownerReviewsSnapshot.empty) {
+              const deleteOwnerReviewsBatch = db.batch();
+              ownerReviewsSnapshot.docs.forEach(doc => deleteOwnerReviewsBatch.delete(doc.ref));
+              await deleteOwnerReviewsBatch.commit();
+              logger.info(`Eliminadas ${ownerReviewsSnapshot.size} reseñas del propietario de la lista ${listId} para archivarla.`);
+          }
+
+          // Actualizar la lista para "orfanarla".
+          await listRef.update({
+              userId: null, // Desvinculamos al usuario.
+              originalUserId: callerUserId, // Guardamos un registro de quién la creó.
+              name: `[Archivada] ${listData.name}`, // Cambiamos el nombre para que sea visible su estado.
+              updatedAt: FieldValue.serverTimestamp()
+          });
+
+          logger.info(`Lista ${listId} desvinculada del usuario ${callerUserId} y archivada.`);
+          
+          return { success: true, message: 'Te has desvinculado de la lista. Tus reseñas han sido eliminadas, pero la lista permanece activa para los demás usuarios.' };
+      }
+      // --- FIN DE LA NUEVA LÓGICA ---
+
+  } catch (error) {
+      logger.error(`Error en deleteOrOrphanList para lista ${listId} y usuario ${callerUserId}:`, error);
+      if (error.code) { // Si ya es un HttpsError, lo relanzamos.
+          throw error;
+      }
+      throw new HttpsError('internal', 'Ocurrió un error inesperado.');
+  }
 });
 
 // --- FUNCIÓN CALLABLE: createList ---

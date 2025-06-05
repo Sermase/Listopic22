@@ -317,20 +317,18 @@ ListopicApp.pageListView = (() => {
                             const functions = firebase.app().functions('europe-west1');
 
                             // 2. Usa el NOMBRE correcto de la función que exportaste
-                            const deleteListFunction = functions.httpsCallable('deleteListAndAssociatedReviews');
+                            const actionFunction = functions.httpsCallable('deleteOrOrphanList');
                 
                             // ===== FIN DE LA CORRECCIÓN =====  
                             // Llamar a la función con el listId
-                            const result = await deleteListFunction({ listId: state.currentListId });                            
+                            const result = await actionFunction({ listId: state.currentListId });                            
                             
-                            // La función podría devolver un mensaje de éxito o simplemente completarse
-                            if (result && result.data && result.data.message) {
-                                ListopicApp.services.showNotification(result.data.message, 'success');
-                            } else {
-                                ListopicApp.services.showNotification('¡Lista eliminada con éxito!', 'success');
-                            }
+                            // El `result.data.message` ahora contendrá el mensaje personalizado
+                            // que indica si la lista fue eliminada o desvinculada.
+                            ListopicApp.services.showNotification(result.data.message, 'success');
                             
-                            window.location.href = 'index.html';
+                            // En ambos casos, redirigimos al index ya que el usuario ya no "posee" esa lista.
+                            window.location.href = 'Index.html';
                         } catch (error) {
                             console.error('Error llamando a la función de eliminar lista:', error);
                             // El 'error.message' contendrá el mensaje que enviaste desde la HttpsError
