@@ -1267,6 +1267,11 @@ body.light-theme .user-menu-divider {
     pointer-events: none; /* Dejamos que los clics pasen a través del fondo */
 }
 
+.header-actions-container a,
+.header-actions-container button {
+    pointer-events: auto;
+}
+
 /* Capa de efecto granulado (superpuesta al gradiente) */
 .header-actions-container::before {
     content: '';
@@ -1300,7 +1305,6 @@ body.light-theme .user-menu-divider {
     align-items: center;
     gap: 12px; /* Espacio entre el logo y el texto dinámico */
     overflow: hidden; /* Para ayudar a contener el texto si se vuelve muy largo */
-    /* pointer-events: auto; */
 }
 
 .header-dynamic-page-info {
@@ -1343,7 +1347,6 @@ body.light-theme .user-menu-divider {
     display: flex;
     align-items: center;
     gap: 9px; /* Espacio entre los botones de acción */
-    pointer-events: auto;
 }
 
 /* En style.css */
