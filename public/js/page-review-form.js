@@ -79,6 +79,55 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
     return newPlaceRef.id;
 }
 
+// NUEVA FUNCIÓN para renderizar las etiquetas
+function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
+    const container = document.getElementById('dynamic-tag-selection');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const createTagCheckbox = (tag, isFixed) => {
+        const label = document.createElement('label');
+        label.className = 'tag-checkbox';
+        if (isFixed || selectedTags.includes(tag)) {
+            label.classList.add('selected');
+        }
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.name = 'tags';
+        input.value = tag;
+        input.checked = isFixed || selectedTags.includes(tag);
+        input.disabled = isFixed;
+        if(isFixed) {
+            label.title = "Etiqueta fija de la categoría";
+        }
+        input.addEventListener('change', () => label.classList.toggle('selected', input.checked));
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(` ${tag}`));
+        return label;
+    };
+
+    if (fixedTags.length > 0) {
+        const fixedContainer = document.createElement('div');
+        fixedContainer.className = 'fixed-tags-container';
+        fixedContainer.innerHTML = '<h5>Etiquetas Fijas:</h5>';
+        fixedTags.forEach(tag => fixedContainer.appendChild(createTagCheckbox(tag, true)));
+        container.appendChild(fixedContainer);
+    }
+
+    const userTags = availableTags.filter(tag => !fixedTags.includes(tag));
+    if (userTags.length > 0) {
+        const userContainer = document.createElement('div');
+        userContainer.className = 'user-tags-container';
+        userContainer.innerHTML = '<h5>Otras Etiquetas:</h5>';
+        userTags.forEach(tag => userContainer.appendChild(createTagCheckbox(tag, false)));
+        container.appendChild(userContainer);
+    }
+
+    if (fixedTags.length === 0 && userTags.length === 0) {
+        container.innerHTML = '<p>No hay etiquetas disponibles para esta lista.</p>';
+    }
+}
+
     function init() {
         console.log('Initializing Review Form page logic with actual code...');
         
@@ -88,6 +137,9 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
         const uiUtils = ListopicApp.uiUtils;
         const placesService = ListopicApp.placesService;
         const state = ListopicApp.state;
+        const urlParams = new URLSearchParams(window.location.search);
+        const listId = urlParams.get('listId');
+        const reviewIdToEdit = urlParams.get('editReviewId');
 
         const reviewForm = document.getElementById('review-form');
         
