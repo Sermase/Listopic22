@@ -800,7 +800,9 @@ body.light-theme {
     --primary-bg: #F0F2F5;                     /* Fondo principal claro, ej. gris muy pálido */
     --container-bg: rgba(255, 255, 255, 0.85);  /* Contenedores blancos o casi blancos, semi-transparentes */
     --text-color: #333740;                     /* Texto principal oscuro */
-    --title-color: #1A1D24;                    /* Títulos más oscuros */
+    --title-color: #1A1D24; 
+    
+    --secondary-text-color: #517070; /* Títulos más oscuros */
 
     /* Opción 2: Ajustarlos ligeramente (ej. un poco más oscuros/saturados) */
     --accent-color-primary: #EAA600;    /* UPDATED: Was #F5A623. Darker yellow/orange for better contrast on links/icons */
@@ -1287,7 +1289,7 @@ body.light-theme .user-menu-divider {
        Valores más altos (ej. 0.75, 0.95) = grano más fino.
        Valores más bajos (ej. 0.1, 0.25) = grano más grueso.
        'numOctaves' añade detalle al ruido. */
-       background-image: url('/path/to/your/noise.png');
+       background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVQYV2NkYGD4z4AGsH4A8A4B6R9Z9gAAAABJRU5ErkJggg==');
        /* Opcionalmente, puedes controlar el tamaño de cada "tile" del ruido. 
        Si no pones background-size, se ajustará al tamaño del SVG. */
     background-size: 200px 200px; /* Ajusta esto para cambiar la escala del grano */

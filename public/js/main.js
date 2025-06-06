@@ -108,12 +108,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     ListopicApp.pageGroupedDetailView.init();
                 }
             } else if (pageName === 'profile.html') {
+                console.log("MAIN.JS: Coincide 'profile.html', comprobando si pageProfile existe...");
                 if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
+                    console.log("MAIN.JS: Coincide 'profile.html', ejecutando pageProfile.init()..."); // Log de confirmación
                     ListopicApp.pageProfile.init();
-                }
-                } else if (pageName === 'profile.html') {
-                if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
-                    ListopicApp.pageProfile.init();
+                } else {
+                    console.error("MAIN.JS: ListopicApp.pageProfile.init no encontrado!"); // Log de error
                 }
             } else if (pageName === 'search.html') { // NUEVA CONDICIÓN
                 if (ListopicApp.pageSearch && ListopicApp.pageSearch.init) {

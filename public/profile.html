@@ -36,6 +36,7 @@
     <script src="js/page-list-view.js" defer></script>
     <script src="js/page-detail-view.js" defer></script>
     <script src="js/page-grouped-detail-view.js" defer></script>
+    <script src="js/page-profile.js" defer></script>
  
      <!-- Firebase SDKs - Asegúrate de que app.js los utilice o inicialice Firebase -->
      <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -45,7 +46,10 @@
      <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js" defer></script>
      
      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
- 
+    
+</head>
+
+<body>
      <!-- *****New container for header action buttons -->
      <div class="header-actions-container">
          <div class="header-left-content">
@@ -84,39 +88,59 @@
          </div>
      </div>
      <!-- ***** -->
-</head>
 
-<body>
     <main>
         <div class="container profile-page-container">
-            <h1 class="brand-title section-title">User Profile</h1>
+            <h1 class="brand-title section-title">Perfil de Usuario</h1> 
 
-            <div id="profile-picture-placeholder" style="text-align: center; margin-bottom: 20px;">
-                <!-- Placeholder for profile picture or icon -->
-                 <i class="fas fa-user-circle" style="font-size: 80px; color: var(--accent-color-primary);"></i>
-                <!-- <img src="" alt="Profile Picture" style="width: 100px; height: 100px; border-radius: 50%; display: none;"> -->
+            <div class="user-info-card">
+                <div id="profile-picture-placeholder">
+                    <i class="fas fa-user-circle" style="font-size: 120px; color: var(--secondary-text-color);"></i>
+                    </div>
+                
+                <h2 id="profile-display-name">Cargando...</h2>
+                <p id="profile-username-display">@...</p>
+                <p id="profile-bio-display">Cargando biografía...</p>
+                <p id="profile-email-display" style="font-size: 0.9em; opacity: 0.7;">...</p>
+                
+                <button type="button" id="open-edit-profile-modal-button" class="button secondary-button edit-profile-button" style="display: none;">
+                    <i class="fas fa-pencil-alt"></i> Editar Perfil
+                </button>
             </div>
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <span class="count" id="lists-count">0</span>
+                    <span class="label">Listas</span>
+                </div>
+                <div class="stat-item">
+                    <span class="count" id="reviews-count">0</span>
+                    <span class="label">Reseñas</span>
+                </div>
+                <div class="stat-item">
+                    <span class="count" id="followers-count">0</span>
+                    <span class="label">Seguidores</span>
+                </div>
+                <div class="stat-item">
+                    <span class="count" id="following-count">0</span>
+                    <span class="label">Siguiendo</span>
+                </div>
+            </div>
+            <div id="profile-message-area"></div>
 
-            <h2 id="profile-display-name" style="text-align: center;">Loading...</h2>
-            <p id="profile-email" style="text-align: center; margin-bottom: 30px;">Loading...</p>
-
-            
-            <div id="profile-my-lists" style="margin-bottom: 30px;">
-                <h3>My Lists</h3>
-                <ul id="my-lists-ul">
-                    <!-- Lists will be populated here by JavaScript -->
-                    <li>Lists loading...</li>
+            <div id="profile-my-lists" class="profile-section">
+                <h3><i class="fas fa-stream"></i> Mis Listas</h3>
+                <ul id="my-lists-ul" class="profile-item-list">
+                    <li class="loading-placeholder">Cargando listas...</li>
                 </ul>
             </div>
 
-            <div id="profile-my-reviews" style="margin-bottom: 30px;">
-                <h3>My Reviews</h3>
-                <ul id="my-reviews-ul">
-                    <!-- Reviews will be populated here by JavaScript -->
-                    <li>Reviews loading...</li>
+            <div id="profile-my-reviews" class="profile-section">
+                <h3><i class="fas fa-star"></i> Mis Reseñas</h3>
+                <ul id="my-reviews-ul" class="profile-item-list">
+                    <li class="loading-placeholder">Cargando reseñas...</li>
                 </ul>
             </div>
-        </div>
+            </div>
     </main>
 
     <footer>
