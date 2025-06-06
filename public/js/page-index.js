@@ -13,64 +13,40 @@ ListopicApp.pageIndex = (() => {
         const db = ListopicApp.services.db;
         const auth = ListopicApp.services.auth; // Para obtener el usuario actual si es necesario para personalización futura
 
-        const listCirclesUl = document.getElementById('list-circles-ul');
-        const mainTitle = document.querySelector('h1.brand-title'); // Aunque no se usa directamente en la lógica de fetch, es parte de la página.
+        // En page-index.js, dentro de la función init()
 
-        if (listCirclesUl) {
-            listCirclesUl.innerHTML = '<li><p>Cargando listas...</p></li>'; // Mensaje de carga inicial
+const listCirclesUl = document.getElementById('list-circles-ul');
 
-            try {
-                // MODIFICADO: Consulta para obtener listas públicas.
-                // Asegúrate de tener un índice compuesto en Firestore para esta consulta si es necesario:
-                // Colección 'lists', campo 'isPublic' (ascendente), campo 'createdAt' (descendente).
-                const querySnapshot = await db.collection('lists')
-                                            .where('isPublic', '==', true)
-                                            .orderBy('createdAt', 'desc')
-                                            .get();
-                
-                const lists = [];
-                querySnapshot.forEach(doc => {
-                    lists.push({ id: doc.id, ...doc.data() });
-                });
+if (listCirclesUl) {
+    listCirclesUl.innerHTML = '<li><p>Cargando listas...</p></li>'; 
 
-                console.log("INDEX: Listas públicas recibidas:", lists);
-                listCirclesUl.innerHTML = ''; // Limpiar mensaje de carga
-                if (lists.length > 0) {
-                    lists.forEach((list) => {
-                        const li = document.createElement('li');
-                        let iC = 'fa-solid fa-list'; // Icono por defecto
-                        const listNameLower = list.name ? list.name.toLowerCase() : "";
+    try {
+        const querySnapshot = await db.collection('lists')
+            .where('isPublic', '==', true)
+            .orderBy('createdAt', 'desc')
+            .limit(20) // He añadido un límite para no cargar demasiadas en la portada
+            .get();
 
-                        if (listNameLower.includes('tarta') || listNameLower.includes('pastel') || listNameLower.includes('torta')) iC = 'fa-solid fa-birthday-cake';
-                        else if (listNameLower.includes('pizza')) iC = 'fa-solid fa-pizza-slice';
-                        else if (listNameLower.includes('hamburguesa') || listNameLower.includes('burger')) iC = 'fa-solid fa-hamburger';
-                        else if (listNameLower.includes('taco') || listNameLower.includes('mexican') || listNameLower.includes('nacho')) iC = 'fa-solid fa-pepper-hot';
-                        else if (listNameLower.includes('café') || listNameLower.includes('coffee')) iC = 'fa-solid fa-coffee';
-                        else if (listNameLower.includes('sushi') || listNameLower.includes('japo')) iC = 'fa-solid fa-fish';
-                        else if (listNameLower.includes('helado') || listNameLower.includes('ice cream')) iC = 'fa-solid fa-ice-cream';
-                        
-                        let escapedListName = "";
-                        if (ListopicApp.uiUtils && ListopicApp.uiUtils.escapeHtml) {
-                            escapedListName = ListopicApp.uiUtils.escapeHtml(list.name || "Lista sin nombre");
-                        } else {
-                            escapedListName = list.name || "Lista sin nombre";
-                        }
+        const lists = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                        li.innerHTML = `<a href="list-view.html?listId=${list.id}" title="${escapedListName}"><i class="${iC}"></i><span>${escapedListName}</span></a>`;
-                        listCirclesUl.appendChild(li);
-                    });
-                } else {
-                    listCirclesUl.innerHTML = '<li><p>Aún no hay listas públicas disponibles. ¡Anímate y <a href="list-form.html" style="color: var(--accent-color-primary);">crea la primera</a> y márcala como pública!</p></li>';
-                }
-            } catch (error) {
-                console.error("INDEX: Error fetching or processing public lists:", error);
-                listCirclesUl.innerHTML = `<li><p style="color:var(--danger-color)">Error al cargar las listas. ${error.message}</p></li>`;
-                // Podrías mostrar un error más amigable usando ListopicApp.services.showNotification
-                if(ListopicApp.services && ListopicApp.services.showNotification) {
-                    ListopicApp.services.showNotification("Error al cargar listas: " + error.message, "error");
-                }
-            }
+        if (lists.length > 0) {
+            const listPromises = lists.map(async (list) => {
+                const iconClass = await ListopicApp.uiUtils.getListIcon(list);
+                const escapedListName = ListopicApp.uiUtils.escapeHtml(list.name || "Lista sin nombre");
+                return `<a href="list-view.html?listId=<span class="math-inline">\{list\.id\}" title\="</span>{escapedListName}"><i class="<span class="math-inline">\{iconClass\}"\></i\><span\></span>{escapedListName}</span></a>`;
+            });
+
+            const listHtmlItems = await Promise.all(listPromises);
+            listCirclesUl.innerHTML = listHtmlItems.map(html => `<li>${html}</li>`).join('');
+
         } else {
+            listCirclesUl.innerHTML = '<li><p>Aún no hay listas públicas disponibles. ¡Anímate y <a href="list-form.html" style="color: var(--accent-color-primary);">crea la primera</a>!</p></li>';
+        }
+    } catch (error) {
+        console.error("Error al cargar las listas públicas:", error);
+        listCirclesUl.innerHTML = `<li><p style="color:var(--danger-color)">Error al cargar las listas. ${error.message}</p></li>`;
+    }
+} else {
              console.warn("INDEX: Contenedor #list-circles-ul no encontrado.");
         }
         
