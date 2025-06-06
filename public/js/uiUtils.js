@@ -11,35 +11,51 @@ ListopicApp.uiUtils = {
     // NUEVA FUNCIÓN PARA OBTENER ICONOS DE FORMA EFICIENTE
     getListIcon: async function(list) {
         const defaultIcon = 'fa-solid fa-list';
-        if (!list || !list.categoryId) return defaultIcon;
-
-        const categoryCache = ListopicApp.state.categoryCache;
-
-        // 1. Comprobar si la categoría ya está en la caché
-        if (categoryCache[list.categoryId]) {
-            return categoryCache[list.categoryId].icon || defaultIcon;
+        if (!list) return defaultIcon;
+    
+        // --- LÓGICA HÍBRIDA ---
+    
+        // 1. PRIORIDAD MÁXIMA: Buscar por palabras clave en el nombre de la lista
+        if (list.name) {
+            const listNameLower = list.name.toLowerCase();
+            if (listNameLower.includes('tarta') || listNameLower.includes('pastel') || listNameLower.includes('torta')) return 'fa-solid fa-birthday-cake';
+            if (listNameLower.includes('pizza')) return 'fa-solid fa-pizza-slice';
+            if (listNameLower.includes('hamburguesa') || listNameLower.includes('burger')) return 'fa-solid fa-hamburger';
+            if (listNameLower.includes('taco') || listNameLower.includes('mexican') || listNameLower.includes('nacho')) return 'fa-solid fa-pepper-hot';
+            if (listNameLower.includes('café') || listNameLower.includes('coffee')) return 'fa-solid fa-coffee';
+            if (listNameLower.includes('sushi') || listNameLower.includes('japo')) return 'fa-solid fa-fish';
+            if (listNameLower.includes('helado') || listNameLower.includes('ice cream')) return 'fa-solid fa-ice-cream';
+            // Puedes añadir más palabras clave aquí en el futuro
         }
-
-        // 2. Si no está, obtenerla de Firestore
-        try {
-            const db = ListopicApp.services.db; // Acceder a db desde los servicios
-            if (!db) {
-                console.error("uiUtils.getListIcon: db service not available.");
+    
+        // 2. SEGUNDA PRIORIDAD: Buscar el icono de la categoría en la base de datos
+        if (list.categoryId) {
+            const categoryCache = ListopicApp.state.categoryCache || {};
+    
+            if (categoryCache[list.categoryId]) {
+                return categoryCache[list.categoryId].icon || defaultIcon;
+            }
+    
+            try {
+                const db = ListopicApp.services.db;
+                if (!db) {
+                    console.error("uiUtils.getListIcon: db service not available.");
+                    return defaultIcon;
+                }
+                const doc = await db.collection('categories').doc(list.categoryId).get();
+                if (doc.exists) {
+                    const categoryData = doc.data();
+                    categoryCache[list.categoryId] = categoryData;
+                    return categoryData.icon || defaultIcon;
+                }
+            } catch (error) {
+                console.error(`Error fetching category icon for ${list.categoryId}:`, error);
                 return defaultIcon;
             }
-            const doc = await db.collection('categories').doc(list.categoryId).get();
-            if (doc.exists) {
-                const categoryData = doc.data();
-                // 3. Guardar en caché para futuras peticiones
-                categoryCache[list.categoryId] = categoryData;
-                return categoryData.icon || defaultIcon;
-            } else {
-                return defaultIcon;
-            }
-        } catch (error) {
-            console.error(`Error fetching category icon for ${list.categoryId}:`, error);
-            return defaultIcon;
         }
+    
+        // 3. ÚLTIMO RECURSO: Devolver el icono por defecto
+        return defaultIcon;
     },
 
     // --- El resto de tus funciones ---
@@ -119,7 +135,7 @@ ListopicApp.uiUtils = {
             const label = document.createElement('label');
             label.htmlFor = `rating-${criterionKey}`;
             const weightedIndicator = criterion.ponderable === false ? ' <small class="non-weighted-criterion">(No pondera)</small>' : '';
-            label.innerHTML = `<span class="math-inline">\{this\.escapeHtml\(criterion\.label\)\}</span>{weightedIndicator}`;
+            label.innerHTML = `${this.escapeHtml(criterion.label)}${weightedIndicator}`;
             const sliderInput = document.createElement('input');
             sliderInput.type = 'range';
             sliderInput.id = `rating-${criterionKey}`;
