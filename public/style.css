@@ -803,6 +803,7 @@ body.light-theme {
     --title-color: #1A1D24; 
     
     --secondary-text-color: #517070; /* Títulos más oscuros */
+    --secondary-text-color: rgba(22, 22, 22, 0.7);
 
     /* Opción 2: Ajustarlos ligeramente (ej. un poco más oscuros/saturados) */
     --accent-color-primary: #EAA600;    /* UPDATED: Was #F5A623. Darker yellow/orange for better contrast on links/icons */
