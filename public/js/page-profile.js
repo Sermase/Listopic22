@@ -3,27 +3,43 @@ window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageProfile = {
     // Objeto para guardar referencias a los elementos del DOM
     elements: {
+        // --- Elementos de la página principal ---
         profilePhotoDisplay: null,
-        profileIconPlaceholder: null,
+        profilePicturePlaceholder: null,
         displayNameElement: null,
         usernameDisplayElement: null,
         bioDisplayElement: null,
-        emailDisplayElement: null,
+        locationDisplayElement: null,
         listsCountElement: null,
         reviewsCountElement: null,
-        followersCountElement: null,
-        followingCountElement: null,
         myListsUl: null,
         myReviewsUl: null,
-        editProfileButton: null,
-        pageTitleHeader: null,
+        openEditModalBtn: null,
+        profileMessageArea: null,
+        
+        // --- Elementos del Modal ---
+        editProfileModal: null,
+        closeEditModalBtn: null,
+        editProfileForm: null,
+        modalMessageArea: null,
+        saveProfileButton: null,
+        
+        // --- Campos del Formulario del Modal ---
+        editDisplayNameInput: null,
+        editSurnamesInput: null,
+        editLocationInput: null,
+        editBioInput: null,
+        editPhotoUrlInput: null,
+        editPhotoFileInput: null,
+        editPhotoPreview: null,
     },
 
     // Variables de estado de la página
     currentUser: null,
     profileOwnerUserId: null,
+    profileData: null, // Guardaremos los datos del perfil aquí
+    selectedPhotoFile: null,
 
-    // --- FUNCIÓN DE INICIALIZACIÓN ---
     init: function() {
         console.log("page-profile.js: init -> INICIADO");
         this.cacheDOMElements();
@@ -33,93 +49,197 @@ ListopicApp.pageProfile = {
 
         ListopicApp.authService.onAuthStateChangedPromise().then(user => {
             this.currentUser = user;
-            this.profileOwnerUserId = userIdFromUrl || (this.currentUser ? this.currentUser.uid : null);
-
-            if (!this.profileOwnerUserId) {
-                console.error("page-profile: No se pudo determinar el ID del perfil. Redirigiendo...");
+            if (!this.currentUser) {
                 window.location.href = 'auth.html';
                 return;
             }
+            this.profileOwnerUserId = userIdFromUrl || this.currentUser.uid;
             
-            this.loadUserProfileData(this.profileOwnerUserId);
-            // this.attachEventListeners(); // Descomentar cuando implementes los modales de edición
+            this.loadUserProfileData();
+            this.attachEventListeners();
             this.updateEditButtonVisibility();
-            
-            if (this.elements.pageTitleHeader) {
-                this.elements.pageTitleHeader.style.display = 'none';
-            }
         });
     },
 
-    // --- CACHEAR ELEMENTOS DEL DOM ---
     cacheDOMElements: function() {
-        console.log("page-profile.js: cacheDOMElements -> Buscando elementos...");
-        const profilePictureContainer = document.getElementById('profile-picture-placeholder');
-        if (profilePictureContainer) {
-            this.elements.profilePhotoDisplay = profilePictureContainer.querySelector('img'); 
-            this.elements.profileIconPlaceholder = profilePictureContainer.querySelector('i');
-        }
+        this.elements.profilePhotoDisplay = document.getElementById('profile-photo-display');
+        this.elements.profilePicturePlaceholder = document.getElementById('profile-picture-placeholder');
         this.elements.displayNameElement = document.getElementById('profile-display-name');
         this.elements.usernameDisplayElement = document.getElementById('profile-username-display');
         this.elements.bioDisplayElement = document.getElementById('profile-bio-display');
-        this.elements.emailDisplayElement = document.getElementById('profile-email-display');
+        this.elements.locationDisplayElement = document.getElementById('profile-location-display');
         this.elements.myListsUl = document.getElementById('my-lists-ul');
         this.elements.myReviewsUl = document.getElementById('my-reviews-ul');
-        this.elements.editProfileButton = document.getElementById('open-edit-profile-modal-button');
-        this.elements.pageTitleHeader = document.querySelector('.profile-page-container > h1.section-title');
-        
-        // Cachear contadores de estadísticas
+        this.elements.openEditModalBtn = document.getElementById('open-edit-profile-modal-btn');
+        this.elements.profileMessageArea = document.getElementById('profile-message-area');
         this.elements.listsCountElement = document.getElementById('lists-count');
         this.elements.reviewsCountElement = document.getElementById('reviews-count');
-        this.elements.followersCountElement = document.getElementById('followers-count');
-        this.elements.followingCountElement = document.getElementById('following-count');
-        console.log("page-profile.js: cacheDOMElements -> Finalizado.");
+        
+        this.elements.editProfileModal = document.getElementById('edit-profile-modal');
+        this.elements.closeEditModalBtn = document.getElementById('close-edit-profile-modal-btn');
+        this.elements.editProfileForm = document.getElementById('edit-profile-form');
+        this.elements.modalMessageArea = document.getElementById('modal-message-area');
+        this.elements.saveProfileButton = document.getElementById('save-profile-button');
+        
+        this.elements.editDisplayNameInput = document.getElementById('edit-displayName');
+        this.elements.editSurnamesInput = document.getElementById('edit-surnames');
+        this.elements.editLocationInput = document.getElementById('edit-location');
+        this.elements.editBioInput = document.getElementById('edit-bio');
+        this.elements.editPhotoUrlInput = document.getElementById('edit-photo-url');
+        this.elements.editPhotoFileInput = document.getElementById('edit-photo-file');
+        this.elements.editPhotoPreview = document.getElementById('edit-photo-preview');
     },
     
-    // --- MOSTRAR/OCULTAR BOTÓN DE EDITAR ---
     updateEditButtonVisibility: function() {
-        if (this.elements.editProfileButton) {
+        if (this.elements.openEditModalBtn) {
             const isOwnProfile = this.currentUser && this.currentUser.uid === this.profileOwnerUserId;
-            this.elements.editProfileButton.style.display = isOwnProfile ? 'inline-block' : 'none';
+            this.elements.openEditModalBtn.style.display = isOwnProfile ? 'inline-block' : 'none';
         }
     },
 
-    // --- CARGAR DATOS PRINCIPALES DEL PERFIL ---
-    loadUserProfileData: async function(userIdToLoad) {
-        const db = ListopicApp.services.db;
-        const userDocRef = db.collection('users').doc(userIdToLoad);
+    attachEventListeners: function() {
+        this.elements.openEditModalBtn?.addEventListener('click', () => this.openEditModal());
+        this.elements.closeEditModalBtn?.addEventListener('click', () => this.closeEditModal());
+        this.elements.editProfileModal?.addEventListener('click', (event) => {
+            if (event.target === this.elements.editProfileModal) {
+                this.closeEditModal();
+            }
+        });
+        this.elements.editProfileForm?.addEventListener('submit', (event) => {
+            event.preventDefault();
+            this.saveProfileChanges();
+        });
+        this.elements.editPhotoFileInput?.addEventListener('change', (event) => {
+            if (event.target.files && event.target.files[0]) {
+                this.selectedPhotoFile = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (e) => this.showImagePreview(e.target.result);
+                reader.readAsDataURL(this.selectedPhotoFile);
+            }
+        });
+        this.elements.editPhotoUrlInput?.addEventListener('input', (event) => {
+            this.selectedPhotoFile = null;
+            this.showImagePreview(event.target.value);
+        });
+    },
 
+    loadUserProfileData: async function() {
+        const db = ListopicApp.services.db;
+        const userDocRef = db.collection('users').doc(this.profileOwnerUserId);
         try {
             const docSnap = await userDocRef.get();
             if (docSnap.exists) {
-                const profileData = docSnap.data();
-                
-                if (this.elements.displayNameElement) this.elements.displayNameElement.textContent = profileData.username || 'Usuario';
-                if (this.elements.usernameDisplayElement) this.elements.usernameDisplayElement.textContent = `@${profileData.username || 'usuario'}`;
-                if (this.elements.bioDisplayElement) this.elements.bioDisplayElement.textContent = profileData.bio || 'Este usuario aún no ha añadido una biografía.';
-                
-                const isOwnProfile = this.currentUser && this.currentUser.uid === userIdToLoad;
-                if (this.elements.emailDisplayElement) {
-                    this.elements.emailDisplayElement.textContent = isOwnProfile ? this.currentUser.email : '';
-                    this.elements.emailDisplayElement.style.display = isOwnProfile ? 'block' : 'none';
-                }
-
-                // Actualizar contadores
-                if (this.elements.listsCountElement) this.elements.listsCountElement.textContent = (profileData.publicListsCount || 0) + (profileData.privateListsCount || 0);
-                if (this.elements.reviewsCountElement) this.elements.reviewsCountElement.textContent = profileData.reviewsCount || 0;
-                if (this.elements.followersCountElement) this.elements.followersCountElement.textContent = profileData.followersCount || 0;
-                if (this.elements.followingCountElement) this.elements.followingCountElement.textContent = profileData.followingCount || 0;
-
+                this.profileData = docSnap.data();
+                this.renderProfileData();
             } else {
-                if (this.elements.displayNameElement) this.elements.displayNameElement.textContent = "Perfil no encontrado";
+                this.elements.displayNameElement.textContent = "Perfil no encontrado";
             }
         } catch (error) {
-            console.error(`page-profile: Error cargando perfil desde Firestore:`, error);
+            console.error(`page-profile: Error cargando perfil:`, error);
         }
+        this.fetchUserLists();
+        this.fetchUserReviews();
+    },
 
-        // Cargar listas y reseñas después de los datos del perfil
-        this.fetchUserLists(userIdToLoad);
-        this.fetchUserReviews(userIdToLoad);
+    renderProfileData: function() {
+        const { displayName, username, bio, location, photoUrl, publicListsCount, privateListsCount, reviewsCount } = this.profileData;
+        const totalLists = (publicListsCount || 0) + (privateListsCount || 0);
+
+        if (this.elements.displayNameElement) this.elements.displayNameElement.textContent = displayName || username || 'Usuario';
+        if (this.elements.usernameDisplayElement) this.elements.usernameDisplayElement.textContent = `@${username || 'usuario'}`;
+        if (this.elements.bioDisplayElement) this.elements.bioDisplayElement.textContent = bio || 'Este usuario aún no ha añadido una biografía.';
+        if (this.elements.locationDisplayElement) {
+            if (location) {
+                this.elements.locationDisplayElement.querySelector('span').textContent = location;
+                this.elements.locationDisplayElement.style.display = 'block';
+            } else {
+                this.elements.locationDisplayElement.style.display = 'none';
+            }
+        }
+        if (this.elements.profilePhotoDisplay) {
+            this.elements.profilePhotoDisplay.src = photoUrl || 'img/default-avatar.png';
+        }
+        if(this.elements.listsCountElement) this.elements.listsCountElement.textContent = totalLists;
+        if(this.elements.reviewsCountElement) this.elements.reviewsCountElement.textContent = reviewsCount || 0;
+    },
+
+    openEditModal: function() {
+        if (!this.profileData) return;
+        this.elements.editDisplayNameInput.value = this.profileData.displayName || '';
+        this.elements.editSurnamesInput.value = this.profileData.surnames || '';
+        this.elements.editLocationInput.value = this.profileData.location || '';
+        this.elements.editBioInput.value = this.profileData.bio || '';
+        this.elements.editPhotoUrlInput.value = this.profileData.photoUrl || '';
+        this.showImagePreview(this.profileData.photoUrl);
+        this.selectedPhotoFile = null;
+        this.elements.editPhotoFileInput.value = '';
+        this.elements.modalMessageArea.style.display = 'none';
+        this.elements.editProfileModal.classList.add('active');
+    },
+
+    closeEditModal: function() {
+        this.elements.editProfileModal.classList.remove('active');
+    },
+
+    showImagePreview: function(src) {
+        if (this.elements.editPhotoPreview) {
+            this.elements.editPhotoPreview.innerHTML = src ? `<img src="${src}" alt="Previsualización">` : '';
+        }
+    },
+    
+    displayModalMessage: function(message, isError = false) {
+        const area = this.elements.modalMessageArea;
+        area.textContent = message;
+        area.className = isError ? 'error' : 'success';
+        area.style.display = 'block';
+    },
+
+    saveProfileChanges: async function() {
+        this.elements.saveProfileButton.disabled = true;
+        this.displayModalMessage("Guardando...", false);
+
+        const auth = ListopicApp.services.auth;
+        const db = ListopicApp.services.db;
+        const storage = ListopicApp.services.storage;
+
+        try {
+            let newPhotoURL = this.elements.editPhotoUrlInput.value.trim();
+            if (this.selectedPhotoFile) {
+                const filePath = `profile-photos/${this.currentUser.uid}/${Date.now()}_${this.selectedPhotoFile.name}`;
+                const fileRef = storage.ref(filePath);
+                const uploadTask = await fileRef.put(this.selectedPhotoFile);
+                newPhotoURL = await uploadTask.ref.getDownloadURL();
+            }
+
+            const updatesForFirestore = {
+                displayName: this.elements.editDisplayNameInput.value.trim(),
+                surnames: this.elements.editSurnamesInput.value.trim(),
+                location: this.elements.editLocationInput.value.trim(),
+                bio: this.elements.editBioInput.value.trim(),
+                photoUrl: newPhotoURL
+            };
+            
+            const updatesForAuth = {
+                displayName: updatesForFirestore.displayName,
+                photoURL: newPhotoURL
+            };
+
+            await db.collection('users').doc(this.currentUser.uid).update(updatesForFirestore);
+            await auth.currentUser.updateProfile(updatesForAuth);
+            
+            this.displayModalMessage("Perfil actualizado con éxito.", false);
+            
+            setTimeout(() => {
+                this.closeEditModal();
+                this.loadUserProfileData();
+            }, 1500);
+
+        } catch (error) {
+            console.error("Error al guardar el perfil:", error);
+            this.displayModalMessage(`Error: ${error.message}`, true);
+        } finally {
+            this.elements.saveProfileButton.disabled = false;
+        }
     },
 
     // --- OBTENER Y RENDERIZAR LISTAS ---
