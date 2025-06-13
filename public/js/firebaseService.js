@@ -159,6 +159,54 @@ ListopicApp.services = (() => {
         }
     };
 
+    // NUEVA FUNCIÓN: Asegura que el perfil de usuario exista en Firestore.
+    // Es idempotente: si ya existe, no hace nada; si no, lo crea.
+    const ensureUserProfileExists = async (user) => {
+        if (!user || !user.uid) {
+            console.warn("ensureUserProfileExists: Usuario nulo o sin UID.");
+            return;
+        }
+
+        const userDocRef = db.collection('users').doc(user.uid);
+
+        try {
+            const doc = await userDocRef.get();
+            if (!doc.exists) {
+                console.log(`[firebaseService] Perfil Firestore no encontrado para UID: ${user.uid}. Creando...`);
+                const newUserDocument = {
+                    username: user.displayName || user.email.split('@')[0], // Usa displayName de Google o parte del email
+                    email: user.email,
+                    bio: "",
+                    photoUrl: user.photoURL || "",
+                    userType: 'basico',
+                    followersCount: 0,
+                    followingCount: 0,
+                    publicListsCount: 0, // Añadir contadores de listas
+                    privateListsCount: 0,
+                    reviewsCount: 0,     // Añadir contador de reseñas
+                    commentsCount: 0,    // Añadir contador de comentarios
+                    badges: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    dateOfBirth: null,
+                    residence: ""
+                };
+                await userDocRef.set(newUserDocument);
+                console.log(`[firebaseService] Perfil Firestore creado para UID: ${user.uid}.`);
+            } else {
+                console.log(`[firebaseService] Perfil Firestore ya existe para UID: ${user.uid}. No se necesita crear.`);
+                // Opcional: podrías actualizar displayName o photoUrl si ha cambiado en Auth
+                // await userDocRef.update({
+                //     username: user.displayName || doc.data().username,
+                //     photoUrl: user.photoURL || doc.data().photoUrl,
+                //     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                // });
+            }
+        } catch (error) {
+            console.error("[firebaseService] Error en ensureUserProfileExists:", error);
+            showNotification(`Error al crear o verificar el perfil de usuario: ${error.message}`, 'error');
+            throw error;
+        }
+    };
 
     return {
         auth: auth,
@@ -167,6 +215,7 @@ ListopicApp.services = (() => {
         getListsByUserId: getListsByUserId,
         getReviewsByUserId: getReviewsByUserId,
         createUserInAuthAndFirestore: createUserInAuthAndFirestore,
-        showNotification: showNotification
+        showNotification: showNotification,
+        ensureUserProfileExists: ensureUserProfileExists // Exportar la nueva función
     };
 })();
