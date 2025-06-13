@@ -27,9 +27,9 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
     if (searchName && searchAddress) {
         console.log(`Buscando lugar por Nombre: "${searchName}" y Dirección: "${searchAddress}"`);
         const querySnapshot = await placesRef
-                                    .where('name', '==', searchName)
-                                    .where('address', '==', searchAddress)
-                                    .limit(1).get();
+                                .where('name_normalized', '==', searchName)
+                                .where('address_normalized', '==', searchAddress)
+                                .limit(1).get();
         
         if (!querySnapshot.empty) {
             const existingPlaceDoc = querySnapshot.docs[0];
@@ -52,7 +52,9 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
     if (placeDataFromGoogle) {
         dataToSave = {
             name: placeDataFromGoogle.name || "Establecimiento Desconocido",
+            name_normalized: (placeDataFromGoogle.name || "").toLowerCase(), // <-- CAMPO NUEVO
             address: placeDataFromGoogle.addressFormatted || null,
+            address_normalized: (placeDataFromGoogle.addressFormatted || "").toLowerCase(), // <-- CAMPO NUEVO
             location: new firebase.firestore.GeoPoint(placeDataFromGoogle.latitude, placeDataFromGoogle.longitude),
             googlePlaceId: placeDataFromGoogle.placeId || null,
             googleRating: placeDataFromGoogle.rating || 0,
@@ -62,7 +64,9 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
     } else if (manualPlaceData) {
         dataToSave = {
             name: manualPlaceData.name,
+            name_normalized: (manualPlaceData.name || "").toLowerCase(), // <-- CAMPO NUEVO
             address: manualPlaceData.address || null,
+            address_normalized: (manualPlaceData.address || "").toLowerCase(), // <-- CAMPO NUEVO
             // ... otros campos manuales
         };
     } else {

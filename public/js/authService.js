@@ -1,3 +1,5 @@
+// Contenido completo y corregido para public/js/authService.js
+
 window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.authService = (() => {
@@ -22,7 +24,6 @@ ListopicApp.authService = (() => {
 
         const pagePath = window.location.pathname;
         const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1);
-        // Update module-scoped variable
         isAuthPage = pageName.toLowerCase() === 'auth.html';
         console.log(`authService.init: isAuthPage se ha establecido a: ${isAuthPage} (Página actual: ${pageName})`);
 
@@ -68,7 +69,7 @@ ListopicApp.authService = (() => {
         const userInfoDisplay = document.getElementById('user-info-display');
         const logoutButton = document.getElementById('logout-button');
 
-        auth.onAuthStateChanged(user => {
+        auth.onAuthStateChanged(async user => {
             currentUserState = user;
             if (resolveAuthInitializedPromise) {
                 resolveAuthInitializedPromise(user);
@@ -76,9 +77,7 @@ ListopicApp.authService = (() => {
             }
 
             if (user) {
-            console.log(`authService.onAuthStateChanged: Usuario detectado (ID: ${user.uid}, Email: ${user.email}).`);
-            console.log(`authService.onAuthStateChanged: Valor de isAuthPage en este punto: ${isAuthPage}`);
-            console.log(`authService.onAuthStateChanged: Path actual: ${window.location.pathname}`);
+                console.log(`authService.onAuthStateChanged: Usuario detectado (ID: ${user.uid}, Email: ${user.email}).`);
                 if (userInfoDisplay) {
                     userInfoDisplay.textContent = `Hola, ${user.displayName || user.email}`;
                 }
@@ -87,56 +86,50 @@ ListopicApp.authService = (() => {
                 }
 
                 try {
-                    // SIEMPRE asegurar que el perfil exista en Firestore al iniciar sesión
-                    // independientemente de si es un usuario nuevo o antiguo, o de qué proveedor.
                     await ListopicApp.services.ensureUserProfileExists(user);
                     console.log("authService.onAuthStateChanged: Perfil de Firestore asegurado/creado.");
 
-                // Solo redirigir si estábamos en la página de autenticación
-                if (isAuthPage) {
-                    console.log("authService.onAuthStateChanged: Usuario autenticado y en auth.html. Redirigiendo a Index.html.");
-                    // Pequeño delay para que el usuario vea un posible mensaje de éxito en auth.html
-                    setTimeout(() => {
-                        window.location.href = 'Index.html'; 
-                    }, 500); 
-                } else {
-                    console.log("authService.onAuthStateChanged: Usuario autenticado y NO en auth.html. Permaneciendo en la página actual.");
+                    if (isAuthPage) {
+                        console.log("authService.onAuthStateChanged: Usuario autenticado y en auth.html. Redirigiendo a Index.html.");
+                        setTimeout(() => {
+                            window.location.href = 'Index.html';
+                        }, 500);
+                    } else {
+                        console.log("authService.onAuthStateChanged: Usuario autenticado y NO en auth.html. Permaneciendo en la página actual.");
+                    }
+                } catch (profileError) {
+                    console.error("authService.onAuthStateChanged: Error asegurando perfil de Firestore:", profileError);
+                    ListopicApp.services.showNotification(`Error crítico al cargar tu perfil: ${profileError.message}`, 'error');
+                    await auth.signOut();
                 }
-            } catch (profileError) {
-                console.error("authService.onAuthStateChanged: Error asegurando perfil de Firestore:", profileError);
-                ListopicApp.services.showNotification(`Error crítico al cargar tu perfil: ${profileError.message}`, 'error');
-                // Considerar cerrar sesión si el perfil no se puede crear/cargar para evitar inconsistencias
-                await auth.signOut();
-            }
 
-        } else {
-            console.log("authService.onAuthStateChanged: Usuario NO detectado (deslogueado).");
-            console.log(`authService.onAuthStateChanged: Valor de isAuthPage en este punto: ${isAuthPage}`);
-            console.log(`authService.onAuthStateChanged: Path actual: ${window.location.pathname}`);
-            if (userInfoDisplay) {
-                userInfoDisplay.textContent = '';
-            }
-            if (logoutButton) {
-                logoutButton.style.display = 'none';
-            }
-
-            // REDIRECCIÓN: Si el usuario no está logueado y NO está en la página de autenticación, redirigir.
-            if (!isAuthPage) {
-                console.log("authService.onAuthStateChanged: Usuario NO LOGUEADO y NO en auth.html. ¡Redirigiendo a auth.html!");
-                window.location.href = 'auth.html';
             } else {
-                console.log("authService.onAuthStateChanged: Usuario NO LOGUEADO y EN auth.html. No se redirige, permanece en auth.html.");
-            }
-        }
-    });
-    }
+                console.log("authService.onAuthStateChanged: Usuario NO detectado (deslogueado).");
+                if (userInfoDisplay) {
+                    userInfoDisplay.textContent = '';
+                }
+                if (logoutButton) {
+                    logoutButton.style.display = 'none';
+                }
 
-    if (logoutButton) {
+                if (!isAuthPage) {
+                    console.log("authService.onAuthStateChanged: Usuario NO LOGUEADO y NO en auth.html. ¡Redirigiendo a auth.html!");
+                    window.location.href = 'auth.html';
+                } else {
+                    console.log("authService.onAuthStateChanged: Usuario NO LOGUEADO y EN auth.html. No se redirige, permanece en auth.html.");
+                }
+            }
+        });
+
+        // <-- CORRECCIÓN: Este bloque DEBE estar dentro de la función init()
+        if (logoutButton) {
             logoutButton.addEventListener('click', () => {
                 logoutUser();
             });
         }
     // --- Fin de Manejo de Autenticación Global ---
+    
+    // <-- CORRECCIÓN: La llave que estaba aquí ha sido ELIMINADA. La función init() termina en la siguiente llave.
     }
 
     function onAuthStateChangedPromise() {
@@ -154,7 +147,7 @@ ListopicApp.authService = (() => {
         }
         return auth.signOut().then(() => {
             console.log('Usuario cerró sesión (llamada a authService.logoutUser).');
-            // Redirection is handled by onAuthStateChanged
+            // La redirección es manejada por onAuthStateChanged
         }).catch(error => {
             console.error('Error al cerrar sesión (desde authService.logoutUser):', error);
             ListopicApp.services.showNotification && ListopicApp.services.showNotification(`Error al cerrar sesión: ${error.message}`, 'error');
