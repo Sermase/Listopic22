@@ -91,7 +91,7 @@ ListopicApp.pageProfile = {
 
         try {
             const docSnap = await userDocRef.get();
-            if (docSnap.exists()) {
+            if (docSnap.exists) {
                 const profileData = docSnap.data();
                 
                 if (this.elements.displayNameElement) this.elements.displayNameElement.textContent = profileData.username || 'Usuario';
@@ -123,22 +123,31 @@ ListopicApp.pageProfile = {
     },
 
     // --- OBTENER Y RENDERIZAR LISTAS ---
+    // Reemplaza esta función completa en page-profile.js
     fetchUserLists: async function(userIdToLoad) {
         if (!this.elements.myListsUl) return;
         this.elements.myListsUl.innerHTML = `<li class="loading-placeholder">Cargando listas...</li>`;
         console.log(`LISTAS: Buscando listas para userId: '${userIdToLoad}'`);
 
+        const isOwnProfile = this.currentUser && this.currentUser.uid === userIdToLoad;
+        let listsQuery = ListopicApp.services.db.collection('lists')
+            .where('userId', '==', userIdToLoad);
+
+        // Si NO es nuestro propio perfil, solo mostramos las listas públicas.
+        if (!isOwnProfile) {
+            listsQuery = listsQuery.where('isPublic', '==', true);
+        }
+        
+        listsQuery = listsQuery.orderBy('createdAt', 'desc');
+
         try {
-            const querySnapshot = await ListopicApp.services.db.collection('lists')
-                .where('userId', '==', userIdToLoad)
-                .orderBy('createdAt', 'desc')
-                .get();
+            const querySnapshot = await listsQuery.get();
             
             console.log(`LISTAS: Consulta finalizada. Se encontraron ${querySnapshot.size} listas.`);
             this.renderUserLists(querySnapshot.docs);
         } catch (error) {
             console.error(`page-profile: Error fetching lists:`, error);
-            this.elements.myListsUl.innerHTML = '<li class="error-placeholder">Error al cargar las listas.</li>';
+            this.elements.myListsUl.innerHTML = '<li class="error-placeholder">No se pudieron cargar las listas.</li>';
         }
     },
 

@@ -2,8 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ===============================================
+    // REGLAS PARA USUARIOS (`users`)
+    // ===============================================
     match /users/{userId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update, delete: if request.auth != null && request.auth.uid == userId;
 
@@ -13,90 +16,63 @@ service cloud.firestore {
       }
     }
 
+    // ===============================================
+    // REGLAS PARA LISTAS (`lists`)
+    // ===============================================
     match /lists/{listId} {
-      allow read: if resource.data.isPublic == true || 
-                     (request.auth != null && resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null &&
-                      request.resource.data.userId == request.auth.uid &&
-                      request.resource.data.name is string &&
-                      request.resource.data.name.size() > 0 &&
-+                     request.resource.data.categoryId is string && // Añadir esta línea
-                      request.resource.data.isPublic is bool &&
-                      request.resource.data.criteriaDefinition is map &&
-                      request.resource.data.availableTags is list &&
-                      (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time) &&
-                      (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
-    allow update: if request.auth != null &&
-                      resource.data.userId == request.auth.uid &&
-                      request.resource.data.userId == resource.data.userId &&
-                      request.resource.data.name is string &&
-                      request.resource.data.name.size() > 0 &&
-+                     request.resource.data.categoryId is string && // Añadir esta línea
-                      request.resource.data.isPublic is bool &&
-                      request.resource.data.criteriaDefinition is map &&
-                      request.resource.data.availableTags is list &&
-                      (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid; // Considerar la lógica de borrado con contribuciones
+      allow read: if resource.data.isPublic == true || (request.auth != null && resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
 
       match /reviews/{reviewId} {
         allow read: if get(/databases/$(database)/documents/lists/$(listId)).data.isPublic == true ||
-                       (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
-        
-        // MODIFICADA: allow create para reviews
-        allow create: if request.auth != null && 
-                         request.resource.data.userId == request.auth.uid &&    // El creador de la reseña es el usuario actual
-                         request.resource.data.listId == listId &&              // La reseña pertenece a esta lista
-                         request.resource.data.placeId is string &&             // La reseña DEBE tener un placeId
-                         request.resource.data.placeId.size() > 0 &&
-                         request.resource.data.itemName is string &&            // El itemName es un string (puede ser vacío si es opcional)
-                         request.resource.data.scores is map;                   // Los scores son un mapa
-
-        // MODIFICADA: allow update para reviews
-        allow update: if request.auth != null && 
-                         resource.data.userId == request.auth.uid &&             // Solo el creador de la reseña puede actualizar
-                         request.resource.data.userId == resource.data.userId && // No se puede cambiar el userId de la reseña
-                         request.resource.data.listId == resource.data.listId && // No se puede cambiar el listId de la reseña
-                         request.resource.data.placeId == resource.data.placeId && // No se debería cambiar el placeId fácilmente
-                         request.resource.data.itemName is string &&
-                         request.resource.data.scores is map;
-                         
-        allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+                      (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      }
+      
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
       }
     }
 
-    // NUEVAS REGLAS: para la colección /places
+    // ===============================================
+    // REGLAS PARA LUGARES (`places`)
+    // ===============================================
     match /places/{placeId} {
-      allow read: if true; // O if request.auth != null; (permitir leer lugares a cualquiera o solo autenticados)
-
-      allow create: if request.auth != null &&
-                       request.resource.data.createdByUserId == request.auth.uid && // El creador es el usuario actual
-                       request.resource.data.name is string &&
-                       request.resource.data.name.size() > 0 &&
-                       // Validar otros campos obligatorios al crear un lugar
-                       request.resource.data.aggregatedOverallRating is number &&
-                       request.resource.data.totalReviews is number &&
-                       (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time) &&
-                       (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
-
-      // Permitir actualizar ciertos campos del lugar solo al creador, o reglas más complejas
-      allow update: if request.auth != null && 
-                       resource.data.createdByUserId == request.auth.uid &&
-                       request.resource.data.createdByUserId == resource.data.createdByUserId; // No cambiar creador
-                       // Añadir validaciones para campos actualizables
-
-      allow delete: if false; // Por defecto, no permitir borrar lugares desde el cliente.
-                              // El borrado de lugares podría tener implicaciones (reseñas huérfanas si no se maneja bien)
-                              // o ser una tarea administrativa.
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.createdByUserId == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if false; 
     }
 
-    // NUEVAS REGLAS: para la colección /categories
-    // Permitir leer las categorías a cualquier usuario autenticado
-    match /categories/{categoryId} {
-      allow read: if request.auth != null;
-      allow write: if false; // Nadie puede escribir desde el cliente
-    }
-
+    // ===============================================
+    // REGLAS PARA INSIGNIAS (`badges`)
+    // ===============================================
     match /badges/{badgeId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ===============================================
+    // REGLA PARA CONSULTAS DE GRUPO (`collectionGroup`)
+    // ===============================================
+    match /{path=**}/reviews/{reviewId} {
+      // ***** INICIO DE LA CORRECCIÓN *****
+      // Permitir leer una reseña en una consulta de grupo si:
+      // 1. Eres el dueño de la reseña.
+      // 2. O si la lista a la que pertenece la reseña (obtenida con `get()`) es pública.
+      allow read: if (request.auth != null && resource.data.userId == request.auth.uid) ||
+                    (get(/databases/$(database)/documents/lists/$(resource.data.listId)).data.isPublic == true);
+      // ***** FIN DE LA CORRECCIÓN *****
+    }
+    
+    // ===============================================
+    // REGLA PARA CONSULTAS DE CATEGORIES
+    // ===============================================
+    match /categories/{categoryId} {
       allow read: if true;
       allow write: if false;
     }
