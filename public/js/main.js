@@ -119,6 +119,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (ListopicApp.pageSearch && ListopicApp.pageSearch.init) {
                     ListopicApp.pageSearch.init();
                 }
+            } else if (pageName === 'place-detail.html') { // PÁGINA DE LUGAR
+                if (ListopicApp.pagePlace && ListopicApp.pagePlace.init) {
+                    ListopicApp.pagePlace.init();
+                }
             } else {
                 // Esta es la línea 95 en la estructura original del if/else if
                 console.warn("MAIN.JS: No se detectó una página conocida. pageName:", pageName); // <--- LOG si ninguna coincide
@@ -131,3 +135,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log("MAIN.JS: Fin del script de inicialización de main.js."); // <--- LOG 19
 });
+
+
+// Función global para limpiar cache de etiquetas (útil para desarrollo)
+window.clearCategoryTagsCache = function() {
+    if (ListopicApp.pageSearch && ListopicApp.pageSearch.clearTagsCache) {
+        ListopicApp.pageSearch.clearTagsCache();
+        console.log('Cache de etiquetas limpiado');
+    } else {
+        console.warn('Función de limpiar cache no disponible');
+    }
+};

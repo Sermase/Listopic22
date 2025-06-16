@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Place Detail - Listopic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-link {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .test-link:hover {
+            background: #0056b3;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Test Place Detail Page</h1>
+        
+        <div class="info">
+            <h3>📋 Instrucciones de prueba:</h3>
+            <ol>
+                <li>Haz clic en uno de los enlaces de prueba</li>
+                <li>Verifica que la página cargue correctamente</li>
+                <li>Comprueba que se muestre la información del lugar</li>
+                <li>Revisa que los botones funcionen</li>
+            </ol>
+        </div>
+
+        <h3>🔗 Enlaces de prueba:</h3>
+        
+        <!-- Test con un placeId de ejemplo -->
+        <a href="place-detail.html?placeId=ChIJN1t_tDeuEmsRUsoyG83frY4" class="test-link">
+            🏢 Test Place Detail (Google Place ID)
+        </a>
+        <br>
+        
+        <!-- Test con placeId genérico -->
+        <a href="place-detail.html?placeId=test-place-123" class="test-link">
+            🏪 Test Place Detail (Test ID)
+        </a>
+        <br>
+        
+        <!-- Test sin placeId (debería mostrar error) -->
+        <a href="place-detail.html" class="test-link">
+            ❌ Test sin Place ID (Error esperado)
+        </a>
+
+        <div class="info">
+            <h3>✅ Qué verificar:</h3>
+            <ul>
+                <li><strong>Header:</strong> Logo, título, menú de usuario</li>
+                <li><strong>Loading:</strong> Estado de carga inicial</li>
+                <li><strong>Place Info:</strong> Nombre, dirección, tipos</li>
+                <li><strong>Actions:</strong> Botones de agregar reseña y direcciones</li>
+                <li><strong>Reviews:</strong> Sección de reseñas (puede estar vacía)</li>
+                <li><strong>Responsive:</strong> Funciona en móvil</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>🐛 Posibles errores:</h3>
+            <ul>
+                <li>Error 404 en archivos JS → Verificar rutas</li>
+                <li>Firebase no inicializado → Verificar config</li>
+                <li>Lugar no encontrado → Normal si no existe en BD</li>
+                <li>Sin reseñas → Normal para lugares nuevos</li>
+            </ul>
+        </div>
+
+        <p><a href="index.html">← Volver al inicio</a></p>
+    </div>
+</body>
+</html>

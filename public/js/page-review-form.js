@@ -52,22 +52,64 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
     if (placeDataFromGoogle) {
         dataToSave = {
             name: placeDataFromGoogle.name || "Establecimiento Desconocido",
-            name_normalized: (placeDataFromGoogle.name || "").toLowerCase(), // <-- CAMPO NUEVO
+            name_normalized: (placeDataFromGoogle.name || "").toLowerCase(),
             address: placeDataFromGoogle.addressFormatted || null,
-            address_normalized: (placeDataFromGoogle.addressFormatted || "").toLowerCase(), // <-- CAMPO NUEVO
+            address_normalized: (placeDataFromGoogle.addressFormatted || "").toLowerCase(),
             location: new firebase.firestore.GeoPoint(placeDataFromGoogle.latitude, placeDataFromGoogle.longitude),
             googlePlaceId: placeDataFromGoogle.placeId || null,
             googleRating: placeDataFromGoogle.rating || 0,
             googleUserRatingsTotal: placeDataFromGoogle.user_ratings_total || 0,
-            // ... otros campos de Google que quieras guardar
+
+            // Información adicional de Google Places
+            types: placeDataFromGoogle.types || [],
+            phone: placeDataFromGoogle.formatted_phone_number || placeDataFromGoogle.international_phone_number || null,
+            website: placeDataFromGoogle.website || null,
+            priceLevel: placeDataFromGoogle.price_level || null,
+            openingHours: placeDataFromGoogle.opening_hours ? {
+                open_now: placeDataFromGoogle.opening_hours.open_now || false,
+                weekday_text: placeDataFromGoogle.opening_hours.weekday_text || []
+            } : null,
+
+            // Información geográfica adicional
+            city: placeDataFromGoogle.city || null,
+            region: placeDataFromGoogle.region || placeDataFromGoogle.state || null,
+            country: placeDataFromGoogle.country || null,
+            postalCode: placeDataFromGoogle.postal_code || null,
+
+            // URLs de imágenes
+            mainImageUrl: placeDataFromGoogle.photos && placeDataFromGoogle.photos.length > 0
+                ? placeDataFromGoogle.photos[0].getUrl({ maxWidth: 800, maxHeight: 600 })
+                : null,
+            imageUrls: placeDataFromGoogle.photos
+                ? placeDataFromGoogle.photos.slice(0, 5).map(photo =>
+                    photo.getUrl({ maxWidth: 800, maxHeight: 600 })
+                  )
+                : [],
+
+            // Información de geometría
+            geometry: {
+                location: {
+                    lat: placeDataFromGoogle.latitude,
+                    lng: placeDataFromGoogle.longitude
+                },
+                viewport: placeDataFromGoogle.viewport || null
+            }
         };
     } else if (manualPlaceData) {
         dataToSave = {
             name: manualPlaceData.name,
-            name_normalized: (manualPlaceData.name || "").toLowerCase(), // <-- CAMPO NUEVO
+            name_normalized: (manualPlaceData.name || "").toLowerCase(),
             address: manualPlaceData.address || null,
-            address_normalized: (manualPlaceData.address || "").toLowerCase(), // <-- CAMPO NUEVO
-            // ... otros campos manuales
+            address_normalized: (manualPlaceData.address || "").toLowerCase(),
+            location: manualPlaceData.latitude && manualPlaceData.longitude
+                ? new firebase.firestore.GeoPoint(manualPlaceData.latitude, manualPlaceData.longitude)
+                : null,
+            geometry: manualPlaceData.latitude && manualPlaceData.longitude ? {
+                location: {
+                    lat: manualPlaceData.latitude,
+                    lng: manualPlaceData.longitude
+                }
+            } : null
         };
     } else {
         throw new Error("No hay suficientes datos para crear un nuevo lugar.");

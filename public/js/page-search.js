@@ -9,28 +9,86 @@ ListopicApp.pageSearch = (() => {
         searchHistory: []
     };
 
-    // Etiquetas fijas por categoría
-    const CATEGORY_TAGS = {
-        'Hmm...': [
-            'sin gluten', 'vegetariano', 'vegano', 'sin lactosa',
-            'picante', 'dulce', 'salado', 'amargo',
-            'casero', 'gourmet', 'tradicional', 'fusion',
-            'económico', 'premium', 'familiar', 'romántico',
-            'rápido', 'lento', 'caliente', 'frío'
-        ],
-        'Restaurantes': [
-            'italiano', 'japonés', 'mexicano', 'chino', 'indio',
-            'mediterráneo', 'asiático', 'americano', 'francés',
-            'terraza', 'interior', 'vista', 'música en vivo',
-            'reserva necesaria', 'sin reserva', 'grupo grande'
-        ],
-        'Cafeterías': [
-            'café especialidad', 'té premium', 'repostería casera',
-            'wifi gratis', 'trabajo', 'estudio', 'reuniones',
-            'desayuno', 'merienda', 'brunch', 'takeaway',
-            'ambiente tranquilo', 'ambiente animado'
-        ]
-    };
+    // Cache para etiquetas de categorías (se cargan dinámicamente)
+    const CATEGORY_TAGS_CACHE = new Map();
+
+    // Función para obtener etiquetas de una categoría desde Firestore
+    async function getCategoryTags(categoryName) {
+        // Si ya están en cache, devolverlas
+        if (CATEGORY_TAGS_CACHE.has(categoryName)) {
+            return CATEGORY_TAGS_CACHE.get(categoryName);
+        }
+
+        try {
+            // Mapear nombres de categorías a IDs de documentos
+            const categoryMapping = {
+                'Hmm...': 'comida_hmm',
+                'Comida Hmm...': 'comida_hmm', // Agregar variante del nombre
+                'Restaurantes': 'restaurantes', // Ajustar según tus datos
+                'Cafeterías': 'cafeterias' // Ajustar según tus datos
+            };
+
+            const categoryId = categoryMapping[categoryName];
+            if (!categoryId) {
+                console.warn(`No se encontró mapeo para la categoría: ${categoryName}`);
+                const defaultTags = getDefaultTagsForCategory(categoryName);
+                CATEGORY_TAGS_CACHE.set(categoryName, defaultTags);
+                return defaultTags;
+            }
+
+            // Obtener la categoría por ID de documento
+            const categoryDoc = await ListopicApp.services.db.collection('categories').doc(categoryId).get();
+
+            let tags = [];
+            if (categoryDoc.exists) {
+                const categoryData = categoryDoc.data();
+                // Usar fixed-tags en lugar de tags
+                tags = categoryData['fixed-tags'] || [];
+                console.log(`Etiquetas cargadas para ${categoryName}:`, tags);
+            }
+
+            // Si no se encontraron etiquetas en Firestore, usar etiquetas por defecto
+            if (tags.length === 0) {
+                tags = getDefaultTagsForCategory(categoryName);
+            }
+
+            // Guardar en cache
+            CATEGORY_TAGS_CACHE.set(categoryName, tags);
+            return tags;
+        } catch (error) {
+            console.error('Error al obtener etiquetas de la categoría:', error);
+            // En caso de error, usar etiquetas por defecto
+            const defaultTags = getDefaultTagsForCategory(categoryName);
+            CATEGORY_TAGS_CACHE.set(categoryName, defaultTags);
+            return defaultTags;
+        }
+    }
+
+    // Función de respaldo con etiquetas por defecto
+    function getDefaultTagsForCategory(categoryName) {
+        const defaultTags = {
+            'Hmm...': [
+                'sin gluten', 'vegetariano', 'vegano', 'sin lactosa',
+                'picante', 'dulce', 'salado', 'amargo',
+                'casero', 'gourmet', 'tradicional', 'fusion',
+                'económico', 'premium', 'familiar', 'romántico',
+                'rápido', 'lento', 'caliente', 'frío'
+            ],
+            'Restaurantes': [
+                'italiano', 'japonés', 'mexicano', 'chino', 'indio',
+                'mediterráneo', 'asiático', 'americano', 'francés',
+                'terraza', 'interior', 'vista', 'música en vivo',
+                'reserva necesaria', 'sin reserva', 'grupo grande'
+            ],
+            'Cafeterías': [
+                'café especialidad', 'té premium', 'repostería casera',
+                'wifi gratis', 'trabajo', 'estudio', 'reuniones',
+                'desayuno', 'merienda', 'brunch', 'takeaway',
+                'ambiente tranquilo', 'ambiente animado'
+            ]
+        };
+        return defaultTags[categoryName] || [];
+    }
 
     let mainSearchInput, executeSearchBtn, entityTypeButtons,
         openFiltersModalBtn, advancedFiltersModal, closeFiltersModalBtn,
@@ -65,33 +123,52 @@ ListopicApp.pageSearch = (() => {
         }
         
         console.log("Tipos de entidad seleccionados:", state.selectedEntityTypes);
-        populateAdvancedFiltersModal();
-        
+
+        // Actualizar filtros avanzados de forma asíncrona
+        populateAdvancedFiltersModal().catch(error => {
+            console.error('Error actualizando filtros avanzados:', error);
+        });
+
         // Realizar búsqueda automática si hay texto
         if (mainSearchInput && mainSearchInput.value.trim()) {
             debouncedSearch();
         }
     }
 
-    function populateAdvancedFiltersModal() {
+    async function populateAdvancedFiltersModal() {
         if (!advancedFiltersContentEl) return;
+
         advancedFiltersContentEl.innerHTML = '';
 
-        // Si no hay tipos seleccionados, mostrar mensaje
-        if (state.selectedEntityTypes.length === 0) {
-            advancedFiltersContentEl.innerHTML = '<p>Selecciona al menos un tipo de contenido para ver filtros específicos.</p>';
-            return;
+        // Cargar categorías dinámicamente desde Firestore
+        let categories = [];
+        try {
+            const categoriesSnapshot = await ListopicApp.services.db.collection('categories').get();
+            categories = categoriesSnapshot.docs.map(doc => ({
+                id: doc.id,
+                name: doc.data().name || doc.id
+            }));
+        } catch (error) {
+            console.error('Error cargando categorías:', error);
+            // Fallback a categorías hardcodeadas
+            categories = [
+                { id: 'comida_hmm', name: 'Hmm...' },
+                { id: 'restaurantes', name: 'Restaurantes' },
+                { id: 'cafeterias', name: 'Cafeterías' }
+            ];
         }
 
-        // Generar filtros para cada tipo seleccionado
         state.selectedEntityTypes.forEach(type => {
             const sectionEl = document.createElement('div');
-            sectionEl.className = 'filter-category-section';
-            
+            sectionEl.className = 'filter-section';
             let sectionHTML = '';
-            
+
             switch (type) {
                 case 'lists':
+                    const listCategoryOptions = categories.map(cat =>
+                        `<option value="${cat.name}">${cat.name}</option>`
+                    ).join('');
+
                     sectionHTML = `
                         <h3 class="filter-category-title">
                             <i class="fas fa-list-alt"></i> Filtros para Listas
@@ -100,9 +177,7 @@ ListopicApp.pageSearch = (() => {
                             <label for="filter-list-category">Categoría:</label>
                             <select id="filter-list-category" class="form-input">
                                 <option value="">Cualquiera</option>
-                                <option value="Hmm...">Hmm...</option>
-                                <option value="Restaurantes">Restaurantes</option>
-                                <option value="Cafeterías">Cafeterías</option>
+                                ${listCategoryOptions}
                             </select>
                         </div>
                         <div class="form-group">
@@ -112,6 +187,10 @@ ListopicApp.pageSearch = (() => {
                     break;
 
                 case 'items':
+                    const itemCategoryOptions = categories.map(cat =>
+                        `<option value="${cat.name}">${cat.name}</option>`
+                    ).join('');
+
                     sectionHTML = `
                         <h3 class="filter-category-title">
                             <i class="fas fa-star"></i> Filtros para Elementos
@@ -120,9 +199,7 @@ ListopicApp.pageSearch = (() => {
                             <label for="filter-item-category">Categoría de la lista:</label>
                             <select id="filter-item-category" class="form-input" onchange="updateItemTagsForCategory(this.value)">
                                 <option value="">Cualquiera</option>
-                                <option value="Hmm...">Hmm...</option>
-                                <option value="Restaurantes">Restaurantes</option>
-                                <option value="Cafeterías">Cafeterías</option>
+                                ${itemCategoryOptions}
                             </select>
                         </div>
                         <div class="form-group">
@@ -152,16 +229,6 @@ ListopicApp.pageSearch = (() => {
                         <div class="form-group">
                             <label for="filter-location">Ubicación (Ciudad, Región):</label>
                             <input type="text" id="filter-location" class="form-input" placeholder="Ej: Madrid">
-                        </div>
-                        <div class="form-group">
-                            <label for="filter-place-type">Tipo de lugar:</label>
-                            <select id="filter-place-type" class="form-input">
-                                <option value="">Cualquiera</option>
-                                <option value="restaurant">Restaurante</option>
-                                <option value="cafe">Café</option>
-                                <option value="bar">Bar</option>
-                                <option value="bakery">Panadería</option>
-                            </select>
                         </div>`;
                     break;
 
@@ -171,59 +238,54 @@ ListopicApp.pageSearch = (() => {
                             <i class="fas fa-user"></i> Filtros para Usuarios
                         </h3>
                         <div class="form-group">
-                            <label for="filter-badge">Insignia:</label>
-                            <select id="filter-badge" class="form-input">
-                                <option value="">Cualquiera</option>
-                                <option value="experto_cafes">Experto en Cafés</option>
-                                <option value="foodie_pro">Foodie Pro</option>
-                                <option value="critico_gourmet">Crítico Gourmet</option>
-                                <option value="explorador_urbano">Explorador Urbano</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
                             <label for="filter-min-user-reviews">Mínimo de reseñas:</label>
                             <input type="number" id="filter-min-user-reviews" class="form-input" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-min-user-lists">Mínimo de listas:</label>
+                            <input type="number" id="filter-min-user-lists" class="form-input" min="0" placeholder="0">
                         </div>`;
                     break;
             }
-            
+
             sectionEl.innerHTML = sectionHTML;
             advancedFiltersContentEl.appendChild(sectionEl);
         });
     }
 
     // Función global para actualizar etiquetas de items según categoría
-    window.updateItemTagsForCategory = function(category) {
+    window.updateItemTagsForCategory = async function(category) {
         const container = document.getElementById('item-tags-container');
         if (!container) return;
 
-        container.innerHTML = '';
+        try {
+            // Obtener etiquetas dinámicamente
+            const tags = await getCategoryTags(category);
 
-        if (!category) {
-            container.innerHTML = '<p class="text-secondary">Selecciona una categoría para ver las etiquetas disponibles</p>';
-            return;
-        }
+            container.innerHTML = '';
 
-        const tags = CATEGORY_TAGS[category] || [];
-        
-        if (tags.length === 0) {
-            container.innerHTML = '<p class="text-secondary">No hay etiquetas predefinidas para esta categoría</p>';
-            return;
-        }
+            if (tags.length === 0) {
+                container.innerHTML = '<p class="text-secondary">No hay etiquetas disponibles para esta categoría</p>';
+                return;
+            }
 
-        tags.forEach(tag => {
-            const tagButton = document.createElement('button');
-            tagButton.type = 'button';
-            tagButton.className = 'category-tag-button';
-            tagButton.textContent = tag;
-            tagButton.dataset.tag = tag;
-            
-            tagButton.addEventListener('click', function() {
-                this.classList.toggle('active');
+            tags.forEach(tag => {
+                const tagButton = document.createElement('button');
+                tagButton.type = 'button';
+                tagButton.className = 'category-tag-button';
+                tagButton.textContent = tag;
+                tagButton.dataset.tag = tag;
+
+                tagButton.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                });
+
+                container.appendChild(tagButton);
             });
-            
-            container.appendChild(tagButton);
-        });
+        } catch (error) {
+            console.error('Error al cargar etiquetas:', error);
+            container.innerHTML = '<p class="text-secondary text-error">Error al cargar etiquetas. Inténtalo de nuevo.</p>';
+        }
     };
     
     function openModal() {
@@ -271,13 +333,9 @@ ListopicApp.pageSearch = (() => {
 
                 case 'places':
                     const locInput = document.getElementById('filter-location');
-                    const placeTypeSelect = document.getElementById('filter-place-type');
-                    
+
                     if (locInput && locInput.value.trim()) {
                         state.advancedFilters.location = locInput.value.trim();
-                    }
-                    if (placeTypeSelect && placeTypeSelect.value) {
-                        state.advancedFilters.placeType = placeTypeSelect.value;
                     }
                     break;
 
@@ -387,61 +445,87 @@ ListopicApp.pageSearch = (() => {
 
     // Actualizar función searchItems para usar filtros de etiquetas
     async function searchItems(db, query, filters) {
-        console.log('Buscando items con query:', query, 'filters:', filters);
-        
         try {
             let listsQuery = db.collection('lists').where('isPublic', '==', true);
-            
+
             // Filtrar por categoría de lista si se especifica
             if (filters.itemCategory) {
                 listsQuery = listsQuery.where('categoryId', '==', filters.itemCategory);
             }
-            
+
             const listsSnapshot = await listsQuery.limit(20).get();
             const results = [];
-            
+
             for (const listDoc of listsSnapshot.docs) {
                 const listData = listDoc.data();
-                let reviewsQuery = listDoc.ref.collection('reviews');
-                
-                if (filters.minRating) {
-                    reviewsQuery = reviewsQuery.where('overallRating', '>=', filters.minRating);
-                }
-                
-                const reviewsSnapshot = await reviewsQuery.limit(10).get();
-                
-                reviewsSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    
-                    // Filtrar por texto
-                    if (query && !isTextMatch(data.itemName, query)) {
-                        return;
+
+                // Obtener reseñas agrupadas usando la Cloud Function HTTP
+                try {
+                    const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
+                    if (!functionUrl) {
+                        throw new Error("URL de la función groupedReviews no configurada");
                     }
-                    
-                    // Filtrar por etiquetas seleccionadas
-                    if (filters.selectedTags && filters.selectedTags.length > 0) {
-                        const itemTags = data.userTags || [];
-                        const hasMatchingTag = filters.selectedTags.some(tag => 
-                            itemTags.some(itemTag => 
-                                itemTag.toLowerCase().includes(tag.toLowerCase())
-                            )
-                        );
-                        if (!hasMatchingTag) return;
+
+                    const response = await fetch(`${functionUrl}?listId=${listDoc.id}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                    
-                    results.push({
-                        id: doc.id, 
-                        type: 'item', 
-                        listId: listDoc.id,
-                        listName: listData.name,
-                        ...data
+
+                    const result = await response.json();
+                    const groupedReviews = result.groupedReviews || [];
+
+                    // Procesar cada grupo (establecimiento + elemento)
+                    // Procesar cada grupo (cada grupo es establecimiento + elemento específico)
+                    groupedReviews.forEach(group => {
+                        // Filtrar por texto
+                        if (query && !isTextMatch(group.itemName, query)) {
+                            return;
+                        }
+
+                        // Filtrar por puntuación mínima
+                        if (filters.minRating && group.avgGeneralScore < filters.minRating) {
+                            return;
+                        }
+
+                        // Filtrar por etiquetas seleccionadas
+                        if (filters.selectedTags && filters.selectedTags.length > 0) {
+                            const itemTags = group.groupTags || [];
+                            const hasMatchingTag = filters.selectedTags.some(tag =>
+                                itemTags.some(itemTag =>
+                                    itemTag.toLowerCase().includes(tag.toLowerCase())
+                                )
+                            );
+                            if (!hasMatchingTag) return;
+                        }
+
+                        results.push({
+                            id: `${group.placeId}_${group.itemName}`,
+                            type: 'item',
+                            listId: listDoc.id,
+                            listName: listData.name,
+                            itemName: group.itemName,
+                            placeName: group.establishmentName,
+                            placeId: group.placeId,
+                            overallRating: group.avgGeneralScore || 0,
+                            reviewCount: group.itemCount || 0,
+                            criteriaRatings: group.criteriaScores || {}, // Ahora incluye criterios individuales
+                            userTags: group.groupTags || [],
+                            price: group.avgPrice || null, // Ahora incluye precio promedio
+                            // Información adicional
+                            thumbnailUrl: group.thumbnailUrl,
+                            reviewIds: group.reviewIds || []
+                        });
                     });
-                });
+                } catch (cloudFunctionError) {
+                    console.warn(`Error obteniendo reseñas agrupadas para lista ${listDoc.id}:`, cloudFunctionError);
+                    // Fallback a búsqueda individual si falla la Cloud Function
+                    continue;
+                }
             }
-            
-            console.log(`Encontrados ${results.length} items`);
+
+            console.log(`Encontrados ${results.length} items agrupados`);
             return results.slice(0, 20);
-            
+
         } catch (error) {
             console.error('Error buscando items:', error);
             return [];
@@ -793,51 +877,71 @@ ListopicApp.pageSearch = (() => {
 
             case 'item':
                 return `
-                    <div class="search-card" onclick="showItemDetails('${item.id}', '${item.listId}')">
+                    <div class="search-card search-card--item" onclick="showItemDetails('${item.id}', '${item.listId}')">
                         <div class="search-card__icon-container">
-                            ${item.photoUrl ? 
-                                `<img src="${uiUtils.escapeHtml(item.photoUrl)}" alt="Item" class="search-card__image">` : 
+                            ${item.photoUrl ?
+                                `<img src="${uiUtils.escapeHtml(item.photoUrl)}" alt="Item" class="search-card__image">` :
                                 '<i class="fas fa-utensils search-card__icon"></i>'
                             }
                         </div>
                         <div class="search-card__content">
-                            <h4 class="search-card__title">${uiUtils.escapeHtml(item.itemName || 'Elemento')}</h4>
-                            <p class="search-card__description">
-                                ${item.notes ? uiUtils.escapeHtml(item.notes.substring(0, 100)) + '...' : 
-                                  `Reseña en la lista "${item.listName || 'Lista'}"`}
-                            </p>
-                            <div class="search-card__tags">
-                                <span class="info-tag info-tag--item">
-                                    <i class="fas fa-star"></i> Reseña
-                                </span>
-                                <span class="info-tag info-tag--rating">
-                                    <i class="fas fa-star-half-alt"></i> ${item.overallRating || 0}/5
-                                </span>
-                                <span class="info-tag info-tag--list">
-                                    <i class="fas fa-list"></i> ${uiUtils.escapeHtml(item.listName || 'Lista')}
-                                </span>
+                            <div class="search-card__header">
+                                <h4 class="search-card__title">${uiUtils.escapeHtml(item.itemName || 'Elemento')}</h4>
+                                ${item.placeName ? `
+                                    <p class="search-card__restaurant">
+                                        <i class="fas fa-map-marker-alt"></i> ${uiUtils.escapeHtml(item.placeName)}
+                                    </p>
+                                ` : ''}
+                            </div>
+
+                            <div class="search-card__summary">
+                                <div class="overall-rating" style="background: ${getRatingBgColor(item.overallRating || 0)}; border-left: 4px solid ${getRatingColor(item.overallRating || 0)};">
+                                    <span class="rating-value" style="color: ${getRatingColor(item.overallRating || 0)}; font-weight: 700;">
+                                        ${(item.overallRating || 0).toFixed(1)}/10
+                                    </span>
+                                    <div class="rating-stars">${generateStars(item.overallRating || 0)}</div>
+                                    ${item.reviewCount ? `<span class="review-count">(${item.reviewCount} reseñas)</span>` : ''}
+                                </div>
                                 ${item.price ? `
-                                    <span class="info-tag info-tag--price">
-                                        <i class="fas fa-euro-sign"></i> ${getPriceRange(item.price)}
+                                    <span class="price-tag">
+                                        <i class="fas fa-dollar-sign"></i> ${getPriceRange(item.price)}
                                     </span>
                                 ` : ''}
                             </div>
-                            ${item.userTags && item.userTags.length > 0 ? `
-                                <div class="search-card__user-tags">
-                                    ${item.userTags.slice(0, 4).map(tag => 
-                                        `<span class="user-tag">
-                                            <i class="fas fa-hashtag"></i> ${uiUtils.escapeHtml(tag)}
-                                        </span>`
+
+                            ${item.criteriaRatings && Object.keys(item.criteriaRatings).length > 0 ? `
+                                <div class="search-card__rating-breakdown">
+                                    ${Object.entries(item.criteriaRatings).slice(0, 3).map(([criteria, rating]) =>
+                                        `<div class="criteria-rating">
+                                            <span class="criteria-label">${uiUtils.escapeHtml(criteria)}</span>
+                                            <div class="criteria-progress">
+                                                <div class="criteria-fill" style="width: ${(rating / 10) * 100}%; background: ${getRatingColor(rating)};"></div>
+                                            </div>
+                                            <span class="criteria-value" style="color: ${getRatingColor(rating)}; font-weight: 600;">
+                                                ${rating.toFixed(1)}
+                                            </span>
+                                        </div>`
                                     ).join('')}
                                 </div>
                             ` : ''}
-                            <div class="search-card__rating-breakdown">
-                                ${item.criteriaRatings ? Object.entries(item.criteriaRatings).slice(0, 3).map(([criteria, rating]) => 
-                                    `<span class="criteria-rating">
-                                        <span class="criteria-name">${uiUtils.escapeHtml(criteria)}:</span>
-                                        <span class="criteria-stars">${generateStars(rating)}</span>
-                                    </span>`
-                                ).join('') : ''}
+
+                            ${item.userTags && item.userTags.length > 0 ? `
+                                <div class="search-card__tags">
+                                    ${item.userTags.slice(0, 3).map(tag =>
+                                        `<span class="tag-pill">${uiUtils.escapeHtml(tag)}</span>`
+                                    ).join('')}
+                                </div>
+                            ` : ''}
+
+                            <div class="search-card__meta">
+                                <span class="meta-item">
+                                    <i class="fas fa-list"></i> ${uiUtils.escapeHtml(item.listName || 'Lista')}
+                                </span>
+                                ${item.notes ? `
+                                    <span class="meta-item notes-preview">
+                                        <i class="fas fa-comment"></i> ${uiUtils.escapeHtml(item.notes.substring(0, 50))}${item.notes.length > 50 ? '...' : ''}
+                                    </span>
+                                ` : ''}
                             </div>
                         </div>
                     </div>`;
@@ -934,12 +1038,33 @@ ListopicApp.pageSearch = (() => {
     }
 
     window.showPlaceDetails = function(placeId) {
-        console.log('Mostrar detalles del lugar:', placeId);
+        window.location.href = `place-detail.html?placeId=${placeId}`;
     };
 
     window.showItemDetails = function(itemId, listId) {
-        window.location.href = `detail-view.html?listId=${listId}&reviewId=${itemId}`;
+        // Extraer placeId e itemName del itemId compuesto
+        const [placeId, ...itemNameParts] = itemId.split('_');
+        const itemName = itemNameParts.join('_');
+
+        // Navegar a grouped-detail-view con los parámetros correctos
+        window.location.href = `grouped-detail-view.html?listId=${listId}&placeId=${placeId}&itemName=${encodeURIComponent(itemName)}`;
     };
+
+    // Función para obtener color según puntuación (0-10)
+    function getRatingColor(rating) {
+        if (rating >= 8) return '#4CAF50'; // Verde
+        if (rating >= 6) return '#FFC107'; // Amarillo
+        if (rating >= 4) return '#FF9800'; // Naranja
+        return '#F44336'; // Rojo
+    }
+
+    // Función para obtener color de fondo según puntuación
+    function getRatingBgColor(rating) {
+        if (rating >= 8) return 'rgba(76, 175, 80, 0.1)'; // Verde claro
+        if (rating >= 6) return 'rgba(255, 193, 7, 0.1)'; // Amarillo claro
+        if (rating >= 4) return 'rgba(255, 152, 0, 0.1)'; // Naranja claro
+        return 'rgba(244, 67, 54, 0.1)'; // Rojo claro
+    }
 
     function init() {
         console.log('Initializing Search page logic...');
@@ -952,35 +1077,46 @@ ListopicApp.pageSearch = (() => {
         if (executeSearchBtn) {
             executeSearchBtn.addEventListener('click', performSearch);
         }
-        
+
         if (mainSearchInput) {
             mainSearchInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') performSearch();
             });
-            
+
             mainSearchInput.addEventListener('input', debouncedSearch);
         }
 
         entityTypeButtons.forEach(button => {
             button.addEventListener('click', () => updateEntityTypeSelection(button));
         });
-        
+
         if (openFiltersModalBtn) openFiltersModalBtn.addEventListener('click', openModal);
         if (closeFiltersModalBtn) closeFiltersModalBtn.addEventListener('click', closeModal);
-        
+
         if (advancedFiltersModal) {
             advancedFiltersModal.addEventListener('click', (event) => {
                 if (event.target === advancedFiltersModal) closeModal();
             });
         }
-        
+
         if (applyAdvancedFiltersBtn) applyAdvancedFiltersBtn.addEventListener('click', applyFiltersFromModal);
 
-        populateAdvancedFiltersModal();
+        // Inicializar filtros avanzados de forma asíncrona
+        populateAdvancedFiltersModal().catch(error => {
+            console.error('Error inicializando filtros avanzados:', error);
+        });
+
         performSearch();
     }
 
+    // Función para limpiar el cache de etiquetas (útil para desarrollo)
+    function clearTagsCache() {
+        CATEGORY_TAGS_CACHE.clear();
+        console.log('Cache de etiquetas de categorías limpiado');
+    }
+
     return {
-        init
+        init,
+        clearTagsCache
     };
 })();

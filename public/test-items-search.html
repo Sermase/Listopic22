@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Búsqueda de Elementos - Listopic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #1976D2;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        .warning {
+            color: orange;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .item-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            background: white;
+        }
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .item-name {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .place-name {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .rating {
+            padding: 5px 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+        }
+        .criteria-list {
+            margin-top: 10px;
+        }
+        .criteria-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍽️ Prueba de Búsqueda de Elementos</h1>
+        
+        <div class="test-section">
+            <h3>1. Probar Cloud Function groupedReviews Directamente</h3>
+            <input type="text" id="list-id-direct" placeholder="ID de lista (ej: tu_lista_id)" />
+            <button class="btn" onclick="testGroupedReviewsDirect()">Probar Función</button>
+            <div id="direct-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Buscar Elementos con Filtros</h3>
+            <input type="text" id="search-query" placeholder="Buscar elementos..." />
+            <select id="min-rating">
+                <option value="">Cualquier puntuación</option>
+                <option value="6">Mínimo 6/10</option>
+                <option value="7">Mínimo 7/10</option>
+                <option value="8">Mínimo 8/10</option>
+            </select>
+            <button class="btn" onclick="testItemSearchWithFilters()">Buscar</button>
+            <div id="search-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Mostrar Elementos como Tarjetas</h3>
+            <button class="btn" onclick="showItemsAsCards()">Mostrar Tarjetas</button>
+            <div id="cards-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Debug: Verificar Configuración</h3>
+            <button class="btn" onclick="debugConfiguration()">Verificar Config</button>
+            <div id="debug-result" class="result"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/firebaseService.js"></script>
+    <script src="js/uiUtils.js"></script>
+
+    <script>
+        // Funciones de colores
+        function getRatingColor(rating) {
+            if (rating >= 8) return '#4CAF50'; // Verde
+            if (rating >= 6) return '#FFC107'; // Amarillo
+            if (rating >= 4) return '#FF9800'; // Naranja
+            return '#F44336'; // Rojo
+        }
+
+        async function testGroupedReviewsDirect() {
+            const result = document.getElementById('direct-result');
+            const listId = document.getElementById('list-id-direct').value;
+            
+            if (!listId) {
+                result.innerHTML = '<span class="error">❌ Por favor ingresa un ID de lista</span>';
+                return;
+            }
+            
+            try {
+                result.innerHTML = '<span class="warning">🔄 Probando Cloud Function...</span>';
+                
+                const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
+                console.log('URL de función:', functionUrl);
+                
+                const response = await fetch(`${functionUrl}?listId=${listId}`);
+                const data = await response.json();
+                
+                console.log('Respuesta completa:', data);
+                
+                result.innerHTML = `
+                    <span class="success">✅ Cloud Function funcionando</span><br>
+                    <strong>Status:</strong> ${response.status}<br>
+                    <strong>Lista:</strong> ${data.listName || 'N/A'}<br>
+                    <strong>Grupos encontrados:</strong> ${(data.groupedReviews || []).length}<br>
+                    <strong>Estructura de primer grupo:</strong><br>
+                    <pre>${JSON.stringify((data.groupedReviews || [])[0], null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+                console.error('Error completo:', error);
+            }
+        }
+
+        async function testItemSearchWithFilters() {
+            const result = document.getElementById('search-result');
+            const query = document.getElementById('search-query').value;
+            const minRating = document.getElementById('min-rating').value;
+            
+            try {
+                result.innerHTML = '<span class="warning">🔄 Buscando elementos...</span>';
+                
+                // Simular la función searchItems
+                let listsQuery = ListopicApp.services.db.collection('lists').where('isPublic', '==', true);
+                const listsSnapshot = await listsQuery.limit(5).get();
+                
+                let totalItems = 0;
+                const results = [];
+                
+                for (const listDoc of listsSnapshot.docs) {
+                    const listData = listDoc.data();
+                    
+                    try {
+                        const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
+                        const response = await fetch(`${functionUrl}?listId=${listDoc.id}`);
+                        const data = await response.json();
+                        
+                        if (data.groupedReviews) {
+                            data.groupedReviews.forEach(group => {
+                                // Filtrar por texto
+                                if (query && !group.itemName.toLowerCase().includes(query.toLowerCase())) {
+                                    return;
+                                }
+                                
+                                // Filtrar por puntuación mínima
+                                if (minRating && group.avgGeneralScore < parseFloat(minRating)) {
+                                    return;
+                                }
+                                
+                                totalItems++;
+                                results.push({
+                                    listName: listData.name,
+                                    itemName: group.itemName,
+                                    placeName: group.establishmentName,
+                                    rating: group.avgGeneralScore || 0,
+                                    reviewCount: group.itemCount || 0,
+                                    criteriaScores: group.criteriaScores || {},
+                                    price: group.avgPrice,
+                                    tags: group.groupTags || []
+                                });
+                            });
+                        }
+                    } catch (error) {
+                        console.warn(`Error con lista ${listDoc.id}:`, error);
+                    }
+                }
+                
+                result.innerHTML = `
+                    <span class="success">✅ Búsqueda completada</span><br>
+                    <strong>Total elementos encontrados:</strong> ${totalItems}<br>
+                    <strong>Filtros aplicados:</strong> Query: "${query}", Min Rating: ${minRating || 'N/A'}<br>
+                    <strong>Primeros 3 resultados:</strong><br>
+                    <pre>${JSON.stringify(results.slice(0, 3), null, 2)}</pre>
+                `;
+                
+                // Guardar resultados para mostrar como tarjetas
+                window.lastSearchResults = results;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+                console.error('Error completo:', error);
+            }
+        }
+
+        function showItemsAsCards() {
+            const result = document.getElementById('cards-result');
+            
+            if (!window.lastSearchResults || window.lastSearchResults.length === 0) {
+                result.innerHTML = '<span class="warning">⚠️ Primero realiza una búsqueda</span>';
+                return;
+            }
+            
+            let html = '<h4>Elementos encontrados:</h4>';
+            
+            window.lastSearchResults.slice(0, 5).forEach(item => {
+                const ratingColor = getRatingColor(item.rating);
+                
+                html += `
+                    <div class="item-card">
+                        <div class="item-header">
+                            <div>
+                                <div class="item-name">${item.itemName}</div>
+                                <div class="place-name">📍 ${item.placeName}</div>
+                            </div>
+                            <div class="rating" style="background-color: ${ratingColor}">
+                                ${item.rating.toFixed(1)}/10
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <strong>Lista:</strong> ${item.listName}<br>
+                            <strong>Reseñas:</strong> ${item.reviewCount}<br>
+                            ${item.price ? `<strong>Precio promedio:</strong> €${item.price}<br>` : ''}
+                            ${item.tags.length > 0 ? `<strong>Etiquetas:</strong> ${item.tags.slice(0, 3).join(', ')}<br>` : ''}
+                        </div>
+                        
+                        ${Object.keys(item.criteriaScores).length > 0 ? `
+                            <div class="criteria-list">
+                                <strong>Criterios:</strong>
+                                ${Object.entries(item.criteriaScores).slice(0, 3).map(([criteria, score]) => `
+                                    <div class="criteria-item">
+                                        <span>${criteria}</span>
+                                        <span style="color: ${getRatingColor(score)}; font-weight: bold;">${score}/10</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            result.innerHTML = html;
+        }
+
+        function debugConfiguration() {
+            const result = document.getElementById('debug-result');
+            
+            const config = {
+                firebaseAvailable: !!ListopicApp?.services?.db,
+                functionUrl: ListopicApp?.config?.FUNCTION_URLS?.groupedReviews,
+                authUser: ListopicApp?.services?.auth?.currentUser?.uid || 'No autenticado'
+            };
+            
+            result.innerHTML = `
+                <span class="success">✅ Configuración:</span><br>
+                <pre>${JSON.stringify(config, null, 2)}</pre>
+            `;
+        }
+
+        // Inicializar cuando se cargue la página
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                debugConfiguration();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

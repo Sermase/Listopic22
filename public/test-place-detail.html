@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Place Detail - Listopic</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .test-controls {
+            background: var(--container-bg);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: var(--border-radius-medium);
+            border: 2px solid var(--accent-color-primary);
+        }
+        .test-controls h3 {
+            color: var(--accent-color-primary);
+            margin-top: 0;
+        }
+        .test-input {
+            width: 100%;
+            max-width: 400px;
+            margin: 10px 0;
+        }
+        .test-button {
+            background: var(--accent-color-primary);
+            color: var(--main-button-text);
+            border: none;
+            padding: 10px 20px;
+            border-radius: var(--border-radius-small);
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: var(--accent-color-secondary);
+        }
+        .debug-info {
+            background: var(--input-bg);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: var(--border-radius-small);
+            font-family: monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <a href="index.html" class="logo">
+                    <i class="fas fa-list-alt"></i>
+                    <span>Listopic</span>
+                </a>
+            </div>
+            
+            <div class="header-center">
+                <div class="page-info">
+                    <h1 class="page-title">
+                        <i class="fas fa-bug"></i>
+                        <span>Test Place Detail</span>
+                    </h1>
+                    <p class="page-subtitle">Prueba de funcionalidad de página de lugar</p>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <button class="header-action-btn theme-toggle" id="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Test Controls -->
+            <div class="test-controls">
+                <h3><i class="fas fa-tools"></i> Controles de Prueba</h3>
+                
+                <div>
+                    <label for="place-id-input">ID del Lugar:</label>
+                    <input type="text" id="place-id-input" class="form-input test-input" 
+                           placeholder="Ej: M4UrqrojvykWxw9NbeLy" 
+                           value="M4UrqrojvykWxw9NbeLy">
+                </div>
+                
+                <div>
+                    <button class="test-button" onclick="testLoadPlace()">
+                        <i class="fas fa-play"></i> Cargar Lugar
+                    </button>
+                    <button class="test-button" onclick="testListPlaces()">
+                        <i class="fas fa-list"></i> Listar Lugares
+                    </button>
+                    <button class="test-button" onclick="testServices()">
+                        <i class="fas fa-check"></i> Verificar Servicios
+                    </button>
+                    <button class="test-button" onclick="clearDebug()">
+                        <i class="fas fa-trash"></i> Limpiar Debug
+                    </button>
+                </div>
+                
+                <div class="debug-info" id="debug-info">
+                    Información de debug aparecerá aquí...
+                </div>
+            </div>
+
+            <!-- Place Information Card -->
+            <div class="place-info-card" id="place-info-card">
+                <div class="place-header">
+                    <div class="place-image-container">
+                        <img id="place-image" src="" alt="Imagen del lugar" class="place-image">
+                        <div class="place-image-placeholder" id="place-image-placeholder">
+                            <i class="fas fa-image"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="place-details">
+                        <h2 class="place-name" id="place-name-detail">Nombre del Lugar</h2>
+                        <div class="place-meta">
+                            <div class="place-address" id="place-address">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>Dirección</span>
+                            </div>
+                            <div class="place-types" id="place-types">
+                                <!-- Tipos de lugar -->
+                            </div>
+                        </div>
+                        
+                        <div class="place-actions">
+                            <a href="#" id="location-link" target="_blank" class="btn btn-primary">
+                                <i class="fas fa-directions"></i>
+                                Ver Ubicación
+                            </a>
+                            <button class="btn btn-secondary" id="share-place-btn">
+                                <i class="fas fa-share"></i>
+                                Compartir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="place-stats" id="place-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-reviews">0</span>
+                        <span class="stat-label">Reseñas</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-lists">0</span>
+                        <span class="stat-label">Listas</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="avg-rating">0.0</span>
+                        <span class="stat-label">Puntuación</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reviews by Lists -->
+            <div class="reviews-section">
+                <h3 class="section-title">
+                    <i class="fas fa-star"></i>
+                    Reseñas por Listas
+                </h3>
+                
+                <div class="filters-bar">
+                    <select id="sort-reviews" class="form-input">
+                        <option value="rating">Ordenar por Puntuación</option>
+                        <option value="date">Ordenar por Fecha</option>
+                        <option value="list">Ordenar por Lista</option>
+                    </select>
+                    
+                    <input type="text" id="filter-reviews" class="form-input" placeholder="Filtrar reseñas...">
+                </div>
+                
+                <div class="reviews-container" id="reviews-container">
+                    <!-- Las reseñas agrupadas se cargarán aquí -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/firebaseService.js"></script>
+    <script src="js/authService.js"></script>
+    <script src="js/themeManager.js"></script>
+    <script src="js/uiUtils.js"></script>
+    <script src="js/page-place-detail.js"></script>
+
+    <script>
+        // Variables globales para debug
+        let debugInfo = document.getElementById('debug-info');
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugInfo.textContent += `[${timestamp}] ${message}\n`;
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearDebug() {
+            debugInfo.textContent = 'Debug limpiado...\n';
+        }
+        
+        async function testServices() {
+            log('=== VERIFICANDO SERVICIOS ===');
+            log('ListopicApp: ' + (typeof ListopicApp !== 'undefined' ? 'OK' : 'NO DISPONIBLE'));
+            log('ListopicApp.services: ' + (ListopicApp.services ? 'OK' : 'NO DISPONIBLE'));
+            log('ListopicApp.services.db: ' + (ListopicApp.services?.db ? 'OK' : 'NO DISPONIBLE'));
+            log('ListopicApp.placeDetail: ' + (ListopicApp.placeDetail ? 'OK' : 'NO DISPONIBLE'));
+            
+            if (ListopicApp.services?.auth) {
+                const user = ListopicApp.services.auth.currentUser;
+                log('Usuario autenticado: ' + (user ? user.email : 'NO'));
+            }
+        }
+        
+        async function testListPlaces() {
+            log('=== LISTANDO LUGARES ===');
+            try {
+                if (!ListopicApp.services?.db) {
+                    log('ERROR: Servicios no disponibles');
+                    return;
+                }
+                
+                const placesSnapshot = await ListopicApp.services.db.collection('places').limit(5).get();
+                log(`Lugares encontrados: ${placesSnapshot.size}`);
+                
+                placesSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    log(`- ${doc.id}: ${data.name || 'Sin nombre'}`);
+                });
+                
+            } catch (error) {
+                log('ERROR listando lugares: ' + error.message);
+            }
+        }
+        
+        async function testLoadPlace() {
+            const placeId = document.getElementById('place-id-input').value.trim();
+            if (!placeId) {
+                log('ERROR: Ingresa un ID de lugar');
+                return;
+            }
+            
+            log(`=== CARGANDO LUGAR: ${placeId} ===`);
+            
+            try {
+                if (!ListopicApp.services?.db) {
+                    log('ERROR: Servicios no disponibles');
+                    return;
+                }
+                
+                // Simular la carga manual
+                const placeDoc = await ListopicApp.services.db.collection('places').doc(placeId).get();
+                
+                if (!placeDoc.exists) {
+                    log('ERROR: Lugar no encontrado');
+                    return;
+                }
+                
+                const placeData = placeDoc.data();
+                log('Lugar encontrado: ' + JSON.stringify(placeData, null, 2));
+                
+                // Buscar reseñas
+                const reviewsQuery = await ListopicApp.services.db.collectionGroup('reviews')
+                    .where('placeId', '==', placeId)
+                    .get();
+                
+                log(`Reseñas encontradas: ${reviewsQuery.size}`);
+                
+                reviewsQuery.forEach(doc => {
+                    const reviewData = doc.data();
+                    const listId = doc.ref.parent.parent.id;
+                    log(`- Reseña: ${reviewData.itemName} (Lista: ${listId})`);
+                });
+                
+                // Navegar a la página real
+                window.location.href = `place-detail.html?placeId=${placeId}`;
+                
+            } catch (error) {
+                log('ERROR cargando lugar: ' + error.message);
+            }
+        }
+        
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', async () => {
+            log('=== INICIANDO TEST PLACE DETAIL ===');
+            
+            // Inicializar tema
+            if (typeof ListopicApp !== 'undefined' && ListopicApp.themeManager) {
+                ListopicApp.themeManager.init();
+            }
+            
+            // Esperar servicios
+            let attempts = 0;
+            while ((!ListopicApp.services || !ListopicApp.services.db) && attempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            
+            if (ListopicApp.services?.db) {
+                log('Servicios de Firebase listos');
+                await testServices();
+            } else {
+                log('ERROR: No se pudieron cargar los servicios de Firebase');
+            }
+        });
+    </script>
+</body>
+</html>
