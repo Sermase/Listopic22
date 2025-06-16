@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Búsqueda Mejorada - Listopic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #1976D2;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        .warning {
+            color: orange;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Prueba de Búsqueda Mejorada</h1>
+        
+        <div class="test-section">
+            <h3>1. Probar Etiquetas Dinámicas</h3>
+            <select id="category-select" onchange="loadTagsForCategory(this.value)">
+                <option value="">Selecciona una categoría</option>
+                <option value="Comida Hmm...">Comida Hmm...</option>
+                <option value="Restaurantes">Restaurantes</option>
+                <option value="Cafeterías">Cafeterías</option>
+            </select>
+            <div id="tags-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Probar Búsqueda de Elementos Agrupados</h3>
+            <input type="text" id="search-query" placeholder="Buscar elementos..." />
+            <button class="btn" onclick="testItemSearch()">Buscar Elementos</button>
+            <div id="search-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Probar Cloud Function groupedReviews</h3>
+            <input type="text" id="list-id" placeholder="ID de lista" />
+            <button class="btn" onclick="testGroupedReviews()">Probar Cloud Function</button>
+            <div id="function-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Probar Colores de Calificaciones</h3>
+            <button class="btn" onclick="testRatingColors()">Mostrar Colores</button>
+            <div id="colors-result" class="result"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/firebaseService.js"></script>
+    <script src="js/uiUtils.js"></script>
+
+    <script>
+        // Funciones de colores (copiadas de page-search.js)
+        function getRatingColor(rating) {
+            if (rating >= 8) return '#4CAF50'; // Verde
+            if (rating >= 6) return '#FFC107'; // Amarillo
+            if (rating >= 4) return '#FF9800'; // Naranja
+            return '#F44336'; // Rojo
+        }
+
+        function getRatingBgColor(rating) {
+            if (rating >= 8) return 'rgba(76, 175, 80, 0.1)'; // Verde claro
+            if (rating >= 6) return 'rgba(255, 193, 7, 0.1)'; // Amarillo claro
+            if (rating >= 4) return 'rgba(255, 152, 0, 0.1)'; // Naranja claro
+            return 'rgba(244, 67, 54, 0.1)'; // Rojo claro
+        }
+
+        async function loadTagsForCategory(categoryName) {
+            const result = document.getElementById('tags-result');
+            
+            if (!categoryName) {
+                result.innerHTML = '';
+                return;
+            }
+            
+            try {
+                // Mapear nombres a IDs (igual que en page-search.js)
+                const categoryMapping = {
+                    'Hmm...': 'comida_hmm',
+                    'Comida Hmm...': 'comida_hmm',
+                    'Restaurantes': 'restaurantes',
+                    'Cafeterías': 'cafeterias'
+                };
+                
+                const categoryId = categoryMapping[categoryName];
+                if (!categoryId) {
+                    result.innerHTML = `<span class="error">❌ No se encontró mapeo para: "${categoryName}"</span>`;
+                    return;
+                }
+                
+                const categoryDoc = await ListopicApp.services.db.collection('categories').doc(categoryId).get();
+                
+                if (categoryDoc.exists) {
+                    const data = categoryDoc.data();
+                    const tags = data['fixed-tags'] || [];
+                    result.innerHTML = `<span class="success">✅ Etiquetas para "${categoryName}": ${tags.length}</span><br><pre>${JSON.stringify(tags, null, 2)}</pre>`;
+                } else {
+                    result.innerHTML = `<span class="error">❌ No se encontró la categoría "${categoryName}" con ID "${categoryId}"</span>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+
+        async function testItemSearch() {
+            const result = document.getElementById('search-result');
+            const query = document.getElementById('search-query').value;
+            
+            try {
+                result.innerHTML = '<span class="warning">🔄 Buscando elementos...</span>';
+                
+                // Simular búsqueda de elementos (función simplificada)
+                let listsQuery = ListopicApp.services.db.collection('lists').where('isPublic', '==', true);
+                const listsSnapshot = await listsQuery.limit(3).get();
+                
+                let totalItems = 0;
+                const results = [];
+                
+                for (const listDoc of listsSnapshot.docs) {
+                    const listData = listDoc.data();
+                    
+                    // Probar Cloud Function
+                    try {
+                        const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
+                        const response = await fetch(`${functionUrl}?listId=${listDoc.id}`);
+                        const data = await response.json();
+                        
+                        if (data.groupedReviews) {
+                            data.groupedReviews.forEach(group => {
+                                Object.keys(group.items || {}).forEach(itemName => {
+                                    if (!query || itemName.toLowerCase().includes(query.toLowerCase())) {
+                                        totalItems++;
+                                        results.push({
+                                            listName: listData.name,
+                                            itemName: itemName,
+                                            placeName: group.establishmentName,
+                                            rating: group.items[itemName].avgGeneralScore || 0
+                                        });
+                                    }
+                                });
+                            });
+                        }
+                    } catch (error) {
+                        console.warn(`Error con lista ${listDoc.id}:`, error);
+                    }
+                }
+                
+                result.innerHTML = `
+                    <span class="success">✅ Búsqueda completada</span><br>
+                    <strong>Total elementos encontrados:</strong> ${totalItems}<br>
+                    <strong>Primeros 5 resultados:</strong><br>
+                    <pre>${JSON.stringify(results.slice(0, 5), null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+
+        async function testGroupedReviews() {
+            const result = document.getElementById('function-result');
+            const listId = document.getElementById('list-id').value;
+            
+            if (!listId) {
+                result.innerHTML = '<span class="error">❌ Por favor ingresa un ID de lista</span>';
+                return;
+            }
+            
+            try {
+                result.innerHTML = '<span class="warning">🔄 Probando Cloud Function...</span>';
+                
+                const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
+                const response = await fetch(`${functionUrl}?listId=${listId}`);
+                const data = await response.json();
+                
+                result.innerHTML = `
+                    <span class="success">✅ Cloud Function funcionando</span><br>
+                    <strong>Status:</strong> ${response.status}<br>
+                    <strong>Grupos encontrados:</strong> ${(data.groupedReviews || []).length}<br>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+
+        function testRatingColors() {
+            const result = document.getElementById('colors-result');
+            const ratings = [2, 4, 6, 8, 10];
+            
+            let html = '<span class="success">✅ Colores de calificaciones:</span><br>';
+            
+            ratings.forEach(rating => {
+                const color = getRatingColor(rating);
+                const bgColor = getRatingBgColor(rating);
+                html += `
+                    <div style="padding: 10px; margin: 5px 0; background: ${bgColor}; border-left: 4px solid ${color}; border-radius: 4px;">
+                        <span style="color: ${color}; font-weight: bold;">${rating}/10</span> - Color: ${color}
+                    </div>
+                `;
+            });
+            
+            result.innerHTML = html;
+        }
+
+        // Inicializar cuando se cargue la página
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (ListopicApp && ListopicApp.services) {
+                    console.log('✅ Servicios de Firebase disponibles');
+                    testRatingColors(); // Mostrar colores automáticamente
+                } else {
+                    console.error('❌ Servicios de Firebase no disponibles');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

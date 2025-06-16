@@ -23,6 +23,7 @@ ListopicApp.pageSearch = (() => {
             // Mapear nombres de categorías a IDs de documentos
             const categoryMapping = {
                 'Hmm...': 'comida_hmm',
+                'Comida Hmm...': 'comida_hmm', // Agregar variante del nombre
                 'Restaurantes': 'restaurantes', // Ajustar según tus datos
                 'Cafeterías': 'cafeterias' // Ajustar según tus datos
             };
@@ -228,19 +229,6 @@ ListopicApp.pageSearch = (() => {
                         <div class="form-group">
                             <label for="filter-location">Ubicación (Ciudad, Región):</label>
                             <input type="text" id="filter-location" class="form-input" placeholder="Ej: Madrid">
-                        </div>
-                        <div class="form-group">
-                            <label for="filter-place-type">Tipo de lugar:</label>
-                            <select id="filter-place-type" class="form-input">
-                                <option value="">Cualquiera</option>
-                                <option value="restaurant">Restaurante</option>
-                                <option value="cafe">Café</option>
-                                <option value="bar">Bar</option>
-                                <option value="bakery">Panadería</option>
-                                <option value="food">Comida</option>
-                                <option value="meal_takeaway">Para llevar</option>
-                                <option value="meal_delivery">Delivery</option>
-                            </select>
                         </div>`;
                     break;
 
@@ -345,13 +333,9 @@ ListopicApp.pageSearch = (() => {
 
                 case 'places':
                     const locInput = document.getElementById('filter-location');
-                    const placeTypeSelect = document.getElementById('filter-place-type');
-                    
+
                     if (locInput && locInput.value.trim()) {
                         state.advancedFilters.location = locInput.value.trim();
-                    }
-                    if (placeTypeSelect && placeTypeSelect.value) {
-                        state.advancedFilters.placeType = placeTypeSelect.value;
                     }
                     break;
 
@@ -461,61 +445,87 @@ ListopicApp.pageSearch = (() => {
 
     // Actualizar función searchItems para usar filtros de etiquetas
     async function searchItems(db, query, filters) {
-        console.log('Buscando items con query:', query, 'filters:', filters);
-        
         try {
             let listsQuery = db.collection('lists').where('isPublic', '==', true);
-            
+
             // Filtrar por categoría de lista si se especifica
             if (filters.itemCategory) {
                 listsQuery = listsQuery.where('categoryId', '==', filters.itemCategory);
             }
-            
+
             const listsSnapshot = await listsQuery.limit(20).get();
             const results = [];
-            
+
             for (const listDoc of listsSnapshot.docs) {
                 const listData = listDoc.data();
-                let reviewsQuery = listDoc.ref.collection('reviews');
-                
-                if (filters.minRating) {
-                    reviewsQuery = reviewsQuery.where('overallRating', '>=', filters.minRating);
-                }
-                
-                const reviewsSnapshot = await reviewsQuery.limit(10).get();
-                
-                reviewsSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    
-                    // Filtrar por texto
-                    if (query && !isTextMatch(data.itemName, query)) {
-                        return;
+
+                // Obtener reseñas agrupadas usando la Cloud Function HTTP
+                try {
+                    const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
+                    if (!functionUrl) {
+                        throw new Error("URL de la función groupedReviews no configurada");
                     }
-                    
-                    // Filtrar por etiquetas seleccionadas
-                    if (filters.selectedTags && filters.selectedTags.length > 0) {
-                        const itemTags = data.userTags || [];
-                        const hasMatchingTag = filters.selectedTags.some(tag => 
-                            itemTags.some(itemTag => 
-                                itemTag.toLowerCase().includes(tag.toLowerCase())
-                            )
-                        );
-                        if (!hasMatchingTag) return;
+
+                    const response = await fetch(`${functionUrl}?listId=${listDoc.id}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                    
-                    results.push({
-                        id: doc.id, 
-                        type: 'item', 
-                        listId: listDoc.id,
-                        listName: listData.name,
-                        ...data
+
+                    const result = await response.json();
+                    const groupedReviews = result.groupedReviews || [];
+
+                    // Procesar cada grupo (establecimiento + elemento)
+                    // Procesar cada grupo (cada grupo es establecimiento + elemento específico)
+                    groupedReviews.forEach(group => {
+                        // Filtrar por texto
+                        if (query && !isTextMatch(group.itemName, query)) {
+                            return;
+                        }
+
+                        // Filtrar por puntuación mínima
+                        if (filters.minRating && group.avgGeneralScore < filters.minRating) {
+                            return;
+                        }
+
+                        // Filtrar por etiquetas seleccionadas
+                        if (filters.selectedTags && filters.selectedTags.length > 0) {
+                            const itemTags = group.groupTags || [];
+                            const hasMatchingTag = filters.selectedTags.some(tag =>
+                                itemTags.some(itemTag =>
+                                    itemTag.toLowerCase().includes(tag.toLowerCase())
+                                )
+                            );
+                            if (!hasMatchingTag) return;
+                        }
+
+                        results.push({
+                            id: `${group.placeId}_${group.itemName}`,
+                            type: 'item',
+                            listId: listDoc.id,
+                            listName: listData.name,
+                            itemName: group.itemName,
+                            placeName: group.establishmentName,
+                            placeId: group.placeId,
+                            overallRating: group.avgGeneralScore || 0,
+                            reviewCount: group.itemCount || 0,
+                            criteriaRatings: group.criteriaScores || {}, // Ahora incluye criterios individuales
+                            userTags: group.groupTags || [],
+                            price: group.avgPrice || null, // Ahora incluye precio promedio
+                            // Información adicional
+                            thumbnailUrl: group.thumbnailUrl,
+                            reviewIds: group.reviewIds || []
+                        });
                     });
-                });
+                } catch (cloudFunctionError) {
+                    console.warn(`Error obteniendo reseñas agrupadas para lista ${listDoc.id}:`, cloudFunctionError);
+                    // Fallback a búsqueda individual si falla la Cloud Function
+                    continue;
+                }
             }
-            
-            console.log(`Encontrados ${results.length} items`);
+
+            console.log(`Encontrados ${results.length} items agrupados`);
             return results.slice(0, 20);
-            
+
         } catch (error) {
             console.error('Error buscando items:', error);
             return [];
@@ -885,9 +895,12 @@ ListopicApp.pageSearch = (() => {
                             </div>
 
                             <div class="search-card__summary">
-                                <div class="overall-rating">
-                                    <span class="rating-value">${(item.overallRating || 0).toFixed(1)}</span>
+                                <div class="overall-rating" style="background: ${getRatingBgColor(item.overallRating || 0)}; border-left: 4px solid ${getRatingColor(item.overallRating || 0)};">
+                                    <span class="rating-value" style="color: ${getRatingColor(item.overallRating || 0)}; font-weight: 700;">
+                                        ${(item.overallRating || 0).toFixed(1)}/10
+                                    </span>
                                     <div class="rating-stars">${generateStars(item.overallRating || 0)}</div>
+                                    ${item.reviewCount ? `<span class="review-count">(${item.reviewCount} reseñas)</span>` : ''}
                                 </div>
                                 ${item.price ? `
                                     <span class="price-tag">
@@ -902,9 +915,11 @@ ListopicApp.pageSearch = (() => {
                                         `<div class="criteria-rating">
                                             <span class="criteria-label">${uiUtils.escapeHtml(criteria)}</span>
                                             <div class="criteria-progress">
-                                                <div class="criteria-fill" style="width: ${(rating / 10) * 100}%"></div>
+                                                <div class="criteria-fill" style="width: ${(rating / 10) * 100}%; background: ${getRatingColor(rating)};"></div>
                                             </div>
-                                            <span class="criteria-value">${rating.toFixed(1)}</span>
+                                            <span class="criteria-value" style="color: ${getRatingColor(rating)}; font-weight: 600;">
+                                                ${rating.toFixed(1)}
+                                            </span>
                                         </div>`
                                     ).join('')}
                                 </div>
@@ -1023,12 +1038,33 @@ ListopicApp.pageSearch = (() => {
     }
 
     window.showPlaceDetails = function(placeId) {
-        console.log('Mostrar detalles del lugar:', placeId);
+        window.location.href = `place-detail.html?placeId=${placeId}`;
     };
 
     window.showItemDetails = function(itemId, listId) {
-        window.location.href = `detail-view.html?listId=${listId}&reviewId=${itemId}`;
+        // Extraer placeId e itemName del itemId compuesto
+        const [placeId, ...itemNameParts] = itemId.split('_');
+        const itemName = itemNameParts.join('_');
+
+        // Navegar a grouped-detail-view con los parámetros correctos
+        window.location.href = `grouped-detail-view.html?listId=${listId}&placeId=${placeId}&itemName=${encodeURIComponent(itemName)}`;
     };
+
+    // Función para obtener color según puntuación (0-10)
+    function getRatingColor(rating) {
+        if (rating >= 8) return '#4CAF50'; // Verde
+        if (rating >= 6) return '#FFC107'; // Amarillo
+        if (rating >= 4) return '#FF9800'; // Naranja
+        return '#F44336'; // Rojo
+    }
+
+    // Función para obtener color de fondo según puntuación
+    function getRatingBgColor(rating) {
+        if (rating >= 8) return 'rgba(76, 175, 80, 0.1)'; // Verde claro
+        if (rating >= 6) return 'rgba(255, 193, 7, 0.1)'; // Amarillo claro
+        if (rating >= 4) return 'rgba(255, 152, 0, 0.1)'; // Naranja claro
+        return 'rgba(244, 67, 54, 0.1)'; // Rojo claro
+    }
 
     function init() {
         console.log('Initializing Search page logic...');
@@ -1041,28 +1077,28 @@ ListopicApp.pageSearch = (() => {
         if (executeSearchBtn) {
             executeSearchBtn.addEventListener('click', performSearch);
         }
-        
+
         if (mainSearchInput) {
             mainSearchInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') performSearch();
             });
-            
+
             mainSearchInput.addEventListener('input', debouncedSearch);
         }
 
         entityTypeButtons.forEach(button => {
             button.addEventListener('click', () => updateEntityTypeSelection(button));
         });
-        
+
         if (openFiltersModalBtn) openFiltersModalBtn.addEventListener('click', openModal);
         if (closeFiltersModalBtn) closeFiltersModalBtn.addEventListener('click', closeModal);
-        
+
         if (advancedFiltersModal) {
             advancedFiltersModal.addEventListener('click', (event) => {
                 if (event.target === advancedFiltersModal) closeModal();
             });
         }
-        
+
         if (applyAdvancedFiltersBtn) applyAdvancedFiltersBtn.addEventListener('click', applyFiltersFromModal);
 
         // Inicializar filtros avanzados de forma asíncrona

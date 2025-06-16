@@ -902,6 +902,9 @@ body.light-theme {
     --header-gradient-opacity-bottom: 0.65;
     --header-gradient-opacity-top: 0.1;
     --header-noise-opacity: 0.04;
+
+    --border-color-light: rgb(115, 132, 163);
+    --border-color: rgba(118, 130, 163, 0.856);
 }
 
 /* Ajustes específicos para tema claro */
@@ -929,7 +932,6 @@ body.light-theme #manual-location-fields {
 
 
 body.light-theme .tag-filter-button {
-    background-color: #E9EDF0; /* Fondo gris más claro */
     color: var(--text-color);  /* Texto oscuro (ya definido en variable) */
     border: 1px solid #CCD1D6; /* Borde sutil pero visible */
 }
@@ -938,7 +940,7 @@ body.light-theme .tag-filter-button:hover {
     border-color: #BCC1C6;
 }
 body.light-theme .tag-filter-button.selected {
-    background-color: var(--accent-color-secondary); /* Usa el acento secundario del tema claro */
+    background-color: var(--accent-color-secondary); /* Usa el acento terciario del tema claro */
     color: #FFFFFF; /* Texto blanco para contraste */
     border-color: var(--accent-color-secondary);
 }
@@ -2083,9 +2085,11 @@ body.light-theme #photo-edit-controls {
     /* Estilos para 'active' se pueden manejar con la clase .selected que ya tienes para .tag-filter-button */
 }
 .entity-type-btn.active { /* O usa .selected si reutilizas esa clase */
-    background-color: var(--accent-color-primary);
+    background-color: var(--accent-color-secondary);
     color: var(--main-button-text);
-    border: 1px solid var(--accent-color-primary);
+    border: 2px solid var(--accent-color-secondary);
+    border-color: var(--accent-color-primary);
+    color: white;
 }
 
 
@@ -3116,4 +3120,777 @@ body.light-theme #photo-edit-controls {
 [data-theme="dark"] .tag-pill {
     background: rgba(var(--primary-color-rgb), 0.2);
     color: var(--primary-color-light);
+}
+
+/* Mejoras para las calificaciones con colores */
+.overall-rating {
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.rating-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-width: 60px;
+}
+
+.review-count {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.criteria-rating {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.criteria-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    min-width: 80px;
+    color: var(--text-secondary);
+}
+
+.criteria-progress {
+    flex: 1;
+    height: 6px;
+    background: var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+    min-width: 60px;
+}
+
+.criteria-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.criteria-value {
+    font-size: 0.8rem;
+    font-weight: 600;
+    min-width: 35px;
+    text-align: right;
+}
+
+.search-card__restaurant {
+    font-size: 0.9rem;
+    color: var(--accent-color-tertiary);
+    font-weight: 500;
+    margin: 0.25rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.search-card__restaurant i {
+    font-size: 0.8rem;
+}
+
+.search-card__rating-breakdown {
+    margin: 0.75rem 0;
+    padding: 0.5rem;
+    background: rgba(var(--text-color-rgb, 255,255,255), 0.02);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+/* ===== PLACE DETAIL PAGE ===== */
+
+/* Place Information Card */
+.place-info-card {
+    background: var(--container-bg);
+    border-radius: var(--border-radius-large);
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-elevation-low);
+    border: 1px solid var(--border-color-light);
+}
+
+.place-header {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.place-image-container {
+    flex-shrink: 0;
+    width: 120px;
+    height: 120px;
+    border-radius: var(--border-radius-medium);
+    overflow: hidden;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color-light);
+}
+
+.place-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.place-image-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--secondary-text-color);
+    font-size: 2rem;
+}
+
+.place-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.place-name {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin: 0 0 12px 0;
+    line-height: 1.2;
+}
+
+.place-meta {
+    margin-bottom: 16px;
+}
+
+.place-address {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--secondary-text-color);
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.place-address i {
+    color: var(--accent-color-primary);
+}
+
+.place-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.place-type-tag {
+    background: var(--accent-color-primary);
+    color: var(--main-button-text);
+    padding: 4px 8px;
+    border-radius: var(--border-radius-small);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.place-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.place-stats {
+    display: flex;
+    justify-content: space-around;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color-light);
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent-color-primary);
+    line-height: 1;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--secondary-text-color);
+    margin-top: 4px;
+}
+
+/* Reviews Section */
+.reviews-section {
+    background: var(--container-bg);
+    border-radius: var(--border-radius-large);
+    padding: 24px;
+    box-shadow: var(--shadow-elevation-low);
+    border: 1px solid var(--border-color-light);
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0 0 20px 0;
+}
+
+.section-title i {
+    color: var(--accent-color-primary);
+}
+
+.filters-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.filters-bar .form-input {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* List Groups */
+.list-group {
+    margin-bottom: 32px;
+}
+
+.list-group:last-child {
+    margin-bottom: 0;
+}
+
+.list-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent-color-primary);
+}
+
+.list-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.list-name a {
+    color: var(--accent-color-primary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.list-name a:hover {
+    color: var(--accent-color-secondary);
+}
+
+.list-name i {
+    color: var(--accent-color-primary);
+}
+
+.review-count {
+    background: var(--accent-color-primary);
+    color: var(--main-button-text);
+    padding: 4px 8px;
+    border-radius: var(--border-radius-small);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* Reviews Grid */
+.reviews-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+}
+
+.review-card {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--border-radius-medium);
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.review-card:hover {
+    box-shadow: var(--shadow-elevation-medium);
+    transform: translateY(-2px);
+    border-color: var(--accent-color-primary);
+}
+
+.review-header {
+    margin-bottom: 12px;
+}
+
+.review-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.item-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0;
+    flex: 1;
+    line-height: 1.3;
+}
+
+.review-rating {
+    padding: 6px 10px;
+    border-radius: var(--border-radius-small);
+    text-align: center;
+    min-width: 60px;
+}
+
+.rating-value {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.criteria-ratings {
+    margin-bottom: 12px;
+}
+
+.criteria-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 0.85rem;
+}
+
+.criteria-label {
+    color: var(--secondary-text-color);
+}
+
+.criteria-value {
+    font-weight: 600;
+}
+
+.review-notes {
+    margin-bottom: 12px;
+}
+
+.review-notes p {
+    color: var(--secondary-text-color);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.review-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.tag-pill {
+    background: var(--accent-color-tertiary);
+    color: white;
+    padding: 3px 8px;
+    border-radius: var(--border-radius-small);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.review-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--secondary-text-color);
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color-light);
+}
+
+.review-date, .review-price {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Empty and Error States */
+.empty-state, .error-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--secondary-text-color);
+}
+
+.empty-state i, .error-state i {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    color: var(--accent-color-primary);
+}
+
+.empty-state h3, .error-state h3 {
+    font-size: 1.2rem;
+    margin: 0 0 8px 0;
+    color: var(--text-color);
+}
+
+.empty-state p, .error-state p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .place-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .place-image-container {
+        width: 100px;
+        height: 100px;
+    }
+
+    .place-name {
+        font-size: 1.5rem;
+    }
+
+    .place-stats {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-align: left;
+    }
+
+    .stat-value {
+        font-size: 1.2rem;
+    }
+
+    .filters-bar {
+        flex-direction: column;
+    }
+
+    .reviews-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .list-group-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .place-info-card, .reviews-section {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .review-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .review-rating {
+        align-self: flex-end;
+    }
+}
+
+/* ===== PLACE DETAIL PAGE - ADDITIONAL STYLES ===== */
+
+/* Loading and Error States */
+.loading-state, .error-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--container-bg);
+    border-radius: var(--border-radius-large);
+    margin: 20px 0;
+}
+
+.loading-spinner {
+    font-size: 2rem;
+    color: var(--accent-color-primary);
+    margin-bottom: 16px;
+}
+
+.error-message {
+    color: var(--text-color);
+}
+
+.error-message h3 {
+    color: var(--danger-color);
+    margin: 16px 0;
+}
+
+.error-message i {
+    font-size: 3rem;
+    color: var(--danger-color);
+    margin-bottom: 16px;
+}
+
+/* Enhanced Place Meta Information */
+.place-phone, .place-website, .place-hours, .place-price-level {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--secondary-text-color);
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.place-phone i, .place-website i, .place-hours i, .place-price-level i {
+    color: var(--accent-color-primary);
+    width: 16px;
+}
+
+.place-phone a, .place-website a {
+    color: var(--accent-color-primary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.place-phone a:hover, .place-website a:hover {
+    color: var(--accent-color-secondary);
+}
+
+.hours-status.open {
+    color: var(--accent-color-tertiary);
+    font-weight: 500;
+}
+
+.hours-status.closed {
+    color: var(--danger-color);
+    font-weight: 500;
+}
+
+/* Enhanced Place Image */
+.place-image-placeholder {
+    flex-direction: column;
+    gap: 8px;
+}
+
+.place-image-placeholder span {
+    font-size: 0.8rem;
+    color: var(--secondary-text-color);
+}
+
+/* Review List Groups */
+.review-list-group {
+    margin-bottom: 32px;
+    background: var(--input-bg);
+    border-radius: var(--border-radius-medium);
+    padding: 20px;
+    border: 1px solid var(--border-color-light);
+}
+
+.review-list-group:last-child {
+    margin-bottom: 0;
+}
+
+.reviews-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+/* Review Cards */
+.review-card {
+    background: var(--container-bg);
+    border-radius: var(--border-radius-medium);
+    padding: 16px;
+    border: 1px solid var(--border-color-light);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.review-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevation-medium);
+    border-color: var(--accent-color-primary);
+}
+
+.review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.review-rating {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.rating-number {
+    font-weight: 600;
+}
+
+.review-date {
+    font-size: 0.8rem;
+    color: var(--secondary-text-color);
+}
+
+.review-content {
+    color: var(--text-color);
+}
+
+.item-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-color);
+}
+
+/* Criteria Ratings */
+.criteria-ratings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.criteria-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--input-bg);
+    padding: 4px 8px;
+    border-radius: var(--border-radius-small);
+    font-size: 0.8rem;
+}
+
+.criteria-label {
+    color: var(--secondary-text-color);
+}
+
+.criteria-value {
+    font-weight: 600;
+}
+
+/* Review Notes */
+.review-notes {
+    margin: 8px 0;
+}
+
+.review-notes p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: var(--secondary-text-color);
+}
+
+/* Review Tags */
+.review-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.tag-pill {
+    background: var(--accent-color-secondary);
+    color: var(--main-button-text);
+    padding: 2px 6px;
+    border-radius: var(--border-radius-small);
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--secondary-text-color);
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: var(--accent-color-primary);
+    margin-bottom: 16px;
+}
+
+.empty-state h4 {
+    color: var(--text-color);
+    margin: 16px 0 8px 0;
+}
+
+/* Success and Error Colors */
+.success-color { color: var(--accent-color-tertiary); }
+.warning-color { color: var(--accent-color-primary); }
+.error-color { color: var(--danger-color); }
+
+/* Responsive Design for Place Detail */
+@media (max-width: 768px) {
+    .place-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .place-image-container {
+        width: 150px;
+        height: 150px;
+    }
+
+    .place-actions {
+        justify-content: center;
+    }
+
+    .place-stats {
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .reviews-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .filters-bar {
+        flex-direction: column;
+    }
+
+    .filters-bar .form-input {
+        min-width: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .place-info-card, .reviews-section {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .place-name {
+        font-size: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 1.2rem;
+    }
+
+    .review-card {
+        padding: 12px;
+    }
 }

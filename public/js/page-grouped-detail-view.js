@@ -99,8 +99,8 @@ ListopicApp.pageGroupedDetailView = (() => {
 
         const urlParams = new URLSearchParams(window.location.search);
         state.currentGroupDetailListId = urlParams.get('listId');
-        const placeIdFromUrl = urlParams.get('placeId'); 
-        state.currentGroupDetailItem = decodeURIComponent(urlParams.get('item') || '');
+        const placeIdFromUrl = urlParams.get('placeId');
+        state.currentGroupDetailItem = decodeURIComponent(urlParams.get('itemName') || urlParams.get('item') || '');
 
         const groupTitleEl = document.getElementById('group-title');
         const listNameSubheaderEl = document.getElementById('list-name-subheader');

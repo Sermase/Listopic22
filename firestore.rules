@@ -60,12 +60,14 @@ service cloud.firestore {
     // REGLA PARA CONSULTAS DE GRUPO (`collectionGroup`)
     // ===============================================
     match /{path=**}/reviews/{reviewId} {
-      // ***** INICIO DE LA CORRECCIÓN *****
-      // Permitir leer una reseña en una consulta de grupo si:
-      // 1. Eres el dueño de la reseña.
-      // 2. O si la lista a la que pertenece la reseña (obtenida con `get()`) es pública.
-      allow read: if (request.auth != null && resource.data.userId == request.auth.uid) ||
-                    (get(/databases/$(database)/documents/lists/$(resource.data.listId)).data.isPublic == true);
+      // ***** CORRECCIÓN USANDO LISTID DEL DOCUMENTO *****
+      // Permitir leer reseñas si:
+      // 1. El usuario está autenticado Y es el dueño de la reseña
+      // 2. O si la lista asociada (usando resource.data.listId) es pública
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        get(/databases/$(database)/documents/lists/$(resource.data.listId)).data.isPublic == true
+      );
       // ***** FIN DE LA CORRECCIÓN *****
     }
     

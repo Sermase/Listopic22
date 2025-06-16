@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lugar - Listopic</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+        <!-- *****New container for header action buttons -->
+        <div class="header-actions-container">
+            <div class="header-left-content">
+                <div class="app-logo-container">
+                    <a href="Index.html" title="Ir a la página de inicio">
+                        <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
+                    </a>
+                </div>
+                <!-- <div class="header-dynamic-page-info">
+                    <span id="page-category-name"></span>
+                    <span id="page-list-name-separator" style="display: none;"> - </span>
+                    <span id="page-list-name"></span>
+                </div> -->
+            </div>
+    
+            <div class="header-right-actions">
+                <a href="search.html" id="search-link-button" class="search-button header-action-button" aria-label="Search">
+                    <i class="fas fa-search"></i>
+                </a>
+                <div class="user-profile-menu-container">
+                    <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                    <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
+                        <a href="profile.html" role="menuitem">Perfil</a>
+                        <a href="profile.html#profile-email" role="menuitem">Datos</a>
+                        <a href="profile.html#profile-my-lists" role="menuitem">Listas</a>
+                        <a href="profile.html#profile-my-reviews" role="menuitem">Reviews</a>
+                        <hr class="user-menu-divider">
+                        <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
+                    </div>
+                </div>
+                <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </div>
+        <!-- ***** -->
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Loading State -->
+            <div class="loading-state" id="loading-state">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+                <p>Cargando información del lugar...</p>
+            </div>
+
+            <!-- Error State -->
+            <div class="error-state" id="error-state" style="display: none;">
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error al cargar el lugar</h3>
+                    <p id="error-message-text">Ha ocurrido un error inesperado.</p>
+                    <button class="btn btn-primary" onclick="location.reload()">
+                        <i class="fas fa-refresh"></i>
+                        Reintentar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Place Information Card -->
+            <div class="place-info-card" id="place-info-card" style="display: none;">
+                <div class="place-header">
+                    <div class="place-image-container">
+                        <img class="place-image" id="place-image" style="display: none;">
+                        <div class="place-image-placeholder" id="place-image-placeholder">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>Sin imagen</span>
+                        </div>
+                    </div>
+                    
+                    <div class="place-details">
+                        <h2 class="place-name" id="place-name">Nombre del lugar</h2>
+                        
+                        <div class="place-meta">
+                            <div class="place-address" id="place-address">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>Dirección</span>
+                            </div>
+                            
+                            <div class="place-phone" id="place-phone" style="display: none;">
+                                <i class="fas fa-phone"></i>
+                                <a href="#" id="place-phone-link">Teléfono</a>
+                            </div>
+                            
+                            <div class="place-website" id="place-website" style="display: none;">
+                                <i class="fas fa-globe"></i>
+                                <a href="#" target="_blank" id="place-website-link">Sitio web</a>
+                            </div>
+                            
+                            <div class="place-hours" id="place-hours" style="display: none;">
+                                <i class="fas fa-clock"></i>
+                                <span id="place-hours-text">Horarios</span>
+                                <span class="hours-status" id="place-hours-status"></span>
+                            </div>
+                            
+                            <div class="place-price-level" id="place-price-level" style="display: none;">
+                                <i class="fas fa-dollar-sign"></i>
+                                <span id="place-price-text">Precio</span>
+                            </div>
+                        </div>
+                        
+                        <div class="place-types" id="place-types">
+                            <!-- Types will be populated here -->
+                        </div>
+                        
+                        <div class="place-actions">
+                            <button class="btn btn-primary" id="add-review-btn">
+                                <i class="fas fa-plus"></i>
+                                Agregar Reseña
+                            </button>
+                            <button class="btn btn-secondary" id="directions-btn">
+                                <i class="fas fa-directions"></i>
+                                Cómo llegar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="place-stats" id="place-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-reviews">0</span>
+                        <span class="stat-label">Reseñas</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-lists">0</span>
+                        <span class="stat-label">Listas</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="avg-rating">-</span>
+                        <span class="stat-label">Calificación</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reviews Section -->
+            <div class="reviews-section" id="reviews-section" style="display: none;">
+                <h3 class="section-title">
+                    <i class="fas fa-star"></i>
+                    Reseñas del lugar
+                </h3>
+                
+                <div class="filters-bar">
+                    <input type="text" class="form-input" id="search-reviews" placeholder="Buscar en reseñas...">
+                    <select class="form-input" id="filter-list">
+                        <option value="">Todas las listas</option>
+                    </select>
+                    <select class="form-input" id="sort-reviews">
+                        <option value="date">Más recientes</option>
+                        <option value="rating">Mejor calificadas</option>
+                        <option value="list">Por lista</option>
+                    </select>
+                </div>
+                
+                <div id="reviews-container">
+                    <!-- Reviews will be populated here -->
+                </div>
+                
+                <div class="empty-state" id="empty-reviews" style="display: none;">
+                    <i class="fas fa-star-o"></i>
+                    <h4>No hay reseñas</h4>
+                    <p>Este lugar aún no tiene reseñas. ¡Sé el primero en agregar una!</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2024 Listopic. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- Firebase SDK v8 (Compatibility) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-functions.js"></script>
+
+    <!-- Configuration -->
+    <script src="js/config.js"></script>
+
+    <!-- JavaScript Files -->
+    <script src="js/firebaseService.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/uiUtils.js"></script>
+    <script src="js/themeManager.js"></script>
+    <script src="js/placesService.js"></script>
+    <script src="js/authService.js"></script>
+    <script src="js/page-place-detail.js"></script>
+</body>
+</html>

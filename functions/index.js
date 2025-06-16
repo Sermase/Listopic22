@@ -100,15 +100,38 @@ exports.groupedReviews = onRequest(
                         avgGeneralScore: 0,
                         thumbnailUrl: placeInfo ? placeInfo.mainImageUrl : null,
                         groupTags: new Set(),
-                        listId: listId, 
+                        listId: listId,
                         reviewIds: [],
-                        placeId: review.placeId // Mantener placeId para el grupo
+                        placeId: review.placeId, // Mantener placeId para el grupo
+                        // Agregar criterios individuales y precio
+                        criteriaScores: {},
+                        totalPrice: 0,
+                        priceCount: 0,
+                        avgPrice: 0
                     };
                 }
                 grouped[key].itemCount++;
                 grouped[key].totalGeneralScore += review.overallRating || 0;
-                if (review.photoUrl && (!grouped[key].thumbnailUrl || !placeInfo?.mainImageUrl) ) { 
-                    grouped[key].thumbnailUrl = review.photoUrl; 
+
+                // Procesar criterios individuales
+                if (review.criteriaRatings && typeof review.criteriaRatings === 'object') {
+                    Object.entries(review.criteriaRatings).forEach(([criteria, rating]) => {
+                        if (!grouped[key].criteriaScores[criteria]) {
+                            grouped[key].criteriaScores[criteria] = { total: 0, count: 0 };
+                        }
+                        grouped[key].criteriaScores[criteria].total += rating || 0;
+                        grouped[key].criteriaScores[criteria].count++;
+                    });
+                }
+
+                // Procesar precio
+                if (review.price && !isNaN(review.price)) {
+                    grouped[key].totalPrice += review.price;
+                    grouped[key].priceCount++;
+                }
+
+                if (review.photoUrl && (!grouped[key].thumbnailUrl || !placeInfo?.mainImageUrl) ) {
+                    grouped[key].thumbnailUrl = review.photoUrl;
                 }
                 if (review.userTags && Array.isArray(review.userTags)) {
                     review.userTags.forEach(tag => grouped[key].groupTags.add(tag));
@@ -118,11 +141,26 @@ exports.groupedReviews = onRequest(
 
             const groupedReviewsArray = Object.values(grouped).map(group => {
                 group.avgGeneralScore = group.itemCount > 0 ? parseFloat((group.totalGeneralScore / group.itemCount).toFixed(1)) : 0;
+                // Procesar promedio de criterios
+                if (group.criteriaScores && typeof group.criteriaScores === 'object') {
+                    Object.entries(group.criteriaScores).forEach(([criteria, scoreObj]) => {
+                        scoreObj.avg = scoreObj.count > 0 ? parseFloat((scoreObj.total / scoreObj.count).toFixed(1)) : 0;
+                        // Reemplazar value total con avg para facilidad en respuesta
+                        group.criteriaScores[criteria] = scoreObj.avg;
+                    });
+                }
+                // Procesar promedio de precio
+                group.avgPrice = group.priceCount > 0 ? parseFloat((group.totalPrice / group.priceCount).toFixed(2)) : 0;
+                // Convertir groupTags de Set a Array
                 group.groupTags = Array.from(group.groupTags);
+                // Limpiar campos totales y contadores auxiliares
                 delete group.totalGeneralScore;
+                delete group.criteriaScores?.total;
+                delete group.priceCount;
+                delete group.totalPrice;
                 return group;
             });
-            
+
             groupedReviewsArray.sort((a, b) => (b.avgGeneralScore || 0) - (a.avgGeneralScore || 0));
 
             const listDoc = await listDocRef.get();
