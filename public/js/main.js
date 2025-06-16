@@ -131,3 +131,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log("MAIN.JS: Fin del script de inicialización de main.js."); // <--- LOG 19
 });
+
+
+// Función global para limpiar cache de etiquetas (útil para desarrollo)
+window.clearCategoryTagsCache = function() {
+    if (ListopicApp.pageSearch && ListopicApp.pageSearch.clearTagsCache) {
+        ListopicApp.pageSearch.clearTagsCache();
+        console.log('Cache de etiquetas limpiado');
+    } else {
+        console.warn('Función de limpiar cache no disponible');
+    }
+};

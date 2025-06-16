@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Etiquetas Dinámicas - Listopic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #1976D2;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Prueba de Etiquetas Dinámicas</h1>
+        
+        <div class="test-section">
+            <h3>1. Probar Conexión a Firestore</h3>
+            <button class="btn" onclick="testFirestoreConnection()">Probar Conexión</button>
+            <div id="firestore-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Listar Categorías Disponibles</h3>
+            <button class="btn" onclick="listCategories()">Listar Categorías</button>
+            <div id="categories-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Probar Carga de Etiquetas</h3>
+            <select id="category-select" onchange="loadTagsForCategory(this.value)">
+                <option value="">Selecciona una categoría</option>
+            </select>
+            <div id="tags-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Limpiar Cache</h3>
+            <button class="btn" onclick="clearCache()">Limpiar Cache</button>
+            <div id="cache-result" class="result"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/firebaseService.js"></script>
+
+    <script>
+        async function testFirestoreConnection() {
+            const result = document.getElementById('firestore-result');
+            try {
+                if (!ListopicApp || !ListopicApp.services || !ListopicApp.services.db) {
+                    throw new Error('Servicios de Firebase no disponibles');
+                }
+                
+                // Intentar una consulta simple
+                const testQuery = await ListopicApp.services.db.collection('categories').limit(1).get();
+                result.innerHTML = `<span class="success">✅ Conexión exitosa. Documentos encontrados: ${testQuery.size}</span>`;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+
+        async function listCategories() {
+            const result = document.getElementById('categories-result');
+            const select = document.getElementById('category-select');
+            
+            try {
+                const categoriesSnapshot = await ListopicApp.services.db.collection('categories').get();
+                const categories = [];
+                
+                // Limpiar select
+                select.innerHTML = '<option value="">Selecciona una categoría</option>';
+                
+                categoriesSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const category = {
+                        id: doc.id,
+                        name: data.name || doc.id,
+                        tagsCount: (data['fixed-tags'] || []).length
+                    };
+                    categories.push(category);
+                    
+                    // Agregar al select
+                    const option = document.createElement('option');
+                    option.value = data.name || doc.id;
+                    option.textContent = `${data.name || doc.id} (${category.tagsCount} etiquetas)`;
+                    select.appendChild(option);
+                });
+                
+                result.innerHTML = `<span class="success">✅ Categorías encontradas: ${categories.length}</span><br><pre>${JSON.stringify(categories, null, 2)}</pre>`;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+
+        async function loadTagsForCategory(categoryName) {
+            const result = document.getElementById('tags-result');
+            
+            if (!categoryName) {
+                result.innerHTML = '';
+                return;
+            }
+            
+            try {
+                // Mapear nombres a IDs
+                const categoryMapping = {
+                    'Hmm...': 'comida_hmm',
+                    'Comida Hmm...': 'comida_hmm',
+                    'Restaurantes': 'restaurantes',
+                    'Cafeterías': 'cafeterias'
+                };
+                
+                const categoryId = categoryMapping[categoryName] || categoryName.toLowerCase().replace(/\s+/g, '_');
+                
+                const categoryDoc = await ListopicApp.services.db.collection('categories').doc(categoryId).get();
+                
+                if (categoryDoc.exists) {
+                    const data = categoryDoc.data();
+                    const tags = data['fixed-tags'] || [];
+                    result.innerHTML = `<span class="success">✅ Etiquetas para "${categoryName}" (ID: ${categoryId}): ${tags.length}</span><br><pre>${JSON.stringify(tags, null, 2)}</pre>`;
+                } else {
+                    result.innerHTML = `<span class="error">❌ No se encontró la categoría "${categoryName}" con ID "${categoryId}"</span>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+
+        function clearCache() {
+            const result = document.getElementById('cache-result');
+            if (window.clearCategoryTagsCache) {
+                window.clearCategoryTagsCache();
+                result.innerHTML = '<span class="success">✅ Cache limpiado</span>';
+            } else {
+                result.innerHTML = '<span class="error">❌ Función de limpiar cache no disponible</span>';
+            }
+        }
+
+        // Inicializar cuando se cargue la página
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (ListopicApp && ListopicApp.services) {
+                    testFirestoreConnection();
+                    listCategories();
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

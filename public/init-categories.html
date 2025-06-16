@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herramientas de Desarrollo - Listopic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #1976D2;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .instructions {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛠️ Herramientas de Desarrollo</h1>
+        
+        <div class="instructions">
+            <strong>Herramientas para desarrolladores:</strong>
+            <ul>
+                <li><strong>Limpiar Cache:</strong> Limpia el cache de etiquetas de categorías</li>
+                <li><strong>Probar Etiquetas:</strong> Las categorías ya están configuradas en Firestore</li>
+                <li><strong>Estructura actual:</strong> Las categorías usan el campo <code>fixed-tags</code></li>
+            </ul>
+        </div>
+
+        <div style="text-align: center;">
+            <button id="clearCacheBtn" class="btn">🗑️ Limpiar Cache de Etiquetas</button>
+            <button id="testBtn" class="btn">🧪 Probar Carga de Etiquetas</button>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/firebaseService.js"></script>
+
+    <script>
+        const clearCacheBtn = document.getElementById('clearCacheBtn');
+        const testBtn = document.getElementById('testBtn');
+        const status = document.getElementById('status');
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+        }
+
+        clearCacheBtn.addEventListener('click', () => {
+            if (window.clearCategoryTagsCache) {
+                window.clearCategoryTagsCache();
+                showStatus('✅ Cache de etiquetas limpiado correctamente', 'success');
+            } else {
+                showStatus('❌ Función de limpiar cache no disponible', 'error');
+            }
+        });
+
+        testBtn.addEventListener('click', async () => {
+            testBtn.disabled = true;
+            testBtn.textContent = '⏳ Probando...';
+            showStatus('Probando carga de etiquetas...', 'info');
+
+            try {
+                // Probar carga de categoría "Hmm..."
+                const categoriesRef = ListopicApp.services.db.collection('categories');
+                const categoryDoc = await categoriesRef.doc('comida_hmm').get();
+                
+                if (categoryDoc.exists) {
+                    const data = categoryDoc.data();
+                    const tags = data['fixed-tags'] || [];
+                    showStatus(`✅ Éxito: Categoría "Comida Hmm..." encontrada con ${tags.length} etiquetas: ${tags.join(', ')}`, 'success');
+                } else {
+                    showStatus('❌ Error: No se encontró la categoría "comida_hmm"', 'error');
+                }
+                
+                testBtn.textContent = '✅ Completado';
+            } catch (error) {
+                showStatus(`❌ Error: ${error.message}`, 'error');
+                testBtn.textContent = '🧪 Probar Carga de Etiquetas';
+                testBtn.disabled = false;
+            }
+        });
+
+        // Verificar que los servicios estén disponibles
+        window.addEventListener('load', () => {
+            if (!ListopicApp || !ListopicApp.services) {
+                showStatus('❌ Error: Servicios de Firebase no disponibles', 'error');
+                testBtn.disabled = true;
+            } else {
+                showStatus('✅ Servicios cargados correctamente', 'success');
+            }
+        });
+    </script>
+</body>
+</html>
