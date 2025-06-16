@@ -5,6 +5,9 @@ ListopicApp.pageListView = (() => {
     let currentSortDirection = 'desc';
     let activeTagFilters = new Set();
     let currentListIconClass = 'fa-solid fa-list'; // Icono por defecto
+    let forumRef, messagesRef;
+    // +++++Vamos a incluir un pequeño foro para la lista actual++++++
+    let forumModal, closeModalBtn, forumListNameSpan, forumMessagesContainer, newForumMessageInput, sendForumMessageBtn;
 
     // Elementos del DOM (se asignarán en init)
     let listTitleElement, rankingTbody, searchInput, tagFilterContainer, rankingTable, 
@@ -173,6 +176,300 @@ ListopicApp.pageListView = (() => {
         applyFiltersAndSort_ListView_Grouped();
     }
 
+
+    // +++++Vamos a incluir un pequeño foro para la lista actual++++++
+function initForumModal() {
+    forumModal = document.getElementById('list-forum-modal');
+    closeModalBtn = forumModal.querySelector('.close-modal');
+    forumListNameSpan = document.getElementById('forum-list-name');
+    forumMessagesContainer = document.getElementById('forum-messages-container');
+    newForumMessageInput = document.getElementById('new-forum-message');
+    sendForumMessageBtn = document.getElementById('send-forum-message');
+
+    // Set list name in modal title
+    forumListNameSpan.textContent = ListopicApp.state.currentListName;
+
+    // Event listeners
+    document.getElementById('forum-button').addEventListener('click', openForumModal);
+    closeModalBtn.addEventListener('click', closeForumModal);
+    sendForumMessageBtn.addEventListener('click', sendForumMessage);
+
+    initForumFirestoreRef();
+}
+
+function initForumFirestoreRef() {
+    const db = ListopicApp.services.db;
+    const listId = ListopicApp.state.currentListId;
+
+    forumRef = db.collection('listForums').doc(listId);
+    messagesRef = forumRef.collection('messages').orderBy('timestamp', 'asc');
+
+    messagesRef.onSnapshot(snapshot => {
+        const messages = [];
+        snapshot.forEach(doc => {
+            const messageData = doc.data();
+            messages.push({
+                id: doc.id,
+                ...messageData,
+                time: formatTime(messageData.timestamp?.toDate())
+            });
+        });
+        renderForumMessages(messages);
+    }, error => {
+        console.error("Error loading forum messages:", error);
+        renderForumMessages([]);
+    });
+}
+
+function formatTime(date) {
+    if (!date) return 'Ahora mismo';
+    const now = new Date();
+    const diffMinutes = Math.floor((now - date) / 60000);
+
+    if (diffMinutes < 1) return 'Ahora mismo';
+    if (diffMinutes < 60) return `Hace ${diffMinutes} min`;
+    if (diffMinutes < 1440) return `Hace ${Math.floor(diffMinutes/60)} h`;
+    return date.toLocaleDateString('es-ES');
+}
+
+function openForumModal() {
+    forumModal.style.display = 'block';
+    newForumMessageInput.focus();
+}
+
+function closeForumModal() {
+    forumModal.style.display = 'none';
+}
+
+// Actualiza la función renderForumMessages
+function renderForumMessages(messages) {
+    forumMessagesContainer.innerHTML = '';
+    
+    if (messages.length === 0) {
+        forumMessagesContainer.innerHTML = '<p class="no-messages">Sé el primero en comentar...</p>';
+        return;
+    }
+    
+    const user = ListopicApp.services.auth.currentUser;
+    
+    messages.forEach(msg => {
+        const messageEl = document.createElement('div');
+        messageEl.className = 'forum-message';
+        messageEl.dataset.messageId = msg.id;
+        
+        const messageHeader = document.createElement('div');
+        messageHeader.className = 'message-header';
+        
+        messageHeader.innerHTML = `
+            <strong>${msg.userName || 'Anónimo'}</strong>
+            <span class="message-time">${msg.time}</span>
+        `;
+        
+        // DEBUG: Mostrar información relevante en consola
+        console.log("Mensaje:", msg);
+        console.log("Usuario actual:", user ? user.uid : "No autenticado");
+        console.log("¿Puede eliminar?", user && (user.uid === msg.userId || user.uid === "w4cCQoKBGOUtbEU2KXTnN69OmuA2"));
+        
+        // Verificar permisos para eliminar
+        if (user && (user.uid === msg.userId || user.uid === "w4cCQoKBGOUtbEU2KXTnN69OmuA2")) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-message-btn';
+            deleteBtn.innerHTML = '❌';
+            deleteBtn.title = 'Eliminar mensaje';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteForumMessage(msg.id);
+            });
+            messageHeader.appendChild(deleteBtn);
+        }
+        
+        messageEl.appendChild(messageHeader);
+        
+        const messageText = document.createElement('p');
+        messageText.className = 'message-text';
+        messageText.textContent = msg.text;
+        messageEl.appendChild(messageText);
+        
+        forumMessagesContainer.appendChild(messageEl);
+    });
+    
+    forumMessagesContainer.scrollTop = forumMessagesContainer.scrollHeight;
+}
+async function deleteForumMessage(messageId) {
+    if (!confirm("¿Eliminar este mensaje? Esta acción no se puede deshacer.")) return;
+    
+    try {
+        await messagesCollectionRef.doc(messageId).delete();
+        ListopicApp.services.showNotification('Mensaje eliminado', 'success');
+    } catch (error) {
+        console.error('Error eliminando mensaje:', error);
+        ListopicApp.services.showNotification('Error al eliminar mensaje', 'error');
+    }
+}
+
+async function sendForumMessage() {
+    const messageText = newForumMessageInput.value.trim();
+    if (!messageText) return;
+
+    const auth = ListopicApp.services.auth;
+    const user = auth.currentUser;
+
+    if (!user) {
+        ListopicApp.services.showNotification('Debes iniciar sesión para comentar', 'error');
+        return;
+    }
+
+    sendForumMessageBtn.disabled = true;
+
+    try {
+        await messagesRef.add({
+            text: messageText,
+            userId: user.uid,
+            userName: user.displayName || user.email.split('@')[0],
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        newForumMessageInput.value = '';
+    } catch (error) {
+        console.error('Error sending message:', error);
+        ListopicApp.services.showNotification('Error al enviar mensaje', 'error');
+    } finally {
+        sendForumMessageBtn.disabled = false;
+    }
+}
+
+    // +++++Vamos a incluir un pequeño foro para la lista actual++++++
+
+
+    // +++++Vamos a incluir un pequeño foro para la lista actual++++++
+function initForumModal() {
+    forumModal = document.getElementById('list-forum-modal');
+    closeModalBtn = forumModal.querySelector('.close-modal');
+    forumListNameSpan = document.getElementById('forum-list-name');
+    forumMessagesContainer = document.getElementById('forum-messages-container');
+    newForumMessageInput = document.getElementById('new-forum-message');
+    sendForumMessageBtn = document.getElementById('send-forum-message');
+    
+    // Set list name in modal title
+    forumListNameSpan.textContent = ListopicApp.state.currentListName;
+    
+    // Event listeners
+    document.getElementById('forum-button').addEventListener('click', openForumModal);
+    closeModalBtn.addEventListener('click', closeForumModal);
+    sendForumMessageBtn.addEventListener('click', sendForumMessage);
+
+    initForumFirestoreRef();
+}
+
+function initForumFirestoreRef() {
+    const db = ListopicApp.services.db;
+    const listId = ListopicApp.state.currentListId;
+
+    forumRef = db.collection('listForums').doc(listId);
+    
+    // Fixed: Separate collection reference from query
+    messagesCollectionRef = forumRef.collection('messages');
+    messagesQuery = messagesCollectionRef.orderBy('timestamp', 'asc');  // For real-time listener
+    
+    // Set up real-time listener using the query
+    messagesQuery.onSnapshot(snapshot => {
+        const messages = [];
+        snapshot.forEach(doc => {
+            const messageData = doc.data();
+            messages.push({
+                id: doc.id,
+                ...messageData,
+                // Format timestamp
+                time: formatTime(messageData.timestamp?.toDate())
+            });
+        });
+        renderForumMessages(messages);
+    }, error => {
+        console.error("Error loading forum messages:", error);
+        ListopicApp.services.showNotification('Error cargando mensajes del foro', 'error');
+        renderForumMessages([]);
+    });
+}
+
+function formatTime(date) {
+    if (!date) return 'Ahora mismo';
+    const now = new Date();
+    const diffMinutes = Math.floor((now - date) / 60000);
+
+    if (diffMinutes < 1) return 'Ahora mismo';
+    if (diffMinutes < 60) return `Hace ${diffMinutes} min`;
+    if (diffMinutes < 1440) return `Hace ${Math.floor(diffMinutes/60)} h`;
+    return date.toLocaleDateString('es-ES');
+}
+
+function openForumModal() {
+    forumModal.style.display = 'block';
+    newForumMessageInput.focus();
+}
+
+function closeForumModal() {
+    forumModal.style.display = 'none';
+}
+
+function renderForumMessages(messages) {
+    forumMessagesContainer.innerHTML = '';
+
+    if (messages.length === 0) {
+        forumMessagesContainer.innerHTML = '<p class="no-messages">Sé el primero en comentar...</p>';
+        return;
+    }
+
+    messages.forEach(msg => {
+        const messageEl = document.createElement('div');
+        messageEl.className = 'forum-message';
+        messageEl.innerHTML = `
+            <div class="message-header">
+                <strong>${msg.userName || 'Anónimo'}</strong>
+                <span class="message-time">${msg.time}</span>
+            </div>
+            <p class="message-text">${msg.text}</p>
+        `;
+        forumMessagesContainer.appendChild(messageEl);
+    });
+
+    forumMessagesContainer.scrollTop = forumMessagesContainer.scrollHeight;
+}
+
+async function sendForumMessage() {
+    const messageText = newForumMessageInput.value.trim();
+    if (!messageText) return;
+
+    const auth = ListopicApp.services.auth;
+    const user = auth.currentUser;
+
+    if (!user) {
+        ListopicApp.services.showNotification('Debes iniciar sesión para comentar', 'error');
+        return;
+    }
+
+    sendForumMessageBtn.disabled = true;
+
+    try {
+        // Fixed: Use messagesCollectionRef instead of messagesRef
+        await messagesCollectionRef.add({
+            text: messageText,
+            userId: user.uid,
+            userName: user.displayName || user.email.split('@')[0],
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        newForumMessageInput.value = '';
+    } catch (error) {
+        console.error('Error sending message:', error);
+        ListopicApp.services.showNotification('Error al enviar mensaje', 'error');
+    } finally {
+        sendForumMessageBtn.disabled = false;
+    }
+}
+
+    // +++++Vamos a incluir un pequeño foro para la lista actual++++++
+
+
     function init() {
         console.log('Initializing List View page logic...');
         
@@ -340,8 +637,12 @@ ListopicApp.pageListView = (() => {
         } else { // Fin de if (elementos principales del DOM existen)
             console.warn("LIST-VIEW (Agrupada): Faltan elementos esenciales del DOM para inicializar la página (ej. #list-title, #ranking-tbody).");
         }
+        
+    // +++++Vamos a incluir un pequeño foro para la lista actual++++++
+    initForumModal();
     } // Cierre de init
 
+    
     return {
         init
     };

@@ -78,5 +78,24 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    
+		// ===============================================
+    // FORUM RULES
+		// ===============================================
+      match /listForums/{listId} {
+      allow create: if request.auth != null;
+      allow read: if true;
+      
+      match /messages/{messageId} {
+        allow create: if request.auth != null;
+        allow update: if request.auth != null &&                       
+                      (request.auth.uid == resource.data.userId || 
+                       request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.userId);
+        allow read: if true;
+        allow delete: if request.auth != null && 
+                      (request.auth.uid == resource.data.userId || 
+                       request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.userId);
+      }
+    }
   }
 }

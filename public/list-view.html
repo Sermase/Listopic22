@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- ***** -->
     <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
@@ -64,6 +65,10 @@
         </div>
 
         <div class="header-right-actions">
+            <!-- Add forum button -->
+            <button id="forum-button" class="forum-button header-action-button" aria-label="Foro de la lista" title="Foro de la lista">
+                <i class="fas fa-comments"></i>
+            </button>
             <a href="search.html" id="search-link-button" class="search-button header-action-button" aria-label="Search">
                 <i class="fas fa-search"></i>
             </a>
@@ -131,5 +136,21 @@
     </main>
     <footer> Listopic... Tu rincón personal de valoraciones. </footer>
     
+    <!-- 
+    // +++++Vamos a incluir un pequeño foro para la lista actual++++++ -->
+    <div id="list-forum-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="forum-modal-title">Foro de la lista: <span id="forum-list-name"></span></h2>
+            <div id="forum-messages-container">
+                <!-- Messages will be loaded here -->
+                <p>Cargando discusiones...</p>
+            </div>
+            <div class="forum-input-area">
+                <textarea id="new-forum-message" placeholder="Escribe tu mensaje..."></textarea>
+                <button id="send-forum-message" class="submit-button">Enviar</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
