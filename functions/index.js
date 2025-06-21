@@ -13,7 +13,7 @@ const {getFirestore, FieldValue} = require("firebase-admin/firestore"); // Para 
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
-const db = admin.firestore();
+const db = getFirestore();
 
 setGlobalOptions({ region: "europe-west1" });
 
@@ -100,38 +100,15 @@ exports.groupedReviews = onRequest(
                         avgGeneralScore: 0,
                         thumbnailUrl: placeInfo ? placeInfo.mainImageUrl : null,
                         groupTags: new Set(),
-                        listId: listId,
+                        listId: listId, 
                         reviewIds: [],
-                        placeId: review.placeId, // Mantener placeId para el grupo
-                        // Agregar criterios individuales y precio
-                        criteriaScores: {},
-                        totalPrice: 0,
-                        priceCount: 0,
-                        avgPrice: 0
+                        placeId: review.placeId // Mantener placeId para el grupo
                     };
                 }
                 grouped[key].itemCount++;
                 grouped[key].totalGeneralScore += review.overallRating || 0;
-
-                // Procesar criterios individuales
-                if (review.criteriaRatings && typeof review.criteriaRatings === 'object') {
-                    Object.entries(review.criteriaRatings).forEach(([criteria, rating]) => {
-                        if (!grouped[key].criteriaScores[criteria]) {
-                            grouped[key].criteriaScores[criteria] = { total: 0, count: 0 };
-                        }
-                        grouped[key].criteriaScores[criteria].total += rating || 0;
-                        grouped[key].criteriaScores[criteria].count++;
-                    });
-                }
-
-                // Procesar precio
-                if (review.price && !isNaN(review.price)) {
-                    grouped[key].totalPrice += review.price;
-                    grouped[key].priceCount++;
-                }
-
-                if (review.photoUrl && (!grouped[key].thumbnailUrl || !placeInfo?.mainImageUrl) ) {
-                    grouped[key].thumbnailUrl = review.photoUrl;
+                if (review.photoUrl && (!grouped[key].thumbnailUrl || !placeInfo?.mainImageUrl) ) { 
+                    grouped[key].thumbnailUrl = review.photoUrl; 
                 }
                 if (review.userTags && Array.isArray(review.userTags)) {
                     review.userTags.forEach(tag => grouped[key].groupTags.add(tag));
@@ -141,26 +118,11 @@ exports.groupedReviews = onRequest(
 
             const groupedReviewsArray = Object.values(grouped).map(group => {
                 group.avgGeneralScore = group.itemCount > 0 ? parseFloat((group.totalGeneralScore / group.itemCount).toFixed(1)) : 0;
-                // Procesar promedio de criterios
-                if (group.criteriaScores && typeof group.criteriaScores === 'object') {
-                    Object.entries(group.criteriaScores).forEach(([criteria, scoreObj]) => {
-                        scoreObj.avg = scoreObj.count > 0 ? parseFloat((scoreObj.total / scoreObj.count).toFixed(1)) : 0;
-                        // Reemplazar value total con avg para facilidad en respuesta
-                        group.criteriaScores[criteria] = scoreObj.avg;
-                    });
-                }
-                // Procesar promedio de precio
-                group.avgPrice = group.priceCount > 0 ? parseFloat((group.totalPrice / group.priceCount).toFixed(2)) : 0;
-                // Convertir groupTags de Set a Array
                 group.groupTags = Array.from(group.groupTags);
-                // Limpiar campos totales y contadores auxiliares
                 delete group.totalGeneralScore;
-                delete group.criteriaScores?.total;
-                delete group.priceCount;
-                delete group.totalPrice;
                 return group;
             });
-
+            
             groupedReviewsArray.sort((a, b) => (b.avgGeneralScore || 0) - (a.avgGeneralScore || 0));
 
             const listDoc = await listDocRef.get();
@@ -185,12 +147,12 @@ exports.groupedReviews = onRequest(
 });
 
 // --- FUNCIÓN updateListReviewCount ---
+// ESTA FUNCIÓN QUEDA OBSOLETA, LA NUEVA "updateAggregatesOnReviewChange" HACE ESTO Y MÁS.
+// LA DEJAMOS COMENTADA POR SI ACASO, PERO LA NUEVA ES MEJOR.
+/*
 exports.updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
   const listId = event.params.listId;
-  // const reviewId = event.params.reviewId; // No lo usas directamente pero está disponible
   const listRef = getFirestore().collection('lists').doc(listId);
-
-  // Si la reseña se ha creado
   if (!event.data.before.exists && event.data.after.exists) {
       logger.info(`Nueva reseña creada en lista ${listId}, incrementando contador.`);
       return listRef.update({
@@ -198,7 +160,6 @@ exports.updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{revie
           updatedAt: FieldValue.serverTimestamp()
       });
   }
-  // Si la reseña se ha eliminado
   else if (event.data.before.exists && !event.data.after.exists) {
       logger.info(`Reseña eliminada de lista ${listId}, decrementando contador.`);
       return listRef.update({
@@ -206,12 +167,12 @@ exports.updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{revie
           updatedAt: FieldValue.serverTimestamp()
       });
   }
-  // Si es una actualización
   else {
       logger.info(`Reseña actualizada en lista ${listId}, contador no afectado.`);
       return null;
   }
 });
+*/
 
 // --- FUNCIÓN placesNearbyRestaurants ---
 exports.placesNearbyRestaurants = onRequest(async (req, res) => {
@@ -434,10 +395,9 @@ exports.createList = onCall(async (data, context) => {
 
 // --- NUEVA FUNCIÓN CALLABLE: createListWithValidation ---
 exports.createListWithValidation = onCall(
-  // { region: "europe-west1" }, // Se tomará de setGlobalOptions si está
-  async (request) => { // Para v2 onCall, el primer argumento es 'request' que tiene 'data' y 'auth'
+  async (request) => { 
     const data = request.data;
-    const contextAuth = request.auth; // 'auth' está dentro de 'request'
+    const contextAuth = request.auth;
 
     if (!contextAuth) {
         logger.warn("createListWithValidation: Intento de llamada no autenticado.", {structuredData: true});
@@ -445,24 +405,20 @@ exports.createListWithValidation = onCall(
     }
     
     const userId = contextAuth.uid;
-    const listName = data.name; // Asumiendo que el nombre de la lista viene en data.name
+    const listName = data.name;
 
     if (!listName || typeof listName !== 'string' || listName.trim() === '') {
         logger.warn(`createListWithValidation: Nombre de lista no proporcionado o inválido por el usuario ${userId}.`, {structuredData: true});
         throw new HttpsError('invalid-argument', 'El nombre de la lista es requerido.');
     }
 
-    // Validar otros campos necesarios de 'data' aquí si es necesario
-    // ej. data.criteriaDefinition, data.isPublic, data.categoryId
-
     logger.info(`createListWithValidation: Usuario ${userId} intentando crear lista "${listName}"`, {structuredData: true});
     const listsRef = db.collection('lists');
 
     try {
-        // 1. Verificar si ya existe una lista con ese nombre para este usuario
         const existingListQuery = await listsRef
                                     .where('userId', '==', userId)
-                                    .where('name', '==', listName.trim()) // Usar trim para consistencia
+                                    .where('name', '==', listName.trim())
                                     .limit(1)
                                     .get();
 
@@ -471,21 +427,19 @@ exports.createListWithValidation = onCall(
             throw new HttpsError('already-exists', `Ya tienes una lista llamada "${listName.trim()}". Por favor, elige otro nombre.`);
         }
 
-        // 2. Si no existe, crear la lista
         const newListData = {
             userId: userId,
             name: listName.trim(),
-            isPublic: data.isPublic !== undefined ? data.isPublic : false, // Valor por defecto si no se envía
-            criteriaDefinition: data.criteriaDefinition || {}, // Valor por defecto
-            availableTags: data.availableTags || [],         // Valor por defecto
-            categoryId: data.categoryId || "defaultCategory", // Incluyendo categoryId
-            reviewCount: 0,                                  // Inicializar reviewCount
-            reactions: {},                                   // Inicializar reactions
-            commentsCount: 0,                                // Inicializar commentsCount
+            isPublic: data.isPublic !== undefined ? data.isPublic : false,
+            criteriaDefinition: data.criteriaDefinition || {},
+            availableTags: data.availableTags || [],
+            categoryId: data.categoryId || "defaultCategory",
+            reviewCount: 0,
+            reactions: {},
+            commentsCount: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
-        // Eliminar campos undefined del payload del cliente si es necesario antes de guardar
         Object.keys(newListData).forEach(key => newListData[key] === undefined && delete newListData[key]);
 
         const newListRef = await listsRef.add(newListData);
@@ -495,10 +449,9 @@ exports.createListWithValidation = onCall(
 
     } catch (error) {
         logger.error(`Error en createListWithValidation para usuario ${userId}, lista "${listName}":`, error, {structuredData: true});
-        if (error.code && typeof error.code === 'string' && error.message ) { // Si ya es un HttpsError
+        if (error.code && typeof error.code === 'string' && error.message ) {
              throw error;
         }
-        // Para otros errores, envolverlos en un HttpsError genérico
         throw new HttpsError('internal', 'Ocurrió un error al crear la lista.', error.message);
     }
 });
@@ -507,7 +460,7 @@ exports.createListWithValidation = onCall(
 exports.reverseGeocode = onRequest(async (req, res) => {
   cors(req, res, async () => {
     const { lat, lon } = req.query;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY; // Reutilizamos la misma clave de API
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
     if (!lat || !lon) {
       logger.warn("reverseGeocode: Latitud (lat) y longitud (lon) son requeridas.", {query: req.query, structuredData: true});
@@ -530,16 +483,15 @@ exports.reverseGeocode = onRequest(async (req, res) => {
         const firstResult = geocodeData.results[0];
         const formattedAddress = firstResult.formatted_address;
         
-        // Extraer componentes específicos si se necesitan
         let region = '';
         let city = '';
         let postalCode = '';
 
         firstResult.address_components.forEach(component => {
-            if (component.types.includes('administrative_area_level_2') && !region) { // Provincia
+            if (component.types.includes('administrative_area_level_2') && !region) {
                 region = component.long_name;
             }
-            if (component.types.includes('administrative_area_level_1') && !region) { // Comunidad Autónoma / Estado más general
+            if (component.types.includes('administrative_area_level_1') && !region) {
                 region = component.long_name;
             }
             if (component.types.includes('locality')) {
@@ -552,10 +504,9 @@ exports.reverseGeocode = onRequest(async (req, res) => {
 
         res.status(200).json({ 
             address: formattedAddress,
-            region: region, // Para autocompletar el campo región si lo tienes
+            region: region,
             city: city,
             postalCode: postalCode
-            // puedes añadir más componentes si los necesitas
         });
       } else if (geocodeData.status === "ZERO_RESULTS") {
         logger.warn("reverseGeocode: Google Geocoding API devolvió ZERO_RESULTS para:", {lat, lon, structuredData: true} );
@@ -569,64 +520,60 @@ exports.reverseGeocode = onRequest(async (req, res) => {
       res.status(500).json({ message: "Error interno al obtener la dirección.", error: error.message });
     }
   });
-  // ===================================================================
+});
+
+// ===================================================================
 // === NUEVAS FUNCIONES PARA CONTADORES Y DATOS AGREGADOS          ===
 // ===================================================================
 
 /**
- * Trigger que se dispara cuando una reseña es creada, actualizada o eliminada.
- * Actualiza los contadores de reseñas en los documentos de usuario, lugar e ítem.
+ * Trigger que se dispara cuando una reseña es creada o eliminada.
+ * Actualiza los contadores de reseñas en los documentos de usuario, lugar y lista.
  */
 exports.updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
-  // Si es una actualización, no afecta a los contadores. Salimos.
+  // Si es una actualización de la reseña, no afecta a los contadores. Salimos para no hacer trabajo innecesario.
   if (event.data.before.exists && event.data.after.exists) {
       logger.info(`Reseña ${event.params.reviewId} actualizada. No se modifican contadores.`);
       return null;
   }
 
-  // Determina si es una creación (incremento) o eliminación (decremento)
-  const change = event.data.before.exists ? -1 : 1;
+  // Determina si es una creación (+1) o una eliminación (-1)
+  const change = event.data.after.exists ? 1 : -1;
   const listId = event.params.listId;
+  // Obtenemos los datos del documento que existía (antes del borrado) o que se acaba de crear (después de la creación)
   const data = change === 1 ? event.data.after.data() : event.data.before.data();
   
-  const {userId, placeId, itemId} = data;
+  const {userId, placeId} = data;
   
-  // Comprueba que los IDs necesarios existen
+  // Comprobación de seguridad: si no hay userId, no podemos actualizar su contador.
   if (!userId) {
       logger.warn(`La reseña ${event.params.reviewId} no tiene userId. No se puede actualizar contador de usuario.`);
       return null;
   }
 
-  const db = getFirestore();
   const batch = db.batch();
+
   // 1. Actualizar contador de la LISTA
   const listRef = db.collection('lists').doc(listId);
   batch.update(listRef, { reviewCount: FieldValue.increment(change) });
-  logger.info(`Contador 'reviewCount' en lista ${listId} se actualizará en ${change}.`);
+  logger.info(`Programando actualización de 'reviewCount' en lista ${listId} en ${change}.`);
 
   // 2. Actualizar contador de reseñas del USUARIO
   const userRef = db.collection('users').doc(userId);
   batch.update(userRef, { reviewsCount: FieldValue.increment(change) });
-  logger.info(`Contador 'reviewsCount' en usuario ${userId} se actualizará en ${change}.`);
+  logger.info(`Programando actualización de 'reviewsCount' en usuario ${userId} en ${change}.`);
 
-  // 3. Actualizar contador de reseñas del LUGAR (si tiene placeId)
+  // 3. Actualizar contador de reseñas del LUGAR (solo si la reseña tiene un placeId asociado)
   if (placeId) {
       const placeRef = db.collection('places').doc(placeId);
       batch.update(placeRef, { reviewsCount: FieldValue.increment(change) });
-      logger.info(`Contador 'reviewsCount' en lugar ${placeId} se actualizará en ${change}.`);
-  }
-
-  // 4. Actualizar contador de reseñas del ÍTEM (si tiene itemId)
-  if (itemId) {
-      const itemRef = db.collection('items').doc(itemId);
-      batch.update(itemRef, { reviewCount: FieldValue.increment(change) }); // Nota: el campo se llama reviewCount
-      logger.info(`Contador 'reviewCount' en ítem ${itemId} se actualizará en ${change}.`);
+      logger.info(`Programando actualización de 'reviewsCount' en lugar ${placeId} en ${change}.`);
   }
   
-  // Ejecutar todas las actualizaciones en un solo lote
+  // Ejecutar todas las actualizaciones en un solo lote atómico.
   try {
       await batch.commit();
-      logger.info("Lote de actualización de contadores de reseña completado.");
+      logger.info("Lote de actualización de contadores de reseña completado exitosamente.");
   } catch (error) {
       logger.error("Error al ejecutar el lote de actualización de contadores de reseña:", error);
   }
@@ -638,13 +585,13 @@ exports.updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/revie
 * Actualiza los contadores de listas públicas y privadas en el documento del usuario.
 */
 exports.updateUserStatsOnListChange = onDocumentWritten("lists/{listId}", async (event) => {
-  const db = getFirestore();
   let userRef;
   let updates = {};
 
   // Caso 1: Se crea una lista NUEVA
   if (!event.data.before.exists && event.data.after.exists) {
       const listData = event.data.after.data();
+      if (!listData.userId) return null; // Lista "huérfana", no hacer nada
       userRef = db.collection('users').doc(listData.userId);
       const fieldToIncrement = listData.isPublic ? 'publicListsCount' : 'privateListsCount';
       updates[fieldToIncrement] = FieldValue.increment(1);
@@ -653,16 +600,27 @@ exports.updateUserStatsOnListChange = onDocumentWritten("lists/{listId}", async 
   // Caso 2: Se elimina una lista
   else if (event.data.before.exists && !event.data.after.exists) {
       const listData = event.data.before.data();
+      if (!listData.userId) return null; // Lista "huérfana" eliminada, no hay usuario que actualizar
       userRef = db.collection('users').doc(listData.userId);
       const fieldToDecrement = listData.isPublic ? 'publicListsCount' : 'privateListsCount';
       updates[fieldToDecrement] = FieldValue.increment(-1);
       logger.info(`Lista eliminada por ${listData.userId}. Decrementando ${fieldToDecrement}.`);
   }
-  // Caso 3: Se actualiza una lista (nos interesa si cambia la privacidad)
+  // Caso 3: Se actualiza una lista (nos interesa si cambia la privacidad o el dueño)
   else if (event.data.before.exists && event.data.after.exists) {
       const beforeData = event.data.before.data();
       const afterData = event.data.after.data();
-      if (beforeData.isPublic !== afterData.isPublic) {
+      
+      // Cambio de propietario (cuando una lista se "orfana")
+      if (beforeData.userId && !afterData.userId) {
+          userRef = db.collection('users').doc(beforeData.userId);
+          const fieldToDecrement = beforeData.isPublic ? 'publicListsCount' : 'privateListsCount';
+          updates[fieldToDecrement] = FieldValue.increment(-1);
+          logger.info(`Lista desvinculada del usuario ${beforeData.userId}. Decrementando contadores.`);
+      }
+      // Cambio de privacidad
+      else if (beforeData.isPublic !== afterData.isPublic) {
+          if(!afterData.userId) return null;
           userRef = db.collection('users').doc(afterData.userId);
           const oldField = beforeData.isPublic ? 'publicListsCount' : 'privateListsCount';
           const newField = afterData.isPublic ? 'publicListsCount' : 'privateListsCount';
@@ -670,7 +628,7 @@ exports.updateUserStatsOnListChange = onDocumentWritten("lists/{listId}", async 
           updates[newField] = FieldValue.increment(1);
           logger.info(`Visibilidad de lista cambiada por ${afterData.userId}. Actualizando contadores.`);
       } else {
-          return null; // No hay cambio en privacidad, no hacemos nada
+          return null; // No hay cambio relevante, no hacemos nada
       }
   }
 
@@ -687,34 +645,37 @@ exports.updateUserStatsOnListChange = onDocumentWritten("lists/{listId}", async 
 
 /**
 * Trigger que se dispara cuando un comentario es creado o eliminado.
-* Actualiza el contador de comentarios en el documento del usuario.
+* Actualiza el contador de comentarios en el documento de la lista y del usuario.
 * (Asume que los comentarios están en lists/{listId}/comments/{commentId})
 */
-exports.updateUserStatsOnCommentChange = onDocumentWritten("lists/{listId}/comments/{commentId}", async (event) => {
-  // Si es una actualización, no afecta al contador. Salimos.
+exports.updateAggregatesOnCommentChange = onDocumentWritten("lists/{listId}/comments/{commentId}", async (event) => {
   if (event.data.before.exists && event.data.after.exists) {
       return null;
   }
 
-  const change = event.data.before.exists ? -1 : 1;
+  const change = event.data.after.exists ? 1 : -1;
+  const listId = event.params.listId;
   const data = change === 1 ? event.data.after.data() : event.data.before.data();
   const userId = data.userId;
 
-  if (!userId) {
-      logger.warn(`El comentario ${event.params.commentId} no tiene userId. No se puede actualizar contador.`);
-      return null;
-  }
+  const batch = db.batch();
+
+  // Actualizar contador de la LISTA
+  const listRef = db.collection('lists').doc(listId);
+  batch.update(listRef, { commentsCount: FieldValue.increment(change) });
+  logger.info(`Contador 'commentsCount' en lista ${listId} se actualizará en ${change}.`);
   
-  const userRef = getFirestore().collection('users').doc(userId);
-  logger.info(`Contador 'commentsCount' en usuario ${userId} se actualizará en ${change}.`);
+  // Actualizar contador del USUARIO (si tiene userId)
+  if (userId) {
+      const userRef = db.collection('users').doc(userId);
+      batch.update(userRef, { commentsCount: FieldValue.increment(change) });
+      logger.info(`Contador 'commentsCount' en usuario ${userId} se actualizará en ${change}.`);
+  }
   
   try {
-      await userRef.update({ commentsCount: FieldValue.increment(change) });
-      logger.info("Contador de comentarios del usuario actualizado.");
+      await batch.commit();
+      logger.info("Contadores de comentarios actualizados.");
   } catch(error) {
-      logger.error("Error actualizando contador de comentarios del usuario:", error);
+      logger.error("Error actualizando contadores de comentarios:", error);
   }
-});
-
-
 });
