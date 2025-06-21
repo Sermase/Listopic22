@@ -10,8 +10,11 @@ ListopicApp.pageProfile = {
         usernameDisplayElement: null,
         bioDisplayElement: null,
         locationDisplayElement: null,
+        // --- NUEVOS ELEMENTOS PARA ESTADÍSTICAS ---
         listsCountElement: null,
         reviewsCountElement: null,
+        followersCountElement: null,
+        followingCountElement: null,
         myListsUl: null,
         myReviewsUl: null,
         openEditModalBtn: null,
@@ -72,8 +75,12 @@ ListopicApp.pageProfile = {
         this.elements.myReviewsUl = document.getElementById('my-reviews-ul');
         this.elements.openEditModalBtn = document.getElementById('open-edit-profile-modal-btn');
         this.elements.profileMessageArea = document.getElementById('profile-message-area');
+        
+        // --- CACHE DE LOS NUEVOS ELEMENTOS DE ESTADÍSTICAS ---
         this.elements.listsCountElement = document.getElementById('lists-count');
         this.elements.reviewsCountElement = document.getElementById('reviews-count');
+        this.elements.followersCountElement = document.getElementById('followers-count');
+        this.elements.followingCountElement = document.getElementById('following-count');
         
         this.elements.editProfileModal = document.getElementById('edit-profile-modal');
         this.elements.closeEditModalBtn = document.getElementById('close-edit-profile-modal-btn');
@@ -131,18 +138,18 @@ ListopicApp.pageProfile = {
             if (docSnap.exists) {
                 this.profileData = docSnap.data();
                 this.renderProfileData();
+                this.fetchUserLists(this.profileOwnerUserId); // MODIFICADO: Pasar el ID
+                this.fetchUserReviews(this.profileOwnerUserId); // MODIFICADO: Pasar el ID
             } else {
                 this.elements.displayNameElement.textContent = "Perfil no encontrado";
             }
         } catch (error) {
             console.error(`page-profile: Error cargando perfil:`, error);
         }
-        this.fetchUserLists();
-        this.fetchUserReviews();
     },
 
     renderProfileData: function() {
-        const { displayName, username, bio, location, photoUrl, publicListsCount, privateListsCount, reviewsCount } = this.profileData;
+        const { displayName, username, bio, location, photoUrl, publicListsCount, privateListsCount, reviewsCount, followersCount, followingCount } = this.profileData;
         const totalLists = (publicListsCount || 0) + (privateListsCount || 0);
 
         if (this.elements.displayNameElement) this.elements.displayNameElement.textContent = displayName || username || 'Usuario';
@@ -159,8 +166,12 @@ ListopicApp.pageProfile = {
         if (this.elements.profilePhotoDisplay) {
             this.elements.profilePhotoDisplay.src = photoUrl || 'img/default-avatar.png';
         }
+        
+        // --- RENDERIZADO DE LAS ESTADÍSTICAS ---
         if(this.elements.listsCountElement) this.elements.listsCountElement.textContent = totalLists;
         if(this.elements.reviewsCountElement) this.elements.reviewsCountElement.textContent = reviewsCount || 0;
+        if(this.elements.followersCountElement) this.elements.followersCountElement.textContent = followersCount || 0;
+        if(this.elements.followingCountElement) this.elements.followingCountElement.textContent = followingCount || 0;
     },
 
     openEditModal: function() {
@@ -216,7 +227,8 @@ ListopicApp.pageProfile = {
                 surnames: this.elements.editSurnamesInput.value.trim(),
                 location: this.elements.editLocationInput.value.trim(),
                 bio: this.elements.editBioInput.value.trim(),
-                photoUrl: newPhotoURL
+                photoUrl: newPhotoURL,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Buena práctica
             };
             
             const updatesForAuth = {
@@ -231,7 +243,7 @@ ListopicApp.pageProfile = {
             
             setTimeout(() => {
                 this.closeEditModal();
-                this.loadUserProfileData();
+                this.loadUserProfileData(); // Recargamos todos los datos
             }, 1500);
 
         } catch (error) {
@@ -242,13 +254,10 @@ ListopicApp.pageProfile = {
         }
     },
 
-    // --- OBTENER Y RENDERIZAR LISTAS ---
-    // Reemplaza esta función completa en page-profile.js
     fetchUserLists: async function(userIdToLoad) {
         if (!this.elements.myListsUl) return;
         this.elements.myListsUl.innerHTML = `<li class="loading-placeholder">Cargando listas...</li>`;
-        console.log(`LISTAS: Buscando listas para userId: '${userIdToLoad}'`);
-
+        
         const isOwnProfile = this.currentUser && this.currentUser.uid === userIdToLoad;
         let listsQuery = ListopicApp.services.db.collection('lists')
             .where('userId', '==', userIdToLoad);
@@ -262,8 +271,6 @@ ListopicApp.pageProfile = {
 
         try {
             const querySnapshot = await listsQuery.get();
-            
-            console.log(`LISTAS: Consulta finalizada. Se encontraron ${querySnapshot.size} listas.`);
             this.renderUserLists(querySnapshot.docs);
         } catch (error) {
             console.error(`page-profile: Error fetching lists:`, error);
@@ -271,24 +278,27 @@ ListopicApp.pageProfile = {
         }
     },
 
-    renderUserLists: function(listDocs) {
+    renderUserLists: async function(listDocs) {
         if (!this.elements.myListsUl) return;
         this.elements.myListsUl.innerHTML = '';
         if (listDocs.length === 0) {
-            this.elements.myListsUl.innerHTML = '<li>Este usuario aún no ha creado ninguna lista.</li>';
+            this.elements.myListsUl.innerHTML = '<li>Este usuario aún no ha creado ninguna lista visible.</li>';
             return;
         }
-        listDocs.forEach(doc => {
+
+        const uiUtils = ListopicApp.uiUtils;
+        for (const doc of listDocs) {
             const list = doc.data();
             const li = document.createElement('li');
-            li.className = 'profile-list-item'; // Usamos las clases que ya tienes en style.css
+            li.className = 'profile-list-item';
 
             const privacyIcon = list.isPublic ? 'fa-globe-americas' : 'fa-lock';
             const privacyText = list.isPublic ? 'Pública' : 'Privada';
+            const listIcon = await uiUtils.getListIcon(list);
 
             li.innerHTML = `
                 <a href="list-view.html?listId=${doc.id}">
-                    <strong class="profile-list-item-name">${ListopicApp.uiUtils.escapeHtml(list.name)}</strong>
+                    <strong class="profile-list-item-name"><i class="fas ${listIcon}" style="margin-right: 8px;"></i>${uiUtils.escapeHtml(list.name)}</strong>
                     <div class="profile-list-item-meta">
                         <span><i class="fas fa-pencil-alt"></i> ${list.reviewCount || 0} reseñas</span>
                         <span><i class="fas ${privacyIcon}"></i> ${privacyText}</span>
@@ -296,23 +306,21 @@ ListopicApp.pageProfile = {
                 </a>
             `;
             this.elements.myListsUl.appendChild(li);
-        });
+        }
     },
 
-    // --- OBTENER Y RENDERIZAR RESEÑAS ---
     fetchUserReviews: async function(userIdToLoad) {
         if (!this.elements.myReviewsUl) return;
         this.elements.myReviewsUl.innerHTML = `<li class="loading-placeholder">Cargando reseñas...</li>`;
-        console.log(`RESEÑAS: Buscando reseñas para userId: '${userIdToLoad}'`);
-
+        
         try {
+            // Usamos una collectionGroup query para buscar reseñas de este usuario en TODAS las listas
             const reviewsSnapshot = await ListopicApp.services.db.collectionGroup('reviews')
                 .where('userId', '==', userIdToLoad)
                 .orderBy('updatedAt', 'desc')
                 .limit(20)
                 .get();
             
-            console.log(`RESEÑAS: Consulta finalizada. Se encontraron ${reviewsSnapshot.size} reseñas.`);
             if (reviewsSnapshot.empty) {
                 this.renderUserReviews([]);
                 return;
@@ -321,7 +329,7 @@ ListopicApp.pageProfile = {
             const reviewsData = [];
             reviewsSnapshot.forEach(doc => reviewsData.push({ id: doc.id, ...doc.data() }));
 
-            // Enriquecer reseñas con datos de listas y lugares
+            // Obtenemos los datos de las listas y lugares para enriquecer las reseñas
             const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
             const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];
             
@@ -330,8 +338,8 @@ ListopicApp.pageProfile = {
             
             const [listDocs, placeDocs] = await Promise.all([Promise.all(listPromises), Promise.all(placePromises)]);
             
-            const listsMap = new Map(listDocs.map(doc => [doc.id, doc.data()]));
-            const placesMap = new Map(placeDocs.map(doc => [doc.id, doc.data()]));
+            const listsMap = new Map(listDocs.filter(d => d.exists).map(doc => [doc.id, doc.data()]));
+            const placesMap = new Map(placeDocs.filter(d => d.exists).map(doc => [doc.id, doc.data()]));
             
             const enrichedReviews = reviewsData.map(review => ({
                 ...review,
@@ -353,13 +361,14 @@ ListopicApp.pageProfile = {
             this.elements.myReviewsUl.innerHTML = '<li>Este usuario aún no ha escrito ninguna reseña.</li>';
             return;
         }
+        const uiUtils = ListopicApp.uiUtils;
         reviews.forEach(review => {
             const li = document.createElement('li');
             li.className = 'profile-review-item';
 
-            const establishmentText = ListopicApp.uiUtils.escapeHtml(review.establishmentName);
-            const itemText = review.itemName ? ` - ${ListopicApp.uiUtils.escapeHtml(review.itemName)}` : '';
-            const listNameText = `en lista: ${ListopicApp.uiUtils.escapeHtml(review.listName)}`;
+            const establishmentText = uiUtils.escapeHtml(review.establishmentName);
+            const itemText = review.itemName ? ` - ${uiUtils.escapeHtml(review.itemName)}` : '';
+            const listNameText = `en lista: ${uiUtils.escapeHtml(review.listName)}`;
             const rating = review.overallRating !== undefined ? `[${review.overallRating.toFixed(1)}]` : '';
 
             li.innerHTML = `
@@ -378,5 +387,4 @@ ListopicApp.pageProfile = {
     },
 };
 
-// Log de confirmación para saber si el archivo se ha parseado correctamente.
 console.log("page-profile.js: Script PARSEADO y EJECUTADO exitosamente.");
