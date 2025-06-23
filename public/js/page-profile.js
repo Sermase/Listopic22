@@ -46,33 +46,30 @@ ListopicApp.pageProfile = {
     isFollowing: false, // NUEVO
 
     init: function() {
-        console.log("page-profile.js: init -> INICIADO");
         this.cacheDOMElements();
-
         const urlParams = new URLSearchParams(window.location.search);
         const userIdFromUrl = urlParams.get('viewUserId');
 
-        // LOG 1: ¿Qué ID estamos obteniendo de la URL?
-        console.log(`[DEBUG] ID de usuario en la URL (userIdFromUrl): ${userIdFromUrl}`);
-
-        ListopicApp.authService.onAuthStateChangedPromise().then(user => {
-            this.currentUser = user;
-            if (!this.currentUser) {
+        // La función dentro del .then() ahora es ASÍNCRONA
+        ListopicApp.authService.onAuthStateChangedPromise().then(async (user) => {
+            if (!user) {
                 window.location.href = 'auth.html';
                 return;
             }
-            // LOG 2: ¿Qué ID estamos obteniendo de la URL?
-            console.log(`[DEBUG] ID de usuario en la URL (userIdFromUrl): ${userIdFromUrl}`);
+            this.currentUser = user;
             this.profileOwnerUserId = userIdFromUrl || this.currentUser.uid;
             
-            // LOG 3: ¿Qué ID de perfil se va a cargar?
-            console.log(`[DEBUG] ID de perfil que se cargará (profileOwnerUserId): ${this.profileOwnerUserId}`);
+            // PASO 1: ESPERAMOS a saber el estado de seguimiento (si no es nuestro perfil)
+            if (this.currentUser.uid !== this.profileOwnerUserId) {
+                await this.checkFollowStatus();
+            }
 
-
+            // PASO 2: AHORA SÍ, pintamos los botones con la información correcta.
+            this.updateProfileButtons(); 
+            
+            // PASO 3: Cargamos el resto de la información y activamos listeners.
             this.loadUserProfileData();
             this.attachEventListeners();
-            this.updateEditButtonVisibility();
-            this.checkFollowStatus(); // NUEVO
         });
     },
 
@@ -396,51 +393,52 @@ ListopicApp.pageProfile = {
     },
 
     fetchUserReviews: async function(userIdToLoad) {
-        if (!this.elements.myReviewsUl) return;
-        this.elements.myReviewsUl.innerHTML = `<li class="loading-placeholder">Cargando reseñas...</li>`;
+        const container = this.elements.myReviewsContainer;
+        if (!container) return;
+        container.innerHTML = `<p class="loading-placeholder">Buscando reseñas...</p>`;
         
         try {
-            // Usamos una collectionGroup query para buscar reseñas de este usuario en TODAS las listas
             const reviewsSnapshot = await ListopicApp.services.db.collectionGroup('reviews')
                 .where('userId', '==', userIdToLoad)
-                .orderBy('updatedAt', 'desc')
-                .limit(20)
-                .get();
-            
+                .orderBy('updatedAt', 'desc').limit(20).get();
+
             if (reviewsSnapshot.empty) {
                 this.renderUserReviews([]);
                 return;
             }
 
+            // --- Enriquecimiento de datos (MUY IMPORTANTE) ---
             const reviewsData = [];
             reviewsSnapshot.forEach(doc => reviewsData.push({ id: doc.id, ...doc.data() }));
 
-            // Obtenemos los datos de las listas y lugares para enriquecer las reseñas
             const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
             const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];
-            
+
             const listPromises = listIds.map(id => ListopicApp.services.db.collection('lists').doc(id).get());
             const placePromises = placeIds.map(id => ListopicApp.services.db.collection('places').doc(id).get());
             
             const [listDocs, placeDocs] = await Promise.all([Promise.all(listPromises), Promise.all(placePromises)]);
             
-            const listsMap = new Map(listDocs.filter(d => d.exists).map(doc => [doc.id, doc.data()]));
-            const placesMap = new Map(placeDocs.filter(d => d.exists).map(doc => [doc.id, doc.data()]));
+            const listsMap = new Map(listDocs.map(doc => [doc.id, doc.data()]));
+            const placesMap = new Map(placeDocs.map(doc => [doc.id, doc.data()]));
             
-            const enrichedReviews = reviewsData.map(review => ({
-                ...review,
-                listName: listsMap.get(review.listId)?.name || 'Lista Desconocida',
-                establishmentName: placesMap.get(review.placeId)?.name || 'Lugar Desconocido',
-            }));
+            const enrichedReviews = reviewsData.map(review => {
+                const listData = listsMap.get(review.listId);
+                return {
+                    ...review,
+                    listName: listData?.name || 'Lista Desconocida',
+                    criteriaDefinition: listData?.criteriaDefinition || {}, // <-- Pasamos la definición
+                    establishmentName: placesMap.get(review.placeId)?.name || 'Lugar Desconocido',
+                };
+            });
             
             this.renderUserReviews(enrichedReviews);
         } catch (error) {
             console.error(`page-profile: Error fetching reviews:`, error);
-            this.elements.myReviewsUl.innerHTML = '<li class="error-placeholder">Error al cargar las reseñas.</li>';
+            container.innerHTML = '<p class="error-placeholder">Error al cargar las reseñas.</p>';
         }
     },
 
-    // REEMPLAZA LA FUNCIÓN renderUserReviews EXISTENTE CON ESTA:
     renderUserReviews: function(reviews) {
         const container = this.elements.myReviewsContainer;
         if (!container) return;
@@ -451,38 +449,11 @@ ListopicApp.pageProfile = {
             return;
         }
 
-        const uiUtils = ListopicApp.uiUtils;
-        reviews.forEach(review => {
-            const establishmentText = uiUtils.escapeHtml(review.establishmentName);
-            const itemText = review.itemName ? ` - ${uiUtils.escapeHtml(review.itemName)}` : '';
-            const listNameText = uiUtils.escapeHtml(review.listName);
-            const ratingText = review.overallRating !== undefined ? `${review.overallRating.toFixed(1)}` : 'N/A';
-            const imageUrl = review.photoUrl || '/img/default-avatar.png';
-            const detailUrl = `detail-view.html?listId=${review.listId}&id=${review.id}`;
-            const listUrl = `list-view.html?listId=${review.listId}`;
-
-            const card = document.createElement('div');
-            card.className = 'profile-review-card';
-            card.innerHTML = `
-                <img src="${imageUrl}" alt="Foto de ${establishmentText}" class="profile-review-card__image" onerror="this.src='/img/default-avatar.png'">
-                <div class="profile-review-card__content">
-                    <h4 class="profile-review-card__title">
-                        <a href="${detailUrl}">${establishmentText}${itemText}</a>
-                    </h4>
-                    <div class="profile-review-card__meta">
-                        <a href="${listUrl}" class="info-tag info-tag--list">
-                            <i class="fas fa-list"></i>
-                            <span>${listNameText}</span>
-                        </a>
-                        <a href="${detailUrl}" class="info-tag info-tag--rating">
-                            <i class="fas fa-star"></i>
-                            <span>${ratingText}</span>
-                        </a>
-                    </div>
-                </div>
-            `;
-            container.appendChild(card);
-        });
+        // ANTES: Tenía su propia lógica de renderizado.
+        // AHORA: Simplemente llama a la función centralizada. ¡Qué limpio!
+        container.innerHTML = reviews.map(review => 
+            ListopicApp.uiUtils.renderReviewSuperCard(review)
+        ).join('');
     }
 };
 

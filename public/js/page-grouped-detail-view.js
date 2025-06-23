@@ -162,22 +162,24 @@ ListopicApp.pageGroupedDetailView = (() => {
             
             const individualReviews = [];
             reviewsSnapshot.forEach(doc => {
-                individualReviews.push({ id: doc.id, ...doc.data() });
+                individualReviews.push({ 
+                    id: doc.id,
+                    establishmentName: placeData.name,
+                    listName: listData.name, // Añadimos el nombre de la lista
+                    criteriaDefinition: listData.criteriaDefinition, // <-- AÑADIMOS LA DEFINICIÓN DE CRITERIOS
+                    ...doc.data() 
+                });
             });
 
             if (individualReviewsListEl) {
                 if (individualReviews.length > 0) {
+                    // ANTES: Tenía su propia función de renderizado.
+                    // AHORA: Llama a la función centralizada en uiUtils.
                     individualReviewsListEl.innerHTML = individualReviews.map(review =>
-                        renderIndividualReviewCard(review, state.currentGroupDetailListId, placeData)
+                        ListopicApp.uiUtils.renderReviewSuperCard(review)
                     ).join('');
-                     individualReviewsListEl.querySelectorAll('.review-card-image[data-lightbox-index]').forEach(img => {
-                        img.addEventListener('click', (e) => {
-                            const index = parseInt(e.target.dataset.lightboxIndex);
-                            if (!isNaN(index)) openLightbox(index);
-                        });
-                    });
                 } else {
-                    individualReviewsListEl.innerHTML = '<p>No hay reseñas individuales para este ítem específico en este lugar y lista.</p>';
+                    individualReviewsListEl.innerHTML = '<p>No hay reseñas individuales para este ítem.</p>';
                 }
             }
 
