@@ -172,6 +172,99 @@ ListopicApp.uiUtils = {
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     },
 
+    // ==========================================================
+    // === NUEVA FUNCIÓN CENTRALIZADA: REVIEW SUPER CARD ========
+    // ==========================================================
+    renderReviewSuperCard: function(review) {
+        // Asumimos que el objeto 'review' ya viene "enriquecido" con los datos necesarios
+        const uiUtils = this; // Para usar escapeHtml dentro de esta función
+
+        // --- Preparación de datos con valores por defecto ---
+        const reviewDate = review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha desconocida';
+        const placeName = review.establishmentName || 'Lugar no especificado';
+        const itemName = review.itemName || 'Valoración General';
+        const listName = review.listName || 'Lista Desconocida';
+        const overallRating = (review.overallRating || 0).toFixed(1);
+        const detailUrl = `detail-view.html?id=${review.id}&listId=${review.listId}`;
+        const listUrl = `list-view.html?listId=${review.listId}`;
+
+        // --- Construcción de la sección de Criterios ---
+        let criteriaHtml = '<p><em>No hay valoraciones detalladas.</em></p>';
+        // La página que llama a esta función deberá asegurarse de que review.criteriaDefinition existe.
+        if (review.scores && review.criteriaDefinition && Object.keys(review.criteriaDefinition).length > 0) {
+            const criteriaItems = Object.entries(review.criteriaDefinition)
+                .map(([critKey, critDef]) => {
+                    const score = review.scores[critKey];
+                    if (score === undefined) return '';
+                    return `<li><span class="label">${uiUtils.escapeHtml(critDef.label)}</span> <span class="value">${parseFloat(score).toFixed(1)}</span></li>`;
+                })
+                .join('');
+            if (criteriaItems) {
+                criteriaHtml = `<ul class="criteria-list-condensed">${criteriaItems}</ul>`;
+            }
+        }
+        
+        // --- Construcción de la sección de Comentario ---
+        let commentHtml = '<p class="comment-snippet"><em>Sin comentario.</em></p>';
+        if (review.comment) {
+            const snippet = review.comment.length > 150 ? uiUtils.escapeHtml(review.comment.substring(0, 150)) + '...' : uiUtils.escapeHtml(review.comment);
+            commentHtml = `<p class="comment-snippet">${snippet}</p>`;
+        }
+
+        // --- Construcción de la sección de Tags ---
+        let tagsHtml = '<em>No hay etiquetas.</em>';
+        if (review.userTags && review.userTags.length > 0) {
+            tagsHtml = review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('');
+        }
+        
+        // --- Construcción del Placeholder de Imagen ---
+        let imageHtml;
+        if (review.photoUrl) {
+            imageHtml = `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(itemName)}" class="review-super-card__image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                         <div class="review-super-card__icon-placeholder" style="display:none;"><i class="fas fa-utensils"></i></div>`;
+        } else {
+            imageHtml = `<div class="review-super-card__icon-placeholder"><i class="fas fa-utensils"></i></div>`;
+        }
+
+        return `
+            <article class="review-super-card">
+                <header class="review-super-card__header">
+                    <div class="review-super-card__title-group">
+                        <h4 class="review-super-card__title">${uiUtils.escapeHtml(itemName)}</h4>
+                        <p class="review-super-card__subtitle">en <strong>${uiUtils.escapeHtml(placeName)}</strong> &middot; <a href="${listUrl}" class="subtle-link">${uiUtils.escapeHtml(listName)}</a></p>
+                    </div>
+                    <div class="review-super-card__score">
+                        <span class="score-value">${overallRating}</span>
+                        <span class="score-label">General</span>
+                    </div>
+                </header>
+                <div class="review-super-card__body">
+                    <div class="review-super-card__image-container">
+                        ${imageHtml}
+                    </div>
+                    <div class="review-super-card__main-content">
+                        <section class="review-super-card__section">
+                            <h5>Valoraciones</h5>
+                            ${criteriaHtml}
+                        </section>
+                        <section class="review-super-card__section">
+                            <h5>Comentario</h5>
+                            ${commentHtml}
+                        </section>
+                        <section class="review-super-card__section">
+                            <h5>Etiquetas</h5>
+                            <div class="tags-container">${tagsHtml}</div>
+                        </section>
+                    </div>
+                </div>
+                <footer class="review-super-card__footer">
+                    <span>Publicado el ${reviewDate}</span>
+                    <a href="${detailUrl}" class="button button-link secondary-button">Ver / Editar</a>
+                </footer>
+            </article>
+        `;
+    },
+
     updatePageHeaderInfo: function(categoryName = "Hmm...", listName = null) {
         const categoryEl = document.getElementById('page-category-name');
         const separatorEl = document.getElementById('page-list-name-separator');

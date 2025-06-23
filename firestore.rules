@@ -6,13 +6,24 @@ service cloud.firestore {
     // REGLAS PARA USUARIOS (`users`)
     // ===============================================
     match /users/{userId} {
+      // Cualquiera puede leer un perfil público.
       allow read: if true;
+      // Un usuario solo puede crear su propio documento.
       allow create: if request.auth != null && request.auth.uid == userId;
+      // Un usuario solo puede actualizar o borrar su propio documento.
       allow update, delete: if request.auth != null && request.auth.uid == userId;
 
+      // Un usuario solo puede modificar su propia lista de 'siguiendo'.
       match /following/{followId} {
         allow read: if request.auth != null;
         allow create, delete: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Un usuario solo puede leer su lista de 'seguidores'. Nadie más.
+      match /followers/{followerId} {
+        allow read, list: if request.auth != null && request.auth.uid == userId;
+        // La creación y borrado de esta subcolección se gestiona por la Cloud Function.
+        allow write: if false; 
       }
     }
 
@@ -20,21 +31,29 @@ service cloud.firestore {
     // REGLAS PARA LISTAS (`lists`)
     // ===============================================
     match /lists/{listId} {
+      // Se puede leer si es pública, o si eres el dueño.
       allow read: if resource.data.isPublic == true || (request.auth != null && resource.data.userId == request.auth.uid);
+      // Solo puedes crear listas para ti mismo.
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Solo el dueño puede actualizar o borrar la lista.
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
 
+      // Reglas para subcolecciones de una lista
       match /reviews/{reviewId} {
+        // Se pueden leer las reseñas si la lista es pública o eres el dueño.
         allow read: if get(/databases/$(database)/documents/lists/$(listId)).data.isPublic == true ||
                       (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
+        // Solo puedes crear reseñas para ti mismo.
         allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        // Solo el dueño de la reseña puede modificarla o borrarla.
         allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
       }
       
       match /comments/{commentId} {
         allow read: if true;
         allow create: if request.auth != null;
-        allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+        // Solo el autor del comentario o el dueño de la lista pueden moderar.
+        allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
       }
     }
 
@@ -43,58 +62,50 @@ service cloud.firestore {
     // ===============================================
     match /places/{placeId} {
       allow read: if true;
-      allow create: if request.auth != null && request.resource.data.createdByUserId == request.auth.uid;
+      // Cualquiera autenticado puede crear un lugar nuevo.
+      allow create: if request.auth != null;
+      // Cualquiera autenticado puede actualizar un lugar (ej. para añadir un placeId de Google).
       allow update: if request.auth != null;
+      // Nadie puede borrar lugares para mantener la integridad de los datos.
       allow delete: if false; 
     }
 
     // ===============================================
-    // REGLAS PARA INSIGNIAS (`badges`)
+    // REGLAS PARA INSIGNIAS Y CATEGORÍAS (Solo lectura)
     // ===============================================
     match /badges/{badgeId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // ===============================================
-    // REGLA PARA CONSULTAS DE GRUPO (`collectionGroup`)
-    // ===============================================
-    match /{path=**}/reviews/{reviewId} {
-      // ***** CORRECCIÓN USANDO LISTID DEL DOCUMENTO *****
-      // Permitir leer reseñas si:
-      // 1. El usuario está autenticado Y es el dueño de la reseña
-      // 2. O si la lista asociada (usando resource.data.listId) es pública
-      allow read: if request.auth != null && (
-        resource.data.userId == request.auth.uid ||
-        get(/databases/$(database)/documents/lists/$(resource.data.listId)).data.isPublic == true
-      );
-      // ***** FIN DE LA CORRECCIÓN *****
-    }
-    
-    // ===============================================
-    // REGLA PARA CONSULTAS DE CATEGORIES
-    // ===============================================
     match /categories/{categoryId} {
       allow read: if true;
       allow write: if false;
     }
     
-		// ===============================================
-    // FORUM RULES
-		// ===============================================
-      match /listForums/{listId} {
+    // ===============================================
+    // REGLA PARA CONSULTAS DE GRUPO (`collectionGroup`)
+    // ===============================================
+    // Esta es la regla clave que permite a la página de perfil
+    // obtener todas las reseñas de un usuario.
+    match /{path=**}/reviews/{reviewId} {
+      // Permite a cualquier usuario autenticado LISTAR y OBTENER reseñas.
+      // Es necesario para la consulta `collectionGroup('reviews').where('userId', '==', ...)`.
+      allow list, get: if request.auth != null;
+    }
+    
+    // ===============================================
+    // FORUM RULES (Tus reglas, sin cambios)
+    // ===============================================
+    match /listForums/{listId} {
       allow create: if request.auth != null;
       allow read: if true;
       
       match /messages/{messageId} {
         allow create: if request.auth != null;
-        allow update: if request.auth != null &&                       
-                      (request.auth.uid == resource.data.userId || 
-                       request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.userId);
+        allow update: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.userId);
         allow read: if true;
-        allow delete: if request.auth != null && 
-                      (request.auth.uid == resource.data.userId || 
-                       request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.userId);
+        allow delete: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.userId);
       }
     }
   }

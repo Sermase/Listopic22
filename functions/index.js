@@ -6,8 +6,8 @@ const admin = require("firebase-admin");
 const cors = require("cors")({origin: true});
 const fetch = require("node-fetch");
 const {onDocumentWritten} = require("firebase-functions/v2/firestore");
-const {initializeApp} = require("firebase-admin/app"); // Si no lo tienes ya
-const {getFirestore, FieldValue} = require("firebase-admin/firestore"); // Para FieldValue
+const {initializeApp} = require("firebase-admin/app");
+const {getFirestore, FieldValue} = require("firebase-admin/firestore");
 
 
 if (admin.apps.length === 0) {
@@ -678,4 +678,58 @@ exports.updateAggregatesOnCommentChange = onDocumentWritten("lists/{listId}/comm
   } catch(error) {
       logger.error("Error actualizando contadores de comentarios:", error);
   }
+});
+
+
+exports.toggleFollowUser = onCall(async (request) => {
+    const contextAuth = request.auth;
+    if (!contextAuth) {
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado para seguir a otros usuarios.');
+    }
+
+    const currentUserId = contextAuth.uid;
+    const userIdToFollow = request.data.userIdToFollow;
+
+    if (!userIdToFollow) {
+        throw new HttpsError('invalid-argument', 'Se requiere el ID del usuario a seguir (userIdToFollow).');
+    }
+
+    if (currentUserId === userIdToFollow) {
+        throw new HttpsError('invalid-argument', 'No te puedes seguir a ti mismo, genio.');
+    }
+
+    const currentUserRef = db.collection('users').doc(currentUserId);
+    const userToFollowRef = db.collection('users').doc(userIdToFollow);
+    const followingRef = currentUserRef.collection('following').doc(userIdToFollow);
+    const followerRef = userToFollowRef.collection('followers').doc(currentUserId);
+
+    try {
+        const doc = await followingRef.get();
+        const batch = db.batch();
+
+        if (doc.exists) {
+            // --- Lógica para DEJAR DE SEGUIR ---
+            batch.delete(followingRef);
+            batch.delete(followerRef);
+            batch.update(currentUserRef, { followingCount: FieldValue.increment(-1) });
+            batch.update(userToFollowRef, { followersCount: FieldValue.increment(-1) });
+            
+            await batch.commit();
+            logger.info(`Usuario ${currentUserId} ha dejado de seguir a ${userIdToFollow}.`);
+            return { status: 'unfollowed', message: 'Has dejado de seguir a este usuario.' };
+        } else {
+            // --- Lógica para SEGUIR ---
+            batch.set(followingRef, { followedAt: FieldValue.serverTimestamp() });
+            batch.set(followerRef, { followedAt: FieldValue.serverTimestamp() });
+            batch.update(currentUserRef, { followingCount: FieldValue.increment(1) });
+            batch.update(userToFollowRef, { followersCount: FieldValue.increment(1) });
+
+            await batch.commit();
+            logger.info(`Usuario ${currentUserId} ahora sigue a ${userIdToFollow}.`);
+            return { status: 'followed', message: 'Ahora sigues a este usuario.' };
+        }
+    } catch (error) {
+        logger.error(`Error en toggleFollowUser para ${currentUserId} -> ${userIdToFollow}:`, error);
+        throw new HttpsError('internal', 'Ocurrió un error al procesar la solicitud.');
+    }
 });
