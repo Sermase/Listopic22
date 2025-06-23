@@ -173,51 +173,68 @@ ListopicApp.uiUtils = {
     },
 
     // ==========================================================
-    // === NUEVA FUNCIÓN CENTRALIZADA: REVIEW SUPER CARD ========
+    // === FUNCIÓN CENTRALIZADA: SUPER TARJETA RESEÑA v2.0 =====
     // ==========================================================
     renderReviewSuperCard: function(review) {
-        // Asumimos que el objeto 'review' ya viene "enriquecido" con los datos necesarios
-        const uiUtils = this; // Para usar escapeHtml dentro de esta función
+        const uiUtils = this;
 
-        // --- Preparación de datos con valores por defecto ---
-        const reviewDate = review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha desconocida';
+        // --- Preparación de Datos ---
+        const creationDate = review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString('es-ES') : 'Fecha desconocida';
         const placeName = review.establishmentName || 'Lugar no especificado';
+        const placeAddress = review.placeAddress || '';
+        const placeAddressUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeAddress)}`;
         const itemName = review.itemName || 'Valoración General';
         const listName = review.listName || 'Lista Desconocida';
         const overallRating = (review.overallRating || 0).toFixed(1);
         const detailUrl = `detail-view.html?id=${review.id}&listId=${review.listId}`;
         const listUrl = `list-view.html?listId=${review.listId}`;
 
-        // --- Construcción de la sección de Criterios ---
+        // Helper para el color de las barras de notas
+        const getRatingColor = (rating) => {
+            if (rating >= 8) return '#06D6A0'; // Verde (terciario)
+            if (rating >= 6) return '#FFD166'; // Amarillo (primario)
+            if (rating >= 4) return '#118AB2'; // Azul (cuaternario)
+            return '#f56ead'; // Rosa/Rojo (secundario)
+        };
+
+        // --- Construcción de la sección de Criterios con BARRAS DE COLORES ---
         let criteriaHtml = '<p><em>No hay valoraciones detalladas.</em></p>';
-        // La página que llama a esta función deberá asegurarse de que review.criteriaDefinition existe.
         if (review.scores && review.criteriaDefinition && Object.keys(review.criteriaDefinition).length > 0) {
             const criteriaItems = Object.entries(review.criteriaDefinition)
                 .map(([critKey, critDef]) => {
                     const score = review.scores[critKey];
                     if (score === undefined) return '';
-                    return `<li><span class="label">${uiUtils.escapeHtml(critDef.label)}</span> <span class="value">${parseFloat(score).toFixed(1)}</span></li>`;
-                })
-                .join('');
+                    const score10 = parseFloat(score).toFixed(1);
+                    const widthPercent = (score10 / 10) * 100;
+                    const barColor = getRatingColor(score10);
+                    return `
+                        <div class="criteria-bar">
+                            <div class="criteria-bar__label" title="${uiUtils.escapeHtml(critDef.label)}">${uiUtils.escapeHtml(critDef.label)}</div>
+                            <div class="criteria-bar__viz">
+                                <div class="criteria-bar__bg">
+                                    <div class="criteria-bar__fill" style="width: ${widthPercent}%; background-color: ${barColor};"></div>
+                                </div>
+                                <div class="criteria-bar__value" style="color: ${barColor};">${score10}</div>
+                            </div>
+                        </div>`;
+                }).join('');
             if (criteriaItems) {
-                criteriaHtml = `<ul class="criteria-list-condensed">${criteriaItems}</ul>`;
+                criteriaHtml = `<div class="criteria-bars-list">${criteriaItems}</div>`;
             }
         }
         
-        // --- Construcción de la sección de Comentario ---
-        let commentHtml = '<p class="comment-snippet"><em>Sin comentario.</em></p>';
+        // --- (Comentario y Tags sin cambios en la lógica) ---
+        let commentHtml = '<em>Sin comentario.</em>';
         if (review.comment) {
-            const snippet = review.comment.length > 150 ? uiUtils.escapeHtml(review.comment.substring(0, 150)) + '...' : uiUtils.escapeHtml(review.comment);
+            const snippet = review.comment.length > 120 ? uiUtils.escapeHtml(review.comment.substring(0, 120)) + '...' : uiUtils.escapeHtml(review.comment);
             commentHtml = `<p class="comment-snippet">${snippet}</p>`;
         }
-
-        // --- Construcción de la sección de Tags ---
         let tagsHtml = '<em>No hay etiquetas.</em>';
         if (review.userTags && review.userTags.length > 0) {
             tagsHtml = review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('');
         }
         
-        // --- Construcción del Placeholder de Imagen ---
+        // --- (Imagen/Icono sin cambios en la lógica) ---
         let imageHtml;
         if (review.photoUrl) {
             imageHtml = `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(itemName)}" class="review-super-card__image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -226,12 +243,15 @@ ListopicApp.uiUtils = {
             imageHtml = `<div class="review-super-card__icon-placeholder"><i class="fas fa-utensils"></i></div>`;
         }
 
+        // --- Ensamblado Final con toda la tarjeta clicable ---
         return `
-            <article class="review-super-card">
+            <article class="review-super-card" onclick="event.stopPropagation(); window.location.href='${detailUrl}';">
                 <header class="review-super-card__header">
                     <div class="review-super-card__title-group">
                         <h4 class="review-super-card__title">${uiUtils.escapeHtml(itemName)}</h4>
-                        <p class="review-super-card__subtitle">en <strong>${uiUtils.escapeHtml(placeName)}</strong> &middot; <a href="${listUrl}" class="subtle-link">${uiUtils.escapeHtml(listName)}</a></p>
+                        <p class="review-super-card__subtitle">
+                            en <strong>${uiUtils.escapeHtml(placeName)}</strong> &middot; ${creationDate}
+                        </p>
                     </div>
                     <div class="review-super-card__score">
                         <span class="score-value">${overallRating}</span>
@@ -243,23 +263,18 @@ ListopicApp.uiUtils = {
                         ${imageHtml}
                     </div>
                     <div class="review-super-card__main-content">
-                        <section class="review-super-card__section">
-                            <h5>Valoraciones</h5>
-                            ${criteriaHtml}
-                        </section>
+                        ${criteriaHtml}
                         <section class="review-super-card__section">
                             <h5>Comentario</h5>
                             ${commentHtml}
                         </section>
-                        <section class="review-super-card__section">
-                            <h5>Etiquetas</h5>
-                            <div class="tags-container">${tagsHtml}</div>
-                        </section>
                     </div>
                 </div>
                 <footer class="review-super-card__footer">
-                    <span>Publicado el ${reviewDate}</span>
-                    <a href="${detailUrl}" class="button button-link secondary-button">Ver / Editar</a>
+                    <a href="${placeAddressUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="address-link">
+                        <i class="fas fa-map-marker-alt"></i> ${uiUtils.escapeHtml(placeAddress)}
+                    </a>
+                    <div class="tags-container">${tagsHtml}</div>
                 </footer>
             </article>
         `;
