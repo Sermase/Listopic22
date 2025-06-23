@@ -3995,3 +3995,226 @@ body.light-theme #photo-edit-controls {
     opacity: 1;
 }
 
+#follow-unfollow-btn.secondary-button {
+    background-color: var(--accent-color-tertiary); /* Un verde para indicar "activo" */
+    color: var(--main-button-text);
+}
+
+#follow-unfollow-btn.secondary-button:hover {
+    background-color: #05a984; /* Un verde más oscuro */
+}
+
+/* ============================================= */
+/* === Componente: Tarjeta de Reseña Perfil === */
+/* ============================================= */
+.profile-review-card {
+    background-color: var(--container-bg-secondary);
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: var(--border-radius-medium);
+    border: 1px solid var(--border-color-light);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    display: flex;
+    gap: 15px;
+    text-align: left;
+}
+
+.profile-review-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-elevation-medium);
+}
+
+.profile-review-card__image {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: var(--border-radius-small);
+    background-color: var(--icon-placeholder-bg);
+}
+
+.profile-review-card__content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-review-card__title {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--title-color);
+}
+
+.profile-review-card__title a {
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.2s ease;
+}
+
+.profile-review-card__title a:hover {
+    color: var(--accent-color-primary);
+}
+
+.profile-review-card__meta {
+    margin-top: auto; /* Empuja las meta-tags hacia abajo */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* =================================== */
+/* === Componente: Info Tag Global === */
+/* =================================== */
+.info-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: rgba(var(--accent-color-primary-rgb), 0.1);
+    color: var(--secondary-text-color);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 500;
+    line-height: 1.4;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+
+.info-tag:hover {
+    background-color: rgba(var(--accent-color-primary-rgb), 0.2);
+}
+
+.info-tag i {
+    opacity: 0.8;
+}
+
+.info-tag--list {
+    background-color: rgba(var(--accent-color-secondary-rgb), 0.15);
+    color: var(--accent-color-secondary);
+}
+.info-tag--rating {
+    background-color: rgba(var(--accent-color-tertiary-rgb), 0.15);
+    color: var(--accent-color-tertiary);
+    font-weight: bold;
+}
+.info-tag--rating .fa-star {
+    color: var(--accent-color-primary);
+}
+
+/* ============================================= */
+/* === Componente: Tarjeta de Reseña Perfil === */
+/* ============================================= */
+#my-reviews-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.profile-review-card {
+    background-color: var(--container-bg-secondary);
+    padding: 15px;
+    border-radius: var(--border-radius-medium);
+    border: 1px solid var(--border-color-light);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    display: flex;
+    gap: 15px;
+    text-align: left;
+}
+
+.profile-review-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-elevation-medium);
+}
+
+.profile-review-card__image {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: var(--border-radius-small);
+    background-color: var(--icon-placeholder-bg);
+}
+
+.profile-review-card__content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-review-card__title {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--title-color);
+}
+
+.profile-review-card__title a {
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.2s ease;
+}
+
+.profile-review-card__title a:hover {
+    color: var(--accent-color-primary);
+}
+
+.profile-review-card__meta {
+    margin-top: auto; /* Empuja las meta-tags hacia abajo */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* =================================== */
+/* === Componente: Info Tag Global === */
+/* =================================== */
+.info-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: rgba(var(--accent-color-primary-rgb), 0.1);
+    color: var(--secondary-text-color);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 500;
+    line-height: 1.4;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.info-tag:hover {
+    background-color: rgba(var(--accent-color-primary-rgb), 0.2);
+    transform: translateY(-1px);
+}
+
+.info-tag i {
+    opacity: 0.8;
+}
+
+.info-tag--list {
+    background-color: rgba(var(--accent-color-secondary-rgb), 0.15);
+    color: var(--accent-color-secondary);
+}
+.info-tag--rating {
+    background-color: rgba(var(--accent-color-tertiary-rgb), 0.15);
+    color: var(--accent-color-tertiary);
+    font-weight: bold;
+}
+.info-tag--rating .fa-star {
+    color: var(--accent-color-primary);
+}
+
+body.light-theme .profile-review-card {
+    background-color: #FFFFFF;
+}
+
+body.light-theme .info-tag {
+    background-color: rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.1);
+}
+body.light-theme .info-tag:hover {
+    background-color: rgba(0,0,0,0.1);
+}

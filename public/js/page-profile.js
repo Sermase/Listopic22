@@ -16,8 +16,9 @@ ListopicApp.pageProfile = {
         followersCountElement: null,
         followingCountElement: null,
         myListsUl: null,
-        myReviewsUl: null,
+        myReviewsContainer: null,
         openEditModalBtn: null,
+        followUnfollowBtn: null, // NUEVO
         profileMessageArea: null,
         
         // --- Elementos del Modal ---
@@ -42,6 +43,7 @@ ListopicApp.pageProfile = {
     profileOwnerUserId: null,
     profileData: null, // Guardaremos los datos del perfil aquí
     selectedPhotoFile: null,
+    isFollowing: false, // NUEVO
 
     init: function() {
         console.log("page-profile.js: init -> INICIADO");
@@ -50,17 +52,27 @@ ListopicApp.pageProfile = {
         const urlParams = new URLSearchParams(window.location.search);
         const userIdFromUrl = urlParams.get('viewUserId');
 
+        // LOG 1: ¿Qué ID estamos obteniendo de la URL?
+        console.log(`[DEBUG] ID de usuario en la URL (userIdFromUrl): ${userIdFromUrl}`);
+
         ListopicApp.authService.onAuthStateChangedPromise().then(user => {
             this.currentUser = user;
             if (!this.currentUser) {
                 window.location.href = 'auth.html';
                 return;
             }
+            // LOG 2: ¿Qué ID estamos obteniendo de la URL?
+            console.log(`[DEBUG] ID de usuario en la URL (userIdFromUrl): ${userIdFromUrl}`);
             this.profileOwnerUserId = userIdFromUrl || this.currentUser.uid;
             
+            // LOG 3: ¿Qué ID de perfil se va a cargar?
+            console.log(`[DEBUG] ID de perfil que se cargará (profileOwnerUserId): ${this.profileOwnerUserId}`);
+
+
             this.loadUserProfileData();
             this.attachEventListeners();
             this.updateEditButtonVisibility();
+            this.checkFollowStatus(); // NUEVO
         });
     },
 
@@ -72,8 +84,9 @@ ListopicApp.pageProfile = {
         this.elements.bioDisplayElement = document.getElementById('profile-bio-display');
         this.elements.locationDisplayElement = document.getElementById('profile-location-display');
         this.elements.myListsUl = document.getElementById('my-lists-ul');
-        this.elements.myReviewsUl = document.getElementById('my-reviews-ul');
+        this.elements.myReviewsContainer = document.getElementById('my-reviews-container'); // MODIFICADO
         this.elements.openEditModalBtn = document.getElementById('open-edit-profile-modal-btn');
+        this.elements.followUnfollowBtn = document.getElementById('follow-unfollow-btn'); // NUEVO
         this.elements.profileMessageArea = document.getElementById('profile-message-area');
         
         // --- CACHE DE LOS NUEVOS ELEMENTOS DE ESTADÍSTICAS ---
@@ -104,8 +117,24 @@ ListopicApp.pageProfile = {
         }
     },
 
+    updateProfileButtons: function() {
+        // --- LÓGICA DE DEPURACIÓN ---
+        // Forzamos ambos botones a ser visibles para ver si el problema es de la lógica o del renderizado.
+        console.log("[DEBUG] Forzando botones a ser visibles para depuración.");
+        const isOwnProfile = this.currentUser && this.currentUser.uid === this.profileOwnerUserId;
+        
+        if (this.elements.openEditModalBtn) {
+            this.elements.openEditModalBtn.style.display = isOwnProfile ? 'inline-block' : 'none';
+        }
+        if (this.elements.followUnfollowBtn) {
+            this.elements.followUnfollowBtn.style.display = isOwnProfile ? 'none' : 'inline-block';
+        }
+        // Cuando confirmemos que aparecen, volveremos a la lógica original.
+    },
+
     attachEventListeners: function() {
         this.elements.openEditModalBtn?.addEventListener('click', () => this.openEditModal());
+        this.elements.followUnfollowBtn?.addEventListener('click', () => this.handleFollowToggle()); // NUEVO
         this.elements.closeEditModalBtn?.addEventListener('click', () => this.closeEditModal());
         this.elements.editProfileModal?.addEventListener('click', (event) => {
             if (event.target === this.elements.editProfileModal) {
@@ -128,6 +157,63 @@ ListopicApp.pageProfile = {
             this.selectedPhotoFile = null;
             this.showImagePreview(event.target.value);
         });
+    },
+
+    checkFollowStatus: async function() {
+        if (this.currentUser.uid === this.profileOwnerUserId) return; // No necesitamos comprobar si es nuestro perfil
+        const db = ListopicApp.services.db;
+        const followDocRef = db.collection('users').doc(this.currentUser.uid).collection('following').doc(this.profileOwnerUserId);
+        try {
+            const doc = await followDocRef.get();
+            this.isFollowing = doc.exists;
+            this.updateFollowButtonUI();
+        } catch (error) {
+            console.error("Error al comprobar el estado de seguimiento:", error);
+        }
+    },
+    
+    updateFollowButtonUI: function() {
+        const btn = this.elements.followUnfollowBtn;
+        if (!btn) return;
+
+        if (this.isFollowing) {
+            btn.innerHTML = `<i class="fas fa-user-check"></i> Siguiendo`;
+            btn.classList.remove('primary-button');
+            btn.classList.add('secondary-button'); // O un estilo "activo" que prefieras
+        } else {
+            btn.innerHTML = `<i class="fas fa-user-plus"></i> Seguir`;
+            btn.classList.remove('secondary-button');
+            btn.classList.add('primary-button');
+        }
+    },
+
+    handleFollowToggle: async function() {
+        const btn = this.elements.followUnfollowBtn;
+        if (!btn) return;
+        btn.disabled = true;
+        
+        try {
+            const functions = firebase.app().functions('europe-west1');
+            const toggleFollow = functions.httpsCallable('toggleFollowUser');
+            const result = await toggleFollow({ userIdToFollow: this.profileOwnerUserId });
+
+            // Actualizar estado y UI localmente para feedback instantáneo
+            this.isFollowing = result.data.status === 'followed';
+            this.updateFollowButtonUI();
+
+            // Actualizar contador de seguidores en la página
+            const followersCountEl = this.elements.followersCountElement;
+            let currentFollowers = parseInt(followersCountEl.textContent, 10);
+            followersCountEl.textContent = this.isFollowing ? currentFollowers + 1 : currentFollowers - 1;
+
+            ListopicApp.services.showNotification(result.data.message, 'success');
+
+        } catch (error) {
+            console.error("Error al seguir/dejar de seguir:", error);
+            ListopicApp.services.showNotification(`Error: ${error.message}`, 'error');
+        } finally {
+            btn.disabled = false;
+        }
     },
 
     loadUserProfileData: async function() {
@@ -354,37 +440,50 @@ ListopicApp.pageProfile = {
         }
     },
 
+    // REEMPLAZA LA FUNCIÓN renderUserReviews EXISTENTE CON ESTA:
     renderUserReviews: function(reviews) {
-        if (!this.elements.myReviewsUl) return;
-        this.elements.myReviewsUl.innerHTML = '';
+        const container = this.elements.myReviewsContainer;
+        if (!container) return;
+        
+        container.innerHTML = '';
         if (reviews.length === 0) {
-            this.elements.myReviewsUl.innerHTML = '<li>Este usuario aún no ha escrito ninguna reseña.</li>';
+            container.innerHTML = '<p>Este usuario aún no ha escrito ninguna reseña.</p>';
             return;
         }
+
         const uiUtils = ListopicApp.uiUtils;
         reviews.forEach(review => {
-            const li = document.createElement('li');
-            li.className = 'profile-review-item';
-
             const establishmentText = uiUtils.escapeHtml(review.establishmentName);
             const itemText = review.itemName ? ` - ${uiUtils.escapeHtml(review.itemName)}` : '';
-            const listNameText = `en lista: ${uiUtils.escapeHtml(review.listName)}`;
-            const rating = review.overallRating !== undefined ? `[${review.overallRating.toFixed(1)}]` : '';
+            const listNameText = uiUtils.escapeHtml(review.listName);
+            const ratingText = review.overallRating !== undefined ? `${review.overallRating.toFixed(1)}` : 'N/A';
+            const imageUrl = review.photoUrl || '/img/default-avatar.png';
+            const detailUrl = `detail-view.html?listId=${review.listId}&id=${review.id}`;
+            const listUrl = `list-view.html?listId=${review.listId}`;
 
-            li.innerHTML = `
-                <a href="detail-view.html?listId=${review.listId}&id=${review.id}">
-                    <div class="profile-review-item-main">
-                        <strong class="profile-review-item-title">${establishmentText}${itemText}</strong>
-                        <span class="profile-review-rating">${rating} <i class="fas fa-star"></i></span>
+            const card = document.createElement('div');
+            card.className = 'profile-review-card';
+            card.innerHTML = `
+                <img src="${imageUrl}" alt="Foto de ${establishmentText}" class="profile-review-card__image" onerror="this.src='/img/default-avatar.png'">
+                <div class="profile-review-card__content">
+                    <h4 class="profile-review-card__title">
+                        <a href="${detailUrl}">${establishmentText}${itemText}</a>
+                    </h4>
+                    <div class="profile-review-card__meta">
+                        <a href="${listUrl}" class="info-tag info-tag--list">
+                            <i class="fas fa-list"></i>
+                            <span>${listNameText}</span>
+                        </a>
+                        <a href="${detailUrl}" class="info-tag info-tag--rating">
+                            <i class="fas fa-star"></i>
+                            <span>${ratingText}</span>
+                        </a>
                     </div>
-                    <div class="profile-review-item-meta">
-                        <span><i class="fas fa-list"></i> ${listNameText}</span>
-                    </div>
-                </a>
+                </div>
             `;
-            this.elements.myReviewsUl.appendChild(li);
+            container.appendChild(card);
         });
-    },
+    }
 };
 
 console.log("page-profile.js: Script PARSEADO y EJECUTADO exitosamente.");

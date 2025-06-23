@@ -77,8 +77,13 @@
                     <p id="profile-username-display">@...</p>
                     <p id="profile-location-display" style="display: none;"><i class="fas fa-map-marker-alt"></i> <span>...</span></p>
                     <p id="profile-bio-display">Cargando biografía...</p>
+                    
                     <button id="open-edit-profile-modal-btn" class="button secondary-button edit-profile-button" style="display: none;">
                         <i class="fas fa-pencil-alt"></i> Editar Perfil
+                    </button>
+                    
+                    <button id="follow-unfollow-btn" class="button primary-button" style="display: none;">
+                        <i class="fas fa-user-plus"></i> Seguir
                     </button>
                 </div>
             </div>
@@ -86,37 +91,36 @@
             <div id="profile-message-area"></div>
 
             <div class="profile-stats">
-                 <div class="stat-item">
-                    <span class="count" id="lists-count">0</span>
-                    <span class="label">Listas</span>
-                </div>
                 <div class="stat-item">
-                    <span class="count" id="reviews-count">0</span>
-                    <span class="label">Reseñas</span>
-                </div>
-                <div class="stat-item">
-                    <span class="count" id="followers-count">0</span>
-                    <span class="label">Seguidores</span>
-                </div>
-                <div class="stat-item">
-                    <span class="count" id="following-count">0</span>
-                    <span class="label">Siguiendo</span>
-                </div>
-            </div>
+                   <span class="count" id="lists-count">0</span>
+                   <span class="label">Listas</span>
+               </div>
+               <div class="stat-item">
+                   <span class="count" id="reviews-count">0</span>
+                   <span class="label">Reseñas</span>
+               </div>
+               <div class="stat-item">
+                   <span class="count" id="followers-count">0</span>
+                   <span class="label">Seguidores</span>
+               </div>
+               <div class="stat-item">
+                   <span class="count" id="following-count">0</span>
+                   <span class="label">Siguiendo</span>
+               </div>
+           </div>
 
-            <div id="profile-my-lists" class="profile-section">
-                <h3><i class="fas fa-stream"></i> Mis Listas</h3>
-                <ul id="my-lists-ul" class="profile-item-list">
-                    <li class="loading-placeholder">Cargando listas...</li>
-                </ul>
-            </div>
+           <div id="profile-my-lists" class="profile-section">
+               <h3><i class="fas fa-stream"></i> Mis Listas</h3>
+               <ul id="my-lists-ul" class="profile-item-list">
+                   <li class="loading-placeholder">Cargando listas...</li>
+               </ul>
+           </div>
 
-            <div id="profile-my-reviews" class="profile-section">
-                <h3><i class="fas fa-star"></i> Mis Reseñas</h3>
-                <ul id="my-reviews-ul" class="profile-item-list">
-                    <li class="loading-placeholder">Cargando reseñas...</li>
-                </ul>
-            </div>
+           <div id="profile-my-reviews" class="profile-section">
+               <h3><i class="fas fa-star"></i> Mis Reseñas</h3>
+               <div id="my-reviews-container"> <p class="loading-placeholder">Cargando reseñas...</p>
+               </div>
+           </div>
         </div>
     </main>
 
