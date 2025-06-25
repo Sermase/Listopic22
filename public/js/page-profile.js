@@ -10,7 +10,6 @@ ListopicApp.pageProfile = {
         usernameDisplayElement: null,
         bioDisplayElement: null,
         locationDisplayElement: null,
-        // --- NUEVOS ELEMENTOS PARA ESTADÍSTICAS ---
         listsCountElement: null,
         reviewsCountElement: null,
         followersCountElement: null,
@@ -18,8 +17,10 @@ ListopicApp.pageProfile = {
         myListsUl: null,
         myReviewsContainer: null,
         openEditModalBtn: null,
-        followUnfollowBtn: null, // NUEVO
+        followUnfollowBtn: null,
         profileMessageArea: null,
+        userBadgesSection: null, // Para la sección de insignias
+        badgesContainer: null,   // Para el contenedor de las insignias
         
         // --- Elementos del Modal ---
         editProfileModal: null,
@@ -69,6 +70,7 @@ ListopicApp.pageProfile = {
             
             // PASO 3: Cargamos el resto de la información y activamos listeners.
             this.loadUserProfileData();
+            this.loadUserBadges(); // Cargar insignias
             this.attachEventListeners();
         });
     },
@@ -105,6 +107,8 @@ ListopicApp.pageProfile = {
         this.elements.editPhotoUrlInput = document.getElementById('edit-photo-url');
         this.elements.editPhotoFileInput = document.getElementById('edit-photo-file');
         this.elements.editPhotoPreview = document.getElementById('edit-photo-preview');
+        this.elements.userBadgesSection = document.getElementById('user-badges-section');
+        this.elements.badgesContainer = document.getElementById('badges-container');
     },
     
     updateEditButtonVisibility: function() {
@@ -454,6 +458,59 @@ ListopicApp.pageProfile = {
         container.innerHTML = reviews.map(review => 
             ListopicApp.uiUtils.renderReviewSuperCard(review)
         ).join('');
+    },
+
+    loadUserBadges: async function() {
+        if (!this.elements.userBadgesSection || !this.elements.badgesContainer) return;
+
+        const db = ListopicApp.services.db;
+        const earnedBadgesRef = db.collection('users').doc(this.profileOwnerUserId).collection('earnedBadges').orderBy('earnedAt', 'desc');
+
+        try {
+            const snapshot = await earnedBadgesRef.get();
+            if (snapshot.empty) {
+                this.elements.userBadgesSection.style.display = 'none';
+                return;
+            }
+
+            this.elements.userBadgesSection.style.display = 'block';
+            this.elements.badgesContainer.innerHTML = ''; // Limpiar placeholder de carga
+
+            snapshot.forEach(doc => {
+                const badgeData = doc.data(); // Contiene name, iconUrl, earnedAt denormalizados
+                const badgeId = doc.id;
+
+                const badgeElement = document.createElement('div');
+                badgeElement.className = 'badge-item';
+                badgeElement.setAttribute('title', `${badgeData.name} (Obtenida: ${badgeData.earnedAt ? new Date(badgeData.earnedAt.seconds * 1000).toLocaleDateString() : 'Fecha desconocida'}) - ${badgeId}`); // Usar badgeId para el tooltip de descripción
+
+                const img = document.createElement('img');
+                img.src = badgeData.iconUrl || 'img/default-badge.png'; // Usar un icono por defecto si no hay URL
+                img.alt = badgeData.name;
+
+                const name = document.createElement('span');
+                name.className = 'badge-name';
+                name.textContent = badgeData.name;
+
+                badgeElement.appendChild(img);
+                badgeElement.appendChild(name);
+                this.elements.badgesContainer.appendChild(badgeElement);
+
+                // Cargar descripción completa de la insignia desde la colección 'badges' para el tooltip
+                // Esto se hace de forma asíncrona para no bloquear el renderizado inicial
+                db.collection('badges').doc(badgeId).get().then(fullBadgeDoc => {
+                    if (fullBadgeDoc.exists) {
+                        const fullBadgeData = fullBadgeDoc.data();
+                        badgeElement.setAttribute('title', `${badgeData.name} (Obtenida: ${badgeData.earnedAt ? new Date(badgeData.earnedAt.seconds * 1000).toLocaleDateString() : 'Fecha desconocida'}) - ${fullBadgeData.description || 'Sin descripción.'}`);
+                    }
+                }).catch(err => console.warn(`No se pudo cargar descripción completa para insignia ${badgeId}:`, err));
+            });
+
+        } catch (error) {
+            console.error("Error cargando insignias del usuario:", error);
+            this.elements.badgesContainer.innerHTML = '<p class="error-placeholder">No se pudieron cargar las insignias.</p>';
+            this.elements.userBadgesSection.style.display = 'block'; // Mostrar sección aunque haya error para el mensaje
+        }
     }
 };
 

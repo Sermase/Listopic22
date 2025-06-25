@@ -8,14 +8,36 @@ const fetch = require("node-fetch");
 const {onDocumentWritten} = require("firebase-functions/v2/firestore");
 const {initializeApp} = require("firebase-admin/app");
 const {getFirestore, FieldValue} = require("firebase-admin/firestore");
+const algoliasearch = require('algoliasearch');
 
-
+// Inicializar Firebase Admin SDK
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = getFirestore();
 
+// Configuración global para funciones (región)
 setGlobalOptions({ region: "europe-west1" });
+
+// Configuración del cliente de Algolia
+// DEBES configurar estas variables de entorno en tu Firebase project:
+// algolia.app_id, algolia.admin_key, algolia.index_name
+const ALGOLIA_APP_ID = process.env.ALGOLIA_APP_ID;
+const ALGOLIA_ADMIN_KEY = process.env.ALGOLIA_ADMIN_KEY;
+const ALGOLIA_INDEX_NAME = process.env.ALGOLIA_INDEX_NAME || 'listopic_search'; // Nombre de índice por defecto
+
+let algoliaClient;
+let algoliaIndex;
+
+if (ALGOLIA_APP_ID && ALGOLIA_ADMIN_KEY) {
+    algoliaClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_ADMIN_KEY);
+    algoliaIndex = algoliaClient.initIndex(ALGOLIA_INDEX_NAME);
+    logger.info("Cliente de Algolia inicializado correctamente.", {indexName: ALGOLIA_INDEX_NAME});
+} else {
+    logger.warn("Variables de entorno de Algolia (ALGOLIA_APP_ID, ALGOLIA_ADMIN_KEY) no configuradas. La sincronización con Algolia estará deshabilitada.");
+    algoliaClient = null; // Marcar como no disponible
+}
+
 
 // --- FUNCIÓN groupedReviews ---
 exports.groupedReviews = onRequest(
@@ -391,6 +413,265 @@ exports.createList = onCall(async (data, context) => {
         }
         throw new HttpsError('internal', 'Ocurrió un error al crear la lista.', error.message);
     }
+});
+
+
+// ===================================================================
+// === FUNCIONES DE GAMIFICACIÓN (INSIGNIAS)                       ===
+// ===================================================================
+
+/**
+ * Verifica y otorga insignias a un usuario cuando sus datos cambian.
+ * Se activa en la actualización de un documento de usuario.
+ */
+exports.checkAndAwardBadges = onDocumentWritten("users/{userId}", async (event) => {
+    // Solo nos interesa si el documento fue actualizado y tiene datos después.
+    if (!event.data.before.exists || !event.data.after.exists) {
+        logger.info(`Evento de creación o eliminación de usuario ${event.params.userId}, no se procesan insignias.`);
+        return null;
+    }
+
+    const userId = event.params.userId;
+    const userDataBefore = event.data.before.data();
+    const userDataAfter = event.data.after.data();
+
+    // Métricas que nos interesan para las insignias.
+    // Comprobamos si alguna de estas ha cambiado.
+    const relevantMetrics = ['reviewsCount', 'publicListsCount', 'privateListsCount', 'followersCount', 'followingCount'];
+    let changedMetrics = relevantMetrics.filter(metric => userDataBefore[metric] !== userDataAfter[metric]);
+
+    if (changedMetrics.length === 0) {
+        logger.info(`Usuario ${userId} actualizado, pero no en métricas relevantes para insignias.`);
+        return null;
+    }
+    logger.info(`Usuario ${userId} actualizado. Métricas cambiadas: ${changedMetrics.join(', ')}. Verificando insignias.`);
+
+    try {
+        const badgesSnapshot = await db.collection('badges').get();
+        if (badgesSnapshot.empty) {
+            logger.info("No hay insignias definidas en la colección 'badges'.");
+            return null;
+        }
+
+        const userEarnedBadgesSnapshot = await db.collection('users').doc(userId).collection('earnedBadges').get();
+        const earnedBadgeIds = new Set(userEarnedBadgesSnapshot.docs.map(doc => doc.id));
+
+        const batch = db.batch();
+        let newBadgesAwarded = 0;
+
+        badgesSnapshot.forEach(badgeDoc => {
+            const badgeId = badgeDoc.id;
+            const badge = badgeDoc.data();
+
+            if (earnedBadgeIds.has(badgeId)) {
+                return; // El usuario ya tiene esta insignia
+            }
+
+            const condition = badge.conditions;
+            if (condition && condition.metric && userDataAfter.hasOwnProperty(condition.metric)) {
+                const userValue = userDataAfter[condition.metric] || 0;
+                const requiredValue = condition.value;
+                const operator = condition.operator || '>='; // Por defecto >=
+
+                let conditionMet = false;
+                switch (operator) {
+                    case '>=': conditionMet = userValue >= requiredValue; break;
+                    case '==': conditionMet = userValue == requiredValue; break;
+                    case '>':  conditionMet = userValue > requiredValue;  break;
+                    // Añadir más operadores si es necesario
+                }
+
+                if (conditionMet) {
+                    logger.info(`Usuario ${userId} cumple condiciones para insignia ${badgeId} (${badge.name}). Otorgando.`);
+                    const newBadgeRef = db.collection('users').doc(userId).collection('earnedBadges').doc(badgeId);
+                    batch.set(newBadgeRef, {
+                        name: badge.name, // Denormalizar nombre para facilitar consulta en frontend
+                        iconUrl: badge.iconUrl, // Denormalizar icono
+                        earnedAt: FieldValue.serverTimestamp()
+                    });
+                    newBadgesAwarded++;
+                }
+            }
+        });
+
+        if (newBadgesAwarded > 0) {
+            await batch.commit();
+            logger.info(`Se otorgaron ${newBadgesAwarded} nuevas insignias al usuario ${userId}.`);
+        } else {
+            logger.info(`No hay nuevas insignias para otorgar al usuario ${userId} en esta actualización.`);
+        }
+
+    } catch (error) {
+        logger.error(`Error procesando insignias para usuario ${userId}:`, error);
+    }
+    return null;
+});
+
+
+// ===================================================================
+// === FUNCIONES DE SINCRONIZACIÓN CON ALGOLIA                     ===
+// ===================================================================
+
+// Sincronizar LISTAS con Algolia
+exports.onListWriteSyncToAlgolia = onDocumentWritten("lists/{listId}", async (event) => {
+    if (!algoliaIndex) {
+        logger.warn("Algolia no configurado, omitiendo sincronización de lista.");
+        return null;
+    }
+
+    const listId = event.params.listId;
+
+    // Documento eliminado de Firestore
+    if (!event.data.after.exists) {
+        try {
+            await algoliaIndex.deleteObject(listId);
+            logger.info(`Lista ${listId} eliminada de Algolia.`);
+        } catch (error) {
+            logger.error(`Error eliminando lista ${listId} de Algolia:`, error);
+        }
+        return null;
+    }
+
+    // Documento creado o actualizado en Firestore
+    const listData = event.data.after.data();
+    const record = {
+        objectID: listId,
+        type: 'list', // Para poder filtrar por tipo en Algolia si es necesario
+        name: listData.name,
+        description: listData.description || '', // Asumir que puede haber una descripción
+        userId: listData.userId,
+        isPublic: listData.isPublic,
+        categoryId: listData.categoryId,
+        reviewCount: listData.reviewCount || 0,
+        createdAt: listData.createdAt?.toMillis ? listData.createdAt.toMillis() : null, // Algolia prefiere timestamps
+        updatedAt: listData.updatedAt?.toMillis ? listData.updatedAt.toMillis() : null,
+        // Podríamos añadir más campos como 'tags' si están directamente en la lista
+        // _tags: listData.availableTags || [] // Algolia usa _tags para facetting por defecto
+    };
+
+    // Solo indexar listas públicas o si se decide indexar todas
+    // Por ahora, indexaremos todas y confiaremos en las reglas de seguridad de Firestore
+    // o en el filtrado en el frontend si es necesario mostrar solo las públicas.
+    // Si la lista no es pública y no pertenece al usuario que busca, Algolia la devolverá pero el frontend
+    // no debería mostrarla o permitir acceso si se re-valida contra Firestore.
+
+    try {
+        await algoliaIndex.saveObject(record);
+        logger.info(`Lista ${listId} guardada/actualizada en Algolia.`);
+    } catch (error) {
+        logger.error(`Error guardando lista ${listId} en Algolia:`, error);
+    }
+    return null;
+});
+
+// Sincronizar RESEÑAS con Algolia
+exports.onReviewWriteSyncToAlgolia = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
+    if (!algoliaIndex) {
+        logger.warn("Algolia no configurado, omitiendo sincronización de reseña.");
+        return null;
+    }
+
+    const reviewId = event.params.reviewId;
+    const listId = event.params.listId;
+
+    // Documento eliminado de Firestore
+    if (!event.data.after.exists) {
+        try {
+            await algoliaIndex.deleteObject(reviewId);
+            logger.info(`Reseña ${reviewId} eliminada de Algolia.`);
+        } catch (error) {
+            logger.error(`Error eliminando reseña ${reviewId} de Algolia:`, error);
+        }
+        return null;
+    }
+
+    // Documento creado o actualizado
+    const reviewData = event.data.after.data();
+
+    // Para enriquecer la reseña con datos de la lista (ej. nombre de la lista)
+    // Esto es opcional pero útil para la búsqueda. Introduce latencia.
+    let listName = 'Lista Desconocida';
+    let listIsPublic = false;
+    try {
+        const listDoc = await db.collection('lists').doc(listId).get();
+        if (listDoc.exists) {
+            listName = listDoc.data().name || listName;
+            listIsPublic = listDoc.data().isPublic || false;
+        }
+    } catch (error) {
+        logger.warn(`No se pudo obtener datos de la lista ${listId} para la reseña ${reviewId}.`, error);
+    }
+
+    const record = {
+        objectID: reviewId,
+        type: 'review',
+        listId: listId,
+        listName: listName, // Denormalizado para búsqueda/display
+        listIsPublic: listIsPublic, // Denormalizado
+        userId: reviewData.userId,
+        placeId: reviewData.placeId || null,
+        itemName: reviewData.itemName,
+        notes: reviewData.notes || '',
+        overallRating: reviewData.overallRating || 0,
+        userTags: reviewData.userTags || [], // Algolia puede facetar por arrays de strings
+        photoUrl: reviewData.photoUrl || null,
+        createdAt: reviewData.createdAt?.toMillis ? reviewData.createdAt.toMillis() : null,
+        updatedAt: reviewData.updatedAt?.toMillis ? reviewData.updatedAt.toMillis() : null,
+        // Podríamos añadir criteriaRatings si se quiere buscar por ellos
+    };
+
+    try {
+        await algoliaIndex.saveObject(record);
+        logger.info(`Reseña ${reviewId} (lista ${listId}) guardada/actualizada en Algolia.`);
+    } catch (error) {
+        logger.error(`Error guardando reseña ${reviewId} en Algolia:`, error);
+    }
+    return null;
+});
+
+// Sincronizar USUARIOS con Algolia
+exports.onUserWriteSyncToAlgolia = onDocumentWritten("users/{userId}", async (event) => {
+    if (!algoliaIndex) {
+        logger.warn("Algolia no configurado, omitiendo sincronización de usuario.");
+        return null;
+    }
+
+    const userId = event.params.userId;
+
+    // Documento eliminado
+    if (!event.data.after.exists) {
+        try {
+            await algoliaIndex.deleteObject(userId);
+            logger.info(`Usuario ${userId} eliminado de Algolia.`);
+        } catch (error) {
+            logger.error(`Error eliminando usuario ${userId} de Algolia:`, error);
+        }
+        return null;
+    }
+
+    // Documento creado o actualizado
+    const userData = event.data.after.data();
+    const record = {
+        objectID: userId,
+        type: 'user',
+        username: userData.username || '', // Asumiendo que hay un campo username
+        displayName: userData.displayName || '', // O nombre público
+        bio: userData.bio || '', // Si existe una biografía
+        photoURL: userData.photoURL || null, // Foto de perfil
+        followersCount: userData.followersCount || 0,
+        followingCount: userData.followingCount || 0,
+        publicListsCount: userData.publicListsCount || 0,
+        reviewsCount: userData.reviewsCount || 0,
+        // No sincronizar email u otros datos privados
+    };
+
+    try {
+        await algoliaIndex.saveObject(record);
+        logger.info(`Usuario ${userId} guardado/actualizado en Algolia.`);
+    } catch (error) {
+        logger.error(`Error guardando usuario ${userId} en Algolia:`, error);
+    }
+    return null;
 });
 
 // --- NUEVA FUNCIÓN CALLABLE: createListWithValidation ---

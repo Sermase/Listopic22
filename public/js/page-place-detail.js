@@ -5,6 +5,7 @@ ListopicApp.pagePlace = (() => {
         placeData: null,
         reviewsByList: [],
         isLoading: false,
+        isFollowing: false,
         currentSort: 'date',
         currentFilter: '',
         searchQuery: ''
@@ -38,6 +39,9 @@ ListopicApp.pagePlace = (() => {
             placeImagePlaceholder: document.getElementById('place-image-placeholder'),
             addReviewBtn: document.getElementById('add-review-btn'),
             directionsBtn: document.getElementById('directions-btn'),
+            followPlaceBtn: document.getElementById('follow-place-btn'),
+            followPlaceBtnText: document.querySelector('#follow-place-btn .follow-text'),
+            followPlaceBtnIcon: document.querySelector('#follow-place-btn i'),
 
             // Estadísticas
             totalReviews: document.getElementById('total-reviews'),
@@ -79,6 +83,14 @@ ListopicApp.pagePlace = (() => {
                 state.currentFilter = e.target.value;
                 renderReviews();
             });
+        }
+
+        if (elements.followPlaceBtn) {
+            elements.followPlaceBtn.addEventListener('click', toggleFollowPlace);
+        }
+
+        if (elements.directionsBtn) {
+            elements.directionsBtn.addEventListener('click', openDirections);
         }
     }
 
@@ -136,6 +148,9 @@ ListopicApp.pagePlace = (() => {
             
             // Cargar reseñas del lugar
             await loadPlaceReviews();
+
+            // Comprobar estado de seguimiento
+            await checkFollowStatus();
             
             showContent();
             
@@ -591,6 +606,131 @@ ListopicApp.pagePlace = (() => {
     window.showReviewDetail = function(listId, reviewId) {
         window.location.href = `detail-view.html?listId=${listId}&reviewId=${reviewId}`;
     };
+
+    function updateFollowButton() {
+        if (!elements.followPlaceBtn || !elements.followPlaceBtnText || !elements.followPlaceBtnIcon) return;
+
+        if (state.isFollowing) {
+            elements.followPlaceBtnText.textContent = 'Siguiendo';
+            elements.followPlaceBtnIcon.classList.remove('fa-user-plus');
+            elements.followPlaceBtnIcon.classList.add('fa-user-check');
+            elements.followPlaceBtn.classList.add('following');
+        } else {
+            elements.followPlaceBtnText.textContent = 'Seguir';
+            elements.followPlaceBtnIcon.classList.remove('fa-user-check');
+            elements.followPlaceBtnIcon.classList.add('fa-user-plus');
+            elements.followPlaceBtn.classList.remove('following');
+        }
+    }
+
+    async function checkFollowStatus() {
+        const currentUser = ListopicApp.services.auth.currentUser;
+        if (!currentUser || !state.placeData) {
+            state.isFollowing = false;
+            updateFollowButton();
+            if (elements.followPlaceBtn) elements.followPlaceBtn.style.display = currentUser ? 'inline-flex' : 'none';
+            return;
+        }
+
+        // Asegurarse de que placeData.followers sea un array
+        const followers = Array.isArray(state.placeData.followers) ? state.placeData.followers : [];
+        state.isFollowing = followers.includes(currentUser.uid);
+        if (elements.followPlaceBtn) elements.followPlaceBtn.style.display = 'inline-flex';
+        updateFollowButton();
+    }
+
+    async function toggleFollowPlace() {
+        const currentUser = ListopicApp.services.auth.currentUser;
+        if (!currentUser) {
+            // Idealmente, redirigir a login o mostrar un mensaje
+            alert('Debes iniciar sesión para seguir lugares.');
+            return;
+        }
+
+        if (!state.placeId || !ListopicApp.services.db) return;
+
+        const placeRef = ListopicApp.services.db.collection('places').doc(state.placeId);
+        const userId = currentUser.uid;
+
+        elements.followPlaceBtn.disabled = true;
+
+        try {
+            await ListopicApp.services.db.runTransaction(async (transaction) => {
+                const placeDoc = await transaction.get(placeRef);
+                if (!placeDoc.exists) {
+                    throw "El lugar no existe.";
+                }
+
+                const placeData = placeDoc.data();
+                // Asegurarse de que followers sea un array
+                const followers = Array.isArray(placeData.followers) ? placeData.followers : [];
+
+                if (followers.includes(userId)) {
+                    // Dejar de seguir: remover userId del array
+                    transaction.update(placeRef, {
+                        followers: firebase.firestore.FieldValue.arrayRemove(userId)
+                    });
+                    state.isFollowing = false;
+                } else {
+                    // Seguir: agregar userId al array
+                    transaction.update(placeRef, {
+                        followers: firebase.firestore.FieldValue.arrayUnion(userId)
+                    });
+                    state.isFollowing = true;
+                }
+            });
+
+            // Actualizar placeData localmente si es necesario para reflejar el cambio en followers
+            if (state.placeData) {
+                 if(state.isFollowing) {
+                    state.placeData.followers = [...(state.placeData.followers || []), userId];
+                 } else {
+                    state.placeData.followers = (state.placeData.followers || []).filter(uid => uid !== userId);
+                 }
+            }
+            console.log('Estado de seguimiento actualizado.');
+
+        } catch (error) {
+            console.error("Error al actualizar seguimiento: ", error);
+            alert('Error al actualizar el seguimiento del lugar.');
+            // Revertir el estado visual si falla la transacción
+            state.isFollowing = !state.isFollowing;
+        } finally {
+            updateFollowButton();
+            elements.followPlaceBtn.disabled = false;
+        }
+    }
+
+    function openDirections() {
+        if (state.placeData && state.placeData.geometry && state.placeData.geometry.location) {
+            let lat, lng;
+            const location = state.placeData.geometry.location;
+
+            if (location.lat !== undefined && location.lng !== undefined) {
+                 // Para objetos como { lat: number, lng: number } o funciones lat(), lng() de GeoPoint
+                lat = typeof location.lat === 'function' ? location.lat() : location.lat;
+                lng = typeof location.lng === 'function' ? location.lng() : location.lng;
+            } else if (typeof location.latitude === 'number' && typeof location.longitude === 'number') {
+                // Para objetos Firebase GeoPoint { latitude: number, longitude: number }
+                lat = location.latitude;
+                lng = location.longitude;
+            }
+
+            if (lat && lng) {
+                const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+                window.open(googleMapsUrl, '_blank');
+            } else {
+                alert('Coordenadas no disponibles para este lugar.');
+            }
+        } else if (state.placeData && state.placeData.address) {
+            // Fallback a búsqueda por dirección si no hay coordenadas
+             const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(state.placeData.address)}`;
+             window.open(googleMapsUrl, '_blank');
+        } else {
+            alert('No hay información de ubicación disponible para este lugar.');
+        }
+    }
+
 
     async function init() {
         console.log('Initializing Place Detail page logic...');

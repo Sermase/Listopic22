@@ -95,6 +95,26 @@ ListopicApp.pageSearch = (() => {
         advancedFiltersContentEl, applyAdvancedFiltersBtn, searchResultsAreaEl;
 
     let searchTimeout;
+    let algoliaClient;
+    let algoliaIndex;
+
+    function initializeAlgolia() {
+        if (typeof algoliasearch === 'undefined') {
+            console.error('Algolia SDK no cargado.');
+            return false;
+        }
+        if (ListopicApp.config && ListopicApp.config.algolia) {
+            const { appId, searchOnlyApiKey, indexName } = ListopicApp.config.algolia;
+            if (appId && searchOnlyApiKey && indexName) {
+                algoliaClient = algoliasearch(appId, searchOnlyApiKey);
+                algoliaIndex = algoliaClient.initIndex(indexName);
+                console.log('Cliente de Algolia inicializado para búsqueda.');
+                return true;
+            }
+        }
+        console.error('Configuración de Algolia no encontrada o incompleta en ListopicApp.config.algolia.');
+        return false;
+    }
 
     function cacheDOMElements() {
         mainSearchInput = document.getElementById('main-search-input');
@@ -364,7 +384,15 @@ ListopicApp.pageSearch = (() => {
     }
 
     async function performSearch() {
-        if (!searchResultsAreaEl || !ListopicApp.services.db || state.isSearching) return;
+        if (!algoliaIndex) {
+            console.warn("Algolia no está inicializado. La búsqueda no se puede realizar.");
+            if (searchResultsAreaEl) {
+                 searchResultsAreaEl.innerHTML = '<p class="search-placeholder error-placeholder">Error de configuración: El servicio de búsqueda no está disponible.</p>';
+            }
+            return;
+        }
+
+        if (!searchResultsAreaEl || state.isSearching) return;
         
         state.isSearching = true;
         state.currentSearchQuery = mainSearchInput ? mainSearchInput.value.trim() : '';
@@ -386,37 +414,76 @@ ListopicApp.pageSearch = (() => {
         
         if (executeSearchBtn) executeSearchBtn.disabled = true;
         
-        console.log("Realizando búsqueda con:", { query: state.currentSearchQuery, types: searchTypes, filters: state.advancedFilters });
+        console.log("Realizando búsqueda con Algolia:", { query: state.currentSearchQuery, types: searchTypes, filters: state.advancedFilters });
 
-        const db = ListopicApp.services.db;
         let results = [];
         let queryDescription = state.currentSearchQuery ? 
             `Resultados para "${state.currentSearchQuery}"` : 
             'Explorando contenido';
 
+        const algoliaSearchParams = {
+            hitsPerPage: 50 // Ajustar según sea necesario
+        };
+
+        let filterStrings = [];
+
+        // Filtro por tipo de entidad (si se seleccionó alguno)
+        if (searchTypes.length > 0 && searchTypes.length < 4) { // 4 es el total de tipos posibles: lists, items, places, users
+            filterStrings.push(searchTypes.map(type => `type:${type}`).join(' OR '));
+        }
+
+        // Construir filtros facetados para Algolia
+        if (state.advancedFilters.listCategory) { // Para listas
+            filterStrings.push(`categoryId:"${state.advancedFilters.listCategory}"`);
+        }
+        if (state.advancedFilters.minListReviews) { // Para listas
+            filterStrings.push(`reviewCount >= ${state.advancedFilters.minListReviews}`);
+        }
+        if (state.advancedFilters.itemCategory) { // Para items (reseñas)
+             // Asumiendo que la categoría de la lista está en el registro de la reseña como listCategoryId
+            filterStrings.push(`listCategoryName:"${state.advancedFilters.itemCategory}"`); // o el campo que se use en Algolia
+        }
+        if (state.advancedFilters.minRating) { // Para items (reseñas)
+            filterStrings.push(`overallRating >= ${state.advancedFilters.minRating}`);
+        }
+        if (state.advancedFilters.selectedTags && state.advancedFilters.selectedTags.length > 0) { // Para items (reseñas)
+            state.advancedFilters.selectedTags.forEach(tag => {
+                filterStrings.push(`userTags:"${tag}"`);
+            });
+        }
+        if (state.advancedFilters.location) { // Para places
+            // Esto podría ser un filtro facetado si 'location' es una faceta (ej. "city:Madrid")
+            // o requerir configuración de geo-búsqueda en Algolia.
+            // Por simplicidad, asumimos que 'location' podría ser un atributo facetado como 'city' o 'region'.
+             filterStrings.push(`address:${state.advancedFilters.location} OR city:${state.advancedFilters.location} OR region:${state.advancedFilters.location}`);
+        }
+        if (state.advancedFilters.minUserReviews) { // Para users
+            filterStrings.push(`reviewsCount >= ${state.advancedFilters.minUserReviews}`);
+        }
+        if (state.advancedFilters.minUserLists) { // Para users
+            // Necesitaríamos un campo como totalListsCount en el índice de usuarios de Algolia
+            // filterStrings.push(`totalListsCount >= ${state.advancedFilters.minUserLists}`);
+            console.warn("Filtro minUserLists no implementado completamente para Algolia sin campo 'totalListsCount'.");
+        }
+
+
+        if (filterStrings.length > 0) {
+            algoliaSearchParams.filters = filterStrings.join(' AND ');
+            console.log("Algolia filters string:", algoliaSearchParams.filters);
+        }
+
         try {
-            const searchPromises = [];
+            const algoliaResponse = await algoliaIndex.search(state.currentSearchQuery, algoliaSearchParams);
+            results = algoliaResponse.hits.map(hit => {
+                // El ID del objeto ya está en hit.objectID, no necesitamos hit.id
+                // Los datos del objeto están directamente en el hit.
+                // Si se usa _highlightResult, se podría preferir para mostrar.
+                return { ...hit, id: hit.objectID }; // Asegurar que 'id' esté presente para la función createResultCard
+            });
 
-            if (searchTypes.includes('lists')) {
-                searchPromises.push(searchLists(db, state.currentSearchQuery, state.advancedFilters));
-            }
-
-            if (searchTypes.includes('users')) {
-                searchPromises.push(searchUsers(db, state.currentSearchQuery, state.advancedFilters));
-            }
-
-            if (searchTypes.includes('places')) {
-                searchPromises.push(searchPlaces(db, state.currentSearchQuery, state.advancedFilters));
-            }
-
-            if (searchTypes.includes('items')) {
-                searchPromises.push(searchItems(db, state.currentSearchQuery, state.advancedFilters));
-            }
-
-            const searchResults = await Promise.all(searchPromises);
-            results = searchResults.flat();
-
-            results = sortResultsByRelevance(results, state.currentSearchQuery);
+            // El orden de Algolia ya debería ser por relevancia, pero podemos re-aplicar si es necesario.
+            // results = sortResultsByRelevance(results, state.currentSearchQuery);
+            // Por ahora, confiamos en la relevancia de Algolia.
 
             state.searchCache.set(cacheKey, { results, description: queryDescription });
             
@@ -435,7 +502,7 @@ ListopicApp.pageSearch = (() => {
             }
 
         } catch (error) {
-            console.error("Error durante la búsqueda:", error);
+            console.error("Error durante la búsqueda con Algolia:", error);
             searchResultsAreaEl.innerHTML = `<p class="search-placeholder error-placeholder">Error al realizar la búsqueda: ${error.message}</p>`;
         } finally {
             state.isSearching = false;
@@ -443,131 +510,9 @@ ListopicApp.pageSearch = (() => {
         }
     }
 
-    // Actualizar función searchItems para usar filtros de etiquetas
-    async function searchItems(db, query, filters) {
-        try {
-            let listsQuery = db.collection('lists').where('isPublic', '==', true);
+    // Las funciones searchLists, searchItems, searchUsers, searchPlaces ya no son necesarias
+    // ya que la búsqueda se delega a Algolia. Se pueden eliminar o comentar.
 
-            // Filtrar por categoría de lista si se especifica
-            if (filters.itemCategory) {
-                listsQuery = listsQuery.where('categoryId', '==', filters.itemCategory);
-            }
-
-            const listsSnapshot = await listsQuery.limit(20).get();
-            const results = [];
-
-            for (const listDoc of listsSnapshot.docs) {
-                const listData = listDoc.data();
-
-                // Obtener reseñas agrupadas usando la Cloud Function HTTP
-                try {
-                    const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
-                    if (!functionUrl) {
-                        throw new Error("URL de la función groupedReviews no configurada");
-                    }
-
-                    const response = await fetch(`${functionUrl}?listId=${listDoc.id}`);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    const groupedReviews = result.groupedReviews || [];
-
-                    // Procesar cada grupo (establecimiento + elemento)
-                    // Procesar cada grupo (cada grupo es establecimiento + elemento específico)
-                    groupedReviews.forEach(group => {
-                        // Filtrar por texto
-                        if (query && !isTextMatch(group.itemName, query)) {
-                            return;
-                        }
-
-                        // Filtrar por puntuación mínima
-                        if (filters.minRating && group.avgGeneralScore < filters.minRating) {
-                            return;
-                        }
-
-                        // Filtrar por etiquetas seleccionadas
-                        if (filters.selectedTags && filters.selectedTags.length > 0) {
-                            const itemTags = group.groupTags || [];
-                            const hasMatchingTag = filters.selectedTags.some(tag =>
-                                itemTags.some(itemTag =>
-                                    itemTag.toLowerCase().includes(tag.toLowerCase())
-                                )
-                            );
-                            if (!hasMatchingTag) return;
-                        }
-
-                        results.push({
-                            id: `${group.placeId}_${group.itemName}`,
-                            type: 'item',
-                            listId: listDoc.id,
-                            listName: listData.name,
-                            itemName: group.itemName,
-                            placeName: group.establishmentName,
-                            placeId: group.placeId,
-                            overallRating: group.avgGeneralScore || 0,
-                            reviewCount: group.itemCount || 0,
-                            criteriaRatings: group.criteriaScores || {}, // Ahora incluye criterios individuales
-                            userTags: group.groupTags || [],
-                            price: group.avgPrice || null, // Ahora incluye precio promedio
-                            // Información adicional
-                            thumbnailUrl: group.thumbnailUrl,
-                            reviewIds: group.reviewIds || []
-                        });
-                    });
-                } catch (cloudFunctionError) {
-                    console.warn(`Error obteniendo reseñas agrupadas para lista ${listDoc.id}:`, cloudFunctionError);
-                    // Fallback a búsqueda individual si falla la Cloud Function
-                    continue;
-                }
-            }
-
-            console.log(`Encontrados ${results.length} items agrupados`);
-            return results.slice(0, 20);
-
-        } catch (error) {
-            console.error('Error buscando items:', error);
-            return [];
-        }
-    }
-
-    // Actualizar función searchLists para usar filtros
-    async function searchLists(db, query, filters) {
-        console.log('Buscando listas con query:', query, 'filters:', filters);
-        
-        try {
-            let listQuery = db.collection('lists').where('isPublic', '==', true);
-            
-            if (filters.listCategory) {
-                listQuery = listQuery.where('categoryId', '==', filters.listCategory);
-            }
-            
-            if (filters.minListReviews) {
-                listQuery = listQuery.where('reviewCount', '>=', filters.minListReviews);
-            }
-            
-            const snapshot = await listQuery.limit(50).get();
-            const results = [];
-            
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                
-                if (!query || isTextMatch(data.name, query)) {
-                    results.push({id: doc.id, type: 'list', ...data});
-                }
-            });
-            
-            console.log(`Encontradas ${results.length} listas`);
-            return results.slice(0, 20);
-            
-        } catch (error) {
-            console.error('Error buscando listas:', error);
-            return [];
-        }
-    }
-
-    // Resto de funciones permanecen igual...
     function sortResultsByRelevance(results, query) {
         if (!query) return results;
 
@@ -1070,6 +1015,8 @@ ListopicApp.pageSearch = (() => {
         console.log('Initializing Search page logic...');
         cacheDOMElements();
 
+        const algoliaReady = initializeAlgolia();
+
         if (ListopicApp.uiUtils && ListopicApp.uiUtils.updatePageHeaderInfo) {
             ListopicApp.uiUtils.updatePageHeaderInfo("Búsqueda");
         }
@@ -1106,7 +1053,13 @@ ListopicApp.pageSearch = (() => {
             console.error('Error inicializando filtros avanzados:', error);
         });
 
-        performSearch();
+        if (algoliaReady) {
+            performSearch(); // Realizar una búsqueda inicial si Algolia está listo
+        } else {
+            if (searchResultsAreaEl) {
+                searchResultsAreaEl.innerHTML = '<p class="search-placeholder error-placeholder">El servicio de búsqueda no está disponible. Revisa la configuración.</p>';
+            }
+        }
     }
 
     // Función para limpiar el cache de etiquetas (útil para desarrollo)

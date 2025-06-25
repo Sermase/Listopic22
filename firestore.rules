@@ -64,8 +64,21 @@ service cloud.firestore {
       allow read: if true;
       // Cualquiera autenticado puede crear un lugar nuevo.
       allow create: if request.auth != null;
-      // Cualquiera autenticado puede actualizar un lugar (ej. para añadir un placeId de Google).
-      allow update: if request.auth != null;
+      // Cualquiera autenticado puede actualizar un lugar.
+      // Específicamente para el campo 'followers':
+      // - Solo se permite añadir o quitar el propio UID del usuario.
+      // - No se permite modificar otros campos si solo se está actualizando 'followers'.
+      allow update: if request.auth != null &&
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers']) ?
+                         (request.resource.data.followers.toSet().hasOnly(resource.data.followers.toSet().symmetricDifference([request.auth.uid])) ||
+                          request.resource.data.followers.toSet().difference(resource.data.followers.toSet()).hasOnly([request.auth.uid]) ||
+                          resource.data.followers.toSet().difference(request.resource.data.followers.toSet()).hasOnly([request.auth.uid])
+                         ) &&
+                         // Asegurar que el tamaño del array solo cambie en 1
+                         (request.resource.data.followers.size() == resource.data.followers.size() + 1 ||
+                          request.resource.data.followers.size() == resource.data.followers.size() - 1)
+                       : true // Permitir la actualización de otros campos si no se está tocando 'followers' o si se tocan más campos además de 'followers'
+                       );
       // Nadie puede borrar lugares para mantener la integridad de los datos.
       allow delete: if false; 
     }
