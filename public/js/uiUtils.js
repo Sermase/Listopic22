@@ -224,12 +224,12 @@ ListopicApp.uiUtils = {
         }
         
         // --- (Comentario y Tags sin cambios en la lógica) ---
-        let commentHtml = '<em>Sin comentario.</em>';
+        let commentHtml = '<em></em>';
         if (review.comment) {
             const snippet = review.comment.length > 120 ? uiUtils.escapeHtml(review.comment.substring(0, 120)) + '...' : uiUtils.escapeHtml(review.comment);
             commentHtml = `<p class="comment-snippet">${snippet}</p>`;
         }
-        let tagsHtml = '<em>No hay etiquetas.</em>';
+        let tagsHtml = '<em></em>';
         if (review.userTags && review.userTags.length > 0) {
             tagsHtml = review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('');
         }
@@ -265,7 +265,9 @@ ListopicApp.uiUtils = {
                     <div class="review-super-card__main-content">
                         ${criteriaHtml}
                         <section class="review-super-card__section">
-                            <h5>Comentario</h5>
+                            ${tagsHtml}
+                        </section>
+                        <section class="review-super-card__section">
                             ${commentHtml}
                         </section>
                     </div>

@@ -4346,6 +4346,10 @@ body.light-theme .info-tag:hover {
     font-size: 0.9em;
 }
 
+.review-super-card__section {
+    margin-top: 10px;
+}
+
 /* --- Footer --- */
 .review-super-card__footer {
     display: flex;
