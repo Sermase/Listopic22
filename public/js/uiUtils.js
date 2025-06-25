@@ -250,7 +250,13 @@ ListopicApp.uiUtils = {
                     <div class="review-super-card__title-group">
                         <h4 class="review-super-card__title">${uiUtils.escapeHtml(itemName)}</h4>
                         <p class="review-super-card__subtitle">
-                            en <strong>${uiUtils.escapeHtml(placeName)}</strong> &middot; ${creationDate}
+                            <span class="address-link" style="margin-bottom: 15px; font-size: 0.9em;">
+                                <i class="fas fa-map-marker-alt"></i> <a href="${placeAddressUrl}" id="placeAddressUrl">${placeName}</a>
+                            </span>
+                            &middot; ${creationDate}
+                            <br> <span style="font-size: 0.8em;">Lista 
+                            <a href="${listUrl}" id="listUrl" style="font-size: 0.8em;">${uiUtils.escapeHtml(listName)}</a>
+                        </span>
                         </p>
                     </div>
                     <div class="review-super-card__score">
@@ -272,12 +278,6 @@ ListopicApp.uiUtils = {
                         </section>
                     </div>
                 </div>
-                <footer class="review-super-card__footer">
-                    <a href="${placeAddressUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="address-link">
-                        <i class="fas fa-map-marker-alt"></i> ${uiUtils.escapeHtml(placeAddress)}
-                    </a>
-                    <div class="tags-container">${tagsHtml}</div>
-                </footer>
             </article>
         `;
     },
