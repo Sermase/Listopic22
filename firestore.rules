@@ -50,9 +50,11 @@ service cloud.firestore {
       }
       
       match /comments/{commentId} {
-        allow read: if true;
+        // Sugerencia: Los comentarios siguen la privacidad de la lista.
+        // Si la lista es pública, cualquiera puede leer. Si es privada, solo el dueño de la lista.
+        allow read: if get(/databases/$(database)/documents/lists/$(listId)).data.isPublic == true ||
+                      (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
         allow create: if request.auth != null;
-        // Solo el autor del comentario o el dueño de la lista pueden moderar.
         allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
       }
     }
@@ -61,13 +63,14 @@ service cloud.firestore {
     // REGLAS PARA LUGARES (`places`)
     // ===============================================
     match /places/{placeId} {
-      allow read: if true;
-      // Cualquiera autenticado puede crear un lugar nuevo.
-      allow create: if request.auth != null;
-      // Cualquiera autenticado puede actualizar un lugar (ej. para añadir un placeId de Google).
-      allow update: if request.auth != null;
-      // Nadie puede borrar lugares para mantener la integridad de los datos.
-      allow delete: if false; 
+        allow read: if true;
+        // Solo permitir la creación si el usuario está autenticado.
+        allow create: if request.auth != null;
+        // NO permitir actualizaciones directas por usuarios.
+        // Si las actualizaciones son necesarias, deben ser a través de una Cloud Function
+        // que valide la integridad de los datos.
+        allow update: if false;
+        allow delete: if false;
     }
 
     // ===============================================
