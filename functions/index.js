@@ -733,3 +733,51 @@ exports.toggleFollowUser = onCall(async (request) => {
         throw new HttpsError('internal', 'Ocurrió un error al procesar la solicitud.');
     }
 });
+
+exports.getPlacesForList = onCall({cors: true}, async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
+    }
+    const listId = request.data.listId;
+    if (!listId) {
+        throw new HttpsError('invalid-argument', 'Se requiere el ID de la lista.');
+    }
+
+    try {
+        // 1. Obtener todas las reseñas de la lista para encontrar los placeId
+        const reviewsSnapshot = await db.collection('lists').doc(listId).collection('reviews').get();
+        if (reviewsSnapshot.empty) {
+            return { places: [] };
+        }
+
+        // 2. Extraer los IDs de los lugares, eliminando duplicados
+        const placeIds = [...new Set(reviewsSnapshot.docs.map(doc => doc.data().placeId).filter(Boolean))];
+
+        if (placeIds.length === 0) {
+            return { places: [] };
+        }
+
+        // 3. Obtener los documentos de esos lugares de la colección 'places'
+        const placeDocs = await db.collection('places').where(admin.firestore.FieldPath.documentId(), 'in', placeIds).get();
+
+        const placesWithLocation = [];
+        placeDocs.forEach(doc => {
+            const place = doc.data();
+            // Solo devolvemos los que tienen coordenadas
+            if (place.location && place.location.latitude && place.location.longitude) {
+                placesWithLocation.push({
+                    id: doc.id,
+                    name: place.name,
+                    location: place.location,
+                    mainImageUrl: place.mainImageUrl || null
+                });
+            }
+        });
+
+        return { places: placesWithLocation };
+
+    } catch (error) {
+        logger.error(`Error en getPlacesForList para lista ${listId}:`, error);
+        throw new HttpsError('internal', 'No se pudieron obtener los lugares para el mapa.');
+    }
+});
