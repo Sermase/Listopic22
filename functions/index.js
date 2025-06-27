@@ -734,6 +734,8 @@ exports.toggleFollowUser = onCall(async (request) => {
     }
 });
 
+// En functions/index.js, reemplaza la función getPlacesForList entera por esta:
+
 exports.getPlacesForList = onCall({cors: true}, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
@@ -744,37 +746,54 @@ exports.getPlacesForList = onCall({cors: true}, async (request) => {
     }
 
     try {
-        // 1. Obtener todas las reseñas de la lista para encontrar los placeId
         const reviewsSnapshot = await db.collection('lists').doc(listId).collection('reviews').get();
         if (reviewsSnapshot.empty) {
             return { places: [] };
         }
 
-        // 2. Extraer los IDs de los lugares, eliminando duplicados
-        const placeIds = [...new Set(reviewsSnapshot.docs.map(doc => doc.data().placeId).filter(Boolean))];
+        // Agrupamos reseñas por placeId para calcular la media
+        const placesAggregates = {};
 
+        reviewsSnapshot.forEach(doc => {
+            const review = doc.data();
+            if (review.placeId) {
+                if (!placesAggregates[review.placeId]) {
+                    placesAggregates[review.placeId] = {
+                        totalScore: 0,
+                        count: 0,
+                        placeId: review.placeId
+                    };
+                }
+                placesAggregates[review.placeId].totalScore += review.overallRating || 0;
+                placesAggregates[review.placeId].count++;
+            }
+        });
+
+        const placeIds = Object.keys(placesAggregates);
         if (placeIds.length === 0) {
             return { places: [] };
         }
 
-        // 3. Obtener los documentos de esos lugares de la colección 'places'
         const placeDocs = await db.collection('places').where(admin.firestore.FieldPath.documentId(), 'in', placeIds).get();
 
-        const placesWithLocation = [];
+        const placesForMap = [];
         placeDocs.forEach(doc => {
             const place = doc.data();
-            // Solo devolvemos los que tienen coordenadas
+            const aggregate = placesAggregates[doc.id];
+            
             if (place.location && place.location.latitude && place.location.longitude) {
-                placesWithLocation.push({
+                placesForMap.push({
                     id: doc.id,
                     name: place.name,
                     location: place.location,
-                    mainImageUrl: place.mainImageUrl || null
+                    mainImageUrl: place.mainImageUrl || null,
+                    // ¡AÑADIMOS LA PUNTUACIÓN MEDIA!
+                    avgGeneralScore: (aggregate.totalScore / aggregate.count)
                 });
             }
         });
 
-        return { places: placesWithLocation };
+        return { places: placesForMap };
 
     } catch (error) {
         logger.error(`Error en getPlacesForList para lista ${listId}:`, error);

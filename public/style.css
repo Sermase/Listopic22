@@ -4441,3 +4441,102 @@ body.light-theme .info-tag:hover {
     height: 100%;
     width: 100%;
 }
+
+/* En public/style.css - Estilos para los marcadores del mapa por puntuación */
+
+.map-marker-icon {
+    font-size: 28px; /* Tamaño del icono */
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+    transition: transform 0.2s ease-in-out;
+}
+
+.map-marker-icon:hover {
+    transform: scale(1.2);
+}
+
+.map-marker-gold { color: #FFD700; } /* Oro para los mejores */
+.map-marker-silver { color: #C0C0C0; } /* Plata para los buenos */
+.map-marker-bronze { color: #CD7F32; } /* Bronce para los decentes */
+.map-marker-default { color: var(--accent-color-quaternary); } /* Un color por defecto */
+
+
+/* ============================================= */
+/* === ESTILOS PARA MAPAS Y MARCADORES (V3) === */
+/* ============================================= */
+
+/* Contenedor principal de nuestra chincheta personalizada */
+.custom-marker {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50% 50% 50% 0; /* Forma de gota/pin */
+    transform: rotate(-45deg); /* La rotamos para que apunte hacia abajo */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    border: 2px solid #fff; /* Borde blanco para que destaque */
+}
+
+/* El contenido dentro de la chincheta (el número) */
+.custom-marker-content {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: #fff;
+    transform: rotate(45deg); /* Des-rotamos el texto para que se lea bien */
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+}
+
+/* Clases de color para el fondo de la chincheta */
+.marker-gold { background: linear-gradient(135deg, #FFD700, #FDB813); }
+.marker-silver { background: linear-gradient(135deg, #e0e0e0, #BDBDBD); }
+.marker-bronze { background: linear-gradient(135deg, #CD7F32, #A0522D); }
+.marker-default { background: linear-gradient(135deg, #118AB2, #065A71); }
+
+/* --- Estilos para el Popup del Mapa (Revisado) --- */
+.map-popup {
+    font-family: 'Poppins', sans-serif;
+    width: 180px; /* Ancho fijo para consistencia */
+}
+.map-popup-img {
+    width: 100%;
+    height: 100px; /* Altura controlada */
+    object-fit: cover;
+    border-radius: 6px;
+    background-color: #555;
+}
+.map-popup-content {
+    padding-top: 8px;
+}
+.map-popup-title {
+    margin: 0 0 5px 0;
+    font-size: 1em; /* Un poco más pequeño para caber bien */
+    font-weight: 600;
+    color: var(--title-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Para nombres largos */
+}
+.map-popup-score {
+    font-size: 0.9em;
+    color: var(--secondary-text-color);
+    margin-bottom: 8px;
+}
+.map-popup-link {
+    font-size: 0.9em;
+    font-weight: 500;
+    color: var(--accent-color-primary);
+    text-decoration: none;
+}
+.map-popup-link:hover {
+    text-decoration: underline;
+}
+
+/* Ajustes finos al contenedor del popup de Leaflet */
+.leaflet-popup-content-wrapper {
+    padding: 1px;
+    border-radius: 8px;
+    background: var(--container-bg);
+}
+.leaflet-popup-content {
+    margin: 12px !important;
+    line-height: 1.4;
+}

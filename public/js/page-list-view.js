@@ -8,9 +8,11 @@ ListopicApp.pageListView = (() => {
 
     // Variables del DOM
     let listTitleElement, rankingTbody, searchInput, tagFilterContainer, rankingTable,
-        addReviewButton, editListLink, deleteListButton, showMapModalBtn,
-        mapModal, closeMapModalBtn, mapContainer, listMapInstance;
+    addReviewButton, editListLink, deleteListButton, showMapModalBtn,
+    mapModal, closeMapModalBtn, mapContainer, listMapInstance;
 
+    let markersMap = new Map();
+    
     // *** INICIO DE SECCIÓN DEL FORO ***
     let forumModal, closeModalForumBtn, forumListNameSpan, forumMessagesContainer,
         newForumMessageInput, sendForumMessageBtn, messagesCollectionRef; // Referencia a la colección
@@ -494,36 +496,75 @@ ListopicApp.pageListView = (() => {
         }
     }
     
+    // REEMPLAZA TU FUNCIÓN addPlacesToMap CON ESTA VERSIÓN MEJORADA
     function addPlacesToMap(places) {
-        if (!listMapInstance || !places || places.length === 0) {
-            console.log("No hay lugares con coordenadas para mostrar.");
-            return;
-        }
-    
-        const markers = [];
-        places.forEach(place => {
-            if (place.location && place.location.latitude && place.location.longitude) {
-                const marker = L.marker([place.location.latitude, place.location.longitude]);
-                const popupContent = `
-                    <div style="font-family: 'Poppins', sans-serif;">
-                        <h5 style="margin:0 0 5px 0;">${ListopicApp.uiUtils.escapeHtml(place.name)}</h5>
-                        <img src="${ListopicApp.uiUtils.escapeHtml(place.mainImageUrl || 'img/default-avatar.png')}" alt="Foto" style="width:100px; border-radius:4px; margin-bottom:5px;">
-                        <br>
-                        <a href="grouped-detail-view.html?listId=${ListopicApp.state.currentListId}&placeId=${place.id}" style="color:var(--accent-color-primary);">Ver reseñas</a>
+        if (!listMapInstance || !places) { return; }
+
+    markersMap.forEach(marker => marker.remove());
+    markersMap.clear();
+
+    if (places.length === 0) {
+        console.log("No hay lugares con coordenadas para mostrar en el mapa.");
+        return;
+    }
+
+    const markers = [];
+    places.forEach(place => {
+        if (place.location && place.location.latitude && place.location.longitude) {
+            
+            const customIcon = getIconByScore(place.avgGeneralScore);
+            const marker = L.marker([place.location.latitude, place.location.longitude], { icon: customIcon });
+            
+            // --- POPUP ACTUALIZADO CON MÁS INFO Y MEJOR DISEÑO ---
+            const popupContent = `
+                <div class="map-popup">
+                    <img src="${ListopicApp.uiUtils.escapeHtml(place.mainImageUrl || 'img/default-avatar.png')}" alt="Foto" class="map-popup-img">
+                    <div class="map-popup-content">
+                        <h5 class="map-popup-title">${ListopicApp.uiUtils.escapeHtml(place.name)}</h5>
+                        <p class="map-popup-score">Valoración media: <strong>${place.avgGeneralScore.toFixed(1)}</strong></p>
+                        <a href="grouped-detail-view.html?listId=${ListopicApp.state.currentListId}&placeId=${place.id}" class="map-popup-link">Ver todas las reseñas</a>
                     </div>
-                `;
-                marker.bindPopup(popupContent);
-                markers.push(marker);
-            }
-        });
-    
-        if (markers.length > 0) {
-            const featureGroup = L.featureGroup(markers).addTo(listMapInstance);
-            if (!navigator.geolocation) {
-                 listMapInstance.fitBounds(featureGroup.getBounds()).pad(0.1);
-            }
+                </div>
+            `;
+            marker.bindPopup(popupContent);
+            markers.push(marker);
+            markersMap.set(place.id, marker); 
+        }
+    });
+
+    if (markers.length > 0) {
+        const featureGroup = L.featureGroup(markers).addTo(listMapInstance);
+        if (!navigator.geolocation) {
+             listMapInstance.fitBounds(featureGroup.getBounds()).pad(0.1);
         }
     }
+}
+
+    // En public/js/page-list-view.js
+
+// En public/js/page-list-view.js
+
+function getIconByScore(score) {
+    let colorClass = 'marker-default';
+    if (score >= 9) colorClass = 'marker-gold';
+    else if (score >= 7) colorClass = 'marker-silver';
+    else if (score >= 5) colorClass = 'marker-bronze';
+    
+    // El número que mostraremos: con un decimal o 'N/A'
+    const scoreDisplay = score !== undefined ? score.toFixed(1) : 'N/A';
+
+    return L.divIcon({
+        // La clase del contenedor ahora incluye el color
+        className: `custom-marker ${colorClass}`, 
+        
+        // El HTML interno es nuestro número
+        html: `<div class="custom-marker-content">${scoreDisplay}</div>`, 
+        
+        iconSize: [36, 36],     // Tamaño de la chincheta
+        iconAnchor: [18, 36],   // La punta del pin
+        popupAnchor: [0, -38]   // De dónde sale el popup
+    });
+}
 
     return {
         init
