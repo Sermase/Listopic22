@@ -23,6 +23,7 @@ ListopicApp.placesService = (() => {
                             longitude: place.geometry?.location?.lng || null,
 <<<<<<< Updated upstream:public/js/places-service.js
 <<<<<<< Updated upstream:public/js/places-service.js
+<<<<<<< Updated upstream:public/js/places-service.js
                             // mapsUrl: place.place_id 
                             //     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.place_id}` 
                             //     : (place.geometry?.location?.lat && place.geometry?.location?.lng 
@@ -32,6 +33,8 @@ ListopicApp.placesService = (() => {
                             googleMapsUrl: place.place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${place.place_id}` : (place.geometry?.location?.lat ? `https://www.google.com/maps/search/?api=1&query=${place.geometry.location.lat},${place.geometry.location.lng}` : ''),
 
 =======
+=======
+>>>>>>> Stashed changes:public/js/placesService.js
 =======
 >>>>>>> Stashed changes:public/js/placesService.js
                             // --- CORRECCIÓN CLAVE AQUÍ ---
