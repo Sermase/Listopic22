@@ -5,6 +5,7 @@ ListopicApp.pageReviewForm = (() => {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUserId) {
     const db = ListopicApp.services.db;
     const placesRef = db.collection('places');
@@ -177,6 +178,91 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
                     weekday_text: placeDataFromGoogle.opening_hours.weekday_text || []
                 } : null,
 
+=======
+    async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUserId) {
+        const db = ListopicApp.services.db;
+        const placesRef = db.collection('places');
+        let existingPlaceDoc = null;
+    
+        // --- 1. Buscar por el ID de Google Place (el más fiable) ---
+        if (placeDataFromGoogle && placeDataFromGoogle.placeId) {
+            console.log(`Buscando lugar por Google Place ID: ${placeDataFromGoogle.placeId}`);
+            const querySnapshot = await placesRef.where('googlePlaceId', '==', placeDataFromGoogle.placeId).limit(1).get();
+            if (!querySnapshot.empty) {
+                existingPlaceDoc = querySnapshot.docs[0];
+            }
+        }
+    
+        // --- 2. Si no se encuentra por placeId, buscar por coincidencia de Nombre y Dirección ---
+        if (!existingPlaceDoc) {
+            const searchName = (placeDataFromGoogle?.name) || (manualPlaceData?.name);
+            const searchAddress = (placeDataFromGoogle?.addressFormatted) || (manualPlaceData?.address);
+    
+            if (searchName && searchAddress) {
+                console.log(`Buscando lugar por Nombre: "${searchName}" y Dirección: "${searchAddress}"`);
+                const querySnapshot = await placesRef
+                                        .where('name_normalized', '==', searchName.toLowerCase())
+                                        .where('address_normalized', '==', searchAddress.toLowerCase())
+                                        .limit(1).get();
+                if (!querySnapshot.empty) {
+                    existingPlaceDoc = querySnapshot.docs[0];
+                }
+            }
+        }
+    
+        // --- 3. Si hemos encontrado un lugar existente, lo actualizamos si es necesario ---
+        if (existingPlaceDoc) {
+            console.log(`Lugar encontrado. ID existente: ${existingPlaceDoc.id}`);
+            const placeData = existingPlaceDoc.data();
+            const updates = {};
+    
+            // CORRECCIÓN: Si el lugar existente no tiene URL de Google, pero la nueva información sí, la añadimos.
+            if (!placeData.googleMapsUrl && placeDataFromGoogle?.mapsUrl) {
+                updates.googleMapsUrl = placeDataFromGoogle.mapsUrl;
+            }
+            // También podemos actualizar otros campos si han cambiado
+            if (!placeData.googlePlaceId && placeDataFromGoogle?.placeId) {
+                updates.googlePlaceId = placeDataFromGoogle.placeId;
+            }
+    
+            if (Object.keys(updates).length > 0) {
+                console.log(`Actualizando lugar existente ${existingPlaceDoc.id} con nuevos datos:`, updates);
+                await existingPlaceDoc.ref.update(updates);
+            }
+            
+            return existingPlaceDoc.id;
+        }
+    
+        // --- 4. Si no se encuentra de ninguna forma, CREAR un nuevo lugar ---
+        console.log("No se encontró ningún lugar existente. Creando uno nuevo...");
+        
+        let dataToSave = {};
+        if (placeDataFromGoogle) {
+            dataToSave = {
+                name: placeDataFromGoogle.name || "Establecimiento Desconocido",
+                name_normalized: (placeDataFromGoogle.name || "").toLowerCase(),
+                address: placeDataFromGoogle.addressFormatted || null,
+                address_normalized: (placeDataFromGoogle.addressFormatted || "").toLowerCase(),
+                location: placeDataFromGoogle.latitude && placeDataFromGoogle.longitude ? new firebase.firestore.GeoPoint(placeDataFromGoogle.latitude, placeDataFromGoogle.longitude) : null,
+                googlePlaceId: placeDataFromGoogle.placeId || null,
+                googleMapsUrl: placeDataFromGoogle.mapsUrl || null,
+                streetAddress: placeDataFromGoogle.streetAddress || null,
+                city: placeDataFromGoogle.city || null,
+                postalCode: placeDataFromGoogle.postalCode || null,
+                region: placeDataFromGoogle.region || null,
+                country: placeDataFromGoogle.country || null,
+                mainImageUrl: placeDataFromGoogle.mainImageUrl || null,
+                imageUrls: placeDataFromGoogle.imageUrls || [],
+                types: placeDataFromGoogle.types || [],
+                phone: placeDataFromGoogle.formatted_phone_number || placeDataFromGoogle.international_phone_number || null,
+                website: placeDataFromGoogle.website || null,
+                priceLevel: placeDataFromGoogle.price_level || null,
+                openingHours: placeDataFromGoogle.opening_hours ? {
+                    open_now: placeDataFromGoogle.opening_hours.open_now || false,
+                    weekday_text: placeDataFromGoogle.opening_hours.weekday_text || []
+                } : null,
+
+>>>>>>> Stashed changes
 =======
     async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUserId) {
         const db = ListopicApp.services.db;
