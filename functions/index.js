@@ -531,52 +531,123 @@ exports.reverseGeocode = onRequest(async (req, res) => {
  * Actualiza los contadores de reseñas en los documentos de usuario, lugar y lista.
  */
 exports.updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
-  // Si es una actualización de la reseña, no afecta a los contadores. Salimos para no hacer trabajo innecesario.
-  if (event.data.before.exists && event.data.after.exists) {
-      logger.info(`Reseña ${event.params.reviewId} actualizada. No se modifican contadores.`);
-      return null;
-  }
-
-  // Determina si es una creación (+1) o una eliminación (-1)
-  const change = event.data.after.exists ? 1 : -1;
   const listId = event.params.listId;
-  // Obtenemos los datos del documento que existía (antes del borrado) o que se acaba de crear (después de la creación)
-  const data = change === 1 ? event.data.after.data() : event.data.before.data();
-  
-  const {userId, placeId} = data;
-  
-  // Comprobación de seguridad: si no hay userId, no podemos actualizar su contador.
-  if (!userId) {
-      logger.warn(`La reseña ${event.params.reviewId} no tiene userId. No se puede actualizar contador de usuario.`);
+  const reviewId = event.params.reviewId;
+
+  // Caso 1: CREACIÓN de reseña
+  if (!event.data.before.exists && event.data.after.exists) {
+    const newData = event.data.after.data();
+    const {userId, placeId} = newData;
+
+    if (!userId) {
+      logger.warn(`La reseña ${reviewId} no tiene userId. No se puede actualizar contador de usuario.`);
       return null;
-  }
+    }
 
-  const batch = db.batch();
+    const batch = db.batch();
 
-  // 1. Actualizar contador de la LISTA
-  const listRef = db.collection('lists').doc(listId);
-  batch.update(listRef, { reviewCount: FieldValue.increment(change) });
-  logger.info(`Programando actualización de 'reviewCount' en lista ${listId} en ${change}.`);
+    // Actualizar contadores (+1)
+    const listRef = db.collection('lists').doc(listId);
+    batch.update(listRef, { reviewCount: FieldValue.increment(1) });
+    logger.info(`Programando incremento de 'reviewCount' en lista ${listId}.`);
 
-  // 2. Actualizar contador de reseñas del USUARIO
-  const userRef = db.collection('users').doc(userId);
-  batch.update(userRef, { reviewsCount: FieldValue.increment(change) });
-  logger.info(`Programando actualización de 'reviewsCount' en usuario ${userId} en ${change}.`);
+    const userRef = db.collection('users').doc(userId);
+    batch.update(userRef, { reviewsCount: FieldValue.increment(1) });
+    logger.info(`Programando incremento de 'reviewsCount' en usuario ${userId}.`);
 
-  // 3. Actualizar contador de reseñas del LUGAR (solo si la reseña tiene un placeId asociado)
-  if (placeId) {
+    if (placeId) {
       const placeRef = db.collection('places').doc(placeId);
-      batch.update(placeRef, { reviewsCount: FieldValue.increment(change) });
-      logger.info(`Programando actualización de 'reviewsCount' en lugar ${placeId} en ${change}.`);
-  }
-  
-  // Ejecutar todas las actualizaciones en un solo lote atómico.
-  try {
+      batch.update(placeRef, { reviewsCount: FieldValue.increment(1) });
+      logger.info(`Programando incremento de 'reviewsCount' en lugar ${placeId}.`);
+    }
+
+    try {
       await batch.commit();
-      logger.info("Lote de actualización de contadores de reseña completado exitosamente.");
-  } catch (error) {
-      logger.error("Error al ejecutar el lote de actualización de contadores de reseña:", error);
+      logger.info(`Contadores actualizados exitosamente para nueva reseña ${reviewId}.`);
+    } catch (error) {
+      logger.error("Error al actualizar contadores para nueva reseña:", error);
+    }
+    return null;
   }
+
+  // Caso 2: ELIMINACIÓN de reseña
+  if (event.data.before.exists && !event.data.after.exists) {
+    const oldData = event.data.before.data();
+    const {userId, placeId} = oldData;
+
+    if (!userId) {
+      logger.warn(`La reseña eliminada ${reviewId} no tenía userId. No se puede actualizar contador de usuario.`);
+      return null;
+    }
+
+    const batch = db.batch();
+
+    // Actualizar contadores (-1)
+    const listRef = db.collection('lists').doc(listId);
+    batch.update(listRef, { reviewCount: FieldValue.increment(-1) });
+    logger.info(`Programando decremento de 'reviewCount' en lista ${listId}.`);
+
+    const userRef = db.collection('users').doc(userId);
+    batch.update(userRef, { reviewsCount: FieldValue.increment(-1) });
+    logger.info(`Programando decremento de 'reviewsCount' en usuario ${userId}.`);
+
+    if (placeId) {
+      const placeRef = db.collection('places').doc(placeId);
+      batch.update(placeRef, { reviewsCount: FieldValue.increment(-1) });
+      logger.info(`Programando decremento de 'reviewsCount' en lugar ${placeId}.`);
+    }
+
+    try {
+      await batch.commit();
+      logger.info(`Contadores actualizados exitosamente para reseña eliminada ${reviewId}.`);
+    } catch (error) {
+      logger.error("Error al actualizar contadores para reseña eliminada:", error);
+    }
+    return null;
+  }
+
+  // Caso 3: ACTUALIZACIÓN de reseña
+  if (event.data.before.exists && event.data.after.exists) {
+    const oldData = event.data.before.data();
+    const newData = event.data.after.data();
+
+    const oldPlaceId = oldData.placeId;
+    const newPlaceId = newData.placeId;
+
+    // Solo proceder si cambió el placeId
+    if (oldPlaceId !== newPlaceId) {
+      logger.info(`Reseña ${reviewId} cambió de lugar: ${oldPlaceId || 'null'} -> ${newPlaceId || 'null'}`);
+
+      const batch = db.batch();
+
+      // Decrementar contador del lugar anterior (si existía)
+      if (oldPlaceId) {
+        const oldPlaceRef = db.collection('places').doc(oldPlaceId);
+        batch.update(oldPlaceRef, { reviewsCount: FieldValue.increment(-1) });
+        logger.info(`Programando decremento de 'reviewsCount' en lugar anterior ${oldPlaceId}.`);
+      }
+
+      // Incrementar contador del lugar nuevo (si existe)
+      if (newPlaceId) {
+        const newPlaceRef = db.collection('places').doc(newPlaceId);
+        batch.update(newPlaceRef, { reviewsCount: FieldValue.increment(1) });
+        logger.info(`Programando incremento de 'reviewsCount' en lugar nuevo ${newPlaceId}.`);
+      }
+
+      try {
+        await batch.commit();
+        logger.info(`Contadores de lugares actualizados exitosamente para reseña ${reviewId}.`);
+      } catch (error) {
+        logger.error("Error al actualizar contadores de lugares:", error);
+      }
+    } else {
+      logger.info(`Reseña ${reviewId} actualizada sin cambio de lugar. No se modifican contadores.`);
+    }
+    return null;
+  }
+
+  logger.warn(`Caso no manejado en updateAggregatesOnReviewChange para reseña ${reviewId}`);
+  return null;
 });
 
 

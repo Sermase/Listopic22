@@ -21,30 +21,29 @@
     <meta property="og:image" content="https://listopic.web.app/public/img/listopic-logo400.png"> 
     <meta property="og:url" content="https://listopic.web.app/index.html"> <meta property="og:type" content="website">
 
-     <!-- Main application orchestrator -->
-   <script src="js/main.js" defer></script>
-    <!-- Listopic App Modules -->
-   <script src="js/config.js" defer></script>
-   <script src="js/firebaseService.js" defer></script>
-   <script src="js/uiUtils.js" defer></script>
-   <script src="js/themeManager.js" defer></script>
-   <script src="js/placesService.js" defer></script>
-   <script src="js/authService.js" defer></script>
-   <script src="js/page-index.js" defer></script>
-   <script src="js/page-auth.js" defer></script>
-   <script src="js/page-list-form.js" defer></script>
-   <script src="js/page-review-form.js" defer></script>
-   <script src="js/page-list-view.js" defer></script>
-   <script src="js/page-detail-view.js" defer></script>
-   <script src="js/page-grouped-detail-view.js" defer></script>
-
-    <!-- Firebase SDKs - Asegúrate de que app.js los utilice o inicialice Firebase -->
+     <!-- Firebase SDKs - DEBEN CARGARSE PRIMERO -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js" defer></script>
-    
+
+    <!-- Listopic App Modules - ORDEN CORRECTO -->
+    <script src="js/config.js" defer></script>
+    <script src="js/firebaseService.js" defer></script>
+    <script src="js/uiUtils.js" defer></script>
+    <script src="js/themeManager.js" defer></script>
+    <script src="js/places-service.js" defer></script>
+    <script src="js/authService.js" defer></script>
+    <script src="js/main.js" defer></script>
+    <script src="js/page-index.js" defer></script>
+    <script src="js/page-auth.js" defer></script>
+    <script src="js/page-list-form.js" defer></script>
+    <script src="js/page-review-form.js" defer></script>
+    <script src="js/page-list-view.js" defer></script>
+    <script src="js/page-detail-view.js" defer></script>
+    <script src="js/page-grouped-detail-view.js" defer></script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <!-- *****New container for header action buttons -->
