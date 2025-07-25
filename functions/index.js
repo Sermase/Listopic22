@@ -450,6 +450,7 @@ exports.reverseGeocode = onRequest(async (req, res) => {
  */
 exports.updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   const listId = event.params.listId;
   const reviewId = event.params.reviewId;
 
@@ -623,6 +624,63 @@ exports.updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/revie
         // que `page-review-form.js` ya lo ha hecho.
     }
 
+=======
+    const listId = event.params.listId;
+    const db = getFirestore();
+    const batch = db.batch();
+
+    // --- Lógica para creación y eliminación (afecta contadores) ---
+    if (!event.data.before.exists && event.data.after.exists) { // CREACIÓN
+        const data = event.data.after.data();
+        logger.info(`Nueva reseña creada en lista ${listId}. Incrementando contadores.`);
+        
+        // Actualizar contadores
+        batch.update(db.collection('lists').doc(listId), { reviewCount: FieldValue.increment(1) });
+        batch.update(db.collection('users').doc(data.userId), { reviewsCount: FieldValue.increment(1) });
+        if (data.placeId) {
+            batch.update(db.collection('places').doc(data.placeId), { reviewsCount: FieldValue.increment(1) });
+        }
+    } else if (event.data.before.exists && !event.data.after.exists) { // ELIMINACIÓN
+        const data = event.data.before.data();
+        logger.info(`Reseña eliminada de lista ${listId}. Decrementando contadores.`);
+        
+        // Actualizar contadores
+        batch.update(db.collection('lists').doc(listId), { reviewCount: FieldValue.increment(-1) });
+        batch.update(db.collection('users').doc(data.userId), { reviewsCount: FieldValue.increment(-1) });
+        if (data.placeId) {
+            batch.update(db.collection('places').doc(data.placeId), { reviewsCount: FieldValue.increment(-1) });
+        }
+    }
+    // --- Lógica para ACTUALIZACIÓN (no afecta contadores, pero puede afectar datos del lugar) ---
+    else if (event.data.before.exists && event.data.after.exists) {
+        logger.info(`Reseña ${event.params.reviewId} actualizada.`);
+        const beforeData = event.data.before.data();
+        const afterData = event.data.after.data();
+        
+        // Comprobar si ha cambiado el placeId
+        const oldPlaceId = beforeData.placeId;
+        const newPlaceId = afterData.placeId;
+
+        // Escenario 1: Se ha cambiado el lugar de la reseña
+        if (oldPlaceId !== newPlaceId) {
+            logger.info(`El placeId de la reseña ha cambiado de ${oldPlaceId} a ${newPlaceId}. Ajustando contadores.`);
+            // Decrementar contador del lugar antiguo
+            if (oldPlaceId) {
+                batch.update(db.collection('places').doc(oldPlaceId), { reviewsCount: FieldValue.increment(-1) });
+            }
+            // Incrementar contador del lugar nuevo
+            if (newPlaceId) {
+                batch.update(db.collection('places').doc(newPlaceId), { reviewsCount: FieldValue.increment(1) });
+            }
+        }
+        // Escenario 2: No ha cambiado el lugar, pero quizás sí sus datos
+        // (La lógica de `findOrCreatePlace` en el cliente debería haber creado/actualizado el lugar
+        // antes de guardar la reseña. Este trigger es principalmente para contadores.)
+        // No se necesita una acción explícita aquí para actualizar el lugar, ya que se asume
+        // que `page-review-form.js` ya lo ha hecho.
+    }
+
+>>>>>>> Stashed changes
     // Ejecutar el lote si hay operaciones pendientes
     try {
         await batch.commit();
@@ -635,6 +693,9 @@ exports.updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/revie
             logger.error("Error al ejecutar el lote de actualización de contadores:", error);
         }
     }
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 });
 
