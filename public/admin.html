@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Listopic</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+    <div class="header-actions-container">
+        <header>
+            <a href="/index.html" class="logo">Listopic</a>
+        </header>
+    </div>
+
+    <main>
+        <div class="container admin-page-container">
+            <h1><i class="fas fa-user-shield"></i> Panel de Administración</h1>
+            
+            <div id="admin-content" style="display: none;">
+                <div class.bind="admin-section card">
+                    <h3>Acciones de Administrador</h3>
+                    <div class="form-group">
+                        <label for="admin-email-input">Email del usuario para hacerlo Admin:</label>
+                        <div class="input-with-button-beside">
+                            <input type="email" id="admin-email-input" class="form-input" placeholder="usuario@ejemplo.com">
+                            <button id="set-admin-btn" class="button primary-button">Nombrar Admin</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-section card">
+                    <h3><i class="fas fa-map-marked-alt"></i> Colección: Places</h3>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead><tr id="places-table-head"></tr></thead>
+                            <tbody id="places-table-body">
+                                <tr><td colspan="5">Cargando lugares...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="admin-access-denied" style="display: none; text-align: center; padding: 40px;" class="card">
+                <h2><i class="fas fa-ban"></i> Acceso Denegado</h2>
+                <p>No tienes los permisos necesarios para ver esta sección. Y lo sabes.</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
+
+    <script src="/js/config.js" defer></script>
+    <script src="/js/firebaseService.js" defer></script>
+    <script src="/js/uiUtils.js" defer></script>
+    <script src="/js/themeManager.js" defer></script>
+    <script src="/js/authService.js" defer></script>
+    <script src="/js/placesService.js" defer></script> 
+    <script src="/js/page-index.js" defer></script>
+    <script src="/js/page-auth.js" defer></script>
+    <script src="/js/page-admin.js" defer></script>
+    <script src="/js/page-list-form.js" defer></script>
+    <script src="/js/page-list-view.js" defer></script>
+    <script src="/js/page-detail-view.js" defer></script>
+    <script src="/js/page-grouped-detail-view.js" defer></script>
+    <script src="/js/page-profile.js" defer></script>
+    <script src="/js/page-search.js" defer></script>
+    <script src="/js/page-place-detail.js" defer></script>
+
+    <script src="/js/main.js" defer></script>
+    </body>
+</html>

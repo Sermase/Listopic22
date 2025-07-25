@@ -1,21 +1,22 @@
-// functions/index.js
 const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {setGlobalOptions} = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const cors = require("cors")({origin: true});
-const fetch = require("node-fetch");
 const {onDocumentWritten} = require("firebase-functions/v2/firestore");
-const {initializeApp} = require("firebase-admin/app");
 const {getFirestore, FieldValue} = require("firebase-admin/firestore");
 
-
+// --- INICIALIZACIÓN A PRUEBA DE BOMBAS ---
 if (admin.apps.length === 0) {
-  admin.initializeApp();
+    admin.initializeApp();
 }
+// -----------------------------------------
+
 const db = getFirestore();
 
+// --- CONFIGURACIÓN GLOBAL PARA TODAS LAS FUNCIONES v2 ---
 setGlobalOptions({ region: "europe-west1" });
+
 
 // --- FUNCIÓN groupedReviews ---
 exports.groupedReviews = onRequest(
@@ -30,113 +31,44 @@ exports.groupedReviews = onRequest(
         logger.info(`groupedReviews: Procesando para listId: ${listId}`, {structuredData: true});
         try {
             const listDocRef = db.collection("lists").doc(listId);
-            const reviewsSnapshot = await listDocRef.collection("reviews").get();
-            
-            const reviews = [];
-            reviewsSnapshot.forEach(doc => {
-                const reviewData = doc.data();
-                reviews.push({ id: doc.id, ...reviewData });
-                // LOG DETALLADO DE CADA RESEÑA Y SU placeId
-                logger.info(`groupedReviews: Review ID: ${doc.id} leída, con Place ID: ${reviewData.placeId || "No encontrado/Nulo"}`, {reviewData: reviewData});
-            });
-            logger.info(`groupedReviews: Encontradas ${reviews.length} reseñas para listId: ${listId}`, {structuredData: true});
-
-            if (reviews.length === 0) {
-                const listDocEmpty = await listDocRef.get();
-                const listDataEmpty = listDocEmpty.exists ? listDocEmpty.data() : {};
-                logger.info(`groupedReviews: No hay reseñas para listId: ${listId}. Devolviendo lista vacía de grupos.`);
-                res.status(200).json({ 
-                    listName: listDataEmpty.name || "Lista Desconocida",
-                    criteria: listDataEmpty.criteriaDefinition || {},
-                    tags: listDataEmpty.availableTags || [],
-                    groupedReviews: [] 
-                });
+            const listDoc = await listDocRef.get();
+            if (!listDoc.exists) {
+                logger.warn(`groupedReviews: Lista con ID: ${listId} no encontrada.`);
+                res.status(404).send({ error: "Lista no encontrada." });
                 return;
             }
+
+            const reviewsSnapshot = await listDocRef.collection("reviews").get();
+            
+            const reviews = reviewsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
             const placeIds = [...new Set(reviews.map(r => r.placeId).filter(id => !!id))];
             const placesDataMap = new Map();
 
             if (placeIds.length > 0) {
-                logger.info("groupedReviews: Intentando obtener los siguientes placeIds de /places:", placeIds, {structuredData: true});
-                const placePromises = placeIds.map(id => db.collection('places').doc(id).get());
-                const placeDocsSnapshots = await Promise.all(placePromises);
-                placeDocsSnapshots.forEach(docSnap => {
-                    if (docSnap.exists) {
-                        placesDataMap.set(docSnap.id, docSnap.data());
-                        logger.info(`groupedReviews: Datos del lugar ${docSnap.id} obtenidos de /places:`, docSnap.data(), {structuredData: true});
-                    } else {
-                        logger.warn(`groupedReviews: Documento de lugar no encontrado en /places para placeId: ${docSnap.id}`, {structuredData: true});
+                const placesRef = db.collection('places');
+                const chunks = [];
+                for (let i = 0; i < placeIds.length; i += 30) {
+                    chunks.push(placeIds.slice(i, i + 30));
+                }
+                for (const chunk of chunks) {
+                    if (chunk.length > 0) {
+                        const querySnapshot = await placesRef.where(admin.firestore.FieldPath.documentId(), 'in', chunk).get();
+                        querySnapshot.forEach(doc => placesDataMap.set(doc.id, doc.data()));
                     }
-                });
+                }
             }
-            logger.info(`groupedReviews: Datos de ${placesDataMap.size} lugares distintos obtenidos de /places.`, {structuredData: true});
 
-            const grouped = {};
-            reviews.forEach(review => {
-                logger.info(`groupedReviews: Procesando review para agrupación - ID: ${review.id}, Place ID: ${review.placeId || "N/A"}`, {structuredData: true});
-                const placeInfo = review.placeId ? placesDataMap.get(review.placeId) : null;
-                
-                let establishmentNameFromPlace = "Lugar Desconocido";
-                if (placeInfo && placeInfo.name) {
-                    establishmentNameFromPlace = placeInfo.name;
-                } else if (placeInfo) {
-                    logger.warn(`groupedReviews: placeInfo encontrado para placeId ${review.placeId}, pero no tiene campo 'name'. Usando 'Lugar Desconocido'.`, {placeInfoData: placeInfo});
-                } else if (review.placeId) {
-                    logger.warn(`groupedReviews: No se encontró información del lugar en placesDataMap para placeId: ${review.placeId}. Usando 'Lugar Desconocido'.`);
-                } else {
-                    logger.warn(`groupedReviews: La reseña ${review.id} no tiene placeId. Usando 'Lugar Desconocido'.`);
-                }
-                logger.info(`groupedReviews: Establishment name para la reseña ${review.id} será: "${establishmentNameFromPlace}"`, {structuredData: true});
-                
-                const key = `${establishmentNameFromPlace}-${review.itemName || ""}`;
-                
-                if (!grouped[key]) {
-                    grouped[key] = {
-                        establishmentName: establishmentNameFromPlace,
-                        itemName: review.itemName || "", // Asegurar que no sea null/undefined
-                        itemCount: 0,
-                        totalGeneralScore: 0,
-                        avgGeneralScore: 0,
-                        thumbnailUrl: placeInfo ? placeInfo.mainImageUrl : null,
-                        groupTags: new Set(),
-                        listId: listId, 
-                        reviewIds: [],
-                        placeId: review.placeId // Mantener placeId para el grupo
-                    };
-                }
-                grouped[key].itemCount++;
-                grouped[key].totalGeneralScore += review.overallRating || 0;
-                if (review.photoUrl && (!grouped[key].thumbnailUrl || !placeInfo?.mainImageUrl) ) { 
-                    grouped[key].thumbnailUrl = review.photoUrl; 
-                }
-                if (review.userTags && Array.isArray(review.userTags)) {
-                    review.userTags.forEach(tag => grouped[key].groupTags.add(tag));
-                }
-                grouped[key].reviewIds.push(review.id);
-            });
-
-            const groupedReviewsArray = Object.values(grouped).map(group => {
-                group.avgGeneralScore = group.itemCount > 0 ? parseFloat((group.totalGeneralScore / group.itemCount).toFixed(1)) : 0;
-                group.groupTags = Array.from(group.groupTags);
-                delete group.totalGeneralScore;
-                return group;
-            });
-            
-            groupedReviewsArray.sort((a, b) => (b.avgGeneralScore || 0) - (a.avgGeneralScore || 0));
-
-            const listDoc = await listDocRef.get();
-            const listData = listDoc.exists ? listDoc.data() : {};
-            logger.info(`groupedReviews: Datos de lista obtenidos para listId: ${listId}, Nombre: ${listData.name}`, {structuredData: true});
-
+            const listData = listDoc.data();
             const responsePayload = { 
                 listName: listData.name || "Lista Desconocida",
+                categoryId: listData.categoryId || "Hmm...",
                 criteria: listData.criteriaDefinition || {},
                 tags: listData.availableTags || [],
-                groupedReviews: groupedReviewsArray 
+                reviews: reviews, // Devolvemos las reseñas en crudo
+                places: Object.fromEntries(placesDataMap) // Devolvemos el mapa de lugares
             };
             
-            logger.info(`groupedReviews: Respuesta enviada para listId: ${listId} con ${groupedReviewsArray.length} grupos. Payload:`, responsePayload, {structuredData: true});
             res.status(200).json(responsePayload);
 
         } catch (error) {
@@ -145,34 +77,6 @@ exports.groupedReviews = onRequest(
         }
     });
 });
-
-// --- FUNCIÓN updateListReviewCount ---
-// ESTA FUNCIÓN QUEDA OBSOLETA, LA NUEVA "updateAggregatesOnReviewChange" HACE ESTO Y MÁS.
-// LA DEJAMOS COMENTADA POR SI ACASO, PERO LA NUEVA ES MEJOR.
-/*
-exports.updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
-  const listId = event.params.listId;
-  const listRef = getFirestore().collection('lists').doc(listId);
-  if (!event.data.before.exists && event.data.after.exists) {
-      logger.info(`Nueva reseña creada en lista ${listId}, incrementando contador.`);
-      return listRef.update({
-          reviewCount: FieldValue.increment(1),
-          updatedAt: FieldValue.serverTimestamp()
-      });
-  }
-  else if (event.data.before.exists && !event.data.after.exists) {
-      logger.info(`Reseña eliminada de lista ${listId}, decrementando contador.`);
-      return listRef.update({
-          reviewCount: FieldValue.increment(-1),
-          updatedAt: FieldValue.serverTimestamp()
-      });
-  }
-  else {
-      logger.info(`Reseña actualizada en lista ${listId}, contador no afectado.`);
-      return null;
-  }
-});
-*/
 
 // --- FUNCIÓN placesNearbyRestaurants ---
 exports.placesNearbyRestaurants = onRequest(async (req, res) => {
@@ -393,66 +297,79 @@ exports.createList = onCall(async (data, context) => {
     }
 });
 
-// --- NUEVA FUNCIÓN CALLABLE: createListWithValidation ---
-exports.createListWithValidation = onCall(
-  async (request) => { 
+// --- FUNCIÓN SIMPLIFICADA PARA DEPURAR ---
+/**
+ * ===================================================================
+ * === FUNCIÓN PARA CREAR LISTAS (100% SINTAXIS v2) ===
+ * ===================================================================
+ */
+exports.createListWithValidation = onCall(async (request) => {
     const data = request.data;
     const contextAuth = request.auth;
 
     if (!contextAuth) {
-        logger.warn("createListWithValidation: Intento de llamada no autenticado.", {structuredData: true});
-        throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado para crear una lista.');
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado para crear una lista.');
     }
-    
+
     const userId = contextAuth.uid;
     const listName = data.name;
 
     if (!listName || typeof listName !== 'string' || listName.trim() === '') {
-        logger.warn(`createListWithValidation: Nombre de lista no proporcionado o inválido por el usuario ${userId}.`, {structuredData: true});
-        throw new HttpsError('invalid-argument', 'El nombre de la lista es requerido.');
+        throw new HttpsError('invalid-argument', 'El nombre de la lista es obligatorio.');
     }
 
-    logger.info(`createListWithValidation: Usuario ${userId} intentando crear lista "${listName}"`, {structuredData: true});
-    const listsRef = db.collection('lists');
-
     try {
-        const existingListQuery = await listsRef
-                                    .where('userId', '==', userId)
-                                    .where('name', '==', listName.trim())
-                                    .limit(1)
-                                    .get();
-
-        if (!existingListQuery.empty) {
-            logger.warn(`createListWithValidation: Usuario ${userId} ya tiene una lista llamada "${listName.trim()}".`, {structuredData: true});
-            throw new HttpsError('already-exists', `Ya tienes una lista llamada "${listName.trim()}". Por favor, elige otro nombre.`);
-        }
-
         const newListData = {
-            userId: userId,
             name: listName.trim(),
-            isPublic: data.isPublic !== undefined ? data.isPublic : false,
+            userId: userId,
+            createdAt: FieldValue.serverTimestamp(),
+            categoryId: data.categoryId || "default",
+            isPublic: data.isPublic !== undefined ? data.isPublic : true,
             criteriaDefinition: data.criteriaDefinition || {},
             availableTags: data.availableTags || [],
-            categoryId: data.categoryId || "defaultCategory",
             reviewCount: 0,
             reactions: {},
-            commentsCount: 0,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            commentsCount: 0
         };
-        Object.keys(newListData).forEach(key => newListData[key] === undefined && delete newListData[key]);
-
-        const newListRef = await listsRef.add(newListData);
-        logger.info(`createListWithValidation: Lista "${listName.trim()}" creada con ID ${newListRef.id} por el usuario ${userId}`, {structuredData: true});
         
-        return { listId: newListRef.id, message: 'Lista creada con éxito.' };
+        const newListRef = await db.collection('lists').add(newListData);
+        
+        logger.info(`¡Éxito! Lista '${listName}' creada con ID: ${newListRef.id}`);
+        return { listId: newListRef.id, message: '¡Lista creada con éxito!' };
 
     } catch (error) {
-        logger.error(`Error en createListWithValidation para usuario ${userId}, lista "${listName}":`, error, {structuredData: true});
-        if (error.code && typeof error.code === 'string' && error.message ) {
-             throw error;
-        }
-        throw new HttpsError('internal', 'Ocurrió un error al crear la lista.', error.message);
+        logger.error(`¡CRASH! Error al escribir en Firestore para el usuario ${userId}:`, error);
+        throw new HttpsError('internal', 'El servidor tuvo un problema al guardar la lista.', error.message);
+    }
+});
+
+
+/**
+ * ===================================================================
+ * === FUNCIÓN PARA SER ADMIN (100% SINTAXIS v2) ===
+ * ===================================================================
+ */
+exports.setAdminUser = onCall(async (request) => {
+    const data = request.data;
+    const contextAuth = request.auth;
+
+    // (Asegúrate de DESCOMENTAR esto después de nombrarte admin)
+    // if (!contextAuth || contextAuth.token.admin !== true) {
+    //     throw new HttpsError('permission-denied', 'Solo un administrador puede ejecutar esta acción.');
+    // }
+
+    const email = data.email;
+    if (!email) {
+        throw new HttpsError('invalid-argument', 'Se requiere el campo "email".');
+    }
+
+    try {
+        const user = await admin.auth().getUserByEmail(email);
+        await admin.auth().setCustomUserClaims(user.uid, { admin: true });
+        return { message: `¡Éxito! ${email} ahora es administrador.` };
+    } catch (error) {
+        logger.error(`Error al establecer admin para ${email}:`, error);
+        throw new HttpsError('not-found', `No se encontró ningún usuario con el email ${email}.`);
     }
 });
 
@@ -527,10 +444,12 @@ exports.reverseGeocode = onRequest(async (req, res) => {
 // ===================================================================
 
 /**
- * Trigger que se dispara cuando una reseña es creada o eliminada.
+ * Trigger que se dispara cuando una reseña es creada, actualizada o eliminada.
  * Actualiza los contadores de reseñas en los documentos de usuario, lugar y lista.
+ * También actualiza los datos del lugar si la reseña se edita.
  */
 exports.updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
+<<<<<<< Updated upstream
   const listId = event.params.listId;
   const reviewId = event.params.reviewId;
 
@@ -648,6 +567,75 @@ exports.updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/revie
 
   logger.warn(`Caso no manejado en updateAggregatesOnReviewChange para reseña ${reviewId}`);
   return null;
+=======
+    const listId = event.params.listId;
+    const db = getFirestore();
+    const batch = db.batch();
+
+    // --- Lógica para creación y eliminación (afecta contadores) ---
+    if (!event.data.before.exists && event.data.after.exists) { // CREACIÓN
+        const data = event.data.after.data();
+        logger.info(`Nueva reseña creada en lista ${listId}. Incrementando contadores.`);
+        
+        // Actualizar contadores
+        batch.update(db.collection('lists').doc(listId), { reviewCount: FieldValue.increment(1) });
+        batch.update(db.collection('users').doc(data.userId), { reviewsCount: FieldValue.increment(1) });
+        if (data.placeId) {
+            batch.update(db.collection('places').doc(data.placeId), { reviewsCount: FieldValue.increment(1) });
+        }
+    } else if (event.data.before.exists && !event.data.after.exists) { // ELIMINACIÓN
+        const data = event.data.before.data();
+        logger.info(`Reseña eliminada de lista ${listId}. Decrementando contadores.`);
+        
+        // Actualizar contadores
+        batch.update(db.collection('lists').doc(listId), { reviewCount: FieldValue.increment(-1) });
+        batch.update(db.collection('users').doc(data.userId), { reviewsCount: FieldValue.increment(-1) });
+        if (data.placeId) {
+            batch.update(db.collection('places').doc(data.placeId), { reviewsCount: FieldValue.increment(-1) });
+        }
+    }
+    // --- Lógica para ACTUALIZACIÓN (no afecta contadores, pero puede afectar datos del lugar) ---
+    else if (event.data.before.exists && event.data.after.exists) {
+        logger.info(`Reseña ${event.params.reviewId} actualizada.`);
+        const beforeData = event.data.before.data();
+        const afterData = event.data.after.data();
+        
+        // Comprobar si ha cambiado el placeId
+        const oldPlaceId = beforeData.placeId;
+        const newPlaceId = afterData.placeId;
+
+        // Escenario 1: Se ha cambiado el lugar de la reseña
+        if (oldPlaceId !== newPlaceId) {
+            logger.info(`El placeId de la reseña ha cambiado de ${oldPlaceId} a ${newPlaceId}. Ajustando contadores.`);
+            // Decrementar contador del lugar antiguo
+            if (oldPlaceId) {
+                batch.update(db.collection('places').doc(oldPlaceId), { reviewsCount: FieldValue.increment(-1) });
+            }
+            // Incrementar contador del lugar nuevo
+            if (newPlaceId) {
+                batch.update(db.collection('places').doc(newPlaceId), { reviewsCount: FieldValue.increment(1) });
+            }
+        }
+        // Escenario 2: No ha cambiado el lugar, pero quizás sí sus datos
+        // (La lógica de `findOrCreatePlace` en el cliente debería haber creado/actualizado el lugar
+        // antes de guardar la reseña. Este trigger es principalmente para contadores.)
+        // No se necesita una acción explícita aquí para actualizar el lugar, ya que se asume
+        // que `page-review-form.js` ya lo ha hecho.
+    }
+
+    // Ejecutar el lote si hay operaciones pendientes
+    try {
+        await batch.commit();
+        logger.info("Lote de actualización de contadores de reseña completado.");
+    } catch (error) {
+        // Es posible que el lote esté vacío si solo fue una actualización sin cambio de placeId.
+        if (error.code === 'INVALID_ARGUMENT' && error.message.includes('batch must not be empty')) {
+             logger.info("El lote estaba vacío, no se requirieron actualizaciones de contador.");
+        } else {
+            logger.error("Error al ejecutar el lote de actualización de contadores:", error);
+        }
+    }
+>>>>>>> Stashed changes
 });
 
 
@@ -751,60 +739,6 @@ exports.updateAggregatesOnCommentChange = onDocumentWritten("lists/{listId}/comm
   }
 });
 
-
-exports.toggleFollowUser = onCall(async (request) => {
-    const contextAuth = request.auth;
-    if (!contextAuth) {
-        throw new HttpsError('unauthenticated', 'Debes estar autenticado para seguir a otros usuarios.');
-    }
-
-    const currentUserId = contextAuth.uid;
-    const userIdToFollow = request.data.userIdToFollow;
-
-    if (!userIdToFollow) {
-        throw new HttpsError('invalid-argument', 'Se requiere el ID del usuario a seguir (userIdToFollow).');
-    }
-
-    if (currentUserId === userIdToFollow) {
-        throw new HttpsError('invalid-argument', 'No te puedes seguir a ti mismo, genio.');
-    }
-
-    const currentUserRef = db.collection('users').doc(currentUserId);
-    const userToFollowRef = db.collection('users').doc(userIdToFollow);
-    const followingRef = currentUserRef.collection('following').doc(userIdToFollow);
-    const followerRef = userToFollowRef.collection('followers').doc(currentUserId);
-
-    try {
-        const doc = await followingRef.get();
-        const batch = db.batch();
-
-        if (doc.exists) {
-            // --- Lógica para DEJAR DE SEGUIR ---
-            batch.delete(followingRef);
-            batch.delete(followerRef);
-            batch.update(currentUserRef, { followingCount: FieldValue.increment(-1) });
-            batch.update(userToFollowRef, { followersCount: FieldValue.increment(-1) });
-            
-            await batch.commit();
-            logger.info(`Usuario ${currentUserId} ha dejado de seguir a ${userIdToFollow}.`);
-            return { status: 'unfollowed', message: 'Has dejado de seguir a este usuario.' };
-        } else {
-            // --- Lógica para SEGUIR ---
-            batch.set(followingRef, { followedAt: FieldValue.serverTimestamp() });
-            batch.set(followerRef, { followedAt: FieldValue.serverTimestamp() });
-            batch.update(currentUserRef, { followingCount: FieldValue.increment(1) });
-            batch.update(userToFollowRef, { followersCount: FieldValue.increment(1) });
-
-            await batch.commit();
-            logger.info(`Usuario ${currentUserId} ahora sigue a ${userIdToFollow}.`);
-            return { status: 'followed', message: 'Ahora sigues a este usuario.' };
-        }
-    } catch (error) {
-        logger.error(`Error en toggleFollowUser para ${currentUserId} -> ${userIdToFollow}:`, error);
-        throw new HttpsError('internal', 'Ocurrió un error al procesar la solicitud.');
-    }
-});
-
 // En functions/index.js, reemplaza la función getPlacesForList entera por esta:
 
 exports.getPlacesForList = onCall({cors: true}, async (request) => {
@@ -857,9 +791,8 @@ exports.getPlacesForList = onCall({cors: true}, async (request) => {
                     id: doc.id,
                     name: place.name,
                     location: place.location,
-                    mainImageUrl: place.mainImageUrl || null,
-                    // ¡AÑADIMOS LA PUNTUACIÓN MEDIA!
-                    avgGeneralScore: (aggregate.totalScore / aggregate.count)
+                    avgGeneralScore: aggregate.count > 0 ? (aggregate.totalScore / aggregate.count) : 0,
+                    mainImageUrl: place.mainImageUrl || null
                 });
             }
         });
@@ -869,5 +802,37 @@ exports.getPlacesForList = onCall({cors: true}, async (request) => {
     } catch (error) {
         logger.error(`Error en getPlacesForList para lista ${listId}:`, error);
         throw new HttpsError('internal', 'No se pudieron obtener los lugares para el mapa.');
+    }
+});
+
+// En functions/index.js, añade esta nueva función callable
+
+exports.setAdminUser = onCall({ cors: true }, async (request) => {
+    // Primero, comprobamos si quien llama es ya un admin. ¡Seguridad ante todo!
+    if (request.auth.token.admin !== true) {
+        logger.error(`Usuario ${request.auth.uid} intentó usar setAdminUser sin ser admin.`);
+        throw new HttpsError('permission-denied', 'Solo un administrador puede ejecutar esta acción.');
+    }
+
+    const email = request.data.email;
+    if (!email) {
+        throw new HttpsError('invalid-argument', 'Se requiere el campo "email".');
+    }
+
+    try {
+        logger.info(`Intentando establecer como admin al usuario con email: ${email}`);
+        const user = await admin.auth().getUserByEmail(email);
+        
+        // Establecemos el custom claim 'admin'
+        await admin.auth().setCustomUserClaims(user.uid, { admin: true });
+        
+        logger.info(`¡Éxito! Usuario ${user.uid} (${email}) ahora es administrador.`);
+        return { message: `¡Éxito! ${email} ahora es administrador.` };
+    } catch (error) {
+        logger.error(`Error al establecer admin para ${email}:`, error);
+        if (error.code === 'auth/user-not-found') {
+            throw new HttpsError('not-found', `No se encontró ningún usuario con el email ${email}.`);
+        }
+        throw new HttpsError('internal', 'Ocurrió un error inesperado al establecer el rol de administrador.');
     }
 });

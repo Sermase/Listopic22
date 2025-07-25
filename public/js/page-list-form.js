@@ -273,8 +273,13 @@ ListopicApp.pageListForm = (() => {
                     ListopicApp.services.showNotification('Lista actualizada con éxito!', 'success');
                 } else {
                     // Llamar a la Cloud Function para crear la lista con validación
+                    // --- ¡¡¡LA CORRECCIÓN DE FUERZA BRUTA!!! ---
+                    // Creamos una nueva instancia local, le decimos la región y la conectamos al emulador.
+                    // Es redundante, pero a prueba de fallos.
+                    const functions = firebase.app().functions('europe-west1');
+                    functions.useEmulator("localhost", 5001);
                     const createListFunction = functions.httpsCallable('createListWithValidation');
-                    ListopicApp.services.showNotification('Creando lista...', 'info');
+                    // ------------------------------------------
                     
                     const result = await createListFunction(listDataPayload); // Pasamos todo el payload
                     

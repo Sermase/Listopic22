@@ -1,16 +1,32 @@
 window.ListopicApp = window.ListopicApp || {};
 ListopicApp.services = (() => {
-    // Ensure Firebase app is initialized, using the config from ListopicApp.config
-    if (!firebase.apps.length && ListopicApp.config && ListopicApp.config.firebaseConfig) {
-        firebase.initializeApp(ListopicApp.config.firebaseConfig);
-    } else if (!ListopicApp.config || !ListopicApp.config.firebaseConfig) {
-        console.error("Firebase config not found. Ensure config.js is loaded before firebaseService.js");
-        // Potentially throw an error or return early if config is essential for other initializations
+    
+    // Asegura que la configuración de Firebase exista
+    if (!ListopicApp.config || !ListopicApp.config.firebaseConfig) {
+        console.error("CRITICAL: Firebase config not found. Ensure config.js is loaded.");
+        return {}; // Detiene la ejecución si la config no está
     }
 
+    // Inicializa Firebase SOLO si no ha sido inicializado antes
+    if (!firebase.apps.length) {
+        firebase.initializeApp(ListopicApp.config.firebaseConfig);
+    }
+
+    // --- Definimos los servicios DESPUÉS de la inicialización ---
+    const db = firebase.firestore();
     const auth = firebase.auth();
     const storage = firebase.storage();
-    const db = firebase.firestore();
+    const functions = firebase.functions(); // Sin región, simple y directo
+
+    // Conectamos a los emuladores DESPUÉS de definir los servicios
+    // if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    //     console.warn("--- MODO EMULADOR ACTIVADO ---");
+    //     db.useEmulator("localhost", 8080);
+    //     auth.useEmulator("http://localhost:9099");
+    //     storage.useEmulator("localhost", 9199);
+    //     functions.useEmulator("localhost", 5001);
+    //     console.log("Conectado a todos los emuladores locales.");
+    // }
 
     // Función para mostrar notificaciones
     function showNotification(message, type = 'info') {
@@ -209,9 +225,10 @@ ListopicApp.services = (() => {
     };
 
     return {
-        auth: auth,
-        storage: storage,
-        db: db,
+        auth,
+        db,
+        storage,
+        functions, 
         getListsByUserId: getListsByUserId,
         getReviewsByUserId: getReviewsByUserId,
         createUserInAuthAndFirestore: createUserInAuthAndFirestore,

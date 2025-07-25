@@ -147,9 +147,6 @@ ListopicApp.pageListView = (() => {
         });
         renderTable_ListView_Grouped(filteredItems);
         updateSortIndicators_ListView_Grouped();
-    }
-
-    function updateSortIndicators_ListView_Grouped() {
         if (!rankingTable) return;
         rankingTable.querySelectorAll('thead th.sortable').forEach(th => {
             th.classList.remove('sorted-asc', 'sorted-desc');
@@ -350,53 +347,115 @@ ListopicApp.pageListView = (() => {
                 if (addReviewButton) addReviewButton.href = `review-form.html?listId=${state.currentListId}`;
                 if (editListLink) editListLink.href = `list-form.html?editListId=${state.currentListId}`;
 
-                auth.currentUser?.getIdToken(true).then(idToken => {
-                    const headers = { 'Accept': 'application/json' };
-                    if(idToken) headers['Authorization'] = `Bearer ${idToken}`;
-                    
-                    const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
-                    if (!functionUrl) throw new Error("URL de la función groupedReviews no configurada.");
-                    
-                    return fetch(`${functionUrl}?listId=${state.currentListId}`, { headers });
-                })
-                .then(async res => {
-                    if (!res.ok) {
-                        const errorText = await res.text();
-                        let detail = `Error HTTP ${res.status}`;
-                        try {
-                            const errorJson = JSON.parse(errorText);
-                            detail = errorJson.error?.message || JSON.stringify(errorJson.error) || errorText;
-                        } catch(e) { detail = errorText; }
-                        throw new Error(detail.substring(0, 200));
-                    }
-                    return res.json();
-                })
-                .then(responsePayload => {
-                    if (!responsePayload || typeof responsePayload !== 'object') {
-                        throw new Error("Respuesta inesperada de la Cloud Function.");
-                    }
-                    state.currentListName = responsePayload.listName || "Ranking Agrupado";
-                    const category = responsePayload.categoryId || "Hmm..."; 
-                    ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
-                    
-                    listTitleElement.textContent = state.currentListName;
-                    state.currentListAvailableTags = responsePayload.tags || [];
-                    state.currentListCriteriaDefinitions = responsePayload.criteria || {}; 
-                    currentListIconClass = getListIconClass_ListView(state.currentListName);
-                    
-                    renderTableHeaders_ListView_Grouped(); 
-                    renderTagFilters_ListView();
-                    initForumModal(); // <-- Inicializamos el foro aquí cuando tenemos los datos de la lista
+                async function loadListAndReviews() {
+                    try {
+                        const idToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : null;
+                        const headers = { 'Accept': 'application/json' };
+                        if (idToken) {
+                            headers['Authorization'] = `Bearer ${idToken}`;
+                        }
 
-                    state.allGroupedItems = responsePayload.groupedReviews || [];
-                    applyFiltersAndSort_ListView_Grouped();
-                })
-                .catch(error => {
-                    console.error("LIST-VIEW: Error en fetch o procesamiento:", error);
-                    listTitleElement.textContent = "Error al cargar lista";
-                    rankingTbody.innerHTML = `<tr><td colspan="4" style="color:var(--danger-color);">${error.message}</td></tr>`;
-                    ListopicApp.services.showNotification(`Error al cargar la lista: ${error.message}`, "error");
-                });
+                        const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
+                        if (!functionUrl) {
+                            throw new Error("URL de la función groupedReviews no configurada.");
+                        }
+
+                        const res = await fetch(`${functionUrl}?listId=${state.currentListId}`, { headers });
+
+                        if (!res.ok) {
+                            const errorText = await res.text();
+                            let detail = `Error HTTP ${res.status}`;
+                            try {
+                                const errorJson = JSON.parse(errorText);
+                                detail = errorJson.error?.message || JSON.stringify(errorJson.error) || errorText;
+                            } catch (e) {
+                                detail = errorText;
+                            }
+                            throw new Error(detail.substring(0, 200));
+                        }
+
+                        const responsePayload = await res.json();
+
+                        if (!responsePayload || typeof responsePayload !== 'object') {
+                            throw new Error("Respuesta inesperada de la Cloud Function.");
+                        }
+
+                        console.log("Datos recibidos de la Cloud Function:", responsePayload);
+
+                        state.currentListName = responsePayload.listName || "Ranking Agrupado";
+                        const category = responsePayload.categoryId || "Hmm...";
+                        ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
+
+                        listTitleElement.textContent = state.currentListName;
+                        state.currentListAvailableTags = responsePayload.tags || [];
+                        state.currentListCriteriaDefinitions = responsePayload.criteria || {};
+                        currentListIconClass = getListIconClass_ListView(state.currentListName);
+
+                        const reviews = responsePayload.reviews || [];
+                        const places = responsePayload.places || {};
+
+                        // Si no hay reseñas, mostramos la tabla vacía y terminamos.
+                        if (reviews.length === 0) {
+                            state.allGroupedItems = [];
+                            renderTableHeaders_ListView_Grouped();
+                            renderTagFilters_ListView();
+                            initForumModal();
+                            applyFiltersAndSort_ListView_Grouped();
+                            return;
+                        }
+
+                        const grouped = {};
+                        reviews.forEach(review => {
+                            const placeInfo = review.placeId ? places[review.placeId] : null;
+                            const establishmentName = placeInfo?.name || "Lugar Desconocido";
+                            const key = `${establishmentName}-${review.itemName || ""}`;
+
+                            if (!grouped[key]) {
+                                grouped[key] = {
+                                    establishmentName: establishmentName,
+                                    itemName: review.itemName || "",
+                                    itemCount: 0,
+                                    totalGeneralScore: 0,
+                                    thumbnailUrl: placeInfo?.mainImageUrl,
+                                    groupTags: new Set(),
+                                    listId: state.currentListId,
+                                    reviewIds: [],
+                                    placeId: review.placeId
+                                };
+                            }
+                            grouped[key].itemCount++;
+                            grouped[key].totalGeneralScore += review.overallRating || 0;
+                            if (review.photoUrl && !grouped[key].thumbnailUrl) {
+                                grouped[key].thumbnailUrl = review.photoUrl;
+                            }
+                            if (review.userTags && Array.isArray(review.userTags)) {
+                                review.userTags.forEach(tag => grouped[key].groupTags.add(tag));
+                            }
+                            grouped[key].reviewIds.push(review.id);
+                        });
+
+                        const groupedReviewsArray = Object.values(grouped).map(group => {
+                            group.avgGeneralScore = group.itemCount > 0 ? parseFloat((group.totalGeneralScore / group.itemCount).toFixed(1)) : 0;
+                            group.groupTags = Array.from(group.groupTags);
+                            delete group.totalGeneralScore;
+                            return group;
+                        });
+
+                        renderTableHeaders_ListView_Grouped();
+                        renderTagFilters_ListView();
+                        initForumModal();
+
+                        state.allGroupedItems = groupedReviewsArray;
+                        applyFiltersAndSort_ListView_Grouped();
+
+                    } catch (error) {
+                        console.error("LIST-VIEW: Error en fetch o procesamiento:", error);
+                        listTitleElement.textContent = "Error al cargar lista";
+                        rankingTbody.innerHTML = `<tr><td colspan="4" style="color:var(--danger-color);">${error.message}</td></tr>`;
+                        ListopicApp.services.showNotification(`Error al cargar la lista: ${error.message}`, "error");
+                    }
+                }
+                loadListAndReviews();
             } else {
                 listTitleElement.textContent = "Error: Lista no especificada";
                 rankingTbody.innerHTML = `<tr><td colspan="4">ID de lista no especificado en la URL.</td></tr>`;
@@ -407,8 +466,8 @@ ListopicApp.pageListView = (() => {
             if (rankingTbody) {
                 rankingTbody.addEventListener('click', (event) => {
                     const row = event.target.closest('.ranking-row');
-                    if (row && row.dataset.listId && row.dataset.placeId !== undefined) {
-                        window.location.href = `grouped-detail-view.html?listId=${row.dataset.listId}&placeId=${row.dataset.placeId}&item=${encodeURIComponent(row.dataset.item)}`;
+                    if (row && row.dataset.listId && row.dataset.placeId) {
+                        window.location.href = `grouped-detail-view.html?listId=${row.dataset.listId}&placeId=${row.dataset.placeId}`;
                     }
                 });
             }

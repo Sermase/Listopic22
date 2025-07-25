@@ -2,6 +2,7 @@ window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageReviewForm = (() => {
     // En page-review-form.js
 
+<<<<<<< Updated upstream
 async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUserId) {
     const db = ListopicApp.services.db;
     const placesRef = db.collection('places');
@@ -90,6 +91,124 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
         dataToSave = buildGooglePlaceData(placeDataFromGoogle, currentUserId, true);
     } else if (manualPlaceData) {
         dataToSave = buildManualPlaceData(manualPlaceData, currentUserId);
+=======
+    async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUserId) {
+        const db = ListopicApp.services.db;
+        const placesRef = db.collection('places');
+        let existingPlaceDoc = null;
+    
+        // --- 1. Buscar por el ID de Google Place (el más fiable) ---
+        if (placeDataFromGoogle && placeDataFromGoogle.placeId) {
+            console.log(`Buscando lugar por Google Place ID: ${placeDataFromGoogle.placeId}`);
+            const querySnapshot = await placesRef.where('googlePlaceId', '==', placeDataFromGoogle.placeId).limit(1).get();
+            if (!querySnapshot.empty) {
+                existingPlaceDoc = querySnapshot.docs[0];
+            }
+        }
+    
+        // --- 2. Si no se encuentra por placeId, buscar por coincidencia de Nombre y Dirección ---
+        if (!existingPlaceDoc) {
+            const searchName = (placeDataFromGoogle?.name) || (manualPlaceData?.name);
+            const searchAddress = (placeDataFromGoogle?.addressFormatted) || (manualPlaceData?.address);
+    
+            if (searchName && searchAddress) {
+                console.log(`Buscando lugar por Nombre: "${searchName}" y Dirección: "${searchAddress}"`);
+                const querySnapshot = await placesRef
+                                        .where('name_normalized', '==', searchName.toLowerCase())
+                                        .where('address_normalized', '==', searchAddress.toLowerCase())
+                                        .limit(1).get();
+                if (!querySnapshot.empty) {
+                    existingPlaceDoc = querySnapshot.docs[0];
+                }
+            }
+        }
+    
+        // --- 3. Si hemos encontrado un lugar existente, lo actualizamos si es necesario ---
+        if (existingPlaceDoc) {
+            console.log(`Lugar encontrado. ID existente: ${existingPlaceDoc.id}`);
+            const placeData = existingPlaceDoc.data();
+            const updates = {};
+    
+            // CORRECCIÓN: Si el lugar existente no tiene URL de Google, pero la nueva información sí, la añadimos.
+            if (!placeData.googleMapsUrl && placeDataFromGoogle?.mapsUrl) {
+                updates.googleMapsUrl = placeDataFromGoogle.mapsUrl;
+            }
+            // También podemos actualizar otros campos si han cambiado
+            if (!placeData.googlePlaceId && placeDataFromGoogle?.placeId) {
+                updates.googlePlaceId = placeDataFromGoogle.placeId;
+            }
+    
+            if (Object.keys(updates).length > 0) {
+                console.log(`Actualizando lugar existente ${existingPlaceDoc.id} con nuevos datos:`, updates);
+                await existingPlaceDoc.ref.update(updates);
+            }
+            
+            return existingPlaceDoc.id;
+        }
+    
+        // --- 4. Si no se encuentra de ninguna forma, CREAR un nuevo lugar ---
+        console.log("No se encontró ningún lugar existente. Creando uno nuevo...");
+        
+        let dataToSave = {};
+        if (placeDataFromGoogle) {
+            dataToSave = {
+                name: placeDataFromGoogle.name || "Establecimiento Desconocido",
+                name_normalized: (placeDataFromGoogle.name || "").toLowerCase(),
+                address: placeDataFromGoogle.addressFormatted || null,
+                address_normalized: (placeDataFromGoogle.addressFormatted || "").toLowerCase(),
+                location: placeDataFromGoogle.latitude && placeDataFromGoogle.longitude ? new firebase.firestore.GeoPoint(placeDataFromGoogle.latitude, placeDataFromGoogle.longitude) : null,
+                googlePlaceId: placeDataFromGoogle.placeId || null,
+                googleMapsUrl: placeDataFromGoogle.mapsUrl || null,
+                streetAddress: placeDataFromGoogle.streetAddress || null,
+                city: placeDataFromGoogle.city || null,
+                postalCode: placeDataFromGoogle.postalCode || null,
+                region: placeDataFromGoogle.region || null,
+                country: placeDataFromGoogle.country || null,
+                mainImageUrl: placeDataFromGoogle.mainImageUrl || null,
+                imageUrls: placeDataFromGoogle.imageUrls || [],
+                types: placeDataFromGoogle.types || [],
+                phone: placeDataFromGoogle.formatted_phone_number || placeDataFromGoogle.international_phone_number || null,
+                website: placeDataFromGoogle.website || null,
+                priceLevel: placeDataFromGoogle.price_level || null,
+                openingHours: placeDataFromGoogle.opening_hours ? {
+                    open_now: placeDataFromGoogle.opening_hours.open_now || false,
+                    weekday_text: placeDataFromGoogle.opening_hours.weekday_text || []
+                } : null,
+
+
+            // Información geográfica adicional
+            city: placeDataFromGoogle.city || null,
+            region: placeDataFromGoogle.region || placeDataFromGoogle.state || null,
+            country: placeDataFromGoogle.country || null,
+            postalCode: placeDataFromGoogle.postal_code || null,
+
+            // URLs de imágenes
+            mainImageUrl: placeDataFromGoogle.photos && placeDataFromGoogle.photos.length > 0
+                ? placeDataFromGoogle.photos[0].getUrl({ maxWidth: 800, maxHeight: 600 })
+                : null,
+            imageUrls: placeDataFromGoogle.photos
+                ? placeDataFromGoogle.photos.slice(0, 5).map(photo =>
+                    photo.getUrl({ maxWidth: 800, maxHeight: 600 })
+                  )
+                : [],
+        };
+    } else if (manualPlaceData) {
+        dataToSave = {
+            name: manualPlaceData.name,
+            name_normalized: (manualPlaceData.name || "").toLowerCase(),
+            address: manualPlaceData.address || null,
+            address_normalized: (manualPlaceData.address || "").toLowerCase(),
+            location: manualPlaceData.latitude && manualPlaceData.longitude
+                ? new firebase.firestore.GeoPoint(manualPlaceData.latitude, manualPlaceData.longitude)
+                : null,
+            // geometry: manualPlaceData.latitude && manualPlaceData.longitude ? {
+            //     location: {
+            //         lat: manualPlaceData.latitude,
+            //         lng: manualPlaceData.longitude
+            //     }
+            // } : null
+        };
+>>>>>>> Stashed changes
     } else {
         throw new Error("No hay suficientes datos para crear un nuevo lugar.");
     }
@@ -499,7 +618,7 @@ function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
                             (position) => {
                                 state.userLatitude = position.coords.latitude; 
                                 state.userLongitude = position.coords.longitude;
-                                placesService.fetchNearbyRestaurantsWithContext();
+                                placesService.fetchNearbyRestaurants();
                             },
                             (error) => {
                                 console.error("Error obteniendo ubicación:", error);
@@ -576,10 +695,17 @@ function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
                                             if(locationLonInput && placeData.location) locationLonInput.value = placeData.location.longitude || '';
                                             const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
                                             if(locationPlaceIdInput) locationPlaceIdInput.value = placeData.googlePlaceId || '';
-                                            // Podrías rellenar city-g, postalCode-g, country-g si los guardas en placeData y los tienes en el form
+                                            
+                                            // Rellenar city-g, postalCode-g, country-g
+                                            const locationCityGInput = document.getElementById('location-city-g');
+                                            if(locationCityGInput && placeData.city) locationCityGInput.value = placeData.city || '';
+                                            const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
+                                            if(locationPostalCodeGInput && placeData.postalCode) locationPostalCodeGInput.value = placeData.postalCode || '';
+                                            const locationCountryGInput = document.getElementById('location-country-g');
+                                            if(locationCountryGInput && placeData.country) locationCountryGInput.value = placeData.country || '';
 
                                             // Si hay datos de ubicación, mostrar los campos manuales para posible edición
-                                            if (manualLocationFieldsDiv && (placeData.name || placeData.address)) {
+                                            if (manualLocationFieldsDiv && (placeData.name || placeData.address.full || placeData.address.street || placeData.address.city || placeData.address.region || placeData.address.postalCode || placeData.address.country || (placeData.location && (placeData.location.latitude || placeData.location.longitude)))) {
                                                 manualLocationFieldsDiv.style.display = 'block';
                                                 if(toggleManualLocationBtn) toggleManualLocationBtn.innerHTML = '<i class="fas fa-chevron-up"></i> Ocultar Detalles de Ubicación Manual';
                                             }
@@ -610,7 +736,7 @@ function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
                                     if(commentEl) commentEl.value = reviewData.comment || '';
 
                                     uiUtils.renderCriteriaSliders(criteriaContainer, reviewData.scores || {}, state.currentListCriteriaDefinitions);
-                                    uiUtils.renderTagCheckboxes(dynamicTagContainer, listData.availableTags || [], reviewData.userTags || []);
+                                    renderTags(listData.availableTags || [], reviewData.userTags || []);
                                 })
                                 .catch(error => {
                                     console.error("REVIEW-FORM: Error al cargar datos de la reseña para editar:", error);

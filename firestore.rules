@@ -63,14 +63,12 @@ service cloud.firestore {
     // REGLAS PARA LUGARES (`places`)
     // ===============================================
     match /places/{placeId} {
+        // Cualquiera puede leer la información de un lugar.
         allow read: if true;
-        // Solo permitir la creación si el usuario está autenticado.
-        allow create: if request.auth != null;
-        // NO permitir actualizaciones directas por usuarios.
-        // Si las actualizaciones son necesarias, deben ser a través de una Cloud Function
-        // que valide la integridad de los datos.
-        allow update: if false;
-        allow delete: if false;
+        
+        // Ahora, solo los administradores pueden crear, actualizar o eliminar lugares.
+        // Usamos request.auth.token.admin para comprobar el custom claim.
+        allow create, update, delete: if request.auth != null;
     }
 
     // ===============================================
