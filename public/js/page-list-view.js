@@ -350,26 +350,31 @@ ListopicApp.pageListView = (() => {
                 if (addReviewButton) addReviewButton.href = `review-form.html?listId=${state.currentListId}`;
                 if (editListLink) editListLink.href = `list-form.html?editListId=${state.currentListId}`;
 
-                auth.currentUser?.getIdToken(true).then(idToken => {
-                    const headers = { 'Accept': 'application/json' };
-                    if(idToken) headers['Authorization'] = `Bearer ${idToken}`;
+                // Obtener datos de la lista
+                const listDocRef = ListopicApp.services.db.collection('lists').doc(state.currentListId);
+                listDocRef.get().then(listDoc => {
+                    if (!listDoc.exists) throw new Error("La lista no fue encontrada.");
                     
-                    const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
-                    if (!functionUrl) throw new Error("URL de la función groupedReviews no configurada.");
-                    
-                    return fetch(`${functionUrl}?listId=${state.currentListId}`, { headers });
-                })
-                .then(async res => {
-                    if (!res.ok) {
-                        const errorText = await res.text();
-                        let detail = `Error HTTP ${res.status}`;
-                        try {
-                            const errorJson = JSON.parse(errorText);
-                            detail = errorJson.error?.message || JSON.stringify(errorJson.error) || errorText;
-                        } catch(e) { detail = errorText; }
-                        throw new Error(detail.substring(0, 200));
-                    }
-                    return res.json();
+                    const listData = listDoc.data();
+                    const currentUser = ListopicApp.services.auth.currentUser;
+
+                    // --- ¡AQUÍ ESTÁ LA MAGIA! ---
+                    // Comprobamos si el usuario actual es el dueño de la lista
+                    const isOwner = currentUser && currentUser.uid === listData.userId;
+
+                    // Ocultamos o mostramos los botones de edición y borrado
+                    if (editListLink) editListLink.style.display = isOwner ? 'inline-flex' : 'none';
+                    if (deleteListButton) deleteListButton.style.display = isOwner ? 'inline-flex' : 'none';
+                    // --- FIN DE LA MAGIA ---
+
+                    state.currentListName = listData.name || "Ranking";
+                    const category = listData.categoryId || "Hmm..."; 
+                    ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
+                    listTitleElement.textContent = state.currentListName;
+
+                    // El resto de la lógica para obtener las reseñas agrupadas sigue aquí
+                    return fetchGroupedReviews(state.currentListId);
+
                 })
                 .then(responsePayload => {
                     if (!responsePayload || typeof responsePayload !== 'object') {
@@ -566,6 +571,29 @@ function getIconByScore(score) {
     });
 }
 
+// Función auxiliar para mantener el código de fetch organizado
+async function fetchGroupedReviews(listId) {
+    const currentUser = ListopicApp.services.auth.currentUser;
+    const idToken = currentUser ? await currentUser.getIdToken(true) : null;
+    
+    const headers = { 'Accept': 'application/json' };
+    if(idToken) headers['Authorization'] = `Bearer ${idToken}`;
+    
+    const functionUrl = ListopicApp.config.FUNCTION_URLS.groupedReviews;
+    if (!functionUrl) throw new Error("URL de la función groupedReviews no configurada.");
+    
+    const res = await fetch(`${functionUrl}?listId=${listId}`, { headers });
+    if (!res.ok) {
+        const errorText = await res.text();
+        let detail = `Error HTTP ${res.status}`;
+        try {
+            const errorJson = JSON.parse(errorText);
+            detail = errorJson.error?.message || JSON.stringify(errorJson.error) || errorText;
+        } catch(e) { detail = errorText; }
+        throw new Error(detail.substring(0, 200));
+    }
+    return res.json();
+}
     return {
         init
     };

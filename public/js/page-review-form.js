@@ -309,6 +309,23 @@ function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
 
             const hiddenListIdInput = document.getElementById('review-form-listId');
             const criteriaContainer = document.getElementById('dynamic-rating-criteria');
+            if (criteriaContainer) {
+                criteriaContainer.addEventListener('input', (event) => {
+                    if (event.target.classList.contains('rating-slider')) {
+                        const valueDisplay = event.target.previousElementSibling.querySelector('.slider-value-display');
+                        if (valueDisplay) {
+                            valueDisplay.textContent = parseFloat(event.target.value).toFixed(1);
+    
+                            // --- ¡AQUÍ ESTÁ LA MAGIA! ---
+                            // Quitamos el foco para evitar el auto-scroll en móviles.
+                            if (document.activeElement) {
+                                document.activeElement.blur();
+                            }
+                        }
+                    }
+                });
+            }
+    
             const formTitle = reviewForm.parentElement.querySelector('h2');
             const dynamicTagContainer = document.getElementById('dynamic-tag-selection');
             const imagePreviewContainerReview = reviewForm.querySelector('.image-preview'); // Ahora dentro del if
