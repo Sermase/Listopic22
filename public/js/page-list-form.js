@@ -57,6 +57,7 @@ ListopicApp.pageListForm = (() => {
                         <label for="criteria_labelMax_${domKey}">Etiqueta Máxima:</label>
                         <input type="text" id="criteria_labelMax_${domKey}" name="criteria_labelMax_${domKey}" placeholder="Ej: Excelente" class="form-input criterion-input-small" value="${uiUtils.escapeHtml(labelMax)}">
                     </div>
+                    <!--
                     <div>
                         <label for="criteria_min_${domKey}">Valor Mín.:</label>
                         <input type="number" id="criteria_min_${domKey}" name="criteria_min_${domKey}" class="form-input criterion-input-xtra-small" value="${minVal}" step="any" title="Valor mínimo">
@@ -69,6 +70,7 @@ ListopicApp.pageListForm = (() => {
                         <label for="criteria_step_${domKey}">Paso:</label>
                         <input type="number" id="criteria_step_${domKey}" name="criteria_step_${domKey}" class="form-input criterion-input-xtra-small" value="${stepVal}" step="any" min="0.01" title="Incremento (ej: 0.01, 0.1, 0.5, 1)">
                     </div>
+                    -->
                 </div>
                 <div class="criterion-options">
                     <label class="criterion-weighted-label" for="criteria_isPonderable_${domKey}" title="Marcar si este criterio debe contar para la puntuación general">
@@ -264,38 +266,45 @@ ListopicApp.pageListForm = (() => {
 
             console.log("Payload para Firestore:", JSON.stringify(listDataPayload, null, 2));
 
+            
+    // --- ¡CAMBIO AQUÍ! Recogemos ambos tipos de etiquetas ---
+            
+
+            // 2. Recoger etiquetas fijas (las que están seleccionadas)
+            const fixedTagInputs = document.querySelectorAll('input[name="fixed-tags"]:checked');
+            fixedTagInputs.forEach(input => {
+                listDataPayload.availableTags.push(input.value);
+            });
+            
+            // 3. Eliminar duplicados
+            listDataPayload.availableTags = [...new Set(listDataPayload.availableTags)];
+
+            // --- FIN DEL CAMBIO ---
+     
+
+            
             try {
                 let savedListId;
                 if (listIdToEdit) {
-                    listDataPayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-                    await db.collection('lists').doc(listIdToEdit).update(listDataPayload);
+                    const updateListFunction = functions.httpsCallable('updateListWithValidation');
+                    await updateListFunction({ listId: listIdToEdit, data: listDataPayload });
                     savedListId = listIdToEdit;
-                    ListopicApp.services.showNotification('Lista actualizada con éxito!', 'success');
+                    ListopicApp.services.showNotification('¡Lista actualizada con éxito!', 'success');
                 } else {
-                    // Llamar a la Cloud Function para crear la lista con validación
                     const createListFunction = functions.httpsCallable('createListWithValidation');
-                    ListopicApp.services.showNotification('Creando lista...', 'info');
-                    
-                    const result = await createListFunction(listDataPayload); // Pasamos todo el payload
-                    
+                    const result = await createListFunction(listDataPayload);
                     savedListId = result.data.listId;
                     ListopicApp.services.showNotification(result.data.message || '¡Lista creada con éxito!', 'success');
                 }
                 window.location.href = `list-view.html?listId=${savedListId}`;
             } catch (error) {
                 console.error('Error al guardar la lista:', error);
-                let errorMessage = `No se pudo guardar la lista: ${error.message || 'Error desconocido.'}`;
-                if (error.code === 'already-exists' || error.details === 'already-exists') { // Firebase HttpsError
-                    errorMessage = 'Ya tienes una lista con ese nombre. Por favor, elige otro.';
-                } else if (error.code) {
-                    errorMessage = `Error: ${error.message} (Código: ${error.code})`;
-                }
-                ListopicApp.services.showNotification(errorMessage, 'error');
+                ListopicApp.services.showNotification(`No se pudo guardar la lista: ${error.message}`, 'error');
             } finally {
                 submitButton.disabled = false;
             }
         });
-    } // Fin de init
+    }
 
     return {
         init
