@@ -20,6 +20,8 @@ ListopicApp.pageListForm = (() => {
         const tagsListLF = document.getElementById('tags-list');
         const listFormTitleH2 = listForm.parentElement?.querySelector('h2');
         const listNameInput = document.getElementById('list-name');
+        const isPublicToggle = document.getElementById('list-public-toggle'); // ¡AÑADE ESTA LÍNEA AQUÍ!
+
 
         if (!listNameInput) console.warn("LIST-FORM: Input #list-name no encontrado.");
         if (!addCritBtnLF) console.warn("LIST-FORM: Botón #add-criterion-btn no encontrado.");
@@ -140,7 +142,7 @@ ListopicApp.pageListForm = (() => {
                     const listData = doc.data();
                     if (listFormTitleH2) listFormTitleH2.textContent = 'Editar Lista de Valoración';
                     if (listNameInput) listNameInput.value = listData.name;
-
+                    
                     // NUEVO: Rellenar el campo de categoría
                     const categoryInput = document.getElementById('list-category');
                     if (categoryInput) {
@@ -198,7 +200,7 @@ ListopicApp.pageListForm = (() => {
                 // Usamos 'categoryId' como clave en Firestore, y leemos del input visible.
                 // Si está vacío, ponemos "defaultCategory" (o "General", o lo que prefieras como valor por defecto).
                 categoryId: "Hmm...", // <--- ASIGNA EL VALOR FIJO AQUÍ
-                isPublic: true, // Puedes hacerlo un campo visible si quieres
+                isPublic: isPublicToggle ? isPublicToggle.checked : true, // Leemos el estado del toggle
                 criteriaDefinition: {}, // Se llenará después
                 availableTags: [],      // Se llenará después
                 // Valores iniciales para nuevas listas, se mantendrán si se edita
