@@ -406,120 +406,266 @@ ListopicApp.pagePlace = (() => {
             }
         });
 
-        const html = filteredLists.map(listGroup => {
+        // Additional variables required for the new functions
+        const reviewsContainer = document.getElementById('reviews-container');
+        const emptyReviews = document.getElementById('empty-reviews');
+        let filteredReviews = [];
+        let allReviews = [];
+
+        // Mostrar reseñas
+        function displayReviews() {
+            if (!reviewsContainer) return;
+
+            if (filteredReviews.length === 0) {
+                reviewsContainer.innerHTML = '';
+                if (emptyReviews) emptyReviews.style.display = 'block';
+                return;
+            }
+
+            if (emptyReviews) emptyReviews.style.display = 'none';
+
+            reviewsContainer.innerHTML = filteredReviews.map(review => createReviewHTML(review)).join('');
+        }
+
+        // Crear HTML para una reseña
+        function createReviewHTML(review) {
+            const createdAt = formatDate(review.createdAt);
+            const rating = '★'.repeat(review.rating || 0) + '☆'.repeat(5 - (review.rating || 0));
+
             return `
-                <div class="review-list-group">
-                    <div class="list-group-header">
-                        <h4 class="list-name">
+                <div class="review-card">
+                    <div class="review-header">
+                        <div class="review-user">
+                            ${review.userPhotoURL ?
+                                `<img src="${review.userPhotoURL}" alt="${review.userName}" class="user-avatar">` :
+                                `<div class="user-avatar-placeholder"><i class="fas fa-user"></i></div>`
+                            }
+                            <div class="user-info">
+                                <span class="user-name">${review.userName || 'Usuario anónimo'}</span>
+                                <span class="review-date">${createdAt}</span>
+                            </div>
+                        </div>
+                        <div class="review-rating">
+                            <span class="rating-stars">${rating}</span>
+                            <span class="rating-number">${review.rating || 0}/5</span>
+                        </div>
+                    </div>
+
+                    ${review.listName ? `
+                        <div class="review-list-info">
                             <i class="fas fa-list"></i>
-                            <a href="list-view.html?listId=${listGroup.listId}">${escapeHtml(listGroup.listName)}</a>
-                        </h4>
-                        <span class="review-count">${listGroup.reviews.length} reseña${listGroup.reviews.length !== 1 ? 's' : ''}</span>
-                    </div>
-                    
-                    <div class="reviews-grid">
-                        ${listGroup.reviews.map(review => createReviewCard(review, listGroup)).join('')}
-                    </div>
+                            De la lista: <strong>${review.listName}</strong>
+                            ${review.listCategory ? `<span class="list-category">${review.listCategory}</span>` : ''}
+                        </div>
+                    ` : ''}
+
+                    ${review.comment ? `
+                        <div class="review-content">
+                            <p>${review.comment}</p>
+                        </div>
+                    ` : ''}
+
+                    ${review.tags && review.tags.length > 0 ? `
+                        <div class="review-tags">
+                            ${review.tags.map(tag => `<span class="review-tag">${tag}</span>`).join('')}
+                        </div>
+                    ` : ''}
+
+                    ${review.dishes && review.dishes.length > 0 ? `
+                        <div class="review-dishes">
+                            <h5><i class="fas fa-utensils"></i> Platos mencionados</h5>
+                            <div class="dishes-list">
+                                ${review.dishes.map(dish => `
+                                    <div class="dish-item">
+                                        <span class="dish-name">${dish.name}</span>
+                                        ${dish.rating ? `<span class="dish-rating">${'★'.repeat(dish.rating)}${'☆'.repeat(5-dish.rating)}</span>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             `;
-        }).join('');
-
-        elements.reviewsContainer.innerHTML = html;
-    }
-
-    function createReviewCard(review, listGroup) {
-        const rating = review.overallRating || 0;
-        const ratingColor = getRatingColor(rating);
-        
-        return `
-            <div class="review-card" onclick="showReviewDetail('${listGroup.listId}', '${review.id}')">
-                <div class="review-header">
-                    <div class="review-rating" style="color: ${ratingColor};">
-                        ${generateStars(rating)}
-                        <span class="rating-number">${rating.toFixed(1)}</span>
-                    </div>
-                    <div class="review-date">
-                        ${review.createdAt ? formatDate(review.createdAt) : 'Sin fecha'}
-                    </div>
-                </div>
-                
-                <div class="review-content">
-                    <h5 class="item-name">${escapeHtml(review.itemName || 'Elemento')}</h5>
-                    
-                    ${review.criteriaRatings && Object.keys(review.criteriaRatings).length > 0 ? `
-                        <div class="criteria-ratings">
-                            ${Object.entries(review.criteriaRatings).slice(0, 3).map(([criteria, score]) => `
-                                <div class="criteria-item">
-                                    <span class="criteria-label">${escapeHtml(criteria)}</span>
-                                    <span class="criteria-value" style="color: ${getRatingColor(score)};">
-                                        ${score.toFixed(1)}
-                                    </span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-                    
-                    ${review.notes ? `
-                        <div class="review-notes">
-                            <p>${escapeHtml(review.notes.substring(0, 100))}${review.notes.length > 100 ? '...' : ''}</p>
-                        </div>
-                    ` : ''}
-
-                    ${review.userTags && review.userTags.length > 0 ? `
-                        <div class="review-tags">
-                            ${review.userTags.slice(0, 3).map(tag =>
-                                `<span class="tag-pill">${escapeHtml(tag)}</span>`
-                            ).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-    }
-
-    function getRatingColor(rating) {
-        if (rating >= 4.5) return 'var(--success-color)';
-        if (rating >= 3.5) return 'var(--warning-color)';
-        if (rating >= 2.5) return 'var(--accent-color-secondary)';
-        return 'var(--error-color)';
-    }
-
-    function generateStars(rating) {
-        const fullStars = Math.floor(rating);
-        const hasHalfStar = rating % 1 >= 0.5;
-        const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-        
-        let stars = '';
-        for (let i = 0; i < fullStars; i++) {
-            stars += '<i class="fas fa-star"></i>';
         }
-        if (hasHalfStar) {
-            stars += '<i class="fas fa-star-half-alt"></i>';
+
+        // Poblar filtro de listas
+        function populateListFilter() {
+            const filterList = document.getElementById('filter-list');
+            if (!filterList) return;
+
+            // Obtener listas únicas de las reseñas
+            const uniqueLists = [...new Set(allReviews
+                .filter(review => review.listName)
+                .map(review => ({ id: review.listId, name: review.listName }))
+            )];
+
+            // Limpiar opciones existentes (excepto "Todas las listas")
+            filterList.innerHTML = '<option value="">Todas las listas</option>';
+
+            // Agregar opciones de listas
+            uniqueLists.forEach(list => {
+                const option = document.createElement('option');
+                option.value = list.id;
+                option.textContent = list.name;
+                filterList.appendChild(option);
+            });
         }
-        for (let i = 0; i < emptyStars; i++) {
-            stars += '<i class="far fa-star"></i>';
+
+        // Filtrar y ordenar reseñas
+        function filterAndSortReviews() {
+            const searchTerm = document.getElementById('search-reviews')?.value.toLowerCase() || '';
+            const selectedList = document.getElementById('filter-list')?.value || '';
+            const sortBy = document.getElementById('sort-reviews')?.value || 'date';
+
+            // Filtrar
+            filteredReviews = allReviews.filter(review => {
+                // Filtro de búsqueda
+                const matchesSearch = !searchTerm ||
+                    (review.comment && review.comment.toLowerCase().includes(searchTerm)) ||
+                    (review.userName && review.userName.toLowerCase().includes(searchTerm)) ||
+                    (review.tags && review.tags.some(tag => tag.toLowerCase().includes(searchTerm)));
+
+                // Filtro de lista
+                const matchesList = !selectedList || review.listId === selectedList;
+
+                return matchesSearch && matchesList;
+            });
+
+            // Ordenar
+            filteredReviews.sort((a, b) => {
+                switch (sortBy) {
+                    case 'rating':
+                        return (b.rating || 0) - (a.rating || 0);
+                    case 'list':
+                        return (a.listName || '').localeCompare(b.listName || '');
+                    case 'date':
+                    default:
+                        const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
+                        const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
+                        return dateB - dateA;
+                }
+            });
+
+            displayReviews();
+        }
+
+        // Abrir direcciones en Google Maps
+        function openDirections() {
+            if (!currentPlace) return;
+
+            let url = 'https://www.google.com/maps/dir/?api=1';
+
+            if (currentPlace.coordinates) {
+                url += `&destination=${currentPlace.coordinates.lat},${currentPlace.coordinates.lng}`;
+            } else if (currentPlace.address) {
+                url += `&destination=${encodeURIComponent(currentPlace.address)}`;
+            } else if (currentPlace.name) {
+                url += `&destination=${encodeURIComponent(currentPlace.name)}`;
+            }
+
+            window.open(url, '_blank');
+        }
+
+        // Mostrar modal de autenticación requerida
+        function showAuthRequiredModal() {
+            if (confirm('Debes iniciar sesión para agregar una reseña. ¿Quieres ir a la página de inicio de sesión?')) {
+                window.location.href = 'auth.html';
+            }
+        }
+
+        // Utilidades de UI
+        function showLoading() {
+            const loadingState = document.getElementById('loading-state');
+            const placeInfoCard = document.getElementById('place-info-card');
+            const reviewsSection = document.getElementById('reviews-section');
+            const errorState = document.getElementById('error-state');
+
+            if (loadingState) loadingState.style.display = 'block';
+            if (placeInfoCard) placeInfoCard.style.display = 'none';
+            if (reviewsSection) reviewsSection.style.display = 'none';
+            if (errorState) errorState.style.display = 'none';
+        }
+
+        function hideLoading() {
+            const loadingState = document.getElementById('loading-state');
+            if (loadingState) loadingState.style.display = 'none';
+        }
+
+        function showError(message) {
+            const errorState = document.getElementById('error-state');
+            const errorMessageText = document.getElementById('error-message-text');
+            const loadingState = document.getElementById('loading-state');
+            const placeInfoCard = document.getElementById('place-info-card');
+            const reviewsSection = document.getElementById('reviews-section');
+
+            if (errorMessageText) errorMessageText.textContent = message;
+            if (errorState) errorState.style.display = 'block';
+            if (loadingState) loadingState.style.display = 'none';
+            if (placeInfoCard) placeInfoCard.style.display = 'none';
+            if (reviewsSection) reviewsSection.style.display = 'none';
+        }
+
+        // Función debounce para optimizar búsquedas
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
         }
         
         return stars;
     }
 
+    // Función para formatear fechas
     function formatDate(timestamp) {
-        if (!timestamp) return 'Sin fecha';
-        
-        let date;
-        if (timestamp.toDate) {
-            date = timestamp.toDate();
-        } else if (timestamp instanceof Date) {
-            date = timestamp;
-        } else {
-            return 'Fecha inválida';
+        if (!timestamp) return 'Fecha desconocida';
+
+        try {
+            let date = null;
+
+            // Si es un Timestamp de Firestore
+            if (timestamp && typeof timestamp === 'object' && timestamp.toDate && typeof timestamp.toDate === 'function') {
+                date = timestamp.toDate();
+            }
+            // Si es un objeto Date
+            else if (timestamp instanceof Date) {
+                date = timestamp;
+            }
+            // Si es un número (timestamp en milisegundos)
+            else if (typeof timestamp === 'number') {
+                date = new Date(timestamp);
+            }
+            // Si es una cadena, intentar parsearla
+            else if (typeof timestamp === 'string') {
+                date = new Date(timestamp);
+            }
+            // Si tiene propiedades seconds y nanoseconds (Firestore Timestamp)
+            else if (timestamp && typeof timestamp === 'object' && timestamp.seconds) {
+                date = new Date(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000);
+            }
+
+            // Verificar que la fecha sea válida
+            if (!date || isNaN(date.getTime())) {
+                console.warn('Fecha inválida:', timestamp);
+                return 'Fecha inválida';
+            }
+
+            // Formatear la fecha
+            return date.toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+
+        } catch (error) {
+            console.error('Error formateando fecha:', error, 'Timestamp:', timestamp);
+            return 'Error en fecha';
         }
-        
-        return date.toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
     }
 
     function getPlaceTypeName(type) {

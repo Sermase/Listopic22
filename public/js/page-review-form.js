@@ -6,123 +6,235 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
     const db = ListopicApp.services.db;
     const placesRef = db.collection('places');
 
+    console.log('findOrCreatePlace llamada con:', {
+        hasGoogleData: !!placeDataFromGoogle,
+        hasManualData: !!manualPlaceData,
+        googlePlaceId: placeDataFromGoogle?.placeId,
+        manualName: manualPlaceData?.name
+    });
+
     // --- 1. Buscar por el ID de Google Place (el más fiable) ---
     if (placeDataFromGoogle && placeDataFromGoogle.placeId) {
         console.log(`Buscando lugar por Google Place ID: ${placeDataFromGoogle.placeId}`);
         const querySnapshot = await placesRef.where('googlePlaceId', '==', placeDataFromGoogle.placeId).limit(1).get();
-        
+
         if (!querySnapshot.empty) {
             const existingPlaceDoc = querySnapshot.docs[0];
+            const existingData = existingPlaceDoc.data();
             console.log(`Lugar encontrado por Google Place ID. ID existente: ${existingPlaceDoc.id}`);
-            // Opcional: Podríamos actualizar el lugar existente con datos frescos de Google aquí si quisiéramos.
-            return existingPlaceDoc.id; // ¡Lugar encontrado! Devolvemos el ID existente.
+
+            // ACTUALIZAR el lugar existente con datos frescos de Google
+            const updatedData = buildGooglePlaceData(placeDataFromGoogle, currentUserId, false);
+            // Mantener algunos campos del lugar existente
+            updatedData.createdByUserId = existingData.createdByUserId;
+            updatedData.createdAt = existingData.createdAt;
+            updatedData.reviewsCount = existingData.reviewsCount || 0;
+            updatedData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+            await existingPlaceDoc.ref.update(updatedData);
+            console.log(`Lugar actualizado con datos frescos de Google: ${existingPlaceDoc.id}`);
+
+            return existingPlaceDoc.id;
         }
     }
 
     // --- 2. Si no se encuentra, buscar por coincidencia de Nombre y Dirección ---
-    // Usaremos los datos de Google si existen, si no, los manuales.
     const searchName = (placeDataFromGoogle?.name) || (manualPlaceData?.name);
     const searchAddress = (placeDataFromGoogle?.addressFormatted) || (manualPlaceData?.address);
 
     if (searchName && searchAddress) {
         console.log(`Buscando lugar por Nombre: "${searchName}" y Dirección: "${searchAddress}"`);
         const querySnapshot = await placesRef
-                                .where('name_normalized', '==', searchName)
-                                .where('address_normalized', '==', searchAddress)
+                                .where('name_normalized', '==', searchName.toLowerCase())
+                                .where('address_normalized', '==', searchAddress.toLowerCase())
                                 .limit(1).get();
-        
+
         if (!querySnapshot.empty) {
             const existingPlaceDoc = querySnapshot.docs[0];
+            const existingData = existingPlaceDoc.data();
             console.log(`Lugar encontrado por Nombre y Dirección. ID existente: ${existingPlaceDoc.id}`);
-            
-            // ¡Importante! Si encontramos un lugar que fue introducido manualmente
-            // y ahora tenemos su googlePlaceId, lo actualizamos.
-            if (placeDataFromGoogle?.placeId && !existingPlaceDoc.data().googlePlaceId) {
-                console.log(`Actualizando lugar existente con Google Place ID: ${placeDataFromGoogle.placeId}`);
-                await existingPlaceDoc.ref.update({ googlePlaceId: placeDataFromGoogle.placeId });
+
+            // Si encontramos un lugar manual y ahora tenemos datos de Google, actualizarlo
+            if (placeDataFromGoogle?.placeId && !existingData.googlePlaceId) {
+                console.log(`Actualizando lugar manual con datos completos de Google`);
+                const updatedData = buildGooglePlaceData(placeDataFromGoogle, currentUserId, false);
+                // Mantener algunos campos del lugar existente
+                updatedData.createdByUserId = existingData.createdByUserId;
+                updatedData.createdAt = existingData.createdAt;
+                updatedData.reviewsCount = existingData.reviewsCount || 0;
+                updatedData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+                await existingPlaceDoc.ref.update(updatedData);
+                console.log(`Lugar manual actualizado con datos de Google: ${existingPlaceDoc.id}`);
+            } else if (placeDataFromGoogle && existingData.googlePlaceId) {
+                // Actualizar con datos frescos de Google
+                const updatedData = buildGooglePlaceData(placeDataFromGoogle, currentUserId, false);
+                updatedData.createdByUserId = existingData.createdByUserId;
+                updatedData.createdAt = existingData.createdAt;
+                updatedData.reviewsCount = existingData.reviewsCount || 0;
+                updatedData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+                await existingPlaceDoc.ref.update(updatedData);
+                console.log(`Lugar actualizado con datos frescos: ${existingPlaceDoc.id}`);
             }
-            return existingPlaceDoc.id; // ¡Lugar encontrado! Devolvemos el ID existente.
+
+            return existingPlaceDoc.id;
         }
     }
 
     // --- 3. Si no se encuentra de ninguna forma, CREAR un nuevo lugar ---
     console.log("No se encontró ningún lugar existente. Creando uno nuevo...");
-    
-    let dataToSave = {};
+
+    let dataToSave;
     if (placeDataFromGoogle) {
-        dataToSave = {
-            name: placeDataFromGoogle.name || "Establecimiento Desconocido",
-            name_normalized: (placeDataFromGoogle.name || "").toLowerCase(),
-            address: placeDataFromGoogle.addressFormatted || null,
-            address_normalized: (placeDataFromGoogle.addressFormatted || "").toLowerCase(),
-            location: new firebase.firestore.GeoPoint(placeDataFromGoogle.latitude, placeDataFromGoogle.longitude),
-            googlePlaceId: placeDataFromGoogle.placeId || null,
-            googleRating: placeDataFromGoogle.rating || 0,
-            googleUserRatingsTotal: placeDataFromGoogle.user_ratings_total || 0,
-
-            // Información adicional de Google Places
-            types: placeDataFromGoogle.types || [],
-            phone: placeDataFromGoogle.formatted_phone_number || placeDataFromGoogle.international_phone_number || null,
-            website: placeDataFromGoogle.website || null,
-            priceLevel: placeDataFromGoogle.price_level || null,
-            openingHours: placeDataFromGoogle.opening_hours ? {
-                open_now: placeDataFromGoogle.opening_hours.open_now || false,
-                weekday_text: placeDataFromGoogle.opening_hours.weekday_text || []
-            } : null,
-
-            // Información geográfica adicional
-            city: placeDataFromGoogle.city || null,
-            region: placeDataFromGoogle.region || placeDataFromGoogle.state || null,
-            country: placeDataFromGoogle.country || null,
-            postalCode: placeDataFromGoogle.postal_code || null,
-
-            // URLs de imágenes
-            mainImageUrl: placeDataFromGoogle.photos && placeDataFromGoogle.photos.length > 0
-                ? placeDataFromGoogle.photos[0].getUrl({ maxWidth: 800, maxHeight: 600 })
-                : null,
-            imageUrls: placeDataFromGoogle.photos
-                ? placeDataFromGoogle.photos.slice(0, 5).map(photo =>
-                    photo.getUrl({ maxWidth: 800, maxHeight: 600 })
-                  )
-                : [],
-
-            // Información de geometría
-            geometry: {
-                location: {
-                    lat: placeDataFromGoogle.latitude,
-                    lng: placeDataFromGoogle.longitude
-                },
-                viewport: placeDataFromGoogle.viewport || null
-            }
-        };
+        dataToSave = buildGooglePlaceData(placeDataFromGoogle, currentUserId, true);
     } else if (manualPlaceData) {
-        dataToSave = {
-            name: manualPlaceData.name,
-            name_normalized: (manualPlaceData.name || "").toLowerCase(),
-            address: manualPlaceData.address || null,
-            address_normalized: (manualPlaceData.address || "").toLowerCase(),
-            location: manualPlaceData.latitude && manualPlaceData.longitude
-                ? new firebase.firestore.GeoPoint(manualPlaceData.latitude, manualPlaceData.longitude)
-                : null,
-            geometry: manualPlaceData.latitude && manualPlaceData.longitude ? {
-                location: {
-                    lat: manualPlaceData.latitude,
-                    lng: manualPlaceData.longitude
-                }
-            } : null
-        };
+        dataToSave = buildManualPlaceData(manualPlaceData, currentUserId);
     } else {
         throw new Error("No hay suficientes datos para crear un nuevo lugar.");
     }
-    
-    // Añadir campos por defecto para un lugar nuevo
-    dataToSave.createdByUserId = currentUserId;
-    dataToSave.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-    dataToSave.reviewsCount = 0; // Inicializamos el contador
 
     const newPlaceRef = await placesRef.add(dataToSave);
     console.log(`Nuevo lugar creado con ID: ${newPlaceRef.id}`);
     return newPlaceRef.id;
+}
+
+// Función auxiliar para construir datos de lugar desde Google
+function buildGooglePlaceData(placeData, userId, isNew = true) {
+    const data = {
+        // Datos básicos
+        name: placeData.name || "Establecimiento Desconocido",
+        name_normalized: (placeData.name || "").toLowerCase(),
+        address: placeData.addressFormatted || null,
+        address_normalized: (placeData.addressFormatted || "").toLowerCase(),
+
+        // Coordenadas (estructura consistente)
+        coordinates: placeData.latitude && placeData.longitude
+            ? new firebase.firestore.GeoPoint(placeData.latitude, placeData.longitude)
+            : null,
+        location: placeData.latitude && placeData.longitude ? {
+            latitude: placeData.latitude,
+            longitude: placeData.longitude
+        } : null,
+
+        // Datos de Google Places
+        googlePlaceId: placeData.placeId || null,
+        googleRating: placeData.rating || 0,
+        googleUserRatingsTotal: placeData.user_ratings_total || 0,
+        googleUrl: placeData.url || null,
+        googleMapsUrl: placeData.googleMapsUrl || null,
+
+        // Información de contacto
+        phone: placeData.formatted_phone_number || placeData.international_phone_number || null,
+        website: placeData.website || null,
+
+        // Información del negocio
+        types: placeData.types || [],
+        priceLevel: placeData.price_level !== undefined ? placeData.price_level : null,
+        businessStatus: placeData.business_status || null,
+        permanentlyClosed: placeData.permanently_closed || false,
+
+        // Horarios
+        openingHours: placeData.opening_hours ? {
+            open_now: placeData.opening_hours.open_now || false,
+            weekday_text: placeData.opening_hours.weekday_text || []
+        } : null,
+
+        // Información geográfica detallada
+        city: placeData.city || null,
+        region: placeData.region || placeData.state || null,
+        province: placeData.province || null,
+        country: placeData.country || null,
+        postalCode: placeData.postalCode || null,
+        streetNumber: placeData.streetNumber || null,
+        route: placeData.route || null,
+
+        // URLs de imágenes
+        mainImageUrl: null, // Se procesará después si hay fotos
+        imageUrls: [],
+
+        // Información de geometría completa
+        geometry: placeData.geometry || (placeData.latitude && placeData.longitude ? {
+            location: {
+                lat: placeData.latitude,
+                lng: placeData.longitude
+            },
+            viewport: placeData.viewport || null
+        } : null),
+
+        // Otros datos útiles
+        utcOffset: placeData.utc_offset || null
+    };
+
+    // Procesar fotos si existen
+    if (placeData.photos && placeData.photos.length > 0) {
+        try {
+            data.mainImageUrl = placeData.photos[0].getUrl({ maxWidth: 800, maxHeight: 600 });
+            data.imageUrls = placeData.photos.slice(0, 5).map(photo =>
+                photo.getUrl({ maxWidth: 800, maxHeight: 600 })
+            );
+        } catch (error) {
+            console.warn('Error procesando fotos del lugar:', error);
+        }
+    }
+
+    // Campos de auditoría
+    if (isNew) {
+        data.createdByUserId = userId;
+        data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        data.reviewsCount = 0;
+    }
+    data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+    return data;
+}
+
+// Función auxiliar para construir datos de lugar manual
+function buildManualPlaceData(placeData, userId) {
+    return {
+        // Datos básicos
+        name: placeData.name,
+        name_normalized: (placeData.name || "").toLowerCase(),
+        address: placeData.address || null,
+        address_normalized: (placeData.address || "").toLowerCase(),
+
+        // Coordenadas (estructura consistente)
+        location: placeData.latitude && placeData.longitude
+            ? new firebase.firestore.GeoPoint(placeData.latitude, placeData.longitude)
+            : null,
+        coordinates: placeData.latitude && placeData.longitude ? {
+            lat: placeData.latitude,
+            lng: placeData.longitude
+        } : null,
+
+        // Información geográfica
+        city: placeData.city || null,
+        region: placeData.region || null,
+        country: placeData.country || null,
+        postalCode: placeData.postalCode || null,
+
+        // URLs
+        googleMapsUrl: placeData.googleMapsUrl || null,
+        website: placeData.website || null,
+        phone: placeData.phone || null,
+
+        // Información de geometría
+        geometry: placeData.latitude && placeData.longitude ? {
+            location: {
+                lat: placeData.latitude,
+                lng: placeData.longitude
+            }
+        } : null,
+
+        // Campos de auditoría
+        createdByUserId: userId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        reviewsCount: 0,
+
+        // Indicar que es manual
+        isManualEntry: true
+    };
 }
 
 // NUEVA FUNCIÓN para renderizar las etiquetas
