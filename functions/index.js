@@ -393,67 +393,119 @@ exports.createList = onCall(async (data, context) => {
     }
 });
 
+
 // --- NUEVA FUNCIÓN CALLABLE: createListWithValidation ---
-exports.createListWithValidation = onCall(
-  async (request) => { 
-    const data = request.data;
-    const contextAuth = request.auth;
 
-    if (!contextAuth) {
-        logger.warn("createListWithValidation: Intento de llamada no autenticado.", {structuredData: true});
-        throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado para crear una lista.');
-    }
-    
-    const userId = contextAuth.uid;
-    const listName = data.name;
+exports.createListWithValidation = onCall(async (request) => {
+  const data = request.data;
+  const contextAuth = request.auth;
 
-    if (!listName || typeof listName !== 'string' || listName.trim() === '') {
-        logger.warn(`createListWithValidation: Nombre de lista no proporcionado o inválido por el usuario ${userId}.`, {structuredData: true});
-        throw new HttpsError('invalid-argument', 'El nombre de la lista es requerido.');
-    }
+  if (!contextAuth) {
+      throw new HttpsError('unauthenticated', 'Debes estar autenticado para crear una lista.');
+  }
 
-    logger.info(`createListWithValidation: Usuario ${userId} intentando crear lista "${listName}"`, {structuredData: true});
-    const listsRef = db.collection('lists');
+  const userId = contextAuth.uid;
+  const listName = data.name;
 
-    try {
-        const existingListQuery = await listsRef
-                                    .where('userId', '==', userId)
-                                    .where('name', '==', listName.trim())
-                                    .limit(1)
-                                    .get();
+  if (!listName || typeof listName !== 'string' || listName.trim() === '') {
+      throw new HttpsError('invalid-argument', 'El nombre de la lista es requerido.');
+  }
+  
+  const listsRef = db.collection('lists');
+  
+  try {
+      // 1. Verificar si ya existe una lista con ese nombre para este usuario
+      const existingListQuery = await listsRef
+                                  .where('userId', '==', userId)
+                                  .where('name', '==', listName.trim())
+                                  .limit(1)
+                                  .get();
 
-        if (!existingListQuery.empty) {
-            logger.warn(`createListWithValidation: Usuario ${userId} ya tiene una lista llamada "${listName.trim()}".`, {structuredData: true});
-            throw new HttpsError('already-exists', `Ya tienes una lista llamada "${listName.trim()}". Por favor, elige otro nombre.`);
-        }
+      if (!existingListQuery.empty) {
+          throw new HttpsError('already-exists', `Ya tienes una lista llamada "${listName.trim()}".`);
+      }
 
-        const newListData = {
-            userId: userId,
-            name: listName.trim(),
-            isPublic: data.isPublic !== undefined ? data.isPublic : false,
-            criteriaDefinition: data.criteriaDefinition || {},
-            availableTags: data.availableTags || [],
-            categoryId: data.categoryId || "defaultCategory",
-            reviewCount: 0,
-            reactions: {},
-            commentsCount: 0,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        };
-        Object.keys(newListData).forEach(key => newListData[key] === undefined && delete newListData[key]);
+      // 2. Crear la lista si no existe
+      const newListData = {
+          ...data, // Usamos todos los datos enviados desde el cliente (name, isPublic, etc.)
+          userId: userId,
+          reviewCount: 0,
+          reactions: {},
+          commentsCount: 0,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
+      };
 
-        const newListRef = await listsRef.add(newListData);
-        logger.info(`createListWithValidation: Lista "${listName.trim()}" creada con ID ${newListRef.id} por el usuario ${userId}`, {structuredData: true});
-        
-        return { listId: newListRef.id, message: 'Lista creada con éxito.' };
+      const newListRef = await listsRef.add(newListData);
+      
+      return { listId: newListRef.id, message: '¡Lista creada con éxito!' };
 
-    } catch (error) {
-        logger.error(`Error en createListWithValidation para usuario ${userId}, lista "${listName}":`, error, {structuredData: true});
-        if (error.code && typeof error.code === 'string' && error.message ) {
-             throw error;
-        }
-        throw new HttpsError('internal', 'Ocurrió un error al crear la lista.', error.message);
-    }
+  } catch (error) {
+      logger.error(`Error en createListWithValidation para usuario ${userId}, lista "${listName}":`, error);
+      if (error.code) {
+           throw error;
+      }
+      throw new HttpsError('internal', 'Ocurrió un error al crear la lista.');
+  }
+});
+
+// --- NUEVA FUNCIÓN CALLABLE: createListWithValidation ---
+exports.updateListWithValidation = onCall(async (request) => {
+  const data = request.data;
+  const contextAuth = request.auth;
+
+  // 1. Verificar autenticación
+  if (!contextAuth) {
+      throw new HttpsError('unauthenticated', 'Debes estar autenticado para actualizar una lista.');
+  }
+
+  const { listId, data: listData } = data;
+
+  if (!listId) {
+      throw new HttpsError('invalid-argument', 'El ID de la lista es obligatorio.');
+  }
+  if (!listData.name || typeof listData.name !== 'string' || listData.name.trim().length === 0) {
+      throw new HttpsError('invalid-argument', 'El nombre de la lista no puede estar vacío.');
+  }
+  
+  const userId = contextAuth.uid;
+  const listRef = db.collection('lists').doc(listId);
+  
+  try {
+      const doc = await listRef.get();
+
+      if (!doc.exists) {
+          throw new HttpsError('not-found', 'La lista que intentas editar no existe.');
+      }
+
+      // 2. ¡LA VERIFICACIÓN DE SEGURIDAD CLAVE!
+      // Nos aseguramos de que solo el dueño pueda editar.
+      if (doc.data().userId !== userId) {
+          throw new HttpsError('permission-denied', 'No tienes permiso para editar esta lista.');
+      }
+      
+      // 3. Preparar los datos para la actualización
+      const updatePayload = {
+          ...listData, // Usamos los datos que nos envía el cliente
+          updatedAt: FieldValue.serverTimestamp(),
+      };
+
+      // 4. Actualizar la lista
+      await listRef.update(updatePayload);
+
+      return {
+          status: 'success',
+          message: '¡Lista actualizada con éxito!',
+      };
+
+  } catch (error) {
+      logger.error(`Error en updateListWithValidation para lista ${listId} por usuario ${userId}:`, error);
+      // Si el error ya es un HttpsError, lo relanzamos. Si no, devolvemos uno genérico.
+      if (error.code) {
+          throw error;
+      }
+      throw new HttpsError('internal', 'Ocurrió un error al actualizar la lista.');
+  }
 });
 
 // NUEVA FUNCIÓN: reverseGeocode
