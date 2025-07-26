@@ -20,6 +20,5 @@ ListopicApp.config = {
         placesTextSearch: "https://placestextsearch-jz4x2l2cfq-ew.a.run.app",
         reverseGeocode: "https://europe-west1-listopic.cloudfunctions.net/reverseGeocode" // <-- AÑADE ESTA LÍNEA (reemplaza xxxxxxxxxx con el hash real después de desplegar)
     },
-    GOOGLE_PLACES_API_KEY: 'AIzaSyDXUk2b2VZu6Ui-HlBMZeMeQGBvzaSpHvE' // Tu clave de API de Google Places
 
 };

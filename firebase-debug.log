@@ -1,0 +1,202 @@
+[debug] [2025-07-26T12:21:35.955Z] ----------------------------------------------------------------------
+[debug] [2025-07-26T12:21:35.958Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Ser\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js emulators:start
+[debug] [2025-07-26T12:21:35.958Z] CLI Version:   14.5.1
+[debug] [2025-07-26T12:21:35.959Z] Platform:      win32
+[debug] [2025-07-26T12:21:35.959Z] Node Version:  v22.14.0
+[debug] [2025-07-26T12:21:35.959Z] Time:          Sat Jul 26 2025 14:21:35 GMT+0200 (hora de verano de Europa central)
+[debug] [2025-07-26T12:21:35.960Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-07-26T12:21:35.962Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2025-07-26T12:21:36.230Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-07-26T12:21:36.230Z] > authorizing via signed-in user (sergio.marserr@gmail.com)
+[debug] [2025-07-26T12:21:36.479Z] openjdk version "17.0.15" 2025-04-15
+
+[debug] [2025-07-26T12:21:36.479Z] OpenJDK Runtime Environment Temurin-17.0.15+6 (build 17.0.15+6)
+OpenJDK 64-Bit Server VM Temurin-17.0.15+6 (build 17.0.15+6, mixed mode, sharing)
+
+[debug] [2025-07-26T12:21:36.497Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2025-07-26T12:21:36.498Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2025-07-26T12:21:36.509Z] Parsed Java major version: 17
+[info] i  emulators: Starting emulators: functions, firestore, hosting, storage, extensions {"metadata":{"emulator":{"name":"hub"},"message":"Starting emulators: functions, firestore, hosting, storage, extensions"}}
+[debug] [2025-07-26T12:21:36.512Z] Checked if tokens are valid: false, expires at: 1752170841992
+[debug] [2025-07-26T12:21:36.512Z] Checked if tokens are valid: false, expires at: 1752170841992
+[debug] [2025-07-26T12:21:36.513Z] > refreshing access token with scopes: []
+[debug] [2025-07-26T12:21:36.514Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-07-26T12:21:36.514Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-07-26T12:21:36.643Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-07-26T12:21:36.643Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-07-26T12:21:36.653Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/listopic/services/cloudresourcemanager.googleapis.com [none]
+[debug] [2025-07-26T12:21:36.653Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/listopic/services/cloudresourcemanager.googleapis.com x-goog-quota-user=projects/listopic
+[debug] [2025-07-26T12:21:37.569Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/listopic/services/cloudresourcemanager.googleapis.com 200
+[debug] [2025-07-26T12:21:37.569Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/listopic/services/cloudresourcemanager.googleapis.com [omitted]
+[debug] [2025-07-26T12:21:37.569Z] Checked if tokens are valid: true, expires at: 1753536094643
+[debug] [2025-07-26T12:21:37.569Z] Checked if tokens are valid: true, expires at: 1753536094643
+[debug] [2025-07-26T12:21:37.569Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/listopic [none]
+[debug] [2025-07-26T12:21:38.290Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/listopic 200
+[debug] [2025-07-26T12:21:38.290Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/listopic {"projectNumber":"851333213702","projectId":"listopic","lifecycleState":"ACTIVE","name":"LISTOPIC","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-05-14T19:41:08.204745Z"}
+[debug] [2025-07-26T12:21:38.309Z] [logging] Logging Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-07-26T12:21:38.309Z] [firestore] Firestore Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-07-26T12:21:38.309Z] [firestore.websocket] websocket server for firestore only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-07-26T12:21:38.309Z] [hosting] Hosting Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-07-26T12:21:38.310Z] [storage] Storage Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-07-26T12:21:38.310Z] assigned listening specs for emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":3002},{"address":"::1","family":"IPv6","port":3002}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"firestore":[{"address":"127.0.0.1","family":"IPv4","port":8080}],"firestore.websocket":[{"address":"127.0.0.1","family":"IPv4","port":9150}],"hosting":[{"address":"127.0.0.1","family":"IPv4","port":5000}],"storage":[{"address":"127.0.0.1","family":"IPv4","port":9199}]},"metadata":{"message":"assigned listening specs for emulators"}}
+[debug] [2025-07-26T12:21:38.315Z] [hub] writing locator at C:\Users\Ser\AppData\Local\Temp\hub-listopic.json
+[debug] [2025-07-26T12:21:38.322Z] [Extensions] Started Extensions emulator, this is a noop.
+[debug] [2025-07-26T12:21:38.328Z] [functions] Functions Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-07-26T12:21:38.328Z] [eventarc] Eventarc Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-07-26T12:21:38.328Z] [tasks] Cloud Tasks Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-07-26T12:21:38.328Z] late-assigned ports for functions and eventarc emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":3002},{"address":"::1","family":"IPv6","port":3002}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"firestore":[{"address":"127.0.0.1","family":"IPv4","port":8080}],"firestore.websocket":[{"address":"127.0.0.1","family":"IPv4","port":9150}],"hosting":[{"address":"127.0.0.1","family":"IPv4","port":5000}],"storage":[{"address":"127.0.0.1","family":"IPv4","port":9199}],"functions":[{"address":"127.0.0.1","family":"IPv4","port":5001}],"eventarc":[{"address":"127.0.0.1","family":"IPv4","port":9299}],"tasks":[{"address":"127.0.0.1","family":"IPv4","port":9499}]},"metadata":{"message":"late-assigned ports for functions and eventarc emulators"}}
+[warn] !  functions: The following emulators are not running, calls to these services from the Functions emulator will affect production: apphosting, auth, database, pubsub, dataconnect {"metadata":{"emulator":{"name":"functions"},"message":"The following emulators are not running, calls to these services from the Functions emulator will affect production: \u001b[1mapphosting, auth, database, pubsub, dataconnect\u001b[22m"}}
+[debug] [2025-07-26T12:21:38.359Z] defaultcredentials: writing to file C:\Users\Ser\AppData\Roaming\firebase\sergio_marserr_gmail.com_application_default_credentials.json
+[debug] [2025-07-26T12:21:38.362Z] Setting GAC to C:\Users\Ser\AppData\Roaming\firebase\sergio_marserr_gmail.com_application_default_credentials.json {"metadata":{"emulator":{"name":"functions"},"message":"Setting GAC to C:\\Users\\Ser\\AppData\\Roaming\\firebase\\sergio_marserr_gmail.com_application_default_credentials.json"}}
+[debug] [2025-07-26T12:21:38.362Z] Checked if tokens are valid: true, expires at: 1753536094643
+[debug] [2025-07-26T12:21:38.362Z] Checked if tokens are valid: true, expires at: 1753536094643
+[debug] [2025-07-26T12:21:38.362Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/listopic/adminSdkConfig [none]
+[debug] [2025-07-26T12:21:38.838Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/listopic/adminSdkConfig 200
+[debug] [2025-07-26T12:21:38.838Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/listopic/adminSdkConfig {"projectId":"listopic","databaseURL":"https://listopic-default-rtdb.europe-west1.firebasedatabase.app","storageBucket":"listopic.firebasestorage.app"}
+[debug] [2025-07-26T12:21:38.855Z] Ignoring unsupported arg: auto_download {"metadata":{"emulator":{"name":"firestore"},"message":"Ignoring unsupported arg: auto_download"}}
+[debug] [2025-07-26T12:21:38.855Z] Ignoring unsupported arg: single_project_mode_error {"metadata":{"emulator":{"name":"firestore"},"message":"Ignoring unsupported arg: single_project_mode_error"}}
+[debug] [2025-07-26T12:21:38.856Z] Starting Firestore Emulator with command {"binary":"java","args":["-Dgoogle.cloud_firestore.debug_log_level=FINE","-Duser.language=en","-jar","C:\\Users\\Ser\\.cache\\firebase\\emulators\\cloud-firestore-emulator-v1.19.8.jar","--host","127.0.0.1","--port",8080,"--websocket_port",9150,"--project_id","listopic","--rules","C:\\Users\\Ser\\Proyectos\\Hmm\\0pruebas\\firestore.rules","--single_project_mode",true,"--functions_emulator","127.0.0.1:5001"],"optionalArgs":["port","webchannel_port","host","rules","websocket_port","functions_emulator","seed_from_export","project_id","single_project_mode"],"joinArgs":false,"shell":false,"port":8080} {"metadata":{"emulator":{"name":"firestore"},"message":"Starting Firestore Emulator with command {\"binary\":\"java\",\"args\":[\"-Dgoogle.cloud_firestore.debug_log_level=FINE\",\"-Duser.language=en\",\"-jar\",\"C:\\\\Users\\\\Ser\\\\.cache\\\\firebase\\\\emulators\\\\cloud-firestore-emulator-v1.19.8.jar\",\"--host\",\"127.0.0.1\",\"--port\",8080,\"--websocket_port\",9150,\"--project_id\",\"listopic\",\"--rules\",\"C:\\\\Users\\\\Ser\\\\Proyectos\\\\Hmm\\\\0pruebas\\\\firestore.rules\",\"--single_project_mode\",true,\"--functions_emulator\",\"127.0.0.1:5001\"],\"optionalArgs\":[\"port\",\"webchannel_port\",\"host\",\"rules\",\"websocket_port\",\"functions_emulator\",\"seed_from_export\",\"project_id\",\"single_project_mode\"],\"joinArgs\":false,\"shell\":false,\"port\":8080}"}}
+[info] i  firestore: Firestore Emulator logging to firestore-debug.log {"metadata":{"emulator":{"name":"firestore"},"message":"Firestore Emulator logging to \u001b[1mfirestore-debug.log\u001b[22m"}}
+[debug] [2025-07-26T12:21:40.767Z] Jul 26, 2025 2:21:40 PM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketServer start
+INFO: Started WebSocket server on ws://127.0.0.1:9150
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Jul 26, 2025 2:21:40 PM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketServer start\r\nINFO: Started WebSocket server on ws://127.0.0.1:9150\r\n"}}
+[debug] [2025-07-26T12:21:40.825Z] API endpoint: http:// {"metadata":{"emulator":{"name":"firestore"},"message":"API endpoint: http://"}}
+[debug] [2025-07-26T12:21:40.825Z] 127.0.0.1:8080
+If you are using a library that supports the FIRESTORE_EMULATOR_HOST environment variable, run:
+
+   export FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+
+If you are running a Firestore in Datastore Mode project, run:
+
+   export DATASTORE_EMULATOR_HOST=127.0.0.1:8080
+
+Note: Support for Datastore Mode is in preview. If you encounter any bugs please file at https://github.com/firebase/firebase-tools/issues.
+Dev App Server is now running.
+
+ {"metadata":{"emulator":{"name":"firestore"},"message":"127.0.0.1:8080\nIf you are using a library that supports the FIRESTORE_EMULATOR_HOST environment variable, run:\r\n\n   export FIRESTORE_EMULATOR_HOST=127.0.0.1:8080\n\nIf you are running a Firestore in Datastore Mode project, run:\r\n\n   export DATASTORE_EMULATOR_HOST=127.0.0.1:8080\n\nNote: Support for Datastore Mode is in preview. If you encounter any bugs please file at https://github.com/firebase/firebase-tools/issues.\r\nDev App Server is now running.\n\r\n"}}
+[info] +  firestore: Firestore Emulator UI websocket is running on 9150. {"metadata":{"emulator":{"name":"firestore"},"message":"Firestore Emulator UI websocket is running on 9150."}}
+[debug] [2025-07-26T12:21:40.975Z] Ignoring unsupported arg: port {"metadata":{"emulator":{"name":"storage"},"message":"Ignoring unsupported arg: port"}}
+[debug] [2025-07-26T12:21:42.095Z] Temp file directory for storage emulator: C:\Users\Ser\AppData\Local\Temp/firebase/storage/blobs {"metadata":{"emulator":{"name":"storage"},"message":"Temp file directory for storage emulator: C:\\Users\\Ser\\AppData\\Local\\Temp/firebase/storage/blobs"}}
+[debug] [2025-07-26T12:21:42.099Z] Checked if tokens are valid: true, expires at: 1753536094643
+[debug] [2025-07-26T12:21:42.100Z] Checked if tokens are valid: true, expires at: 1753536094643
+[debug] [2025-07-26T12:21:42.100Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/listopic/sites 
+[debug] [2025-07-26T12:21:43.107Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/listopic/sites 200
+[debug] [2025-07-26T12:21:43.107Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/listopic/sites {"sites":[{"name":"projects/listopic/sites/listopic","defaultUrl":"https://listopic.web.app","appId":"1:851333213702:web:e8c2f3b1aa098d923d5d87","type":"DEFAULT_SITE"}]}
+[debug] [2025-07-26T12:21:43.107Z] Checked if tokens are valid: true, expires at: 1753536094643
+[debug] [2025-07-26T12:21:43.108Z] Checked if tokens are valid: true, expires at: 1753536094643
+[debug] [2025-07-26T12:21:43.108Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/listopic/webApps/1:851333213702:web:e8c2f3b1aa098d923d5d87/config [none]
+[debug] [2025-07-26T12:21:43.682Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/listopic/webApps/1:851333213702:web:e8c2f3b1aa098d923d5d87/config 200
+[debug] [2025-07-26T12:21:43.682Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/listopic/webApps/1:851333213702:web:e8c2f3b1aa098d923d5d87/config {"projectId":"listopic","appId":"1:851333213702:web:e8c2f3b1aa098d923d5d87","databaseURL":"https://listopic-default-rtdb.europe-west1.firebasedatabase.app","storageBucket":"listopic.firebasestorage.app","apiKey":"AIzaSyDPEW5zXtvfnD0XtdmXSkMBZrsFdO-tmsg","authDomain":"listopic.firebaseapp.com","messagingSenderId":"851333213702"}
+[debug] [2025-07-26T12:21:43.688Z] Checked if tokens are valid: true, expires at: 1753536094643
+[debug] [2025-07-26T12:21:43.688Z] Checked if tokens are valid: true, expires at: 1753536094643
+[debug] [2025-07-26T12:21:43.688Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/listopic [none]
+[debug] [2025-07-26T12:21:43.896Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/listopic 200
+[debug] [2025-07-26T12:21:43.896Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/listopic {"projectId":"listopic","projectNumber":"851333213702","displayName":"LISTOPIC","name":"projects/listopic","resources":{"hostingSite":"listopic","realtimeDatabaseInstance":"listopic-default-rtdb"},"state":"ACTIVE","etag":"1_9dbf35ad-ee50-43e9-9bb9-9e761fef9e88"}
+[info] i  hosting[listopic]: Serving hosting files from: public {"metadata":{"emulator":{"name":"hosting"},"message":"Serving hosting files from: \u001b[1mpublic\u001b[22m"}}
+[info] +  hosting[listopic]: Local server: http://127.0.0.1:5000 {"metadata":{"emulator":{"name":"hosting"},"message":"Local server: \u001b[4m\u001b[1mhttp://127.0.0.1:5000\u001b[22m\u001b[24m"}}
+[debug] [2025-07-26T12:21:43.927Z] [Extensions] Connecting Extensions emulator, this is a noop.
+[info] i  functions: Watching "C:\Users\Ser\Proyectos\Hmm\0pruebas\functions" for Cloud Functions... {"metadata":{"emulator":{"name":"functions"},"message":"Watching \"C:\\Users\\Ser\\Proyectos\\Hmm\\0pruebas\\functions\" for Cloud Functions..."}}
+[debug] [2025-07-26T12:21:43.935Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[debug] [2025-07-26T12:21:45.208Z] > [functions] package.json contents: {
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
+  "scripts": {
+    "lint": "eslint .",
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.0.0",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.15.0",
+    "eslint-plugin-promise": "^6.0.0"
+  },
+  "private": true
+}
+[debug] [2025-07-26T12:21:45.209Z] Building nodejs source
+[debug] [2025-07-26T12:21:45.209Z] Failed to find version of module node: reached end of search path C:\Users\Ser\Proyectos\Hmm\0pruebas\functions\node_modules
+[warn] !  functions: Your requested "node" version "20" doesn't match your global version "22". Using node@22 from host. 
+[debug] [2025-07-26T12:21:45.214Z] Could not find functions.yaml. Must use http discovery
+[debug] [2025-07-26T12:21:45.229Z] Found firebase-functions binary at 'C:\Users\Ser\Proyectos\Hmm\0pruebas\functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8785
+
+[debug] [2025-07-26T12:21:46.335Z] Got response from /__/functions.yaml {"endpoints":{"groupedReviews":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"httpsTrigger":{},"entryPoint":"groupedReviews"},"placesNearbyRestaurants":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"httpsTrigger":{},"entryPoint":"placesNearbyRestaurants"},"placesTextSearch":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"httpsTrigger":{},"entryPoint":"placesTextSearch"},"deleteOrOrphanList":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"callableTrigger":{},"entryPoint":"deleteOrOrphanList"},"createList":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"callableTrigger":{},"entryPoint":"createList"},"createListWithValidation":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"callableTrigger":{},"entryPoint":"createListWithValidation"},"reverseGeocode":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"httpsTrigger":{},"entryPoint":"reverseGeocode"},"updateAggregatesOnReviewChange":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.written","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"lists/{listId}/reviews/{reviewId}"},"retry":false},"entryPoint":"updateAggregatesOnReviewChange"},"updateUserStatsOnListChange":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.written","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"lists/{listId}"},"retry":false},"entryPoint":"updateUserStatsOnListChange"},"updateAggregatesOnCommentChange":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.written","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"lists/{listId}/comments/{commentId}"},"retry":false},"entryPoint":"updateAggregatesOnCommentChange"},"toggleFollowUser":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"callableTrigger":{},"entryPoint":"toggleFollowUser"},"getPlacesForList":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["europe-west1"],"labels":{},"callableTrigger":{},"entryPoint":"getPlacesForList"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{}}
+[debug] [2025-07-26T12:21:50.383Z] defaultcredentials: writing to file C:\Users\Ser\AppData\Roaming\firebase\sergio_marserr_gmail.com_application_default_credentials.json
+[debug] [2025-07-26T12:21:50.384Z] Setting GAC to C:\Users\Ser\AppData\Roaming\firebase\sergio_marserr_gmail.com_application_default_credentials.json {"metadata":{"emulator":{"name":"functions"},"message":"Setting GAC to C:\\Users\\Ser\\AppData\\Roaming\\firebase\\sergio_marserr_gmail.com_application_default_credentials.json"}}
+[info] +  functions: Loaded functions definitions from source: groupedReviews, placesNearbyRestaurants, placesTextSearch, deleteOrOrphanList, createList, createListWithValidation, reverseGeocode, updateAggregatesOnReviewChange, updateUserStatsOnListChange, updateAggregatesOnCommentChange, toggleFollowUser, getPlacesForList. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: groupedReviews, placesNearbyRestaurants, placesTextSearch, deleteOrOrphanList, createList, createListWithValidation, reverseGeocode, updateAggregatesOnReviewChange, updateUserStatsOnListChange, updateAggregatesOnCommentChange, toggleFollowUser, getPlacesForList."}}
+[info] +  functions[europe-west1-groupedReviews]: http function initialized (http://127.0.0.1:5001/listopic/europe-west1/groupedReviews). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/listopic/europe-west1/groupedReviews)."}}
+[info] +  functions[europe-west1-placesNearbyRestaurants]: http function initialized (http://127.0.0.1:5001/listopic/europe-west1/placesNearbyRestaurants). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/listopic/europe-west1/placesNearbyRestaurants)."}}
+[info] +  functions[europe-west1-placesTextSearch]: http function initialized (http://127.0.0.1:5001/listopic/europe-west1/placesTextSearch). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/listopic/europe-west1/placesTextSearch)."}}
+[info] +  functions[europe-west1-deleteOrOrphanList]: http function initialized (http://127.0.0.1:5001/listopic/europe-west1/deleteOrOrphanList). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/listopic/europe-west1/deleteOrOrphanList)."}}
+[info] +  functions[europe-west1-createList]: http function initialized (http://127.0.0.1:5001/listopic/europe-west1/createList). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/listopic/europe-west1/createList)."}}
+[info] +  functions[europe-west1-createListWithValidation]: http function initialized (http://127.0.0.1:5001/listopic/europe-west1/createListWithValidation). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/listopic/europe-west1/createListWithValidation)."}}
+[info] +  functions[europe-west1-reverseGeocode]: http function initialized (http://127.0.0.1:5001/listopic/europe-west1/reverseGeocode). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/listopic/europe-west1/reverseGeocode)."}}
+[debug] [2025-07-26T12:21:50.392Z] Found a v2 firestore trigger.
+[debug] [2025-07-26T12:21:50.392Z] addFirestoreTrigger "{\"eventType\":\"google.cloud.firestore.document.v1.written\",\"database\":\"(default)\",\"namespace\":\"(default)\",\"document\":{\"value\":\"lists/{listId}/reviews/{reviewId}\",\"matchType\":\"PATH_PATTERN\"}}"
+[debug] [2025-07-26T12:21:50.393Z] >>> [apiv2][query] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateAggregatesOnReviewChange-0 [none]
+[debug] [2025-07-26T12:21:50.393Z] >>> [apiv2][body] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateAggregatesOnReviewChange-0 "{\"eventType\":\"google.cloud.firestore.document.v1.written\",\"database\":\"(default)\",\"namespace\":\"(default)\",\"document\":{\"value\":\"lists/{listId}/reviews/{reviewId}\",\"matchType\":\"PATH_PATTERN\"}}"
+[debug] [2025-07-26T12:21:50.398Z] Jul 26, 2025 2:21:50 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Jul 26, 2025 2:21:50 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\r\nINFO: Detected non-HTTP/2 connection.\r\n"}}
+[debug] [2025-07-26T12:21:50.590Z] Jul 26, 2025 2:21:50 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Jul 26, 2025 2:21:50 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\r\nINFO: Detected HTTP/2 connection.\r\n"}}
+[debug] [2025-07-26T12:21:51.409Z] <<< [apiv2][status] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateAggregatesOnReviewChange-0 200
+[debug] [2025-07-26T12:21:51.409Z] <<< [apiv2][body] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateAggregatesOnReviewChange-0 {"eventType":"google.cloud.firestore.document.v1.written","database":"(default)","namespace":"(default)","document":{"value":"lists/{listId}/reviews/{reviewId}","matchType":"PATH_PATTERN"}}
+[info] +  functions[europe-west1-updateAggregatesOnReviewChange]: firestore function initialized. {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mfirestore\u001b[22m function initialized."}}
+[debug] [2025-07-26T12:21:51.409Z] Found a v2 firestore trigger.
+[debug] [2025-07-26T12:21:51.410Z] addFirestoreTrigger "{\"eventType\":\"google.cloud.firestore.document.v1.written\",\"database\":\"(default)\",\"namespace\":\"(default)\",\"document\":{\"value\":\"lists/{listId}\",\"matchType\":\"PATH_PATTERN\"}}"
+[debug] [2025-07-26T12:21:51.410Z] >>> [apiv2][query] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateUserStatsOnListChange-0 [none]
+[debug] [2025-07-26T12:21:51.410Z] >>> [apiv2][body] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateUserStatsOnListChange-0 "{\"eventType\":\"google.cloud.firestore.document.v1.written\",\"database\":\"(default)\",\"namespace\":\"(default)\",\"document\":{\"value\":\"lists/{listId}\",\"matchType\":\"PATH_PATTERN\"}}"
+[debug] [2025-07-26T12:21:51.418Z] <<< [apiv2][status] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateUserStatsOnListChange-0 200
+[debug] [2025-07-26T12:21:51.418Z] <<< [apiv2][body] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateUserStatsOnListChange-0 {"eventType":"google.cloud.firestore.document.v1.written","database":"(default)","namespace":"(default)","document":{"value":"lists/{listId}","matchType":"PATH_PATTERN"}}
+[info] +  functions[europe-west1-updateUserStatsOnListChange]: firestore function initialized. {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mfirestore\u001b[22m function initialized."}}
+[debug] [2025-07-26T12:21:51.418Z] Found a v2 firestore trigger.
+[debug] [2025-07-26T12:21:51.419Z] addFirestoreTrigger "{\"eventType\":\"google.cloud.firestore.document.v1.written\",\"database\":\"(default)\",\"namespace\":\"(default)\",\"document\":{\"value\":\"lists/{listId}/comments/{commentId}\",\"matchType\":\"PATH_PATTERN\"}}"
+[debug] [2025-07-26T12:21:51.419Z] >>> [apiv2][query] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateAggregatesOnCommentChange-0 [none]
+[debug] [2025-07-26T12:21:51.419Z] >>> [apiv2][body] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateAggregatesOnCommentChange-0 "{\"eventType\":\"google.cloud.firestore.document.v1.written\",\"database\":\"(default)\",\"namespace\":\"(default)\",\"document\":{\"value\":\"lists/{listId}/comments/{commentId}\",\"matchType\":\"PATH_PATTERN\"}}"
+[debug] [2025-07-26T12:21:51.427Z] <<< [apiv2][status] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateAggregatesOnCommentChange-0 200
+[debug] [2025-07-26T12:21:51.427Z] <<< [apiv2][body] POST http://127.0.0.1:8080/emulator/v1/projects/listopic/eventarcTrigger?eventarcTriggerId=europe-west1-updateAggregatesOnCommentChange-0 {"eventType":"google.cloud.firestore.document.v1.written","database":"(default)","namespace":"(default)","document":{"value":"lists/{listId}/comments/{commentId}","matchType":"PATH_PATTERN"}}
+[info] +  functions[europe-west1-updateAggregatesOnCommentChange]: firestore function initialized. {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mfirestore\u001b[22m function initialized."}}
+[info] +  functions[europe-west1-toggleFollowUser]: http function initialized (http://127.0.0.1:5001/listopic/europe-west1/toggleFollowUser). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/listopic/europe-west1/toggleFollowUser)."}}
+[info] +  functions[europe-west1-getPlacesForList]: http function initialized (http://127.0.0.1:5001/listopic/europe-west1/getPlacesForList). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/listopic/europe-west1/getPlacesForList)."}}
+[debug] [2025-07-26T12:21:51.432Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase Data Connect VSCode extension, this is expected and not an issue.
+[info] 
+┌─────────────────────────────────────────────────────────────┐
+│ ✔  All emulators ready! It is now safe to connect your app. │
+│ i  View Emulator UI at http://127.0.0.1:3002/               │
+└─────────────────────────────────────────────────────────────┘
+
+┌────────────┬────────────────┬──────────────────────────────────┐
+│ Emulator   │ Host:Port      │ View in Emulator UI              │
+├────────────┼────────────────┼──────────────────────────────────┤
+│ Functions  │ 127.0.0.1:5001 │ http://127.0.0.1:3002/functions  │
+├────────────┼────────────────┼──────────────────────────────────┤
+│ Firestore  │ 127.0.0.1:8080 │ http://127.0.0.1:3002/firestore  │
+├────────────┼────────────────┼──────────────────────────────────┤
+│ Hosting    │ 127.0.0.1:5000 │ n/a                              │
+├────────────┼────────────────┼──────────────────────────────────┤
+│ Storage    │ 127.0.0.1:9199 │ http://127.0.0.1:3002/storage    │
+├────────────┼────────────────┼──────────────────────────────────┤
+│ Extensions │ 127.0.0.1:5001 │ http://127.0.0.1:3002/extensions │
+└────────────┴────────────────┴──────────────────────────────────┘
+  Emulator Hub host: 127.0.0.1 port: 4400
+  Other reserved ports: 4500, 9150
+┌─────────────────────────┬───────────────┬─────────────────────┐
+│ Extension Instance Name │ Extension Ref │ View in Emulator UI │
+└─────────────────────────┴───────────────┴─────────────────────┘
+Issues? Report them at https://github.com/firebase/firebase-tools/issues and attach the *-debug.log files.
+ 
