@@ -514,7 +514,7 @@ body.light-theme .criterion-slider-config {
 .rating-slider { width: 100%; margin: 8px 0; accent-color: var(--accent-color-secondary); cursor: pointer; }
 .rating-slider::-webkit-slider-thumb { background: var(--accent-color-secondary); border-radius: 50%; padding:2px; }
 .rating-slider::-moz-range-thumb { background: var(--accent-color-secondary); border-radius: 50%; border:none; height: 16px; width: 16px; }
-.slider-range-labels { display: flex; justify-content: space-between; font-size: 0.8em; color: rgba(255,255,255,0.6); padding: 0 2px; }
+.slider-range-labels { display: flex; justify-content: space-between; font-size: 0.8em; color: rgba(29, 29, 29, 0.6); padding: 0 2px; }
 
 /* LIST-VIEW: Table & Filters */
 .list-header-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:15px; margin-bottom: 3px; } /* Reducido margin-bottom */
