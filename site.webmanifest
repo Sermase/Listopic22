@@ -1,7 +1,7 @@
 {
   "name": "Listopic",
   "short_name": "Listopic",
-  "start_url": "/Index.html",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#0A1931",
   "theme_color": "#0A1931",
