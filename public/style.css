@@ -4541,40 +4541,27 @@ body.light-theme .info-tag:hover {
     line-height: 1.4;
 }
 
-/* En public/style.css */
-
-.install-banner {
-    position: fixed;
-    bottom: 60px; /* Justo encima del footer */
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: var(--container-bg-secondary);
-    color: var(--text-color);
-    padding: 15px 20px;
-    border-radius: var(--border-radius-large);
-    box-shadow: var(--shadow-elevation-high);
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    z-index: 1010;
-    animation: fadeInUpScale 0.5s ease-out forwards;
-}
-
-.install-banner span {
-    font-weight: 500;
-}
-
-.install-banner .button {
-    padding: 8px 16px;
-    font-size: 0.9em;
-    white-space: nowrap;
-}
-
-.install-banner .close-button {
+/* Puedes añadir esto si es necesario para asegurar la consistencia del menú */
+.user-menu button[role="menuitem"] {
+    display: block;
+    width: 100%;
+    padding: 10px 15px;
+    text-align: left;
     background: none;
     border: none;
-    color: var(--secondary-text-color);
-    font-size: 1.5em;
+    color: var(--text-color);
     cursor: pointer;
-    padding: 0 5px;
+    font-size: 1em; /* Asegura que el tamaño de fuente sea consistente */
+    font-family: inherit; /* Hereda la fuente del resto del menú */
+}
+
+.user-menu button[role="menuitem"]:hover {
+    background-color: var(--accent-color-primary);
+    color: #fff;
+}
+
+.user-menu button[role="menuitem"] i {
+    margin-right: 8px; /* Espacio entre el icono y el texto */
+    width: 15px; /* Alineación del icono */
+    text-align: center;
 }
