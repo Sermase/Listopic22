@@ -4,35 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Listopic (App de Valoraciones)</title>
+
+    <link rel="manifest" href="/site.webmanifest">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 
-    <!-- ***** -->
     <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
-    <link rel="icon" type="image/ png" sizes="16x16" href="/img/favicon-16x16.png">
-    <link rel="icon" type="image/ png" sizes="32x32" href="/img/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
     <meta property="og:title" content="Listopic - Tu Rincón Personal de Valoraciones">
     <meta property="og:description" content="Crea, comparte y descubre listas de valoración personalizadas sobre cualquier tema que te apasione. Pero de momento sólo Hmm...">
     <meta property="og:image" content="https://listopic.web.app/public/img/listopic-logo400.png"> 
-    <meta property="og:url" content="https://listopic.web.app/index.html"> <meta property="og:type" content="website">
-
-
-    <script src="js/themeManager.js"></script>
-
-    
-
-   
+    <meta property="og:url" content="https://listopic.web.app/index.html">
+    <meta property="og:type" content="website">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-
 </head>
 
 <body>
     
-    <!-- *****New container for header action buttons -->
     <div class="header-actions-container">
         <div class="header-left-content">
             <div class="app-logo-container">
@@ -40,13 +34,7 @@
                     <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
                 </a>
             </div>
-            <!-- <div class="header-dynamic-page-info">
-                <span id="page-category-name"></span>
-                <span id="page-list-name-separator" style="display: none;"> - </span>
-                <span id="page-list-name"></span>
-            </div> -->
         </div>
-
         <div class="header-right-actions">
             <a href="search.html" id="search-link-button" class="search-button header-action-button" aria-label="Search">
                 <i class="fas fa-search"></i>
@@ -69,18 +57,12 @@
             </button>
         </div>
     </div>
-    <!-- ***** -->
-
 
     <main>
-    <div class="container">
-        <!-- Theme toggle button was here, moved to header-actions-container -->
-        <h1 class="brand-title"> <span class="logo-petal p1"></span> <span class="logo-petal p2"></span> Hmm...<!--List<span class="logo-petal p3"></span>pic --><span class="logo-petal p4"></span> <span class="logo-petal p5"></span> </h1>
-        <!-- Contenedor para las listas (círculos) -->
-        <nav class="list-collection-container">
-                <!-- <h2>Mis Listas de Valoración</h2> -->
+        <div class="container">
+            <h1 class="brand-title"> <span class="logo-petal p1"></span> <span class="logo-petal p2"></span> Hmm...<span class="logo-petal p4"></span> <span class="logo-petal p5"></span> </h1>
+            <nav class="list-collection-container">
                 <ul id="list-circles-ul">
-                    <!-- Las listas se cargarán aquí por JavaScript -->
                     <li><p>Cargando listas...</p></li>
                 </ul>
                 <a href="list-form.html" class="add-list-button" title="Crear nueva lista">
@@ -110,8 +92,7 @@
     <script src="js/uiUtils.js" defer></script>
     <script src="js/themeManager.js" defer></script>
     <script src="js/authService.js" defer></script>
-    <script src="js/places-service.js" defer></script> 
-    <script src="js/page-index.js" defer></script>
+    <script src="js/placesService.js" defer></script> <script src="js/page-index.js" defer></script>
     <script src="js/page-auth.js" defer></script>
     <script src="js/page-list-form.js" defer></script>
     <script src="js/page-list-view.js" defer></script>
@@ -122,7 +103,5 @@
     <script src="js/page-place-detail.js" defer></script>
     
     <script src="js/main.js" defer></script>
-
-
 </body>
 </html>
