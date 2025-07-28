@@ -134,6 +134,67 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     console.log("MAIN.JS: Fin del script de inicialización de main.js."); // <--- LOG 19
+
+    // --- Lógica para la Instalación de la PWA (Add to Home Screen) ---
+    let deferredPrompt;
+    const installBanner = document.getElementById('install-banner');
+    const installButton = document.getElementById('install-btn');
+    const closeInstallBannerButton = document.getElementById('close-install-banner-btn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // Prevenir que Chrome 67 y anteriores muestren el prompt automáticamente
+        e.preventDefault();
+        // Guardar el evento para que pueda ser disparado más tarde.
+        deferredPrompt = e;
+        // Mostrar nuestro banner de instalación personalizado
+        if (installBanner) {
+            console.log("Evento 'beforeinstallprompt' capturado. Mostrando banner.");
+            installBanner.style.display = 'flex';
+        }
+    });
+
+    if (installButton) {
+        installButton.addEventListener('click', async () => {
+            // Ocultar nuestro banner
+            if (installBanner) {
+                installBanner.style.display = 'none';
+            }
+            // Mostrar el prompt de instalación del navegador
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                // Esperar a que el usuario responda al prompt
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`Respuesta del usuario al prompt de instalación: ${outcome}`);
+                // Ya no necesitaremos el evento guardado
+                deferredPrompt = null;
+            }
+        });
+    }
+
+    if (closeInstallBannerButton) {
+        closeInstallBannerButton.addEventListener('click', () => {
+            if (installBanner) {
+                installBanner.style.display = 'none';
+            }
+        });
+    }
+
+    window.addEventListener('appinstalled', () => {
+        // Ocultar el banner si el usuario instala la app
+        if (installBanner) {
+            installBanner.style.display = 'none';
+        }
+        // Limpiar el prompt deferred
+        deferredPrompt = null;
+        console.log('PWA fue instalada.');
+        // Opcional: Mostrar una notificación de agradecimiento
+        if(ListopicApp.services && ListopicApp.services.showNotification) {
+            ListopicApp.services.showNotification('¡Gracias por instalar Listopic!', 'success');
+        }
+    });
+    // --- Fin de la Lógica de Instalación de la PWA ---
+
+    
 });
 
 
