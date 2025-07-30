@@ -1906,7 +1906,7 @@ a.header-action-button:hover {
 #profile-my-lists, #profile-my-reviews {
     margin-bottom: 35px;
     padding: 20px;
-    background-color: rgba(0,0,0,0.1); /* Subtle background for sections */
+    background-color: rgba(15, 15, 15, 0.1); /* Subtle background for sections */
     border-radius: 8px;
     text-align: left; /* Align section content to left */
 }
