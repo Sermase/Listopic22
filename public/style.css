@@ -296,9 +296,42 @@ main > .table-container {
 .form-divider { border: 0; height: 1px; background-color: var(--border-color); margin: 30px 0; }
 .form-actions { text-align: right; margin-top: 30px; }
 
+
+/* ================================================= */
+/* === INICIO DE CAMBIOS PARA ESTILO DE BOTONES === */
+/* ================================================= */
+
 /* Buttons */
-.button, button, input[type="submit"], input[type="button"], .add-review-button, .submit-button, .edit-button, .delete-button, .add-button, .list-action-button { padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 1em; text-decoration: none; display: inline-block; text-align: center; transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease; }
-.button:active, button:active, input[type="submit"]:active, input[type="button"]:active { transform: translateY(1px); }
+.button, button, input[type="submit"], input[type="button"], a.button, .add-review-button, .submit-button, .edit-button, .delete-button, .add-button, .list-action-button, a.header-action-button { 
+    padding: 10px 20px; 
+    border-radius: 6px; 
+    border: none; 
+    cursor: pointer; 
+    font-family: 'Poppins', sans-serif; 
+    font-weight: 600; 
+    font-size: 1em; 
+    text-decoration: none; 
+    display: inline-block; 
+    text-align: center; 
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease; 
+    -webkit-tap-highlight-color: transparent; /* <- CAMBIO 1: Evita el flash/rectángulo en móviles */
+}
+
+/* CAMBIO 2: Estilo de foco personalizado para accesibilidad, eliminando el rectángulo por defecto del navegador */
+.button:focus, button:focus, input[type="submit"]:focus, a.button:focus, a.header-action-button:focus {
+    outline: none; /* Elimina el outline por defecto */
+    box-shadow: 0 0 0 3px rgba(var(--accent-color-primary-rgb), 0.5); /* Añade un "glow" de foco */
+}
+
+/* CAMBIO 3: Efecto de "pulsado" al hacer clic */
+.button:active, button:active, input[type="submit"]:active, input[type="button"]:active, a.button:active, a.header-action-button:active { 
+    transform: translateY(1px); 
+}
+
+/* =============================================== */
+/* === FIN DE CAMBIOS PARA ESTILO DE BOTONES === */
+/* =============================================== */
+
 
 .submit-button, .add-review-button, .primary-button { background-color: var(--accent-color-primary); color: var(--main-button-text); }
 .primary-button:hover, .submit-button:hover, .add-review-button:hover { background-color: var(--main-button-hover-bg); box-shadow: 0 4px 15px rgba(var(--accent-color-primary-rgb), 0.3); }
