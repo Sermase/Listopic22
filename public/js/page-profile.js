@@ -401,34 +401,55 @@ ListopicApp.pageProfile = {
             const reviewsSnapshot = await ListopicApp.services.db.collectionGroup('reviews')
                 .where('userId', '==', userIdToLoad)
                 .orderBy('updatedAt', 'desc').limit(20).get();
-
+    
             if (reviewsSnapshot.empty) {
                 this.renderUserReviews([]);
                 return;
             }
-
-            // --- Enriquecimiento de datos (MUY IMPORTANTE) ---
+    
+            // --- INICIO DE LA MEJORA: ENRIQUECIMIENTO DE DATOS ---
             const reviewsData = [];
             reviewsSnapshot.forEach(doc => reviewsData.push({ id: doc.id, ...doc.data() }));
-
+    
             const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
             const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];
-
+            const authorIds = [...new Set(reviewsData.map(r => r.userId).filter(Boolean))]; // <-- NUEVO
+    
             const listPromises = listIds.map(id => ListopicApp.services.db.collection('lists').doc(id).get());
             const placePromises = placeIds.map(id => ListopicApp.services.db.collection('places').doc(id).get());
+            const authorPromises = authorIds.map(id => ListopicApp.services.db.collection('users').doc(id).get()); // <-- NUEVO
             
-            const [listDocs, placeDocs] = await Promise.all([Promise.all(listPromises), Promise.all(placePromises)]);
+            const [listDocs, placeDocs, authorDocs] = await Promise.all([ // <-- NUEVO
+                Promise.all(listPromises), 
+                Promise.all(placePromises),
+                Promise.all(authorPromises) // <-- NUEVO
+            ]);
             
             const listsMap = new Map(listDocs.map(doc => [doc.id, doc.data()]));
             const placesMap = new Map(placeDocs.map(doc => [doc.id, doc.data()]));
+            const authorsMap = new Map(authorDocs.map(doc => [doc.id, doc.data()])); // <-- NUEVO
             
             const enrichedReviews = reviewsData.map(review => {
                 const listData = listsMap.get(review.listId);
+                const authorData = authorsMap.get(review.userId); // <-- NUEVO
+                const placeData = placesMap.get(review.placeId); // <-- NUEVO
+    
                 return {
                     ...review,
                     listName: listData?.name || 'Lista Desconocida',
-                    criteriaDefinition: listData?.criteriaDefinition || {}, // <-- Pasamos la definición
-                    establishmentName: placesMap.get(review.placeId)?.name || 'Lugar Desconocido',
+                    criteriaDefinition: listData?.criteriaDefinition || {},
+                    // Objeto author completo
+                    author: {                                        // <-- NUEVO
+                        id: review.userId,
+                        name: authorData?.displayName || authorData?.username || 'Usuario',
+                        photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png'
+                    },
+                    // Objeto place completo
+                    place: {                                         // <-- NUEVO
+                        id: review.placeId,
+                        name: placeData?.name || 'Lugar Desconocido',
+                        googleMapsUrl: placeData?.googleMapsUrl || '#'
+                    }
                 };
             });
             

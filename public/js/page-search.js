@@ -876,10 +876,75 @@ ListopicApp.pageSearch = (() => {
                     </div>`;
 
             case 'item':
-                // ... dentro de la función createResultCard ...
-            case 'item':
-                // ¡Magia! Simplemente llamamos a nuestro nuevo componente reutilizable.
-                return ListopicApp.components.createReviewSuperCard(item);
+                return `
+                    <div class="search-card search-card--item" onclick="showItemDetails('${item.id}', '${item.listId}')">
+                        <div class="search-card__icon-container">
+                            ${item.photoUrl ?
+                                `<img src="${uiUtils.escapeHtml(item.photoUrl)}" alt="Item" class="search-card__image">` :
+                                '<i class="fas fa-utensils search-card__icon"></i>'
+                            }
+                        </div>
+                        <div class="search-card__content">
+                            <div class="search-card__header">
+                                <h4 class="search-card__title">${uiUtils.escapeHtml(item.itemName || 'Elemento')}</h4>
+                                ${item.placeName ? `
+                                    <p class="search-card__restaurant">
+                                        <i class="fas fa-map-marker-alt"></i> ${uiUtils.escapeHtml(item.placeName)}
+                                    </p>
+                                ` : ''}
+                            </div>
+
+                            <div class="search-card__summary">
+                                <div class="overall-rating" style="background: ${getRatingBgColor(item.overallRating || 0)}; border-left: 4px solid ${getRatingColor(item.overallRating || 0)};">
+                                    <span class="rating-value" style="color: ${getRatingColor(item.overallRating || 0)}; font-weight: 700;">
+                                        ${(item.overallRating || 0).toFixed(1)}/10
+                                    </span>
+                                    <div class="rating-stars">${generateStars(item.overallRating || 0)}</div>
+                                    ${item.reviewCount ? `<span class="review-count">(${item.reviewCount} reseñas)</span>` : ''}
+                                </div>
+                                ${item.price ? `
+                                    <span class="price-tag">
+                                        <i class="fas fa-dollar-sign"></i> ${getPriceRange(item.price)}
+                                    </span>
+                                ` : ''}
+                            </div>
+
+                            ${item.criteriaRatings && Object.keys(item.criteriaRatings).length > 0 ? `
+                                <div class="search-card__rating-breakdown">
+                                    ${Object.entries(item.criteriaRatings).slice(0, 3).map(([criteria, rating]) =>
+                                        `<div class="criteria-rating">
+                                            <span class="criteria-label">${uiUtils.escapeHtml(criteria)}</span>
+                                            <div class="criteria-progress">
+                                                <div class="criteria-fill" style="width: ${(rating / 10) * 100}%; background: ${getRatingColor(rating)};"></div>
+                                            </div>
+                                            <span class="criteria-value" style="color: ${getRatingColor(rating)}; font-weight: 600;">
+                                                ${rating.toFixed(1)}
+                                            </span>
+                                        </div>`
+                                    ).join('')}
+                                </div>
+                            ` : ''}
+
+                            ${item.userTags && item.userTags.length > 0 ? `
+                                <div class="search-card__tags">
+                                    ${item.userTags.slice(0, 3).map(tag =>
+                                        `<span class="tag-pill">${uiUtils.escapeHtml(tag)}</span>`
+                                    ).join('')}
+                                </div>
+                            ` : ''}
+
+                            <div class="search-card__meta">
+                                <span class="meta-item">
+                                    <i class="fas fa-list"></i> ${uiUtils.escapeHtml(item.listName || 'Lista')}
+                                </span>
+                                ${item.notes ? `
+                                    <span class="meta-item notes-preview">
+                                        <i class="fas fa-comment"></i> ${uiUtils.escapeHtml(item.notes.substring(0, 50))}${item.notes.length > 50 ? '...' : ''}
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>`;
 
             default:
                 return `

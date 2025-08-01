@@ -4281,13 +4281,28 @@ body.light-theme .info-tag:hover {
 /* === Componente: Super Tarjeta Reseña v3.0 === */
 /* =========================================== */
 
-/* Solo necesitamos estilos para la nueva cabecera */
-.review-super-card .review-super-card__header {
+.review-super-card {
+    background-color: var(--container-bg);
+    border-radius: var(--border-radius-large);
+    border: 1px solid var(--border-color-light);
+    margin-bottom: 20px;
+    overflow: hidden;
+    text-align: left;
+    box-shadow: var(--shadow-elevation-medium);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    cursor: pointer;
+}
+.review-super-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-elevation-high);
+}
+
+/* --- Cabecera (NUEVA) --- */
+.review-super-card__header {
     padding: 12px 15px;
     background-color: var(--container-bg-secondary);
     border-bottom: 1px solid var(--border-color-light);
 }
-
 .super-card-meta {
     display: flex;
     align-items: center;
@@ -4295,7 +4310,6 @@ body.light-theme .info-tag:hover {
     flex-wrap: wrap;
     margin-bottom: 4px;
 }
-
 .author-link {
     display: inline-flex;
     align-items: center;
@@ -4305,9 +4319,7 @@ body.light-theme .info-tag:hover {
     font-weight: 600;
     transition: color 0.2s ease;
 }
-.author-link:hover {
-    color: var(--accent-color-primary);
-}
+.author-link:hover { color: var(--accent-color-primary); }
 .author-avatar {
     width: 28px;
     height: 28px;
@@ -4316,12 +4328,7 @@ body.light-theme .info-tag:hover {
     border: 2px solid var(--border-color);
 }
 .meta-separator { color: var(--secondary-text-color); }
-
-.place-info {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
+.place-info { display: inline-flex; align-items: center; gap: 8px; }
 .place-name-link {
     text-decoration: none;
     color: var(--secondary-text-color);
@@ -4332,12 +4339,7 @@ body.light-theme .info-tag:hover {
 .gmaps-link { text-decoration: none; }
 .gmaps-link i { color: var(--accent-color-tertiary); transition: transform 0.2s ease; }
 .gmaps-link:hover i { transform: scale(1.2); }
-
-.list-highlight {
-    font-size: 0.85rem;
-    color: var(--secondary-text-color);
-    margin-top: 4px;
-}
+.list-highlight { font-size: 0.85rem; color: var(--secondary-text-color); margin-top: 4px; }
 .list-highlight a {
     text-decoration: none;
     font-weight: 600;
@@ -4352,64 +4354,31 @@ body.light-theme .info-tag:hover {
     color: white;
 }
 
-/* --- Barras de Criterios --- */
-.criteria-bars-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px; /* Un poco más de espacio */
-    font-size: 0.85rem;
-}
-.criteria-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.criteria-bar__label {
-    width: 30%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    opacity: 0.9;
-}
-.criteria-bar__viz {
-    width: 60%;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.criteria-bar__bg {
-    flex-grow: 1;
-    height: 8px;
-    background-color: var(--icon-placeholder-bg);
-    border-radius: 4px;
-    overflow: hidden;
-}
-.criteria-bar__fill {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.5s ease-out;
-}
-.criteria-bar__value {
-    font-weight: 700;
-    font-size: 0.9em;
-}
+/* --- Cuerpo y Pie (EXISTENTES) --- */
+.review-super-card__body { display: flex; gap: 20px; padding: 20px; }
+.review-super-card__image-container { flex: 0 0 150px; width: 150px; height: 150px; }
+.review-super-card__image,
+.review-super-card__icon-placeholder { width: 100%; height: 100%; object-fit: cover; border-radius: var(--border-radius-medium); }
+.review-super-card__icon-placeholder { display: flex; align-items: center; justify-content: center; background-color: var(--icon-placeholder-bg); font-size: 3rem; color: var(--icon-placeholder-color); }
+.review-super-card__main-content { flex: 1 1 auto; min-width: 0; }
+.review-super-card__title-group { margin-bottom: 10px; }
+.review-super-card__title { font-size: 1.1rem; font-weight: 700; margin: 0 0 2px 0; }
+.review-super-card__subtitle { font-size: 0.85rem; color: var(--secondary-text-color); margin: 0; }
+.review-super-card__section { margin-top: 10px; }
+.criteria-bars-list { display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; }
+.criteria-bar { display: flex; align-items: center; gap: 8px; }
+.criteria-bar__label { width: 30%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
+.criteria-bar__viz { width: 60%; display: flex; align-items: center; gap: 8px; }
+.criteria-bar__bg { flex-grow: 1; height: 8px; background-color: var(--icon-placeholder-bg); border-radius: 4px; overflow: hidden; }
+.criteria-bar__fill { height: 100%; border-radius: 4px; transition: width 0.5s ease-out; background: linear-gradient(90deg, #f56ead, #06D6A0); }
+.criteria-bar__value { font-weight: 700; font-size: 0.9em; }
+.review-super-card__footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 20px; background-color: var(--container-bg-secondary); border-top: 1px solid var(--border-color-light); }
+.review-super-card__score .score-value { font-size: 1.8rem; }
+.review-super-card__score .score-label { font-size: 0.7rem; }
 
-.review-super-card__section {
-    margin-top: 10px;
-}
-
-/* --- Footer --- */
-.review-super-card__footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap; /* Permite que los elementos se recoloquen si no caben */
-    gap: 10px;
-    padding: 12px 20px;
-    background-color: var(--container-bg-secondary);
-    border-top: 1px solid var(--border-color-light);
-    font-size: 0.8rem;
-    color: var(--secondary-text-color);
+@media (max-width: 768px) {
+    .review-super-card__body { flex-direction: column; }
+    .review-super-card__image-container { width: 100%; height: auto; aspect-ratio: 16 / 9; flex-basis: auto; }
 }
 
 
