@@ -108,6 +108,23 @@ body.light-theme {
 .app-logo:hover {
     transform: scale(1.05); /* Un ligero zoom al pasar el ratón */
 }
+
+/* --- INICIO: Corrección para el halo del logo --- */
+
+/* Con esto apuntamos específicamente al enlace que rodea el logo */
+.app-logo-container a {
+    -webkit-tap-highlight-color: transparent; /* Elimina el halo al pulsar en móviles */
+    outline: none; /* Quita el contorno que aparece en algunos navegadores */
+}
+
+/* Y le añadimos un estilo de foco visible solo para accesibilidad (navegación con teclado) */
+.app-logo-container a:focus-visible {
+    border-radius: 8px;
+    box-shadow: 0 0 0 3px var(--accent-color-primary);
+}
+
+/* --- FIN: Corrección para el halo del logo --- */
+
 /* Ya no se necesita una segunda definición de :root */
 
 /* Decorative corner blobs (Simplified with CSS)
