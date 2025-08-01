@@ -4278,16 +4278,14 @@ body.light-theme .info-tag:hover {
 }
 
 /* =========================================== */
-/* === Componente: Super Tarjeta Reseña v2.1 === */
+/* === Componente: Super Tarjeta Reseña v3.0 === */
 /* =========================================== */
 
 .review-super-card {
     background-color: var(--container-bg);
     border-radius: var(--border-radius-large);
     border: 1px solid var(--border-color-light);
-    margin: 2px;
-    /* ANTES: max-width: 700px; AHORA: Sin límite para que sea más alargado */
-    max-width: 1000px; /* Aumentamos el límite para que no sea infinito en pantallas enormes */
+    margin-bottom: 20px;
     overflow: hidden;
     text-align: left;
     box-shadow: var(--shadow-elevation-medium);
@@ -4301,62 +4299,134 @@ body.light-theme .info-tag:hover {
 
 /* --- Cabecera --- */
 .review-super-card__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 10px 15px;
+    padding: 12px 15px;
     background-color: var(--container-bg-secondary);
     border-bottom: 1px solid var(--border-color-light);
 }
-.review-super-card__title-group {
-    margin-right: 15px;
+
+.super-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
 }
-.review-super-card__title {
-    font-size: 1.1rem; /* Usamos REM para que sea responsive */
-    font-weight: 700;
-    margin: 0 0 2px 0;
+
+.author-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: var(--title-color);
+    font-weight: 600;
+    transition: color 0.2s ease;
 }
-.review-super-card__subtitle {
-    font-size: 0.85rem; /* Usamos REM */
+.author-link:hover {
+    color: var(--accent-color-primary);
+}
+.author-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border-color);
+}
+.meta-separator { color: var(--secondary-text-color); }
+
+.place-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.place-name-link {
+    text-decoration: none;
     color: var(--secondary-text-color);
-    margin: 0;
+    font-weight: 500;
+    transition: color 0.2s ease;
 }
-.review-super-card__score .score-value {
-    font-size: 1.8rem; /* Usamos REM */
+.place-name-link:hover { color: var(--accent-color-primary); }
+.gmaps-link { text-decoration: none; }
+.gmaps-link i { color: var(--accent-color-tertiary); transition: transform 0.2s ease; }
+.gmaps-link:hover i { transform: scale(1.2); }
+
+.list-highlight {
+    font-size: 0.85rem;
+    color: var(--secondary-text-color);
+    margin-top: 4px;
 }
-.review-super-card__score .score-label {
-    font-size: 0.7rem; /* Usamos REM */
+.list-highlight a {
+    text-decoration: none;
+    font-weight: 600;
+    color: var(--accent-color-secondary);
+    background-color: rgba(var(--accent-color-secondary-rgb), 0.1);
+    padding: 2px 8px;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+.list-highlight a:hover {
+    background-color: var(--accent-color-secondary);
+    color: white;
 }
 
 /* --- Cuerpo --- */
 .review-super-card__body {
     display: flex;
     gap: 20px;
-    padding: 20px;
+    padding: 15px;
 }
 .review-super-card__image-container {
-    flex: 0 0 150px; /* Base de 150px, no crece, no se encoge */
+    flex: 0 0 150px;
     width: 150px;
     height: 150px;
 }
-.review-super-card__image,
-.review-super-card__icon-placeholder {
+.review-super-card__image {
     width: 100%;
     height: 100%;
     object-fit: cover;
     border-radius: var(--border-radius-medium);
 }
-.review-super-card__icon-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--icon-placeholder-bg);
-    font-size: 3rem;
-    color: var(--icon-placeholder-color);
-}
 .review-super-card__main-content {
-    flex: 1 1 auto; /* Permite que el contenido principal crezca */
-    min-width: 0; /* Arregla problemas de flexbox con elementos largos */
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.review-super-card__title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+}
+
+.criteria-bars-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
+}
+.criteria-bar { display: flex; align-items: center; gap: 8px; }
+.criteria-bar__label { width: 35%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
+.criteria-bar__viz { flex: 1; display: flex; align-items: center; gap: 8px; }
+.criteria-bar__bg { flex-grow: 1; height: 6px; background-color: var(--icon-placeholder-bg); border-radius: 3px; overflow: hidden; }
+.criteria-bar__fill { height: 100%; border-radius: 3px; transition: width 0.5s ease-out; }
+.criteria-bar__value { font-weight: 700; font-size: 0.9em; }
+
+/* --- Pie de Tarjeta --- */
+.review-super-card__footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    background-color: rgba(0,0,0,0.1);
+    border-top: 1px solid var(--border-color-light);
+}
+.overall-score-display { text-align: right; }
+.overall-score-display .score-value { font-size: 1.5rem; font-weight: 700; color: var(--accent-color-primary); line-height: 1; }
+.overall-score-display .score-label { font-size: 0.7rem; color: var(--secondary-text-color); display: block; }
+.tags-preview { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag-pill { background: var(--input-bg); color: var(--secondary-text-color); padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
+
+@media (max-width: 768px) {
+    .review-super-card__body { flex-direction: column; }
+    .review-super-card__image-container { width: 100%; height: auto; aspect-ratio: 16 / 9; flex-basis: auto; }
 }
 
 /* --- Barras de Criterios --- */
