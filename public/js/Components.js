@@ -4,17 +4,38 @@ window.ListopicApp = window.ListopicApp || {};
 ListopicApp.components = (() => {
 
     /**
-     * Genera el HTML para una tarjeta de reseña "instagrameable".
+     * Genera el HTML para una tarjeta de reseña "instagrameable" (versión híbrida).
      * @param {object} item - El objeto de la reseña con datos enriquecidos.
      * @returns {string} El HTML de la tarjeta.
      */
     function createReviewSuperCard(item) {
         const uiUtils = ListopicApp.uiUtils;
 
-        // Datos con valores por defecto para evitar errores si algo no viene
+        // --- INICIO: Parte NUEVA que nos gusta ---
         const author = item.author || { id: '#', photoUrl: 'img/placeholder-avatar.png', name: 'Usuario Anónimo' };
         const place = item.place || { id: '#', name: 'Lugar no especificado', googleMapsUrl: '#' };
         const list = item.list || { id: '#', name: 'Lista no especificada' };
+        
+        const newHeaderHtml = `
+            <div class="super-card-meta">
+                <a href="profile.html?userId=${author.id}" class="author-link" onclick="event.stopPropagation()">
+                    <img src="${uiUtils.escapeHtml(author.photoUrl)}" alt="Avatar de ${uiUtils.escapeHtml(author.name)}" class="author-avatar">
+                    <span class="author-name">${uiUtils.escapeHtml(author.name)}</span>
+                </a>
+                <div class="place-info">
+                    <span class="meta-separator">•</span>
+                    <a href="place-detail.html?placeId=${place.id}" class="place-name-link" onclick="event.stopPropagation()">${uiUtils.escapeHtml(place.name)}</a>
+                    ${place.googleMapsUrl && place.googleMapsUrl !== '#' ? `
+                        <a href="${uiUtils.escapeHtml(place.googleMapsUrl)}" target="_blank" class="gmaps-link" onclick="event.stopPropagation()" title="Ver en Google Maps">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </a>` : ''}
+                </div>
+            </div>
+            <div class="list-highlight">
+                en la lista <a href="list-view.html?listId=${list.id}" onclick="event.stopPropagation()">${uiUtils.escapeHtml(list.name)}</a>
+            </div>
+        `;
+        // --- FIN: Parte NUEVA ---
 
         // Generamos las barras de criterios
         let criteriaBarsHtml = '';
@@ -78,6 +99,13 @@ ListopicApp.components = (() => {
             </div>
         </div>
         `;
+                // Unimos la nueva cabecera con el cuerpo y pie antiguos
+                return `
+                <div class="review-super-card" onclick="window.location.href='detail-view.html?listId=${item.listId}&id=${item.id}'">
+                    <div class="review-super-card__header">${newHeaderHtml}</div>
+                    ${oldBodyAndFooterHtml}
+                </div>
+            `;
     }
     
     // Función auxiliar para colorear las barras y números

@@ -4281,24 +4281,8 @@ body.light-theme .info-tag:hover {
 /* === Componente: Super Tarjeta Reseña v3.0 === */
 /* =========================================== */
 
-.review-super-card {
-    background-color: var(--container-bg);
-    border-radius: var(--border-radius-large);
-    border: 1px solid var(--border-color-light);
-    margin-bottom: 20px;
-    overflow: hidden;
-    text-align: left;
-    box-shadow: var(--shadow-elevation-medium);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
-    cursor: pointer;
-}
-.review-super-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-elevation-high);
-}
-
-/* --- Cabecera --- */
-.review-super-card__header {
+/* Solo necesitamos estilos para la nueva cabecera */
+.review-super-card .review-super-card__header {
     padding: 12px 15px;
     background-color: var(--container-bg-secondary);
     border-bottom: 1px solid var(--border-color-light);
@@ -4366,67 +4350,6 @@ body.light-theme .info-tag:hover {
 .list-highlight a:hover {
     background-color: var(--accent-color-secondary);
     color: white;
-}
-
-/* --- Cuerpo --- */
-.review-super-card__body {
-    display: flex;
-    gap: 20px;
-    padding: 15px;
-}
-.review-super-card__image-container {
-    flex: 0 0 150px;
-    width: 150px;
-    height: 150px;
-}
-.review-super-card__image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: var(--border-radius-medium);
-}
-.review-super-card__main-content {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-.review-super-card__title {
-    font-size: 1.2rem;
-    font-weight: 700;
-    margin: 0 0 12px 0;
-}
-
-.criteria-bars-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 0.85rem;
-}
-.criteria-bar { display: flex; align-items: center; gap: 8px; }
-.criteria-bar__label { width: 35%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
-.criteria-bar__viz { flex: 1; display: flex; align-items: center; gap: 8px; }
-.criteria-bar__bg { flex-grow: 1; height: 6px; background-color: var(--icon-placeholder-bg); border-radius: 3px; overflow: hidden; }
-.criteria-bar__fill { height: 100%; border-radius: 3px; transition: width 0.5s ease-out; }
-.criteria-bar__value { font-weight: 700; font-size: 0.9em; }
-
-/* --- Pie de Tarjeta --- */
-.review-super-card__footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 15px;
-    background-color: rgba(0,0,0,0.1);
-    border-top: 1px solid var(--border-color-light);
-}
-.overall-score-display { text-align: right; }
-.overall-score-display .score-value { font-size: 1.5rem; font-weight: 700; color: var(--accent-color-primary); line-height: 1; }
-.overall-score-display .score-label { font-size: 0.7rem; color: var(--secondary-text-color); display: block; }
-.tags-preview { display: flex; gap: 6px; flex-wrap: wrap; }
-.tag-pill { background: var(--input-bg); color: var(--secondary-text-color); padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
-
-@media (max-width: 768px) {
-    .review-super-card__body { flex-direction: column; }
-    .review-super-card__image-container { width: 100%; height: auto; aspect-ratio: 16 / 9; flex-basis: auto; }
 }
 
 /* --- Barras de Criterios --- */
