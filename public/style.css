@@ -4303,7 +4303,7 @@ body.light-theme .info-tag:hover {
     justify-content: space-between;
     align-items: center; /* Alinear verticalmente en el centro */
     gap: 15px;
-    padding: 12px 15px;
+    padding: 10px 12px;
     background-color: var(--container-bg-secondary);
     border-bottom: 1px solid var(--border-color-light);
 }
@@ -4316,7 +4316,7 @@ body.light-theme .info-tag:hover {
 .author-link {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 2px;
     text-decoration: none;
     color: var(--title-color);
     font-weight: 600;
@@ -4350,7 +4350,7 @@ body.light-theme .info-tag:hover {
 }
 
 /* --- Cuerpo --- */
-.review-super-card__body { display: flex; gap: 20px; padding: 20px; }
+.review-super-card__body { display: flex; gap: 20px; padding: 12px; }
 .review-super-card__image-container { flex: 0 0 150px; width: 150px; height: 150px; }
 .review-super-card__image, .review-super-card__icon-placeholder { width: 100%; height: 100%; object-fit: cover; border-radius: var(--border-radius-medium); }
 .review-super-card__icon-placeholder { display: flex; align-items: center; justify-content: center; background-color: var(--icon-placeholder-bg); font-size: 3rem; color: var(--icon-placeholder-color); }
@@ -4381,7 +4381,7 @@ body.light-theme .info-tag:hover {
     font-size: 0.9em;
     font-style: italic; /* Letra cursiva para diferenciar */
     color: var(--secondary-text-color);
-    margin: 16px 0; /* Más espacio para separar de las barras */
+    margin: 0px 0; /* Más espacio para separar de las barras */
     line-height: 1.4;
     border-left: 3px solid var(--border-color);
     padding-left: 10px;
@@ -4421,10 +4421,10 @@ body.light-theme .info-tag:hover {
     }
 
     .review-super-card__header {
-        padding: 12px 15px;
+        padding: 8px 12px;
     }
     .review-super-card__body {
-        padding: 15px;
+        padding: 5px;
         gap: 15px;
     }
     .review-super-card__footer {
