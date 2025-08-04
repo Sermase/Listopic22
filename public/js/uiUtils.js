@@ -173,114 +173,102 @@ ListopicApp.uiUtils = {
     },
 
     // ==========================================================
-    // === FUNCIÓN CENTRALIZADA: SUPER TARJETA RESEÑA v2.0 =====
-    // ==========================================================
-    renderReviewSuperCard: function(review) {
-        const uiUtils = this;
+// === FUNCIÓN CENTRALIZADA: SUPER TARJETA RESEÑA v3.0 =====
+// ==========================================================
+// En public/js/uiUtils.js
 
-        // --- Preparación de Datos ---
-        const creationDate = review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString('es-ES') : 'Fecha desconocida';
-        const placeName = review.establishmentName || 'Lugar no especificado';
-        const placeAddress = review.placeAddress || '';
-        const placeAddressUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeAddress)}`;
-        const itemName = review.itemName || 'Valoración General';
-        const listName = review.listName || 'Lista Desconocida';
-        const overallRating = (review.overallRating || 0).toFixed(1);
-        const detailUrl = `detail-view.html?id=${review.id}&listId=${review.listId}`;
-        const listUrl = `list-view.html?listId=${review.listId}`;
+// En public/js/uiUtils.js
 
-        // Helper para el color de las barras de notas
-        const getRatingColor = (rating) => {
-            if (rating >= 8) return '#06D6A0'; // Verde (terciario)
-            if (rating >= 6) return '#FFD166'; // Amarillo (primario)
-            if (rating >= 4) return '#118AB2'; // Azul (cuaternario)
-            return '#f56ead'; // Rosa/Rojo (secundario)
-        };
+// En public/js/uiUtils.js
 
-        // --- Construcción de la sección de Criterios con BARRAS DE COLORES ---
-        let criteriaHtml = '<p><em>No hay valoraciones detalladas.</em></p>';
-        if (review.scores && review.criteriaDefinition && Object.keys(review.criteriaDefinition).length > 0) {
-            const criteriaItems = Object.entries(review.criteriaDefinition)
-                .map(([critKey, critDef]) => {
-                    const score = review.scores[critKey];
-                    if (score === undefined) return '';
-                    const score10 = parseFloat(score).toFixed(1);
-                    const widthPercent = (score10 / 10) * 100;
-                    const barColor = getRatingColor(score10);
-                    return `
-                        <div class="criteria-bar">
+// En public/js/uiUtils.js
+
+renderReviewSuperCard: function(review) {
+    const uiUtils = this;
+
+    // --- 1. Preparación de Datos ---
+    const author = review.author || { id: '#', photoUrl: 'img/placeholder-avatar.png', name: 'Usuario' };
+    const place = review.place || { id: '#', name: review.establishmentName || 'Lugar Desconocido' };
+    const list = { id: review.listId, name: review.listName || 'Lista Desconocida' };
+    const overallRating = (review.overallRating || 0).toFixed(1);
+    const detailUrl = `detail-view.html?id=${review.id}&listId=${review.listId}`;
+
+    // --- 2. Construcción de Bloques de HTML ---
+    
+    let criteriaHtml = '';
+    if (review.scores && review.criteriaDefinition && Object.keys(review.criteriaDefinition).length > 0) {
+        const criteriaItems = Object.entries(review.criteriaDefinition)
+            .map(([critKey, critDef]) => {
+                const score = review.scores[critKey];
+                if (score === undefined) return '';
+                const score10 = parseFloat(score).toFixed(1);
+                return `<div class="criteria-bar">
                             <div class="criteria-bar__label" title="${uiUtils.escapeHtml(critDef.label)}">${uiUtils.escapeHtml(critDef.label)}</div>
                             <div class="criteria-bar__viz">
-                                <div class="criteria-bar__bg">
-                                    <div class="criteria-bar__fill" style="width: ${widthPercent}%; background-color: ${barColor};"></div>
-                                </div>
-                                <div class="criteria-bar__value" style="color: ${barColor};">${score10}</div>
+                                <div class="criteria-bar__bg"><div class="criteria-bar__fill" style="width: ${score10 * 10}%;"></div></div>
+                                <div class="criteria-bar__value">${score10}</div>
                             </div>
                         </div>`;
-                }).join('');
-            if (criteriaItems) {
-                criteriaHtml = `<div class="criteria-bars-list">${criteriaItems}</div>`;
-            }
-        }
-        
-        // --- (Comentario y Tags sin cambios en la lógica) ---
-        let commentHtml = '<em></em>';
-        if (review.comment) {
-            const snippet = review.comment.length > 120 ? uiUtils.escapeHtml(review.comment.substring(0, 120)) + '...' : uiUtils.escapeHtml(review.comment);
-            commentHtml = `<p class="comment-snippet">${snippet}</p>`;
-        }
-        let tagsHtml = '<em></em>';
-        if (review.userTags && review.userTags.length > 0) {
-            tagsHtml = review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('');
-        }
-        
-        // --- (Imagen/Icono sin cambios en la lógica) ---
-        let imageHtml;
-        if (review.photoUrl) {
-            imageHtml = `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(itemName)}" class="review-super-card__image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                         <div class="review-super-card__icon-placeholder" style="display:none;"><i class="fas fa-utensils"></i></div>`;
-        } else {
-            imageHtml = `<div class="review-super-card__icon-placeholder"><i class="fas fa-utensils"></i></div>`;
-        }
+            }).join('');
+        if (criteriaItems) criteriaHtml = `<div class="criteria-bars-list">${criteriaItems}</div>`;
+    }
+    
+    let commentHtml = review.comment ? `<p class="review-super-card__comment">${uiUtils.escapeHtml(review.comment)}</p>` : '';
+    let tagsHtml = (review.userTags && review.userTags.length > 0) 
+        ? `<div class="review-super-card__tags">${review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>` 
+        : '';
 
-        // --- Ensamblado Final con toda la tarjeta clicable ---
-        return `
-            <article class="review-super-card" onclick="event.stopPropagation(); window.location.href='${detailUrl}';">
-                <header class="review-super-card__header">
-                    <div class="review-super-card__title-group">
-                        <h4 class="review-super-card__title">${uiUtils.escapeHtml(itemName)}</h4>
-                        <p class="review-super-card__subtitle">
-                            <span class="address-link" style="margin-bottom: 15px; font-size: 0.9em;">
-                                <i class="fas fa-map-marker-alt"></i> <a href="${placeAddressUrl}" id="placeAddressUrl">${placeName}</a>
-                            </span>
-                            &middot; ${creationDate}
-                            <br> <span style="font-size: 0.8em;">Lista 
-                            <a href="${listUrl}" id="listUrl" style="font-size: 0.8em;">${uiUtils.escapeHtml(listName)}</a>
-                        </span>
-                        </p>
-                    </div>
-                    <div class="review-super-card__score">
-                        <span class="score-value">${overallRating}</span>
-                        <span class="score-label">General</span>
-                    </div>
-                </header>
-                <div class="review-super-card__body">
-                    <div class="review-super-card__image-container">
-                        ${imageHtml}
-                    </div>
-                    <div class="review-super-card__main-content">
-                        ${criteriaHtml}
-                        <section class="review-super-card__section">
-                            ${tagsHtml}
-                        </section>
-                        <section class="review-super-card__section">
-                            ${commentHtml}
-                        </section>
+    let imageHtml = review.photoUrl
+        ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(review.itemName)}" class="review-super-card__image">`
+        : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
+
+    // --- 3. Ensamblado Final de la Tarjeta ---
+    return `
+        <article class="review-super-card" onclick="window.location.href='${detailUrl}';">
+            <header class="review-super-card__header">
+                <div class="header-main-info">
+                    <a href="profile.html?viewUserId=${author.id}" class="author-link" onclick="event.stopPropagation()">
+                        <img src="${uiUtils.escapeHtml(author.photoUrl)}" alt="Avatar de ${uiUtils.escapeHtml(author.name)}" class="author-avatar">
+                        <span class="author-name">${uiUtils.escapeHtml(author.name)}</span>
+                    </a>
+                    <div class="list-highlight">
+                         <span class="meta-separator">•</span> en <a href="list-view.html?listId=${list.id}" onclick="event.stopPropagation()">${uiUtils.escapeHtml(list.name)}</a>
                     </div>
                 </div>
-            </article>
-        `;
-    },
+                <div class="review-super-card__score">
+                    <span class="score-value" style="color: ${this.getRatingColor(overallRating)};">${overallRating}</span>
+                </div>
+            </header>
+            <div class="review-super-card__body">
+                <div class="review-super-card__image-container">
+                    ${imageHtml}
+                </div>
+                <div class="review-super-card__main-content">
+                    <div class="review-super-card__title-group">
+                        <h4 class="review-super-card__title">${uiUtils.escapeHtml(review.itemName)}</h4>
+                        <p class="review-super-card__subtitle">
+                             <a href="grouped-detail-view.html?listId=${review.listId}&placeId=${place.id}&itemName=${encodeURIComponent(review.itemName)}" class="place-name-link" onclick="event.stopPropagation()">
+                                <i class="fas fa-map-marker-alt"></i> ${uiUtils.escapeHtml(place.name)}
+                            </a>
+                        </p>
+                    </div>
+                    ${criteriaHtml}
+                    ${commentHtml}
+                    ${tagsHtml}
+                </div>
+            </div>
+        </article>
+    `;
+},
+
+// AÑADE ESTA FUNCIÓN AUXILIAR DENTRO DE ListopicApp.uiUtils
+getRatingColor: function(rating) {
+    const numericRating = parseFloat(rating);
+    if (numericRating >= 8) return 'var(--accent-color-tertiary)'; // Verde
+    if (numericRating >= 6) return 'var(--accent-color-quinary)';  // Amarillo
+    if (numericRating >= 4) return 'var(--accent-color-secondary)';// Rosa/Naranja
+    return 'var(--danger-color)'; // Rojo
+},
 
     updatePageHeaderInfo: function(categoryName = "Hmm...", listName = null) {
         const categoryEl = document.getElementById('page-category-name');
