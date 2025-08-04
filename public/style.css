@@ -4278,7 +4278,7 @@ body.light-theme .info-tag:hover {
 }
 
 /* =========================================== */
-/* === Componente: Super Tarjeta Reseña v3.0 === */
+/* === Componente: Super Tarjeta Reseña v3.4 === */
 /* =========================================== */
 
 .review-super-card {
@@ -4297,18 +4297,21 @@ body.light-theme .info-tag:hover {
     box-shadow: var(--shadow-elevation-high);
 }
 
-/* --- Cabecera (NUEVA) --- */
+/* --- Cabecera --- */
 .review-super-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* Alinear verticalmente en el centro */
+    gap: 15px;
     padding: 12px 15px;
     background-color: var(--container-bg-secondary);
     border-bottom: 1px solid var(--border-color-light);
 }
-.super-card-meta {
+.header-main-info { /* Contenedor para autor y lista */
     display: flex;
-    align-items: center;
+    align-items: center; /* Alinear en la misma línea */
+    flex-wrap: wrap; /* Por si no cabe en pantallas muy pequeñas */
     gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 4px;
 }
 .author-link {
     display: inline-flex;
@@ -4317,7 +4320,6 @@ body.light-theme .info-tag:hover {
     text-decoration: none;
     color: var(--title-color);
     font-weight: 600;
-    transition: color 0.2s ease;
 }
 .author-link:hover { color: var(--accent-color-primary); }
 .author-avatar {
@@ -4327,55 +4329,71 @@ body.light-theme .info-tag:hover {
     object-fit: cover;
     border: 2px solid var(--border-color);
 }
-.meta-separator { color: var(--secondary-text-color); }
-.place-info { display: inline-flex; align-items: center; gap: 8px; }
-.place-name-link {
-    text-decoration: none;
+.list-highlight {
+    font-size: 0.8rem;
     color: var(--secondary-text-color);
-    font-weight: 500;
-    transition: color 0.2s ease;
 }
-.place-name-link:hover { color: var(--accent-color-primary); }
-.gmaps-link { text-decoration: none; }
-.gmaps-link i { color: var(--accent-color-tertiary); transition: transform 0.2s ease; }
-.gmaps-link:hover i { transform: scale(1.2); }
-.list-highlight { font-size: 0.85rem; color: var(--secondary-text-color); margin-top: 4px; }
 .list-highlight a {
     text-decoration: none;
     font-weight: 600;
     color: var(--accent-color-secondary);
-    background-color: rgba(var(--accent-color-secondary-rgb), 0.1);
-    padding: 2px 8px;
-    border-radius: 12px;
-    transition: all 0.2s ease;
 }
-.list-highlight a:hover {
-    background-color: var(--accent-color-secondary);
-    color: white;
+.list-highlight a:hover { text-decoration: underline; }
+.meta-separator {
+    color: var(--secondary-text-color);
+    margin-right: 4px;
+}
+.review-super-card__score .score-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
 }
 
-/* --- Cuerpo y Pie (EXISTENTES) --- */
+/* --- Cuerpo --- */
 .review-super-card__body { display: flex; gap: 20px; padding: 20px; }
 .review-super-card__image-container { flex: 0 0 150px; width: 150px; height: 150px; }
-.review-super-card__image,
-.review-super-card__icon-placeholder { width: 100%; height: 100%; object-fit: cover; border-radius: var(--border-radius-medium); }
+.review-super-card__image, .review-super-card__icon-placeholder { width: 100%; height: 100%; object-fit: cover; border-radius: var(--border-radius-medium); }
 .review-super-card__icon-placeholder { display: flex; align-items: center; justify-content: center; background-color: var(--icon-placeholder-bg); font-size: 3rem; color: var(--icon-placeholder-color); }
 .review-super-card__main-content { flex: 1 1 auto; min-width: 0; }
-.review-super-card__title-group { margin-bottom: 10px; }
-.review-super-card__title { font-size: 1.1rem; font-weight: 700; margin: 0 0 2px 0; }
+.review-super-card__title-group { margin-bottom: 8px; /* Reducimos el espacio inferior */ }
+.review-super-card__title { font-size: 1.1rem; font-weight: 700; margin: 0 0 4px 0; }
 .review-super-card__subtitle { font-size: 0.85rem; color: var(--secondary-text-color); margin: 0; }
-.review-super-card__section { margin-top: 10px; }
-.criteria-bars-list { display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; }
+.review-super-card__subtitle a { color: inherit; text-decoration: none; }
+.review-super-card__subtitle a:hover { color: var(--accent-color-primary); }
+
+/* --- Barras de Criterios (Más juntas) --- */
+.criteria-bars-list {
+    margin: 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0px; /* Reducimos el espacio entre barras */
+    font-size: 0.85rem;
+}
 .criteria-bar { display: flex; align-items: center; gap: 8px; }
 .criteria-bar__label { width: 30%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
 .criteria-bar__viz { width: 60%; display: flex; align-items: center; gap: 8px; }
-.criteria-bar__bg { flex-grow: 1; height: 8px; background-color: var(--icon-placeholder-bg); border-radius: 4px; overflow: hidden; }
-.criteria-bar__fill { height: 100%; border-radius: 4px; transition: width 0.5s ease-out; background: linear-gradient(90deg, #f56ead, #06D6A0); }
+.criteria-bar__bg { flex-grow: 1; height: 6px; background-color: var(--icon-placeholder-bg); border-radius: 3px; }
+.criteria-bar__fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #f56ead, #06D6A0); }
 .criteria-bar__value { font-weight: 700; font-size: 0.9em; }
-.review-super-card__footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 20px; background-color: var(--container-bg-secondary); border-top: 1px solid var(--border-color-light); }
-.review-super-card__score .score-value { font-size: 1.8rem; }
-.review-super-card__score .score-label { font-size: 0.7rem; }
 
+/* --- Comentario y Etiquetas (Estilo diferenciado) --- */
+.review-super-card__comment {
+    font-size: 0.9em;
+    font-style: italic; /* Letra cursiva para diferenciar */
+    color: var(--secondary-text-color);
+    margin: 16px 0; /* Más espacio para separar de las barras */
+    line-height: 1.4;
+    border-left: 3px solid var(--border-color);
+    padding-left: 10px;
+}
+.review-super-card__tags {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Media Query */
 @media (max-width: 768px) {
     .review-super-card__body { flex-direction: column; }
     .review-super-card__image-container { width: 100%; height: auto; aspect-ratio: 16 / 9; flex-basis: auto; }
