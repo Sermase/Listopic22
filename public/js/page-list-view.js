@@ -76,42 +76,27 @@ ListopicApp.pageListView = (() => {
         }
     }
     
+    // En page-list-view.js
+
+    // REEMPLAZA la antigua función renderTable_ListView_Grouped por esta:
     function renderTable_ListView_Grouped(groupedItemsToRender) {
-        const uiUtils = ListopicApp.uiUtils;
-        rankingTbody.innerHTML = '';
-        const numCols = rankingTable.querySelector('thead tr')?.children.length || 4;
+        const container = document.getElementById('reviews-container-grid'); // Usaremos un nuevo contenedor
+        if (!container) return;
+
+        container.innerHTML = ''; // Limpiamos el contenedor
+
         if (groupedItemsToRender.length === 0) {
-            rankingTbody.innerHTML = `<tr><td colspan="${numCols}">No hay elementos que coincidan.</td></tr>`;
+            container.innerHTML = '<p class="no-reviews-message">No hay elementos que coincidan con los filtros seleccionados.</p>';
             return;
         }
+
+        // Renderizamos cada grupo de reseñas usando nuestra nueva tarjeta
         groupedItemsToRender.forEach(group => {
-            const row = rankingTbody.insertRow();
-            row.className = 'ranking-row';
-            row.dataset.listId = group.listId || ListopicApp.state.currentListId; 
-            row.dataset.placeId = group.placeId;
-            row.dataset.establishment = group.establishmentName;
-            row.dataset.item = group.itemName || "";
-
-            const imageCell = row.insertCell();
-            imageCell.classList.add('col-image');
-            if (group.thumbnailUrl) {
-                imageCell.innerHTML = `<img src="${uiUtils.escapeHtml(group.thumbnailUrl)}" alt="${uiUtils.escapeHtml(group.itemName || group.establishmentName)}" class="ranking-item-image">`;
-            } else {
-                imageCell.innerHTML = `<div class="ranking-item-icon-placeholder"><i class="${currentListIconClass}"></i></div>`;
-            }
-
-            const elementCell = row.insertCell();
-            elementCell.classList.add('col-element');
-            const itemText = group.itemName ? ` - ${uiUtils.escapeHtml(group.itemName)}` : '';
-            elementCell.innerHTML = `<span class="restaurant-name">${uiUtils.escapeHtml(group.establishmentName) || 'N/A'}</span><span class="dish-name-sub">${itemText}</span>`;
-
-            const itemCountCell = row.insertCell();
-            itemCountCell.classList.add('score-col');
-            itemCountCell.textContent = group.itemCount;
-
-            const avgGeneralScoreCell = row.insertCell();
-            avgGeneralScoreCell.classList.add('score-col', 'col-general');
-            avgGeneralScoreCell.innerHTML = `<span class="overall-score">${(group.avgGeneralScore !== undefined ? group.avgGeneralScore : 0).toFixed(1)}</span>`;
+            // Necesitamos los datos de la lista para los nombres de los criterios
+            const listData = { criteriaDefinition: ListopicApp.state.currentListCriteriaDefinitions };
+            
+            const cardHtml = ListopicApp.uiUtils.createListViewGroupCard(group, listData, currentListIconClass);
+            container.innerHTML += cardHtml;
         });
     }
 
