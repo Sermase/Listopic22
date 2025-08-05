@@ -581,7 +581,7 @@ body.light-theme .criterion-slider-config {
 .search-filter-container { width: 100%; margin-bottom: 10px; display: flex; justify-content: left; }
 .search-input { width: 100%; max-width: 400px; padding: 8px 15px; background-color: var(--input-bg); border: 1px solid var(--input-border); border-radius: 6px; color: var(--text-color); font-size: 1em; }
 .search-input:focus { outline: none; border-color: var(--input-focus-border); }
-.tag-filter-container { margin-bottom: 0px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.tag-filter-container { margin-bottom: 0px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; flex-wrap: wrap;}
 
 /* Botones de filtro unificados - Estilo mejorado */
 .tag-filter-button {
@@ -4598,29 +4598,17 @@ body.light-theme .info-tag:hover {
 
 
 /* =========================================== */
-/* ===         NUEVA VISTA DE LISTA v2.0     === */
+/* ===         NUEVA VISTA DE LISTA          === */
 /* =========================================== */
-
-/* 1. Ocultamos la estructura de la tabla que ya no queremos */
-.ranking-table thead, .ranking-table tbody {
-    display: none;
-}
-
-/* 2. Transformamos el contenedor de la tabla en nuestra parrilla de tarjetas */
-.ranking-table {
+.reviews-grid-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 20px;
-    border: none;
-    background-color: transparent;
-    box-shadow: none;
-}
-.table-container {
-    box-shadow: none; /* Quitamos sombras del contenedor padre si las tuviera */
+    padding: 0 20px; /* Añadimos padding para que no se pegue a los bordes en móvil */
+    max-width: 1300px;
+    margin: 0 auto; /* Centramos el grid */
 }
 
-
-/* 3. Estilos para la nueva tarjeta de reseña */
 .review-list-card {
     background-color: var(--container-bg);
     border: 1px solid var(--border-color-light);
@@ -4647,12 +4635,11 @@ body.light-theme .info-tag:hover {
     color: var(--icon-placeholder-color);
 }
 .review-list-card__main-content {
-    flex-grow: 1; padding: 15px; display: flex; flex-direction: column;
+    flex-grow: 1; padding: 15px; display: flex; flex-direction: column; min-width: 0;
 }
-.review-list-card__title { font-size: 1.1em; font-weight: 600; margin: 0 0 4px 0; }
-.review-list-card__subtitle { font-size: 0.85em; color: var(--secondary-text-color); margin: 0 0 12px 0; }
+.review-list-card__title { font-size: 1.1em; font-weight: 600; margin: 0 0 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.review-list-card__subtitle { font-size: 0.85em; color: var(--secondary-text-color); margin: 0 0 12px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
 
-/* Sección de Criterios */
 .review-list-card__criteria-section {
     margin-top: auto; border-top: 1px solid var(--border-color-light); padding-top: 10px;
 }
@@ -4663,7 +4650,6 @@ body.light-theme .info-tag:hover {
 .criteria-item__label { opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .criteria-item__score { font-weight: 700; }
 
-/* Puntuación Global */
 .review-list-card__score-container {
     background-color: var(--accent-color-primary);
     color: var(--main-button-text);
@@ -4677,3 +4663,14 @@ body.light-theme .info-tag:hover {
     font-size: 0.7em; background-color: rgba(0,0,0,0.2);
     padding: 2px 6px; border-radius: 8px; margin-top: 5px;
 }
+
+.no-reviews-message, .error-placeholder {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px 20px;
+    font-style: italic;
+    color: var(--secondary-text-color);
+    background-color: var(--container-bg);
+    border-radius: var(--border-radius-medium);
+}
+.error-placeholder { color: var(--danger-color); }

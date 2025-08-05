@@ -299,6 +299,7 @@ ListopicApp.uiUtils = {
      * @returns {string} El HTML de la tarjeta.
      */
     createListViewGroupCard: function(group, listData, listIcon) {
+        // ... (pega aquí la función createListViewGroupCard que te proporcioné en el mensaje anterior)
         const uiUtils = this;
         const detailUrl = `grouped-detail-view.html?listId=${group.listId}&placeId=${group.placeId}&item=${encodeURIComponent(group.itemName || "")}`;
     
@@ -332,5 +333,13 @@ ListopicApp.uiUtils = {
                         <span class="review-count-badge">${group.itemCount} reseña${group.itemCount > 1 ? 's' : ''}</span>
                     </div>
                 </div>`;
+    },
+    
+    getRatingColor: function(rating) {
+        const numericRating = parseFloat(rating);
+        if (numericRating >= 8) return 'var(--accent-color-tertiary)';
+        if (numericRating >= 6) return 'var(--accent-color-quinary)';
+        if (numericRating >= 4) return 'var(--accent-color-secondary)';
+        return 'var(--danger-color)';
     },
 };
