@@ -17,134 +17,139 @@ const db = getFirestore();
 
 setGlobalOptions({ region: "europe-west1" });
 
-// --- FUNCIÓN groupedReviews ---
+// En functions/index.js
+
+// En functions/index.js
+
+// En functions/index.js
+
 exports.groupedReviews = onRequest(
-  async (req, res) => {
-    cors(req, res, async () => {
-        const listId = req.query.listId;
-        if (!listId) {
-            logger.warn("groupedReviews: listId no proporcionado.", {structuredData: true});
-            res.status(400).send({ error: "listId es requerido." });
-            return;
-        }
-        logger.info(`groupedReviews: Procesando para listId: ${listId}`, {structuredData: true});
-        try {
-            const listDocRef = db.collection("lists").doc(listId);
-            const reviewsSnapshot = await listDocRef.collection("reviews").get();
-            
-            const reviews = [];
-            reviewsSnapshot.forEach(doc => {
-                const reviewData = doc.data();
-                reviews.push({ id: doc.id, ...reviewData });
-                // LOG DETALLADO DE CADA RESEÑA Y SU placeId
-                logger.info(`groupedReviews: Review ID: ${doc.id} leída, con Place ID: ${reviewData.placeId || "No encontrado/Nulo"}`, {reviewData: reviewData});
-            });
-            logger.info(`groupedReviews: Encontradas ${reviews.length} reseñas para listId: ${listId}`, {structuredData: true});
+    async (req, res) => {
+      cors(req, res, async () => {
+          const listId = req.query.listId;
+          if (!listId) {
+              res.status(400).send({ error: "listId es requerido." });
+              return;
+          }
+          try {
+              const listDocRef = db.collection("lists").doc(listId);
+              const reviewsSnapshot = await listDocRef.collection("reviews").get();
+              
+              const reviews = [];
+              reviewsSnapshot.forEach(doc => reviews.push({ id: doc.id, ...doc.data() }));
+  
+              if (reviews.length === 0) {
+                  const listDocEmpty = await listDocRef.get();
+                  const listDataEmpty = listDocEmpty.exists ? listDocEmpty.data() : {};
+                  res.status(200).json({ 
+                      listName: listDataEmpty.name || "Lista Desconocida",
+                      criteria: listDataEmpty.criteriaDefinition || {},
+                      tags: listDataEmpty.availableTags || [],
+                      groupedReviews: [] 
+                  });
+                  return;
+              }
+  
+              const placeIds = [...new Set(reviews.map(r => r.placeId).filter(id => !!id))];
+              const placesDataMap = new Map();
+  
+              if (placeIds.length > 0) {
+                  const placePromises = placeIds.map(id => db.collection('places').doc(id).get());
+                  const placeDocsSnapshots = await Promise.all(placePromises);
+                  placeDocsSnapshots.forEach(docSnap => {
+                      if (docSnap.exists) placesDataMap.set(docSnap.id, docSnap.data());
+                  });
+              }
+  
+              const grouped = {};
+              reviews.forEach(review => {
+                  const placeInfo = review.placeId ? placesDataMap.get(review.placeId) : null;
+                  const establishmentName = placeInfo?.name || review.restaurantName || "Lugar Desconocido";
+                  const key = `${establishmentName}-${review.itemName || ""}`;
+                  
+                  if (!grouped[key]) {
+                      grouped[key] = {
+                          establishmentName: establishmentName,
+                          itemName: review.itemName || "",
+                          itemCount: 0,
+                          totalGeneralScore: 0,
+                          thumbnailUrl: placeInfo?.mainImageUrl,
+                          googleMapsUrl: placeInfo?.googleMapsUrl,
+                          listId: listId, 
+                          placeId: review.placeId,
+                          allTags: [], // <-- CORRECCIÓN 1: Inicializamos el array aquí
+                          criteriaTotals: {},
+                          criteriaCounts: {},
+                      };
+                  }
+                  const group = grouped[key];
+                  group.itemCount++;
+                  group.totalGeneralScore += review.overallRating || 0;
 
-            if (reviews.length === 0) {
-                const listDocEmpty = await listDocRef.get();
-                const listDataEmpty = listDocEmpty.exists ? listDocEmpty.data() : {};
-                logger.info(`groupedReviews: No hay reseñas para listId: ${listId}. Devolviendo lista vacía de grupos.`);
-                res.status(200).json({ 
-                    listName: listDataEmpty.name || "Lista Desconocida",
-                    criteria: listDataEmpty.criteriaDefinition || {},
-                    tags: listDataEmpty.availableTags || [],
-                    groupedReviews: [] 
-                });
-                return;
-            }
+                  if (review.photoUrl && !group.thumbnailUrl) { 
+                      group.thumbnailUrl = review.photoUrl; 
+                  }
+                  
+                  // <-- CORRECCIÓN 2: Rellenamos el array con las etiquetas de cada reseña
+                  if (review.userTags && Array.isArray(review.userTags)) {
+                    group.allTags.push(...review.userTags);
+                  }
+                  
+                  if (review.scores && typeof review.scores === 'object') {
+                      for (const [critKey, score] of Object.entries(review.scores)) {
+                          if (typeof score === 'number') {
+                              group.criteriaTotals[critKey] = (group.criteriaTotals[critKey] || 0) + score;
+                              group.criteriaCounts[critKey] = (group.criteriaCounts[critKey] || 0) + 1;
+                          }
+                      }
+                  }
+              });
+  
+              const groupedReviewsArray = Object.values(grouped).map(group => {
+                  group.avgGeneralScore = group.itemCount > 0 ? parseFloat((group.totalGeneralScore / group.itemCount).toFixed(1)) : 0;
+                  
+                  const avgScores = {};
+                  for (const critKey in group.criteriaTotals) {
+                      if (group.criteriaCounts[critKey] > 0) {
+                          avgScores[critKey] = group.criteriaTotals[critKey] / group.criteriaCounts[critKey];
+                      }
+                  }
+                  group.avgScores = avgScores;
 
-            const placeIds = [...new Set(reviews.map(r => r.placeId).filter(id => !!id))];
-            const placesDataMap = new Map();
-
-            if (placeIds.length > 0) {
-                logger.info("groupedReviews: Intentando obtener los siguientes placeIds de /places:", placeIds, {structuredData: true});
-                const placePromises = placeIds.map(id => db.collection('places').doc(id).get());
-                const placeDocsSnapshots = await Promise.all(placePromises);
-                placeDocsSnapshots.forEach(docSnap => {
-                    if (docSnap.exists) {
-                        placesDataMap.set(docSnap.id, docSnap.data());
-                        logger.info(`groupedReviews: Datos del lugar ${docSnap.id} obtenidos de /places:`, docSnap.data(), {structuredData: true});
-                    } else {
-                        logger.warn(`groupedReviews: Documento de lugar no encontrado en /places para placeId: ${docSnap.id}`, {structuredData: true});
-                    }
-                });
-            }
-            logger.info(`groupedReviews: Datos de ${placesDataMap.size} lugares distintos obtenidos de /places.`, {structuredData: true});
-
-            const grouped = {};
-            reviews.forEach(review => {
-                logger.info(`groupedReviews: Procesando review para agrupación - ID: ${review.id}, Place ID: ${review.placeId || "N/A"}`, {structuredData: true});
-                const placeInfo = review.placeId ? placesDataMap.get(review.placeId) : null;
-                
-                let establishmentNameFromPlace = "Lugar Desconocido";
-                if (placeInfo && placeInfo.name) {
-                    establishmentNameFromPlace = placeInfo.name;
-                } else if (placeInfo) {
-                    logger.warn(`groupedReviews: placeInfo encontrado para placeId ${review.placeId}, pero no tiene campo 'name'. Usando 'Lugar Desconocido'.`, {placeInfoData: placeInfo});
-                } else if (review.placeId) {
-                    logger.warn(`groupedReviews: No se encontró información del lugar en placesDataMap para placeId: ${review.placeId}. Usando 'Lugar Desconocido'.`);
-                } else {
-                    logger.warn(`groupedReviews: La reseña ${review.id} no tiene placeId. Usando 'Lugar Desconocido'.`);
-                }
-                logger.info(`groupedReviews: Establishment name para la reseña ${review.id} será: "${establishmentNameFromPlace}"`, {structuredData: true});
-                
-                const key = `${establishmentNameFromPlace}-${review.itemName || ""}`;
-                
-                if (!grouped[key]) {
-                    grouped[key] = {
-                        establishmentName: establishmentNameFromPlace,
-                        itemName: review.itemName || "", // Asegurar que no sea null/undefined
-                        itemCount: 0,
-                        totalGeneralScore: 0,
-                        avgGeneralScore: 0,
-                        thumbnailUrl: placeInfo ? placeInfo.mainImageUrl : null,
-                        groupTags: new Set(),
-                        listId: listId, 
-                        reviewIds: [],
-                        placeId: review.placeId // Mantener placeId para el grupo
-                    };
-                }
-                grouped[key].itemCount++;
-                grouped[key].totalGeneralScore += review.overallRating || 0;
-                if (review.photoUrl && (!grouped[key].thumbnailUrl || !placeInfo?.mainImageUrl) ) { 
-                    grouped[key].thumbnailUrl = review.photoUrl; 
-                }
-                if (review.userTags && Array.isArray(review.userTags)) {
-                    review.userTags.forEach(tag => grouped[key].groupTags.add(tag));
-                }
-                grouped[key].reviewIds.push(review.id);
-            });
-
-            const groupedReviewsArray = Object.values(grouped).map(group => {
-                group.avgGeneralScore = group.itemCount > 0 ? parseFloat((group.totalGeneralScore / group.itemCount).toFixed(1)) : 0;
-                group.groupTags = Array.from(group.groupTags);
-                delete group.totalGeneralScore;
-                return group;
-            });
-            
-            groupedReviewsArray.sort((a, b) => (b.avgGeneralScore || 0) - (a.avgGeneralScore || 0));
-
-            const listDoc = await listDocRef.get();
-            const listData = listDoc.exists ? listDoc.data() : {};
-            logger.info(`groupedReviews: Datos de lista obtenidos para listId: ${listId}, Nombre: ${listData.name}`, {structuredData: true});
-
-            const responsePayload = { 
-                listName: listData.name || "Lista Desconocida",
-                criteria: listData.criteriaDefinition || {},
-                tags: listData.availableTags || [],
-                groupedReviews: groupedReviewsArray 
-            };
-            
-            logger.info(`groupedReviews: Respuesta enviada para listId: ${listId} con ${groupedReviewsArray.length} grupos. Payload:`, responsePayload, {structuredData: true});
-            res.status(200).json(responsePayload);
-
-        } catch (error) {
-            logger.error(`Error en Cloud Function groupedReviews para listId: ${listId}`, error, {structuredData: true});
-            res.status(500).send({ error: "Error interno del servidor al obtener reseñas agrupadas.", details: error.message });
-        }
-    });
-});
+                  // Ahora esta lógica funcionará porque group.allTags existe y está lleno
+                  const tagCounts = {};
+                  group.allTags.forEach(tag => {
+                      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                  });
+                  const minOccurrences = Math.ceil(group.itemCount / 2);
+                  group.relevantTags = Object.keys(tagCounts).filter(tag => tagCounts[tag] >= minOccurrences);
+                  
+                  // Limpiamos los datos que no necesitamos enviar al cliente
+                  delete group.allTags;
+                  delete group.totalGeneralScore;
+                  delete group.criteriaTotals;
+                  delete group.criteriaCounts;
+                  return group;
+              });
+              
+              groupedReviewsArray.sort((a, b) => (b.avgGeneralScore || 0) - (a.avgGeneralScore || 0));
+  
+              const listDoc = await listDocRef.get();
+              const listData = listDoc.exists ? listDoc.data() : {};
+  
+              res.status(200).json({ 
+                  listName: listData.name || "Lista Desconocida",
+                  criteria: listData.criteriaDefinition || {},
+                  tags: listData.availableTags || [],
+                  groupedReviews: groupedReviewsArray 
+              });
+  
+          } catch (error) {
+              console.error("Error en groupedReviews:", error);
+              res.status(500).send({ error: "Error interno del servidor.", details: error.message });
+          }
+      });
+  });
 
 // --- FUNCIÓN updateListReviewCount ---
 // ESTA FUNCIÓN QUEDA OBSOLETA, LA NUEVA "updateAggregatesOnReviewChange" HACE ESTO Y MÁS.

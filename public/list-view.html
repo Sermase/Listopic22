@@ -99,8 +99,6 @@
    
     <main>
         <div class="container">
-            <!-- Removed theme-toggle-button from here -->
-            <!-- <a href="index.html" class="back-button">← Volver a Mis Listas</a> -->
             <div class="list-header-actions">
                  <h2 id="list-title">[Cargando nombre de la lista...]</h2>              
             </div>
@@ -117,35 +115,15 @@
             </div>
             
             <div id="list-map-modal" class="modal">
-                <div class="modal-content map-modal-content">
-                    <span class="close-button" id="close-map-modal-btn">&times;</span>
-                    <h3 id="map-modal-title">Lugares en el Mapa</h3>
-                    <div id="list-map-container"></div>
                 </div>
-            </div>
             <div class="tag-filter-container">
-                <!-- Los filtros de etiquetas se cargarán aquí por JavaScript -->
                 <p>Cargando filtros...</p>
             </div>
         </div>
-        <!-- Elementos movidos fuera del .container para que puedan ser más anchos -->
-        <div class="table-container">
-            <table class="ranking-table">
-                <thead>
-                    <tr>
-                        <!-- Las cabeceras se generarán dinámicamente por JavaScript -->
-                        <th scope="col">Foto</th>
-                        <th scope="col" class="sortable" data-column="restaurant">Elemento</th>
-                        <th scope="col" class="sortable score-col" data-column="general">General</th>
-                        <th scope="col">Ubic.</th>
-                    </tr>
-                </thead>
-                <tbody id="ranking-tbody">
-                    <!-- Las filas de ranking se cargarán aquí por JavaScript -->
-                    <tr><td colspan="4">Cargando elementos...</td></tr>
-                </tbody>
-            </table>
-        </div>
+    
+        <div id="reviews-grid-container" class="reviews-grid-container">
+            </div>
+    
         <div class="list-actions">
             <a href="#" id="edit-list-link" class="list-action-button edit-button" title="Editar esta lista" style="display: none;">
                 <i class="fa-solid fa-pencil"></i> <span>Editar Lista</span></a>

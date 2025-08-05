@@ -183,92 +183,92 @@ ListopicApp.uiUtils = {
 
 // En public/js/uiUtils.js
 
-renderReviewSuperCard: function(review) {
-    const uiUtils = this;
+    renderReviewSuperCard: function(review) {
+        const uiUtils = this;
 
-    // --- 1. Preparación de Datos ---
-    const author = review.author || { id: '#', photoUrl: 'img/placeholder-avatar.png', name: 'Usuario' };
-    const place = review.place || { id: '#', name: review.establishmentName || 'Lugar Desconocido' };
-    const list = { id: review.listId, name: review.listName || 'Lista Desconocida' };
-    const overallRating = (review.overallRating || 0).toFixed(1);
-    const detailUrl = `detail-view.html?id=${review.id}&listId=${review.listId}`;
+        // --- 1. Preparación de Datos ---
+        const author = review.author || { id: '#', photoUrl: 'img/placeholder-avatar.png', name: 'Usuario' };
+        const place = review.place || { id: '#', name: review.establishmentName || 'Lugar Desconocido' };
+        const list = { id: review.listId, name: review.listName || 'Lista Desconocida' };
+        const overallRating = (review.overallRating || 0).toFixed(1);
+        const detailUrl = `detail-view.html?id=${review.id}&listId=${review.listId}`;
 
-    // --- 2. Construcción de Bloques de HTML ---
-    
-    let criteriaHtml = '';
-    if (review.scores && review.criteriaDefinition && Object.keys(review.criteriaDefinition).length > 0) {
-        const criteriaItems = Object.entries(review.criteriaDefinition)
-            .map(([critKey, critDef]) => {
-                const score = review.scores[critKey];
-                if (score === undefined) return '';
-                const score10 = parseFloat(score).toFixed(1);
-                return `<div class="criteria-bar">
-                            <div class="criteria-bar__label" title="${uiUtils.escapeHtml(critDef.label)}">${uiUtils.escapeHtml(critDef.label)}</div>
-                            <div class="criteria-bar__viz">
-                                <div class="criteria-bar__bg"><div class="criteria-bar__fill" style="width: ${score10 * 10}%;"></div></div>
-                                <div class="criteria-bar__value">${score10}</div>
-                            </div>
-                        </div>`;
-            }).join('');
-        if (criteriaItems) criteriaHtml = `<div class="criteria-bars-list">${criteriaItems}</div>`;
-    }
-    
-    let commentHtml = review.comment ? `<p class="review-super-card__comment">${uiUtils.escapeHtml(review.comment)}</p>` : '';
-    let tagsHtml = (review.userTags && review.userTags.length > 0) 
-        ? `<div class="review-super-card__tags">${review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>` 
-        : '';
+        // --- 2. Construcción de Bloques de HTML ---
+        
+        let criteriaHtml = '';
+        if (review.scores && review.criteriaDefinition && Object.keys(review.criteriaDefinition).length > 0) {
+            const criteriaItems = Object.entries(review.criteriaDefinition)
+                .map(([critKey, critDef]) => {
+                    const score = review.scores[critKey];
+                    if (score === undefined) return '';
+                    const score10 = parseFloat(score).toFixed(1);
+                    return `<div class="criteria-bar">
+                                <div class="criteria-bar__label" title="${uiUtils.escapeHtml(critDef.label)}">${uiUtils.escapeHtml(critDef.label)}</div>
+                                <div class="criteria-bar__viz">
+                                    <div class="criteria-bar__bg"><div class="criteria-bar__fill" style="width: ${score10 * 10}%;"></div></div>
+                                    <div class="criteria-bar__value">${score10}</div>
+                                </div>
+                            </div>`;
+                }).join('');
+            if (criteriaItems) criteriaHtml = `<div class="criteria-bars-list">${criteriaItems}</div>`;
+        }
+        
+        let commentHtml = review.comment ? `<p class="review-super-card__comment">${uiUtils.escapeHtml(review.comment)}</p>` : '';
+        let tagsHtml = (review.userTags && review.userTags.length > 0) 
+            ? `<div class="review-super-card__tags">${review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>` 
+            : '';
 
-    let imageHtml = review.photoUrl
-        ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(review.itemName)}" class="review-super-card__image">`
-        : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
+        let imageHtml = review.photoUrl
+            ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(review.itemName)}" class="review-super-card__image">`
+            : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
 
-    // --- 3. Ensamblado Final de la Tarjeta ---
-    return `
-        <article class="review-super-card" onclick="window.location.href='${detailUrl}';">
-            <header class="review-super-card__header">
-                <div class="header-main-info">
-                    <a href="profile.html?viewUserId=${author.id}" class="author-link" onclick="event.stopPropagation()">
-                        <img src="${uiUtils.escapeHtml(author.photoUrl)}" alt="Avatar de ${uiUtils.escapeHtml(author.name)}" class="author-avatar">
-                        <span class="author-name">${uiUtils.escapeHtml(author.name)}</span>
-                    </a>
-                    <div class="list-highlight">
-                         <span class="meta-separator">•</span> en <a href="list-view.html?listId=${list.id}" onclick="event.stopPropagation()">${uiUtils.escapeHtml(list.name)}</a>
+        // --- 3. Ensamblado Final de la Tarjeta ---
+        return `
+            <article class="review-super-card" onclick="window.location.href='${detailUrl}';">
+                <header class="review-super-card__header">
+                    <div class="header-main-info">
+                        <a href="profile.html?viewUserId=${author.id}" class="author-link" onclick="event.stopPropagation()">
+                            <img src="${uiUtils.escapeHtml(author.photoUrl)}" alt="Avatar de ${uiUtils.escapeHtml(author.name)}" class="author-avatar">
+                            <span class="author-name">${uiUtils.escapeHtml(author.name)}</span>
+                        </a>
+                        <div class="list-highlight">
+                            <span class="meta-separator">•</span> en <a href="list-view.html?listId=${list.id}" onclick="event.stopPropagation()">${uiUtils.escapeHtml(list.name)}</a>
+                        </div>
+                    </div>
+                    <div class="review-super-card__score">
+                        <span class="score-value" style="color: ${this.getRatingColor(overallRating)};">${overallRating}</span>
+                    </div>
+                </header>
+                <div class="review-super-card__body">
+                    <div class="review-super-card__image-container">
+                        ${imageHtml}
+                    </div>
+                    <div class="review-super-card__main-content">
+                        <div class="review-super-card__title-group">
+                            <h4 class="review-super-card__title">${uiUtils.escapeHtml(review.itemName)}</h4>
+                            <p class="review-super-card__subtitle">
+                                <a href="grouped-detail-view.html?listId=${review.listId}&placeId=${place.id}&itemName=${encodeURIComponent(review.itemName)}" class="place-name-link" onclick="event.stopPropagation()">
+                                    <i class="fas fa-map-marker-alt"></i> ${uiUtils.escapeHtml(place.name)}
+                                </a>
+                            </p>
+                        </div>
+                        ${criteriaHtml}
+                        ${commentHtml}
+                        ${tagsHtml}
                     </div>
                 </div>
-                <div class="review-super-card__score">
-                    <span class="score-value" style="color: ${this.getRatingColor(overallRating)};">${overallRating}</span>
-                </div>
-            </header>
-            <div class="review-super-card__body">
-                <div class="review-super-card__image-container">
-                    ${imageHtml}
-                </div>
-                <div class="review-super-card__main-content">
-                    <div class="review-super-card__title-group">
-                        <h4 class="review-super-card__title">${uiUtils.escapeHtml(review.itemName)}</h4>
-                        <p class="review-super-card__subtitle">
-                             <a href="grouped-detail-view.html?listId=${review.listId}&placeId=${place.id}&itemName=${encodeURIComponent(review.itemName)}" class="place-name-link" onclick="event.stopPropagation()">
-                                <i class="fas fa-map-marker-alt"></i> ${uiUtils.escapeHtml(place.name)}
-                            </a>
-                        </p>
-                    </div>
-                    ${criteriaHtml}
-                    ${commentHtml}
-                    ${tagsHtml}
-                </div>
-            </div>
-        </article>
-    `;
-},
+            </article>
+        `;
+    },
 
-// AÑADE ESTA FUNCIÓN AUXILIAR DENTRO DE ListopicApp.uiUtils
-getRatingColor: function(rating) {
-    const numericRating = parseFloat(rating);
-    if (numericRating >= 8) return 'var(--accent-color-tertiary)'; // Verde
-    if (numericRating >= 6) return 'var(--accent-color-quinary)';  // Amarillo
-    if (numericRating >= 4) return 'var(--accent-color-secondary)';// Rosa/Naranja
-    return 'var(--danger-color)'; // Rojo
-},
+    // AÑADE ESTA FUNCIÓN AUXILIAR DENTRO DE ListopicApp.uiUtils
+    getRatingColor: function(rating) {
+        const numericRating = parseFloat(rating);
+        if (numericRating >= 8) return 'var(--accent-color-tertiary)'; // Verde
+        if (numericRating >= 6) return 'var(--accent-color-quinary)';  // Amarillo
+        if (numericRating >= 4) return 'var(--accent-color-secondary)';// Rosa/Naranja
+        return 'var(--danger-color)'; // Rojo
+    },
 
     updatePageHeaderInfo: function(categoryName = "Hmm...", listName = null) {
         const categoryEl = document.getElementById('page-category-name');
@@ -284,5 +284,90 @@ getRatingColor: function(rating) {
             separatorEl.style.display = 'none';
             listNameEl.style.display = 'none';
         }
-    }
+    },
+
+
+
+    // ... al final de uiUtils.js, dentro del objeto ListopicApp.uiUtils ...
+
+    /**
+     * Genera el HTML para una tarjeta de reseña en la vista de lista agrupada.
+     * Muestra los criterios y la media de forma prominente.
+     * @param {object} group - El objeto de la reseña agrupada.
+     * @param {object} listData - Los datos de la lista (para los criterios).
+     * @param {string} listIcon - La clase del icono para el placeholder.
+     * @returns {string} El HTML de la tarjeta.
+     */
+    // En public/js/uiUtils.js
+
+// En public/js/uiUtils.js
+
+    createListViewGroupCard: function(group, listData, listIcon) {
+        const uiUtils = this;
+        const detailUrl = `grouped-detail-view.html?listId=${group.listId}&placeId=${group.placeId}&item=${encodeURIComponent(group.itemName || "")}`;
+
+        // Desglose de criterios con BARRAS DE PROGRESO
+        let criteriaHtml = '';
+        if (group.avgScores && listData.criteriaDefinition && Object.keys(listData.criteriaDefinition).length > 0) {
+            const criteriaItems = Object.entries(group.avgScores)
+                .map(([critKey, score]) => {
+                    const critDef = listData.criteriaDefinition[critKey];
+                    if (!critDef) return '';
+                    const score10 = parseFloat(score);
+                    return `
+                        <div class="criteria-bar--compact">
+                            <span class="criteria-bar__label">${uiUtils.escapeHtml(critDef.label)}</span>
+                            <div class="criteria-bar__viz">
+                                <div class="criteria-bar__bg">
+                                    <div class="criteria-bar__fill" style="width: ${score10 * 10}%; background-color: ${this.getRatingColor(score10)};"></div>
+                                </div>
+                                <span class="criteria-bar__value" style="color: ${this.getRatingColor(score10)};">${score10.toFixed(1)}</span>
+                            </div>
+                        </div>`;
+                }).join('');
+            if (criteriaItems) {
+                criteriaHtml = `<div class="criteria-bars-list--compact">${criteriaItems}</div>`;
+            }
+        }
+        
+        // Etiquetas relevantes
+        let tagsHtml = '';
+        if (group.relevantTags && group.relevantTags.length > 0) {
+            tagsHtml = `<div class="review-list-card__tags">${group.relevantTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>`;
+        }
+
+        const imageHtml = group.thumbnailUrl
+            ? `<img src="${uiUtils.escapeHtml(group.thumbnailUrl)}" alt="Foto" class="review-list-card__image">`
+            : `<div class="review-list-card__icon-placeholder"><i class="${listIcon || 'fas fa-camera'}"></i></div>`;
+
+        return `
+            <div class="review-list-card" onclick="window.location.href='${detailUrl}'">
+                <div class="review-list-card__image-container">${imageHtml}</div>
+                <div class="review-list-card__main-content">
+                    <h4 class="review-list-card__title">${uiUtils.escapeHtml(group.itemName || group.establishmentName)}</h4>
+                    <div class="review-list-card__subtitle">
+                        <span>${group.itemName ? uiUtils.escapeHtml(group.establishmentName) : ''}</span>
+                        ${group.googleMapsUrl ? `<a href="${uiUtils.escapeHtml(group.googleMapsUrl)}" class="gmaps-link" target="_blank" onclick="event.stopPropagation()"><i class="fas fa-map-marker-alt"></i></a>` : ''}
+                    </div>
+                    <div class="review-list-card__criteria-section">
+                        ${criteriaHtml}
+                    </div>
+                    ${tagsHtml}
+                </div>
+                <div class="review-list-card__score-container">
+                    <span class="score-value">${(group.avgGeneralScore || 0).toFixed(1)}</span>
+                    <span class="review-count-badge">${group.itemCount} reseña${group.itemCount > 1 ? 's' : ''}</span>
+                </div>
+            </div>
+        `;
+    },
+    
+    getRatingColor: function(rating) {
+        const numericRating = parseFloat(rating);
+        if (numericRating >= 8) return 'var(--accent-color-tertiary)';
+        if (numericRating >= 6) return 'var(--accent-color-quinary)';
+        if (numericRating >= 4) return 'var(--accent-color-secondary)';
+        return 'var(--danger-color)';
+    },
+    
 };

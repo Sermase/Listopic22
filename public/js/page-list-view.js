@@ -7,7 +7,7 @@ ListopicApp.pageListView = (() => {
     let currentListIconClass = 'fa-solid fa-list';
 
     // Variables del DOM
-    let listTitleElement, rankingTbody, searchInput, tagFilterContainer, rankingTable,
+    let listTitleElement, reviewsGridContainer, searchInput, tagFilterContainer,
     addReviewButton, editListLink, deleteListButton, showMapModalBtn,
     mapModal, closeMapModalBtn, mapContainer, listMapInstance;
 
@@ -32,30 +32,18 @@ ListopicApp.pageListView = (() => {
         return 'fa-solid fa-list';
     }
 
-    function renderTableHeaders_ListView_Grouped() {
-        const tableHeadRow = rankingTable.querySelector('thead tr');
-        if (!tableHeadRow) return;
-        tableHeadRow.innerHTML = '';
-
-        const baseHeaders = [
-            { text: 'Foto', class: 'col-image', sortable: false },
-            { text: 'Elemento', class: 'sortable col-element', 'data-column': 'establishmentName', sortable: true },
-            { text: 'Nº Reseñas', class: 'sortable score-col', 'data-column': 'itemCount', sortable: true },
-            { text: 'Media General', class: 'sortable score-col col-general', 'data-column': 'avgGeneralScore', sortable: true }
-        ];
-        
-        baseHeaders.forEach(headerConfig => {
-            const th = document.createElement('th');
-            th.textContent = headerConfig.text || '';
-            th.className = headerConfig.class || '';
-            th.scope = 'col';
-            if (headerConfig.sortable) {
-                th.dataset.column = headerConfig['data-column'];
-                th.addEventListener('click', () => handleSort_ListView_Grouped(headerConfig['data-column']));
-            }
-            tableHeadRow.appendChild(th);
+    function renderReviewCards(groupedItemsToRender) {
+        if (!reviewsGridContainer) return;
+        reviewsGridContainer.innerHTML = '';
+        if (groupedItemsToRender.length === 0) {
+            reviewsGridContainer.innerHTML = '<p class="no-reviews-message">No hay elementos que coincidan.</p>';
+            return;
+        }
+        groupedItemsToRender.forEach(group => {
+            const listData = { criteriaDefinition: ListopicApp.state.currentListCriteriaDefinitions };
+            const cardHtml = ListopicApp.uiUtils.createListViewGroupCard(group, listData, currentListIconClass);
+            reviewsGridContainer.innerHTML += cardHtml;
         });
-        updateSortIndicators_ListView_Grouped();
     }
 
     function renderTagFilters_ListView() {
@@ -76,42 +64,27 @@ ListopicApp.pageListView = (() => {
         }
     }
     
+    // En page-list-view.js
+
+    // REEMPLAZA la antigua función renderTable_ListView_Grouped por esta:
     function renderTable_ListView_Grouped(groupedItemsToRender) {
-        const uiUtils = ListopicApp.uiUtils;
-        rankingTbody.innerHTML = '';
-        const numCols = rankingTable.querySelector('thead tr')?.children.length || 4;
+        const container = document.getElementById('reviews-container-grid'); // Usaremos un nuevo contenedor
+        if (!container) return;
+
+        container.innerHTML = ''; // Limpiamos el contenedor
+
         if (groupedItemsToRender.length === 0) {
-            rankingTbody.innerHTML = `<tr><td colspan="${numCols}">No hay elementos que coincidan.</td></tr>`;
+            container.innerHTML = '<p class="no-reviews-message">No hay elementos que coincidan con los filtros seleccionados.</p>';
             return;
         }
+
+        // Renderizamos cada grupo de reseñas usando nuestra nueva tarjeta
         groupedItemsToRender.forEach(group => {
-            const row = rankingTbody.insertRow();
-            row.className = 'ranking-row';
-            row.dataset.listId = group.listId || ListopicApp.state.currentListId; 
-            row.dataset.placeId = group.placeId;
-            row.dataset.establishment = group.establishmentName;
-            row.dataset.item = group.itemName || "";
-
-            const imageCell = row.insertCell();
-            imageCell.classList.add('col-image');
-            if (group.thumbnailUrl) {
-                imageCell.innerHTML = `<img src="${uiUtils.escapeHtml(group.thumbnailUrl)}" alt="${uiUtils.escapeHtml(group.itemName || group.establishmentName)}" class="ranking-item-image">`;
-            } else {
-                imageCell.innerHTML = `<div class="ranking-item-icon-placeholder"><i class="${currentListIconClass}"></i></div>`;
-            }
-
-            const elementCell = row.insertCell();
-            elementCell.classList.add('col-element');
-            const itemText = group.itemName ? ` - ${uiUtils.escapeHtml(group.itemName)}` : '';
-            elementCell.innerHTML = `<span class="restaurant-name">${uiUtils.escapeHtml(group.establishmentName) || 'N/A'}</span><span class="dish-name-sub">${itemText}</span>`;
-
-            const itemCountCell = row.insertCell();
-            itemCountCell.classList.add('score-col');
-            itemCountCell.textContent = group.itemCount;
-
-            const avgGeneralScoreCell = row.insertCell();
-            avgGeneralScoreCell.classList.add('score-col', 'col-general');
-            avgGeneralScoreCell.innerHTML = `<span class="overall-score">${(group.avgGeneralScore !== undefined ? group.avgGeneralScore : 0).toFixed(1)}</span>`;
+            // Necesitamos los datos de la lista para los nombres de los criterios
+            const listData = { criteriaDefinition: ListopicApp.state.currentListCriteriaDefinitions };
+            
+            const cardHtml = ListopicApp.uiUtils.createListViewGroupCard(group, listData, currentListIconClass);
+            container.innerHTML += cardHtml;
         });
     }
 
@@ -145,29 +118,13 @@ ListopicApp.pageListView = (() => {
             }
             return currentSortDirection === 'asc' ? (valA || 0) - (valB || 0) : (valB || 0) - (valA || 0);
         });
-        renderTable_ListView_Grouped(filteredItems);
-        updateSortIndicators_ListView_Grouped();
+        renderReviewCards(filteredItems);
+        
     }
 
-    function updateSortIndicators_ListView_Grouped() {
-        if (!rankingTable) return;
-        rankingTable.querySelectorAll('thead th.sortable').forEach(th => {
-            th.classList.remove('sorted-asc', 'sorted-desc');
-            if (th.dataset.column === currentSortColumn) {
-                th.classList.add(currentSortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
-            }
-        });
-    }
+    
 
-    function handleSort_ListView_Grouped(columnKey) {
-        if (currentSortColumn === columnKey) {
-            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            currentSortColumn = columnKey;
-            currentSortDirection = (columnKey === 'establishmentName') ? 'asc' : 'desc';
-        }
-        applyFiltersAndSort_ListView_Grouped();
-    }
+    
 
     function toggleTagFilter_ListView_Grouped(event) {
         const clickedTag = event.target.dataset.tag;
@@ -315,135 +272,118 @@ ListopicApp.pageListView = (() => {
 
     // *** FIN DE SECCIÓN DEL FORO ***
 
-    function init() {
-        console.log('Initializing List View page logic...');
-        const auth = ListopicApp.services.auth;
-        const db = ListopicApp.services.db;
-        const state = ListopicApp.state;
+    // En public/js/page-list-view.js
 
-        // Cacheo de elementos del DOM
-        listTitleElement = document.getElementById('list-title');
-        rankingTbody = document.getElementById('ranking-tbody');
-        searchInput = document.querySelector('.search-input');
-        tagFilterContainer = document.querySelector('.tag-filter-container');
-        rankingTable = document.querySelector('.ranking-table');
-        addReviewButton = document.querySelector('.add-review-button');
-        editListLink = document.getElementById('edit-list-link');
-        deleteListButton = document.getElementById('delete-list-button');
-        showMapModalBtn = document.getElementById('show-map-modal-btn');
-        mapModal = document.getElementById('list-map-modal');
-        closeMapModalBtn = document.getElementById('close-map-modal-btn');
-        mapContainer = document.getElementById('list-map-container');
-        
-        // Reinicio de estado de la página
-        state.allGroupedItems = []; 
-        state.currentListAvailableTags = [];
-        activeTagFilters = new Set();
-        currentSortColumn = 'avgGeneralScore';
-        currentSortDirection = 'desc';
+function init() {
+    console.log('Initializing List View page logic...');
+    const state = ListopicApp.state;
 
-        const urlParamsList = new URLSearchParams(window.location.search);
-        state.currentListId = urlParamsList.get('listId'); 
+    // Cacheo de elementos del DOM (ya corregido)
+    listTitleElement = document.getElementById('list-title');
+    reviewsGridContainer = document.getElementById('reviews-grid-container'); // Apuntamos al nuevo div
+    searchInput = document.querySelector('.search-input');
+    tagFilterContainer = document.querySelector('.tag-filter-container');
+    addReviewButton = document.querySelector('.add-review-button');
+    editListLink = document.getElementById('edit-list-link');
+    deleteListButton = document.getElementById('delete-list-button');
+    showMapModalBtn = document.getElementById('show-map-modal-btn');
+    mapModal = document.getElementById('list-map-modal');
+    closeMapModalBtn = document.getElementById('close-map-modal-btn');
+    mapContainer = document.getElementById('list-map-container');
+    
+    // Reinicio de estado de la página (se mantiene igual)
+    state.allGroupedItems = []; 
+    state.currentListAvailableTags = [];
+    activeTagFilters = new Set();
+    currentSortColumn = 'avgGeneralScore';
+    currentSortDirection = 'desc';
 
-        if (listTitleElement && rankingTbody && searchInput && tagFilterContainer && rankingTable) {
-            if (state.currentListId) {
-                if (addReviewButton) addReviewButton.href = `review-form.html?listId=${state.currentListId}`;
-                if (editListLink) editListLink.href = `list-form.html?editListId=${state.currentListId}`;
+    const urlParamsList = new URLSearchParams(window.location.search);
+    state.currentListId = urlParamsList.get('listId'); 
 
-                // Obtener datos de la lista
-                const listDocRef = ListopicApp.services.db.collection('lists').doc(state.currentListId);
-                listDocRef.get().then(listDoc => {
-                    if (!listDoc.exists) throw new Error("La lista no fue encontrada.");
-                    
-                    const listData = listDoc.data();
-                    const currentUser = ListopicApp.services.auth.currentUser;
+    // --- LÓGICA DE INICIALIZACIÓN CORREGIDA ---
+    if (state.currentListId) {
+        if (addReviewButton) addReviewButton.href = `review-form.html?listId=${state.currentListId}`;
+        if (editListLink) editListLink.href = `list-form.html?editListId=${state.currentListId}`;
 
-                    // --- ¡AQUÍ ESTÁ LA MAGIA! ---
-                    // Comprobamos si el usuario actual es el dueño de la lista
-                    const isOwner = currentUser && currentUser.uid === listData.userId;
-
-                    // Ocultamos o mostramos los botones de edición y borrado
-                    if (editListLink) editListLink.style.display = isOwner ? 'inline-flex' : 'none';
-                    if (deleteListButton) deleteListButton.style.display = isOwner ? 'inline-flex' : 'none';
-                    // --- FIN DE LA MAGIA ---
-
-                    state.currentListName = listData.name || "Ranking";
-                    const category = listData.categoryId || "Hmm..."; 
-                    ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
-                    listTitleElement.textContent = state.currentListName;
-
-                    // El resto de la lógica para obtener las reseñas agrupadas sigue aquí
-                    return fetchGroupedReviews(state.currentListId);
-
-                })
-                .then(responsePayload => {
-                    if (!responsePayload || typeof responsePayload !== 'object') {
-                        throw new Error("Respuesta inesperada de la Cloud Function.");
-                    }
-                    state.currentListName = responsePayload.listName || "Ranking Agrupado";
-                    const category = responsePayload.categoryId || "Hmm..."; 
-                    ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
-                    
-                    listTitleElement.textContent = state.currentListName;
-                    state.currentListAvailableTags = responsePayload.tags || [];
-                    state.currentListCriteriaDefinitions = responsePayload.criteria || {}; 
-                    currentListIconClass = getListIconClass_ListView(state.currentListName);
-                    
-                    renderTableHeaders_ListView_Grouped(); 
-                    renderTagFilters_ListView();
-                    initForumModal(); // <-- Inicializamos el foro aquí cuando tenemos los datos de la lista
-
-                    state.allGroupedItems = responsePayload.groupedReviews || [];
-                    applyFiltersAndSort_ListView_Grouped();
-                })
-                .catch(error => {
-                    console.error("LIST-VIEW: Error en fetch o procesamiento:", error);
-                    listTitleElement.textContent = "Error al cargar lista";
-                    rankingTbody.innerHTML = `<tr><td colspan="4" style="color:var(--danger-color);">${error.message}</td></tr>`;
-                    ListopicApp.services.showNotification(`Error al cargar la lista: ${error.message}`, "error");
-                });
-            } else {
-                listTitleElement.textContent = "Error: Lista no especificada";
-                rankingTbody.innerHTML = `<tr><td colspan="4">ID de lista no especificado en la URL.</td></tr>`;
-                ListopicApp.services.showNotification("ID de lista no especificado en la URL.", "error");
-            }
-
-            // Listeners de UI
-            if (rankingTbody) {
-                rankingTbody.addEventListener('click', (event) => {
-                    const row = event.target.closest('.ranking-row');
-                    if (row && row.dataset.listId && row.dataset.placeId !== undefined) {
-                        window.location.href = `grouped-detail-view.html?listId=${row.dataset.listId}&placeId=${row.dataset.placeId}&item=${encodeURIComponent(row.dataset.item)}`;
-                    }
-                });
-            }
-            if(searchInput) searchInput.addEventListener('input', applyFiltersAndSort_ListView_Grouped);
-
-            if (deleteListButton) {
-                deleteListButton.addEventListener('click', async () => {
-                    if (!state.currentListId) return;
-                    if (confirm(`¿Eliminar "${listTitleElement.textContent || 'esta lista'}"? Esta acción no se puede deshacer.`)) {
-                        try {
-                            const deleteOrOrphanList = firebase.app().functions('europe-west1').httpsCallable('deleteOrOrphanList');
-                            const result = await deleteOrOrphanList({ listId: state.currentListId });
-                            ListopicApp.services.showNotification(result.data.message, 'success');
-                            window.location.href = 'Index.html';
-                        } catch (error) {
-                            ListopicApp.services.showNotification(`Error: ${error.message}`, 'error');
-                        }
-                    }
-                });
-            }
+        const listDocRef = ListopicApp.services.db.collection('lists').doc(state.currentListId);
+        listDocRef.get().then(listDoc => {
+            if (!listDoc.exists) throw new Error("La lista no fue encontrada.");
             
-            // Listeners para el modal del mapa
-            if (showMapModalBtn) showMapModalBtn.addEventListener('click', openMapModal);
-            if (closeMapModalBtn) closeMapModalBtn.addEventListener('click', closeModal);
-            if (mapModal) mapModal.addEventListener('click', (e) => { if (e.target === mapModal) closeModal(); });
+            const listData = listDoc.data();
+            const currentUser = ListopicApp.services.auth.currentUser;
+            const isOwner = currentUser && currentUser.uid === listData.userId;
 
-        } else {
-            console.warn("LIST-VIEW: Faltan elementos esenciales del DOM.");
-        }
-    } // Fin de init
+            if (editListLink) editListLink.style.display = isOwner ? 'inline-flex' : 'none';
+            if (deleteListButton) deleteListButton.style.display = isOwner ? 'inline-flex' : 'none';
+
+            state.currentListName = listData.name || "Ranking";
+            const category = listData.categoryId || "Hmm..."; 
+            ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
+            if (listTitleElement) listTitleElement.textContent = state.currentListName;
+
+            return fetchGroupedReviews(state.currentListId);
+
+        })
+        .then(responsePayload => {
+            if (!responsePayload || typeof responsePayload !== 'object') {
+                throw new Error("Respuesta inesperada de la Cloud Function.");
+            }
+            state.currentListName = responsePayload.listName || "Ranking Agrupado";
+            const category = responsePayload.categoryId || "Hmm..."; 
+            ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
+            
+            if (listTitleElement) listTitleElement.textContent = state.currentListName;
+            state.currentListAvailableTags = responsePayload.tags || [];
+            state.currentListCriteriaDefinitions = responsePayload.criteria || {}; 
+            currentListIconClass = getListIconClass_ListView(state.currentListName);
+            
+            // Ya no renderizamos cabeceras de tabla
+            // renderTableHeaders_ListView_Grouped(); 
+            renderTagFilters_ListView();
+            initForumModal();
+
+            state.allGroupedItems = responsePayload.groupedReviews || [];
+            applyFiltersAndSort_ListView_Grouped();
+        })
+        .catch(error => {
+            console.error("LIST-VIEW: Error en fetch o procesamiento:", error);
+            if (listTitleElement) listTitleElement.textContent = "Error al cargar lista";
+            // Mostramos el error en nuestro nuevo contenedor
+            if (reviewsGridContainer) reviewsGridContainer.innerHTML = `<p class="error-placeholder">${error.message}</p>`;
+            ListopicApp.services.showNotification(`Error al cargar la lista: ${error.message}`, "error");
+        });
+    } else {
+        if (listTitleElement) listTitleElement.textContent = "Error: Lista no especificada";
+        if (reviewsGridContainer) reviewsGridContainer.innerHTML = `<p class="error-placeholder">ID de lista no especificado en la URL.</p>`;
+        ListopicApp.services.showNotification("ID de lista no especificado en la URL.", "error");
+    }
+
+    // Listeners de UI (eliminamos el de la tabla)
+    if(searchInput) searchInput.addEventListener('input', applyFiltersAndSort_ListView_Grouped);
+
+    if (deleteListButton) {
+        deleteListButton.addEventListener('click', async () => {
+            // ... (la lógica de borrado se mantiene igual)
+            if (!state.currentListId) return;
+            if (confirm(`¿Eliminar "${listTitleElement.textContent || 'esta lista'}"? Esta acción no se puede deshacer.`)) {
+                try {
+                    const deleteOrOrphanList = firebase.app().functions('europe-west1').httpsCallable('deleteOrOrphanList');
+                    const result = await deleteOrOrphanList({ listId: state.currentListId });
+                    ListopicApp.services.showNotification(result.data.message, 'success');
+                    window.location.href = 'Index.html';
+                } catch (error) {
+                    ListopicApp.services.showNotification(`Error: ${error.message}`, 'error');
+                }
+            }
+        });
+    }
+    
+    // Listeners para el modal del mapa
+    if (showMapModalBtn) showMapModalBtn.addEventListener('click', openMapModal);
+    if (closeMapModalBtn) closeMapModalBtn.addEventListener('click', closeModal);
+    if (mapModal) mapModal.addEventListener('click', (e) => { if (e.target === mapModal) closeModal(); });
+}// Fin de init
 
     // ... (El resto de funciones del mapa y del foro van aquí como las tenías) ...
     function openMapModal() {

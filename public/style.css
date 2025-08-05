@@ -581,7 +581,7 @@ body.light-theme .criterion-slider-config {
 .search-filter-container { width: 100%; margin-bottom: 10px; display: flex; justify-content: left; }
 .search-input { width: 100%; max-width: 400px; padding: 8px 15px; background-color: var(--input-bg); border: 1px solid var(--input-border); border-radius: 6px; color: var(--text-color); font-size: 1em; }
 .search-input:focus { outline: none; border-color: var(--input-focus-border); }
-.tag-filter-container { margin-bottom: 0px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.tag-filter-container { margin-bottom: 0px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; flex-wrap: wrap;}
 
 /* Botones de filtro unificados - Estilo mejorado */
 .tag-filter-button {
@@ -4595,3 +4595,81 @@ body.light-theme .info-tag:hover {
     width: 15px; /* Alineación del icono */
     text-align: center;
 }
+
+
+/* =========================================== */
+/* ===         NUEVA VISTA DE LISTA v3.0     === */
+/* =========================================== */
+.reviews-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    padding: 0 20px;
+    max-width: 2000px;
+    margin: 20px auto;
+}
+
+.review-list-card {
+    background-color: var(--container-bg);
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--border-radius-medium);
+    display: flex;
+    overflow: hidden;
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+    box-shadow: var(--shadow-elevation-low);
+}
+.review-list-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-elevation-medium);
+    border-color: var(--accent-color-primary);
+}
+
+.review-list-card__image-container { flex: 0 0 90px; } /* Imagen un poco más pequeña */
+.review-list-card__image, .review-list-card__icon-placeholder {
+    width: 100%; height: 100%; object-fit: cover;
+}
+.review-list-card__icon-placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background-color: var(--icon-placeholder-bg); font-size: 2rem;
+    color: var(--icon-placeholder-color);
+}
+.review-list-card__main-content {
+    flex-grow: 1; padding: 12px; display: flex; flex-direction: column; min-width: 0;
+}
+.review-list-card__title { font-size: 1.1em; font-weight: 600; margin: 0 0 2px 0; }
+.review-list-card__subtitle {
+    font-size: 0.8em; color: var(--secondary-text-color); margin: 0 0 8px 0;
+    display: flex; align-items: center; gap: 8px; /* Para alinear el icono de mapa */
+}
+.review-list-card__subtitle .gmaps-link { color: var(--accent-color-tertiary); }
+
+/* --- Criterios con Barras de Progreso --- */
+.review-list-card__criteria-section { margin-top: auto; }
+.criteria-bars-list--compact {
+    display: flex; flex-direction: column; gap: 4px; font-size: 0.8em; padding-top: 8px;
+    border-top: 1px solid var(--border-color-light);
+}
+.criteria-bar--compact { display: flex; align-items: center; gap: 5px; }
+.criteria-bar__label { flex: 0 0 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
+.criteria-bar__viz { flex: 1 1 auto; display: flex; align-items: center; gap: 5px; }
+.criteria-bar__bg { flex-grow: 1; height: 5px; background-color: var(--icon-placeholder-bg); border-radius: 3px; }
+.criteria-bar__fill { height: 100%; border-radius: 3px; }
+.criteria-bar__value { font-weight: 700; }
+
+/* --- Etiquetas (Tags) --- */
+.review-list-card__tags {
+    margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px;
+}
+.review-list-card__tags .info-tag {
+    font-size: 0.75em; padding: 2px 8px;
+}
+
+/* --- Puntuación Global --- */
+.review-list-card__score-container {
+    background-color: var(--accent-color-primary); color: var(--main-button-text);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 10px; flex: 0 0 65px; text-align: center;
+}
+.review-list-card__score-container .score-value { font-size: 1.4em; font-weight: 700; line-height: 1; }
+.review-list-card__score-container .review-count-badge { font-size: 0.65em; background-color: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 8px; margin-top: 4px; }
