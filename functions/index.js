@@ -19,12 +19,15 @@ setGlobalOptions({ region: "europe-west1" });
 
 // En functions/index.js
 
+// En functions/index.js
+
+// En functions/index.js
+
 exports.groupedReviews = onRequest(
     async (req, res) => {
       cors(req, res, async () => {
           const listId = req.query.listId;
           if (!listId) {
-              // ... (código de manejo de error se mantiene)
               res.status(400).send({ error: "listId es requerido." });
               return;
           }
@@ -36,7 +39,6 @@ exports.groupedReviews = onRequest(
               reviewsSnapshot.forEach(doc => reviews.push({ id: doc.id, ...doc.data() }));
   
               if (reviews.length === 0) {
-                  // ... (código para cuando no hay reseñas se mantiene)
                   const listDocEmpty = await listDocRef.get();
                   const listDataEmpty = listDocEmpty.exists ? listDocEmpty.data() : {};
                   res.status(200).json({ 
@@ -52,7 +54,6 @@ exports.groupedReviews = onRequest(
               const placesDataMap = new Map();
   
               if (placeIds.length > 0) {
-                  // ... (lógica para obtener datos de 'places' se mantiene)
                   const placePromises = placeIds.map(id => db.collection('places').doc(id).get());
                   const placeDocsSnapshots = await Promise.all(placePromises);
                   placeDocsSnapshots.forEach(docSnap => {
@@ -73,23 +74,27 @@ exports.groupedReviews = onRequest(
                           itemCount: 0,
                           totalGeneralScore: 0,
                           thumbnailUrl: placeInfo?.mainImageUrl,
-                          groupTags: new Set(),
+                          googleMapsUrl: placeInfo?.googleMapsUrl,
                           listId: listId, 
                           placeId: review.placeId,
-                          // --- ¡AQUÍ EMPIEZA LA MAGIA! ---
-                          criteriaTotals: {}, // <-- NUEVO: Para sumar los totales de cada criterio
-                          criteriaCounts: {}, // <-- NUEVO: Para contar cuántas veces se puntúa cada criterio
+                          allTags: [], // <-- CORRECCIÓN 1: Inicializamos el array aquí
+                          criteriaTotals: {},
+                          criteriaCounts: {},
                       };
                   }
                   const group = grouped[key];
                   group.itemCount++;
                   group.totalGeneralScore += review.overallRating || 0;
+
                   if (review.photoUrl && !group.thumbnailUrl) { 
                       group.thumbnailUrl = review.photoUrl; 
                   }
-                  if (review.userTags) review.userTags.forEach(tag => group.groupTags.add(tag));
                   
-                  // --- NUEVA LÓGICA PARA SUMAR LAS PUNTUACIONES DE CADA CRITERIO ---
+                  // <-- CORRECCIÓN 2: Rellenamos el array con las etiquetas de cada reseña
+                  if (review.userTags && Array.isArray(review.userTags)) {
+                    group.allTags.push(...review.userTags);
+                  }
+                  
                   if (review.scores && typeof review.scores === 'object') {
                       for (const [critKey, score] of Object.entries(review.scores)) {
                           if (typeof score === 'number') {
@@ -102,20 +107,28 @@ exports.groupedReviews = onRequest(
   
               const groupedReviewsArray = Object.values(grouped).map(group => {
                   group.avgGeneralScore = group.itemCount > 0 ? parseFloat((group.totalGeneralScore / group.itemCount).toFixed(1)) : 0;
-                  group.groupTags = Array.from(group.groupTags);
                   
-                  // --- NUEVO CÁLCULO DE LAS MEDIAS PARA CADA CRITERIO ---
                   const avgScores = {};
                   for (const critKey in group.criteriaTotals) {
                       if (group.criteriaCounts[critKey] > 0) {
                           avgScores[critKey] = group.criteriaTotals[critKey] / group.criteriaCounts[critKey];
                       }
                   }
-                  group.avgScores = avgScores; // <-- AÑADIMOS LAS MEDIAS AL RESULTADO
-  
+                  group.avgScores = avgScores;
+
+                  // Ahora esta lógica funcionará porque group.allTags existe y está lleno
+                  const tagCounts = {};
+                  group.allTags.forEach(tag => {
+                      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                  });
+                  const minOccurrences = Math.ceil(group.itemCount / 2);
+                  group.relevantTags = Object.keys(tagCounts).filter(tag => tagCounts[tag] >= minOccurrences);
+                  
+                  // Limpiamos los datos que no necesitamos enviar al cliente
+                  delete group.allTags;
                   delete group.totalGeneralScore;
-                  delete group.criteriaTotals; // Limpiamos datos intermedios
-                  delete group.criteriaCounts; // Limpiamos datos intermedios
+                  delete group.criteriaTotals;
+                  delete group.criteriaCounts;
                   return group;
               });
               
@@ -132,7 +145,7 @@ exports.groupedReviews = onRequest(
               });
   
           } catch (error) {
-              // ... (código de manejo de error se mantiene)
+              console.error("Error en groupedReviews:", error);
               res.status(500).send({ error: "Error interno del servidor.", details: error.message });
           }
       });
