@@ -369,5 +369,13 @@ ListopicApp.uiUtils = {
         if (numericRating >= 4) return 'var(--accent-color-secondary)';
         return 'var(--danger-color)';
     },
-    
+
+    // Nos da el color en formato HEX, que es lo que el SVG necesita.
+    getRatingHexColor: function(rating) {
+        const numericRating = parseFloat(rating);
+        if (numericRating >= 8) return '#06D6A0'; // Verde
+        if (numericRating >= 6) return '#FFD166'; // Amarillo/Oro
+        if (numericRating >= 4) return '#f56ead'; // Rosa
+        return '#D9534F'; // Rojo
+    },
 };
