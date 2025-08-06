@@ -1,16 +1,12 @@
 window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.pageProfile = {
-    // Objeto para guardar referencias a los elementos del DOM
     elements: {
-        // --- Elementos de la página principal ---
         profilePhotoDisplay: null,
-        profilePicturePlaceholder: null,
         displayNameElement: null,
         usernameDisplayElement: null,
         bioDisplayElement: null,
         locationDisplayElement: null,
-        // --- NUEVOS ELEMENTOS PARA ESTADÍSTICAS ---
         listsCountElement: null,
         reviewsCountElement: null,
         followersCountElement: null,
@@ -18,17 +14,15 @@ ListopicApp.pageProfile = {
         myListsUl: null,
         myReviewsContainer: null,
         openEditModalBtn: null,
-        followUnfollowBtn: null, // NUEVO
+        followUnfollowBtn: null,
         profileMessageArea: null,
         
-        // --- Elementos del Modal ---
         editProfileModal: null,
         closeEditModalBtn: null,
         editProfileForm: null,
         modalMessageArea: null,
         saveProfileButton: null,
         
-        // --- Campos del Formulario del Modal ---
         editDisplayNameInput: null,
         editSurnamesInput: null,
         editLocationInput: null,
@@ -36,21 +30,28 @@ ListopicApp.pageProfile = {
         editPhotoUrlInput: null,
         editPhotoFileInput: null,
         editPhotoPreview: null,
+        
+        // Pestañas
+        tabsContainer: null,
+        tabButtons: [],
+        tabContents: [],
+
+        photoModal: null,
+        closePhotoModalBtn: null,
+        modalPhotoImg: null
     },
 
-    // Variables de estado de la página
     currentUser: null,
     profileOwnerUserId: null,
-    profileData: null, // Guardaremos los datos del perfil aquí
+    profileData: null,
     selectedPhotoFile: null,
-    isFollowing: false, // NUEVO
+    isFollowing: false,
 
     init: function() {
         this.cacheDOMElements();
         const urlParams = new URLSearchParams(window.location.search);
         const userIdFromUrl = urlParams.get('viewUserId');
 
-        // La función dentro del .then() ahora es ASÍNCRONA
         ListopicApp.authService.onAuthStateChangedPromise().then(async (user) => {
             if (!user) {
                 window.location.href = 'auth.html';
@@ -59,34 +60,29 @@ ListopicApp.pageProfile = {
             this.currentUser = user;
             this.profileOwnerUserId = userIdFromUrl || this.currentUser.uid;
             
-            // PASO 1: ESPERAMOS a saber el estado de seguimiento (si no es nuestro perfil)
             if (this.currentUser.uid !== this.profileOwnerUserId) {
                 await this.checkFollowStatus();
             }
 
-            // PASO 2: AHORA SÍ, pintamos los botones con la información correcta.
             this.updateProfileButtons(); 
-            
-            // PASO 3: Cargamos el resto de la información y activamos listeners.
             this.loadUserProfileData();
             this.attachEventListeners();
         });
     },
 
     cacheDOMElements: function() {
+        // ... (resto de elementos cacheados como los tenías) ...
         this.elements.profilePhotoDisplay = document.getElementById('profile-photo-display');
-        this.elements.profilePicturePlaceholder = document.getElementById('profile-picture-placeholder');
         this.elements.displayNameElement = document.getElementById('profile-display-name');
         this.elements.usernameDisplayElement = document.getElementById('profile-username-display');
         this.elements.bioDisplayElement = document.getElementById('profile-bio-display');
         this.elements.locationDisplayElement = document.getElementById('profile-location-display');
         this.elements.myListsUl = document.getElementById('my-lists-ul');
-        this.elements.myReviewsContainer = document.getElementById('my-reviews-container'); // MODIFICADO
+        this.elements.myReviewsContainer = document.getElementById('my-reviews-container');
         this.elements.openEditModalBtn = document.getElementById('open-edit-profile-modal-btn');
-        this.elements.followUnfollowBtn = document.getElementById('follow-unfollow-btn'); // NUEVO
+        this.elements.followUnfollowBtn = document.getElementById('follow-unfollow-btn');
         this.elements.profileMessageArea = document.getElementById('profile-message-area');
         
-        // --- CACHE DE LOS NUEVOS ELEMENTOS DE ESTADÍSTICAS ---
         this.elements.listsCountElement = document.getElementById('lists-count');
         this.elements.reviewsCountElement = document.getElementById('reviews-count');
         this.elements.followersCountElement = document.getElementById('followers-count');
@@ -105,38 +101,25 @@ ListopicApp.pageProfile = {
         this.elements.editPhotoUrlInput = document.getElementById('edit-photo-url');
         this.elements.editPhotoFileInput = document.getElementById('edit-photo-file');
         this.elements.editPhotoPreview = document.getElementById('edit-photo-preview');
+
+        // Cache para las pestañas
+        this.elements.tabsContainer = document.querySelector('.profile-tabs');
+        this.elements.tabButtons = document.querySelectorAll('.profile-tab-button');
+        this.elements.tabContents = document.querySelectorAll('.profile-tab-content');
+    
+        // Cache para el modal de la foto
+        this.elements.photoModal = document.getElementById('photo-modal');
+        this.elements.closePhotoModalBtn = document.getElementById('close-photo-modal-btn');
+        this.elements.modalPhotoImg = document.getElementById('modal-photo-img');
     },
     
-    updateEditButtonVisibility: function() {
-        if (this.elements.openEditModalBtn) {
-            const isOwnProfile = this.currentUser && this.currentUser.uid === this.profileOwnerUserId;
-            this.elements.openEditModalBtn.style.display = isOwnProfile ? 'inline-block' : 'none';
-        }
-    },
-
-    updateProfileButtons: function() {
-        // --- LÓGICA DE DEPURACIÓN ---
-        // Forzamos ambos botones a ser visibles para ver si el problema es de la lógica o del renderizado.
-        console.log("[DEBUG] Forzando botones a ser visibles para depuración.");
-        const isOwnProfile = this.currentUser && this.currentUser.uid === this.profileOwnerUserId;
-        
-        if (this.elements.openEditModalBtn) {
-            this.elements.openEditModalBtn.style.display = isOwnProfile ? 'inline-block' : 'none';
-        }
-        if (this.elements.followUnfollowBtn) {
-            this.elements.followUnfollowBtn.style.display = isOwnProfile ? 'none' : 'inline-block';
-        }
-        // Cuando confirmemos que aparecen, volveremos a la lógica original.
-    },
-
     attachEventListeners: function() {
+        // ... (resto de listeners) ...
         this.elements.openEditModalBtn?.addEventListener('click', () => this.openEditModal());
-        this.elements.followUnfollowBtn?.addEventListener('click', () => this.handleFollowToggle()); // NUEVO
+        this.elements.followUnfollowBtn?.addEventListener('click', () => this.handleFollowToggle());
         this.elements.closeEditModalBtn?.addEventListener('click', () => this.closeEditModal());
         this.elements.editProfileModal?.addEventListener('click', (event) => {
-            if (event.target === this.elements.editProfileModal) {
-                this.closeEditModal();
-            }
+            if (event.target === this.elements.editProfileModal) this.closeEditModal();
         });
         this.elements.editProfileForm?.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -154,10 +137,53 @@ ListopicApp.pageProfile = {
             this.selectedPhotoFile = null;
             this.showImagePreview(event.target.value);
         });
+
+        // Listener para las pestañas
+        this.elements.tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tab = button.dataset.tab;
+                this.activateTab(tab);
+            });
+        });
+
+        // Listeners para el modal de la foto
+    this.elements.profilePhotoDisplay?.addEventListener('click', () => this.openPhotoModal());
+        this.elements.closePhotoModalBtn?.addEventListener('click', () => this.closePhotoModal());
+        this.elements.photoModal?.addEventListener('click', (event) => {
+            if (event.target === this.elements.photoModal) {
+                this.closePhotoModal();
+            }
+        });
+    },
+
+    activateTab: function(tab) {
+        this.elements.tabContents.forEach(content => {
+            content.classList.remove('active');
+        });
+        this.elements.tabButtons.forEach(button => {
+            button.classList.remove('active');
+        });
+
+        document.getElementById(`${tab}-content`).classList.add('active');
+        this.elements.tabsContainer.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    },
+
+    // ... (El resto de las funciones: checkFollowStatus, updateFollowButtonUI, handleFollowToggle, etc., se mantienen exactamente igual que las tenías) ...
+    // Asegúrate de copiar el resto de funciones desde tu último `page-profile.js` para mantener la funcionalidad de edición de perfil, seguimiento, etc.
+    // Aquí incluyo el resto para que sea completo:
+
+    updateProfileButtons: function() {
+        const isOwnProfile = this.currentUser && this.currentUser.uid === this.profileOwnerUserId;
+        if (this.elements.openEditModalBtn) {
+            this.elements.openEditModalBtn.style.display = isOwnProfile ? 'inline-block' : 'none';
+        }
+        if (this.elements.followUnfollowBtn) {
+            this.elements.followUnfollowBtn.style.display = isOwnProfile ? 'none' : 'inline-block';
+        }
     },
 
     checkFollowStatus: async function() {
-        if (this.currentUser.uid === this.profileOwnerUserId) return; // No necesitamos comprobar si es nuestro perfil
+        if (this.currentUser.uid === this.profileOwnerUserId) return;
         const db = ListopicApp.services.db;
         const followDocRef = db.collection('users').doc(this.currentUser.uid).collection('following').doc(this.profileOwnerUserId);
         try {
@@ -172,11 +198,10 @@ ListopicApp.pageProfile = {
     updateFollowButtonUI: function() {
         const btn = this.elements.followUnfollowBtn;
         if (!btn) return;
-
         if (this.isFollowing) {
             btn.innerHTML = `<i class="fas fa-user-check"></i> Siguiendo`;
             btn.classList.remove('primary-button');
-            btn.classList.add('secondary-button'); // O un estilo "activo" que prefieras
+            btn.classList.add('secondary-button');
         } else {
             btn.innerHTML = `<i class="fas fa-user-plus"></i> Seguir`;
             btn.classList.remove('secondary-button');
@@ -188,23 +213,16 @@ ListopicApp.pageProfile = {
         const btn = this.elements.followUnfollowBtn;
         if (!btn) return;
         btn.disabled = true;
-        
         try {
             const functions = firebase.app().functions('europe-west1');
             const toggleFollow = functions.httpsCallable('toggleFollowUser');
             const result = await toggleFollow({ userIdToFollow: this.profileOwnerUserId });
-
-            // Actualizar estado y UI localmente para feedback instantáneo
             this.isFollowing = result.data.status === 'followed';
             this.updateFollowButtonUI();
-
-            // Actualizar contador de seguidores en la página
             const followersCountEl = this.elements.followersCountElement;
             let currentFollowers = parseInt(followersCountEl.textContent, 10);
             followersCountEl.textContent = this.isFollowing ? currentFollowers + 1 : currentFollowers - 1;
-
             ListopicApp.services.showNotification(result.data.message, 'success');
-
         } catch (error) {
             console.error("Error al seguir/dejar de seguir:", error);
             ListopicApp.services.showNotification(`Error: ${error.message}`, 'error');
@@ -221,8 +239,8 @@ ListopicApp.pageProfile = {
             if (docSnap.exists) {
                 this.profileData = docSnap.data();
                 this.renderProfileData();
-                this.fetchUserLists(this.profileOwnerUserId); // MODIFICADO: Pasar el ID
-                this.fetchUserReviews(this.profileOwnerUserId); // MODIFICADO: Pasar el ID
+                this.fetchUserLists(this.profileOwnerUserId);
+                this.fetchUserReviews(this.profileOwnerUserId);
             } else {
                 this.elements.displayNameElement.textContent = "Perfil no encontrado";
             }
@@ -234,7 +252,6 @@ ListopicApp.pageProfile = {
     renderProfileData: function() {
         const { displayName, username, bio, location, photoUrl, publicListsCount, privateListsCount, reviewsCount, followersCount, followingCount } = this.profileData;
         const totalLists = (publicListsCount || 0) + (privateListsCount || 0);
-
         if (this.elements.displayNameElement) this.elements.displayNameElement.textContent = displayName || username || 'Usuario';
         if (this.elements.usernameDisplayElement) this.elements.usernameDisplayElement.textContent = `@${username || 'usuario'}`;
         if (this.elements.bioDisplayElement) this.elements.bioDisplayElement.textContent = bio || 'Este usuario aún no ha añadido una biografía.';
@@ -247,10 +264,8 @@ ListopicApp.pageProfile = {
             }
         }
         if (this.elements.profilePhotoDisplay) {
-            this.elements.profilePhotoDisplay.src = photoUrl || 'img/default-avatar.png';
+            this.elements.profilePhotoDisplay.src = photoUrl || 'img/placeholder-avatar.png';
         }
-        
-        // --- RENDERIZADO DE LAS ESTADÍSTICAS ---
         if(this.elements.listsCountElement) this.elements.listsCountElement.textContent = totalLists;
         if(this.elements.reviewsCountElement) this.elements.reviewsCountElement.textContent = reviewsCount || 0;
         if(this.elements.followersCountElement) this.elements.followersCountElement.textContent = followersCount || 0;
@@ -291,11 +306,9 @@ ListopicApp.pageProfile = {
     saveProfileChanges: async function() {
         this.elements.saveProfileButton.disabled = true;
         this.displayModalMessage("Guardando...", false);
-
         const auth = ListopicApp.services.auth;
         const db = ListopicApp.services.db;
         const storage = ListopicApp.services.storage;
-
         try {
             let newPhotoURL = this.elements.editPhotoUrlInput.value.trim();
             if (this.selectedPhotoFile) {
@@ -304,31 +317,25 @@ ListopicApp.pageProfile = {
                 const uploadTask = await fileRef.put(this.selectedPhotoFile);
                 newPhotoURL = await uploadTask.ref.getDownloadURL();
             }
-
             const updatesForFirestore = {
                 displayName: this.elements.editDisplayNameInput.value.trim(),
                 surnames: this.elements.editSurnamesInput.value.trim(),
                 location: this.elements.editLocationInput.value.trim(),
                 bio: this.elements.editBioInput.value.trim(),
                 photoUrl: newPhotoURL,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Buena práctica
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            
             const updatesForAuth = {
                 displayName: updatesForFirestore.displayName,
                 photoURL: newPhotoURL
             };
-
             await db.collection('users').doc(this.currentUser.uid).update(updatesForFirestore);
             await auth.currentUser.updateProfile(updatesForAuth);
-            
             this.displayModalMessage("Perfil actualizado con éxito.", false);
-            
             setTimeout(() => {
                 this.closeEditModal();
-                this.loadUserProfileData(); // Recargamos todos los datos
+                this.loadUserProfileData();
             }, 1500);
-
         } catch (error) {
             console.error("Error al guardar el perfil:", error);
             this.displayModalMessage(`Error: ${error.message}`, true);
@@ -340,18 +347,12 @@ ListopicApp.pageProfile = {
     fetchUserLists: async function(userIdToLoad) {
         if (!this.elements.myListsUl) return;
         this.elements.myListsUl.innerHTML = `<li class="loading-placeholder">Cargando listas...</li>`;
-        
         const isOwnProfile = this.currentUser && this.currentUser.uid === userIdToLoad;
-        let listsQuery = ListopicApp.services.db.collection('lists')
-            .where('userId', '==', userIdToLoad);
-
-        // Si NO es nuestro propio perfil, solo mostramos las listas públicas.
+        let listsQuery = ListopicApp.services.db.collection('lists').where('userId', '==', userIdToLoad);
         if (!isOwnProfile) {
             listsQuery = listsQuery.where('isPublic', '==', true);
         }
-        
         listsQuery = listsQuery.orderBy('createdAt', 'desc');
-
         try {
             const querySnapshot = await listsQuery.get();
             this.renderUserLists(querySnapshot.docs);
@@ -368,17 +369,14 @@ ListopicApp.pageProfile = {
             this.elements.myListsUl.innerHTML = '<li>Este usuario aún no ha creado ninguna lista visible.</li>';
             return;
         }
-
         const uiUtils = ListopicApp.uiUtils;
         for (const doc of listDocs) {
             const list = doc.data();
             const li = document.createElement('li');
             li.className = 'profile-list-item';
-
             const privacyIcon = list.isPublic ? 'fa-globe-americas' : 'fa-lock';
             const privacyText = list.isPublic ? 'Pública' : 'Privada';
             const listIcon = await uiUtils.getListIcon(list);
-
             li.innerHTML = `
                 <a href="list-view.html?listId=${doc.id}">
                     <strong class="profile-list-item-name"><i class="fas ${listIcon}" style="margin-right: 8px;"></i>${uiUtils.escapeHtml(list.name)}</strong>
@@ -396,63 +394,50 @@ ListopicApp.pageProfile = {
         const container = this.elements.myReviewsContainer;
         if (!container) return;
         container.innerHTML = `<p class="loading-placeholder">Buscando reseñas...</p>`;
-        
         try {
             const reviewsSnapshot = await ListopicApp.services.db.collectionGroup('reviews')
                 .where('userId', '==', userIdToLoad)
                 .orderBy('updatedAt', 'desc').limit(20).get();
-    
             if (reviewsSnapshot.empty) {
                 this.renderUserReviews([]);
                 return;
             }
-    
-            // --- INICIO DE LA MEJORA: ENRIQUECIMIENTO DE DATOS ---
             const reviewsData = [];
             reviewsSnapshot.forEach(doc => reviewsData.push({ id: doc.id, ...doc.data() }));
-    
             const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
             const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];
-            const authorIds = [...new Set(reviewsData.map(r => r.userId).filter(Boolean))]; // <-- NUEVO
-    
+            const authorIds = [...new Set(reviewsData.map(r => r.userId).filter(Boolean))];
             const listPromises = listIds.map(id => ListopicApp.services.db.collection('lists').doc(id).get());
             const placePromises = placeIds.map(id => ListopicApp.services.db.collection('places').doc(id).get());
-            const authorPromises = authorIds.map(id => ListopicApp.services.db.collection('users').doc(id).get()); // <-- NUEVO
-            
-            const [listDocs, placeDocs, authorDocs] = await Promise.all([ // <-- NUEVO
+            const authorPromises = authorIds.map(id => ListopicApp.services.db.collection('users').doc(id).get());
+            const [listDocs, placeDocs, authorDocs] = await Promise.all([
                 Promise.all(listPromises), 
                 Promise.all(placePromises),
-                Promise.all(authorPromises) // <-- NUEVO
+                Promise.all(authorPromises)
             ]);
-            
             const listsMap = new Map(listDocs.map(doc => [doc.id, doc.data()]));
             const placesMap = new Map(placeDocs.map(doc => [doc.id, doc.data()]));
-            const authorsMap = new Map(authorDocs.map(doc => [doc.id, doc.data()])); // <-- NUEVO
-            
+            const authorsMap = new Map(authorDocs.map(doc => [doc.id, doc.data()]));
             const enrichedReviews = reviewsData.map(review => {
                 const listData = listsMap.get(review.listId);
-                const authorData = authorsMap.get(review.userId); // <-- NUEVO
-                const placeData = placesMap.get(review.placeId); // <-- NUEVO
-    
+                const authorData = authorsMap.get(review.userId);
+                const placeData = placesMap.get(review.placeId);
                 return {
                     ...review,
                     listName: listData?.name || 'Lista Desconocida',
                     criteriaDefinition: listData?.criteriaDefinition || {},
-                    // Objeto author completo
-                    author: {                                        // <-- NUEVO
+                    author: {
                         id: review.userId,
                         name: authorData?.displayName || authorData?.username || 'Usuario',
                         photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png'
                     },
-                    // Objeto place completo
-                    place: {                                         // <-- NUEVO
+                    place: {
                         id: review.placeId,
                         name: placeData?.name || 'Lugar Desconocido',
                         googleMapsUrl: placeData?.googleMapsUrl || '#'
                     }
                 };
             });
-            
             this.renderUserReviews(enrichedReviews);
         } catch (error) {
             console.error(`page-profile: Error fetching reviews:`, error);
@@ -463,18 +448,27 @@ ListopicApp.pageProfile = {
     renderUserReviews: function(reviews) {
         const container = this.elements.myReviewsContainer;
         if (!container) return;
-        
         container.innerHTML = '';
         if (reviews.length === 0) {
             container.innerHTML = '<p>Este usuario aún no ha escrito ninguna reseña.</p>';
             return;
         }
-
-        // ANTES: Tenía su propia lógica de renderizado.
-        // AHORA: Simplemente llama a la función centralizada. ¡Qué limpio!
         container.innerHTML = reviews.map(review => 
             ListopicApp.uiUtils.renderReviewSuperCard(review)
         ).join('');
+    },
+
+    openPhotoModal: function() {
+        if (this.elements.modalPhotoImg && this.elements.profilePhotoDisplay) {
+            this.elements.modalPhotoImg.src = this.elements.profilePhotoDisplay.src;
+            this.elements.photoModal.classList.add('active');
+        }
+    },
+    
+    closePhotoModal: function() {
+        if (this.elements.photoModal) {
+            this.elements.photoModal.classList.remove('active');
+        }
     }
 };
 
