@@ -66,6 +66,9 @@ body.light-theme {
     --secondary-text-color: rgba(29, 29, 31, 0.7);
     --title-color: #000000;                    /* Títulos en negro puro */
 
+    --border-color: rgba(0, 0, 0, 0.1);
+    --border-color-light: rgba(0, 0, 0, 0.08);
+
     /* Colores de acento ajustados para el tema claro, con más saturación */
     --accent-color-primary: #007AFF;           /* Azul Apple: profesional y vibrante */
     --accent-color-secondary: #E53935;
@@ -87,6 +90,10 @@ body.light-theme {
 
     --primary-bg-rgb-values: 255, 255, 255;
     --header-noise-opacity: 0.01;
+
+    --shadow-elevation-low: 0 2px 4px rgba(0,0,0,0.08);
+    --shadow-elevation-medium: 0 6px 12px rgba(0,0,0,0.1);
+    --shadow-elevation-high: 0 10px 20px rgba(0,0,0,0.12);
 }
 
 
@@ -265,7 +272,7 @@ main { width: 100%; display: flex; flex-direction: column; align-items: center; 
     max-width: 900px; 
     width: 95%; 
     text-align: center; 
-    margin: 0 auto 30px auto; /* Centrado horizontal y margen inferior */
+    margin: 0 auto 10px auto; /* Centrado horizontal y margen inferior */
 }
 
 /* === ESTILOS PARA LA PÁGINA PRINCIPAL (index.html) === */
@@ -568,7 +575,7 @@ body.light-theme .criterion-slider-config {
 
 /* LIST-VIEW: Table & Filters */
 .list-header-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:15px; margin-bottom: 3px; } /* Reducido margin-bottom */
-.list-header-actions h2 { margin-bottom: 0;margin-top: 40px; text-align: left; }
+.list-header-actions h2 { margin-bottom: 0;margin-top: 20px; text-align: left; }
 .list-actions { display: flex; gap: 5px; }
 .list-action-button { font-size: 0.9em; padding: 8px 15px; }
 .list-action-button i { margin-right: 6px; }
@@ -1797,7 +1804,7 @@ a.header-action-button:hover {
 .modal-content {
     background-color: var(--container-bg);
     margin: auto;
-    padding: 25px;
+    padding: 15px;
     border-radius: var(--border-radius-large);
     box-shadow: var(--shadow-elevation-high);
     width: 90%;
@@ -3968,7 +3975,7 @@ body.light-theme #photo-edit-controls {
 
 .modal-content {
     background-color: var(--container-bg-secondary);
-    margin: 5% auto;
+    margin: 2% auto;
     padding: 30px;
     border-radius: 8px;
     width: 80%;
@@ -3980,8 +3987,10 @@ body.light-theme #photo-edit-controls {
 
 .close-modal {
     float: right;
-    font-size: 28px;
+    font-size: 23px;
     cursor: pointer;
+    text-align: right;
+    padding-right: 20px;
 }
 
 /* Agregar al final del archivo */
@@ -4436,7 +4445,7 @@ body.light-theme .info-tag:hover {
 
 .list-view-actions {
     text-align: right;
-    margin-bottom: 20px;
+    margin-bottom: 5px;
 }
 
 #show-map-modal-btn {
@@ -4449,14 +4458,14 @@ body.light-theme .info-tag:hover {
     width: 95%;
     height: 85vh; /* Ocupa el 85% de la altura de la pantalla */
     max-width: 1200px;
-    padding: 15px;
+    padding: 5px;
     display: flex;
     flex-direction: column;
 }
 
 .map-modal-content #map-modal-title {
     margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 2px;
     flex-shrink: 0; /* Evita que el título se encoja */
 }
 
@@ -4490,166 +4499,79 @@ body.light-theme .info-tag:hover {
 .map-marker-default { color: var(--accent-color-quaternary); } /* Un color por defecto */
 
 
-/* ============================================= */
-/* === ESTILOS PARA MAPAS Y MARCADORES (V3) === */
-/* ============================================= */
 
-/* Contenedor principal de nuestra chincheta personalizada */
-.custom-marker {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 50% 50% 50% 0; /* Forma de gota/pin */
-    transform: rotate(-45deg); /* La rotamos para que apunte hacia abajo */
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    border: 2px solid #fff; /* Borde blanco para que destaque */
-}
-
-/* El contenido dentro de la chincheta (el número) */
-.custom-marker-content {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    color: #fff;
-    transform: rotate(45deg); /* Des-rotamos el texto para que se lea bien */
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
-}
-
-/* Clases de color para el fondo de la chincheta */
-.marker-gold { background: linear-gradient(135deg, #FFD700, #FDB813); }
-.marker-silver { background: linear-gradient(135deg, #e0e0e0, #BDBDBD); }
-.marker-bronze { background: linear-gradient(135deg, #CD7F32, #A0522D); }
-.marker-default { background: linear-gradient(135deg, #118AB2, #065A71); }
-
-/* --- Estilos para el Popup del Mapa (Revisado) --- */
-.map-popup {
-    font-family: 'Poppins', sans-serif;
-    width: 180px; /* Ancho fijo para consistencia */
-}
-.map-popup-img {
-    width: 100%;
-    height: 100px; /* Altura controlada */
-    object-fit: cover;
-    border-radius: 6px;
-    background-color: #555;
-}
-.map-popup-content {
-    padding-top: 8px;
-}
-.map-popup-title {
-    margin: 0 0 5px 0;
-    font-size: 1em; /* Un poco más pequeño para caber bien */
-    font-weight: 600;
-    color: var(--title-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis; /* Para nombres largos */
-}
-.map-popup-score {
-    font-size: 0.9em;
-    color: var(--secondary-text-color);
-    margin-bottom: 8px;
-}
-.map-popup-link {
-    font-size: 0.9em;
-    font-weight: 500;
-    color: var(--accent-color-primary);
-    text-decoration: none;
-}
-.map-popup-link:hover {
-    text-decoration: underline;
-}
-
-/* Ajustes finos al contenedor del popup de Leaflet */
-.leaflet-popup-content-wrapper {
-    padding: 1px;
-    border-radius: 8px;
-    background: var(--container-bg);
-}
-.leaflet-popup-content {
-    margin: 12px !important;
-    line-height: 1.4;
-}
-
-/* Puedes añadir esto si es necesario para asegurar la consistencia del menú */
-.user-menu button[role="menuitem"] {
-    display: block;
-    width: 100%;
-    padding: 10px 15px;
-    text-align: left;
-    background: none;
-    border: none;
-    color: var(--text-color);
-    cursor: pointer;
-    font-size: 1em; /* Asegura que el tamaño de fuente sea consistente */
-    font-family: inherit; /* Hereda la fuente del resto del menú */
-}
-
-.user-menu button[role="menuitem"]:hover {
-    background-color: var(--accent-color-primary);
-    color: #fff;
-}
-
-.user-menu button[role="menuitem"] i {
-    margin-right: 8px; /* Espacio entre el icono y el texto */
-    width: 15px; /* Alineación del icono */
-    text-align: center;
-}
 
 
 /* =========================================== */
-/* ===         NUEVA VISTA DE LISTA v3.0     === */
+/* ===         NUEVA VISTA DE LISTA v3.1     === */
 /* =========================================== */
+
 .reviews-grid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 20px;
-    padding: 0 20px;
-    max-width: 2000px;
+    padding: 0 10px;
+    max-width: 1300px;
     margin: 20px auto;
 }
 
 .review-list-card {
+    flex: 1 1 320px; /* Base de 320px, pero flexible */
+    max-width: 450px; /* Evita que las tarjetas se hagan enormes en filas de 1 o 2 */
+    
     background-color: var(--container-bg);
     border: 1px solid var(--border-color-light);
     border-radius: var(--border-radius-medium);
-    display: flex;
+    display: flex; /* Este es el flex INTERNO de la tarjeta, se mantiene */
     overflow: hidden;
     transition: all 0.2s ease-in-out;
     cursor: pointer;
     box-shadow: var(--shadow-elevation-low);
+    font-size: 0.85rem;
 }
+
 .review-list-card:hover {
     transform: translateY(-4px);
     box-shadow: var(--shadow-elevation-medium);
     border-color: var(--accent-color-primary);
 }
 
-.review-list-card__image-container { flex: 0 0 90px; } /* Imagen un poco más pequeña */
+.review-list-card__image-container { 
+    flex: 0 0 90px;
+    transition: flex-basis 0.2s ease;
+}
+
 .review-list-card__image, .review-list-card__icon-placeholder {
     width: 100%; height: 100%; object-fit: cover;
 }
+
 .review-list-card__icon-placeholder {
     display: flex; align-items: center; justify-content: center;
     background-color: var(--icon-placeholder-bg); font-size: 2rem;
     color: var(--icon-placeholder-color);
 }
+
 .review-list-card__main-content {
     flex-grow: 1; padding: 12px; display: flex; flex-direction: column; min-width: 0;
 }
+
 .review-list-card__title { font-size: 1.1em; font-weight: 600; margin: 0 0 2px 0; }
+
 .review-list-card__subtitle {
     font-size: 0.8em; color: var(--secondary-text-color); margin: 0 0 8px 0;
-    display: flex; align-items: center; gap: 8px; /* Para alinear el icono de mapa */
+    display: flex; align-items: center; gap: 8px;
 }
+
 .review-list-card__subtitle .gmaps-link { color: var(--accent-color-tertiary); }
 
-/* --- Criterios con Barras de Progreso --- */
 .review-list-card__criteria-section { margin-top: auto; }
+
 .criteria-bars-list--compact {
     display: flex; flex-direction: column; gap: 4px; font-size: 0.8em; padding-top: 8px;
     border-top: 1px solid var(--border-color-light);
 }
+
 .criteria-bar--compact { display: flex; align-items: center; gap: 5px; }
 .criteria-bar__label { flex: 0 0 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
 .criteria-bar__viz { flex: 1 1 auto; display: flex; align-items: center; gap: 5px; }
@@ -4657,19 +4579,147 @@ body.light-theme .info-tag:hover {
 .criteria-bar__fill { height: 100%; border-radius: 3px; }
 .criteria-bar__value { font-weight: 700; }
 
-/* --- Etiquetas (Tags) --- */
 .review-list-card__tags {
     margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px;
 }
+
 .review-list-card__tags .info-tag {
     font-size: 0.75em; padding: 2px 8px;
 }
 
-/* --- Puntuación Global --- */
 .review-list-card__score-container {
     background-color: var(--accent-color-primary); color: var(--main-button-text);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 10px; flex: 0 0 65px; text-align: center;
+    transition: flex-basis 0.2s ease;
 }
+
 .review-list-card__score-container .score-value { font-size: 1.4em; font-weight: 700; line-height: 1; }
 .review-list-card__score-container .review-count-badge { font-size: 0.65em; background-color: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 8px; margin-top: 4px; }
+
+.no-reviews-message, .error-placeholder {
+    /* Para que ocupe todo el ancho en un contenedor flex */
+    flex-basis: 100%;
+    text-align: center;
+    padding: 40px 20px;
+    font-style: italic;
+    color: var(--secondary-text-color);
+    background-color: var(--container-bg);
+    border-radius: var(--border-radius-medium);
+}
+.error-placeholder { color: var(--danger-color); }
+
+
+/* =========================================== */
+/* ===         AJUSTES PARA MÓVILES          === */
+/* =========================================== */
+@media (max-width: 480px) {
+    /* Con Flexbox, ya no necesitamos tocar el contenedor.
+       Las tarjetas se adaptarán solas. Podemos ajustar detalles de las tarjetas si queremos. */
+
+    .review-list-card {
+        font-size: 0.9rem;
+    }
+
+    .review-list-card__image-container {
+        flex-basis: 75px;
+    }
+
+    .review-list-card__score-container {
+        flex-basis: 55px;
+    }
+
+    .review-list-card__score-container .score-value {
+        font-size: 1.2em;
+    }
+}
+
+/* ================================================= */
+/* === ESTILOS DEFINITIVOS PARA POPUPS DEL MAPA === */
+/* ================================================= */
+
+/* --- ESTILOS PARA EL TEMA OSCURO --- */
+/* Se aplican cuando el body NO tiene la clase .light-theme */
+body:not(.light-theme) .leaflet-popup-content-wrapper {
+    background: var(--container-bg); /* Fondo oscuro */
+    color: var(--text-color); /* Texto claro */
+    box-shadow: var(--shadow-elevation-medium);
+    border: 1px solid var(--border-color);
+}
+
+body:not(.light-theme) .popup-title {
+    color: var(--title-color); /* Título blanco */
+}
+
+body:not(.light-theme) .leaflet-popup-tip {
+    background: var(--container-bg); /* Flecha del popup oscura */
+}
+
+
+/* --- ESTILOS PARA EL TEMA CLARO --- */
+/* Se aplican cuando el body SÍ tiene la clase .light-theme */
+body.light-theme .leaflet-popup-content-wrapper {
+    background: #FFFFFF; /* Fondo blanco */
+    color: #333333; /* Texto oscuro */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: 1px solid #E0E0E0;
+}
+
+body.light-theme .popup-title {
+    color: #111111; /* Título negro */
+}
+
+body.light-theme .leaflet-popup-tip {
+    background: #FFFFFF; /* Flecha del popup blanca */
+}
+
+/* --- ESTILOS ESTRUCTURALES COMUNES (se aplican en ambos temas) --- */
+
+.leaflet-popup-content {
+    margin: 0 !important;
+    padding: 0;
+    width: 220px !important;
+}
+
+/* Nuestro contenedor personalizado dentro del popup */
+.listopic-map-popup {
+    display: flex;
+    flex-direction: column;
+}
+
+/* La imagen del popup */
+.popup-image {
+    height: 100px;
+    width: 100%;
+    background-size: cover;
+    background-position: center;
+    border-top-left-radius: var(--border-radius-medium);
+    border-top-right-radius: var(--border-radius-medium);
+    border-bottom: 2px solid var(--accent-color-primary);
+}
+
+/* El contenido de texto y botón */
+.popup-content {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.popup-title {
+    margin: 0 0 10px 0;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.popup-link.button {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    text-align: center;
+    color: var(--primary-bg);
+}

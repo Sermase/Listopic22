@@ -28,43 +28,41 @@ exports.groupedReviews = onRequest(
       cors(req, res, async () => {
           const listId = req.query.listId;
           if (!listId) {
-              res.status(400).send({ error: "listId es requerido." });
-              return;
+              return res.status(400).send({ error: "listId es requerido." });
           }
+
           try {
               const listDocRef = db.collection("lists").doc(listId);
               const reviewsSnapshot = await listDocRef.collection("reviews").get();
               
               const reviews = [];
               reviewsSnapshot.forEach(doc => reviews.push({ id: doc.id, ...doc.data() }));
-  
+
               if (reviews.length === 0) {
+                  // Manejar lista vacía (tu código para esto está bien)
                   const listDocEmpty = await listDocRef.get();
                   const listDataEmpty = listDocEmpty.exists ? listDocEmpty.data() : {};
-                  res.status(200).json({ 
+                  return res.status(200).json({ 
                       listName: listDataEmpty.name || "Lista Desconocida",
                       criteria: listDataEmpty.criteriaDefinition || {},
                       tags: listDataEmpty.availableTags || [],
                       groupedReviews: [] 
                   });
-                  return;
               }
-  
+
+              // Obtener datos de places (tu código para esto está bien)
               const placeIds = [...new Set(reviews.map(r => r.placeId).filter(id => !!id))];
               const placesDataMap = new Map();
-  
               if (placeIds.length > 0) {
-                  const placePromises = placeIds.map(id => db.collection('places').doc(id).get());
-                  const placeDocsSnapshots = await Promise.all(placePromises);
-                  placeDocsSnapshots.forEach(docSnap => {
-                      if (docSnap.exists) placesDataMap.set(docSnap.id, docSnap.data());
-                  });
+                  const placeDocs = await db.collection('places').where(admin.firestore.FieldPath.documentId(), 'in', placeIds).get();
+                  placeDocs.forEach(doc => placesDataMap.set(doc.id, doc.data()));
               }
-  
+
+              // --- BUCLE DE AGRUPACIÓN ---
               const grouped = {};
               reviews.forEach(review => {
                   const placeInfo = review.placeId ? placesDataMap.get(review.placeId) : null;
-                  const establishmentName = placeInfo?.name || review.restaurantName || "Lugar Desconocido";
+                  const establishmentName = placeInfo?.name || review.establishmentName || "Lugar Desconocido";
                   const key = `${establishmentName}-${review.itemName || ""}`;
                   
                   if (!grouped[key]) {
@@ -77,11 +75,13 @@ exports.groupedReviews = onRequest(
                           googleMapsUrl: placeInfo?.googleMapsUrl,
                           listId: listId, 
                           placeId: review.placeId,
-                          allTags: [], // <-- CORRECCIÓN 1: Inicializamos el array aquí
+                          allTags: [],
+                          // REINTEGRAMOS LOS CRITERIOS
                           criteriaTotals: {},
                           criteriaCounts: {},
                       };
                   }
+
                   const group = grouped[key];
                   group.itemCount++;
                   group.totalGeneralScore += review.overallRating || 0;
@@ -90,11 +90,11 @@ exports.groupedReviews = onRequest(
                       group.thumbnailUrl = review.photoUrl; 
                   }
                   
-                  // <-- CORRECCIÓN 2: Rellenamos el array con las etiquetas de cada reseña
                   if (review.userTags && Array.isArray(review.userTags)) {
                     group.allTags.push(...review.userTags);
                   }
                   
+                  // ¡¡REINTEGRAMOS LA LÓGICA DE CRITERIOS!!
                   if (review.scores && typeof review.scores === 'object') {
                       for (const [critKey, score] of Object.entries(review.scores)) {
                           if (typeof score === 'number') {
@@ -104,52 +104,59 @@ exports.groupedReviews = onRequest(
                       }
                   }
               });
-  
+
+              // --- MAPEO FINAL Y CÁLCULOS ---
               const groupedReviewsArray = Object.values(grouped).map(group => {
+                  // Calcular puntuación general media
                   group.avgGeneralScore = group.itemCount > 0 ? parseFloat((group.totalGeneralScore / group.itemCount).toFixed(1)) : 0;
                   
+                  // Calcular puntuaciones medias de criterios
                   const avgScores = {};
                   for (const critKey in group.criteriaTotals) {
                       if (group.criteriaCounts[critKey] > 0) {
-                          avgScores[critKey] = group.criteriaTotals[critKey] / group.criteriaCounts[critKey];
+                          const avg = group.criteriaTotals[critKey] / group.criteriaCounts[critKey];
+                          avgScores[critKey] = parseFloat(avg.toFixed(1));
                       }
                   }
                   group.avgScores = avgScores;
 
-                  // Ahora esta lógica funcionará porque group.allTags existe y está lleno
+                  // Calcular etiquetas relevantes
                   const tagCounts = {};
                   group.allTags.forEach(tag => {
                       tagCounts[tag] = (tagCounts[tag] || 0) + 1;
                   });
                   const minOccurrences = Math.ceil(group.itemCount / 2);
-                  group.relevantTags = Object.keys(tagCounts).filter(tag => tagCounts[tag] >= minOccurrences);
                   
-                  // Limpiamos los datos que no necesitamos enviar al cliente
+                  // ASIGNAMOS AL CAMPO CORRECTO: 'groupTags'
+                  group.groupTags = Object.keys(tagCounts).filter(tag => tagCounts[tag] >= minOccurrences);
+                  
+                  // Limpiamos los datos de cálculo que no necesitamos en el frontend
                   delete group.allTags;
                   delete group.totalGeneralScore;
                   delete group.criteriaTotals;
                   delete group.criteriaCounts;
+                  
                   return group;
               });
               
               groupedReviewsArray.sort((a, b) => (b.avgGeneralScore || 0) - (a.avgGeneralScore || 0));
-  
+
+              // Devolver respuesta final
               const listDoc = await listDocRef.get();
               const listData = listDoc.exists ? listDoc.data() : {};
-  
               res.status(200).json({ 
                   listName: listData.name || "Lista Desconocida",
                   criteria: listData.criteriaDefinition || {},
                   tags: listData.availableTags || [],
                   groupedReviews: groupedReviewsArray 
               });
-  
+
           } catch (error) {
-              console.error("Error en groupedReviews:", error);
-              res.status(500).send({ error: "Error interno del servidor.", details: error.message });
+              console.error("Error definitivo en groupedReviews:", error);
+              res.status(500).send({ error: "El servidor se ha liado. Error interno.", details: error.message });
           }
       });
-  });
+    });
 
 // --- FUNCIÓN updateListReviewCount ---
 // ESTA FUNCIÓN QUEDA OBSOLETA, LA NUEVA "updateAggregatesOnReviewChange" HACE ESTO Y MÁS.

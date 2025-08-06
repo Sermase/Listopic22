@@ -1,3 +1,5 @@
+// Contenido COMPLETO y CORREGIDO para /public/js/themeManager.js
+
 window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.themeManager = {
@@ -5,37 +7,41 @@ ListopicApp.themeManager = {
         const themeToggleButton = document.getElementById('theme-toggle-button');
         const bodyElement = document.body;
 
+        // Función corregida y más limpia
         function applyTheme(theme) {
-            if (!bodyElement) return; // Guard clause
-
-            if (theme === 'light') {
-                bodyElement.classList.add('light-theme');
-                if (themeToggleButton) themeToggleButton.innerHTML = '<i class="fas fa-sun"></i>';
-                localStorage.setItem('listopicTheme', 'light');
-            } else { // Default to dark
-                bodyElement.classList.remove('light-theme');
-                if (themeToggleButton) themeToggleButton.innerHTML = '<i class="fas fa-moon"></i>';
-                localStorage.setItem('listopicTheme', 'dark');
+            if (!bodyElement) return;
+        
+            const isDark = theme !== 'light';
+        
+            // Aplicamos la clase al body
+            bodyElement.classList.toggle('light-theme', !isDark);
+        
+            // Actualizamos el icono del botón
+            if (themeToggleButton) {
+                themeToggleButton.innerHTML = isDark ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
             }
+        
+            // Guardamos la preferencia
+            localStorage.setItem('listopicTheme', isDark ? 'dark' : 'light');
+        
+            // --- CORRECCIÓN CLAVE 3: Enviamos el aviso ---
+            // Este evento le dirá al mapa (y a cualquier otro componente) que el tema ha cambiado.
+            document.dispatchEvent(new CustomEvent('themeChanged', { 
+                detail: { theme: isDark ? 'dark' : 'light' } 
+            }));
         }
 
         function toggleTheme() {
-            if (!bodyElement) return; // Guard clause
-            if (bodyElement.classList.contains('light-theme')) {
-                applyTheme('dark');
-            } else {
-                applyTheme('light');
-            }
+            const currentTheme = localStorage.getItem('listopicTheme') || 'dark';
+            applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
         }
 
-        // Initialize theme on load
+        // Carga inicial del tema
         const savedTheme = localStorage.getItem('listopicTheme');
-        applyTheme(savedTheme || 'dark'); // Apply saved theme or default to dark
+        applyTheme(savedTheme || 'dark');
 
         if (themeToggleButton) {
             themeToggleButton.addEventListener('click', toggleTheme);
-        } else {
-            console.warn("Theme toggle button not found during themeManager.init().");
         }
     }
 };
