@@ -5088,3 +5088,124 @@ body.light-theme .leaflet-popup-tip {
     }
     .profile-tab-button i { margin-right: 0; }
 }
+
+/* ======================================= */
+/* === ESTILOS PÁGINA DE DETALLE DE LUGAR === */
+/* ======================================= */
+
+.place-detail-page-container {
+    padding-top: 20px;
+}
+
+.place-header-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.place-photo-container {
+    width: 100%;
+    max-height: 350px;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.place-photo-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.place-info-main h1 {
+    font-size: 2.2em;
+    margin: 0 0 10px 0;
+}
+
+.place-info-main p {
+    font-size: 1.1em;
+    color: var(--secondary-text-color);
+    margin: 0 0 20px 0;
+}
+
+.place-actions .button {
+    padding: 10px 15px;
+}
+
+.place-stats-container {
+    display: flex;
+    justify-content: space-around;
+    padding: 20px 0;
+    margin-bottom: 20px;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.place-stats-container .stat-item {
+    text-align: center;
+}
+.place-stats-container .stat-item .count {
+    font-size: 1.8em;
+    font-weight: 600;
+}
+.place-stats-container .stat-item .label {
+    font-size: 0.9em;
+    color: var(--secondary-text-color);
+    margin-top: 5px;
+    display: block;
+}
+
+/* Adaptación para escritorio */
+@media (min-width: 768px) {
+    .place-header-container {
+        flex-direction: row;
+        text-align: left;
+        align-items: center;
+    }
+
+    .place-photo-container {
+        flex: 0 0 200px; /* Tamaño fijo para la foto */
+        height: 200px;
+        border-radius: 50%; /* Foto redonda en escritorio */
+    }
+
+    .place-info-main {
+        flex-grow: 1;
+    }
+}
+
+/* ======================================= */
+/* === ESTILOS GENÉRICOS PARA ETIQUETAS === */
+/* ======================================= */
+
+.tag {
+    display: inline-block;
+    background-color: var(--container-bg-secondary);
+    color: var(--secondary-text-color);
+    padding: 4px 10px;
+    border-radius: 14px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.2;
+    text-transform: lowercase;
+    white-space: nowrap;
+    margin: 2px; /* Pequeño margen para separación */
+}
+
+/* Contenedor para las etiquetas en la tarjeta de grupo */
+.group-card-tags-container {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* Contenedor para las etiquetas en la tarjeta de reseña */
+.review-tags-container {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}

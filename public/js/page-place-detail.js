@@ -1,776 +1,202 @@
-ListopicApp.pagePlace = (() => {
-    // Estado del módulo
-    const state = {
-        placeId: null,
-        placeData: null,
-        reviewsByList: [],
-        isLoading: false,
-        currentSort: 'date',
-        currentFilter: '',
-        searchQuery: ''
-    };
+// public/js/page-place-detail.js (VERSIÓN CORREGIDA)
 
-    // Referencias a elementos DOM
-    let elements = {};
+window.ListopicApp = window.ListopicApp || {};
 
-    function cacheDOMElements() {
-        elements = {
-            // Estados
-            loadingState: document.getElementById('loading-state'),
-            errorState: document.getElementById('error-state'),
-            errorMessageText: document.getElementById('error-message-text'),
+ListopicApp.pagePlaceDetail = {
+    elements: {},
+    placeId: null,
+    // Almacenaremos los datos originales para poder filtrar
+    originalReviews: [], 
+    originalGroups: [],
 
-            // Información del lugar
-            placeInfoCard: document.getElementById('place-info-card'),
+    init: function() {
+        console.log("[page-place-detail.js] INICIANDO...");
+        const urlParams = new URLSearchParams(window.location.search);
+        this.placeId = urlParams.get('placeId');
+
+        if (!this.placeId) {
+            document.body.innerHTML = "<h1>Error: No se ha especificado un lugar en la URL.</h1>";
+            return;
+        }
+        
+        this.cacheDOMElements();
+        this.loadPageData();
+        this.setupTabs();
+    },
+
+    cacheDOMElements: function() {
+        this.elements = {
+            placePhoto: document.getElementById('place-photo'),
             placeName: document.getElementById('place-name'),
             placeAddress: document.getElementById('place-address'),
-            placePhone: document.getElementById('place-phone'),
-            placePhoneLink: document.getElementById('place-phone-link'),
-            placeWebsite: document.getElementById('place-website'),
-            placeWebsiteLink: document.getElementById('place-website-link'),
-            placeHours: document.getElementById('place-hours'),
-            placeHoursText: document.getElementById('place-hours-text'),
-            placeHoursStatus: document.getElementById('place-hours-status'),
-            placePriceLevel: document.getElementById('place-price-level'),
-            placePriceText: document.getElementById('place-price-text'),
-            placeTypes: document.getElementById('place-types'),
-            placeImage: document.getElementById('place-image'),
-            placeImagePlaceholder: document.getElementById('place-image-placeholder'),
-            addReviewBtn: document.getElementById('add-review-btn'),
-            directionsBtn: document.getElementById('directions-btn'),
-
-            // Estadísticas
-            totalReviews: document.getElementById('total-reviews'),
-            totalLists: document.getElementById('total-lists'),
-            avgRating: document.getElementById('avg-rating'),
-
-            // Reseñas
-            reviewsSection: document.getElementById('reviews-section'),
-            searchReviews: document.getElementById('search-reviews'),
-            filterList: document.getElementById('filter-list'),
-            sortReviews: document.getElementById('sort-reviews'),
-            reviewsContainer: document.getElementById('reviews-container'),
-            emptyReviews: document.getElementById('empty-reviews')
+            googleMapsLink: document.getElementById('place-google-maps-link'),
+            avgRating: document.getElementById('place-avg-rating'),
+            reviewCount: document.getElementById('place-review-count'),
+            listsCount: document.getElementById('place-lists-count'),
+            reviewsContainer: document.getElementById('place-reviews-container'),
+            groupsContainer: document.getElementById('place-groups-container'),
+            tabButtons: document.querySelectorAll('.profile-tab-button'),
+            tabContents: document.querySelectorAll('.profile-tab-content')
         };
-    }
+        console.log("[page-place-detail.js] Elementos del DOM cacheados.");
+    },
 
-    function attachEventListeners() {
-        if (elements.sharePlaceBtn) {
-            elements.sharePlaceBtn.addEventListener('click', sharePlace);
-        }
-        
-        if (elements.addReviewBtn) {
-            elements.addReviewBtn.addEventListener('click', addReview);
-        }
-        
-        if (elements.firstReviewBtn) {
-            elements.firstReviewBtn.addEventListener('click', addReview);
-        }
-        
-        if (elements.sortReviews) {
-            elements.sortReviews.addEventListener('change', (e) => {
-                state.currentSort = e.target.value;
-                renderReviews();
-            });
-        }
-        
-        if (elements.filterReviews) {
-            elements.filterReviews.addEventListener('input', (e) => {
-                state.currentFilter = e.target.value;
-                renderReviews();
-            });
-        }
-    }
-
-    function getPlaceIdFromURL() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('placeId');
-    }
-
-    function showLoading() {
-        if (elements.loadingState) elements.loadingState.style.display = 'block';
-        if (elements.errorState) elements.errorState.style.display = 'none';
-        if (elements.placeInfoCard) elements.placeInfoCard.style.display = 'none';
-        if (elements.reviewsSection) elements.reviewsSection.style.display = 'none';
-    }
-
-    function showError(message) {
-        if (elements.loadingState) elements.loadingState.style.display = 'none';
-        if (elements.errorState) elements.errorState.style.display = 'block';
-        if (elements.errorMessageText) elements.errorMessageText.textContent = message;
-        if (elements.placeInfoCard) elements.placeInfoCard.style.display = 'none';
-        if (elements.reviewsSection) elements.reviewsSection.style.display = 'none';
-    }
-
-    function showContent() {
-        if (elements.loadingState) elements.loadingState.style.display = 'none';
-        if (elements.errorState) elements.errorState.style.display = 'none';
-        if (elements.placeInfoCard) elements.placeInfoCard.style.display = 'block';
-        if (elements.reviewsSection) elements.reviewsSection.style.display = 'block';
-    }
-
-    async function loadPlaceData() {
-        if (!state.placeId) return;
-
+    loadPageData: async function() {
+        console.log(`[page-place-detail.js] Solicitando datos para el lugar: ${this.placeId}`);
         try {
-            showLoading();
+            const getPlaceDetails = firebase.app().functions('europe-west1').httpsCallable('getPlaceDetails');
             
-            // Verificar que los servicios estén disponibles
-            if (!ListopicApp.services || !ListopicApp.services.db) {
-                throw new Error('Servicios de Firebase no disponibles');
-            }
-            
-            console.log('Cargando datos del lugar:', state.placeId);
-            
-            // Obtener datos del lugar desde Firestore
-            const placeDoc = await ListopicApp.services.db.collection('places').doc(state.placeId).get();
-            
-            if (!placeDoc.exists) {
-                throw new Error('Lugar no encontrado');
+            const result = await getPlaceDetails({ placeId: this.placeId });
+            console.log("[page-place-detail.js] Datos recibidos del backend:", result.data);
+
+            const { placeInfo, groups, latestReviews } = result.data;
+
+            if (!placeInfo) {
+                throw new Error("La respuesta del servidor no contiene 'placeInfo'.");
             }
 
-            state.placeData = { id: placeDoc.id, ...placeDoc.data() };
-            console.log('Datos del lugar cargados:', state.placeData);
-            
-            renderPlaceInfo();
-            
-            // Cargar reseñas del lugar
-            await loadPlaceReviews();
-            
-            showContent();
-            
+            this.originalReviews = latestReviews || [];
+            this.originalGroups = groups || [];
+
+            this.renderPlaceDetails(placeInfo);
+            this.renderReviews(this.originalReviews);
+            this.renderGroups(this.originalGroups);
+
         } catch (error) {
-            console.error('Error cargando datos del lugar:', error);
-            showError('Error cargando los datos del lugar: ' + error.message);
+            console.error("Error CRÍTICO al cargar los datos de la página del lugar:", error);
+            this.elements.placeName.textContent = "Error al cargar el lugar";
+            this.elements.reviewsContainer.innerHTML = `<p class="error-placeholder">No se pudieron cargar los datos. Revisa la consola.</p>`;
+            this.elements.groupsContainer.innerHTML = `<p class="error-placeholder">No se pudieron cargar los datos. Revisa la consola.</p>`;
         }
-    }
+    },
 
-    function renderPlaceInfo() {
-        const place = state.placeData;
-        if (!place) return;
-
-        // Actualizar encabezado
-        if (elements.placeNameHeader) {
-            elements.placeNameHeader.textContent = place.name || 'Lugar';
+    renderPlaceDetails: function(placeData) {
+        console.log("[page-place-detail.js] Renderizando cabecera...", placeData);
+        const { name, formatted_address, photos, googleMapsUrl, reviewsCount, listsCount, averageRating } = placeData;
+        
+        document.title = `${name || 'Lugar'} - Listopic`;
+        this.elements.placeName.textContent = name || 'Nombre no disponible';
+        
+        if (this.elements.placeAddress?.querySelector('span')) {
+           this.elements.placeAddress.querySelector('span').textContent = formatted_address || 'Dirección no disponible';
         }
-        if (elements.placeAddressHeader) {
-            elements.placeAddressHeader.textContent = place.address || 'Información del establecimiento';
+        
+        // CORRECCIÓN de ruta de imagen: Usamos una imagen que sí existe.
+        this.elements.placePhoto.src = photos?.[0] || 'img/logo-listopic400.png';
+        
+        if (googleMapsUrl) {
+            this.elements.googleMapsLink.href = googleMapsUrl;
+        } else {
+            this.elements.googleMapsLink.style.display = 'none';
         }
+        
+        this.elements.reviewCount.textContent = reviewsCount !== undefined ? reviewsCount : '0';
+        this.elements.listsCount.textContent = listsCount !== undefined ? listsCount : '0';
+        this.elements.avgRating.textContent = averageRating ? averageRating.toFixed(1) : 'N/A';
+    },
 
-        // Actualizar nombre
-        if (elements.placeNameDetail) {
-            elements.placeNameDetail.textContent = place.name || 'Nombre no disponible';
+    renderReviews: async function(reviews) {
+        console.log("[page-place-detail.js] Renderizando reseñas...", reviews);
+        if (reviews.length === 0) {
+            this.elements.reviewsContainer.innerHTML = '<p>Este lugar todavía no tiene reseñas. ¡Sé el primero!</p>';
+            return;
         }
-
-        // Actualizar dirección
-        if (elements.placeAddress && place.address) {
-            elements.placeAddress.innerHTML = `
-                <i class="fas fa-map-marker-alt"></i>
-                <span>${escapeHtml(place.address)}</span>
-            `;
-        }
-
-        // Actualizar teléfono
-        if (elements.placePhone && place.phone) {
-            elements.placePhone.innerHTML = `
-                <i class="fas fa-phone"></i>
-                <a href="tel:${place.phone}">${escapeHtml(place.phone)}</a>
-            `;
-            elements.placePhone.style.display = 'block';
-        }
-
-        // Actualizar sitio web
-        if (elements.placeWebsite && place.website) {
-            elements.placeWebsite.innerHTML = `
-                <i class="fas fa-globe"></i>
-                <a href="${place.website}" target="_blank" rel="noopener noreferrer">Sitio web</a>
-            `;
-            elements.placeWebsite.style.display = 'block';
-        }
-
-        // Actualizar horarios
-        if (elements.placeHours && place.openingHours && place.openingHours.weekday_text) {
-            const isOpen = place.openingHours.open_now ? 'Abierto ahora' : 'Cerrado';
-            const statusClass = place.openingHours.open_now ? 'open' : 'closed';
-            elements.placeHours.innerHTML = `
-                <i class="fas fa-clock"></i>
-                <span class="hours-status ${statusClass}">${isOpen}</span>
-            `;
-            elements.placeHours.style.display = 'block';
-        }
-
-        // Actualizar nivel de precios
-        if (elements.placePriceLevel && place.priceLevel !== null && place.priceLevel !== undefined) {
-            const priceText = getPriceRange(place.priceLevel);
-            elements.placePriceLevel.innerHTML = `
-                <i class="fas fa-dollar-sign"></i>
-                <span>${priceText}</span>
-            `;
-            elements.placePriceLevel.style.display = 'block';
-        }
-
-        // Actualizar tipos de lugar
-        if (elements.placeTypes && place.types && place.types.length > 0) {
-            elements.placeTypes.innerHTML = place.types.slice(0, 3).map(type => 
-                `<span class="place-type-tag">${getPlaceTypeName(type)}</span>`
+        try {
+            const reviewDocs = reviews.map(r => ({ id: r.id, data: () => r, exists: true }));
+            const enrichedReviews = await ListopicApp.uiUtils.enrichReviews(reviewDocs);
+            this.elements.reviewsContainer.innerHTML = enrichedReviews.map(review => 
+                ListopicApp.uiUtils.renderReviewSuperCard(review)
             ).join('');
-        }
-
-        // Actualizar imagen
-        if (place.mainImageUrl) {
-            if (elements.placeImage) {
-                elements.placeImage.src = place.mainImageUrl;
-                elements.placeImage.style.display = 'block';
-            }
-            if (elements.placeImagePlaceholder) {
-                elements.placeImagePlaceholder.style.display = 'none';
-            }
-        } else {
-            if (elements.placeImage) elements.placeImage.style.display = 'none';
-            if (elements.placeImagePlaceholder) elements.placeImagePlaceholder.style.display = 'flex';
-        }
-
-        // Actualizar enlace de ubicación
-        if (elements.locationLink && place.geometry && place.geometry.location) {
-            let lat, lng;
-            
-            // Manejar diferentes formatos de coordenadas
-            if (place.location && typeof place.location.latitude === 'number') {
-                // Firebase GeoPoint
-                lat = place.location.latitude;
-                lng = place.location.longitude;
-            } else if (place.geometry.location.lat !== undefined) {
-                if (typeof place.geometry.location.lat === 'function') {
-                    // Firebase GeoPoint con funciones
-                    lat = place.geometry.location.lat();
-                    lng = place.geometry.location.lng();
-                } else {
-                    // Objeto simple
-                    lat = place.geometry.location.lat;
-                    lng = place.geometry.location.lng;
-                }
-            }
-            
-            if (lat && lng) {
-                elements.locationLink.href = `https://www.google.com/maps?q=${lat},${lng}`;
-            }
-        }
-
-        // Actualizar título de la página
-        document.title = `${place.name || 'Lugar'} - Listopic`;
-    }
-
-    async function loadPlaceReviews() {
-        try {
-            // Verificar que los servicios estén disponibles
-            if (!ListopicApp.services || !ListopicApp.services.db) {
-                throw new Error('Servicios de Firebase no disponibles');
-            }
-
-            console.log('Buscando reseñas para lugar:', state.placeId);
-
-            // Buscar todas las listas que contengan reseñas de este lugar
-            const reviewsQuery = await ListopicApp.services.db.collectionGroup('reviews')
-                .where('placeId', '==', state.placeId)
-                .get();
-
-            console.log('Reseñas encontradas:', reviewsQuery.size);
-            console.log('Documentos de reseñas:', reviewsQuery.docs.map(doc => ({
-                id: doc.id,
-                listId: doc.data().listId,
-                userId: doc.data().userId,
-                placeId: doc.data().placeId
-            })));
-
-            const reviewsByListMap = new Map();
-            let totalReviews = 0;
-            let totalRating = 0;
-
-            // Agrupar reseñas por lista
-            for (const reviewDoc of reviewsQuery.docs) {
-                const reviewData = { id: reviewDoc.id, ...reviewDoc.data() };
-                const listId = reviewDoc.ref.parent.parent.id;
-
-                console.log('Procesando reseña:', reviewData.itemName, 'de lista:', listId);
-
-                if (!reviewsByListMap.has(listId)) {
-                    // Obtener datos de la lista
-                    const listDoc = await ListopicApp.services.db.collection('lists').doc(listId).get();
-                    const listData = listDoc.exists ? listDoc.data() : {};
-
-                    reviewsByListMap.set(listId, {
-                        listId: listId,
-                        listName: listData.name || 'Lista sin nombre',
-                        listCategory: listData.categoryId || 'general',
-                        isPublic: listData.isPublic !== false, // Por defecto público
-                        reviews: []
-                    });
-                }
-
-                reviewsByListMap.get(listId).reviews.push(reviewData);
-                totalReviews++;
-                totalRating += reviewData.overallRating || 0;
-            }
-
-            // Filtrar solo listas públicas
-            state.reviewsByList = Array.from(reviewsByListMap.values())
-                .filter(listGroup => listGroup.isPublic);
-
-            console.log('Grupos de reseñas públicas:', state.reviewsByList.length);
-
-            // Actualizar estadísticas
-            updatePlaceStats(
-                totalReviews,
-                state.reviewsByList.length,
-                totalReviews > 0 ? totalRating / totalReviews : 0
-            );
-
-            // Renderizar reseñas
-            renderReviews();
-
         } catch (error) {
-            console.error('Error cargando reseñas del lugar:', error);
-            showError('Error cargando las reseñas: ' + error.message);
+            console.error("Error al enriquecer las reseñas:", error);
+            this.elements.reviewsContainer.innerHTML = '<p class="error-placeholder">Error al mostrar las reseñas.</p>';
         }
-    }
+    },
 
-    // Función auxiliar para escapar HTML
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function updatePlaceStats(totalReviews, totalLists, avgRating) {
-        if (elements.totalReviews) {
-            elements.totalReviews.textContent = totalReviews;
-        }
-        
-        if (elements.totalLists) {
-            elements.totalLists.textContent = totalLists;
-        }
-        
-        if (elements.avgRating) {
-            elements.avgRating.textContent = avgRating.toFixed(1);
-        }
-        
-        if (elements.googleRating && state.placeData && state.placeData.googleRating) {
-            elements.googleRating.textContent = state.placeData.googleRating.toFixed(1);
-        }
-    }
-
-    function renderReviews() {
-        if (!elements.reviewsContainer) return;
-
-        if (state.reviewsByList.length === 0) {
-            elements.reviewsContainer.style.display = 'none';
-            if (elements.noReviewsMessage) {
-                elements.noReviewsMessage.style.display = 'block';
-            }
+    renderGroups: function(groups) {
+        console.log("[page-place-detail.js] Renderizando grupos...", groups);
+        if (groups.length === 0) {
+            this.elements.groupsContainer.innerHTML = '<p>Este lugar no se ha valorado en ningún grupo todavía.</p>';
             return;
         }
-
-        elements.reviewsContainer.style.display = 'block';
-        if (elements.noReviewsMessage) {
-            elements.noReviewsMessage.style.display = 'none';
-        }
-
-        // Filtrar y ordenar reseñas
-        let filteredLists = [...state.reviewsByList];
-        
-        if (state.currentFilter) {
-            filteredLists = filteredLists.filter(listGroup => 
-                listGroup.listName.toLowerCase().includes(state.currentFilter.toLowerCase()) ||
-                listGroup.reviews.some(review => 
-                    (review.itemName || '').toLowerCase().includes(state.currentFilter.toLowerCase()) ||
-                    (review.notes || '').toLowerCase().includes(state.currentFilter.toLowerCase())
-                )
-            );
-        }
-
-        // Ordenar listas
-        filteredLists.sort((a, b) => {
-            switch (state.currentSort) {
-                case 'rating':
-                    const avgA = a.reviews.reduce((sum, r) => sum + (r.overallRating || 0), 0) / a.reviews.length;
-                    const avgB = b.reviews.reduce((sum, r) => sum + (r.overallRating || 0), 0) / b.reviews.length;
-                    return avgB - avgA;
-                case 'date':
-                    const latestA = Math.max(...a.reviews.map(r => r.createdAt?.toDate?.()?.getTime() || 0));
-                    const latestB = Math.max(...b.reviews.map(r => r.createdAt?.toDate?.()?.getTime() || 0));
-                    return latestB - latestA;
-                case 'list':
-                default:
-                    return a.listName.localeCompare(b.listName);
-            }
+        this.elements.groupsContainer.innerHTML = groups.map(group => 
+            this.renderGroupCard(group)
+        ).join('');
+    },
+    
+    setupTabs: function() {
+        this.elements.tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tab = button.dataset.tab;
+                this.elements.tabButtons.forEach(btn => btn.classList.remove('active'));
+                this.elements.tabContents.forEach(content => content.classList.remove('active'));
+                button.classList.add('active');
+                document.getElementById(`${tab}-content`).classList.add('active');
+            });
         });
+    },
 
-        // Additional variables required for the new functions
-        const reviewsContainer = document.getElementById('reviews-container');
-        const emptyReviews = document.getElementById('empty-reviews');
-        let filteredReviews = [];
-        let allReviews = [];
+    // =================================================================
+    // AQUÍ ESTÁ LA MAGIA - LA FUNCIÓN CORREGIDA
+    // =================================================================
+    renderGroupCard: function(group) {
+        const groupIcon = group.icon || 'fa-users';
+    
+        let tagsHtml = '';
+        console.log("[page-place-detail.js] Procesando etiquetas para el grupo:", group.itemName, group.groupTags);
 
-        // Mostrar reseñas
-        function displayReviews() {
-            if (!reviewsContainer) return;
-
-            if (filteredReviews.length === 0) {
-                reviewsContainer.innerHTML = '';
-                if (emptyReviews) emptyReviews.style.display = 'block';
-                return;
-            }
-
-            if (emptyReviews) emptyReviews.style.display = 'none';
-
-            reviewsContainer.innerHTML = filteredReviews.map(review => createReviewHTML(review)).join('');
-        }
-
-        // Crear HTML para una reseña
-        function createReviewHTML(review) {
-            const createdAt = formatDate(review.createdAt);
-            const rating = '★'.repeat(review.rating || 0) + '☆'.repeat(5 - (review.rating || 0));
-
-            return `
-                <div class="review-card">
-                    <div class="review-header">
-                        <div class="review-user">
-                            ${review.userPhotoURL ?
-                                `<img src="${review.userPhotoURL}" alt="${review.userName}" class="user-avatar">` :
-                                `<div class="user-avatar-placeholder"><i class="fas fa-user"></i></div>`
-                            }
-                            <div class="user-info">
-                                <span class="user-name">${review.userName || 'Usuario anónimo'}</span>
-                                <span class="review-date">${createdAt}</span>
-                            </div>
-                        </div>
-                        <div class="review-rating">
-                            <span class="rating-stars">${rating}</span>
-                            <span class="rating-number">${review.rating || 0}/5</span>
-                        </div>
-                    </div>
-
-                    ${review.listName ? `
-                        <div class="review-list-info">
-                            <i class="fas fa-list"></i>
-                            De la lista: <strong>${review.listName}</strong>
-                            ${review.listCategory ? `<span class="list-category">${review.listCategory}</span>` : ''}
-                        </div>
-                    ` : ''}
-
-                    ${review.comment ? `
-                        <div class="review-content">
-                            <p>${review.comment}</p>
-                        </div>
-                    ` : ''}
-
-                    ${review.tags && review.tags.length > 0 ? `
-                        <div class="review-tags">
-                            ${review.tags.map(tag => `<span class="review-tag">${tag}</span>`).join('')}
-                        </div>
-                    ` : ''}
-
-                    ${review.dishes && review.dishes.length > 0 ? `
-                        <div class="review-dishes">
-                            <h5><i class="fas fa-utensils"></i> Platos mencionados</h5>
-                            <div class="dishes-list">
-                                ${review.dishes.map(dish => `
-                                    <div class="dish-item">
-                                        <span class="dish-name">${dish.name}</span>
-                                        ${dish.rating ? `<span class="dish-rating">${'★'.repeat(dish.rating)}${'☆'.repeat(5-dish.rating)}</span>` : ''}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        }
-
-        // Poblar filtro de listas
-        function populateListFilter() {
-            const filterList = document.getElementById('filter-list');
-            if (!filterList) return;
-
-            // Obtener listas únicas de las reseñas
-            const uniqueLists = [...new Set(allReviews
-                .filter(review => review.listName)
-                .map(review => ({ id: review.listId, name: review.listName }))
-            )];
-
-            // Limpiar opciones existentes (excepto "Todas las listas")
-            filterList.innerHTML = '<option value="">Todas las listas</option>';
-
-            // Agregar opciones de listas
-            uniqueLists.forEach(list => {
-                const option = document.createElement('option');
-                option.value = list.id;
-                option.textContent = list.name;
-                filterList.appendChild(option);
-            });
-        }
-
-        // Filtrar y ordenar reseñas
-        function filterAndSortReviews() {
-            const searchTerm = document.getElementById('search-reviews')?.value.toLowerCase() || '';
-            const selectedList = document.getElementById('filter-list')?.value || '';
-            const sortBy = document.getElementById('sort-reviews')?.value || 'date';
-
-            // Filtrar
-            filteredReviews = allReviews.filter(review => {
-                // Filtro de búsqueda
-                const matchesSearch = !searchTerm ||
-                    (review.comment && review.comment.toLowerCase().includes(searchTerm)) ||
-                    (review.userName && review.userName.toLowerCase().includes(searchTerm)) ||
-                    (review.tags && review.tags.some(tag => tag.toLowerCase().includes(searchTerm)));
-
-                // Filtro de lista
-                const matchesList = !selectedList || review.listId === selectedList;
-
-                return matchesSearch && matchesList;
-            });
-
-            // Ordenar
-            filteredReviews.sort((a, b) => {
-                switch (sortBy) {
-                    case 'rating':
-                        return (b.rating || 0) - (a.rating || 0);
-                    case 'list':
-                        return (a.listName || '').localeCompare(b.listName || '');
-                    case 'date':
-                    default:
-                        const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
-                        const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
-                        return dateB - dateA;
+        if (group.groupTags && group.groupTags.length > 0) {
+            const tagsList = group.groupTags.map(tag => {
+                // Comprobamos si 'tag' es un objeto o un string
+                let tagName = '';
+                if (typeof tag === 'object' && tag !== null) {
+                    // Si es un objeto, intentamos obtener la propiedad 'name', 'tag', o 'tagName'
+                    tagName = tag.name || tag.tag || tag.tagName || '';
+                    if (!tagName) {
+                         // Si sigue sin nombre, mostramos el objeto para depurar
+                         console.warn("Se encontró un objeto de etiqueta sin una propiedad de nombre reconocible:", tag);
+                         tagName = '[Etiqueta mal formada]';
+                    }
+                } else {
+                    // Si ya es un string, lo usamos directamente
+                    tagName = tag;
                 }
-            });
-
-            displayReviews();
+                return `<span class="tag">${this.escapeHtml(tagName)}</span>`;
+            }).join('');
+            
+            tagsHtml = `<div class="group-card-tags-container">${tagsList}</div>`;
         }
-
-        // Abrir direcciones en Google Maps
-        function openDirections() {
-            if (!currentPlace) return;
-
-            let url = 'https://www.google.com/maps/dir/?api=1';
-
-            if (currentPlace.coordinates) {
-                url += `&destination=${currentPlace.coordinates.lat},${currentPlace.coordinates.lng}`;
-            } else if (currentPlace.address) {
-                url += `&destination=${encodeURIComponent(currentPlace.address)}`;
-            } else if (currentPlace.name) {
-                url += `&destination=${encodeURIComponent(currentPlace.name)}`;
-            }
-
-            window.open(url, '_blank');
-        }
-
-        // Mostrar modal de autenticación requerida
-        function showAuthRequiredModal() {
-            if (confirm('Debes iniciar sesión para agregar una reseña. ¿Quieres ir a la página de inicio de sesión?')) {
-                window.location.href = 'auth.html';
-            }
-        }
-
-        // Utilidades de UI
-        function showLoading() {
-            const loadingState = document.getElementById('loading-state');
-            const placeInfoCard = document.getElementById('place-info-card');
-            const reviewsSection = document.getElementById('reviews-section');
-            const errorState = document.getElementById('error-state');
-
-            if (loadingState) loadingState.style.display = 'block';
-            if (placeInfoCard) placeInfoCard.style.display = 'none';
-            if (reviewsSection) reviewsSection.style.display = 'none';
-            if (errorState) errorState.style.display = 'none';
-        }
-
-        function hideLoading() {
-            const loadingState = document.getElementById('loading-state');
-            if (loadingState) loadingState.style.display = 'none';
-        }
-
-        function showError(message) {
-            const errorState = document.getElementById('error-state');
-            const errorMessageText = document.getElementById('error-message-text');
-            const loadingState = document.getElementById('loading-state');
-            const placeInfoCard = document.getElementById('place-info-card');
-            const reviewsSection = document.getElementById('reviews-section');
-
-            if (errorMessageText) errorMessageText.textContent = message;
-            if (errorState) errorState.style.display = 'block';
-            if (loadingState) loadingState.style.display = 'none';
-            if (placeInfoCard) placeInfoCard.style.display = 'none';
-            if (reviewsSection) reviewsSection.style.display = 'none';
-        }
-
-        // Función debounce para optimizar búsquedas
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
-        
-        return stars;
+    
+        const groupId = encodeURIComponent(`${group.establishmentName}-${group.itemName}`);
+    
+        return `
+            <div class="group-card-item">
+                <a href="grouped-detail-view.html?groupId=${groupId}&placeId=${group.placeId}">
+                    <div class="group-card-icon">
+                        <i class="fas ${groupIcon}"></i>
+                    </div>
+                    <div class="group-card-info">
+                        <strong class="group-card-name">${this.escapeHtml(group.itemName)}</strong>
+                        <span class="group-card-list-source">
+                            de la lista: ${this.escapeHtml(group.listName || 'N/A')}
+                        </span>
+                        ${tagsHtml}
+                    </div>
+                </a>
+            </div>
+        `;
+    },
+    
+    escapeHtml: function(str) {
+        if (typeof str !== 'string') return '';
+        const p = document.createElement("p");
+        p.textContent = str;
+        return p.innerHTML;
     }
+};
 
-    // Función para formatear fechas
-    function formatDate(timestamp) {
-        if (!timestamp) return 'Fecha desconocida';
-
-        try {
-            let date = null;
-
-            // Si es un Timestamp de Firestore
-            if (timestamp && typeof timestamp === 'object' && timestamp.toDate && typeof timestamp.toDate === 'function') {
-                date = timestamp.toDate();
-            }
-            // Si es un objeto Date
-            else if (timestamp instanceof Date) {
-                date = timestamp;
-            }
-            // Si es un número (timestamp en milisegundos)
-            else if (typeof timestamp === 'number') {
-                date = new Date(timestamp);
-            }
-            // Si es una cadena, intentar parsearla
-            else if (typeof timestamp === 'string') {
-                date = new Date(timestamp);
-            }
-            // Si tiene propiedades seconds y nanoseconds (Firestore Timestamp)
-            else if (timestamp && typeof timestamp === 'object' && timestamp.seconds) {
-                date = new Date(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000);
-            }
-
-            // Verificar que la fecha sea válida
-            if (!date || isNaN(date.getTime())) {
-                console.warn('Fecha inválida:', timestamp);
-                return 'Fecha inválida';
-            }
-
-            // Formatear la fecha
-            return date.toLocaleDateString('es-ES', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-
-        } catch (error) {
-            console.error('Error formateando fecha:', error, 'Timestamp:', timestamp);
-            return 'Error en fecha';
-        }
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.querySelector('.place-detail-page-container')) {
+        ListopicApp.pagePlaceDetail.init();
     }
-
-    function getPlaceTypeName(type) {
-        const typeNames = {
-            'restaurant': 'Restaurante',
-            'food': 'Comida',
-            'establishment': 'Establecimiento',
-            'point_of_interest': 'Punto de interés',
-            'meal_takeaway': 'Para llevar',
-            'meal_delivery': 'Delivery',
-            'cafe': 'Café',
-            'bar': 'Bar',
-            'night_club': 'Club nocturno',
-            'shopping_mall': 'Centro comercial',
-            'store': 'Tienda',
-            'tourist_attraction': 'Atracción turística',
-            'lodging': 'Alojamiento',
-            'gas_station': 'Gasolinera',
-            'hospital': 'Hospital',
-            'pharmacy': 'Farmacia',
-            'bank': 'Banco',
-            'atm': 'Cajero automático',
-            'gym': 'Gimnasio',
-            'beauty_salon': 'Salón de belleza',
-            'hair_care': 'Peluquería',
-            'spa': 'Spa'
-        };
-        
-        return typeNames[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    }
-
-    function getPriceRange(priceLevel) {
-        const ranges = {
-            0: 'Gratis',
-            1: '$',
-            2: '$$',
-            3: '$$$',
-            4: '$$$$'
-        };
-        return ranges[priceLevel] || 'No especificado';
-    }
-
-    // Funciones de acción
-    function sharePlace() {
-        if (navigator.share && state.placeData) {
-            navigator.share({
-                title: state.placeData.name,
-                text: `Mira este lugar en Listopic: ${state.placeData.name}`,
-                url: window.location.href
-            }).catch(console.error);
-        } else {
-            // Fallback: copiar al portapapeles
-            navigator.clipboard.writeText(window.location.href).then(() => {
-                alert('Enlace copiado al portapapeles');
-            }).catch(() => {
-                alert('No se pudo compartir el enlace');
-            });
-        }
-    }
-
-    function addReview() {
-        if (state.placeData) {
-            // Redirigir al formulario de reseña con el lugar preseleccionado
-            window.location.href = `review-form.html?placeId=${state.placeId}`;
-        }
-    }
-
-    // Funciones globales para navegación
-    window.showReviewDetail = function(listId, reviewId) {
-        window.location.href = `detail-view.html?listId=${listId}&reviewId=${reviewId}`;
-    };
-
-    async function init() {
-        console.log('Initializing Place Detail page logic...');
-        
-        cacheDOMElements();
-        attachEventListeners();
-        
-        state.placeId = getPlaceIdFromURL();
-        
-        if (!state.placeId) {
-            showError('ID de lugar no especificado en la URL');
-            return;
-        }
-
-        // Esperar a que los servicios estén disponibles
-        let attempts = 0;
-        const maxAttempts = 50; // 5 segundos máximo
-        
-        while ((!ListopicApp.services || !ListopicApp.services.db) && attempts < maxAttempts) {
-            console.log('Esperando servicios de Firebase...', attempts);
-            await new Promise(resolve => setTimeout(resolve, 100));
-            attempts++;
-        }
-        
-        if (!ListopicApp.services || !ListopicApp.services.db) {
-            showError('No se pudieron cargar los servicios de Firebase. Por favor, recarga la página.');
-            return;
-        }
-
-        console.log('Servicios de Firebase listos, cargando lugar...');
-        await loadPlaceData();
-    }
-
-    return {
-        init
-    };
-})();
+});

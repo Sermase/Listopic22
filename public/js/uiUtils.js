@@ -175,15 +175,8 @@ ListopicApp.uiUtils = {
     // ==========================================================
 // === FUNCIÓN CENTRALIZADA: SUPER TARJETA RESEÑA v3.0 =====
 // ==========================================================
-// En public/js/uiUtils.js
 
-// En public/js/uiUtils.js
-
-// En public/js/uiUtils.js
-
-// En public/js/uiUtils.js
-
-    renderReviewSuperCard: function(review) {
+        renderReviewSuperCard: function(review) {
         const uiUtils = this;
 
         // --- 1. Preparación de Datos ---
@@ -396,5 +389,61 @@ createListViewGroupCard: function(group, listData, listIcon) {
         if (numericRating >= 6) return '#FFD166'; // Amarillo/Oro
         if (numericRating >= 4) return '#f56ead'; // Rosa
         return '#D9534F'; // Rojo
+    },
+    
+    // En public/js/uiUtils.js, dentro de ListopicApp.uiUtils
+
+    async enrichReviews(reviewDocs) {
+        try {
+            const reviewsData = reviewDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+            const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
+            const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];
+            const authorIds = [...new Set(reviewsData.map(r => r.userId).filter(Boolean))];
+    
+            const listPromises = listIds.map(id => ListopicApp.services.db.collection('lists').doc(id).get());
+            const placePromises = placeIds.map(id => ListopicApp.services.db.collection('places').doc(id).get());
+            const authorPromises = authorIds.map(id => ListopicApp.services.db.collection('users').doc(id).get());
+    
+            const [listSnapshots, placeSnapshots, authorSnapshots] = await Promise.all([
+                Promise.all(listPromises),
+                Promise.all(placePromises),
+                Promise.all(authorPromises),
+            ]);
+    
+            const listsMap = new Map(
+                listSnapshots.filter(doc => doc.exists).map(doc => [doc.id, doc.data()])
+            );
+            const placesMap = new Map(
+                placeSnapshots.filter(doc => doc.exists).map(doc => [doc.id, doc.data()])
+            );
+            const authorsMap = new Map(
+                authorSnapshots.filter(doc => doc.exists).map(doc => [doc.id, doc.data()])
+            );
+    
+            return reviewsData.map(review => {
+                const listData = listsMap.get(review.listId);
+                const authorData = authorsMap.get(review.userId);
+                const placeData = placesMap.get(review.placeId);
+                return {
+                    ...review,
+                    listName: listData?.name || 'Lista Desconocida',
+                    criteriaDefinition: listData?.criteriaDefinition || {},
+                    author: {
+                        id: review.userId,
+                        name: authorData?.displayName || authorData?.username || 'Usuario Anónimo',
+                        photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png'
+                    },
+                    place: {
+                        id: review.placeId,
+                        name: placeData?.name || 'Lugar Desconocido',
+                        googleMapsUrl: placeData?.googleMapsUrl || '#'
+                    }
+                };
+            });
+        } catch (error) {
+            console.error("Error catastrófico en enrichReviews:", error);
+            return [];
+        }
     },
 };
