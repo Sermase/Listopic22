@@ -936,21 +936,17 @@ exports.getPlacesForList = onCall({cors: true}, async (request) => {
     }
 });
 
-// En /functions/index.js
+exports.getPlaceDetails = onCall(async (request) => {
+  // --- Usamos 'request' como parámetro, al estilo V2 ---
+  logger.info("Función getPlaceDetails invocada. Payload recibido:", request.data);
 
-// En /functions/index.js
+  // Obtenemos los datos de request.data
+  const placeId = request.data.placeId;
 
-exports.getPlaceDetails = onCall(async (data, context) => {
-  // --- CHIVATO DEL SERVIDOR ---
-  // Esta línea nos mostrará en los logs de Firebase exactamente lo que llega.
-  logger.info("Función getPlaceDetails invocada. Payload (data) recibido:", data);
-
-  const placeId = data.placeId;
   if (!placeId) {
-      // Si el placeId no llega, lo registramos como un error claro.
       logger.error("Error en getPlaceDetails: placeId no encontrado en el payload.", {
-          payloadRecibido: data,
-          auth: context.auth
+          payloadRecibido: request.data,
+          auth: request.auth // La autenticación ahora es request.auth
       });
       throw new HttpsError('invalid-argument', 'El ID del lugar es requerido.');
   }
@@ -964,7 +960,8 @@ exports.getPlaceDetails = onCall(async (data, context) => {
       const placeData = { id: placeDoc.id, ...placeDoc.data() };
 
       // 2. Obtener todas las reseñas asociadas a este lugar
-      const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).orderBy('creationDate', 'desc').get();
+      // *** CORREGIDO: Usamos 'updatedAt' para ordenar ***
+      const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).orderBy('updatedAt', 'desc').get();
       const allReviews = reviewsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       // 3. Agrupar reseñas por itemName para la pestaña "Grupos"
@@ -976,14 +973,14 @@ exports.getPlaceDetails = onCall(async (data, context) => {
                   itemName: itemName,
                   establishmentName: placeData.name,
                   placeId: placeId,
-                  listId: review.listId,
+                  listId: review.listId, // Ojo: esto tomará el listId de la última reseña del grupo
                   itemCount: 0,
                   totalGeneralScore: 0,
                   avgScores: {},
                   criteriaTotals: {},
                   criteriaCounts: {},
                   allTags: [],
-                  thumbnailUrl: review.photoUrl
+                  thumbnailUrl: review.photoUrl // Tomamos la foto de la primera reseña que encontramos
               };
           }
           const group = groupedByItem[itemName];
@@ -999,7 +996,7 @@ exports.getPlaceDetails = onCall(async (data, context) => {
       });
       
       const groupCards = Object.values(groupedByItem).map(group => {
-          group.avgGeneralScore = group.itemCount > 0 ? (group.totalGeneralScore / group.itemCount) : 0;
+          group.avgGeneralScore = group.itemCount > 0 ? parseFloat((group.totalGeneralScore / group.itemCount).toFixed(1)) : 0;
           group.groupTags = [...new Set(group.allTags)].slice(0, 5);
           for (const critKey in group.criteriaTotals) {
               group.avgScores[critKey] = group.criteriaTotals[critKey] / group.criteriaCounts[critKey];
@@ -1023,3 +1020,182 @@ exports.getPlaceDetails = onCall(async (data, context) => {
       throw new HttpsError('internal', 'No se pudieron obtener los detalles del lugar.');
   }
 });
+
+// En functions/index.js
+
+exports.getGroupsForPlace = onRequest(async (req, res) => {
+  // *** LA SOLUCIÓN CLAVE: Envolvemos todo en cors ***
+  cors(req, res, async () => {
+      try {
+          // En funciones onRequest, los datos vienen en req.body.data
+          const { placeId } = req.body.data;
+
+          if (!placeId) {
+              logger.error("getGroupsForPlace: placeId no fue proporcionado en el cuerpo de la petición.");
+              // Devolvemos un error usando res.status()
+              return res.status(400).json({ error: "La función debe ser llamada con un 'placeId'." });
+          }
+
+          const groupsSnapshot = await db.collection("groups")
+              .where("members", "array-contains", placeId).get();
+
+          if (groupsSnapshot.empty) {
+              logger.log(`No se encontraron grupos para el placeId: ${placeId}`);
+              // Devolvemos la respuesta correcta usando res.json()
+              return res.status(200).json({ data: [] });
+          }
+
+          const groupPromises = groupsSnapshot.docs.map(async (groupDoc) => {
+              const groupData = groupDoc.data();
+              const listId = groupData.listId;
+              let listName = "Lista no especificada";
+
+              if (listId) {
+                  const listDoc = await db.collection("lists").doc(listId).get();
+                  if (listDoc.exists) {
+                      listName = listDoc.data().name;
+                  } else {
+                      listName = "Lista eliminada";
+                  }
+              }
+              
+              return {
+                  id: groupDoc.id,
+                  name: groupData.name,
+                  icon: groupData.icon || "fa-users",
+                  listName: listName,
+              };
+          });
+
+          const enrichedGroups = await Promise.all(groupPromises);
+          // Devolvemos la respuesta correcta en un objeto { data: ... }
+          return res.status(200).json({ data: enrichedGroups });
+
+      } catch (error) {
+          logger.error("Error al buscar grupos para el lugar:", error);
+          // Devolvemos un error usando res.status()
+          return res.status(500).json({ error: "No se pudieron obtener los grupos." });
+      }
+  });
+});
+
+exports.updatePlaceAggregates = onDocumentWritten("reviews/{reviewId}", async (event) => {
+  // Hemos usado un collectionGroup, por lo que el path es "reviews/{reviewId}"
+  // Si tus reseñas estuvieran en "lists/{listId}/reviews/{reviewId}", el path sería ese.
+  // ¡Asegúrate de que el path coincide con tu estructura!
+
+  let placeId = null;
+  let needsRecalculation = false;
+
+  // Se crea o borra una reseña, o cambia su puntuación
+  if (event.data.before.exists || event.data.after.exists) {
+      const beforeData = event.data.before.data() || {};
+      const afterData = event.data.after.data() || {};
+      
+      // Si se crea/borra o si la puntuación general cambia, recalculamos.
+      if (beforeData.overallRating !== afterData.overallRating) {
+          needsRecalculation = true;
+      }
+      placeId = afterData.placeId || beforeData.placeId;
+  }
+
+  if (!needsRecalculation || !placeId) {
+      logger.info(`No se requiere recálculo para la reseña. PlaceId: ${placeId}, NeedsRecalculation: ${needsRecalculation}`);
+      return null;
+  }
+
+  logger.info(`Recalculando agregados para el lugar: ${placeId}`);
+  
+  // 1. Obtenemos TODAS las reseñas para ese lugar
+  const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).get();
+  
+  const reviews = reviewsSnapshot.docs.map(doc => doc.data());
+  
+  if (reviews.length === 0) {
+      // Si no quedan reseñas, reseteamos los contadores
+      await db.collection('places').doc(placeId).update({
+          reviewsCount: 0,
+          averageRating: null // O 0, como prefieras
+      });
+      logger.info(`No quedan reseñas para ${placeId}. Contadores reseteados.`);
+      return null;
+  }
+  
+  // 2. Calculamos la nueva media
+  const totalRating = reviews.reduce((sum, review) => sum + (review.overallRating || 0), 0);
+  const averageRating = totalRating / reviews.length;
+  const reviewsCount = reviews.length;
+
+  // 3. Actualizamos el documento del lugar
+  await db.collection('places').doc(placeId).update({
+      reviewsCount: reviewsCount,
+      averageRating: parseFloat(averageRating.toFixed(2)) // Guardamos con 2 decimales
+  });
+
+  logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseñas, valoración media ${averageRating.toFixed(2)}.`);
+  return null;
+});
+
+/**
+ * Trigger que se dispara cuando una reseña cambia en CUALQUIER lista,
+ * para recalcular la valoración media y el contador de reseñas del LUGAR al que pertenece.
+ */
+exports.updatePlaceAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
+  const beforeData = event.data.before.data();
+  const afterData = event.data.after.data();
+
+  const placeIdToDecrement = beforeData?.placeId;
+  const placeIdToIncrement = afterData?.placeId;
+
+  // Si el placeId no ha cambiado (solo se ha editado el texto, por ejemplo),
+  // pero la puntuación sí, recalculamos para ese único lugar.
+  if (placeIdToDecrement && placeIdToDecrement === placeIdToIncrement) {
+      if (beforeData.overallRating !== afterData.overallRating) {
+          await recalculateAggregatesForPlace(placeIdToIncrement);
+      } else {
+           logger.info(`La reseña ${event.params.reviewId} se actualizó sin cambiar la puntuación. No se requiere recálculo.`);
+      }
+  } else {
+      // Si el placeId ha cambiado, se ha creado o se ha borrado una reseña,
+      // actualizamos los contadores de los lugares implicados.
+      if (placeIdToDecrement) {
+          await recalculateAggregatesForPlace(placeIdToDecrement);
+      }
+      if (placeIdToIncrement) {
+          await recalculateAggregatesForPlace(placeIdToIncrement);
+      }
+  }
+  return null;
+});
+
+// --- Función auxiliar para mantener el código limpio y reutilizable ---
+async function recalculateAggregatesForPlace(placeId) {
+  if (!placeId) {
+      logger.warn("recalculateAggregatesForPlace fue llamada sin un placeId.");
+      return;
+  }
+
+  logger.info(`Recalculando agregados para el lugar: ${placeId}.`);
+
+  const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).get();
+  const reviews = reviewsSnapshot.docs.map(doc => doc.data());
+  
+  let averageRating = null;
+  const reviewsCount = reviews.length;
+
+  if (reviewsCount > 0) {
+      const totalRating = reviews.reduce((sum, review) => sum + (review.overallRating || 0), 0);
+      averageRating = parseFloat((totalRating / reviewsCount).toFixed(2));
+  }
+
+  const placeRef = db.collection('places').doc(placeId);
+  try {
+      await placeRef.update({
+          reviewsCount: reviewsCount,
+          averageRating: averageRating 
+      });
+      logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseñas, valoración media ${averageRating}.`);
+  } catch (error) {
+      logger.error(`Error al actualizar el documento del lugar ${placeId}:`, error);
+  }
+};

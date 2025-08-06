@@ -24,7 +24,7 @@
     <script src="js/firebaseService.js" defer></script>
     <script src="js/uiUtils.js" defer></script>
     <script src="js/themeManager.js" defer></script>
-    <script src="js/places-service.js" defer></script>
+    <script src="js/placesService.js" defer></script>
     <script src="js/authService.js" defer></script>
     <script src="js/page-profile.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -67,62 +67,66 @@
 
     <main>
         <div class="container profile-page-container">
-            <div class="user-info-card">
-                <div class="profile-picture-container">
-                    <img id="profile-photo-display" src="img/default-avatar.png" alt="Foto de perfil" class="profile-picture">
-                    <div id="profile-picture-placeholder" style="display: none;">
-                        <i class="fas fa-user-circle"></i>
+    
+            <div class="profile-header">
+                
+                <div class="profile-left-column">
+                    <div class="profile-main-info">
+                        <h3 id="profile-display-name">Cargando...</h3>
+                        <h2 id="profile-username-display">@cargando...</h2> 
+                        <p id="profile-location-display" style="display: none;">
+                            <i class="fas fa-map-marker-alt"></i> <span>...</span>
+                        </p>
+                        <p id="profile-bio-display">Cargando biografía...</p>
+                        
+                    </div>
+                    <div class="profile-actions">
+                        <button id="open-edit-profile-modal-btn" class="button secondary-button edit-profile-button" style="display: none;">
+                            Editar Perfil
+                        </button>
+                        <button id="follow-unfollow-btn" class="button primary-button" style="display: none;">
+                            Seguir
+                        </button>
                     </div>
                 </div>
-                <div class="profile-details">
-                    <h2 id="profile-display-name">Cargando...</h2>
-                    <p id="profile-username-display">@...</p>
-                    <p id="profile-location-display" style="display: none;"><i class="fas fa-map-marker-alt"></i> <span>...</span></p>
-                    <p id="profile-bio-display">Cargando biografía...</p>
-                    
-                    <button id="open-edit-profile-modal-btn" class="button secondary-button edit-profile-button" style="display: none;">
-                        <i class="fas fa-pencil-alt"></i> Editar Perfil
-                    </button>
-                    
-                    <button id="follow-unfollow-btn" class="button primary-button" style="display: none;">
-                        <i class="fas fa-user-plus"></i> Seguir
-                    </button>
+    
+                <div class="profile-right-column">
+                    <div class="profile-picture-container">
+                        <img id="profile-photo-display" src="img/placeholder-avatar.png" alt="Foto de perfil" class="profile-picture">
+                    </div>
+                    <div class="profile-stats">
+                        <div class="stat-item"><span class="count" id="lists-count">0</span><span class="label">Listas</span></div>
+                        <div class="stat-item"><span class="count" id="reviews-count">0</span><span class="label">Reseñas</span></div>
+                        <div class="stat-item"><span class="count" id="followers-count">0</span><span class="label">Seguidores</span></div>
+                        <div class="stat-item"><span class="count" id="following-count">0</span><span class="label">Siguiendo</span></div>
+                    </div>
                 </div>
             </div>
-            
+    
             <div id="profile-message-area"></div>
-
-            <div class="profile-stats">
-                <div class="stat-item">
-                   <span class="count" id="lists-count">0</span>
-                   <span class="label"> Listas</span>
-               </div>
-               <div class="stat-item">
-                   <span class="count" id="reviews-count">0</span>
-                   <span class="label"> Reseñas</span>
-               </div>
-               <div class="stat-item">
-                   <span class="count" id="followers-count">0</span>
-                   <span class="label"> Seguidores</span>
-               </div>
-               <div class="stat-item">
-                   <span class="count" id="following-count">0</span>
-                   <span class="label"> Siguiendo</span>
-               </div>
-           </div>
-
-           <div id="profile-my-lists" class="profile-section">
-               <h3><i class="fas fa-stream"></i> Mis Listas</h3>
-               <ul id="my-lists-ul" class="profile-item-list">
-                   <li class="loading-placeholder">Cargando listas...</li>
-               </ul>
-           </div>
-
-           <div id="profile-my-reviews" class="profile-section">
-               <h3><i class="fas fa-star"></i> Mis Reseñas</h3>
-               <div id="my-reviews-container"> <p class="loading-placeholder">Cargando reseñas...</p>
-               </div>
-           </div>
+            
+            <div class="profile-tabs">
+                <button class="profile-tab-button active" data-tab="reviews">
+                    <i class="fas fa-star"></i> <span class="tab-text">RESEÑAS</span>
+                </button>
+                <button class="profile-tab-button" data-tab="lists">
+                    <i class="fas fa-list"></i> <span class="tab-text">LISTAS</span>
+                </button>
+            </div>
+            
+            <div class="profile-content">
+                <div id="reviews-content" class="profile-tab-content active">
+                    <div id="my-reviews-container">
+                        <p class="loading-placeholder">Cargando reseñas...</p>
+                    </div>
+                </div>
+                <div id="lists-content" class="profile-tab-content">
+                     <ul id="my-lists-ul" class="profile-item-list">
+                        <li class="loading-placeholder">Cargando listas...</li>
+                    </ul>
+                </div>
+            </div>
+    
         </div>
     </main>
 
@@ -167,6 +171,13 @@
             </form>
         </div>
     </div>
+    <div id="photo-modal" class="modal">
+        <span class="close-button-photo" id="close-photo-modal-btn">&times;</span>
+        <div class="modal-content-photo">
+            <img id="modal-photo-img" src="" alt="Foto de perfil ampliada">
+        </div>
+    </div>
+
     <footer>
         <p>&copy; <span id="current-year"></span> Listopic. All rights reserved.</p>
     </footer>
