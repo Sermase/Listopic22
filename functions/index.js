@@ -935,3 +935,91 @@ exports.getPlacesForList = onCall({cors: true}, async (request) => {
         throw new HttpsError('internal', 'No se pudieron obtener los lugares para el mapa.');
     }
 });
+
+// En /functions/index.js
+
+// En /functions/index.js
+
+exports.getPlaceDetails = onCall(async (data, context) => {
+  // --- CHIVATO DEL SERVIDOR ---
+  // Esta línea nos mostrará en los logs de Firebase exactamente lo que llega.
+  logger.info("Función getPlaceDetails invocada. Payload (data) recibido:", data);
+
+  const placeId = data.placeId;
+  if (!placeId) {
+      // Si el placeId no llega, lo registramos como un error claro.
+      logger.error("Error en getPlaceDetails: placeId no encontrado en el payload.", {
+          payloadRecibido: data,
+          auth: context.auth
+      });
+      throw new HttpsError('invalid-argument', 'El ID del lugar es requerido.');
+  }
+
+  try {
+      // 1. Obtener datos básicos del lugar
+      const placeDoc = await db.collection('places').doc(placeId).get();
+      if (!placeDoc.exists) {
+          throw new HttpsError('not-found', 'El lugar no fue encontrado.');
+      }
+      const placeData = { id: placeDoc.id, ...placeDoc.data() };
+
+      // 2. Obtener todas las reseñas asociadas a este lugar
+      const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).orderBy('creationDate', 'desc').get();
+      const allReviews = reviewsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // 3. Agrupar reseñas por itemName para la pestaña "Grupos"
+      const groupedByItem = {};
+      allReviews.forEach(review => {
+          const itemName = review.itemName || "General";
+          if (!groupedByItem[itemName]) {
+              groupedByItem[itemName] = {
+                  itemName: itemName,
+                  establishmentName: placeData.name,
+                  placeId: placeId,
+                  listId: review.listId,
+                  itemCount: 0,
+                  totalGeneralScore: 0,
+                  avgScores: {},
+                  criteriaTotals: {},
+                  criteriaCounts: {},
+                  allTags: [],
+                  thumbnailUrl: review.photoUrl
+              };
+          }
+          const group = groupedByItem[itemName];
+          group.itemCount++;
+          group.totalGeneralScore += review.overallRating || 0;
+          if (review.userTags) group.allTags.push(...review.userTags);
+          if (review.scores) {
+              for (const [critKey, score] of Object.entries(review.scores)) {
+                  group.criteriaTotals[critKey] = (group.criteriaTotals[critKey] || 0) + score;
+                  group.criteriaCounts[critKey] = (group.criteriaCounts[critKey] || 0) + 1;
+              }
+          }
+      });
+      
+      const groupCards = Object.values(groupedByItem).map(group => {
+          group.avgGeneralScore = group.itemCount > 0 ? (group.totalGeneralScore / group.itemCount) : 0;
+          group.groupTags = [...new Set(group.allTags)].slice(0, 5);
+          for (const critKey in group.criteriaTotals) {
+              group.avgScores[critKey] = group.criteriaTotals[critKey] / group.criteriaCounts[critKey];
+          }
+          delete group.criteriaTotals;
+          delete group.criteriaCounts;
+          delete group.allTags;
+          delete group.totalGeneralScore;
+          return group;
+      });
+
+      // 4. Devolver todo el paquete de datos
+      return {
+          placeInfo: placeData,
+          groups: groupCards,
+          latestReviews: allReviews.slice(0, 10)
+      };
+
+  } catch (error) {
+      logger.error(`Error en getPlaceDetails para placeId ${placeId}:`, error);
+      throw new HttpsError('internal', 'No se pudieron obtener los detalles del lugar.');
+  }
+});

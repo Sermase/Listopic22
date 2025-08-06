@@ -4723,3 +4723,49 @@ body.light-theme .leaflet-popup-tip {
     text-align: center;
     color: var(--primary-bg);
 }
+
+
+/* =========================================== */
+/* ===  MEJORA TARJETA: BOTÓN DE MAPA GRANDE === */
+/* =========================================== */
+
+/* Hacemos que el contenedor de la derecha sea una columna flexible */
+.review-list-card__score-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Separa la puntuación del botón */
+}
+
+/* Contenedor para la parte superior (puntuación y número de reseñas) */
+.score-container__main {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1; /* Ocupa todo el espacio disponible */
+    padding: 10px 5px;
+}
+
+/* El nuevo enlace/botón del mapa */
+.score-container__map-link {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    background-color: rgba(0, 0, 0, 0.25); /* Un fondo sutil */
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 8px 5px;
+    flex-shrink: 0; /* Evita que se encoja */
+    border-top: 1px solid var(--border-color-light);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.score-container__map-link:hover {
+    background-color: var(--accent-color-primary); /* Se ilumina al pasar el ratón */
+    color: var(--main-button-text);
+}
+
+

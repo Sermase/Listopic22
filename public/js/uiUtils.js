@@ -302,65 +302,84 @@ ListopicApp.uiUtils = {
 
 // En public/js/uiUtils.js
 
-    createListViewGroupCard: function(group, listData, listIcon) {
-        const uiUtils = this;
-        const detailUrl = `grouped-detail-view.html?listId=${group.listId}&placeId=${group.placeId}&item=${encodeURIComponent(group.itemName || "")}`;
+    // En /public/js/uiUtils.js
 
-        // Desglose de criterios con BARRAS DE PROGRESO
-        let criteriaHtml = '';
-        if (group.avgScores && listData.criteriaDefinition && Object.keys(listData.criteriaDefinition).length > 0) {
-            const criteriaItems = Object.entries(group.avgScores)
-                .map(([critKey, score]) => {
-                    const critDef = listData.criteriaDefinition[critKey];
-                    if (!critDef) return '';
-                    const score10 = parseFloat(score);
-                    return `
-                        <div class="criteria-bar--compact">
-                            <span class="criteria-bar__label">${uiUtils.escapeHtml(critDef.label)}</span>
-                            <div class="criteria-bar__viz">
-                                <div class="criteria-bar__bg">
-                                    <div class="criteria-bar__fill" style="width: ${score10 * 10}%; background-color: ${this.getRatingColor(score10)};"></div>
-                                </div>
-                                <span class="criteria-bar__value" style="color: ${this.getRatingColor(score10)};">${score10.toFixed(1)}</span>
+createListViewGroupCard: function(group, listData, listIcon) {
+    const uiUtils = this;
+    const detailUrl = `grouped-detail-view.html?listId=${group.listId}&placeId=${group.placeId}&item=${encodeURIComponent(group.itemName || "")}`;
+
+    // Desglose de criterios con BARRAS DE PROGRESO (tu lógica se mantiene)
+    let criteriaHtml = '';
+    if (group.avgScores && listData.criteriaDefinition && Object.keys(listData.criteriaDefinition).length > 0) {
+        const criteriaItems = Object.entries(group.avgScores)
+            .map(([critKey, score]) => {
+                const critDef = listData.criteriaDefinition[critKey];
+                if (!critDef) return '';
+                const score10 = parseFloat(score);
+                return `
+                    <div class="criteria-bar--compact">
+                        <span class="criteria-bar__label">${uiUtils.escapeHtml(critDef.label)}</span>
+                        <div class="criteria-bar__viz">
+                            <div class="criteria-bar__bg">
+                                <div class="criteria-bar__fill" style="width: ${score10 * 10}%; background-color: ${this.getRatingColor(score10)};"></div>
                             </div>
-                        </div>`;
-                }).join('');
-            if (criteriaItems) {
-                criteriaHtml = `<div class="criteria-bars-list--compact">${criteriaItems}</div>`;
-            }
+                            <span class="criteria-bar__value" style="color: ${this.getRatingColor(score10)};">${score10.toFixed(1)}</span>
+                        </div>
+                    </div>`;
+            }).join('');
+        if (criteriaItems) {
+            criteriaHtml = `<div class="criteria-bars-list--compact">${criteriaItems}</div>`;
         }
-        
-        // Etiquetas relevantes
-        let tagsHtml = '';
-        if (group.relevantTags && group.relevantTags.length > 0) {
-            tagsHtml = `<div class="review-list-card__tags">${group.relevantTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>`;
-        }
+    }
+    
+    // Etiquetas relevantes (tu lógica se mantiene)
+    let tagsHtml = '';
+    // CORRECCIÓN: Usamos group.groupTags que es el campo correcto que viene del backend
+    if (group.groupTags && group.groupTags.length > 0) {
+        tagsHtml = `<div class="review-list-card__tags">${group.groupTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>`;
+    }
 
-        const imageHtml = group.thumbnailUrl
-            ? `<img src="${uiUtils.escapeHtml(group.thumbnailUrl)}" alt="Foto" class="review-list-card__image">`
-            : `<div class="review-list-card__icon-placeholder"><i class="${listIcon || 'fas fa-camera'}"></i></div>`;
+    // Imagen (tu lógica se mantiene)
+    const imageHtml = group.thumbnailUrl
+        ? `<img src="${uiUtils.escapeHtml(group.thumbnailUrl)}" alt="Foto" class="review-list-card__image">`
+        : `<div class="review-list-card__icon-placeholder"><i class="${listIcon || 'fas fa-camera'}"></i></div>`;
 
-        return `
-            <div class="review-list-card" onclick="window.location.href='${detailUrl}'">
-                <div class="review-list-card__image-container">${imageHtml}</div>
-                <div class="review-list-card__main-content">
-                    <h4 class="review-list-card__title">${uiUtils.escapeHtml(group.itemName || group.establishmentName)}</h4>
-                    <div class="review-list-card__subtitle">
-                        <span>${group.itemName ? uiUtils.escapeHtml(group.establishmentName) : ''}</span>
-                        ${group.googleMapsUrl ? `<a href="${uiUtils.escapeHtml(group.googleMapsUrl)}" class="gmaps-link" target="_blank" onclick="event.stopPropagation()"><i class="fas fa-map-marker-alt"></i></a>` : ''}
+    // --- ¡MEJORA! Creamos el nuevo botón del mapa ---
+    const mapLinkHtml = group.googleMapsUrl 
+        ? `<a href="${uiUtils.escapeHtml(group.googleMapsUrl)}" class="score-container__map-link" target="_blank" onclick="event.stopPropagation()">
+               <i class="fas fa-map-marked-alt"></i>
+               <span>Mapa</span>
+           </a>`
+        : '';
+
+    // --- HTML FINAL DE LA TARJETA ---
+    return `
+        <div class="review-list-card" onclick="window.location.href='${detailUrl}'">
+            <div class="review-list-card__image-container">${imageHtml}</div>
+            <div class="review-list-card__main-content">
+                <h4 class="review-list-card__title">${uiUtils.escapeHtml(group.itemName || group.establishmentName)}</h4>
+                <div class="review-list-card__subtitle">
+                    <span>${group.itemName ? uiUtils.escapeHtml(group.establishmentName) : ''}</span>
+                    
                     </div>
-                    <div class="review-list-card__criteria-section">
-                        ${criteriaHtml}
-                    </div>
-                    ${tagsHtml}
+                <div class="review-list-card__criteria-section">
+                    ${criteriaHtml}
                 </div>
-                <div class="review-list-card__score-container">
+                ${tagsHtml}
+            </div>
+            <div class="review-list-card__score-container">
+
+                <div class="score-container__main">
                     <span class="score-value">${(group.avgGeneralScore || 0).toFixed(1)}</span>
                     <span class="review-count-badge">${group.itemCount} reseña${group.itemCount > 1 ? 's' : ''}</span>
                 </div>
+
+                ${mapLinkHtml}
+
             </div>
-        `;
-    },
+        </div>
+    `;
+},
     
     getRatingColor: function(rating) {
         const numericRating = parseFloat(rating);
