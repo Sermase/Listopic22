@@ -130,12 +130,12 @@ ListopicApp.placesService = (() => {
              return;
         }
 
-        let searchKeywords = "";
-        if (currentListNameForSearch) {
-            const baseKeywordsForHmm = "restaurante bar pub comida";
-            searchKeywords = `${currentListNameForSearch.toLowerCase()} ${baseKeywordsForHmm}`;
-            searchKeywords = [...new Set(searchKeywords.split(' '))].join(' ');
-        }
+        // let searchKeywords = "";
+        // if (currentListNameForSearch) {
+        //     const baseKeywordsForHmm = "restaurante bar pub comida";
+        //     searchKeywords = `${currentListNameForSearch.toLowerCase()} ${baseKeywordsForHmm}`;
+        //     searchKeywords = [...new Set(searchKeywords.split(' '))].join(' ');
+        // }
 
         suggestionsBox.innerHTML = `<p>Buscando lugares cercanos ${searchKeywords ? 'relacionados con "' + searchKeywords + '"': ''}...</p>`;
 

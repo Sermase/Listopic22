@@ -105,6 +105,15 @@ ListopicApp.pageProfile = {
         this.elements.editPhotoUrlInput = document.getElementById('edit-photo-url');
         this.elements.editPhotoFileInput = document.getElementById('edit-photo-file');
         this.elements.editPhotoPreview = document.getElementById('edit-photo-preview');
+    
+        // Dentro de cacheDOMElements en ListopicApp.pageProfile
+        this.elements.photoModal = document.getElementById('photo-modal');
+        this.elements.closePhotoModalBtn = document.getElementById('close-photo-modal-btn');
+        this.elements.enlargedProfilePhoto = document.getElementById('enlarged-profile-photo');
+    
+        this.elements.profileTabs = document.querySelector('.profile-tabs'); // El contenedor de las pestañas
+        this.elements.reviewsContent = document.getElementById('reviews-content');
+        this.elements.listsContent = document.getElementById('lists-content');
     },
     
     updateEditButtonVisibility: function() {
@@ -127,6 +136,20 @@ ListopicApp.pageProfile = {
             this.elements.followUnfollowBtn.style.display = isOwnProfile ? 'none' : 'inline-block';
         }
         // Cuando confirmemos que aparecen, volveremos a la lógica original.
+    },
+
+    // Dentro del objeto ListopicApp.pageProfile
+    openPhotoModal: function() {
+        if (this.elements.enlargedProfilePhoto && this.elements.photoModal && this.profileData.photoUrl) {
+            this.elements.enlargedProfilePhoto.src = this.profileData.photoUrl;
+            this.elements.photoModal.classList.add('active');
+        }
+    },
+
+    closePhotoModal: function() {
+        if (this.elements.photoModal) {
+            this.elements.photoModal.classList.remove('active');
+        }
     },
 
     attachEventListeners: function() {
@@ -153,6 +176,38 @@ ListopicApp.pageProfile = {
         this.elements.editPhotoUrlInput?.addEventListener('input', (event) => {
             this.selectedPhotoFile = null;
             this.showImagePreview(event.target.value);
+        });
+        // Dentro de attachEventListeners en ListopicApp.pageProfile
+        this.elements.profilePhotoDisplay?.addEventListener('click', () => this.openPhotoModal());
+        this.elements.closePhotoModalBtn?.addEventListener('click', () => this.closePhotoModal());
+        this.elements.photoModal?.addEventListener('click', (event) => {
+            if (event.target === this.elements.photoModal) {
+                this.closePhotoModal();
+            }
+        });
+        // Dentro de attachEventListeners en ListopicApp.pageProfile
+        this.elements.listsStat?.addEventListener('click', () => {
+            this.elements.reviewsTab.classList.remove('active');
+            this.elements.listsTab.classList.add('active');
+            this.elements.reviewsContent.style.display = 'none';
+            this.elements.listsContent.style.display = 'block';
+        });
+        this.elements.profileTabs?.addEventListener('click', (event) => {
+            const tabButton = event.target.closest('.profile-tab-button');
+            if (!tabButton) return;
+        
+            const tabName = tabButton.dataset.tab;
+        
+            // Quitar 'active' de todos los botones y contenidos
+            this.elements.profileTabs.querySelectorAll('.profile-tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.profile-tab-content').forEach(content => content.classList.remove('active'));
+        
+            // Añadir 'active' al botón y contenido correctos
+            tabButton.classList.add('active');
+            const activeContent = document.getElementById(`${tabName}-content`);
+            if (activeContent) {
+                activeContent.classList.add('active');
+            }
         });
     },
 

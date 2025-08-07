@@ -120,7 +120,7 @@ ListopicApp.uiUtils = {
             containerElement.appendChild(label);
         });
     },
-
+    
     renderCriteriaSliders: function(containerElement, existingRatings = {}, criteriaDefinitionMap = {}) {
         if (!containerElement) return;
         containerElement.innerHTML = '';
@@ -196,12 +196,14 @@ ListopicApp.uiUtils = {
                     if (score === undefined) return '';
                     const score10 = parseFloat(score).toFixed(1);
                     return `<div class="criteria-bar">
-                                <div class="criteria-bar__label" title="${uiUtils.escapeHtml(critDef.label)}">${uiUtils.escapeHtml(critDef.label)}</div>
-                                <div class="criteria-bar__viz">
-                                    <div class="criteria-bar__bg"><div class="criteria-bar__fill" style="width: ${score10 * 10}%;"></div></div>
-                                    <div class="criteria-bar__value">${score10}</div>
+                            <div class="criteria-bar__label" title="${uiUtils.escapeHtml(critDef.label)}">${uiUtils.escapeHtml(critDef.label)}</div>
+                            <div class="criteria-bar__viz">
+                                <div class="criteria-bar__bg">
+                                    <div class="criteria-bar__fill" style="width: ${score10 * 10}%;"></div>
                                 </div>
-                            </div>`;
+                                <div class="criteria-bar__value" style="color: ${this.getRatingColor(score10)};">${score10}</div>
+                            </div>
+                        </div>`;
                 }).join('');
             if (criteriaItems) criteriaHtml = `<div class="criteria-bars-list">${criteriaItems}</div>`;
         }
@@ -447,3 +449,4 @@ createListViewGroupCard: function(group, listData, listIcon) {
         }
     },
 };
+

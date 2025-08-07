@@ -392,7 +392,7 @@ ListopicApp.pageSearch = (() => {
         let results = [];
         let queryDescription = state.currentSearchQuery ? 
             `Resultados para "${state.currentSearchQuery}"` : 
-            'Explorando contenido';
+            '';
 
         try {
             const searchPromises = [];
@@ -1080,7 +1080,9 @@ ListopicApp.pageSearch = (() => {
 
         if (mainSearchInput) {
             mainSearchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') performSearch();
+                if (mainSearchInput) {
+                    mainSearchInput.addEventListener('input', performSearch);
+                }
             });
 
             mainSearchInput.addEventListener('input', debouncedSearch);
