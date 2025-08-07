@@ -224,37 +224,50 @@ exports.placesNearbyRestaurants = onRequest(async (req, res) => {
 
 // --- FUNCIÓN placesTextSearch ---
 exports.placesTextSearch = onRequest(async (req, res) => {
-  cors(req, res, async () => {
-    const { query, latitude, longitude } = req.query;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    if (!query) {
-      logger.warn("placesTextSearch: El término de búsqueda (query) es requerido.", {query: req.query, structuredData: true});
-      return res.status(400).json({ message: "El término de búsqueda (query) es requerido." });
-    }
-    if (!apiKey) {
-        logger.error("placesTextSearch: GOOGLE_PLACES_API_KEY no está disponible como variable de entorno del proceso.", {env_keys: Object.keys(process.env), structuredData: true});
-        return res.status(500).json({ message: "Error de configuración del servidor (Places API Key no encontrada)." });
-    }
-    let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}&language=es&type=establishment`;
-    if (latitude && longitude) {
-      url += `&location=${latitude},${longitude}&radius=20000`;
-    }
-    logger.info("placesTextSearch: Fetching Google Places", {url: url.replace(apiKey, "REDACTED_API_KEY"), structuredData: true});
-    try {
-      const placesResponse = await fetch(url);
-      const placesData = await placesResponse.json();
-      if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
-        res.status(200).json(placesData.results || []);
-      } else {
-        logger.error("placesTextSearch: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message, info_messages: placesData.info_messages, structuredData: true});
-        res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message || placesData.info_messages });
+    cors(req, res, async () => {
+      // Capturamos latitud y longitud de la petición
+      const { query, latitude, longitude } = req.query;
+      const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  
+      if (!query) {
+        logger.warn("placesTextSearch: El término de búsqueda (query) es requerido.", {query: req.query, structuredData: true});
+        return res.status(400).json({ message: "El término de búsqueda (query) es requerido." });
       }
-    } catch (error) {
-      logger.error("placesTextSearch: Error al contactar Google Places API", error, {structuredData: true});
-      res.status(500).json({ message: "Error interno al buscar lugares por texto.", error: error.message });
-    }
+      if (!apiKey) {
+          logger.error("placesTextSearch: GOOGLE_PLACES_API_KEY no está disponible.", {structuredData: true});
+          return res.status(500).json({ message: "Error de configuración del servidor (Places API Key no encontrada)." });
+      }
+  
+      // Construimos la URL base para la API de Google
+      let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}&language=es&type=establishment`;
+      
+      // --- ¡AQUÍ ESTÁ LA MAGIA! ---
+      // Si hemos recibido latitud y longitud, las usamos para darle preferencia a la cercanía.
+      if (latitude && longitude) {
+        // El parámetro 'location' le dice a Google dónde estás.
+        // El 'radius' (en metros) crea un área donde los resultados son más relevantes.
+        url += `&location=${latitude},${longitude}&radius=50000`; // 50km de radio
+      }
+      // --- FIN DE LA MAGIA ---
+  
+      logger.info("placesTextSearch: Fetching Google Places", {url: url.replace(apiKey, "REDACTED_API_KEY"), structuredData: true});
+      
+      try {
+        const placesResponse = await fetch(url);
+        const placesData = await placesResponse.json();
+  
+        if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
+          res.status(200).json(placesData.results || []);
+        } else {
+          logger.error("placesTextSearch: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message, structuredData: true});
+          res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message });
+        }
+      } catch (error) {
+        logger.error("placesTextSearch: Error al contactar Google Places API", error, {structuredData: true});
+        res.status(500).json({ message: "Error interno al buscar lugares por texto.", error: error.message });
+      }
+    });
   });
-});
 
 // --- FUNCIÓN CALLABLE: deleteListAndContent ---
 exports.deleteOrOrphanList = onCall({cors: true}, async (request) => {

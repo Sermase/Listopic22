@@ -625,7 +625,7 @@ body.light-theme .criterion-slider-config {
     left: 100%;
 }
 
-.tag-filter-button:hover {
+body.light-theme .tag-filter-button:hover {
     border-color: var(--accent-color-primary);
     background: rgba(var(--accent-color-primary-rgb), 0.1);
     color: var(--accent-color-primary);
@@ -939,15 +939,8 @@ body.light-theme #manual-location-fields {
 
 
 
-body.light-theme .tag-filter-button {
-    background-color: #E9EDF0; 
-    color: var(--text-color);
-    border: 1px solid #CCD1D6;
-}
-body.light-theme .tag-filter-button:hover {
-    background-color: #DDE1E5;
-    border-color: #BCC1C6;
-}
+
+
 body.light-theme .tag-filter-button.selected {
     background-color: var(--accent-color-primary);
     color: #FFFFFF;
@@ -1893,6 +1886,22 @@ a.header-action-button:hover {
     }
 }
 
+@media (max-width: 768px) {
+    .profile-stats {
+        flex-wrap: wrap; /* ¡La clave! Permite que los elementos salten a la siguiente línea */
+        gap: 15px;       /* Añade un espacio consistente entre los elementos */
+        justify-content: center; /* Centra los elementos para un mejor aspecto visual */
+    }
+    .stat-item {
+        gap: 4px}
+
+    .profile-header-container {
+        flex-direction: column; /* Apila la foto y la info en pantallas más pequeñas */
+        align-items: center;
+        text-align: center;
+    }
+}
+
 @media (max-width: 480px) {
     #profile-display-name {
         font-size: 1.5em;
@@ -2118,13 +2127,13 @@ body.light-theme #photo-edit-controls {
 
 .search-page-container h1.brand-title {
     font-size: clamp(2.5em, 7vw, 3.5em); /* Un poco más pequeño que el de index */
-    margin-bottom: 25px;
+    margin-bottom: 10px;
 }
 
 .search-input-area {
     display: flex;
     gap: 10px;
-    margin-bottom: 25px;
+    margin-bottom: 5px;
 }
 
 .large-search-input {
@@ -2136,6 +2145,17 @@ body.light-theme #photo-edit-controls {
 .search-input-area .submit-button {
     flex-shrink: 0; /* Para que el botón no se encoja */
     padding: 15px 25px;
+}
+
+/* Debajo de la regla .search-input-area existente */
+@media (max-width: 480px) {
+    .search-input-area {
+        flex-direction: column;
+    }
+
+    .search-input-area .submit-button {
+        margin-top: 0px; /* Espacio entre la barra y el botón */
+    }
 }
 
 .entity-type-filters {
@@ -2158,14 +2178,21 @@ body.light-theme #photo-edit-controls {
     color: white;
 }
 
+body.light-theme .entity-type-btn.active { /* O usa .selected si reutilizas esa clase */
+    background-color: var(--accent-color-primary);
+    color: var(--main-button-text);
+    border: 1px solid var(--accent-color-tertiary);
+    border-color: var(--accent-color-tertiary);
+    color: white;
+}
 
 .advanced-filters-trigger {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 5px;
 }
 
 .search-results-container {
-    margin-top: 20px;
+    margin-top: 1px;
     /* Aquí irán los estilos para las tarjetas de resultados */
 }
 .search-placeholder {
@@ -2177,7 +2204,7 @@ body.light-theme #photo-edit-controls {
 
 /* Estilos para el modal de filtros (ya tienes estilos base para .modal y .modal-content) */
 #advanced-filters-content .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 5px;
 }
 #advanced-filters-content label {
     font-size: 0.95em;
@@ -5209,3 +5236,7 @@ body.light-theme .leaflet-popup-tip {
     flex-wrap: wrap;
     gap: 4px;
 }
+
+
+
+
