@@ -489,7 +489,6 @@ function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
             if (useCameraBtn && photoFileInputReview) {
                 useCameraBtn.addEventListener('click', () => {
                     photoFileInputReview.setAttribute('capture', 'environment'); photoFileInputReview.click();
-                    this.value = null; 
                 });
             }
             if (photoUrlInputReview && imagePreviewContainerReview) {
