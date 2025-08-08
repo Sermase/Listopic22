@@ -476,12 +476,14 @@ function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
                         reader.onload = (event) => uiUtils.showPreviewGlobal(event.target.result, imagePreviewContainerReview);
                         reader.readAsDataURL(state.selectedFileForUpload);
                     }
+                    this.value = null; 
                 });
             }
 
             if (browseGalleryBtn && photoFileInputReview) {
                 browseGalleryBtn.addEventListener('click', () => {
                     photoFileInputReview.removeAttribute('capture'); photoFileInputReview.click();
+                    this.value = null; 
                 });
             }
             if (useCameraBtn && photoFileInputReview) {
