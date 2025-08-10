@@ -1,9 +1,33 @@
 window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.placesService = (() => {
+    async function fetchPlaceDetails(placeId) {
+        const functionUrl = ListopicApp.config.FUNCTION_URLS.getPlaceDetailsFromGoogle;
+        if (!functionUrl || functionUrl.includes("xxxxxxxxxx")) {
+            console.error("URL de la función getPlaceDetailsFromGoogle no configurada o es un placeholder.");
+            ListopicApp.services.showNotification("Error de configuración: URL de servicio no disponible.", 'error');
+            return null;
+        }
+
+        const fetchUrl = `${functionUrl}?placeid=${placeId}`;
+        console.log('[placesService] Fetching Place Details URL:', fetchUrl);
+
+        try {
+            const response = await fetch(fetchUrl);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: `Error HTTP ${response.status}: ${response.statusText}` }));
+                throw new Error(errorData.message);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching place details:", error);
+            ListopicApp.services.showNotification(`Error al obtener detalles del lugar: ${error.message}`, 'error');
+            return null;
+        }
+    }
+
     function displayPlaceSuggestions(places, suggestionsBox) {
         suggestionsBox.innerHTML = '';
-        // currentSelectedPlaceInfo se maneja a través de ListopicApp.state
 
         if (places && places.length > 0) {
             const ul = document.createElement('ul');
@@ -13,21 +37,27 @@ ListopicApp.placesService = (() => {
                 const addressInfo = place.vicinity || place.formatted_address || 'Información de dirección no disponible';
                 li.textContent = `${place.name} (${addressInfo})`;
                 li.style.cursor = 'pointer';
-                li.onclick = () => {
+                li.onclick = async () => {
+                    suggestionsBox.innerHTML = `<p>Obteniendo detalles de ${place.name}...</p>`;
+                    const detailedPlace = await fetchPlaceDetails(place.place_id);
+                    if (!detailedPlace) {
+                        suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">No se pudieron obtener los detalles. Inténtalo de nuevo.</p>`;
+                        return;
+                    }
+
                     if (window.ListopicApp && window.ListopicApp.state) {
-                        const placeDetails = { // Objeto para almacenar detalles del lugar
-                            placeId: place.place_id,
-                            name: place.name,
-                            addressFormatted: place.formatted_address || place.vicinity,
-                            latitude: place.geometry?.location?.lat || null,
-                            longitude: place.geometry?.location?.lng || null,
-                            // mapsUrl: place.place_id 
-                            //     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.place_id}` 
-                            //     : (place.geometry?.location?.lat && place.geometry?.location?.lng 
-                            //         ? `https://www.google.com/maps/search/?api=1&query=${place.geometry.location.lat},${place.geometry.location.lng}` 
-                            //         : ''),
-                            mapsUrl: place.place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${place.place_id}` : (place.geometry?.location?.lat ? `https://www.google.com/maps/search/?api=1&query=${place.geometry.location.lat},${place.geometry.location.lng}` : ''),
-                            googleMapsUrl: place.place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${place.place_id}` : (place.geometry?.location?.lat ? `https://www.google.com/maps/search/?api=1&query=${place.geometry.location.lat},${place.geometry.location.lng}` : ''),
+                        const placeDetails = {
+                            placeId: detailedPlace.place_id,
+                            name: detailedPlace.name,
+                            addressFormatted: detailedPlace.formatted_address || detailedPlace.vicinity,
+                            latitude: detailedPlace.geometry?.location?.lat || null,
+                            longitude: detailedPlace.geometry?.location?.lng || null,
+                            mapsUrl: detailedPlace.url,
+                            googleMapsUrl: detailedPlace.url,
+                            priceLevel: detailedPlace.price_level,
+                            photos: detailedPlace.photos, // Array of photo objects
+                            website: detailedPlace.website,
+                            phone: detailedPlace.international_phone_number,
 
                             // Inicializar componentes de dirección
                             streetAddress: '',
@@ -37,9 +67,8 @@ ListopicApp.placesService = (() => {
                             country: ''
                         };
 
-                        // Intentar extraer componentes de dirección si están disponibles (Google Places API detallada)
-                        if (place.address_components) {
-                            for (const component of place.address_components) {
+                        if (detailedPlace.address_components) {
+                            for (const component of detailedPlace.address_components) {
                                 if (component.types.includes('street_number')) {
                                     placeDetails.streetAddress = `${component.long_name} ${placeDetails.streetAddress}`;
                                 }
@@ -53,7 +82,7 @@ ListopicApp.placesService = (() => {
                                     placeDetails.region = component.long_name;
                                 }
                                 if (component.types.includes('administrative_area_level_1') && !placeDetails.region) { // Comunidad Autónoma en España o Estado
-                                    placeDetails.region = component.long_name; // Usar esto si nivel 2 no está o se prefiere
+                                    placeDetails.region = component.long_name;
                                 }
                                 if (component.types.includes('country')) {
                                     placeDetails.country = component.long_name;
@@ -63,17 +92,16 @@ ListopicApp.placesService = (() => {
                                 }
                             }
                         }
-                        // Si la dirección de la calle no se formó bien, usar la formateada como fallback
                         if (!placeDetails.streetAddress && placeDetails.addressFormatted) {
-                            placeDetails.streetAddress = placeDetails.addressFormatted.split(',')[0]; // Intento simple
+                            placeDetails.streetAddress = placeDetails.addressFormatted.split(',')[0];
                         }
 
                         window.ListopicApp.state.currentSelectedPlaceInfo = placeDetails;
-                        console.log("placesService: currentSelectedPlaceInfo actualizado:", window.ListopicApp.state.currentSelectedPlaceInfo);
+                        console.log("placesService: currentSelectedPlaceInfo actualizado con detalles completos:", window.ListopicApp.state.currentSelectedPlaceInfo);
 
                         // Actualizar los campos del formulario en review-form.html
-                        const establishmentNameInput = document.getElementById('restaurant-name-search-input'); // El input visible
-                        const establishmentNameHidden = document.getElementById('establishment-name');     // El oculto
+                        const establishmentNameInput = document.getElementById('restaurant-name-search-input');
+                        const establishmentNameHidden = document.getElementById('establishment-name');
                         const locationDisplayNameInput = document.getElementById('location-display-name');
                         const locationAddressManualInput = document.getElementById('location-address-manual');
                         const locationRegionManualInput = document.getElementById('location-region-manual');
@@ -87,10 +115,10 @@ ListopicApp.placesService = (() => {
                         const locationCountryGInput = document.getElementById('location-country-g');
 
                         if (establishmentNameInput) establishmentNameInput.value = placeDetails.name;
-                        if (establishmentNameHidden) establishmentNameHidden.value = placeDetails.name; // Para la lógica de findOrCreatePlace
-                        if (locationDisplayNameInput) locationDisplayNameInput.value = placeDetails.name; // Nombre del lugar para el usuario
-                        if (locationAddressManualInput) locationAddressManualInput.value = placeDetails.addressFormatted || placeDetails.streetAddress; // Dirección completa o de calle
-                        if (locationRegionManualInput) locationRegionManualInput.value = placeDetails.region; // Región/Provincia
+                        if (establishmentNameHidden) establishmentNameHidden.value = placeDetails.name;
+                        if (locationDisplayNameInput) locationDisplayNameInput.value = placeDetails.name;
+                        if (locationAddressManualInput) locationAddressManualInput.value = placeDetails.addressFormatted || placeDetails.streetAddress;
+                        if (locationRegionManualInput) locationRegionManualInput.value = placeDetails.region;
                         if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeDetails.mapsUrl;
                         
                         if(locationLatInput) locationLatInput.value = placeDetails.latitude || "";
@@ -99,6 +127,7 @@ ListopicApp.placesService = (() => {
                         if(locationCityGInput) locationCityGInput.value = placeDetails.city || "";
                         if(locationPostalCodeGInput) locationPostalCodeGInput.value = placeDetails.postalCode || "";
                         if(locationCountryGInput) locationCountryGInput.value = placeDetails.country || "";
+
                     } else {
                         console.warn("ListopicApp.state not defined, currentSelectedPlaceInfo not updated in placesService.");
                     }
@@ -122,7 +151,7 @@ ListopicApp.placesService = (() => {
         const currentListNameForSearch = state.currentListNameForSearch;
         
         const functionUrl = ListopicApp.config.FUNCTION_URLS.placesNearbyRestaurants;
-        if (!functionUrl || functionUrl.includes("xxxxxxxxxx")) { // Chequeo adicional por si la URL no está bien configurada
+        if (!functionUrl || functionUrl.includes("xxxxxxxxxx")) {
             console.error("URL de la función placesNearbyRestaurants no configurada o es un placeholder.");
             if (suggestionsBox) suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error de configuración: URL de servicio no disponible.</p>`;
             return;
@@ -149,9 +178,6 @@ ListopicApp.placesService = (() => {
         console.log('[placesService] Fetching URL:', fetchUrl);
 
         try {
-            // Aquí se asume que la Cloud Function ya no necesitará un token de Firebase Auth
-            // porque la clave de Google Places está en el backend. Si la Cloud Function sí
-            // requiere autenticación del usuario por alguna razón, se debería añadir el token.
             const response = await fetch(fetchUrl);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: `Error HTTP ${response.status}: ${response.statusText}` }));
@@ -175,7 +201,7 @@ ListopicApp.placesService = (() => {
         const userLongitude = state.userLongitude;
         
         const functionUrl = ListopicApp.config.FUNCTION_URLS.placesTextSearch;
-        if (!functionUrl || functionUrl.includes("xxxxxxxxxx")) { // Chequeo adicional
+        if (!functionUrl || functionUrl.includes("xxxxxxxxxx")) {
             console.error("URL de la función placesTextSearch no configurada o es un placeholder.");
             if (suggestionsBox) suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error de configuración: URL de servicio no disponible.</p>`;
             return;
@@ -209,7 +235,7 @@ ListopicApp.placesService = (() => {
     }
 
     return {
-        // displayPlaceSuggestions no necesita ser exportada si solo se usa internamente
+        fetchPlaceDetails,
         fetchNearbyRestaurantsWithContext,
         searchRestaurantsByName
     };

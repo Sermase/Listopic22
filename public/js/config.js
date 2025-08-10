@@ -18,7 +18,8 @@ ListopicApp.config = {
         groupedReviews: "https://groupedreviews-jz4x2l2cfq-ew.a.run.app", // <--- URL DE CLOUD RUN
         placesNearbyRestaurants: "https://placesnearbyrestaurants-jz4x2l2cfq-ew.a.run.app", 
         placesTextSearch: "https://placestextsearch-jz4x2l2cfq-ew.a.run.app",
-        reverseGeocode: "https://europe-west1-listopic.cloudfunctions.net/reverseGeocode" // <-- AÑADE ESTA LÍNEA (reemplaza xxxxxxxxxx con el hash real después de desplegar)
+        reverseGeocode: "https://europe-west1-listopic.cloudfunctions.net/reverseGeocode", // <-- AÑADE ESTA LÍNEA (reemplaza xxxxxxxxxx con el hash real después de desplegar)
+        getPlaceDetailsFromGoogle: "https://getplacedetailsfromgoogle-jz4x2l2cfq-ew.a.run.app"
     },
 
 };
