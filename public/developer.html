@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Dashboard - Listopic</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+    
+    <style>
+        main.dev-container {
+            align-items: left !important; /* Anulamos el 'display: flex' de style.css */
+        }
+        html, body {
+            overflow: visible !important;
+        }
+
+        .dev-container {
+            padding-top: 80px;
+            width: 95%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        main.dev-container div.data-table-wrapper {
+            display: block !important;
+            width: 100% !important;
+            overflow-x: auto !important;
+            border: 1px solid var(--border-color);
+            margin-bottom: 3rem;
+            border-radius: 6px;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            border-spacing: 0;
+            /*
+             * ==================================================================
+             * LA BALA DE PLATA:
+             * Forzamos el reseteo del margen de la tabla.
+             * Esto anula cualquier 'margin: auto' que venga de style.css
+             * y que estaba causando el centrado y el bug de scroll.
+             * ==================================================================
+            */
+            margin: 0 !important;
+        }
+        
+        .data-table th, .data-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            text-align: left;
+            white-space: nowrap;
+        }
+        
+        .data-table th {
+            background-color: var(--container-bg, #1e1e1e);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .data-table tr:hover {
+             background-color: rgba(var(--accent-color-primary-rgb), 0.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="header-actions-container">
+        <div class="header-left-content">
+            <div class="app-logo-container"><a href="Index.html" title="Ir a la página de inicio"><img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo"></a></div>
+        </div>
+        <div class="header-right-actions">
+            <a href="search.html" class="search-button header-action-button" aria-label="Search"><i class="fas fa-search"></i></a>
+            <div class="user-profile-menu-container">
+                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario"><i class="fas fa-user-circle"></i></button>
+                <div class="user-menu" id="userMenuDropdown">
+                    <a href="profile.html">Perfil</a><a href="profile.html#profile-my-lists">Mis Listas</a><hr class="user-menu-divider"><button type="button" id="logoutBtnUserMenu">Cerrar sesión</button>
+                </div>
+            </div>
+            <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema"><i class="fas fa-moon"></i></button>
+        </div>
+    </div>
+
+    <main class="dev-container">
+        <h1><i class="fas fa-database"></i> Developer Dashboard</h1>
+        <div class="dev-tabs" id="dev-tabs-container"></div>
+        <div id="dev-content-container"></div>
+    </main>
+
+    <footer>
+        <p>&copy; <span id="current-year"></span> Listopic. All rights reserved.</p>
+    </footer>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/firebaseService.js"></script>
+    <script src="js/themeManager.js"></script>
+    <script src="js/authService.js"></script>
+    <script src="js/page-developer.js"></script>
+    <script src="js/main.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (ListopicApp && ListopicApp.authService && ListopicApp.authService.onAuthStateChangedPromise) {
+                ListopicApp.authService.onAuthStateChangedPromise().then(user => {
+                    if (ListopicApp.pageDeveloper && ListopicApp.pageDeveloper.init) {
+                        ListopicApp.pageDeveloper.init();
+                    }
+                }).catch(error => {
+                    console.error("DEVELOPER.HTML: Error crítico esperando la autenticación.", error);
+                    if (ListopicApp.pageDeveloper && ListopicApp.pageDeveloper.init) {
+                        ListopicApp.pageDeveloper.init();
+                    }
+                });
+            } else {
+                 console.error("DEVELOPER.HTML: El servicio de autenticación o su promesa no están listos.");
+            }
+        });
+    </script>
+</body>
+</html>
