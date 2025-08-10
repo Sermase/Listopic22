@@ -10,7 +10,7 @@
     
     <style>
         main.dev-container {
-            align-items: left !important; /* Anulamos el 'display: flex' de style.css */
+            display: block !important; /* Anulamos el 'display: flex' de style.css para alinear a la izquierda */
         }
         html, body {
             overflow: visible !important;
@@ -85,6 +85,10 @@
 
     <main class="dev-container">
         <h1><i class="fas fa-database"></i> Developer Dashboard</h1>
+        <div class="dev-actions">
+            <button id="export-csv-btn" class="button secondary-button">Exportar a CSV</button>
+            <button id="update-all-places-btn" class="button-danger">Actualizar Todos los Lugares</button>
+        </div>
         <div class="dev-tabs" id="dev-tabs-container"></div>
         <div id="dev-content-container"></div>
     </main>

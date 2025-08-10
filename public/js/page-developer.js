@@ -67,6 +67,88 @@ ListopicApp.pageDeveloper = (() => {
             button.addEventListener('click', () => switchTab(collectionName));
             tabsContainer.appendChild(button);
         });
+        setupActionButtons(); // Añadimos la configuración de los botones de acción
+    }
+
+    function setupActionButtons() {
+        const exportBtn = document.getElementById('export-csv-btn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                if (currentData.length === 0) {
+                    alert('No hay datos para exportar.');
+                    return;
+                }
+                const activeTab = document.querySelector('.dev-tab-button.active');
+                const collectionName = activeTab ? activeTab.dataset.collection : 'export';
+                exportToCsv(`${collectionName}_${new Date().toISOString().slice(0, 10)}.csv`, currentData);
+            });
+        }
+
+        const updateAllPlacesBtn = document.getElementById('update-all-places-btn');
+        if (updateAllPlacesBtn) {
+            updateAllPlacesBtn.addEventListener('click', async () => {
+                if (!confirm('¿Estás seguro de que quieres actualizar TODOS los lugares? Esta operación puede tardar y consumir cuota de la API de Google.')) {
+                    return;
+                }
+
+                const originalBtnText = updateAllPlacesBtn.innerHTML;
+                updateAllPlacesBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+                updateAllPlacesBtn.disabled = true;
+
+                try {
+                    const adminUpdateAllPlaces = firebase.app().functions('europe-west1').httpsCallable('adminUpdateAllPlaces');
+                    const result = await adminUpdateAllPlaces();
+                    const { updated, skipped, errors } = result.data;
+                    alert(`Actualización completada.\n\nActualizados: ${updated}\nOmitidos: ${skipped}\nErrores: ${errors}`);
+                } catch (error) {
+                    console.error("Error al ejecutar adminUpdateAllPlaces:", error);
+                    alert(`Error al actualizar los lugares: ${error.message}`);
+                } finally {
+                    updateAllPlacesBtn.innerHTML = originalBtnText;
+                    updateAllPlacesBtn.disabled = false;
+                }
+            });
+        }
+    }
+
+    function exportToCsv(filename, rows) {
+        if (!rows || !rows.length) {
+            return;
+        }
+        const separator = ',';
+        const allKeys = new Set();
+        rows.forEach(row => {
+            Object.keys(row).forEach(key => allKeys.add(key));
+        });
+        const headers = Array.from(allKeys);
+        const csvContent = [
+            headers.join(separator),
+            ...rows.map(row => {
+                return headers.map(k => {
+                    let cell = row[k] === null || row[k] === undefined ? '' : row[k];
+                    if (typeof cell === 'object') {
+                        cell = JSON.stringify(cell).replace(/"/g, '""');
+                    }
+                    let cellString = String(cell);
+                    if (cellString.includes(separator) || cellString.includes('"') || cellString.includes('\n')) {
+                        cellString = `"${cellString}"`;
+                    }
+                    return cellString;
+                }).join(separator);
+            })
+        ].join('\n');
+
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     }
 
     async function switchTab(collectionName) {
