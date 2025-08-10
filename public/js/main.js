@@ -115,6 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageProfile.init no encontrado!"); // Log de error
                 }
+            } else if (pageName === 'developer.html') { // <--- AÑADE ESTA SECCIÓN
+                // La inicialización se maneja en el script inline de developer.html
+                // para poder verificar al usuario antes de llamar a init.
+                console.log("MAIN.JS: Página de desarrollador detectada. La lógica de inicialización está en la propia página.");
             } else if (pageName === 'search.html') { // NUEVA CONDICIÓN
                 if (ListopicApp.pageSearch && ListopicApp.pageSearch.init) {
                     ListopicApp.pageSearch.init();

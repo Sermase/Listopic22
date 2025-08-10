@@ -1,28 +1,32 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // FUNCIÓN HELPER para comprobar si un usuario es administrador ('jefe')
+    function isJefe(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.userType == 'jefe';
+    }
 
     // ===============================================
     // REGLAS PARA USUARIOS (`users`)
     // ===============================================
     match /users/{userId} {
-      // Cualquiera puede leer un perfil público.
-      allow read: if true;
-      // Un usuario solo puede crear su propio documento.
+      // Un perfil público lo puede leer cualquiera, O si es un jefe.
+      allow read: if true; 
+      // Para la página de desarrollador, un jefe puede leer todos los perfiles.
+      allow list: if request.auth != null && isJefe(request.auth.uid);
+      
       allow create: if request.auth != null && request.auth.uid == userId;
-      // Un usuario solo puede actualizar o borrar su propio documento.
       allow update, delete: if request.auth != null && request.auth.uid == userId;
 
-      // Un usuario solo puede modificar su propia lista de 'siguiendo'.
       match /following/{followId} {
         allow read: if request.auth != null;
         allow create, delete: if request.auth != null && request.auth.uid == userId;
       }
       
-      // Un usuario solo puede leer su lista de 'seguidores'. Nadie más.
       match /followers/{followerId} {
         allow read, list: if request.auth != null && request.auth.uid == userId;
-        // La creación y borrado de esta subcolección se gestiona por la Cloud Function.
         allow write: if false; 
       }
     }
@@ -31,29 +35,29 @@ service cloud.firestore {
     // REGLAS PARA LISTAS (`lists`)
     // ===============================================
     match /lists/{listId} {
-      // Se puede leer si es pública, o si eres el dueño.
-      allow read: if resource.data.isPublic == true || (request.auth != null && resource.data.userId == request.auth.uid);
-      // Solo puedes crear listas para ti mismo.
+      // Se puede leer si es pública, si eres el dueño, O si eres un jefe.
+      allow read: if resource.data.isPublic == true || 
+                     (request.auth != null && resource.data.userId == request.auth.uid) ||
+                     (request.auth != null && isJefe(request.auth.uid));
+      // Un jefe puede listar todas las listas.
+      allow list: if request.auth != null && isJefe(request.auth.uid);
+
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      // Solo el dueño puede actualizar o borrar la lista.
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
 
-      // Reglas para subcolecciones de una lista
+      // Las reglas de subcolecciones heredan la capacidad de lectura de un 'jefe' a través del `get()`
       match /reviews/{reviewId} {
-        // Se pueden leer las reseñas si la lista es pública o eres el dueño.
-        allow read: if get(/databases/$(database)/documents/lists/$(listId)).data.isPublic == true ||
-                      (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
-        // Solo puedes crear reseñas para ti mismo.
+         allow read: if get(/databases/$(database)/documents/lists/$(listId)).data.isPublic == true ||
+                       (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid) ||
+                       (request.auth != null && isJefe(request.auth.uid));
         allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // Solo el dueño de la reseña puede modificarla o borrarla.
         allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
       }
       
       match /comments/{commentId} {
-        // Sugerencia: Los comentarios siguen la privacidad de la lista.
-        // Si la lista es pública, cualquiera puede leer. Si es privada, solo el dueño de la lista.
         allow read: if get(/databases/$(database)/documents/lists/$(listId)).data.isPublic == true ||
-                      (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
+                      (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid) ||
+                      (request.auth != null && isJefe(request.auth.uid));
         allow create: if request.auth != null;
         allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
       }
@@ -64,52 +68,23 @@ service cloud.firestore {
     // ===============================================
     match /places/{placeId} {
         allow read: if true;
-        // Solo permitir la creación si el usuario está autenticado.
+        // Un jefe puede listar todos los lugares.
+        allow list: if request.auth != null && isJefe(request.auth.uid);
         allow create: if request.auth != null;
-        // NO permitir actualizaciones directas por usuarios.
-        // Si las actualizaciones son necesarias, deben ser a través de una Cloud Function
-        // que valide la integridad de los datos.
-        allow update: if false;
-        allow delete: if false;
+        allow update, delete: if false;
     }
-
-    // ===============================================
-    // REGLAS PARA INSIGNIAS Y CATEGORÍAS (Solo lectura)
-    // ===============================================
+    
+    // El resto de colecciones pueden ser listadas por un jefe.
     match /badges/{badgeId} {
       allow read: if true;
+      allow list: if request.auth != null && isJefe(request.auth.uid);
       allow write: if false;
     }
 
     match /categories/{categoryId} {
       allow read: if true;
+      allow list: if request.auth != null && isJefe(request.auth.uid);
       allow write: if false;
-    }
-    
-    // ===============================================
-    // REGLA PARA CONSULTAS DE GRUPO (`collectionGroup`)
-    // ===============================================
-    // Esta es la regla clave que permite a la página de perfil
-    // obtener todas las reseñas de un usuario.
-    match /{path=**}/reviews/{reviewId} {
-      // Permite a cualquier usuario autenticado LISTAR y OBTENER reseñas.
-      // Es necesario para la consulta `collectionGroup('reviews').where('userId', '==', ...)`.
-      allow list, get: if request.auth != null;
-    }
-    
-    // ===============================================
-    // FORUM RULES (Tus reglas, sin cambios)
-    // ===============================================
-    match /listForums/{listId} {
-      allow create: if request.auth != null;
-      allow read: if true;
-      
-      match /messages/{messageId} {
-        allow create: if request.auth != null;
-        allow update: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.userId);
-        allow read: if true;
-        allow delete: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.userId);
-      }
     }
   }
 }

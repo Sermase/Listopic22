@@ -1212,3 +1212,96 @@ async function recalculateAggregatesForPlace(placeId) {
       logger.error(`Error al actualizar el documento del lugar ${placeId}:`, error);
   }
 };
+
+exports.getAndCachePlaceDetails = onCall({cors: true}, async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
+    }
+    const { placeId } = request.data;
+    if (!placeId) {
+        throw new HttpsError('invalid-argument', 'Se requiere el ID del lugar (placeId).');
+    }
+
+    const placeRef = db.collection('places').doc(placeId);
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+
+    try {
+        // 1. Comprobar si ya tenemos los datos en nuestra BD
+        const doc = await placeRef.get();
+        // Opcional: podrías añadir lógica para refrescar datos antiguos aquí
+        if (doc.exists) {
+            logger.info(`Devolviendo datos cacheados para el lugar ${placeId}.`);
+            return { place: doc.data() };
+        }
+
+        // 2. Si no, llamar a la API de Google Place Details
+        logger.info(`No hay caché para ${placeId}. Obteniendo detalles de Google Places API.`);
+        if (!apiKey) {
+            throw new HttpsError('internal', 'La clave de API de Google no está configurada en el servidor.');
+        }
+
+        // ¡IMPORTANTE! Pide solo los campos que necesitas para no pagar de más.
+        const fields = [
+            'name', 'place_id', 'formatted_address', 'geometry', 'type', 'price_level', 
+            'rating', 'user_ratings_total', 'website', 'international_phone_number',
+            'opening_hours', 'photo', 'address_component'
+        ].join(',');
+
+        const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${apiKey}&fields=${fields}&language=es`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.status !== 'OK') {
+            throw new HttpsError('internal', `Error de la API de Google: ${data.status}`);
+        }
+
+        const result = data.result;
+
+        // 3. Mapear la respuesta de Google a nuestro modelo de datos
+        const placeData = {
+            name: result.name,
+            addressFormatted: result.formatted_address,
+            location: {
+                latitude: result.geometry.location.lat,
+                longitude: result.geometry.location.lng,
+            },
+            googlePlaceId: result.place_id,
+            googleRating: result.rating || null,
+            googleRatingsTotal: result.user_ratings_total || 0,
+            priceLevel: result.price_level || null,
+            types: result.types || [],
+            website: result.website || null,
+            internationalPhoneNumber: result.international_phone_number || null,
+            openingHours: result.opening_hours || null,
+            mainImageUrl: result.photos && result.photos.length > 0
+                ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${result.photos[0].photo_reference}&key=${apiKey}`
+                : null,
+            reviewsCount: 0, // Inicializamos los contadores
+            averageRating: null,
+            cachedAt: FieldValue.serverTimestamp()
+        };
+
+        // Extraer región, ciudad, etc. de 'address_components'
+        if (result.address_components) {
+            result.address_components.forEach(comp => {
+                if (comp.types.includes('administrative_area_level_2')) placeData.region = comp.long_name; // Provincia en España
+                else if (comp.types.includes('administrative_area_level_1') && !placeData.region) placeData.region = comp.long_name; // Comunidad Autónoma
+                if (comp.types.includes('locality')) placeData.city = comp.long_name;
+                if (comp.types.includes('postal_code')) placeData.postalCode = comp.long_name;
+                if (comp.types.includes('country')) placeData.country = comp.long_name;
+            });
+        }
+        
+        // 4. Guardar los datos en nuestra colección 'places' para futuras consultas
+        await placeRef.set(placeData);
+        logger.info(`Datos del lugar ${placeId} guardados en Firestore.`);
+        
+        return { place: placeData };
+
+    } catch (error) {
+        logger.error(`Error en getAndCachePlaceDetails para placeId ${placeId}:`, error);
+        if (error.code) throw error;
+        throw new HttpsError('internal', 'Ocurrió un error al procesar los datos del lugar.');
+    }
+});

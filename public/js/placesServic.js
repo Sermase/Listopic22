@@ -1,6 +1,31 @@
 window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.placesService = (() => {
+
+    async function fetchAndCachePlaceDetails(placeId) {
+        try {
+            // Preparamos la llamada a la función callable
+            const functions = firebase.functions();
+            const getDetails = functions.httpsCallable('getAndCachePlaceDetails');
+            
+            ListopicApp.services.showNotification('Obteniendo detalles del lugar...', 'info');
+
+            const result = await getDetails({ placeId: placeId });
+            
+            if (result.data.place) {
+                ListopicApp.services.showNotification('¡Detalles cargados!', 'success');
+                return result.data.place; // Devolvemos el objeto completo del lugar
+            } else {
+                throw new Error("La función no devolvió datos del lugar.");
+            }
+        } catch (error) {
+            console.error("Error en fetchAndCachePlaceDetails:", error);
+            ListopicApp.services.showNotification(`Error al obtener detalles: ${error.message}`, 'error');
+            return null;
+        }
+    }
+
+
     function displayPlaceSuggestions(places, suggestionsBox) {
         suggestionsBox.innerHTML = '';
         // currentSelectedPlaceInfo se maneja a través de ListopicApp.state
@@ -13,93 +38,84 @@ ListopicApp.placesService = (() => {
                 const addressInfo = place.vicinity || place.formatted_address || 'Información de dirección no disponible';
                 li.textContent = `${place.name} (${addressInfo})`;
                 li.style.cursor = 'pointer';
-                li.onclick = () => {
+                // --- ¡CAMBIO IMPORTANTE AQUÍ! ---
+                li.onclick = async () => {
+                    // 1. Damos feedback al usuario de que algo está pasando.
+                    suggestionsBox.innerHTML = '<p>Obteniendo detalles completos...</p>';
+                
+                    const basicPlaceId = place.place_id;
+                    if (!basicPlaceId) {
+                        ListopicApp.services.showNotification("Este lugar no tiene un ID de Google válido.", "error");
+                        suggestionsBox.innerHTML = ''; // Limpiamos
+                        return;
+                    }
+                
+                    // 2. Llamamos a nuestra función que contacta con el backend.
+                    // La respuesta (si todo va bien) es el objeto completo y enriquecido del lugar.
+                    const detailedPlace = await fetchAndCachePlaceDetails(basicPlaceId);
+                
+                    if (!detailedPlace) {
+                        suggestionsBox.innerHTML = '<p style="color:var(--danger-color);">No se pudieron cargar los detalles del lugar.</p>';
+                        return;
+                    }
+                    
+                    // 3. ¡LA PARTE CLAVE! Usamos el objeto "detailedPlace" para rellenar el formulario.
                     if (window.ListopicApp && window.ListopicApp.state) {
-                        const placeDetails = { // Objeto para almacenar detalles del lugar
-                            placeId: place.place_id,
-                            name: place.name,
-                            addressFormatted: place.formatted_address || place.vicinity,
-                            latitude: place.geometry?.location?.lat || null,
-                            longitude: place.geometry?.location?.lng || null,
-                            mapsUrl: place.place_id 
-                                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.place_id}` 
-                                : (place.geometry?.location?.lat && place.geometry?.location?.lng 
-                                    ? `https://www.google.com/maps/search/?api=1&query=${place.geometry.location.lat},${place.geometry.location.lng}` 
-                                    : ''),
-                            // Inicializar componentes de dirección
-                            streetAddress: '',
-                            city: '',
-                            postalCode: '',
-                            region: '', // Para provincia/estado
-                            country: ''
-                        };
-
-                        // Intentar extraer componentes de dirección si están disponibles (Google Places API detallada)
-                        if (place.address_components) {
-                            for (const component of place.address_components) {
-                                if (component.types.includes('street_number')) {
-                                    placeDetails.streetAddress = `${component.long_name} ${placeDetails.streetAddress}`;
-                                }
-                                if (component.types.includes('route')) {
-                                    placeDetails.streetAddress = `${placeDetails.streetAddress} ${component.long_name}`.trim();
-                                }
-                                if (component.types.includes('locality') || component.types.includes('postal_town')) {
-                                    placeDetails.city = component.long_name;
-                                }
-                                if (component.types.includes('administrative_area_level_2') && !placeDetails.region) { // Provincia en España
-                                    placeDetails.region = component.long_name;
-                                }
-                                if (component.types.includes('administrative_area_level_1') && !placeDetails.region) { // Comunidad Autónoma en España o Estado
-                                    placeDetails.region = component.long_name; // Usar esto si nivel 2 no está o se prefiere
-                                }
-                                if (component.types.includes('country')) {
-                                    placeDetails.country = component.long_name;
-                                }
-                                if (component.types.includes('postal_code')) {
-                                    placeDetails.postalCode = component.long_name;
-                                }
-                            }
-                        }
-                        // Si la dirección de la calle no se formó bien, usar la formateada como fallback
-                        if (!placeDetails.streetAddress && placeDetails.addressFormatted) {
-                            placeDetails.streetAddress = placeDetails.addressFormatted.split(',')[0]; // Intento simple
-                        }
-
-                        window.ListopicApp.state.currentSelectedPlaceInfo = placeDetails;
-                        console.log("placesService: currentSelectedPlaceInfo actualizado:", window.ListopicApp.state.currentSelectedPlaceInfo);
-
-                        // Actualizar los campos del formulario en review-form.html
-                        const establishmentNameInput = document.getElementById('restaurant-name-search-input'); // El input visible
-                        const establishmentNameHidden = document.getElementById('establishment-name');     // El oculto
-                        const locationDisplayNameInput = document.getElementById('location-display-name');
+                        // Guardamos el objeto completo en el estado global de la app
+                        window.ListopicApp.state.currentSelectedPlaceInfo = detailedPlace;
+                        console.log("placesService: currentSelectedPlaceInfo actualizado:", detailedPlace);
+                
+                        // --- REFERENCIAS A LOS CAMPOS DEL FORMULARIO (review-form.html) ---
+                
+                        // Campos visibles
+                        const establishmentNameInput = document.getElementById('restaurant-name-search-input');
                         const locationAddressManualInput = document.getElementById('location-address-manual');
                         const locationRegionManualInput = document.getElementById('location-region-manual');
                         const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
-                        // Campos ocultos
+                
+                        // Campos ocultos para datos básicos
+                        const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
                         const locationLatInput = document.getElementById('location-latitude');
                         const locationLonInput = document.getElementById('location-longitude');
-                        const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
-                        const locationCityGInput = document.getElementById('location-city-g');
-                        const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
-                        const locationCountryGInput = document.getElementById('location-country-g');
-
-                        if (establishmentNameInput) establishmentNameInput.value = placeDetails.name;
-                        if (establishmentNameHidden) establishmentNameHidden.value = placeDetails.name; // Para la lógica de findOrCreatePlace
-                        if (locationDisplayNameInput) locationDisplayNameInput.value = placeDetails.name; // Nombre del lugar para el usuario
-                        if (locationAddressManualInput) locationAddressManualInput.value = placeDetails.addressFormatted || placeDetails.streetAddress; // Dirección completa o de calle
-                        if (locationRegionManualInput) locationRegionManualInput.value = placeDetails.region; // Región/Provincia
-                        if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeDetails.mapsUrl;
+                        const locationCityInput = document.getElementById('location-city');
+                        const locationPostalCodeInput = document.getElementById('location-postalCode');
                         
-                        if(locationLatInput) locationLatInput.value = placeDetails.latitude || "";
-                        if(locationLonInput) locationLonInput.value = placeDetails.longitude || "";
-                        if(locationPlaceIdInput) locationPlaceIdInput.value = placeDetails.placeId || "";
-                        if(locationCityGInput) locationCityGInput.value = placeDetails.city || "";
-                        if(locationPostalCodeGInput) locationPostalCodeGInput.value = placeDetails.postalCode || "";
-                        if(locationCountryGInput) locationCountryGInput.value = placeDetails.country || "";
+                        // Campos ocultos para los NUEVOS datos enriquecidos
+                        const locationPriceLevelInput = document.getElementById('location-priceLevel');
+                        const locationGoogleRatingInput = document.getElementById('location-googleRating');
+                        const locationTypesInput = document.getElementById('location-types');
+                
+                        // --- RELLENAR LOS CAMPOS USANDO "detailedPlace" ---
+                
+                        if (establishmentNameInput) establishmentNameInput.value = detailedPlace.name || '';
+                        if (locationAddressManualInput) locationAddressManualInput.value = detailedPlace.addressFormatted || '';
+                        if (locationRegionManualInput) locationRegionManualInput.value = detailedPlace.region || '';
+                        if (locationGoogleMapsUrlManualInput && detailedPlace.googlePlaceId) {
+                            locationGoogleMapsUrlManualInput.value = `https://www.google.com/maps/search/?api=1&query_place_id=CHJ...1`;
+                        }
+                        
+                        // Rellenar campos ocultos
+                        if (locationPlaceIdInput) locationPlaceIdInput.value = detailedPlace.googlePlaceId || '';
+                        if (locationLatInput) locationLatInput.value = detailedPlace.location?.latitude || '';
+                        if (locationLonInput) locationLonInput.value = detailedPlace.location?.longitude || '';
+                        if (locationCityInput) locationCityInput.value = detailedPlace.city || '';
+                        if (locationPostalCodeInput) locationPostalCodeInput.value = detailedPlace.postalCode || '';
+                        
+                        // Rellenar NUEVOS campos ocultos
+                        if (locationPriceLevelInput) locationPriceLevelInput.value = detailedPlace.priceLevel ?? ''; // '??' maneja bien el valor 0
+                        if (locationGoogleRatingInput) locationGoogleRatingInput.value = detailedPlace.googleRating || '';
+                        if (locationTypesInput && detailedPlace.types) {
+                            // Guardamos el array de tipos como un string JSON
+                            locationTypesInput.value = JSON.stringify(detailedPlace.types);
+                        }
+                
+                        // 4. Limpiamos y ocultamos la caja de sugerencias. ¡Misión cumplida!
+                        suggestionsBox.innerHTML = '';
+                        suggestionsBox.style.display = 'none';
+                
                     } else {
-                        console.warn("ListopicApp.state not defined, currentSelectedPlaceInfo not updated in placesService.");
+                        console.warn("ListopicApp.state no está definido. No se pudo actualizar el estado.");
                     }
-                    suggestionsBox.innerHTML = ''; // Limpiar sugerencias después de seleccionar
                 };
                 ul.appendChild(li);
             });
