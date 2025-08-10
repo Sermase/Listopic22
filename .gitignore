@@ -2,3 +2,5 @@
 node_modules/
 # Firebase admin SDK key
 listopic-ser-firebase-adminsdk-key.json
+# Ignorar archivos de entorno con variables sensibles
+.env
