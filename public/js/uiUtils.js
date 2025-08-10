@@ -176,12 +176,12 @@ ListopicApp.uiUtils = {
 // === FUNCIÓN CENTRALIZADA: SUPER TARJETA RESEÑA v3.0 =====
 // ==========================================================
 
-        renderReviewSuperCard: function(review) {
+    renderReviewSuperCard: function(review) {
         const uiUtils = this;
 
         // --- 1. Preparación de Datos ---
         const author = review.author || { id: '#', photoUrl: 'img/placeholder-avatar.png', name: 'Usuario' };
-        const place = review.place || { id: '#', name: review.establishmentName || 'Lugar Desconocido' };
+        const place = review.place || { id: '#', name: review.establishmentName || 'Lugar Desconocido', googleMapsUrl: '#' };
         const list = { id: review.listId, name: review.listName || 'Lista Desconocida' };
         const overallRating = (review.overallRating || 0).toFixed(1);
         const detailUrl = `detail-view.html?id=${review.id}&listId=${review.listId}`;
@@ -242,8 +242,11 @@ ListopicApp.uiUtils = {
                         <div class="review-super-card__title-group">
                             <h4 class="review-super-card__title">${uiUtils.escapeHtml(review.itemName)}</h4>
                             <p class="review-super-card__subtitle">
-                                <a href="grouped-detail-view.html?listId=${review.listId}&placeId=${place.id}&itemName=${encodeURIComponent(review.itemName)}" class="place-name-link" onclick="event.stopPropagation()">
-                                    <i class="fas fa-map-marker-alt"></i> ${uiUtils.escapeHtml(place.name)}
+                                <a href="${uiUtils.escapeHtml(place.googleMapsUrl)}" target="_blank" class="place-icon-link" onclick="event.stopPropagation()" title="Ver en Google Maps">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </a>
+                                <a href="place-detail.html?placeId=${place.id}" class="place-name-link" onclick="event.stopPropagation()">
+                                    ${uiUtils.escapeHtml(place.name)}
                                 </a>
                             </p>
                         </div>
