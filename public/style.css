@@ -5239,4 +5239,157 @@ body.light-theme .leaflet-popup-tip {
 
 
 
+/* =================================================== */
+/* === ESTILOS PARA LA NUEVA CABECERA DE GRUPO (v1) === */
+/* =================================================== */
 
+.group-header-card {
+    background-color: var(--container-bg-secondary);
+    border-radius: var(--border-radius-large);
+    padding: clamp(15px, 3vw, 25px);
+    margin-bottom: 25px;
+    border: 1px solid var(--border-color-light);
+    box-shadow: var(--shadow-elevation-low);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.group-header__main-info {
+    flex: 1 1 300px; /* Crece y tiene una base de 300px */
+    text-align: left;
+}
+
+.group-header__main-info h2 {
+    font-size: clamp(1.6em, 4vw, 2.2em);
+    margin: 0 0 5px 0;
+    text-align: left;
+}
+
+.group-header__main-info #group-subtitle {
+    margin: 0 0 15px 0;
+    color: var(--secondary-text-color);
+    font-size: 0.9em;
+}
+
+.place-info-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Reutilizamos y adaptamos el estilo de info-tag */
+.info-tag.info-tag--place, .info-tag.info-tag--gmaps {
+    text-decoration: none;
+    font-size: 0.85em;
+    padding: 6px 12px;
+}
+
+.group-header__stats-and-criteria {
+    flex: 1 1 350px; /* Crece y tiene una base mayor */
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.header-stats-container {
+    display: flex;
+    gap: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.header-stats-container .stat-item {
+    text-align: left;
+}
+
+.header-stats-container .stat-item .score-value,
+.header-stats-container .stat-item .count-value {
+    font-size: 1.8em;
+    font-weight: 700;
+    color: var(--accent-color-primary);
+    display: block;
+    line-height: 1;
+}
+
+.header-stats-container .stat-item .label {
+    font-size: 0.8em;
+    color: var(--secondary-text-color);
+}
+
+#group-avg-criteria-bars .loading-placeholder {
+    font-style: italic;
+    font-size: 0.9em;
+    opacity: 0.7;
+}
+
+/* =================================================== */
+/* ===     ESTILOS PARA EL LIGHTBOX DE IMÁGENES     === */
+/* =================================================== */
+
+.lightbox-modal {
+    display: none;
+    position: fixed;
+    z-index: 1050;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    align-items: center;
+    justify-content: center;
+}
+
+.lightbox-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+#lightbox-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 5px;
+    animation: zoomIn 0.3s ease;
+}
+
+@keyframes zoomIn {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.lightbox-close-button {
+    position: absolute;
+    top: 15px;
+    right: 35px;
+    color: #fff;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.lightbox-close-button:hover { color: #ccc; }
+
+.lightbox-prev, .lightbox-next {
+    cursor: pointer;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: auto;
+    padding: 16px;
+    color: white;
+    font-weight: bold;
+    font-size: 20px;
+    transition: 0.3s ease;
+    border-radius: 0 3px 3px 0;
+    user-select: none;
+    background-color: rgba(0,0,0,0.3);
+}
+.lightbox-next { right: 0; border-radius: 3px 0 0 3px; }
+.lightbox-prev { left: 0; }
+.lightbox-prev:hover, .lightbox-next:hover { background-color: rgba(0,0,0,0.8); }
+
+/* Ocultar flechas si solo hay una imagen */
+.lightbox-modal.single-image .lightbox-prev,
+.lightbox-modal.single-image .lightbox-next {
+    display: none;
+}
