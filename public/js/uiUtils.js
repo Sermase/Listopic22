@@ -178,103 +178,99 @@ ListopicApp.uiUtils = {
 
     // En uiUtils.js, reemplaza la función entera por esta:
 
-renderReviewSuperCard: function(review) {
-    // --- INICIO DEL DETECTOR DE URLS ---
-    console.groupCollapsed(`--- DETECTOR SUPER-CARD para: ${review.itemName || review.establishmentName}`);
-    console.log('Objeto "review" recibido:', review);
-    if (review.place && review.place.googleMapsUrl && review.place.googleMapsUrl !== '#') {
-        console.log('%c¡ÉXITO! URL del mapa encontrada en review.place:', 'color: lightgreen; font-weight: bold;', review.place.googleMapsUrl);
-    } else {
-        console.error('FALLO: No se encontró una googleMapsUrl válida en el objeto review.place.');
-        console.log('Contenido de review.place:', review.place);
-    }
-    console.groupEnd();
-    // --- FIN DEL DETECTOR ---
+    renderReviewSuperCard: function(review) {
+        const uiUtils = this;
 
-    const uiUtils = this;
+        // --- 1. Preparación de Datos (Ahora mucho más seguro) ---
+        const author = review.author || {};
+        const authorId = author.id || review.userId;
+        const authorName = uiUtils.escapeHtml(author.name || 'Usuario Anónimo');
+        const authorPhoto = uiUtils.escapeHtml(author.photoUrl || 'img/placeholder-avatar.png');
 
-    // --- 1. Preparación de Datos ---
-    const author = review.author || { id: review.userId || '#', name: 'Usuario Anónimo', photoUrl: 'img/placeholder-avatar.png', name: 'Usuario Anónimo' };
-    const place = review.place || { id: review.placeId || '#', name: review.establishmentName || 'Lugar Desconocido', googleMapsUrl: review.placeId.googleMapsUrl || '#' };
-    const list = { id: review.listId, name: review.listName || 'Lista Desconocida' };
-    const overallRating = (review.overallRating || 0).toFixed(1);
-    const detailUrl = `detail-view.html?id=${review.id}&listId=${review.listId}`;
+        const place = review.place || {};
+        const placeId = place.id || review.placeId;
+        const placeName = uiUtils.escapeHtml(place.name || review.establishmentName || 'Lugar Desconocido');
+        const placeUrl = uiUtils.escapeHtml(place.googleMapsUrl || '#');
 
-    // --- 2. Construcción de Bloques de HTML ---
-    let placeLinkHtml = '';
-    if (place.id && place.id !== '#') {
-        placeLinkHtml = `<a href="place-detail.html?placeId=${place.id}" class="place-name-link" onclick="event.stopPropagation()">${uiUtils.escapeHtml(place.name)}</a>`;
-    } else {
-        placeLinkHtml = `<span class="place-name-link--no-link">${uiUtils.escapeHtml(place.name)}</span>`;
-    }
-    let criteriaHtml = '';
-    if (review.scores && review.criteriaDefinition && Object.keys(review.criteriaDefinition).length > 0) {
-        const criteriaItems = Object.entries(review.criteriaDefinition)
-            .map(([critKey, critDef]) => {
-                const score = review.scores[critKey];
-                if (score === undefined) return '';
-                const score10 = parseFloat(score).toFixed(1);
-                return `<div class="criteria-bar">
-                            <div class="criteria-bar__label" title="${uiUtils.escapeHtml(critDef.label)}">${uiUtils.escapeHtml(critDef.label)}</div>
-                            <div class="criteria-bar__viz">
-                                <div class="criteria-bar__bg">
-                                    <div class="criteria-bar__fill" style="width: ${score10 * 10}%;"></div>
+        const list = { id: review.listId, name: uiUtils.escapeHtml(review.listName || 'Lista Desconocida') };
+        const overallRating = (review.overallRating || 0).toFixed(1);
+        const detailUrl = `detail-view.html?id=${review.id}&listId=${review.listId}`;
+
+        // --- 2. Construcción de Bloques de HTML ---
+        const placeLinkHtml = placeId && placeId !== '#'
+            ? `<a href="place-detail.html?placeId=${placeId}" class="place-name-link" onclick="event.stopPropagation()">${placeName}</a>`
+            : `<span class="place-name-link--no-link">${placeName}</span>`;
+
+        let criteriaHtml = '';
+        if (review.scores && review.criteriaDefinition && Object.keys(review.criteriaDefinition).length > 0) {
+            const criteriaItems = Object.entries(review.criteriaDefinition)
+                .map(([critKey, critDef]) => {
+                    const score = review.scores[critKey];
+                    if (score === undefined) return '';
+                    const score10 = parseFloat(score).toFixed(1);
+                    return `<div class="criteria-bar">
+                                <div class="criteria-bar__label" title="${uiUtils.escapeHtml(critDef.label)}">${uiUtils.escapeHtml(critDef.label)}</div>
+                                <div class="criteria-bar__viz">
+                                    <div class="criteria-bar__bg">
+                                        <div class="criteria-bar__fill" style="width: ${score10 * 10}%;"></div>
+                                    </div>
+                                    <div class="criteria-bar__value" style="color: ${this.getRatingColor(score10)};">${score10}</div>
                                 </div>
-                                <div class="criteria-bar__value" style="color: ${this.getRatingColor(score10)};">${score10}</div>
-                            </div>
-                        </div>`;
-            }).join('');
-        if (criteriaItems) criteriaHtml = `<div class="criteria-bars-list">${criteriaItems}</div>`;
-    }
-    
-    let commentHtml = review.comment ? `<p class="review-super-card__comment">${uiUtils.escapeHtml(review.comment)}</p>` : '';
-    let tagsHtml = (review.userTags && review.userTags.length > 0) 
-        ? `<div class="review-super-card__tags">${review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>` 
-        : '';
+                            </div>`;
+                }).join('');
+            if (criteriaItems) criteriaHtml = `<div class="criteria-bars-list">${criteriaItems}</div>`;
+        }
 
-    let imageHtml = review.photoUrl
-        ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(review.itemName)}" class="review-super-card__image">`
-        : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
+        const commentHtml = review.comment ? `<p class="review-super-card__comment">${uiUtils.escapeHtml(review.comment)}</p>` : '';
+        const tagsHtml = (review.userTags && review.userTags.length > 0) 
+            ? `<div class="review-super-card__tags">${review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>` 
+            : '';
 
-    // --- 3. Ensamblado Final de la Tarjeta ---
-    return `
-        <article class="review-super-card" onclick="window.location.href='${detailUrl}';">
-            <header class="review-super-card__header">
-                <div class="header-main-info">
-                    <a href="profile.html?viewUserId=${author.id}" class="author-link" onclick="event.stopPropagation()">
-                        <img src="${uiUtils.escapeHtml(author.photoUrl)}" alt="Avatar de ${uiUtils.escapeHtml(author.name)}" class="author-avatar">
-                        <span class="author-name">${uiUtils.escapeHtml(author.name)}</span>
-                    </a>
-                    <div class="list-highlight">
-                        <span class="meta-separator">•</span> en <a href="list-view.html?listId=${list.id}" onclick="event.stopPropagation()">${uiUtils.escapeHtml(list.name)}</a>
+        const imageHtml = review.photoUrl
+            ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(review.itemName)}" class="review-super-card__image">`
+            : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
+        
+        // --- 3. Ensamblado Final ---
+        return `
+            <article class="review-super-card" onclick="window.location.href='${detailUrl}';">
+                <header class="review-super-card__header">
+                    <div class="header-main-info">
+                        <a href="profile.html?viewUserId=${authorId}" class="author-link" onclick="event.stopPropagation()">
+                            <img src="${authorPhoto}" alt="Avatar de ${authorName}" class="author-avatar">
+                            <span class="author-name">${authorName}</span>
+                        </a>
+                        <div class="list-highlight">
+                            <span class="meta-separator">•</span> en <a href="list-view.html?listId=${list.id}" onclick="event.stopPropagation()">${list.name}</a>
+                        </div>
+                    </div>
+                    <div class="review-super-card__score">
+                        <span class="score-value" style="color: ${this.getRatingColor(overallRating)};">${overallRating}</span>
+                    </div>
+                </header>
+                <div class="review-super-card__body">
+                    <div class="review-super-card__image-container">
+                        ${imageHtml}
+                    </div>
+                    <div class="review-super-card__main-content">
+                        <div class="review-super-card__title-group">
+                            <h4 class="review-super-card__title">${uiUtils.escapeHtml(review.itemName)}</h4>
+                            <p class="review-super-card__subtitle">
+                                <a href="${placeUrl}" target="_blank" class="place-icon-link" onclick="event.stopPropagation()" title="Ver en Google Maps">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </a>
+                                ${placeLinkHtml}
+                            </p>
+                        </div>
+                        ${criteriaHtml}
+                        ${commentHtml}
+                        ${tagsHtml}
                     </div>
                 </div>
-                <div class="review-super-card__score">
-                    <span class="score-value" style="color: ${this.getRatingColor(overallRating)};">${overallRating}</span>
-                </div>
-            </header>
-            <div class="review-super-card__body">
-                <div class="review-super-card__image-container">
-                    ${imageHtml}
-                </div>
-                <div class="review-super-card__main-content">
-                    <div class="review-super-card__title-group">
-                        <h4 class="review-super-card__title">${uiUtils.escapeHtml(review.itemName)}</h4>
-                        <p class="review-super-card__subtitle">
-                            <a href="${uiUtils.escapeHtml(place.googleMapsUrl)}" target="_blank" class="place-icon-link" onclick="event.stopPropagation()" title="Ver en Google Maps">
-                                <i class="fas fa-map-marker-alt"></i>
-                            </a>
-                            ${placeLinkHtml}
-                        </p>
-                    </div>
-                    ${criteriaHtml}
-                    ${commentHtml}
-                    ${tagsHtml}
-                </div>
-            </div>
-        </article>
-    `;
-},
+            </article>
+        `;
+    },
+
+   
 
     // AÑADE ESTA FUNCIÓN AUXILIAR DENTRO DE ListopicApp.uiUtils
     getRatingColor: function(rating) {
@@ -415,24 +411,32 @@ createListViewGroupCard: function(group, listData, listIcon) {
     
     // En public/js/uiUtils.js, dentro de ListopicApp.uiUtils
 
-    async enrichReviews(reviewDocs) {
+    enrichReviews: async function(reviewDocs) {
         try {
+            if (!reviewDocs || reviewDocs.length === 0) return [];
+            
             const reviewsData = reviewDocs.map(doc => ({ id: doc.id, ...doc.data() }));
     
+            // 1. Recolectar todos los IDs únicos necesarios
             const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
             const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];
             const authorIds = [...new Set(reviewsData.map(r => r.userId).filter(Boolean))];
     
+            // 2. Crear promesas para obtener todos los datos en paralelo
             const listPromises = listIds.map(id => ListopicApp.services.db.collection('lists').doc(id).get());
-            const placePromises = placeIds.map(id => ListopicApp.services.db.collection('places').doc(id).get());
-            const authorPromises = authorIds.map(id => ListopicApp.services.db.collection('users').doc(id).get());
+            const placePromises = placeIds.length > 0 ? 
+                placeIds.map(id => ListopicApp.services.db.collection('places').doc(id).get()) : [];
+            const authorPromises = authorIds.length > 0 ?
+                authorIds.map(id => ListopicApp.services.db.collection('users').doc(id).get()) : [];
     
+            // 3. Esperar a que todas las consultas se completen
             const [listSnapshots, placeSnapshots, authorSnapshots] = await Promise.all([
                 Promise.all(listPromises),
                 Promise.all(placePromises),
                 Promise.all(authorPromises),
             ]);
     
+            // 4. Crear mapas para un acceso rápido y eficiente a los datos
             const listsMap = new Map(
                 listSnapshots.filter(doc => doc.exists).map(doc => [doc.id, doc.data()])
             );
@@ -443,6 +447,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
                 authorSnapshots.filter(doc => doc.exists).map(doc => [doc.id, doc.data()])
             );
     
+            // 5. Mapear sobre las reseñas originales y construir los objetos enriquecidos
             return reviewsData.map(review => {
                 const listData = listsMap.get(review.listId);
                 const authorData = authorsMap.get(review.userId);
