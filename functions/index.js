@@ -269,6 +269,43 @@ exports.placesTextSearch = onRequest(async (req, res) => {
     });
   });
 
+// --- FUNCIÓN getPlaceDetailsFromGoogle ---
+exports.getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
+  cors(req, res, async () => {
+    const { placeid } = req.query;
+    const apiKey = 'AIzaSyDXUk2b2VZu6Ui-HlBMZeMeQGBvzaSpHvE'; // TEMPORARY DEBUGGING
+
+    if (!placeid) {
+      logger.warn("getPlaceDetailsFromGoogle: El ID del lugar (placeid) es requerido.", {query: req.query, structuredData: true});
+      return res.status(400).json({ message: "El ID del lugar (placeid) es requerido." });
+    }
+    if (!apiKey) {
+        logger.error("getPlaceDetailsFromGoogle: GOOGLE_PLACES_API_KEY no está disponible.", {structuredData: true});
+        return res.status(500).json({ message: "Error de configuración del servidor (Places API Key no encontrada)." });
+    }
+
+    const fields = "name,place_id,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components";
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?placeid=${placeid}&key=${apiKey}&fields=${fields}&language=es`;
+
+    logger.info("getPlaceDetailsFromGoogle: Fetching Google Place Details", {url: url.replace(apiKey, "REDACTED_API_KEY"), structuredData: true});
+
+    try {
+      const placeDetailsResponse = await fetch(url);
+      const placeDetailsData = await placeDetailsResponse.json();
+
+      if (placeDetailsData.status === "OK") {
+        res.status(200).json(placeDetailsData.result);
+      } else {
+        logger.error("getPlaceDetailsFromGoogle: Error desde Google Places API", {status: placeDetailsData.status, error_message: placeDetailsData.error_message, structuredData: true});
+        res.status(500).json({ message: `Error de la API de Google Places: ${placeDetailsData.status}`, details: placeDetailsData.error_message });
+      }
+    } catch (error) {
+      logger.error("getPlaceDetailsFromGoogle: Error al contactar Google Places API", error, {structuredData: true});
+      res.status(500).json({ message: "Error interno al buscar detalles del lugar.", error: error.message });
+    }
+  });
+});
+
 // --- FUNCIÓN CALLABLE: deleteListAndContent ---
 exports.deleteOrOrphanList = onCall({cors: true}, async (request) => {
   const contextAuth = request.auth;
@@ -1211,4 +1248,137 @@ async function recalculateAggregatesForPlace(placeId) {
   } catch (error) {
       logger.error(`Error al actualizar el documento del lugar ${placeId}:`, error);
   }
-};
+};exports.adminUpdateAllPlaces = onCall(async (request) => {
+    const contextAuth = request.auth;
+    if (!contextAuth) {
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+    }
+
+    // Admin check
+    try {
+        const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
+        if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
+        }
+    } catch (error) {
+        logger.error("adminUpdateAllPlaces: Error al verificar permisos de admin", error);
+        throw new HttpsError('internal', 'Error al verificar permisos.');
+    }
+
+    const apiKey = 'AIzaSyDXUk2b2VZu6Ui-HlBMZeMeQGBvzaSpHvE'; // TEMPORARY DEBUGGING - CHANGE TO process.env.GOOGLE_PLACES_API_KEY
+    if (!apiKey) {
+        logger.error("adminUpdateAllPlaces: GOOGLE_PLACES_API_KEY no está disponible.");
+        throw new HttpsError('internal', 'Error de configuración del servidor (Places API Key no encontrada).');
+    }
+
+    const placesRef = db.collection('places');
+    let batch = db.batch();
+    let updatedCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+    let writeCount = 0;
+
+    try {
+        const snapshot = await placesRef.get();
+        const places = snapshot.docs;
+
+        for (const doc of places) {
+            const placeData = doc.data();
+            const placeId = placeData.googlePlaceId; // Assuming the field is named googlePlaceId
+
+            if (!placeId) {
+                skippedCount++;
+                continue;
+            }
+
+            const fields = "name,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components";
+            const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${apiKey}&fields=${fields}&language=es`;
+
+            try {
+                const response = await fetch(url);
+                const details = await response.json();
+
+                if (details.status === "OK" && details.result) {
+                    const result = details.result;
+                    const updateData = {
+                        name: result.name,
+                        formatted_address: result.formatted_address,
+                        'location.latitude': result.geometry?.location?.lat,
+                        'location.longitude': result.geometry?.location?.lng,
+                        googleMapsUrl: result.url,
+                        mainImageUrl: result.photos && result.photos.length > 0 ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${result.photos[0].photo_reference}&key=${apiKey}` : (placeData.mainImageUrl || null),
+                        priceLevel: result.price_level,
+                        website: result.website,
+                        phone: result.international_phone_number,
+                        vicinity: result.vicinity,
+                        updatedAt: FieldValue.serverTimestamp()
+                    };
+
+                    // Clean undefined values
+                    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+
+                    batch.update(doc.ref, updateData);
+                    writeCount++;
+                    updatedCount++;
+
+                    if (writeCount >= 499) {
+                        await batch.commit();
+                        batch = db.batch();
+                        writeCount = 0;
+                    }
+                } else {
+                    logger.error(`Error fetching details for placeId ${placeId}: ${details.status} - ${details.error_message || ''}`);
+                    errorCount++;
+                }
+            } catch (fetchError) {
+                logger.error(`Exception fetching details for placeId ${placeId}:`, fetchError);
+                errorCount++;
+            }
+        }
+
+        if (writeCount > 0) {
+            await batch.commit();
+        }
+
+        logger.info(`adminUpdateAllPlaces successful. Updated: ${updatedCount}, Skipped: ${skippedCount}, Errors: ${errorCount}`);
+        return { success: true, updated: updatedCount, skipped: skippedCount, errors: errorCount };
+
+    } catch (error) {
+        logger.error("Error masivo en adminUpdateAllPlaces:", error);
+        throw new HttpsError('internal', 'Un error ocurrió durante la actualización masiva.');
+    }
+});
+
+exports.adminGetCollection = onCall(async (request) => {
+    const contextAuth = request.auth;
+    if (!contextAuth) {
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+    }
+
+    // Admin check
+    try {
+        const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
+        if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
+        }
+    } catch (error) {
+        logger.error("adminGetCollection: Error al verificar permisos de admin", error);
+        throw new HttpsError('internal', 'Error al verificar permisos.');
+    }
+
+    const collectionName = request.data.collectionName;
+    const allowedCollections = ['users', 'lists', 'places', 'categories', 'listForums', 'reviews'];
+
+    if (!collectionName || !allowedCollections.includes(collectionName)) {
+        throw new HttpsError('invalid-argument', 'Nombre de colección no válido o no permitido.');
+    }
+
+    try {
+        const snapshot = await db.collection(collectionName).get();
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return { data: data };
+    } catch (error) {
+        logger.error(`Error masivo en adminGetCollection para la colección ${collectionName}:`, error);
+        throw new HttpsError('internal', `Un error ocurrió al obtener la colección ${collectionName}.`);
+    }
+});
