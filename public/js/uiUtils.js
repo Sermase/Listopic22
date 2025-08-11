@@ -473,5 +473,29 @@ createListViewGroupCard: function(group, listData, listIcon) {
             return [];
         }
     },
+    renderCriteriaBars: function(scores, criteriaDefinition) {
+        if (!scores || !criteriaDefinition || Object.keys(criteriaDefinition).length === 0) {
+            return '<p class="loading-placeholder">No hay criterios para mostrar.</p>';
+        }
+    
+        const criteriaItems = Object.entries(criteriaDefinition)
+            .map(([critKey, critDef]) => {
+                const score = scores[critKey];
+                if (score === undefined || critDef.ponderable === false) return ''; // Opcional: no mostrar no ponderables
+                
+                const score10 = parseFloat(score).toFixed(1);
+                return `<div class="criteria-bar">
+                            <div class="criteria-bar__label" title="${this.escapeHtml(critDef.label)}">${this.escapeHtml(critDef.label)}</div>
+                            <div class="criteria-bar__viz">
+                                <div class="criteria-bar__bg">
+                                    <div class="criteria-bar__fill" style="width: ${score10 * 10}%; background-color: ${this.getRatingColor(score10)};"></div>
+                                </div>
+                                <div class="criteria-bar__value" style="color: ${this.getRatingColor(score10)};">${score10}</div>
+                            </div>
+                        </div>`;
+            }).join('');
+    
+        return criteriaItems || '<p class="loading-placeholder">No hay criterios ponderables para mostrar.</p>';
+    },
 };
 

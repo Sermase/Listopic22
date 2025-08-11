@@ -10,6 +10,7 @@ ListopicApp.pageGroupedDetailView = (() => {
         currentLightboxImageIndex = index;
         lightboxImage.src = ListopicApp.state.lightboxImageUrls[currentLightboxImageIndex];
         lightboxModal.style.display = 'flex';
+        // Añadimos/quitamos una clase para poder ocultar las flechas con CSS
         lightboxModal.classList.toggle('single-image', ListopicApp.state.lightboxImageUrls.length <= 1);
     }
 
@@ -19,7 +20,7 @@ ListopicApp.pageGroupedDetailView = (() => {
     }
 
     function changeLightboxImage(direction) {
-        if (!ListopicApp.state.lightboxImageUrls || ListopicApp.state.lightboxImageUrls.length === 0) return;
+        if (!ListopicApp.state.lightboxImageUrls || ListopicApp.state.lightboxImageUrls.length <= 1) return;
         currentLightboxImageIndex += direction;
         if (currentLightboxImageIndex >= ListopicApp.state.lightboxImageUrls.length) {
             currentLightboxImageIndex = 0;
@@ -30,8 +31,6 @@ ListopicApp.pageGroupedDetailView = (() => {
         if (lightboxImage) lightboxImage.src = ListopicApp.state.lightboxImageUrls[currentLightboxImageIndex];
     }
     
-    // ATENCIÓN: La función renderIndividualReviewCard() ha sido ELIMINADA.
-
     async function initializeGroupedDetailView() {
         const state = ListopicApp.state;
         const db = ListopicApp.services.db;
@@ -42,19 +41,21 @@ ListopicApp.pageGroupedDetailView = (() => {
         const placeIdFromUrl = urlParams.get('placeId');
         state.currentGroupDetailItem = decodeURIComponent(urlParams.get('item') || '');
 
+        // --- Elementos del DOM (NUEVOS y ANTIGUOS) ---
         const groupTitleEl = document.getElementById('group-title');
         const listNameSubheaderEl = document.getElementById('list-name-subheader');
+        const placeDetailLinkEl = document.getElementById('place-detail-link');
+        const placeNameLinkTextEl = document.getElementById('place-name-link-text');
+        const gmapsLinkEl = document.getElementById('gmaps-link');
         const groupAverageScoreEl = document.getElementById('group-average-score')?.querySelector('.score-value');
         const groupReviewCountEl = document.getElementById('group-review-count')?.querySelector('.count-value');
+        const avgCriteriaBarsEl = document.getElementById('group-avg-criteria-bars');
         const groupImageGalleryEl = document.getElementById('group-image-gallery');
         const individualReviewsListEl = document.getElementById('individual-reviews-list');
         const backToListButton = document.getElementById('back-to-list-view');
 
-        if (backToListButton && state.currentGroupDetailListId) {
-            backToListButton.href = `list-view.html?listId=${state.currentGroupDetailListId}`;
-        } else if (backToListButton) {
-            backToListButton.href = 'index.html';
-        }
+        if (backToListButton) backToListButton.href = `list-view.html?listId=${state.currentGroupDetailListId || ''}`;
+
 
         if (!state.currentGroupDetailListId || !placeIdFromUrl) {
             const errorMsg = "Error: Faltan parámetros para cargar el detalle.";
@@ -65,74 +66,109 @@ ListopicApp.pageGroupedDetailView = (() => {
         }
 
         try {
-            const listDoc = await db.collection('lists').doc(state.currentGroupDetailListId).get();
+            // 1. Obtener datos de la lista y del lugar (en paralelo para más velocidad)
+            const listPromise = db.collection('lists').doc(state.currentGroupDetailListId).get();
+            const placePromise = db.collection('places').doc(placeIdFromUrl).get();
+            const [listDoc, placeDoc] = await Promise.all([listPromise, placePromise]);
+
             if (!listDoc.exists) throw new Error("Lista de origen no encontrada.");
+            if (!placeDoc.exists) throw new Error(`Lugar con ID ${placeIdFromUrl} no encontrado.`);
+
             const listData = listDoc.data();
-            state.currentGroupDetailListName = listData.name || 'Lista Desconocida';
+            const placeData = { id: placeDoc.id, ...placeDoc.data() };
             
-            if(listNameSubheaderEl) listNameSubheaderEl.textContent = `Lista: ${uiUtils.escapeHtml(state.currentGroupDetailListName)}`;
-            
-            const placeDoc = await db.collection('places').doc(placeIdFromUrl).get();
-            if (!placeDoc.exists) throw new Error(`Lugar no encontrado.`);
-            const placeData = {id: placeDoc.id, ...placeDoc.data()}; 
+            state.currentGroupDetailListName = listData.name || 'Desconocida';
+            state.currentGroupDetailCriteriaDefinition = listData.criteriaDefinition || {};
 
+            // 2. Poblar la cabecera con datos del lugar y la lista
             let titleText = placeData.name || "Lugar Desconocido";
-            if (state.currentGroupDetailItem && state.currentGroupDetailItem !== "") {
-                titleText += ` - ${uiUtils.escapeHtml(state.currentGroupDetailItem)}`;
-            }
-            if(groupTitleEl) groupTitleEl.textContent = titleText;
-
-            let reviewsQuery = db.collection('lists').doc(state.currentGroupDetailListId).collection('reviews')
-                                 .where('placeId', '==', placeIdFromUrl);
+            if (state.currentGroupDetailItem) titleText += ` - ${uiUtils.escapeHtml(state.currentGroupDetailItem)}`;
+            if (groupTitleEl) groupTitleEl.textContent = titleText;
+            if (listNameSubheaderEl) listNameSubheaderEl.textContent = `En lista: ${uiUtils.escapeHtml(state.currentGroupDetailListName)}`;
             
-            if (state.currentGroupDetailItem && state.currentGroupDetailItem !== "") {
+            if (placeDetailLinkEl) {
+                placeDetailLinkEl.href = `place-detail.html?placeId=${placeData.id}`;
+                placeDetailLinkEl.style.display = 'inline-flex';
+                if(placeNameLinkTextEl) placeNameLinkTextEl.textContent = `Ver página de "${uiUtils.escapeHtml(placeData.name)}"`;
+            }
+            if (gmapsLinkEl && placeData.googleMapsUrl) {
+                gmapsLinkEl.href = placeData.googleMapsUrl;
+                gmapsLinkEl.style.display = 'inline-flex';
+            }
+
+            // 3. Obtener y enriquecer reseñas (tu lógica anterior, que ya es correcta)
+            let reviewsQuery = db.collection('lists').doc(state.currentGroupDetailListId).collection('reviews').where('placeId', '==', placeIdFromUrl);
+            if (state.currentGroupDetailItem) {
                 reviewsQuery = reviewsQuery.where('itemName', '==', state.currentGroupDetailItem);
             } else {
-                reviewsQuery = reviewsQuery.where('itemName', 'in', ["", null]); 
+                reviewsQuery = reviewsQuery.where('itemName', 'in', ["", null]);
             }
             const reviewsSnapshot = await reviewsQuery.orderBy('createdAt', 'desc').get();
-            
-            // ***** ¡EL CAMBIO IMPORTANTE ESTÁ AQUÍ! *****
-            individualReviewsListEl.innerHTML = '<p>Cargando y enriqueciendo reseñas...</p>'; // Mensaje de carga
             const enrichedReviews = await uiUtils.enrichReviews(reviewsSnapshot.docs);
 
-            if (individualReviewsListEl) {
-                if (enrichedReviews.length > 0) {
-                    individualReviewsListEl.innerHTML = enrichedReviews.map(review =>
-                        uiUtils.renderReviewSuperCard(review) // <-- Usamos la función de uiUtils
-                    ).join('');
-                } else {
-                    individualReviewsListEl.innerHTML = '<p>No hay reseñas individuales para este ítem.</p>';
-                }
-            }
-            // *************************************************
-
+            // 4. Calcular estadísticas y medias de criterios
             let totalOverallScoreSum = 0;
+            const criteriaTotals = {};
+            const criteriaCounts = {};
             state.lightboxImageUrls = [];
+
             enrichedReviews.forEach(r => {
                 totalOverallScoreSum += r.overallRating || 0;
                 if (r.photoUrl) state.lightboxImageUrls.push(r.photoUrl);
+
+                // Sumar puntuaciones de cada criterio
+                for (const critKey in r.scores) {
+                    criteriaTotals[critKey] = (criteriaTotals[critKey] || 0) + r.scores[critKey];
+                    criteriaCounts[critKey] = (criteriaCounts[critKey] || 0) + 1;
+                }
             });
             state.lightboxImageUrls = [...new Set(state.lightboxImageUrls)];
-
-            const groupAvgScore = enrichedReviews.length > 0 ? (totalOverallScoreSum / enrichedReviews.length) : 0;
             
+            // Renderizar estadísticas principales
+            const groupAvgScore = enrichedReviews.length > 0 ? (totalOverallScoreSum / enrichedReviews.length) : 0;
             if (groupAverageScoreEl) groupAverageScoreEl.textContent = groupAvgScore.toFixed(1);
             if (groupReviewCountEl) groupReviewCountEl.textContent = enrichedReviews.length;
 
+            // 5. Renderizar BARRAS DE CRITERIOS PROMEDIADAS
+            if (avgCriteriaBarsEl) {
+                const avgScores = {};
+                for (const key in criteriaTotals) {
+                    avgScores[key] = criteriaTotals[key] / criteriaCounts[key];
+                }
+                // Reutilizamos la lógica de renderizado de barras que ya tenemos en uiUtils
+                avgCriteriaBarsEl.innerHTML = uiUtils.renderCriteriaBars(avgScores, state.currentGroupDetailCriteriaDefinition);
+            }
+            
+
+            // ***** ¡AQUÍ ESTÁ EL CÓDIGO QUE FALTABA! *****
+            // Renderizamos la galería Y AÑADIMOS LOS EVENT LISTENERS
             if (groupImageGalleryEl) {
-                 if (state.lightboxImageUrls.length > 0) {
+                if (state.lightboxImageUrls.length > 0) {
+                    // 1. Creamos el HTML para cada imagen
                     groupImageGalleryEl.innerHTML = state.lightboxImageUrls.map((url, index) =>
                         `<img src="${uiUtils.escapeHtml(url)}" alt="Imagen de ${uiUtils.escapeHtml(placeData.name)}" class="gallery-thumbnail" data-lightbox-index="${index}">`
                     ).join('');
+                    
+                    // 2. AÑADIMOS EL "PEGAMENTO": Buscamos cada imagen y le decimos que abra el lightbox al hacer clic
                     groupImageGalleryEl.querySelectorAll('.gallery-thumbnail').forEach(thumb => {
                         thumb.addEventListener('click', (e) => {
-                             const index = parseInt(e.target.dataset.lightboxIndex);
-                            if (!isNaN(index)) openLightbox(index);
+                            const index = parseInt(e.target.dataset.lightboxIndex, 10);
+                            if (!isNaN(index)) {
+                                openLightbox(index);
+                            }
                         });
                     });
                 } else {
-                     groupImageGalleryEl.innerHTML = '<p>No hay imágenes para este grupo.</p>';
+                    groupImageGalleryEl.innerHTML = '<p>No hay imágenes en este grupo.</p>';
+                }
+            }
+            // ***********************************************
+
+            if (individualReviewsListEl) {
+                if (enrichedReviews.length > 0) {
+                    individualReviewsListEl.innerHTML = enrichedReviews.map(review => uiUtils.renderReviewSuperCard(review)).join('');
+                } else {
+                    individualReviewsListEl.innerHTML = '<p>No hay reseñas individuales para este ítem.</p>';
                 }
             }
 
@@ -146,6 +182,7 @@ ListopicApp.pageGroupedDetailView = (() => {
         console.log('Initializing Grouped Detail View page logic...');
         initializeGroupedDetailView();
 
+        // --- Event Listeners para el Lightbox ---
         const lightboxModal = document.getElementById('image-lightbox');
         if (lightboxModal) {
             lightboxModal.querySelector('.lightbox-close-button')?.addEventListener('click', closeLightbox);
@@ -154,9 +191,10 @@ ListopicApp.pageGroupedDetailView = (() => {
             lightboxModal.addEventListener('click', (e) => {
                 if (e.target === lightboxModal) closeLightbox();
             });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === "Escape" && lightboxModal.style.display === 'flex') closeLightbox();
+            });
         }
-        // El listener para las imágenes en .review-card-image se añade dinámicamente en initializeGroupedDetailView
-        // después de renderizar las tarjetas, por lo que no es necesario añadirlo aquí de nuevo globalmente.
     }
 
     return {

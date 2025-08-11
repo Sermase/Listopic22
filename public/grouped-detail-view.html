@@ -86,43 +86,62 @@
 </head>
 <body>
         <main>
-        <div class="container">
-            <!-- Removed theme-toggle-button from here -->
-            <a href="#" class="back-button" id="back-to-list-view"><i class="fas fa-arrow-left"></i> Volver a la Lista</a>
-            
-            <div class="grouped-detail-header">
-                <h2 id="group-title">Cargando detalle del elemento...</h2>
-                <p id="list-name-subheader">Lista: Cargando...</p>
+            <div class="container">
+                <a href="#" class="back-button" id="back-to-list-view"><i class="fas fa-arrow-left"></i> Volver a la Lista</a>
+                
+                <section class="group-header-card">
+                    <div class="group-header__main-info">
+                        <h2 id="group-title">Cargando...</h2>
+                        <p id="group-subtitle">
+                            <span id="list-name-subheader">En lista: Cargando...</span>
+                        </p>
+                        <div class="place-info-actions">
+                             <a href="#" id="place-detail-link" class="info-tag info-tag--place" style="display: none;">
+                                <i class="fas fa-store"></i>
+                                <span id="place-name-link-text">Ver página del lugar</span>
+                            </a>
+                            <a href="#" id="gmaps-link" class="info-tag info-tag--gmaps" target="_blank" style="display: none;">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>Ver en Google Maps</span>
+                            </a>
+                        </div>
+                    </div>
+    
+                    <div class="group-header__stats-and-criteria">
+                        <div class="header-stats-container">
+                            <div id="group-average-score" class="stat-item">
+                                <span class="score-value">N/A</span>
+                                <span class="label">Media General</span>
+                            </div>
+                            <div id="group-review-count" class="stat-item">
+                                <span class="count-value">N/A</span>
+                                <span class="label">Reseñas</span>
+                            </div>
+                        </div>
+                        <div id="group-avg-criteria-bars" class="criteria-bars-list">
+                            <p class="loading-placeholder">Calculando medias...</p>
+                        </div>
+                    </div>
+                </section>
+                <section class="group-images-section card">
+                    <h3><i class="fas fa-images"></i> Galería de Imágenes</h3>
+                    <div id="group-image-gallery" class="image-gallery-placeholder">
+                        <p>Cargando imágenes...</p>
+                    </div>
+                    <div id="image-lightbox" class="lightbox-modal">
+                        <img id="lightbox-image" src="" alt="Imagen ampliada">
+                        <a class="lightbox-prev">&#10094;</a>
+                        <a class="lightbox-next">&#10095;</a>
+                    </div>
+                </section>
+    
+                <section class="individual-reviews-section">
+                    <h3><i class="fas fa-user-edit"></i> Reseñas Individuales</h3>
+                    <div id="individual-reviews-list" class="reviews-list-container">
+                        <p>Cargando reseñas...</p>
+                    </div>
+                </section>
             </div>
-
-            <section class="group-summary-section card">
-                <h3>Estadísticas</h3>
-                <div id="group-average-score" class="summary-score">
-                    Puntuación Media General: <span class="score-value">N/A</span>
-                </div>
-                <div id="group-review-count" class="summary-count">
-                    Número de Reseñas: <span class="count-value">N/A</span>
-                </div>
-                <!-- Aquí podríamos añadir medias de criterios específicos si las calculamos -->
-            </section>
-
-            <section class="group-images-section card">
-                <h3>Galería de Imágenes</h3>
-                <div id="group-image-gallery" class="image-gallery-placeholder">
-                    <p>Cargando imágenes...</p>
-                    <!-- Las imágenes se cargarán aquí. Por ahora, un placeholder. -->
-                </div>
-            </section>
-
-            <section class="individual-reviews-section">
-                <h3>Reseñas Individuales</h3>
-                <div id="individual-reviews-list" class="reviews-list-container">
-                    <p>Cargando reseñas individuales...</p>
-                    <!-- Las reseñas individuales se cargarán aquí -->
-                </div>
-            </section>
-
-        </div>
     </main>
 
     <footer>
