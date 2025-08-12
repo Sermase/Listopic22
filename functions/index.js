@@ -338,7 +338,7 @@ exports.getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                     googlePlaceId: result.place_id,
                     address: result.formatted_address,
                     address_normalized: result.formatted_address ? result.formatted_address.toLowerCase() : '',
-                    location: { latitude: result.geometry.location.lat, longitude: result.geometry.location.lng },
+                    coordinates: { latitude: result.geometry.location.lat, longitude: result.geometry.location.lng },
                     city: city, 
                     region: region, 
                     province: province, 
