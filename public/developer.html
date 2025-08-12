@@ -83,14 +83,24 @@
         </div>
     </div>
 
-    <main class="dev-container">
-        <h1><i class="fas fa-database"></i> Developer Dashboard</h1>
-        <div class="dev-actions">
-            <button id="export-csv-btn" class="button secondary-button">Exportar a CSV</button>
-            <button id="update-all-places-btn" class="button-danger">Actualizar Todos los Lugares</button>
+    <main>  
+        <div class="dev-container">
+            <h1><i class="fas fa-tools"></i> Panel de Desarrollador</h1>
+            
+            <div id="dev-tabs-container">
+                </div>
+        
+            <div class="dev-actions-container">
+                <button id="export-csv-btn" class="button">Exportar a CSV</button>
+                <button id="update-all-places-btn" class="button secondary-button">Actualizar TODO</button>
+                
+                <button id="update-selected-btn" class="button secondary-button" disabled style="display: none;">Actualizar Selección</button>
+                <button id="delete-selected-btn" class="button danger-button" disabled>Eliminar Selección</button>
+            </div>
+        
+            <div id="dev-content-container">
+                </div>
         </div>
-        <div class="dev-tabs" id="dev-tabs-container"></div>
-        <div id="dev-content-container"></div>
     </main>
 
     <footer>
