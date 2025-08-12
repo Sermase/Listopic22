@@ -187,39 +187,58 @@ exports.updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{revie
 */
 
 // --- FUNCIÓN placesNearbyRestaurants ---
-exports.placesNearbyRestaurants = onRequest(async (req, res) => {
-  cors(req, res, async () => {
-    const { latitude, longitude, keywords } = req.query;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+exports.placesNearbyRestaurants = functions.runWith(runtimeOpts).https.onRequest(async (req, res) => {
+    // Permitir solicitudes de cualquier origen (CORS)
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET');
+
+    if (req.method === 'OPTIONS') {
+        res.status(204).send('');
+        return;
+    }
+
+    // Obtenemos la API Key de forma segura desde las variables de entorno
+    const API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+    if (!API_KEY) {
+        console.error("CRITICAL: GOOGLE_PLACES_API_KEY is not set in the environment.");
+        res.status(500).json({ message: "Error de configuración del servidor (Places API Key no encontrada)." });
+        return;
+    }
+
+    const { latitude, longitude } = req.query;
     if (!latitude || !longitude) {
-      logger.warn("placesNearbyRestaurants: Latitud y longitud son requeridas.", {query: req.query, structuredData: true});
-      return res.status(400).json({ message: "Latitud y longitud son requeridas." });
+        res.status(400).json({ message: "Faltan los parámetros 'latitude' y 'longitude'." });
+        return;
     }
-    if (!apiKey) {
-      logger.error("placesNearbyRestaurants: GOOGLE_PLACES_API_KEY no está disponible como variable de entorno del proceso.", {env_keys: Object.keys(process.env), structuredData: true});
-      return res.status(500).json({ message: "Error de configuración del servidor (Places API Key no encontrada)." });
-    }
-    const radius = 2000;
-    const types = "restaurant|cafe|bar|bakery|meal_takeaway|food|point_of_interest";
-    let url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=${encodeURIComponent(types)}&key=${apiKey}&language=es`;
-    if (keywords && keywords.trim() !== "") {
-      url += `&keyword=${encodeURIComponent(keywords.trim())}`;
-    }
-    logger.info("placesNearbyRestaurants: Fetching Google Places", {url: url.replace(apiKey, "REDACTED_API_KEY"), structuredData: true});
+
+    // ¡AQUÍ ESTÁ LA MAGIA DEL CAMBIO!
+    // Construimos la URL para buscar por cercanía, ordenando por distancia.
+    // Usamos `rankby=distance` y un `type=restaurant` genérico.
+    // Ya no usamos 'radius' ni 'keywords' del usuario.
+    const url = new URL("https://maps.googleapis.com/maps/api/place/nearbysearch/json");
+    url.searchParams.append('location', `${latitude},${longitude}`);
+    url.searchParams.append('rankby', 'distance'); // <-- La clave es esta línea
+    url.searchParams.append('type', 'restaurant');  // <-- Y esta, para buscar restaurantes genéricos
+    url.searchParams.append('key', API_KEY);
+    url.searchParams.append('language', 'es');
+
+    console.log(`Executing Nearby Search ranked by distance for location: ${latitude},${longitude}`);
+
     try {
-      const placesResponse = await fetch(url);
-      const placesData = await placesResponse.json();
-      if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
-        res.status(200).json(placesData.results || []);
-      } else {
-        logger.error("placesNearbyRestaurants: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message, info_messages: placesData.info_messages, structuredData: true});
-        res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message || placesData.info_messages });
-      }
+        const fetch = (await import('node-fetch')).default;
+        const googleResponse = await fetch(url);
+        const data = await googleResponse.json();
+
+        if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+            console.error('Google Places API Error:', data.status, data.error_message || '');
+            throw new Error(`Error de la API de Google Places: ${data.status}`);
+        }
+
+        res.status(200).json(data.results || []);
     } catch (error) {
-      logger.error("placesNearbyRestaurants: Error al contactar Google Places API", error, {structuredData: true});
-      res.status(500).json({ message: "Error interno al buscar lugares cercanos.", error: error.message });
+        console.error("Error fetching from Google Places API:", error);
+        res.status(500).json({ message: `Error interno del servidor: ${error.message}` });
     }
-  });
 });
 
 // --- FUNCIÓN placesTextSearch ---

@@ -1,25 +1,21 @@
+// Contenido completo para public/js/config.js
 window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.config = {
     firebaseConfig: {
-        apiKey: "AIzaSyDPEW5zXtvfnD0XtdmXSkMBZrsFdO-tmsg", // Reemplaza con tu API Key real
+        apiKey: "AIzaSyDPEW5zXtvfnD0XtdmXSkMBZrsFdO-tmsg",
         authDomain: "listopic.firebaseapp.com",
-        /*
-        databaseURL: "https://listopic-default-rtdb.europe-west1.firebasedatabase.app",
-        */
         projectId: "listopic",
-        storageBucket: "listopic.firebasestorage.app", // Asegúrate que sea listopic.appspot.com o el correcto
+        storageBucket: "listopic.appspot.com", // Corregido al valor más común
         messagingSenderId: "851333213702",
         appId: "1:851333213702:web:e8c2f3b1aa098d923d5d87"
     },
-    API_BASE_URL: '/api',
-    API_BASE_URL_FUNCTIONS: 'https://europe-west1-listopic.cloudfunctions.net',
     FUNCTION_URLS: {
-        groupedReviews: "https://groupedreviews-jz4x2l2cfq-ew.a.run.app", // <--- URL DE CLOUD RUN
-        placesNearbyRestaurants: "https://placesnearbyrestaurants-jz4x2l2cfq-ew.a.run.app", 
+        groupedReviews: "https://groupedreviews-jz4x2l2cfq-ew.a.run.app",
+        placesNearbyRestaurants: "https://placesnearbyrestaurants-jz4x2l2cfq-ew.a.run.app",
         placesTextSearch: "https://placestextsearch-jz4x2l2cfq-ew.a.run.app",
-        reverseGeocode: "https://europe-west1-listopic.cloudfunctions.net/reverseGeocode", // <-- AÑADE ESTA LÍNEA (reemplaza xxxxxxxxxx con el hash real después de desplegar)
-        getPlaceDetailsFromGoogle: "https://getplacedetailsfromgoogle-jz4x2l2cfq-ew.a.run.app"
-    },
-
+        getPlaceDetailsFromGoogle: "https://getplacedetailsfromgoogle-jz4x2l2cfq-ew.a.run.app",
+        reverseGeocode: "https://reversegeocode-jz4x2l2cfq-ew.a.run.app" // Asegúrate que esta URL es la correcta tras el despliegue
+    }
+    // LA API KEY DE GOOGLE SE HA ELIMINADO DE AQUÍ. ¡BIEN!
 };

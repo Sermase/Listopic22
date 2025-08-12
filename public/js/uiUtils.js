@@ -497,5 +497,49 @@ createListViewGroupCard: function(group, listData, listIcon) {
     
         return criteriaItems || '<p class="loading-placeholder">No hay criterios ponderables para mostrar.</p>';
     },
+
+    // Añade esta función dentro del objeto ListopicApp.uiUtils en tu archivo public/js/uiUtils.js
+
+    updateReviewFormWithPlace: function(placeDetails) {
+        if (!placeDetails) return;
+
+        // Actualizar el estado global
+        window.ListopicApp.state.currentSelectedPlaceInfo = placeDetails;
+        console.log("uiUtils: currentSelectedPlaceInfo actualizado:", placeDetails);
+
+        // Actualizar los campos del formulario
+        const establishmentNameInput = document.getElementById('restaurant-name-search-input');
+        const establishmentNameHidden = document.getElementById('establishment-name');
+        const locationDisplayNameInput = document.getElementById('location-display-name');
+        const locationAddressManualInput = document.getElementById('location-address-manual');
+        const locationRegionManualInput = document.getElementById('location-region-manual');
+        const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
+        
+        // Campos ocultos
+        const locationLatInput = document.getElementById('location-latitude');
+        const locationLonInput = document.getElementById('location-longitude');
+        const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
+        const locationCityGInput = document.getElementById('location-city-g');
+        const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
+        const locationCountryGInput = document.getElementById('location-country-g');
+
+        if (establishmentNameInput) establishmentNameInput.value = placeDetails.name || '';
+        if (establishmentNameHidden) establishmentNameHidden.value = placeDetails.name || '';
+        if (locationDisplayNameInput) locationDisplayNameInput.value = placeDetails.name || '';
+        if (locationAddressManualInput) locationAddressManualInput.value = placeDetails.addressFormatted || placeDetails.streetAddress || '';
+        if (locationRegionManualInput) locationRegionManualInput.value = placeDetails.region || '';
+        if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeDetails.mapsUrl || '';
+        
+        if (locationLatInput) locationLatInput.value = placeDetails.latitude || "";
+        if (locationLonInput) locationLonInput.value = placeDetails.longitude || "";
+        if (locationPlaceIdInput) locationPlaceIdInput.value = placeDetails.placeId || "";
+        if (locationCityGInput) locationCityGInput.value = placeDetails.city || "";
+        if (locationPostalCodeGInput) locationPostalCodeGInput.value = placeDetails.postalCode || "";
+        if (locationCountryGInput) locationCountryGInput.value = placeDetails.country || "";
+
+        // Opcional: abrir los campos manuales para que el usuario vea los datos
+        const manualLocationFieldsDiv = document.getElementById('manual-location-fields');
+        if (manualLocationFieldsDiv) manualLocationFieldsDiv.style.display = 'block';
+    },
 };
 
