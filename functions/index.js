@@ -269,41 +269,129 @@ exports.placesTextSearch = onRequest(async (req, res) => {
     });
   });
 
+
 // --- FUNCIÓN getPlaceDetailsFromGoogle ---
+
+const provinceMap = {
+    '01': 'Álava', '02': 'Albacete', '03': 'Alicante', '04': 'Almería', '05': 'Ávila',
+    '06': 'Badajoz', '07': 'Baleares', '08': 'Barcelona', '09': 'Burgos', '10': 'Cáceres',
+    '11': 'Cádiz', '12': 'Castellón', '13': 'Ciudad Real', '14': 'Córdoba', '15': 'La Coruña',
+    '16': 'Cuenca', '17': 'Gerona', '18': 'Granada', '19': 'Guadalajara', '20': 'Guipúzcoa',
+    '21': 'Huelva', '22': 'Huesca', '23': 'Jaén', '24': 'León', '25': 'Lérida',
+    '26': 'La Rioja', '27': 'Lugo', '28': 'Madrid', '29': 'Málaga', '30': 'Murcia',
+    '31': 'Navarra', '32': 'Orense', '33': 'Asturias', '34': 'Palencia', '35': 'Las Palmas',
+    '36': 'Pontevedra', '37': 'Salamanca', '38': 'Santa Cruz de Tenerife', '39': 'Cantabria', '40': 'Segovia',
+    '41': 'Sevilla', '42': 'Soria', '43': 'Tarragona', '44': 'Teruel', '45': 'Toledo',
+    '46': 'Valencia', '47': 'Valladolid', '48': 'Vizcaya', '49': 'Zamora', '50': 'Zaragoza',
+    '51': 'Ceuta', '52': 'Melilla'
+};
+
 exports.getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
-  cors(req, res, async () => {
-    const { placeid } = req.query;
-    const apiKey = 'AIzaSyDXUk2b2VZu6Ui-HlBMZeMeQGBvzaSpHvE'; // TEMPORARY DEBUGGING
+    cors(req, res, async () => {
+        const { placeid } = req.query;
+        const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
-    if (!placeid) {
-      logger.warn("getPlaceDetailsFromGoogle: El ID del lugar (placeid) es requerido.", {query: req.query, structuredData: true});
-      return res.status(400).json({ message: "El ID del lugar (placeid) es requerido." });
-    }
-    if (!apiKey) {
-        logger.error("getPlaceDetailsFromGoogle: GOOGLE_PLACES_API_KEY no está disponible.", {structuredData: true});
-        return res.status(500).json({ message: "Error de configuración del servidor (Places API Key no encontrada)." });
-    }
+        if (!placeid) {
+            return res.status(400).json({ message: "El ID del lugar (placeid) es requerido." });
+        }
+        if (!apiKey) {
+            logger.error("getPlaceDetailsFromGoogle: GOOGLE_PLACES_API_KEY no se encontró en las variables de entorno.");
+            return res.status(500).json({ message: "Error de configuración del servidor (API Key no encontrada)." });
+        }
 
-    const fields = "name,place_id,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components";
-    const url = `https://maps.googleapis.com/maps/api/place/details/json?placeid=${placeid}&key=${apiKey}&fields=${fields}&language=es`;
+        // 1. Campos ampliados para obtener toda la información que necesitas
+        const fields = "name,place_id,formatted_address,geometry,url,photo,price_level,website,international_phone_number,address_components,rating,user_ratings_total,types";
+        const url = `https://maps.googleapis.com/maps/api/place/details/json?placeid=${placeid}&key=${apiKey}&fields=${fields}&language=es`;
 
-    logger.info("getPlaceDetailsFromGoogle: Fetching Google Place Details", {url: url.replace(apiKey, "REDACTED_API_KEY"), structuredData: true});
+        try {
+            const placeDetailsResponse = await fetch(url);
+            const placeDetailsData = await placeDetailsResponse.json();
 
-    try {
-      const placeDetailsResponse = await fetch(url);
-      const placeDetailsData = await placeDetailsResponse.json();
+            if (placeDetailsData.status === "OK") {
+                const result = placeDetailsData.result;
 
-      if (placeDetailsData.status === "OK") {
-        res.status(200).json(placeDetailsData.result);
-      } else {
-        logger.error("getPlaceDetailsFromGoogle: Error desde Google Places API", {status: placeDetailsData.status, error_message: placeDetailsData.error_message, structuredData: true});
-        res.status(500).json({ message: `Error de la API de Google Places: ${placeDetailsData.status}`, details: placeDetailsData.error_message });
-      }
-    } catch (error) {
-      logger.error("getPlaceDetailsFromGoogle: Error al contactar Google Places API", error, {structuredData: true});
-      res.status(500).json({ message: "Error interno al buscar detalles del lugar.", error: error.message });
-    }
-  });
+                // 2. Procesamiento inteligente de los datos de la respuesta de Google
+                let city = '', region = '', country = '', postalCode = '', province = '';
+                
+                if (result.address_components) {
+                    for (const component of result.address_components) {
+                        if (component.types.includes('locality')) city = component.long_name;
+                        if (component.types.includes('administrative_area_level_1')) region = component.long_name; // Comunidad Autónoma
+                        if (component.types.includes('country')) country = component.long_name;
+                        if (component.types.includes('postal_code')) postalCode = component.long_name;
+                    }
+                }
+                
+                // 3. Derivación de la provincia a partir del código postal
+                if (postalCode) {
+                    const provinceCode = postalCode.substring(0, 2);
+                    province = provinceMap[provinceCode] || '';
+                }
+
+                // 4. Creación del documento para Firestore con el formato correcto
+                const placeDoc = {
+                    name: result.name,
+                    name_normalized: result.name.toLowerCase(),
+                    googlePlaceId: result.place_id,
+                    address: result.formatted_address,
+                    address_normalized: result.formatted_address ? result.formatted_address.toLowerCase() : '',
+                    
+                    // Formato de location como en "Casa Marius"
+                    location: {
+                        latitude: result.geometry.location.lat,
+                        longitude: result.geometry.location.lng,
+                    },
+                    
+                    // Campos geográficos detallados
+                    city: city,
+                    region: region,
+                    province: province,
+                    country: country,
+                    postalCode: postalCode,
+                    
+                    // URLs y contacto
+                    googleMapsUrl: result.url,
+                    website: result.website || null,
+                    phone: result.international_phone_number || null,
+
+                    // --- NUEVOS CAMPOS SOLICITADOS ---
+                    priceLevel: result.price_level !== undefined ? result.price_level : null,
+                    googleRating: result.rating || 0,
+                    googleUserRatingsTotal: result.user_ratings_total || 0,
+                    types: result.types || [],
+                    mainImageUrl: result.photo // La primera imagen
+                        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${result.photo.photo_reference}&key=${apiKey}`
+                        : null,
+
+                    // Timestamps y metadatos
+                    updatedAt: FieldValue.serverTimestamp(),
+                    lastGoogleSync: FieldValue.serverTimestamp(),
+                };
+
+                // 5. Guardado en Firestore usando 'merge: true'
+                // Esto crea el lugar si no existe, o lo actualiza si ya existe,
+                // sin sobreescribir campos como 'followersCount'.
+                const placeRef = db.collection('places').doc(result.place_id);
+                await placeRef.set(placeDoc, { merge: true });
+                
+                // Inicializa 'followersCount' solo si el documento es nuevo
+                const docSnapshot = await placeRef.get();
+                if (!docSnapshot.data().hasOwnProperty('followersCount')) {
+                    await placeRef.update({ followersCount: 0 });
+                }
+
+                // 6. Devolvemos la respuesta original al cliente para que la UI se actualice al instante
+                res.status(200).json(result);
+
+            } else {
+                logger.error("Error desde Google Places API", {status: placeDetailsData.status, error_message: placeDetailsData.error_message});
+                res.status(500).json({ message: `Error de la API de Google Places: ${placeDetailsData.status}`, details: placeDetailsData.error_message });
+            }
+        } catch (error) {
+            logger.error("Error al contactar o procesar Google Places API", error);
+            res.status(500).json({ message: "Error interno al buscar detalles del lugar.", error: error.message });
+        }
+    });
 });
 
 // --- FUNCIÓN CALLABLE: deleteListAndContent ---
@@ -1380,5 +1468,76 @@ exports.adminGetCollection = onCall(async (request) => {
     } catch (error) {
         logger.error(`Error masivo en adminGetCollection para la colección ${collectionName}:`, error);
         throw new HttpsError('internal', `Un error ocurrió al obtener la colección ${collectionName}.`);
+    }
+});
+
+exports.adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
+    const contextAuth = request.auth;
+    if (!contextAuth) {
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+    }
+
+    // Comprobación de rol de administrador (¡importante!)
+    try {
+        const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
+        if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
+        }
+    } catch (error) {
+        logger.error("adminUpdateSinglePlace: Error al verificar permisos", error);
+        throw new HttpsError('internal', 'Error al verificar permisos.');
+    }
+
+    const { documentId, googlePlaceId } = request.data;
+    if (!documentId || !googlePlaceId) {
+        throw new HttpsError('invalid-argument', 'Se requieren documentId y googlePlaceId.');
+    }
+
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+        logger.error("adminUpdateSinglePlace: GOOGLE_PLACES_API_KEY no está disponible.");
+        throw new HttpsError('internal', 'Error de configuración del servidor.');
+    }
+
+    const placeRef = db.collection('places').doc(documentId);
+    const fields = "name,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components";
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${googlePlaceId}&key=${apiKey}&fields=${fields}&language=es`;
+
+    try {
+        const response = await fetch(url);
+        const details = await response.json();
+
+        if (details.status === "OK" && details.result) {
+            const result = details.result;
+            const updateData = {
+                name: result.name,
+                formatted_address: result.formatted_address,
+                location: { // Asegurarse de que el objeto location se actualiza correctamente
+                    latitude: result.geometry?.location?.lat,
+                    longitude: result.geometry?.location?.lng,
+                },
+                googleMapsUrl: result.url,
+                mainImageUrl: result.photos && result.photos.length > 0 ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${result.photos[0].photo_reference}&key=${apiKey}` : null,
+                priceLevel: result.price_level,
+                website: result.website,
+                phone: result.international_phone_number,
+                vicinity: result.vicinity,
+                updatedAt: FieldValue.serverTimestamp()
+            };
+            
+            // Limpiar claves con valores undefined
+            Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+            if(updateData.location.latitude === undefined) delete updateData.location;
+
+            await placeRef.update(updateData);
+            logger.info(`Lugar ${documentId} actualizado exitosamente por ${contextAuth.uid}.`);
+            return { success: true, message: "Lugar actualizado." };
+        } else {
+            logger.error(`Error de Google API para placeId ${googlePlaceId}: ${details.status}`);
+            throw new HttpsError('internal', `Error de Google API: ${details.status}`);
+        }
+    } catch (error) {
+        logger.error(`Excepción actualizando el lugar ${documentId}:`, error);
+        throw new HttpsError('internal', 'Ocurrió una excepción al actualizar el lugar.');
     }
 });
