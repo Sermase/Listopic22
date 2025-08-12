@@ -35,10 +35,12 @@ ListopicApp.placesService = (() => {
         }
     }
     
+    // En public/js/places-service.js
+
     // Función para obtener detalles completos de un lugar
-    async function fetchPlaceDetails(placeId) {
-        // Simplemente le pide al "Jefe de Camareros" que traiga los detalles
-        return await callPlaceFunction('getPlaceDetailsFromGoogle', { placeid: placeId });
+    async function fetchPlaceDetails(placeId, userId) {
+        // Le pasamos el placeid y AHORA TAMBIÉN el userId
+        return await callPlaceFunction('getPlaceDetailsFromGoogle', { placeid: placeId, userId: userId });
     }
 
     // Muestra las sugerencias en la UI (Esta parte es más compleja, la simplificamos)
