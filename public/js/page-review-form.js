@@ -25,11 +25,11 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
 
             // ACTUALIZAR el lugar existente con datos frescos de Google
             const updatedData = buildGooglePlaceData(placeDataFromGoogle, currentUserId, false);
-            // Mantener algunos campos del lugar existente
+            // Mantener algunos campos clave del lugar existente
             updatedData.createdByUserId = existingData.createdByUserId;
             updatedData.createdAt = existingData.createdAt;
             updatedData.reviewsCount = existingData.reviewsCount || 0;
-            updatedData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+            updatedData.followersCount = existingData.followersCount || 0; // CONSERVAR FOLLOWERS
 
             await existingPlaceDoc.ref.update(updatedData);
             console.log(`Lugar actualizado con datos frescos de Google: ${existingPlaceDoc.id}`);
@@ -38,7 +38,8 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
         }
     }
 
-    // --- 2. Si no se encuentra, buscar por coincidencia de Nombre y Dirección ---
+    // --- 2. Si no se encuentra, buscar por coincidencia de Nombre y Dirección (NORMALIZADOS) ---
+    // Esta búsqueda es para compatibilidad con lugares antiguos que tenían estos campos.
     const searchName = (placeDataFromGoogle?.name) || (manualPlaceData?.name);
     const searchAddress = (placeDataFromGoogle?.addressFormatted) || (manualPlaceData?.address);
 
@@ -54,28 +55,18 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
             const existingData = existingPlaceDoc.data();
             console.log(`Lugar encontrado por Nombre y Dirección. ID existente: ${existingPlaceDoc.id}`);
 
-            // Si encontramos un lugar manual y ahora tenemos datos de Google, actualizarlo
-            if (placeDataFromGoogle?.placeId && !existingData.googlePlaceId) {
-                console.log(`Actualizando lugar manual con datos completos de Google`);
+            // Si encontramos un lugar y ahora tenemos datos de Google, actualizarlo
+            if (placeDataFromGoogle) {
+                console.log(`Actualizando lugar existente con datos completos de Google`);
                 const updatedData = buildGooglePlaceData(placeDataFromGoogle, currentUserId, false);
-                // Mantener algunos campos del lugar existente
+                // Mantener algunos campos clave del lugar existente
                 updatedData.createdByUserId = existingData.createdByUserId;
                 updatedData.createdAt = existingData.createdAt;
                 updatedData.reviewsCount = existingData.reviewsCount || 0;
-                updatedData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                updatedData.followersCount = existingData.followersCount || 0; // CONSERVAR FOLLOWERS
 
                 await existingPlaceDoc.ref.update(updatedData);
-                console.log(`Lugar manual actualizado con datos de Google: ${existingPlaceDoc.id}`);
-            } else if (placeDataFromGoogle && existingData.googlePlaceId) {
-                // Actualizar con datos frescos de Google
-                const updatedData = buildGooglePlaceData(placeDataFromGoogle, currentUserId, false);
-                updatedData.createdByUserId = existingData.createdByUserId;
-                updatedData.createdAt = existingData.createdAt;
-                updatedData.reviewsCount = existingData.reviewsCount || 0;
-                updatedData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-
-                await existingPlaceDoc.ref.update(updatedData);
-                console.log(`Lugar actualizado con datos frescos: ${existingPlaceDoc.id}`);
+                console.log(`Lugar existente actualizado con datos de Google: ${existingPlaceDoc.id}`);
             }
 
             return existingPlaceDoc.id;
@@ -99,90 +90,38 @@ async function findOrCreatePlace(placeDataFromGoogle, manualPlaceData, currentUs
     return newPlaceRef.id;
 }
 
-// Función auxiliar para construir datos de lugar desde Google
+// Función auxiliar para construir datos de lugar desde Google (MODIFICADA)
 function buildGooglePlaceData(placeData, userId, isNew = true) {
     const data = {
-        // Datos básicos
+        // --- CAMPOS QUE CONSERVAMOS ---
         name: placeData.name || "Establecimiento Desconocido",
-        name_normalized: (placeData.name || "").toLowerCase(),
         address: placeData.addressFormatted || null,
-        address_normalized: (placeData.addressFormatted || "").toLowerCase(),
-
-        // Coordenadas (estructura consistente)
-        coordinates: placeData.latitude && placeData.longitude
-            ? new firebase.firestore.GeoPoint(placeData.latitude, placeData.longitude)
-            : null,
         location: placeData.latitude && placeData.longitude ? {
             latitude: placeData.latitude,
             longitude: placeData.longitude
         } : null,
-
-        // Datos de Google Places
         googlePlaceId: placeData.placeId || null,
-        googleRating: placeData.rating || 0,
+        averageRating: placeData.rating || 0, // Renombrado de googleRating a averageRating
         googleUserRatingsTotal: placeData.user_ratings_total || 0,
-        googleUrl: placeData.url || null,
-        googleMapsUrl: placeData.googleMapsUrl || null,
-
-        // Información de contacto
         phone: placeData.formatted_phone_number || placeData.international_phone_number || null,
         website: placeData.website || null,
-
-        // Información del negocio
         types: placeData.types || [],
-        priceLevel: placeData.price_level !== undefined ? placeData.price_level : null,
-        businessStatus: placeData.business_status || null,
-        permanentlyClosed: placeData.permanently_closed || false,
-
-        // Horarios
-        openingHours: placeData.opening_hours ? {
-            open_now: placeData.opening_hours.open_now || false,
-            weekday_text: placeData.opening_hours.weekday_text || []
-        } : null,
-
-        // Información geográfica detallada
-        city: placeData.city || null,
         region: placeData.region || placeData.state || null,
-        province: placeData.province || null,
         country: placeData.country || null,
         postalCode: placeData.postalCode || null,
-        streetNumber: placeData.streetNumber || null,
-        route: placeData.route || null,
-
-        // URLs de imágenes
-        mainImageUrl: null, // Se procesará después si hay fotos
-        imageUrls: [],
-
-        // Información de geometría completa
-        geometry: placeData.geometry || (placeData.latitude && placeData.longitude ? {
-            location: {
-                lat: placeData.latitude,
-                lng: placeData.longitude
-            },
-            viewport: placeData.viewport || null
-        } : null),
-
-        // Otros datos útiles
-        utcOffset: placeData.utc_offset || null
+        lastGoogleSync: firebase.firestore.FieldValue.serverTimestamp(), // Siempre actualizado
+        
+        // --- CAMPOS DESCARTADOS (ya no se añaden) ---
+        // name_normalized, address_normalized, openingHours, priceLevel, etc.
+        // imageUrls y mainImageUrl
     };
 
-    // Procesar fotos si existen
-    if (placeData.photos && placeData.photos.length > 0) {
-        try {
-            data.mainImageUrl = placeData.photos[0].getUrl({ maxWidth: 800, maxHeight: 600 });
-            data.imageUrls = placeData.photos.slice(0, 5).map(photo =>
-                photo.getUrl({ maxWidth: 800, maxHeight: 600 })
-            );
-        } catch (error) {
-            console.warn('Error procesando fotos del lugar:', error);
-        }
-    }
-
-    // Campos de auditoría
+    // Campos de auditoría que se gestionan al crear o actualizar
     if (isNew) {
         data.createdByUserId = userId;
         data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
         data.reviewsCount = 0;
+        data.followersCount = 0; // Inicializar a 0 en nuevos lugares
     }
     data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
 
