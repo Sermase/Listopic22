@@ -517,7 +517,7 @@ body.light-theme .criterion-slider-config {
 
 /* REVIEW-FORM: Tag Selection (Checkboxes) */
 .tag-selection { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 5px; }
-.tag-checkbox { background-color: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 15px; border: 1px solid transparent; cursor: pointer; transition: background-color 0.2s, border-color 0.2s, color 0.2s; font-size: 0.9em; display: inline-flex; align-items: center; color: var(--text-color); }
+.tag-checkbox { background-color: rgba(255,255,255,0); padding: 8px 12px; border-radius: 15px; border: 1px solid transparent; cursor: pointer; transition: background-color 0.2s, border-color 0.2s, color 0.2s; font-size: 0.9em; display: inline-flex; align-items: center; color: var(--text-color); }
 .tag-checkbox:hover { background-color: rgba(255,255,255,0.2); }
 .tag-checkbox input[type="checkbox"] { appearance: none; -webkit-appearance: none; -moz-appearance: none; margin-right: 8px; width: 16px; height: 16px; border: 1px solid var(--input-border); border-radius: 3px; background-color: var(--input-bg); cursor: pointer; position: relative; vertical-align: middle; outline: none; flex-shrink: 0; transition: background-color 0.2s, border-color 0.2s; }
 .tag-checkbox input[type="checkbox"]:checked { background-color: var(--accent-color-primary); border-color: var(--accent-color-primary); }

@@ -9,25 +9,27 @@ ListopicApp.pageReviewForm = (() => {
         const container = document.getElementById('dynamic-tag-selection');
         if (!container) return;
         container.innerHTML = '';
-        
+
         const createTagCheckbox = (tag, isFixed) => {
             const label = document.createElement('label');
             label.className = 'tag-checkbox';
-            if (isFixed || selectedTags.includes(tag)) {
-                label.classList.add('selected');
-            }
+
             const input = document.createElement('input');
             input.type = 'checkbox';
             input.name = 'tags';
             input.value = tag;
             input.checked = isFixed || selectedTags.includes(tag);
             input.disabled = isFixed;
+
+            const span = document.createElement('span');
+            span.textContent = tag;
+
             if(isFixed) {
                 label.title = "Etiqueta fija de la categoría";
             }
-            input.addEventListener('change', () => label.classList.toggle('selected', input.checked));
+
             label.appendChild(input);
-            label.appendChild(document.createTextNode(` ${tag}`));
+            label.appendChild(span);
             return label;
         };
 
