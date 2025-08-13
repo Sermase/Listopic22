@@ -37,7 +37,7 @@ ListopicApp.placesService = (() => {
             throw error; // Re-lanzamos para que el llamador lo gestione
         }
     }
-
+    
     // En public/js/places-service.js
 
     // Función para obtener detalles completos de un lugar
@@ -47,7 +47,7 @@ ListopicApp.placesService = (() => {
     }
 
     // Muestra las sugerencias en la UI (Esta parte es más compleja, la simplificamos)
-    function displayPlaceSuggestions(places, suggestionsBox) {
+    async function displayPlaceSuggestions(places, suggestionsBox) {
         suggestionsBox.innerHTML = '';
         if (!places || places.length === 0) {
             suggestionsBox.innerHTML = '<p>No se encontraron lugares que coincidan.</p>';
@@ -55,21 +55,24 @@ ListopicApp.placesService = (() => {
         }
 
         const ul = document.createElement('ul');
+        ul.className = 'suggestions-list';
         places.forEach(place => {
             const li = document.createElement('li');
-            li.textContent = `${place.name} (${place.formatted_address || place.vicinity})`;
-            li.dataset.placeId = place.place_id;
+            const addressInfo = place.vicinity || place.formatted_address || 'Dirección no disponible';
+            li.textContent = `${place.name} (${addressInfo})`;
+            li.style.cursor = 'pointer';
+
             li.onclick = async () => {
-                suggestionsBox.innerHTML = '<p>Obteniendo detalles...</p>';
-                const details = await fetchPlaceDetails(place.place_id);
-                if (details && typeof ListopicApp.uiUtils.updateReviewFormWithPlace === 'function') {
-                    // La función `updateReviewFormWithPlace` se encargará de rellenar el formulario
-                    ListopicApp.uiUtils.updateReviewFormWithPlace(details);
-                    suggestionsBox.innerHTML = ''; // Limpiar al seleccionar
+                suggestionsBox.innerHTML = `<p>Obteniendo detalles de "${place.name}"...</p>`;
+                const detailedPlace = await fetchPlaceDetails(place.place_id);
+
+                if (detailedPlace && window.ListopicApp.uiUtils && window.ListopicApp.uiUtils.updateReviewFormWithPlace) {
+                     window.ListopicApp.uiUtils.updateReviewFormWithPlace(detailedPlace);
                 } else {
                     console.error("No se pudieron obtener detalles o la función uiUtils.updateReviewFormWithPlace no está definida.");
-                    suggestionsBox.innerHTML = `<p style="color:var(--danger-color)">Error al cargar detalles del lugar.</p>`;
+                    suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">No se pudieron obtener los detalles completos.</p>`;
                 }
+                suggestionsBox.innerHTML = ''; // Limpiar al final
             };
             ul.appendChild(li);
         });
@@ -81,28 +84,29 @@ ListopicApp.placesService = (() => {
         const suggestionsBox = document.getElementById('restaurant-suggestions');
         if (!suggestionsBox) return;
 
-        suggestionsBox.innerHTML = '<p>Obteniendo ubicación...</p>';
-        try {
-            const position = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject));
-            state.userLatitude = position.coords.latitude;
-            state.userLongitude = position.coords.longitude;
-            
-            const keywords = state.currentListNameForSearch || '';
-            suggestionsBox.innerHTML = `<p>Buscando lugares cercanos relacionados con "${keywords}"...</p>`;
-            
-            const places = await callPlaceFunction('placesNearbyRestaurants', {
-                latitude: state.userLatitude,
-                longitude: state.userLongitude,
-                keywords: keywords
-            });
-            displayPlaceSuggestions(places, suggestionsBox);
+        const state = window.ListopicApp.state || {};
+        if (!state.userLatitude || !state.userLongitude) {
+            suggestionsBox.innerHTML = '<p style="color:var(--warning-color);">Por favor, pulsa "Ubicarme" primero.</p>';
+            return;
+        }
 
-        } catch (error) {
-            suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error: ${error.message}</p>`;
-            ListopicApp.services.showNotification(error.message, 'error');
+        let searchKeywords = state.currentListNameForSearch ? `${state.currentListNameForSearch.toLowerCase()} restaurante bar pub comida` : "restaurante bar pub comida";
+        searchKeywords = [...new Set(searchKeywords.split(' '))].join(' ');
+        suggestionsBox.innerHTML = `<p>Buscando lugares cercanos...</p>`;
+
+        // Solo le pide las cosas al "Jefe de Camareros"
+        const places = await callPlaceFunction('placesNearbyRestaurants', {
+            latitude: state.userLatitude,
+            longitude: state.userLongitude,
+            keywords: searchKeywords
+        });
+
+        if (places) {
+            displayPlaceSuggestions(places, suggestionsBox);
         }
     }
 
+    // Busca lugares por nombre
     async function searchRestaurantsByName(query) {
         const suggestionsBox = document.getElementById('restaurant-suggestions');
         if (!suggestionsBox) return;
@@ -110,20 +114,20 @@ ListopicApp.placesService = (() => {
             suggestionsBox.innerHTML = '<p>Introduce un término de búsqueda.</p>';
             return;
         }
-        
         suggestionsBox.innerHTML = `<p>Buscando "${query}"...</p>`;
+        
+        const state = window.ListopicApp.state || {};
         const params = { query: query };
         if (state.userLatitude && state.userLongitude) {
             params.latitude = state.userLatitude;
             params.longitude = state.userLongitude;
         }
 
-        try {
-            const places = await callPlaceFunction('placesTextSearch', params);
+        // De nuevo, solo una simple petición al "Jefe de Camareros"
+        const places = await callPlaceFunction('placesTextSearch', params);
+        
+        if (places) {
             displayPlaceSuggestions(places, suggestionsBox);
-        } catch (error) {
-             suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error en la búsqueda: ${error.message}</p>`;
-             ListopicApp.services.showNotification(error.message, 'error');
         }
     }
 
