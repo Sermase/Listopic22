@@ -500,12 +500,13 @@ createListViewGroupCard: function(group, listData, listIcon) {
 
     // Añade esta función dentro del objeto ListopicApp.uiUtils en tu archivo public/js/uiUtils.js
 
-    updateReviewFormWithPlace: function(placeDetails) {
-        if (!placeDetails) return;
+    updateReviewFormWithPlace: function(place) {
+        if (!place) return;
 
-        // Actualizar el estado global
-        window.ListopicApp.state.currentSelectedPlaceInfo = placeDetails;
-        console.log("uiUtils: currentSelectedPlaceInfo actualizado:", placeDetails);
+        console.log("uiUtils: Updating form with CLEANED place object from backend:", place);
+
+        // Actualizar el estado global con el objeto limpio de Firestore
+        window.ListopicApp.state.currentSelectedPlaceInfo = place;
 
         // Actualizar los campos del formulario
         const establishmentNameInput = document.getElementById('restaurant-name-search-input');
@@ -518,24 +519,30 @@ createListViewGroupCard: function(group, listData, listIcon) {
         // Campos ocultos
         const locationLatInput = document.getElementById('location-latitude');
         const locationLonInput = document.getElementById('location-longitude');
-        const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
+        const locationPlaceIdInput = document.getElementById('location-googlePlaceId'); // El más importante
         const locationCityGInput = document.getElementById('location-city-g');
         const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
         const locationCountryGInput = document.getElementById('location-country-g');
 
-        if (establishmentNameInput) establishmentNameInput.value = placeDetails.name || '';
-        if (establishmentNameHidden) establishmentNameHidden.value = placeDetails.name || '';
-        if (locationDisplayNameInput) locationDisplayNameInput.value = placeDetails.name || '';
-        if (locationAddressManualInput) locationAddressManualInput.value = placeDetails.addressFormatted || placeDetails.streetAddress || '';
-        if (locationRegionManualInput) locationRegionManualInput.value = placeDetails.region || '';
-        if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeDetails.mapsUrl || '';
+        if (establishmentNameInput) establishmentNameInput.value = place.name || '';
+        if (establishmentNameHidden) establishmentNameHidden.value = place.name || '';
+        if (locationDisplayNameInput) locationDisplayNameInput.value = place.name || '';
+        // Usamos los campos del documento de Firestore
+        if (locationAddressManualInput) locationAddressManualInput.value = place.address || '';
+        if (locationRegionManualInput) locationRegionManualInput.value = place.region || '';
+        if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = place.googleMapsUrl || '';
         
-        if (locationLatInput) locationLatInput.value = placeDetails.latitude || "";
-        if (locationLonInput) locationLonInput.value = placeDetails.longitude || "";
-        if (locationPlaceIdInput) locationPlaceIdInput.value = placeDetails.placeId || "";
-        if (locationCityGInput) locationCityGInput.value = placeDetails.city || "";
-        if (locationPostalCodeGInput) locationPostalCodeGInput.value = placeDetails.postalCode || "";
-        if (locationCountryGInput) locationCountryGInput.value = placeDetails.country || "";
+        // Usamos la estructura anidada de 'location'
+        if (locationLatInput && place.location) locationLatInput.value = place.location.latitude || "";
+        if (locationLonInput && place.location) locationLonInput.value = place.location.longitude || "";
+        
+        // El ID del documento AHORA es el placeId que necesitamos
+        if (locationPlaceIdInput) locationPlaceIdInput.value = place.id || ""; 
+        
+        // Rellenamos el resto de campos si existen en nuestro objeto
+        if (locationCityGInput) locationCityGInput.value = place.city || "";
+        if (locationPostalCodeGInput) locationPostalCodeGInput.value = place.postalCode || "";
+        if (locationCountryGInput) locationCountryGInput.value = place.country || "";
 
         // Opcional: abrir los campos manuales para que el usuario vea los datos
         const manualLocationFieldsDiv = document.getElementById('manual-location-fields');
