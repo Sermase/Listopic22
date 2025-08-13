@@ -288,18 +288,21 @@ const provinceMap = {
 
 exports.getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
     cors(req, res, async () => {
-        const { placeid } = req.query;
+        // 1. AHORA ACEPTAMOS EL userId DESDE LA PETICIÓN
+        const { placeid, userId } = req.query;
         const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
         if (!placeid) {
             return res.status(400).json({ message: "El ID del lugar (placeid) es requerido." });
+        }
+        if (!userId) {
+            return res.status(400).json({ message: "El ID del usuario (userId) es requerido para asignar la autoría." });
         }
         if (!apiKey) {
             logger.error("getPlaceDetailsFromGoogle: GOOGLE_PLACES_API_KEY no se encontró en las variables de entorno.");
             return res.status(500).json({ message: "Error de configuración del servidor (API Key no encontrada)." });
         }
 
-        // 1. Campos ampliados para obtener toda la información que necesitas
         const fields = "name,place_id,formatted_address,geometry,url,photo,price_level,website,international_phone_number,address_components,rating,user_ratings_total,types";
         const url = `https://maps.googleapis.com/maps/api/place/details/json?placeid=${placeid}&key=${apiKey}&fields=${fields}&language=es`;
 
@@ -309,83 +312,65 @@ exports.getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
 
             if (placeDetailsData.status === "OK") {
                 const result = placeDetailsData.result;
+                const placeRef = db.collection('places').doc(result.place_id);
 
-                // 2. Procesamiento inteligente de los datos de la respuesta de Google
+                // 2. COMPROBAMOS SI EL DOCUMENTO YA EXISTE
+                const docSnapshot = await placeRef.get();
+
+                // ... (lógica para procesar la respuesta de Google, igual que antes)
                 let city = '', region = '', country = '', postalCode = '', province = '';
-                
                 if (result.address_components) {
                     for (const component of result.address_components) {
                         if (component.types.includes('locality')) city = component.long_name;
-                        if (component.types.includes('administrative_area_level_1')) region = component.long_name; // Comunidad Autónoma
+                        if (component.types.includes('administrative_area_level_1')) region = component.long_name;
                         if (component.types.includes('country')) country = component.long_name;
                         if (component.types.includes('postal_code')) postalCode = component.long_name;
                     }
                 }
-                
-                // 3. Derivación de la provincia a partir del código postal
                 if (postalCode) {
                     const provinceCode = postalCode.substring(0, 2);
                     province = provinceMap[provinceCode] || '';
                 }
 
-                // 4. Creación del documento para Firestore con el formato correcto
                 const placeDoc = {
                     name: result.name,
                     name_normalized: result.name.toLowerCase(),
                     googlePlaceId: result.place_id,
                     address: result.formatted_address,
                     address_normalized: result.formatted_address ? result.formatted_address.toLowerCase() : '',
-                    
-                    // Formato de location como en "Casa Marius"
-                    location: {
-                        latitude: result.geometry.location.lat,
-                        longitude: result.geometry.location.lng,
-                    },
-                    
-                    // Campos geográficos detallados
-                    city: city,
-                    region: region,
-                    province: province,
-                    country: country,
+                    coordinates: { latitude: result.geometry.location.lat, longitude: result.geometry.location.lng },
+                    location: { latitude: result.geometry.location.lat, longitude: result.geometry.location.lng },
+                    city: city, 
+                    region: region, 
+                    province: province, 
+                    country: country, 
                     postalCode: postalCode,
-                    
-                    // URLs y contacto
-                    googleMapsUrl: result.url,
-                    website: result.website || null,
+                    googleMapsUrl: result.url, 
+                    website: result.website || null, 
                     phone: result.international_phone_number || null,
-
-                    // --- NUEVOS CAMPOS SOLICITADOS ---
                     priceLevel: result.price_level !== undefined ? result.price_level : null,
-                    googleRating: result.rating || 0,
-                    googleUserRatingsTotal: result.user_ratings_total || 0,
+                    googleRating: result.rating || 0, googleUserRatingsTotal: result.user_ratings_total || 0,
                     types: result.types || [],
-                    mainImageUrl: result.photo // La primera imagen
-                        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${result.photo.photo_reference}&key=${apiKey}`
-                        : null,
-
-                    // Timestamps y metadatos
-                    updatedAt: FieldValue.serverTimestamp(),
-                    lastGoogleSync: FieldValue.serverTimestamp(),
+                    mainImageUrl: result.photo ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${result.photo.photo_reference}&key=${apiKey}`: null,
+                    updatedAt: FieldValue.serverTimestamp(), lastGoogleSync: FieldValue.serverTimestamp(),
                 };
 
-                // 5. Guardado en Firestore usando 'merge: true'
-                // Esto crea el lugar si no existe, o lo actualiza si ya existe,
-                // sin sobreescribir campos como 'followersCount'.
-                const placeRef = db.collection('places').doc(result.place_id);
-                await placeRef.set(placeDoc, { merge: true });
-                
-                // Inicializa 'followersCount' solo si el documento es nuevo
-                const docSnapshot = await placeRef.get();
-                if (!docSnapshot.data().hasOwnProperty('followersCount')) {
-                    await placeRef.update({ followersCount: 0 });
+                // 3. SI NO EXISTE, AÑADIMOS LOS CAMPOS DE CREACIÓN
+                if (!docSnapshot.exists) {
+                    placeDoc.createdByUserId = userId;
+                    placeDoc.createdAt = FieldValue.serverTimestamp();
+                    placeDoc.followersCount = 0; // Inicializar campos específicos de la app
+                    placeDoc.reviewsCount = 0;
+                    placeDoc.averageRating = 0;
                 }
+                
+                // 4. Guardamos los datos. `merge: true` sigue siendo útil para no borrar otros campos.
+                await placeRef.set(placeDoc, { merge: true });
 
-                // 6. Devolvemos la respuesta original al cliente para que la UI se actualice al instante
                 res.status(200).json(result);
-
             } else {
-                logger.error("Error desde Google Places API", {status: placeDetailsData.status, error_message: placeDetailsData.error_message});
-                res.status(500).json({ message: `Error de la API de Google Places: ${placeDetailsData.status}`, details: placeDetailsData.error_message });
+                 logger.error("Error desde Google Places API", {status: placeDetailsData.status, error_message: placeDetailsData.error_message});
+                 res.status(500).json({ message: `Error de la API de Google Places: ${placeDetailsData.status}`, details: placeDetailsData.error_message });
             }
         } catch (error) {
             logger.error("Error al contactar o procesar Google Places API", error);
