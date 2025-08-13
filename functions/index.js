@@ -367,7 +367,10 @@ exports.getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                 // 4. Guardamos los datos. `merge: true` sigue siendo útil para no borrar otros campos.
                 await placeRef.set(placeDoc, { merge: true });
 
-                res.status(200).json(result);
+                // 5. DEVOLVEMOS EL DOCUMENTO LIMPIO Y GUARDADO, NO EL RESULTADO BRUTO DE GOOGLE
+                // Añadimos el ID al documento que devolvemos, ya que .data() no lo incluye.
+                const finalDoc = { id: placeRef.id, ...placeDoc };
+                res.status(200).json(finalDoc);
             } else {
                  logger.error("Error desde Google Places API", {status: placeDetailsData.status, error_message: placeDetailsData.error_message});
                  res.status(500).json({ message: `Error de la API de Google Places: ${placeDetailsData.status}`, details: placeDetailsData.error_message });
