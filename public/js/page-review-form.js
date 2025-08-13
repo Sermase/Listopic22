@@ -56,7 +56,7 @@ ListopicApp.pageReviewForm = (() => {
     }
 
     function init() {
-        console.log('Initializing Review Form page logic - FINAL VERSION');
+        console.log('Initializing Review Form page logic - FINAL CORRECTED VERSION');
         
         const db = ListopicApp.services.db;
         const auth = ListopicApp.services.auth;
@@ -66,7 +66,16 @@ ListopicApp.pageReviewForm = (() => {
         const state = ListopicApp.state;
         const urlParams = new URLSearchParams(window.location.search);
         const listId = urlParams.get('listId');
-        const reviewIdToEdit = urlParams.get('editId'); // Corregido a 'editId' que parece ser el correcto
+        const reviewIdToEdit = urlParams.get('editId');
+
+        // --- CORRECCIÓN CLAVE: Guardar el ID de la lista en el estado global ---
+        if (listId) {
+            state.currentListId = listId;
+        } else {
+            console.error("FATAL: listId no encontrado en la URL. El formulario no puede funcionar.");
+            // Aquí podrías mostrar un mensaje de error al usuario en el DOM
+            return;
+        }
 
         const reviewForm = document.getElementById('review-form');
         
@@ -78,10 +87,21 @@ ListopicApp.pageReviewForm = (() => {
             const photoUrlInputReview = document.getElementById('photo-url');
             const photoFileInputReview = document.getElementById('photo-file');
             const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
-            const establishmentNameHiddenInput = document.getElementById('establishment-name');
             const itemNameInput = document.getElementById('item-name');
+            const backButtonReview = reviewForm.parentElement.querySelector('a.back-button');
 
-            // --- LÓGICA DE INICIALIZACIÓN DE LISTENERS (RESTAURADA) ---
+            // --- CORRECCIÓN CLAVE: Configurar el botón de "Volver" ---
+            if (backButtonReview) {
+                const fromGrouped = urlParams.get('fromGrouped');
+                const fromEstablishment = urlParams.get('fromEstablishment');
+                const fromItem = urlParams.get('fromItem');
+                if (fromGrouped === 'true' && fromEstablishment) {
+                    backButtonReview.href = `grouped-detail-view.html?listId=${listId}&establishment=${encodeURIComponent(fromEstablishment)}&item=${encodeURIComponent(fromItem || '')}`;
+                } else {
+                    backButtonReview.href = `list-view.html?listId=${listId}`;
+                }
+            }
+
             const findNearbyBtn = document.getElementById('find-nearby-btn');
             const searchByNameBtn = document.getElementById('search-by-name-btn');
 
@@ -97,54 +117,46 @@ ListopicApp.pageReviewForm = (() => {
                     }
                 });
             }
-            // ... otros listeners que tenías ...
 
-            // --- LÓGICA DE CARGA DE DATOS (RESTAURADA) ---
-            if (listId) {
-                db.collection('lists').doc(listId).get().then(doc => {
-                    if (!doc.exists) throw new Error("Datos de la lista no encontrados.");
-                    const listData = doc.data();
-                    state.currentListNameForSearch = listData.name || '';
-                    state.currentListCriteriaDefinitions = listData.criteriaDefinition || {};
+            // Lógica de carga de datos de la lista y reseña
+            db.collection('lists').doc(listId).get().then(doc => {
+                if (!doc.exists) throw new Error("Datos de la lista no encontrados.");
+                const listData = doc.data();
+                state.currentListNameForSearch = listData.name || '';
+                state.currentListCriteriaDefinitions = listData.criteriaDefinition || {};
 
-                    if (formTitle) formTitle.textContent = reviewIdToEdit ? `Editar Reseña para ${listData.name}` : `Añadir Nueva Reseña a ${listData.name}`;
+                if (formTitle) formTitle.textContent = reviewIdToEdit ? `Editar Reseña para ${listData.name}` : `Añadir Nueva Reseña a ${listData.name}`;
 
-                    if (reviewIdToEdit) {
-                        // MODO EDICIÓN: Cargar datos de la reseña
-                        db.collection('lists').doc(listId).collection('reviews').doc(reviewIdToEdit).get().then(async reviewDoc => {
-                            if (!reviewDoc.exists) throw new Error("Reseña para editar no encontrada.");
-                            const reviewData = reviewDoc.data();
-
-                            if (reviewData.placeId) {
-                                const placeDoc = await db.collection('places').doc(reviewData.placeId).get();
-                                if (placeDoc.exists) {
-                                    // Usamos la función de uiUtils para rellenar el formulario con los datos del lugar
-                                    uiUtils.updateReviewFormWithPlace(placeDoc.data());
-                                }
+                if (reviewIdToEdit) {
+                    db.collection('lists').doc(listId).collection('reviews').doc(reviewIdToEdit).get().then(async reviewDoc => {
+                        if (!reviewDoc.exists) throw new Error("Reseña para editar no encontrada.");
+                        const reviewData = reviewDoc.data();
+                        if (reviewData.placeId) {
+                            const placeDoc = await db.collection('places').doc(reviewData.placeId).get();
+                            if (placeDoc.exists) {
+                                uiUtils.updateReviewFormWithPlace(placeDoc.data());
                             }
-                            if (itemNameInput) itemNameInput.value = reviewData.itemName || '';
-                            if (reviewData.photoUrl) {
-                                uiUtils.showPreviewGlobal(reviewData.photoUrl, imagePreviewContainerReview);
-                                if (photoUrlInputReview) photoUrlInputReview.value = reviewData.photoUrl;
-                            }
-                            const commentEl = document.getElementById('comment');
-                            if(commentEl) commentEl.value = reviewData.comment || '';
+                        }
+                        if (itemNameInput) itemNameInput.value = reviewData.itemName || '';
+                        if (reviewData.photoUrl) {
+                            uiUtils.showPreviewGlobal(reviewData.photoUrl, imagePreviewContainerReview);
+                            if (photoUrlInputReview) photoUrlInputReview.value = reviewData.photoUrl;
+                        }
+                        const commentEl = document.getElementById('comment');
+                        if(commentEl) commentEl.value = reviewData.comment || '';
+                        uiUtils.renderCriteriaSliders(criteriaContainer, reviewData.scores || {}, state.currentListCriteriaDefinitions);
+                        renderTags(listData.availableTags || [], reviewData.userTags || [], listData.fixedTags || []);
+                    }).catch(error => console.error("Error al cargar la reseña para editar:", error));
+                } else {
+                    uiUtils.renderCriteriaSliders(criteriaContainer, {}, state.currentListCriteriaDefinitions);
+                    renderTags(listData.availableTags || [], [], listData.fixedTags || []);
+                }
+            }).catch(error => {
+                console.error("Error al cargar datos de la lista:", error);
+                if(formTitle) formTitle.textContent = "Error al cargar formulario";
+            });
 
-                            uiUtils.renderCriteriaSliders(criteriaContainer, reviewData.scores || {}, state.currentListCriteriaDefinitions);
-                            renderTags(listData.availableTags || [], reviewData.userTags || [], listData.fixedTags || []);
-                        }).catch(error => console.error("Error al cargar la reseña para editar:", error));
-                    } else {
-                        // MODO NUEVO: Renderizar sliders y tags vacíos
-                        uiUtils.renderCriteriaSliders(criteriaContainer, {}, state.currentListCriteriaDefinitions);
-                        renderTags(listData.availableTags || [], [], listData.fixedTags || []);
-                    }
-                }).catch(error => {
-                    console.error("Error al cargar datos de la lista:", error);
-                    if(formTitle) formTitle.textContent = "Error al cargar formulario";
-                });
-            }
-
-            // --- LÓGICA DE GUARDADO (SIMPLIFICADA) ---
+            // Lógica de guardado simplificada
             reviewForm.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 const submitButton = reviewForm.querySelector('.submit-button');
@@ -160,7 +172,7 @@ ListopicApp.pageReviewForm = (() => {
                 try {
                     const placeIdToSave = document.getElementById('location-googlePlaceId').value;
                     if (!placeIdToSave) {
-                        ListopicApp.services.showNotification("Debes buscar y seleccionar un lugar válido.", 'error');
+                        ListopicApp.services.showNotification("Error: Debes buscar y seleccionar un lugar válido.", 'error');
                         if (submitButton) submitButton.disabled = false;
                         return;
                     }

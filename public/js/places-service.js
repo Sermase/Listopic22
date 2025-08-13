@@ -79,34 +79,63 @@ ListopicApp.placesService = (() => {
         suggestionsBox.appendChild(ul);
     }
 
-    // Busca lugares cercanos
+    // Busca lugares cercanos, obteniendo la ubicación automáticamente
     async function fetchNearbyRestaurantsWithContext() {
         const suggestionsBox = document.getElementById('restaurant-suggestions');
         if (!suggestionsBox) return;
 
         const state = window.ListopicApp.state || {};
-        if (!state.userLatitude || !state.userLongitude) {
-            suggestionsBox.innerHTML = '<p style="color:var(--warning-color);">Por favor, pulsa "Ubicarme" primero.</p>';
+        suggestionsBox.innerHTML = '<p>Obteniendo tu ubicación...</p>';
+
+        try {
+            const position = await new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    return reject(new Error("La geolocalización no es soportada."));
+                }
+                navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+            });
+            state.userLatitude = position.coords.latitude;
+            state.userLongitude = position.coords.longitude;
+        } catch (error) {
+            console.error("Error obteniendo ubicación:", error);
+            suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">No se pudo obtener la ubicación: ${error.message}.</p>`;
             return;
         }
 
-        let searchKeywords = state.currentListNameForSearch ? `${state.currentListNameForSearch.toLowerCase()} restaurante bar pub comida` : "restaurante bar pub comida";
-        searchKeywords = [...new Set(searchKeywords.split(' '))].join(' ');
         suggestionsBox.innerHTML = `<p>Buscando lugares cercanos...</p>`;
+        const listId = state.currentListId;
+        if (!listId) {
+            suggestionsBox.innerHTML = '<p style="color:var(--danger-color);">Error: No se pudo identificar la lista actual.</p>';
+            return;
+        }
 
-        // Solo le pide las cosas al "Jefe de Camareros"
-        const places = await callPlaceFunction('placesNearbyRestaurants', {
-            latitude: state.userLatitude,
-            longitude: state.userLongitude,
-            keywords: searchKeywords
-        });
+        let categoryId;
+        try {
+            const listDoc = await ListopicApp.services.db.collection('lists').doc(listId).get();
+            categoryId = listDoc.exists ? listDoc.data().categoryId : null;
+        } catch (error) {
+            suggestionsBox.innerHTML = '<p style="color:var(--danger-color);">Error al cargar datos de la lista.</p>';
+            return;
+        }
 
-        if (places) {
+        if (!categoryId) {
+            suggestionsBox.innerHTML = '<p style="color:var(--warning-color);">Esta lista no tiene una categoría para la búsqueda.</p>';
+            return;
+        }
+
+        try {
+            const places = await callPlaceFunction('placesNearbyRestaurants', {
+                latitude: state.userLatitude,
+                longitude: state.userLongitude,
+                categoryId: categoryId
+            });
             displayPlaceSuggestions(places, suggestionsBox);
+        } catch (error) {
+            suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${error.message}</p>`;
         }
     }
 
-    // Busca lugares por nombre
+    // Busca lugares por nombre, obteniendo la ubicación automáticamente
     async function searchRestaurantsByName(query) {
         const suggestionsBox = document.getElementById('restaurant-suggestions');
         if (!suggestionsBox) return;
@@ -118,16 +147,32 @@ ListopicApp.placesService = (() => {
         
         const state = window.ListopicApp.state || {};
         const params = { query: query };
+
+        if (!state.userLatitude || !state.userLongitude) {
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) return resolve(null);
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                });
+                if (position) {
+                    state.userLatitude = position.coords.latitude;
+                    state.userLongitude = position.coords.longitude;
+                }
+            } catch (error) {
+                console.warn("No se pudo obtener la ubicación para la búsqueda de texto:", error.message);
+            }
+        }
+
         if (state.userLatitude && state.userLongitude) {
             params.latitude = state.userLatitude;
             params.longitude = state.userLongitude;
         }
 
-        // De nuevo, solo una simple petición al "Jefe de Camareros"
-        const places = await callPlaceFunction('placesTextSearch', params);
-        
-        if (places) {
+        try {
+            const places = await callPlaceFunction('placesTextSearch', params);
             displayPlaceSuggestions(places, suggestionsBox);
+        } catch (error) {
+            suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${error.message}</p>`;
         }
     }
 
