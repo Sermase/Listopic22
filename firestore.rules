@@ -1,114 +1,130 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --- Función de ayuda para roles (UNIFICADA) ---
+    function isJefe(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.userType.hasAny(['jefe']);
+    }
+
     // ===============================================
-    // REGLAS PARA USUARIOS (`users`)
+    // REGLA PARA COLLECTION GROUP 'reviews' (MANTENIDA)
+    // ===============================================
+    match /{path=**}/reviews/{reviewId} {
+      allow read: if request.auth != null;
+    }
+
+    // ===============================================
+    // REGLAS PARA USUARIOS (`users`) (ACTUALIZADAS)
     // ===============================================
     match /users/{userId} {
-      // Cualquiera puede leer un perfil público.
       allow read: if true;
-      // Un usuario solo puede crear su propio documento.
-      allow create: if request.auth != null && request.auth.uid == userId;
-      // Un usuario solo puede actualizar o borrar su propio documento.
-      allow update, delete: if request.auth != null && request.auth.uid == userId;
+      allow list: if request.auth != null && isJefe(request.auth.uid);
+      // Un usuario puede crear/editarse a sí mismo.
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      // Un usuario puede borrarse a sí mismo O un jefe puede borrarlo.
+      allow delete: if request.auth != null && (request.auth.uid == userId || isJefe(request.auth.uid)); // <-- CAMBIO: Añadido permiso de borrado para jefe.
 
-      // Un usuario solo puede modificar su propia lista de 'siguiendo'.
       match /following/{followId} {
         allow read: if request.auth != null;
         allow create, delete: if request.auth != null && request.auth.uid == userId;
       }
       
-      // Un usuario solo puede leer su lista de 'seguidores'. Nadie más.
       match /followers/{followerId} {
         allow read, list: if request.auth != null && request.auth.uid == userId;
-        // La creación y borrado de esta subcolección se gestiona por la Cloud Function.
-        allow write: if false; 
+        allow write: if false;
       }
     }
 
     // ===============================================
-    // REGLAS PARA LISTAS (`lists`)
+    // REGLAS PARA LISTAS (`lists`) (ACTUALIZADAS)
     // ===============================================
     match /lists/{listId} {
-      // Se puede leer si es pública, o si eres el dueño.
-      allow read: if resource.data.isPublic == true || (request.auth != null && resource.data.userId == request.auth.uid);
-      // Solo puedes crear listas para ti mismo.
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      // Solo el dueño puede actualizar o borrar la lista.
-      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-
-      // Reglas para subcolecciones de una lista
-      match /reviews/{reviewId} {
-        // Se pueden leer las reseñas si la lista es pública o eres el dueño.
-        allow read: if get(/databases/$(database)/documents/lists/$(listId)).data.isPublic == true ||
-                      (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
-        // Solo puedes crear reseñas para ti mismo.
-        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // Solo el dueño de la reseña puede modificarla o borrarla.
-        allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      }
+      allow read: if resource.data.isPublic == true || 
+                      (request.auth != null && resource.data.userId == request.auth.uid) ||
+                      (request.auth != null && isJefe(request.auth.uid));
+      allow list: if request.auth != null && isJefe(request.auth.uid);
       
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // El dueño de la lista O un jefe pueden actualizar o borrarla.
+      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid)); // <-- CAMBIO: Añadido permiso para jefe.
+
+      match /reviews/{reviewId} {
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        // El autor de la reseña O un jefe pueden editar o borrarla.
+        allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid)); // <-- CAMBIO: Añadido permiso para jefe.
+      }
+
       match /comments/{commentId} {
-        // Sugerencia: Los comentarios siguen la privacidad de la lista.
-        // Si la lista es pública, cualquiera puede leer. Si es privada, solo el dueño de la lista.
         allow read: if get(/databases/$(database)/documents/lists/$(listId)).data.isPublic == true ||
-                      (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
+                      (request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid) ||
+                      (request.auth != null && isJefe(request.auth.uid));
         allow create: if request.auth != null;
         allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
       }
     }
 
     // ===============================================
-    // REGLAS PARA LUGARES (`places`)
+    // REGLAS PARA LUGARES, MEDALLAS Y CATEGORÍAS (MANTENIDAS)
     // ===============================================
     match /places/{placeId} {
         allow read: if true;
-        // Solo permitir la creación si el usuario está autenticado.
+        allow list: if request.auth != null && isJefe(request.auth.uid);
         allow create: if request.auth != null;
-        // NO permitir actualizaciones directas por usuarios.
-        // Si las actualizaciones son necesarias, deben ser a través de una Cloud Function
-        // que valide la integridad de los datos.
-        allow update: if false;
-        allow delete: if false;
+        allow update, delete: if request.auth != null && isJefe(request.auth.uid);
     }
-
-    // ===============================================
-    // REGLAS PARA INSIGNIAS Y CATEGORÍAS (Solo lectura)
-    // ===============================================
+    
+    // Reglas para la subcolección de seguidores de un lugar
+    match /followers/{userId} {
+      // Permite que cualquier usuario logueado compruebe si alguien sigue el lugar.
+      allow read: if request.auth != null;
+        
+      // Solo permite que un usuario cree o borre su propio "follow".
+      allow create, delete: if request.auth.uid == userId;
+    }
+    
     match /badges/{badgeId} {
       allow read: if true;
-      allow write: if false;
+      allow list, write: if request.auth != null && isJefe(request.auth.uid);
     }
 
     match /categories/{categoryId} {
       allow read: if true;
-      allow write: if false;
+      allow list, write: if request.auth != null && isJefe(request.auth.uid);
     }
     
-    // ===============================================
-    // REGLA PARA CONSULTAS DE GRUPO (`collectionGroup`)
-    // ===============================================
-    // Esta es la regla clave que permite a la página de perfil
-    // obtener todas las reseñas de un usuario.
-    match /{path=**}/reviews/{reviewId} {
-      // Permite a cualquier usuario autenticado LISTAR y OBTENER reseñas.
-      // Es necesario para la consulta `collectionGroup('reviews').where('userId', '==', ...)`.
-      allow list, get: if request.auth != null;
-    }
     
-    // ===============================================
-    // FORUM RULES (Tus reglas, sin cambios)
-    // ===============================================
+    // ==================================================================
+    // REGLAS PARA LA PAPELERA (`deleted_items`) (¡NUEVA!)
+    // ==================================================================
+    match /deleted_items/{deletedId} {
+        // Solo un jefe puede crear documentos aquí (es decir, "borrar" algo).
+        allow create: if request.auth != null && isJefe(request.auth.uid);
+        
+        // Un jefe también puede leerlos para una futura UI de "papelera".
+        allow read, list: if request.auth != null && isJefe(request.auth.uid);
+        
+        // Nadie puede actualizar o borrar desde el cliente para mantener la integridad del archivo.
+        allow update, delete: if false;
+    }
+
+    // ==================================================================
+    // REGLAS PARA FOROS (`listForums`) (MANTENIDAS)
+    // ==================================================================
     match /listForums/{listId} {
-      allow create: if request.auth != null;
-      allow read: if true;
+      allow list: if request.auth != null && isJefe(request.auth.uid);
       
+      function canAccessList() {
+          let list = get(/databases/$(database)/documents/lists/$(listId)).data;
+          return list.isPublic == true || (request.auth != null && (list.userId == request.auth.uid || isJefe(request.auth.uid)));
+      }
+
+      allow read: if canAccessList();
+
       match /messages/{messageId} {
-        allow create: if request.auth != null;
-        allow update: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.userId);
-        allow read: if true;
-        allow delete: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.userId);
+        allow read, list, create: if canAccessList();
+        allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
       }
     }
   }
