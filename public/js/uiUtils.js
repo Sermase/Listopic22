@@ -548,5 +548,57 @@ createListViewGroupCard: function(group, listData, listIcon) {
         const manualLocationFieldsDiv = document.getElementById('manual-location-fields');
         if (manualLocationFieldsDiv) manualLocationFieldsDiv.style.display = 'block';
     },
+
+    compressImage: function(file, options = {}) {
+        return new Promise((resolve, reject) => {
+            const { maxWidth = 1280, maxHeight = 1280, quality = 0.7 } = options;
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob(
+                        (blob) => {
+                            if (blob) {
+                                const newFile = new File([blob], `compressed_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`.toLowerCase(), {
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now(),
+                                });
+                                resolve(newFile);
+                            } else {
+                                reject(new Error('Canvas to Blob conversion failed'));
+                            }
+                        },
+                        'image/jpeg',
+                        quality
+                    );
+                };
+                img.onerror = (error) => reject(error);
+            };
+            reader.onerror = (error) => reject(error);
+        });
+    }
 };
 
