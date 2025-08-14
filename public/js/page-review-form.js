@@ -1,10 +1,6 @@
 window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageReviewForm = (() => {
 
-    // Las funciones de creación de lugares (findOrCreatePlace, etc.) han sido eliminadas.
-    // La lógica ahora reside en el backend.
-
-    // Se mantiene la función para renderizar etiquetas.
     function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
         const container = document.getElementById('dynamic-tag-selection');
         if (!container) return;
@@ -55,6 +51,79 @@ ListopicApp.pageReviewForm = (() => {
         }
     }
 
+    function setupPhotoHandling() {
+        const reviewForm = document.getElementById('review-form');
+        if (!reviewForm) return;
+
+        const photoFileInput = document.getElementById('photo-file');
+        const imagePreviewContainer = reviewForm.querySelector('.image-preview');
+        const photoUrlInput = document.getElementById('photo-url');
+        const uploadArea = reviewForm.querySelector('.image-upload-area');
+        const galleryButton = document.getElementById('browse-gallery-btn');
+        const state = ListopicApp.state;
+        const uiUtils = ListopicApp.uiUtils;
+
+        if (!photoFileInput || !imagePreviewContainer || !photoUrlInput || !uploadArea) {
+            console.warn("Faltan elementos de la UI para la subida de fotos.");
+            return;
+        }
+
+        // Hacemos que el área principal de subida sea clickeable
+        uploadArea.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && e.target.parentElement.tagName !== 'BUTTON') {
+                photoFileInput.click();
+            }
+        });
+
+        // Hacemos que el botón específico "Desde Galería" también funcione
+        if (galleryButton) {
+            galleryButton.addEventListener('click', () => {
+                photoFileInput.click();
+            });
+        }
+
+        // Gestionamos la selección del archivo y la compresión
+        photoFileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            photoUrlInput.value = '';
+            
+            try {
+                imagePreviewContainer.innerHTML = '<p class="loading-placeholder">Comprimiendo imagen...</p>';
+
+                const compressedFile = await uiUtils.compressImage(file, {
+                    maxWidth: 1280,
+                    maxHeight: 1280,
+                    quality: 0.7
+                });
+                
+                state.selectedFileForUpload = compressedFile;
+
+                const previewUrl = URL.createObjectURL(compressedFile);
+                uiUtils.showPreviewGlobal(previewUrl, imagePreviewContainer);
+
+            } catch (error) {
+                console.error("Error al comprimir la imagen:", error);
+                ListopicApp.services.showNotification("Error al procesar la imagen.", 'error');
+                if(uiUtils.clearPreviewGlobal) {
+                    uiUtils.clearPreviewGlobal(imagePreviewContainer, photoUrlInput, photoFileInput);
+                } else {
+                    imagePreviewContainer.innerHTML = '';
+                }
+            }
+        });
+
+        // Gestionamos la entrada de URL
+        photoUrlInput.addEventListener('input', () => {
+            if (photoUrlInput.value.trim() !== '') {
+                state.selectedFileForUpload = null;
+                if (photoFileInput) photoFileInput.value = null;
+                uiUtils.showPreviewGlobal(photoUrlInput.value.trim(), imagePreviewContainer);
+            }
+        });
+    }
+
     function init() {
         console.log('Initializing Review Form page logic - FINAL CORRECTED VERSION');
         
@@ -68,12 +137,10 @@ ListopicApp.pageReviewForm = (() => {
         const listId = urlParams.get('listId');
         const reviewIdToEdit = urlParams.get('editId');
 
-        // --- CORRECCIÓN CLAVE: Guardar el ID de la lista en el estado global ---
         if (listId) {
             state.currentListId = listId;
         } else {
             console.error("FATAL: listId no encontrado en la URL. El formulario no puede funcionar.");
-            // Aquí podrías mostrar un mensaje de error al usuario en el DOM
             return;
         }
 
@@ -82,15 +149,10 @@ ListopicApp.pageReviewForm = (() => {
         if (reviewForm) {
             const formTitle = reviewForm.parentElement.querySelector('h2');
             const criteriaContainer = document.getElementById('dynamic-rating-criteria');
-            const dynamicTagContainer = document.getElementById('dynamic-tag-selection');
-            const imagePreviewContainerReview = reviewForm.querySelector('.image-preview');
-            const photoUrlInputReview = document.getElementById('photo-url');
-            const photoFileInputReview = document.getElementById('photo-file');
             const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
             const itemNameInput = document.getElementById('item-name');
             const backButtonReview = reviewForm.parentElement.querySelector('a.back-button');
 
-            // --- CORRECCIÓN CLAVE: Configurar el botón de "Volver" ---
             if (backButtonReview) {
                 const fromGrouped = urlParams.get('fromGrouped');
                 const fromEstablishment = urlParams.get('fromEstablishment');
@@ -104,6 +166,19 @@ ListopicApp.pageReviewForm = (() => {
 
             const findNearbyBtn = document.getElementById('find-nearby-btn');
             const searchByNameBtn = document.getElementById('search-by-name-btn');
+            const toggleManualLocationBtn = document.getElementById('toggle-manual-location-btn');
+
+            if (toggleManualLocationBtn) {
+                toggleManualLocationBtn.addEventListener('click', () => {
+                    const manualFields = document.getElementById('manual-location-fields');
+                    if (manualFields) {
+                        const isVisible = manualFields.style.display === 'block';
+                        manualFields.style.display = isVisible ? 'none' : 'block';
+                        toggleManualLocationBtn.querySelector('i').classList.toggle('fa-chevron-down', isVisible);
+                        toggleManualLocationBtn.querySelector('i').classList.toggle('fa-chevron-up', !isVisible);
+                    }
+                });
+            }
 
             if (findNearbyBtn) {
                 findNearbyBtn.addEventListener('click', () => placesService.fetchNearbyRestaurantsWithContext());
@@ -118,7 +193,8 @@ ListopicApp.pageReviewForm = (() => {
                 });
             }
 
-            // Lógica de carga de datos de la lista y reseña
+            setupPhotoHandling();
+
             db.collection('lists').doc(listId).get().then(doc => {
                 if (!doc.exists) throw new Error("Datos de la lista no encontrados.");
                 const listData = doc.data();
@@ -134,15 +210,14 @@ ListopicApp.pageReviewForm = (() => {
                         if (reviewData.placeId) {
                             const placeDoc = await db.collection('places').doc(reviewData.placeId).get();
                             if (placeDoc.exists) {
-                                // ¡CORRECCIÓN CLAVE!
-                                // Pasamos el ID del documento junto con sus datos.
                                 const placeDataWithId = { id: placeDoc.id, ...placeDoc.data() };
                                 uiUtils.updateReviewFormWithPlace(placeDataWithId);
                             }
                         }
                         if (itemNameInput) itemNameInput.value = reviewData.itemName || '';
                         if (reviewData.photoUrl) {
-                            uiUtils.showPreviewGlobal(reviewData.photoUrl, imagePreviewContainerReview);
+                            uiUtils.showPreviewGlobal(reviewData.photoUrl, reviewForm.querySelector('.image-preview'));
+                            const photoUrlInputReview = document.getElementById('photo-url');
                             if (photoUrlInputReview) photoUrlInputReview.value = reviewData.photoUrl;
                         }
                         const commentEl = document.getElementById('comment');
@@ -159,7 +234,6 @@ ListopicApp.pageReviewForm = (() => {
                 if(formTitle) formTitle.textContent = "Error al cargar formulario";
             });
 
-            // Lógica de guardado simplificada
             reviewForm.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 const submitButton = reviewForm.querySelector('.submit-button');
