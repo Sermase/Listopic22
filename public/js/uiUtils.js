@@ -544,9 +544,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
         if (locationPostalCodeGInput) locationPostalCodeGInput.value = place.postalCode || "";
         if (locationCountryGInput) locationCountryGInput.value = place.country || "";
 
-        // Opcional: abrir los campos manuales para que el usuario vea los datos
-        const manualLocationFieldsDiv = document.getElementById('manual-location-fields');
-        if (manualLocationFieldsDiv) manualLocationFieldsDiv.style.display = 'block';
+        // Los campos manuales ahora se gestionan con un botón de despliegue en la propia página del formulario.
     },
 
     compressImage: function(file, options = {}) {

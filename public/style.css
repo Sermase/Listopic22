@@ -541,15 +541,15 @@ body.light-theme .criterion-slider-config {
     line-height: 1.2; /* Ajustar para el icono */
 }
 
-.input-with-button-beside {
+.input-with-side-button {
     display: flex;
     gap: 8px;
     align-items: center;
 }
-.input-with-button-beside .form-input {
+.input-with-side-button .form-input {
     flex-grow: 1;
 }
-.input-with-button-beside .button { /* El botón al lado */
+.input-with-side-button .button { /* El botón al lado */
     flex-shrink: 0;
 }
 
@@ -1998,3399 +1998,777 @@ body.light-theme .profile-list li {
 body.light-theme .profile-list li:hover {
     background-color: rgba(0,0,0,0.05);
 }
-body.light-theme .profile-list li a {
-    color: var(--text-color); /* Uses light theme text color */
-}
-body.light-theme .profile-list li a:hover {
-    color: var(--accent-color-primary); /* Uses light theme accent */
-}
 
-/* Profile Message Area */
-#profile-message-area {
-    margin-top: 15px;
-    padding: 12px 15px;
-    border-radius: var(--border-radius-small);
-    font-weight: 500;
-    text-align: center;
-    line-height: 1.4;
-    display: none; /* Oculto por defecto, JS lo muestra */
-    font-size: 0.9em;
-}
-#profile-message-area.success { background-color: rgba(var(--accent-color-tertiary-rgb), 0.15); color: var(--accent-color-tertiary); border: 1px solid var(--accent-color-tertiary); }
-#profile-message-area.error { background-color: rgba(var(--danger-color-rgb), 0.15); color: var(--danger-color); border: 1px solid var(--danger-color); }
-
-
-
-body.light-theme .modal-content {
-    background-color: var(--primary-bg); /* Light theme page background */
-    border: 1px solid var(--input-border);
-}
-body.light-theme .save-button {
-    background-color: var(--accent-color-tertiary);
-    color: white; /* Text on green */
-}
-body.light-theme .save-button.has-changes {
-    background-color: var(--accent-color-primary);
-    color: var(--main-button-text); /* Dark text on yellow */
-}
-body.light-theme #photo-edit-controls {
-    background-color: rgba(0,0,0,0.05);
-}
-
-/* Estilos para listas y reseñas en el perfil */
-.profile-list-item, .profile-review-item {
-    background-color: var(--container-bg); /* Un fondo sutil */
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: var(--border-radius-medium);
-    border: 1px solid var(--border-color-light);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-.profile-list-item:hover, .profile-review-item:hover {
-    box-shadow: var(--shadow-elevation-low);
-    transform: translateY(-2px);
-}
-
-.profile-list-item a, .profile-review-item a {
-    text-decoration: none;
-    color: var(--text-color);
-    display: block;
-}
-
-.profile-list-item-name, .profile-review-item-title {
-    font-size: 1.1em;
-    font-weight: 600;
-    color: var(--accent-color-primary);
-    margin-bottom: 3px;
-    display: block;
-}
-
-.profile-list-item-meta, .profile-review-item-meta {
-    font-size: 0.85em;
-    color: var(--secondary-text-color);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px; /* Espacio entre meta items */
-}
-.profile-list-item-meta span, .profile-review-item-meta span {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-}
-.profile-list-item-meta i, .profile-review-item-meta i {
-    margin-right: 6px;
-    color: var(--accent-color-secondary);
-}
-
-.profile-review-item-main {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}
-.profile-review-rating {
-    font-weight: bold;
-    color: var(--accent-color-tertiary);
-    font-size: 1em;
-}
-.profile-review-rating .fa-star {
-    color: var(--accent-color-primary); /* O el color que prefieras para la estrella */
-    font-size: 0.9em;
-}
-
-/* Placeholder y errores en listas/reseñas del perfil */
-.loading-placeholder, .error-placeholder {
-    color: var(--secondary-text-color);
-    font-style: italic;
-    padding: 10px 0;
-}
-.error-placeholder {
-    color: var(--danger-color);
-}
-
-.review-author-info {
-    text-align: center;
-    margin-top: -15px; /* Para acercarlo un poco al título del plato si quieres */
-    margin-bottom: 20px;
-    font-size: 0.9em;
-    color: var(--secondary-text-color); /* O el color que prefieras */
-}
-
-.review-author-info strong {
-    color: var(--text-color); /* O un color de acento */
-    font-weight: 600;
-}
-
-
-
-/* En style.css */
-
-.search-page-container h1.brand-title {
-    font-size: clamp(2.5em, 7vw, 3.5em); /* Un poco más pequeño que el de index */
-    margin-bottom: 10px;
-}
-
-.search-input-area {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 5px;
-}
-
-.large-search-input {
-    padding: 15px 20px; /* Más grande */
-    font-size: 1.1em;
-    flex-grow: 1;
-}
-
-.search-input-area .submit-button {
-    flex-shrink: 0; /* Para que el botón no se encoja */
-    padding: 15px 25px;
-}
-
-/* Debajo de la regla .search-input-area existente */
-@media (max-width: 480px) {
-    .search-input-area {
-        flex-direction: column;
-    }
-
-    .search-input-area .submit-button {
-        margin-top: 0px; /* Espacio entre la barra y el botón */
-    }
-}
-
-.entity-type-filters {
-    margin-bottom: 20px;
-    text-align: center; /* Centrar los botones de tipo */
-}
-.entity-type-filters p {
-    margin-bottom: 10px;
-    font-weight: 500;
-}
-.entity-type-btn { /* Hereda de .tag-filter-button pero podemos especializar */
-    margin: 0 5px 10px 5px; /* Espacio alrededor */
-    /* Estilos para 'active' se pueden manejar con la clase .selected que ya tienes para .tag-filter-button */
-}
-.entity-type-btn.active { /* O usa .selected si reutilizas esa clase */
-    background-color: var(--accent-color-secondary);
-    color: var(--main-button-text);
-    border: 2px solid var(--accent-color-secondary);
-    border-color: var(--accent-color-primary);
-    color: white;
-}
-
-body.light-theme .entity-type-btn.active { /* O usa .selected si reutilizas esa clase */
-    background-color: var(--accent-color-primary);
-    color: var(--main-button-text);
-    border: 1px solid var(--accent-color-tertiary);
-    border-color: var(--accent-color-tertiary);
-    color: white;
-}
-
-.advanced-filters-trigger {
-    text-align: center;
-    margin-bottom: 5px;
-}
-
-.search-results-container {
-    margin-top: 1px;
-    /* Aquí irán los estilos para las tarjetas de resultados */
-}
-.search-placeholder {
-    color: var(--secondary-text-color);
-    font-style: italic;
-    padding: 20px;
-    text-align: center;
-}
-
-/* Estilos para el modal de filtros (ya tienes estilos base para .modal y .modal-content) */
-#advanced-filters-content .form-group {
-    margin-bottom: 5px;
-}
-#advanced-filters-content label {
-    font-size: 0.95em;
-}
-#advanced-filters-content .form-input, 
-#advanced-filters-content select { /* Si usas select para categorías o insignias */
-    font-size: 0.95em;
-}
-
-#sort-order-select {
-    max-width: 250px; /* Evita que sea demasiado ancho */
-}
-.sort-controls-container {
-    display: flex;
-    justify-content: flex-end; /* Alinea el control a la derecha */
-    align-items: center;
-    gap: 10px;
-    margin-top: 20px;
-    margin-bottom: 0;
-}
-
-.sort-controls-container label {
-    margin-bottom: 0; /* Quitamos el margen inferior de la etiqueta */
-    font-weight: 500;
-}
-
-
-/* --- Estilos para Tarjetas de Resultado de Búsqueda --- */
-
-.search-results-container {
-    text-align: left; /* Para que las tarjetas se alineen a la izquierda */
-    margin-top: 0px;
-}
-
-.search-card {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    background-color: var(--container-bg-secondary, rgba(23, 38, 63, 0.85));
-    padding: 8px;
-    padding-left: 15px;
-    border-radius: var(--border-radius-medium, 8px);
-    margin-bottom: 2px;
-    text-decoration: none;
-    color: var(--text-color);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    border: 1px solid var(--border-color-light, rgba(255, 255, 255, 0.1));
-}
-
-.search-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-elevation-medium, 0 6px 12px rgba(0,0,0,0.2));
-}
-
-.search-card__icon-container {
-    flex-shrink: 0;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba(var(--accent-color-primary-rgb), 0.1);
-    border-radius: 50%;
-    font-size: 1.2em;
-    color: var(--accent-color-primary);
-}
-
-.search-card__icon-container img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-}
-
-.search-card__content {
-    flex-grow: 1;
-    overflow: hidden; /* Para manejar textos largos */
-}
-
-.search-card__title {
-    margin: 0 0 8px 0;
-    font-size: 1.1em;
-    font-weight: 600;
-    color: var(--title-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.search-card__tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.info-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background-color: var(--input-bg, rgba(0, 0, 0, 0.35));
-    padding: 4px 10px;
-    border-radius: 20px; /* Estilo "píldora" */
-    font-size: 0.8em;
-    font-weight: 500;
-    line-height: 1.4;
-    color: var(--secondary-text-color, rgba(224, 224, 224, 0.7));
-}
-
-.info-tag i {
-    opacity: 0.8;
-}
-
-/* Modificadores de color para cada tipo de etiqueta */
-.info-tag--list {
-    background-color: rgba(var(--accent-color-secondary-rgb), 0.15);
-    color: var(--accent-color-secondary);
-}
-
-.info-tag--user {
-    background-color: rgba(var(--accent-color-tertiary-rgb), 0.15);
-    color: var(--accent-color-tertiary);
-}
-
-.info-tag--place {
-    background-color: rgba(var(--accent-color-quaternary-rgb), 0.15);
-    color: var(--accent-color-quaternary);
-}
-
-.info-tag--item {
-    background-color: rgba(var(--accent-color-quinary-rgb), 0.15);
-    color: var(--accent-color-quinary);
-}
-
-/* --- Estilos para la Página de Perfil y Modales (NUEVO) --- */
-
-.profile-page-container .brand-title {
-    display: none; /* Ocultamos el título genérico para dar paso a la cabecera */
-}
-
-/* Nueva cabecera de perfil */
-.user-info-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    padding: clamp(20px, 5vw, 40px);
-    background: var(--container-bg-secondary);
-    border-radius: var(--border-radius-large);
-    margin-bottom: 30px;
-    text-align: center;
-}
-
-.profile-picture-container {
-    position: relative;
-}
-
-.profile-picture {
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 4px solid var(--accent-color-primary);
-    box-shadow: var(--shadow-elevation-medium);
-    background-color: var(--primary-bg);
-}
-
-.profile-details h2 {
-    margin: 10px 0 5px 0;
-    font-size: 2em;
-    color: var(--title-color);
-}
-
-.profile-details #profile-username-display {
-    color: var(--secondary-text-color);
-    font-size: 1.1em;
-    margin-bottom: 10px;
-}
-
-.profile-details #profile-location-display {
-    color: var(--secondary-text-color);
-    font-size: 0.9em;
-    margin-bottom: 15px;
-}
-.profile-details #profile-location-display i {
-    margin-right: 6px;
-    color: var(--accent-color-tertiary);
-}
-
-.profile-details #profile-bio-display {
-    margin-top: 15px;
-    max-width: 600px;
-    line-height: 1.6;
-    color: var(--text-color);
-}
-
-.edit-profile-button {
-    margin-top: 20px;
-}
-
-/* Estilos para el Modal */
-.modal {
-    display: none; /* Oculto por defecto */
-    position: fixed; 
-    z-index: 1050; /* Por encima de todo */
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto; 
-    background-color: rgba(0,0,0,0.6); /* Fondo oscuro semitransparente */
-    align-items: center;
-    justify-content: center;
-}
-
-.modal.active {
-    display: flex; /* Se muestra con flex para centrar */
-}
-
-.modal-content {
-    background-color: var(--primary-bg);
-    margin: auto;
-    padding: clamp(20px, 4vw, 40px);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-large);
-    box-shadow: var(--shadow-elevation-high);
-    width: 90%;
-    max-width: 550px;
-    position: relative;
-    animation: fadeInUpScale 0.3s ease-out forwards;
-}
-
-.close-button {
-    color: var(--secondary-text-color);
-    position: absolute;
-    top: 15px;
-    right: 25px;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: color 0.2s ease;
-}
-
-.close-button:hover,
-.close-button:focus {
-    color: var(--danger-color);
-    text-decoration: none;
-}
-
-/* Mensajes dentro del modal */
-#modal-message-area {
-    margin-bottom: 15px;
-    padding: 12px;
-    border-radius: var(--border-radius-small);
-    font-size: 0.9em;
-    display: none; /* Oculto por defecto */
-}
-#modal-message-area.success {
-    background-color: rgba(var(--accent-color-tertiary-rgb), 0.15);
-    color: var(--accent-color-tertiary);
-}
-#modal-message-area.error {
-    background-color: rgba(var(--danger-color-rgb), 0.15);
-    color: var(--danger-color);
-}
-
-/* Preview de imagen en el modal */
-#edit-photo-preview img {
-    max-width: 150px;
-    max-height: 150px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin: 10px auto;
-    display: block;
-    border: 2px solid var(--border-color);
-}
-
-@media (min-width: 768px) {
-    .user-info-card {
-        flex-direction: row;
-        text-align: left;
-    }
-}
-
-/* Añadir estos estilos para las cards de búsqueda mejoradas */
-
-.search-card {
-    display: flex;
-    padding: 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    background: var(--card-background);
-    transition: all 0.2s ease;
-    text-decoration: none;
-    color: inherit;
-}
-
-.search-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    border-color: var(--primary-color);
-}
-
-.search-card__icon-container {
-    flex-shrink: 0;
-    width: 60px;
-    height: 60px;
-    margin-right: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    background: var(--background-secondary);
-}
-
-.search-card__icon {
-    font-size: 1.5rem;
-    color: var(--text-secondary);
-}
-
-.search-card__avatar,
-.search-card__image {
-    width: 60px;
-    height: 60px;
-    border-radius: 8px;
-    object-fit: cover;
-}
-
-.search-card__content {
-    flex: 1;
-    min-width: 0;
-}
-
-.search-card__title {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    line-height: 1.3;
-}
-
-.search-card__description {
-    margin: 0 0 0.75rem 0;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    line-height: 1.4;
-}
-
-.search-card__tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.info-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem 0.5rem;
-    background: var(--background-secondary);
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-}
-
-.info-tag i {
-    font-size: 0.7rem;
-}
-
-/* Colores específicos para diferentes tipos de tags */
-.info-tag--list {
-    background: #e3f2fd;
-    color: #1976d2;
-}
-
-.info-tag--user {
-    background: #f3e5f5;
-    color: #7b1fa2;
-}
-
-.info-tag--place {
-    background: #e8f5e8;
-    color: #388e3c;
-}
-
-.info-tag--item {
-    background: #fff3e0;
-    color: #f57c00;
-}
-
-.info-tag--public {
-    background: #e8f5e8;
-    color: #2e7d32;
-}
-
-.info-tag--private {
-    background: #ffebee;
-    color: #c62828;
-}
-
-.info-tag--rating {
-    background: #fff8e1;
-    color: #f9a825;
-}
-
-.search-card__meta {
-    margin-top: 0.5rem;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-
-.search-card__badges,
-.search-card__user-tags,
-.search-card__place-types {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-    margin-top: 0.5rem;
-}
-
-.badge {
-    padding: 0.2rem 0.4rem;
-    border-radius: 8px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    background: linear-gradient(135deg, #ffd700, #ffb300);
-    color: #333;
-}
-
-.user-tag,
-.place-type-tag {
-    padding: 0.2rem 0.4rem;
-    background: var(--primary-color-light);
-    color: var(--primary-color);
-    border-radius: 8px;
-    font-size: 0.7rem;
-    font-weight: 500;
-}
-
-.search-card__rating {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-}
-
-.rating-stars {
-    display: flex;
-    gap: 0.1rem;
-}
-
-.star-filled {
-    color: #ffc107;
-}
-
-.star-half {
-    color: #ffc107;
-}
-
-.star-empty {
-    color: #e0e0e0;
-}
-
-.rating-text {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-}
-
-.search-card__rating-breakdown {
-    margin-top: 0.5rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
-.criteria-rating {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-}
-
-.criteria-name {
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.criteria-stars {
-    display: flex;
-    gap: 0.05rem;
-}
-
-.criteria-stars i {
-    font-size: 0.6rem;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .search-card {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .search-card__icon-container {
-        margin: 0 auto 1rem auto;
-    }
-    
-    .search-card__tags {
-        justify-content: center;
-    }
-}
-
-
-/* Añadir/actualizar estos estilos */
-
-.tag-filter-button.active i,
-.tag-filter-button.selected i {
-    transform: scale(1.05);
-}
-
-/* Estilos específicos para botones de categoría de etiquetas */
-.category-tag-button {
-    display: inline-block;
-    padding: 0.4rem 0.8rem;
-    margin: 0.2rem;
-    border: 2px solid var(--border-color);
-    background: var(--background-primary);
-    color: var(--text-secondary);
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-decoration: none;
-}
-
-.category-tag-button:hover {
-    border-color: var(--accent-color-secondary);
-    background: rgba(var(--accent-color-secondary-rgb), 0.1);
-    color: var(--accent-color-secondary);
-    transform: translateY(-1px);
-}
-
-.category-tag-button.active {
-    border-color: var(--accent-color-secondary);
-    background: var(--accent-color-secondary);
-    color: white;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(var(--accent-color-secondary-rgb), 0.3);
-}
-
-/* Mejoras para las cards de búsqueda */
-.search-card {
-    display: flex;
-    padding: 1.25rem;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    margin-bottom: 1rem;
-    background: var(--card-background);
-    transition: all 0.3s ease;
-    text-decoration: none;
-    color: inherit;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.search-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    border-color: var(--primary-color);
-}
-
-.search-card__icon-container {
-    flex-shrink: 0;
-    width: 70px;
-    height: 70px;
-    margin-right: 1.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 12px;
-    background: var(--background-secondary);
-    border: 1px solid var(--border-color);
-}
-
-.search-card__icon {
-    font-size: 1.75rem;
-    color: var(--text-secondary);
-}
-
-.search-card__avatar,
-.search-card__image {
-    width: 70px;
-    height: 70px;
-    border-radius: 12px;
-    object-fit: cover;
-    border: 1px solid var(--border-color);
-}
-
-.search-card__content {
-    flex: 1;
-    min-width: 0;
-}
-
-.search-card__title {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    line-height: 1.3;
-}
-
-.search-card__description {
-    margin: 0 0 1rem 0;
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    line-height: 1.5;
-}
-
-.search-card__tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-
-.info-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.4rem 0.75rem;
-    background: var(--background-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    transition: all 0.2s ease;
-}
-
-.info-tag:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.info-tag i {
-    font-size: 0.75rem;
-}
-
-/* Colores específicos para diferentes tipos de tags con mejor contraste */
-.info-tag--list {
-    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-    color: #0d47a1;
-    border-color: #2196f3;
-}
-
-.info-tag--user {
-    background: linear-gradient(135deg, #f3e5f5, #e1bee7);
-    color: #4a148c;
-    border-color: #9c27b0;
-}
-
-.info-tag--place {
-    background: linear-gradient(135deg, #e8f5e8, #55f8c7);
-    color: #1b5e20;
-    border-color: #4caf50;
-}
-
-.info-tag--item {
-    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
-    color: #e65100;
-    border-color: #ff9800;
-}
-
-.info-tag--public {
-    background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
-    color: #1b5e20;
-    border-color: #4caf50;
-}
-
-.info-tag--private {
-    background: linear-gradient(135deg, #ffebee, #ffcdd2);
-    color: #b71c1c;
-    border-color: #f44336;
-}
-
-.info-tag--rating {
-    background: linear-gradient(135deg, #fff8e1, #ffecb3);
-    color: #f57f17;
-    border-color: #ffc107;
-}
-
-.info-tag--category,
-.info-tag--count,
-.info-tag--followers,
-.info-tag--reviews,
-.info-tag--lists,
-.info-tag--location,
-.info-tag--region,
-.info-tag--price {
-    background: var(--background-secondary);
-    color: var(--text-secondary);
-    border-color: var(--border-color);
-}
-
-/* Mejoras para el modal de filtros avanzados */
-.advanced-filters-content {
-    max-height: 60vh;
-    overflow-y: auto;
-    padding: 1rem 0;
-}
-
-.filter-category-section {
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--background-secondary);
-}
-
-.filter-category-title {
-    margin: 0 0 1rem 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.category-tags-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 1rem;
-}
-
-.category-tag-button {
-    padding: 0.4rem 0.8rem;
-    border: 2px solid var(--border-color);
-    background: var(--background-primary);
-    color: var(--text-secondary);
-    border-radius: 16px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.category-tag-button:hover {
-    border-color: var(--primary-color);
-    background: var(--primary-color-light);
-    color: var(--primary-color);
-}
-
-.category-tag-button.active {
-    border-color: var(--primary-color);
-    background: var(--primary-color);
-    color: white;
-}
-
-/* Tema oscuro */
-[data-theme="dark"] .info-tag {
-    background: var(--background-secondary);
-    border-color: var(--border-color);
-    color: var(--text-secondary);
-}
-
-[data-theme="dark"] .info-tag--list {
-    background: rgba(33, 150, 243, 0.2);
-    color: #64b5f6;
-    border-color: #2196f3;
-}
-
-[data-theme="dark"] .info-tag--user {
-    background: rgba(156, 39, 176, 0.2);
-    color: #ba68c8;
-    border-color: #9c27b0;
-}
-
-[data-theme="dark"] .info-tag--place {
-    background: rgba(76, 175, 80, 0.2);
-    color: #81c784;
-    border-color: #4caf50;
-}
-
-[data-theme="dark"] .info-tag--item {
-    background: rgba(255, 152, 0, 0.2);
-    color: #ffb74d;
-    border-color: #ff9800;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .search-card {
-        flex-direction: column;
-        text-align: center;
-        padding: 1rem;
-    }
-    
-    .search-card__icon-container {
-        margin: 0 auto 1rem auto;
-        width: 60px;
-        height: 60px;
-    }
-    
-    .search-card__avatar,
-    .search-card__image {
-        width: 60px;
-        height: 60px;
-    }
-    
-    .search-card__tags {
-        justify-content: center;
-    }
-    
-    .entity-type-filters {
-        text-align: center;
-    }
-    
-    .tag-filter-button {
-        margin: 0.25rem;
-        font-size: 0.8rem;
-        padding: 0.4rem 0.8rem;
-    }
-}
-
-/* ===============================================
-   ESTILOS PARA ETIQUETAS DINÁMICAS
-   =============================================== */
-
-/* Estilos para estados de carga y error en etiquetas */
-.text-error {
-    color: #f44336 !important;
-}
-
-.category-tags-container .fa-spinner {
-    margin-right: 0.5rem;
-}
-
-/* Tema oscuro para texto de error */
-[data-theme="dark"] .text-error {
-    color: #ff6b6b !important;
-}
-
-/* ===============================================
-   ESTILOS PARA TARJETAS DE ELEMENTOS MEJORADAS
-   =============================================== */
-
-/* Tarjeta de elemento específica */
-.search-card--item {
-    min-height: auto;
-}
-
-.search-card__header {
-    margin-bottom: 0.75rem;
-}
-
-.search-card__restaurant {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin: 0.25rem 0 0 0;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.search-card__restaurant i {
-    font-size: 0.75rem;
-    color: var(--accent-color);
-}
-
-/* Rating summary compacto */
-.search-card__rating-summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.75rem;
-    padding: 0.5rem;
-    background: var(--background-secondary);
-    border-radius: 8px;
-}
-
-.overall-rating {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.rating-value {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--primary-color);
-}
-
-.rating-stars {
-    display: flex;
-    gap: 0.1rem;
-}
-
-.price-tag {
-    background: var(--accent-color-tertiary);
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
-/* Barras de criterios compactas */
-.criteria-bars {
-    margin-bottom: 0.75rem;
-}
-
-.criteria-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.4rem;
-    font-size: 0.85rem;
-}
-
-.criteria-label {
-    min-width: 60px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-}
-
-.criteria-progress {
-    flex: 1;
-    height: 6px;
-    background: var(--border-color);
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.criteria-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #ff6b6b 0%, #ffa726 50%, #66bb6a 100%);
-    border-radius: 3px;
-    transition: width 0.3s ease;
-}
-
-.criteria-value {
-    min-width: 30px;
-    text-align: right;
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 0.8rem;
-}
-
-/* Tags como pills */
-.tag-pill {
-    display: inline-block;
-    background: var(--primary-color-light);
-    color: var(--primary-color);
-    padding: 0.2rem 0.6rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    margin-right: 0.4rem;
-    margin-bottom: 0.2rem;
-}
-
-/* Meta información compacta */
-.search-card__meta {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--border-color);
-}
-
-.meta-item {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-
-.meta-item i {
-    font-size: 0.7rem;
-    color: var(--accent-color);
-    min-width: 12px;
-}
-
-.notes-preview {
-    font-style: italic;
-    opacity: 0.8;
-}
-
-/* Tema oscuro para elementos */
-[data-theme="dark"] .search-card__rating-summary {
-    background: var(--background-tertiary);
-}
-
-[data-theme="dark"] .criteria-progress {
-    background: var(--background-tertiary);
-}
-
-[data-theme="dark"] .tag-pill {
-    background: rgba(var(--primary-color-rgb), 0.2);
-    color: var(--primary-color-light);
-}
-
-/* Mejoras para las calificaciones con colores */
-.overall-rating {
-    padding: 0.75rem;
-    border-radius: 8px;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.rating-value {
-    font-size: 1.1rem;
-    font-weight: 700;
-    min-width: 60px;
-}
-
-.review-count {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.criteria-rating {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.25rem;
-}
-
-.criteria-label {
-    font-size: 0.8rem;
-    font-weight: 500;
-    min-width: 80px;
-    color: var(--text-secondary);
-}
-
-.criteria-progress {
-    flex: 1;
-    height: 6px;
-    background: var(--border-color);
-    border-radius: 3px;
-    overflow: hidden;
-    min-width: 60px;
-}
-
-.criteria-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 0.3s ease;
-}
-
-.criteria-value {
-    font-size: 0.8rem;
-    font-weight: 600;
-    min-width: 35px;
-    text-align: right;
-}
-
-.search-card__restaurant {
-    font-size: 0.9rem;
-    color: var(--accent-color-tertiary);
-    font-weight: 500;
-    margin: 0.25rem 0;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.search-card__restaurant i {
-    font-size: 0.8rem;
-}
-
-.search-card__rating-breakdown {
-    margin: 0.75rem 0;
-    padding: 0.5rem;
-    background: rgba(var(--text-color-rgb, 255,255,255), 0.02);
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-}
-
-/* ===== PLACE DETAIL PAGE ===== */
-
-/* Place Information Card */
-.place-info-card {
-    background: var(--container-bg);
-    border-radius: var(--border-radius-large);
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: var(--shadow-elevation-low);
-    border: 1px solid var(--border-color-light);
-}
-
-.place-header {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 20px;
-}
-
-.place-image-container {
-    flex-shrink: 0;
-    width: 120px;
-    height: 120px;
-    border-radius: var(--border-radius-medium);
-    overflow: hidden;
-    background: var(--input-bg);
-    border: 1px solid var(--border-color-light);
-}
-
-.place-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.place-image-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--secondary-text-color);
-    font-size: 2rem;
-}
-
-.place-details {
-    flex: 1;
-    min-width: 0;
-}
-
-.place-name {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: var(--text-color);
-    margin: 0 0 12px 0;
-    line-height: 1.2;
-}
-
-.place-meta {
-    margin-bottom: 16px;
-}
-
-.place-address {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--secondary-text-color);
-    margin-bottom: 8px;
-    font-size: 0.95rem;
-}
-
-.place-address i {
-    color: var(--accent-color-primary);
-}
-
-.place-types {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.place-type-tag {
-    background: var(--accent-color-primary);
-    color: var(--main-button-text);
-    padding: 4px 8px;
-    border-radius: var(--border-radius-small);
-    font-size: 0.8rem;
-    font-weight: 500;
-}
-
-.place-actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.place-stats {
-    display: flex;
-    justify-content: space-around;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color-light);
-}
-
-.stat-item {
-    text-align: center;
-}
-
-.stat-value {
-    display: block;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--accent-color-primary);
-    line-height: 1;
-}
-
-.stat-label {
-    display: block;
-    font-size: 0.85rem;
-    color: var(--secondary-text-color);
-    margin-top: 4px;
-}
-
-/* Reviews Section */
-.reviews-section {
-    background: var(--container-bg);
-    border-radius: var(--border-radius-large);
-    padding: 24px;
-    box-shadow: var(--shadow-elevation-low);
-    border: 1px solid var(--border-color-light);
-}
-
-.section-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: var(--text-color);
-    margin: 0 0 20px 0;
-}
-
-.section-title i {
-    color: var(--accent-color-primary);
-}
-
-.filters-bar {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-}
-
-.filters-bar .form-input {
-    flex: 1;
-    min-width: 200px;
-}
-
-/* List Groups */
-.list-group {
-    margin-bottom: 32px;
-}
-
-.list-group:last-child {
-    margin-bottom: 0;
-}
-
-.list-group-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid var(--accent-color-primary);
-}
-
-.list-name {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 600;
-}
-
-.list-name a {
-    color: var(--accent-color-primary);
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-
-.list-name a:hover {
-    color: var(--accent-color-secondary);
-}
-
-.list-name i {
-    color: var(--accent-color-primary);
-}
-
-.review-count {
-    background: var(--accent-color-primary);
-    color: var(--main-button-text);
-    padding: 4px 8px;
-    border-radius: var(--border-radius-small);
-    font-size: 0.8rem;
-    font-weight: 500;
-}
-
-/* Reviews Grid */
-.reviews-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 16px;
-}
-
-.review-card {
-    background: var(--input-bg);
-    border: 1px solid var(--border-color-light);
-    border-radius: var(--border-radius-medium);
-    padding: 16px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.review-card:hover {
-    box-shadow: var(--shadow-elevation-medium);
-    transform: translateY(-2px);
-    border-color: var(--accent-color-primary);
-}
-
-.review-header {
-    margin-bottom: 12px;
-}
-
-.review-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-}
-
-.item-name {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-color);
-    margin: 0;
-    flex: 1;
-    line-height: 1.3;
-}
-
-.review-rating {
-    padding: 6px 10px;
-    border-radius: var(--border-radius-small);
-    text-align: center;
-    min-width: 60px;
-}
-
-.rating-value {
-    font-size: 0.9rem;
-    font-weight: 700;
-}
-
-.criteria-ratings {
-    margin-bottom: 12px;
-}
-
-.criteria-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
-    font-size: 0.85rem;
-}
-
-.criteria-label {
-    color: var(--secondary-text-color);
-}
-
-.criteria-value {
-    font-weight: 600;
-}
-
-.review-notes {
-    margin-bottom: 12px;
-}
-
-.review-notes p {
-    color: var(--secondary-text-color);
-    font-size: 0.9rem;
-    line-height: 1.4;
-    margin: 0;
-}
-
-.review-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 12px;
-}
-
-.tag-pill {
-    background: var(--accent-color-tertiary);
-    color: white;
-    padding: 3px 8px;
-    border-radius: var(--border-radius-small);
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-.review-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.8rem;
-    color: var(--secondary-text-color);
-    padding-top: 8px;
-    border-top: 1px solid var(--border-color-light);
-}
-
-.review-date, .review-price {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-/* Empty and Error States */
-.empty-state, .error-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--secondary-text-color);
-}
-
-.empty-state i, .error-state i {
-    font-size: 3rem;
-    margin-bottom: 16px;
-    color: var(--accent-color-primary);
-}
-
-.empty-state h3, .error-state h3 {
-    font-size: 1.2rem;
-    margin: 0 0 8px 0;
-    color: var(--text-color);
-}
-
-.empty-state p, .error-state p {
-    margin: 0;
-    font-size: 0.9rem;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .place-header {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-    }
-
-    .place-image-container {
-        width: 100px;
-        height: 100px;
-    }
-
-    .place-name {
-        font-size: 1.5rem;
-    }
-
-    .place-stats {
-        flex-direction: column;
-        gap: 16px;
-    }
-
-    .stat-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        text-align: left;
-    }
-
-    .stat-value {
-        font-size: 1.2rem;
-    }
-
-    .filters-bar {
-        flex-direction: column;
-    }
-
-    .reviews-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .list-group-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-    }
-}
-
-@media (max-width: 480px) {
-    .place-info-card, .reviews-section {
-        padding: 16px;
-        margin-bottom: 16px;
-    }
-
-    .review-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-    }
-
-    .review-rating {
-        align-self: flex-end;
-    }
-}
-
-/* ===== PLACE DETAIL PAGE - ADDITIONAL STYLES ===== */
-
-/* Loading and Error States */
-.loading-state, .error-state {
-    text-align: center;
-    padding: 60px 20px;
-    background: var(--container-bg);
-    border-radius: var(--border-radius-large);
-    margin: 20px 0;
-}
-
-.loading-spinner {
-    font-size: 2rem;
-    color: var(--accent-color-primary);
-    margin-bottom: 16px;
-}
-
-.error-message {
-    color: var(--text-color);
-}
-
-.error-message h3 {
-    color: var(--danger-color);
-    margin: 16px 0;
-}
-
-.error-message i {
-    font-size: 3rem;
-    color: var(--danger-color);
-    margin-bottom: 16px;
-}
-
-/* Enhanced Place Meta Information */
-.place-phone, .place-website, .place-hours, .place-price-level {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--secondary-text-color);
-    margin-bottom: 8px;
-    font-size: 0.95rem;
-}
-
-.place-phone i, .place-website i, .place-hours i, .place-price-level i {
-    color: var(--accent-color-primary);
-    width: 16px;
-}
-
-.place-phone a, .place-website a {
-    color: var(--accent-color-primary);
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-
-.place-phone a:hover, .place-website a:hover {
-    color: var(--accent-color-secondary);
-}
-
-.hours-status.open {
-    color: var(--accent-color-tertiary);
-    font-weight: 500;
-}
-
-.hours-status.closed {
-    color: var(--danger-color);
-    font-weight: 500;
-}
-
-/* Enhanced Place Image */
-.place-image-placeholder {
-    flex-direction: column;
-    gap: 8px;
-}
-
-.place-image-placeholder span {
-    font-size: 0.8rem;
-    color: var(--secondary-text-color);
-}
-
-/* Review List Groups */
-.review-list-group {
-    margin-bottom: 32px;
-    background: var(--input-bg);
-    border-radius: var(--border-radius-medium);
-    padding: 20px;
-    border: 1px solid var(--border-color-light);
-}
-
-.review-list-group:last-child {
-    margin-bottom: 0;
-}
-
-.reviews-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
-}
-
-/* Review Cards */
-.review-card {
-    background: var(--container-bg);
-    border-radius: var(--border-radius-medium);
-    padding: 16px;
-    border: 1px solid var(--border-color-light);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.review-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-elevation-medium);
-    border-color: var(--accent-color-primary);
-}
-
-.review-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
-.review-rating {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
-}
-
-.rating-number {
-    font-weight: 600;
-}
-
-.review-date {
-    font-size: 0.8rem;
-    color: var(--secondary-text-color);
-}
-
-.review-content {
-    color: var(--text-color);
-}
-
-.item-name {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0 0 8px 0;
-    color: var(--text-color);
-}
-
-/* Criteria Ratings */
-.criteria-ratings {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 8px 0;
-}
-
-.criteria-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--input-bg);
-    padding: 4px 8px;
-    border-radius: var(--border-radius-small);
-    font-size: 0.8rem;
-}
-
-.criteria-label {
-    color: var(--secondary-text-color);
-}
-
-.criteria-value {
-    font-weight: 600;
-}
-
-/* Review Notes */
-.review-notes {
-    margin: 8px 0;
-}
-
-.review-notes p {
-    margin: 0;
-    font-size: 0.9rem;
-    line-height: 1.4;
-    color: var(--secondary-text-color);
-}
-
-/* Review Tags */
-.review-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 8px;
-}
-
-.tag-pill {
-    background: var(--accent-color-secondary);
-    color: var(--main-button-text);
-    padding: 2px 6px;
-    border-radius: var(--border-radius-small);
-    font-size: 0.7rem;
-    font-weight: 500;
-}
-
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--secondary-text-color);
-}
-
-.empty-state i {
-    font-size: 3rem;
-    color: var(--accent-color-primary);
-    margin-bottom: 16px;
-}
-
-.empty-state h4 {
-    color: var(--text-color);
-    margin: 16px 0 8px 0;
-}
-
-/* Success and Error Colors */
-.success-color { color: var(--accent-color-tertiary); }
-.warning-color { color: var(--accent-color-primary); }
-.error-color { color: var(--danger-color); }
-
-/* Responsive Design for Place Detail */
-@media (max-width: 768px) {
-    .place-header {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-    }
-
-    .place-image-container {
-        width: 150px;
-        height: 150px;
-    }
-
-    .place-actions {
-        justify-content: center;
-    }
-
-    .place-stats {
-        flex-wrap: wrap;
-        gap: 16px;
-    }
-
-    .reviews-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .filters-bar {
-        flex-direction: column;
-    }
-
-    .filters-bar .form-input {
-        min-width: auto;
-    }
-}
-
-@media (max-width: 480px) {
-    .place-info-card, .reviews-section {
-        padding: 16px;
-        margin-bottom: 16px;
-    }
-
-    .place-name {
-        font-size: 1.5rem;
-    }
-
-    .section-title {
-        font-size: 1.2rem;
-    }
-
-    .review-card {
-        padding: 12px;
-    }
-}
-
-/* Modal Styles 
-    // +++++Vamos a incluir un pequeño foro para la lista actual++++++ */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.7);
-}
-
-.modal-content {
-    background-color: var(--container-bg-secondary);
-    margin: 2% auto;
-    padding: 30px;
-    border-radius: 8px;
-    width: 80%;
-    max-width: 700px;
-    max-height: 900px;
-    overflow-y: auto;
-    box-shadow: 0 15px 8px rgba(0, 0, 0, 0.2);
-}
-
-.close-modal {
-    float: right;
-    font-size: 23px;
-    cursor: pointer;
-    text-align: right;
-    padding-right: 20px;
-}
-
-/* Agregar al final del archivo */
-
-/* Estilos mejorados para mensajes del foro */
-.forum-message {
-    border-bottom: 1px solid var(--border-color-light);
-    padding: 15px 0;
-    margin-bottom: 10px;
-}
-
-.message-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-}
-
-.message-text {
-    margin: 0;
-    padding-left: 10px;
-    line-height: 1.5;
-}
-
-.no-messages {
-    text-align: center;
-    color: var(--secondary-text-color);
-    font-style: italic;
-    padding: 20px;
-}
-
-.forum-input-area {
-    margin-top: 20px;
-    display: flex;
-    gap: 10px;
-    align-items: flex-end;
-}
-
-#new-forum-message {
-    flex-grow: 1;
-    min-height: 80px;
-    resize: vertical;
-}
-
-#send-forum-message {
-    height: 42px;
-}
-
-/* Añadir estos estilos para asegurar visibilidad */
-.message-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 5px;
-}
-
-.delete-message-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1.2em;
-    padding: 5px;
-    color: #ff6b6b;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.delete-message-btn:hover {
-    opacity: 1;
-}
-
-#follow-unfollow-btn.secondary-button {
-    background-color: var(--accent-color-tertiary); /* Un verde para indicar "activo" */
-    color: var(--main-button-text);
-}
-
-#follow-unfollow-btn.secondary-button:hover {
-    background-color: #05a984; /* Un verde más oscuro */
-}
-
-/* ============================================= */
-/* === Componente: Tarjeta de Reseña Perfil === */
-/* ============================================= */
-.profile-review-card {
-    background-color: var(--container-bg-secondary);
-    padding: 15px;
-    margin-bottom: 15px;
-    border-radius: var(--border-radius-medium);
-    border: 1px solid var(--border-color-light);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
-    display: flex;
-    gap: 15px;
-    text-align: left;
-}
-
-.profile-review-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-elevation-medium);
-}
-
-.profile-review-card__image {
-    flex-shrink: 0;
-    width: 80px;
-    height: 80px;
-    object-fit: cover;
-    border-radius: var(--border-radius-small);
-    background-color: var(--icon-placeholder-bg);
-}
-
-.profile-review-card__content {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-.profile-review-card__title {
-    font-size: 1.1em;
-    font-weight: 600;
-    margin: 0 0 8px 0;
-    color: var(--title-color);
-}
-
-.profile-review-card__title a {
-    text-decoration: none;
-    color: inherit;
-    transition: color 0.2s ease;
-}
-
-.profile-review-card__title a:hover {
-    color: var(--accent-color-primary);
-}
-
-.profile-review-card__meta {
-    margin-top: auto; /* Empuja las meta-tags hacia abajo */
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-/* =================================== */
-/* === Componente: Info Tag Global === */
-/* =================================== */
-.info-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background-color: rgba(var(--accent-color-primary-rgb), 0.1);
-    color: var(--secondary-text-color);
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.8em;
-    font-weight: 500;
-    line-height: 1.4;
-    text-decoration: none;
-    transition: background-color 0.2s ease;
-}
-
-.info-tag:hover {
-    background-color: rgba(var(--accent-color-primary-rgb), 0.2);
-}
-
-.info-tag i {
-    opacity: 0.8;
-}
-
-.info-tag--list {
-    background-color: rgba(var(--accent-color-secondary-rgb), 0.15);
-    color: var(--accent-color-secondary);
-}
-.info-tag--rating {
-    background-color: rgba(var(--accent-color-tertiary-rgb), 0.15);
-    color: var(--accent-color-tertiary);
-    font-weight: bold;
-}
-.info-tag--rating .fa-star {
-    color: var(--accent-color-primary);
-}
-
-/* ============================================= */
-/* === Componente: Tarjeta de Reseña Perfil === */
-/* ============================================= */
-#my-reviews-container {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.profile-review-card {
-    background-color: var(--container-bg-secondary);
-    padding: 15px;
-    border-radius: var(--border-radius-medium);
-    border: 1px solid var(--border-color-light);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
-    display: flex;
-    gap: 15px;
-    text-align: left;
-}
-
-.profile-review-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-elevation-medium);
-}
-
-.profile-review-card__image {
-    flex-shrink: 0;
-    width: 80px;
-    height: 80px;
-    object-fit: cover;
-    border-radius: var(--border-radius-small);
-    background-color: var(--icon-placeholder-bg);
-}
-
-.profile-review-card__content {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-.profile-review-card__title {
-    font-size: 1.1em;
-    font-weight: 600;
-    margin: 0 0 8px 0;
-    color: var(--title-color);
-}
-
-.profile-review-card__title a {
-    text-decoration: none;
-    color: inherit;
-    transition: color 0.2s ease;
-}
-
-.profile-review-card__title a:hover {
-    color: var(--accent-color-primary);
-}
-
-.profile-review-card__meta {
-    margin-top: auto; /* Empuja las meta-tags hacia abajo */
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-/* =================================== */
-/* === Componente: Info Tag Global === */
-/* =================================== */
-.info-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background-color: rgba(var(--accent-color-primary-rgb), 0.1);
-    color: var(--accent-color-primary);
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.8em;
-    font-weight: 500;
-    line-height: 1.4;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease;
-}
-
-.info-tag:hover {
-    background-color: rgba(var(--accent-color-primary-rgb), 0.2);
-    transform: translateY(-1px);
-}
-
-.info-tag i {
-    opacity: 0.8;
-}
-
-.info-tag--list {
-    background-color: rgba(var(--accent-color-secondary-rgb), 0.15);
-    color: var(--accent-color-secondary);
-}
-.info-tag--rating {
-    background-color: rgba(var(--accent-color-tertiary-rgb), 0.15);
-    color: var(--accent-color-tertiary);
-    font-weight: bold;
-}
-.info-tag--rating .fa-star {
-    color: var(--accent-color-primary);
-}
-
-body.light-theme .profile-review-card {
-    background-color: #FFFFFF;
-}
-
-body.light-theme .info-tag {
-    background-color: rgba(95, 220, 255, 0.25);
-    border: 1px solid rgba(0,0,0,0.1);
-}
-body.light-theme .info-tag:hover {
-    background-color: rgba(0,0,0,0.1);
-}
-
-/* =========================================== */
-/* === Componente: Super Tarjeta Reseña v3.4 === */
-/* =========================================== */
-
-.review-super-card {
-    background-color: var(--container-bg);
-    border-radius: var(--border-radius-large);
-    border: 1px solid var(--border-color-light);
-    margin-bottom: 20px;
-    overflow: hidden;
-    text-align: left;
-    box-shadow: var(--shadow-elevation-medium);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
-    cursor: pointer;
-}
-.review-super-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-elevation-high);
-}
-
-/* --- Cabecera --- */
-.review-super-card__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center; /* Alinear verticalmente en el centro */
-    gap: 15px;
-    padding: 10px 12px;
-    background-color: var(--container-bg-secondary);
-    border-bottom: 1px solid var(--border-color-light);
-}
-.header-main-info { /* Contenedor para autor y lista */
-    display: flex;
-    align-items: center; /* Alinear en la misma línea */
-    flex-wrap: wrap; /* Por si no cabe en pantallas muy pequeñas */
-    gap: 8px;
-}
-.author-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    text-decoration: none;
-    color: var(--title-color);
-    font-weight: 600;
-}
-.author-link:hover { color: var(--accent-color-primary); }
-.author-avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid var(--border-color);
-}
-.list-highlight {
-    font-size: 0.8rem;
-    color: var(--secondary-text-color);
-}
-.list-highlight a {
-    text-decoration: none;
-    font-weight: 600;
-    color: var(--accent-color-secondary);
-}
-.list-highlight a:hover { text-decoration: underline; }
-.meta-separator {
-    color: var(--secondary-text-color);
-    margin-right: 4px;
-}
-.review-super-card__score .score-value {
-    font-size: 1.8rem;
-    font-weight: 700;
-    line-height: 1;
-}
-
-/* --- Cuerpo --- */
-.review-super-card__body { display: flex; gap: 20px; padding: 12px; }
-.review-super-card__image-container { flex: 0 0 150px; width: 150px; height: 150px; }
-.review-super-card__image, .review-super-card__icon-placeholder { width: 100%; height: 100%; object-fit: cover; border-radius: var(--border-radius-medium); }
-.review-super-card__icon-placeholder { display: flex; align-items: center; justify-content: center; background-color: var(--icon-placeholder-bg); font-size: 3rem; color: var(--icon-placeholder-color); }
-.review-super-card__main-content { flex: 1 1 auto; min-width: 0; }
-.review-super-card__title-group { margin-bottom: 8px; /* Reducimos el espacio inferior */ }
-.review-super-card__title { font-size: 1.1rem; font-weight: 700; margin: 0 0 4px 0; }
-.review-super-card__subtitle { font-size: 0.85rem; color: var(--secondary-text-color); margin: 0; }
-.review-super-card__subtitle a { color: inherit; text-decoration: none; }
-.review-super-card__subtitle a:hover { color: var(--accent-color-primary); }
-
-/* --- Barras de Criterios (Más juntas) --- */
-.criteria-bars-list {
-    margin: 12px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0px; /* Reducimos el espacio entre barras */
-    font-size: 0.85rem;
-}
-.criteria-bar { display: flex; align-items: center; gap: 8px; }
-.criteria-bar__label { width: 30%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
-.criteria-bar__viz { width: 60%; display: flex; align-items: center; gap: 8px; }
-.criteria-bar__bg { flex-grow: 1; height: 6px; background-color: var(--icon-placeholder-bg); border-radius: 3px; }
-.criteria-bar__fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #f56ead, #06D6A0); }
-.criteria-bar__value { font-weight: 700; font-size: 0.9em; }
-
-/* --- Comentario y Etiquetas (Estilo diferenciado) --- */
-.review-super-card__comment {
-    font-size: 0.9em;
-    font-style: italic; /* Letra cursiva para diferenciar */
-    color: var(--secondary-text-color);
-    margin: 0px 0; /* Más espacio para separar de las barras */
-    line-height: 1.4;
-    border-left: 3px solid var(--border-color);
-    padding-left: 10px;
-}
-.review-super-card__tags {
-    margin-top: 16px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-/* Media Query */
-@media (max-width: 768px) {
-    .review-super-card__body { flex-direction: column; }
-    .review-super-card__image-container { width: 100%; height: auto; aspect-ratio: 16 / 9; flex-basis: auto; }
-}
-
-
-/* =========================================== */
-/* ===         MEDIA QUERY PARA MÓVILES      === */
-/* =========================================== */
-@media (max-width: 768px) {
-    /* Reducimos el tamaño de fuente base para que todo en REM se haga más pequeño */
-    :root {
-        font-size: 14px;
-    }
-
-    .review-super-card__body {
-        flex-direction: column; /* Apila la imagen sobre el contenido */
-    }
-
-    .review-super-card__image-container {
-        width: 100%; /* La imagen ocupa todo el ancho */
-        height: auto; /* La altura se ajusta automáticamente */
-        aspect-ratio: 16 / 9; /* Mantiene una proporción panorámica */
-        flex-basis: auto; /* Reseteamos la base flex */
-    }
-
-    .review-super-card__header {
-        padding: 8px 12px;
-    }
-    .review-super-card__body {
-        padding: 5px;
-        gap: 15px;
-    }
-    .review-super-card__footer {
-        padding: 10px 15px;
-    }
-}
-
-/* En public/style.css, al final */
-
-.list-view-actions {
-    text-align: right;
-    margin-bottom: 5px;
-}
-
-#show-map-modal-btn {
-    padding: 8px 15px;
-    font-size: 0.9em;
-}
-
-/* Estilos para el contenido del modal del mapa */
-.map-modal-content {
-    width: 95%;
-    height: 85vh; /* Ocupa el 85% de la altura de la pantalla */
-    max-width: 1200px;
-    padding: 5px;
-    display: flex;
-    flex-direction: column;
-}
-
-.map-modal-content #map-modal-title {
-    margin-top: 0;
-    margin-bottom: 2px;
-    flex-shrink: 0; /* Evita que el título se encoja */
-}
-
-#list-map-container {
-    flex-grow: 1; /* El mapa ocupa todo el espacio restante */
-    border-radius: 8px;
-    background-color: #333; /* Un color de fondo mientras carga */
-}
-
-/* Para que el mapa de Leaflet se vea bien */
-.leaflet-container {
-    height: 100%;
-    width: 100%;
-}
-
-/* En public/style.css - Estilos para los marcadores del mapa por puntuación */
-
-.map-marker-icon {
-    font-size: 28px; /* Tamaño del icono */
-    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
-    transition: transform 0.2s ease-in-out;
-}
-
-.map-marker-icon:hover {
-    transform: scale(1.2);
-}
-
-.map-marker-gold { color: #FFD700; } /* Oro para los mejores */
-.map-marker-silver { color: #C0C0C0; } /* Plata para los buenos */
-.map-marker-bronze { color: #CD7F32; } /* Bronce para los decentes */
-.map-marker-default { color: var(--accent-color-quaternary); } /* Un color por defecto */
-
-
-
-
-
-/* =========================================== */
-/* ===         NUEVA VISTA DE LISTA v3.1     === */
-/* =========================================== */
-
-.reviews-grid-container {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 20px;
-    padding: 0 10px;
-    max-width: 1300px;
-    margin: 20px auto;
-}
-
-.review-list-card {
-    flex: 1 1 320px; /* Base de 320px, pero flexible */
-    max-width: 450px; /* Evita que las tarjetas se hagan enormes en filas de 1 o 2 */
-    
-    background-color: var(--container-bg);
-    border: 1px solid var(--border-color-light);
-    border-radius: var(--border-radius-medium);
-    display: flex; /* Este es el flex INTERNO de la tarjeta, se mantiene */
-    overflow: hidden;
-    transition: all 0.2s ease-in-out;
-    cursor: pointer;
-    box-shadow: var(--shadow-elevation-low);
-    font-size: 0.85rem;
-}
-
-.review-list-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-elevation-medium);
-    border-color: var(--accent-color-primary);
-}
-
-.review-list-card__image-container { 
-    flex: 0 0 90px;
-    transition: flex-basis 0.2s ease;
-}
-
-.review-list-card__image, .review-list-card__icon-placeholder {
-    width: 100%; height: 100%; object-fit: cover;
-}
-
-.review-list-card__icon-placeholder {
-    display: flex; align-items: center; justify-content: center;
-    background-color: var(--icon-placeholder-bg); font-size: 2rem;
-    color: var(--icon-placeholder-color);
-}
-
-.review-list-card__main-content {
-    flex-grow: 1; padding: 12px; display: flex; flex-direction: column; min-width: 0;
-}
-
-.review-list-card__title { font-size: 1.1em; font-weight: 600; margin: 0 0 2px 0; }
-
-.review-list-card__subtitle {
-    font-size: 0.8em; color: var(--secondary-text-color); margin: 0 0 8px 0;
-    display: flex; align-items: center; gap: 8px;
-}
-
-.review-list-card__subtitle .gmaps-link { color: var(--accent-color-tertiary); }
-
-.review-list-card__criteria-section { margin-top: auto; }
-
-.criteria-bars-list--compact {
-    display: flex; flex-direction: column; gap: 4px; font-size: 0.8em; padding-top: 8px;
-    border-top: 1px solid var(--border-color-light);
-}
-
-.criteria-bar--compact { display: flex; align-items: center; gap: 5px; }
-.criteria-bar__label { flex: 0 0 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
-.criteria-bar__viz { flex: 1 1 auto; display: flex; align-items: center; gap: 5px; }
-.criteria-bar__bg { flex-grow: 1; height: 5px; background-color: var(--icon-placeholder-bg); border-radius: 3px; }
-.criteria-bar__fill { height: 100%; border-radius: 3px; }
-.criteria-bar__value { font-weight: 700; }
-
-.review-list-card__tags {
-    margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px;
-}
-
-.review-list-card__tags .info-tag {
-    font-size: 0.75em; padding: 2px 8px;
-}
-
-.review-list-card__score-container {
-    background-color: var(--accent-color-primary); color: var(--main-button-text);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 10px; flex: 0 0 65px; text-align: center;
-    transition: flex-basis 0.2s ease;
-}
-
-.review-list-card__score-container .score-value { font-size: 1.4em; font-weight: 700; line-height: 1; }
-.review-list-card__score-container .review-count-badge { font-size: 0.65em; background-color: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 8px; margin-top: 4px; }
-
-.no-reviews-message, .error-placeholder {
-    /* Para que ocupe todo el ancho en un contenedor flex */
-    flex-basis: 100%;
-    text-align: center;
-    padding: 40px 20px;
-    font-style: italic;
-    color: var(--secondary-text-color);
-    background-color: var(--container-bg);
-    border-radius: var(--border-radius-medium);
-}
-.error-placeholder { color: var(--danger-color); }
-
-
-/* =========================================== */
-/* ===         AJUSTES PARA MÓVILES          === */
-/* =========================================== */
-@media (max-width: 480px) {
-    /* Con Flexbox, ya no necesitamos tocar el contenedor.
-       Las tarjetas se adaptarán solas. Podemos ajustar detalles de las tarjetas si queremos. */
-
-    .review-list-card {
-        font-size: 0.9rem;
-    }
-
-    .review-list-card__image-container {
-        flex-basis: 75px;
-    }
-
-    .review-list-card__score-container {
-        flex-basis: 55px;
-    }
-
-    .review-list-card__score-container .score-value {
-        font-size: 1.2em;
-    }
-}
-
-/* ================================================= */
-/* === ESTILOS DEFINITIVOS PARA POPUPS DEL MAPA === */
-/* ================================================= */
-
-/* --- ESTILOS PARA EL TEMA OSCURO --- */
-/* Se aplican cuando el body NO tiene la clase .light-theme */
-body:not(.light-theme) .leaflet-popup-content-wrapper {
-    background: var(--container-bg); /* Fondo oscuro */
-    color: var(--text-color); /* Texto claro */
-    box-shadow: var(--shadow-elevation-medium);
-    border: 1px solid var(--border-color);
-}
-
-body:not(.light-theme) .popup-title {
-    color: var(--title-color); /* Título blanco */
-}
-
-body:not(.light-theme) .leaflet-popup-tip {
-    background: var(--container-bg); /* Flecha del popup oscura */
-}
-
-
-/* --- ESTILOS PARA EL TEMA CLARO --- */
-/* Se aplican cuando el body SÍ tiene la clase .light-theme */
-body.light-theme .leaflet-popup-content-wrapper {
-    background: #FFFFFF; /* Fondo blanco */
-    color: #333333; /* Texto oscuro */
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    border: 1px solid #E0E0E0;
-}
-
-body.light-theme .popup-title {
-    color: #111111; /* Título negro */
-}
-
-body.light-theme .leaflet-popup-tip {
-    background: #FFFFFF; /* Flecha del popup blanca */
-}
-
-/* --- ESTILOS ESTRUCTURALES COMUNES (se aplican en ambos temas) --- */
-
-.leaflet-popup-content {
-    margin: 0 !important;
-    padding: 0;
-    width: 220px !important;
-}
-
-/* Nuestro contenedor personalizado dentro del popup */
-.listopic-map-popup {
-    display: flex;
-    flex-direction: column;
-}
-
-/* La imagen del popup */
-.popup-image {
-    height: 100px;
-    width: 100%;
-    background-size: cover;
-    background-position: center;
-    border-top-left-radius: var(--border-radius-medium);
-    border-top-right-radius: var(--border-radius-medium);
-    border-bottom: 2px solid var(--accent-color-primary);
-}
-
-/* El contenido de texto y botón */
-.popup-content {
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-}
-
-.popup-title {
-    margin: 0 0 10px 0;
-    font-family: 'Poppins', sans-serif;
-    font-size: 1rem;
-    font-weight: 600;
-    line-height: 1.3;
-}
-
-.popup-link.button {
-    width: 100%;
-    padding: 8px 10px;
-    font-size: 0.85rem;
-    text-decoration: none;
-    text-align: center;
-    color: var(--primary-bg);
-}
-
-
-/* =========================================== */
-/* ===  MEJORA TARJETA: BOTÓN DE MAPA GRANDE === */
-/* =========================================== */
-
-/* Hacemos que el contenedor de la derecha sea una columna flexible */
-.review-list-card__score-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between; /* Separa la puntuación del botón */
-}
-
-/* Contenedor para la parte superior (puntuación y número de reseñas) */
-.score-container__main {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    flex-grow: 1; /* Ocupa todo el espacio disponible */
-    padding: 10px 5px;
-}
-
-/* El nuevo enlace/botón del mapa */
-.score-container__map-link {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    background-color: rgba(0, 0, 0, 0.25); /* Un fondo sutil */
-    color: var(--text-color);
-    text-decoration: none;
-    font-size: 0.8rem;
-    font-weight: 600;
-    padding: 8px 5px;
-    flex-shrink: 0; /* Evita que se encoja */
-    border-top: 1px solid var(--border-color-light);
-    transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.score-container__map-link:hover {
-    background-color: var(--accent-color-primary); /* Se ilumina al pasar el ratón */
-    color: var(--main-button-text);
-}
-
-/* ================================================= */
-/* === NUEVOS ESTILOS PERFIL (V2 - COMPACTO) === */
-/* ================================================= */
-
-.profile-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 40px;
-    padding: 20px 15px;
-    margin-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-    row-gap: 10px;
-}
-
-/* --- COLUMNA IZQUIERDA --- */
-.profile-left-column {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    flex-grow: 1;
-    min-height: 220px; /* Para alinear el botón abajo */
-}
-
-.profile-main-info h2 { /* username */
-    font-size: 1.8em;
-    font-weight: 300;
-    margin: 0;
-}
-.profile-main-info h3 { /* displayName */
-    font-size: 1.2em;
-    font-weight: 600;
-    margin: 10px 0;
-}
-.profile-main-info p { /* bio y location */
-    margin: 0 0 10px 0;
-    line-height: 1.5;
-    color: var(--secondary-text-color);
-}
-
-.profile-actions {
-    margin-top: auto; /* Empuja los botones hacia abajo */
-}
-
-/* --- COLUMNA DERECHA --- */
-.profile-right-column {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    flex-shrink: 0;
-}
-
-.profile-picture-container {
-    cursor: pointer;
-}
-
-.profile-picture {
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 3px solid var(--border-color);
-}
-
-.profile-stats {
-    display: flex;
-    gap: 15px;
-    width: 100%;
-    justify-content: center;
-}
-
-.profile-stats .stat-item {
-    text-align: center;
-}
-
-.profile-stats .stat-item .count {
-    font-weight: 600;
-    font-size: 1.2em;
-}
-.profile-stats .stat-item .label {
-    font-size: 1em;
-    color: var(--secondary-text-color);
-}
-
-/* === RESPONSIVE: LA MAGIA PARA MÓVILES === */
-@media (max-width: 768px) {
-    .profile-header {
-        flex-direction: column-reverse; /* ¡Boom! La columna derecha pasa arriba */
-        align-items: center;
-        gap: 10px;
-    }
-
-    .profile-left-column {
-        min-height: unset;
-        align-items: center; /* Centramos el contenido de la info */
-        text-align: center;
-    }
-    
-    .profile-actions {
-        margin-top: 15px;
-    }
-
-    .profile-right-column {
-        flex-direction: row; /* En tablet, foto y stats en la misma fila */
-        width: 100%;
-        justify-content: center;
-    }
-}
-
-@media (max-width: 480px) {
-    .profile-right-column {
-        flex-direction: column; /* En móvil, volvemos a apilar foto y stats */
-    }
-
-    .profile-picture {
-        width: 120px; /* Reducimos la foto */
-        height: 120px;
-    }
-
-    .profile-stats {
-        width: 100%;
-        justify-content: space-around; /* Distribuimos mejor las stats */
-    }
-}
-
-/* --- PESTAÑAS (Sin cambios) --- */
+/* --- Profile Tabs --- */
 .profile-tabs {
     display: flex;
     justify-content: center;
-    border-top: 1px solid var(--border-color);
+    border-bottom: 2px solid var(--border-color);
     margin-bottom: 20px;
 }
-
 .profile-tab-button {
-    flex: 1;
-    padding: 15px;
+    padding: 12px 25px;
+    cursor: pointer;
     background: none;
     border: none;
-    border-top: 2px solid transparent;
     color: var(--secondary-text-color);
-    cursor: pointer;
-    font-size: 0.9em;
-    font-weight: 600;
-    letter-spacing: 1px;
-    transition: color 0.3s, border-top-color 0.3s;
-    margin-top: -1px;
+    font-size: 1em;
+    font-weight: 500;
+    position: relative;
+    transition: color 0.3s ease;
 }
-
-.profile-tab-button:hover {
+.profile-tab-button::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; /* Align with the container's border */
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--accent-color-primary);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+.profile-tab-button.active {
     color: var(--text-color);
 }
-
-.profile-tab-button.active {
-    color: var(--accent-color-primary);
-    border-top-color: var(--accent-color-primary);
+.profile-tab-button.active::after {
+    transform: scaleX(1);
 }
-
 .profile-tab-button i {
     margin-right: 8px;
 }
 
+.profile-content {
+    /* Container for tab contents */
+}
 .profile-tab-content {
     display: none;
+    animation: fadeInUpScale 0.4s ease-out forwards;
 }
-
 .profile-tab-content.active {
     display: block;
-    animation: fadeIn 0.5s;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-/* --- ESTILOS PARA EL MODAL DE LA FOTO --- */
-#photo-modal {
-    position: fixed;
-    z-index: 1002; /* Por encima del modal de edición */
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0, 0, 0, 0.85);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-}
-
-#photo-modal.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-#photo-modal .modal-content-photo {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
-}
-
-#photo-modal img {
-    width: auto;
-    height: auto;
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    border-radius: 8px;
-}
-
-#photo-modal .close-button-photo {
-    position: absolute;
-    top: 15px;
-    right: 35px;
-    color: #f1f1f1;
-    font-size: 40px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-
-/* Media Queries para la nueva cabecera (MÁS COMPACTA) */
-@media (max-width: 768px) {
-    .profile-header {
-        /* Se mantiene el flex en row pero se ajusta el contenido */
-        gap: 10px;
-        padding: 10px 10px 20px 10px;
-    }
-
-    .profile-header .profile-picture {
-        width: 100px; /* Foto más pequeña */
-        height: 100px;
-    }
-    
-    .profile-header-main {
-        gap: 15px; /* Menos espacio entre username y stats */
-    }
-
-    .profile-header-top {
-       /* Se mantiene en una fila mientras quepa */
-       gap: 15px;
-    }
-    
-    .profile-info {
-        /* La biografía se coloca debajo, así que no hace falta centrarla */
-        padding: 0 15px;
-        text-align: left;
-    }
-}
-
+/* Responsive adjustments for tabs */
 @media (max-width: 480px) {
-    .profile-header {
-        /* La foto y el username arriba, las stats abajo */
-        flex-wrap: wrap; 
-        justify-content: flex-start;
-        padding-bottom: 10px;
+    .profile-tab-button {
+        padding: 10px 15px;
+        font-size: 0.9em;
     }
-
-    .profile-header .profile-picture-container {
-        flex-basis: auto; /* La foto ocupa su espacio natural */
-    }
-    
-    .profile-header .profile-picture {
-        width: 80px; /* Aún más pequeña en móviles */
-        height: 80px;
-    }
-
-    .profile-header-main {
-        flex-basis: calc(100% - 100px); /* El resto del ancho */
-        gap: 10px;
-        align-items: flex-start;
-    }
-
-    .profile-header-top {
-        flex-direction: column; /* Apila username y botones */
-        align-items: flex-start;
-        gap: 10px;
-        width: 100%;
-    }
-
-    .profile-header-top h2 {
-        font-size: 1.3em;
-    }
-    
-    /* Las stats ahora van debajo de la info, en una fila completa */
-    .profile-stats {
-        order: 3; /* Mueve las stats al final del flex container */
-        width: 100%;
-        justify-content: space-around;
-        padding: 5px 0;
-        border-top: 1px solid var(--border-color);
-        border-bottom: 1px solid var(--border-color);
-        margin-top: 5px;
-        margin-bottom: 5px;
-        gap: 5px;
-    }
-
-    .profile-stats .stat-item .count { font-size: 1em; }
-    .profile-stats .stat-item .label { font-size: 0.8em; }
-    
-    .profile-info-new {
-        /* Se coloca entre la cabecera y las stats */
-        order: 2;
-        width: 100%;
-        text-align: left;
-        margin-top: 10px;
-        margin-bottom: 0;
-    }
-
-    /* Ocultamos texto en botones de pestañas en móvil */
     .profile-tab-button .tab-text {
-        display: none;
+        display: none; /* Hide text on very small screens, show only icon */
     }
-    .profile-tab-button i { margin-right: 0; }
+    .profile-tab-button i {
+        margin-right: 0;
+    }
 }
 
-/* ======================================= */
-/* === ESTILOS PÁGINA DE DETALLE DE LUGAR === */
-/* ======================================= */
-
-.place-detail-page-container {
-    padding-top: 20px;
+/* --- Estilos para las tarjetas de lista en el perfil --- */
+.profile-lists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
 }
-
-.place-header-container {
+.list-card {
+    background-color: var(--container-bg-secondary);
+    border-radius: var(--border-radius-medium);
+    padding: 15px;
+    text-align: left;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
+    border: 1px solid var(--border-color-light);
+}
+.list-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-elevation-medium);
+}
+.list-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+.list-card-header h4 {
+    margin: 0;
+    font-size: 1.2em;
+}
+.list-card-header h4 a {
+    color: var(--text-color);
+    text-decoration: none;
+}
+.list-card-header h4 a:hover {
+    color: var(--accent-color-primary);
+}
+.list-card-privacy {
+    font-size: 0.8em;
+    color: var(--secondary-text-color);
+    background-color: rgba(0,0,0,0.2);
+    padding: 3px 8px;
+    border-radius: 10px;
+    display: flex;
     align-items: center;
-    text-align: center;
+    gap: 5px;
+}
+.list-card-body {
+    font-size: 0.9em;
+    color: var(--secondary-text-color);
+    margin-bottom: 15px;
+    flex-grow: 1; /* Allow body to take up space */
+}
+.list-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85em;
+    color: var(--secondary-text-color);
+    border-top: 1px solid var(--border-color-light);
+    padding-top: 10px;
+}
+.list-card-stats span {
+    margin-right: 10px;
+}
+.list-card-stats i {
+    margin-right: 4px;
+}
+.list-card-actions a {
+    color: var(--accent-color-tertiary);
+    text-decoration: none;
+    font-weight: 500;
+}
+.list-card-actions a:hover {
+    text-decoration: underline;
+}
+
+/* --- Estilos para las tarjetas de reseña en el perfil --- */
+.profile-reviews-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Una columna por defecto */
     gap: 20px;
-    margin-bottom: 25px;
 }
-
-.place-photo-container {
-    width: 100%;
-    max-height: 350px;
-    overflow: hidden;
+.review-super-card {
+    background-color: var(--container-bg-secondary);
+    border-radius: var(--border-radius-medium);
+    padding: 15px;
+    text-align: left;
+    border: 1px solid var(--border-color-light);
+    display: flex;
+    gap: 15px;
+}
+.review-super-card-image {
+    flex-shrink: 0;
+}
+.review-super-card-image img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: var(--border-radius-small);
+}
+.review-super-card-image .placeholder-icon {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--icon-placeholder-bg);
+    border-radius: var(--border-radius-small);
+    font-size: 2.5em;
+    color: var(--icon-placeholder-color);
+}
+.review-super-card-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+.review-super-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 5px;
+}
+.review-super-card-header h5 {
+    margin: 0;
+    font-size: 1.1em;
+}
+.review-super-card-header h5 a {
+    color: var(--text-color);
+    text-decoration: none;
+}
+.review-super-card-header h5 a:hover {
+    color: var(--accent-color-primary);
+}
+.review-super-card-score {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: var(--accent-color-primary);
+}
+.review-super-card-list-info {
+    font-size: 0.85em;
+    color: var(--secondary-text-color);
+    margin-bottom: 10px;
+}
+.review-super-card-list-info a {
+    color: var(--accent-color-tertiary);
+    text-decoration: none;
+}
+.review-super-card-list-info a:hover {
+    text-decoration: underline;
+}
+.review-super-card-comment {
+    font-size: 0.95em;
+    margin-bottom: 10px;
+    flex-grow: 1;
+}
+.review-super-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8em;
+    color: var(--secondary-text-color);
+    border-top: 1px solid var(--border-color-light);
+    padding-top: 8px;
+}
+.review-super-card-tags .tag {
+    background-color: var(--accent-color-secondary);
+    color: white;
+    padding: 3px 8px;
     border-radius: 12px;
+    font-size: 0.9em;
+    margin-right: 5px;
+}
+.review-super-card-date {
+    /* Styling for date */
 }
 
+/* --- Estilos para la página de detalle del lugar (place-detail.html) --- */
+.place-detail-page-container {
+    max-width: 900px;
+}
+.place-header-container {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    align-items: flex-start;
+}
+.place-photo-container {
+    flex-basis: 200px;
+    flex-shrink: 0;
+}
 .place-photo-container img {
     width: 100%;
-    height: 100%;
+    height: 200px;
     object-fit: cover;
+    border-radius: var(--border-radius-large);
+    box-shadow: var(--shadow-elevation-medium);
 }
-
+.place-info-main {
+    flex-grow: 1;
+    text-align: left;
+}
 .place-info-main h1 {
-    font-size: 2.2em;
-    margin: 0 0 10px 0;
+    text-align: left;
+    margin-bottom: 10px;
 }
-
 .place-info-main p {
-    font-size: 1.1em;
+    margin: 5px 0;
     color: var(--secondary-text-color);
-    margin: 0 0 20px 0;
 }
-
-.place-actions .button {
-    padding: 10px 15px;
+.place-info-main p i {
+    margin-right: 8px;
+    color: var(--accent-color-primary);
+}
+.place-actions {
+    margin-top: 15px;
 }
 
 .place-stats-container {
     display: flex;
     justify-content: space-around;
-    padding: 20px 0;
-    margin-bottom: 20px;
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
+    background-color: var(--container-bg-secondary);
+    padding: 15px;
+    border-radius: var(--border-radius-medium);
+    margin-bottom: 25px;
 }
 
-.place-stats-container .stat-item {
-    text-align: center;
+#place-reviews-container, #place-groups-container {
+    /* These will contain the super-cards or group-cards */
 }
-.place-stats-container .stat-item .count {
-    font-size: 1.8em;
+
+/* --- Estilos para las tarjetas de grupo en la página de detalle del lugar --- */
+.group-card-item {
+    background-color: var(--container-bg-secondary);
+    border-radius: var(--border-radius-medium);
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color-light);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.group-card-item:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-elevation-low);
+}
+.group-card-item a {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    text-decoration: none;
+    color: var(--text-color);
+}
+.group-card-icon {
+    font-size: 2em;
+    color: var(--accent-color-tertiary);
+    flex-shrink: 0;
+}
+.group-card-info {
+    flex-grow: 1;
+    text-align: left;
+}
+.group-card-name {
+    font-size: 1.1em;
     font-weight: 600;
+    display: block;
+    margin-bottom: 4px;
 }
-.place-stats-container .stat-item .label {
+.group-card-list-source {
     font-size: 0.9em;
     color: var(--secondary-text-color);
-    margin-top: 5px;
     display: block;
 }
 
-/* Adaptación para escritorio */
-@media (min-width: 768px) {
-    .place-header-container {
-        flex-direction: row;
-        text-align: left;
-        align-items: center;
-    }
-
-    .place-photo-container {
-        flex: 0 0 200px; /* Tamaño fijo para la foto */
-        height: 200px;
-        border-radius: 50%; /* Foto redonda en escritorio */
-    }
-
-    .place-info-main {
-        flex-grow: 1;
-    }
-}
-
-/* ======================================= */
-/* === ESTILOS GENÉRICOS PARA ETIQUETAS === */
-/* ======================================= */
-
-.tag {
-    display: inline-block;
-    background-color: var(--container-bg-secondary);
-    color: var(--secondary-text-color);
-    padding: 4px 10px;
-    border-radius: 14px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    line-height: 1.2;
-    text-transform: lowercase;
-    white-space: nowrap;
-    margin: 2px; /* Pequeño margen para separación */
-}
-
-/* Contenedor para las etiquetas en la tarjeta de grupo */
+/* --- Estilos para las etiquetas dentro de las tarjetas de grupo --- */
 .group-card-tags-container {
     margin-top: 10px;
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 8px;
+}
+.group-card-tags-container .tag {
+    background-color: var(--accent-color-quaternary);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 0.85em;
 }
 
-/* Contenedor para las etiquetas en la tarjeta de reseña */
-.review-tags-container {
-    margin-top: 10px;
+/* --- Estilos para el modal de mapa --- */
+.modal.map-modal {
+    /* Specific styles if needed, but general .modal should suffice */
+}
+.modal-content.map-modal-content {
+    max-width: 90vw; /* Ocupa casi todo el ancho */
+    height: 85vh;   /* Y casi todo el alto */
+    padding: 10px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    flex-direction: column;
 }
-
-
-
-/* =================================================== */
-/* === ESTILOS PARA LA NUEVA CABECERA DE GRUPO (v1) === */
-/* =================================================== */
-
-.group-header-card {
-    background-color: var(--container-bg-secondary);
-    border-radius: var(--border-radius-large);
-    padding: clamp(15px, 3vw, 25px);
-    margin-bottom: 25px;
-    border: 1px solid var(--border-color-light);
-    box-shadow: var(--shadow-elevation-low);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
+#map-modal-title {
+    margin-top: 5px;
+    margin-bottom: 10px;
+    font-size: 1.5em;
+    text-align: center;
+    flex-shrink: 0; /* Evita que el título se encoja */
 }
-
-.group-header__main-info {
-    flex: 1 1 300px; /* Crece y tiene una base de 300px */
-    text-align: left;
+#list-map-container {
+    width: 100%;
+    height: 100%;
+    flex-grow: 1; /* Ocupa todo el espacio vertical restante */
+    border-radius: var(--border-radius-medium);
+    background-color: #333; /* Fondo oscuro mientras carga el mapa */
 }
-
-.group-header__main-info h2 {
-    font-size: clamp(1.6em, 4vw, 2.2em);
-    margin: 0 0 5px 0;
-    text-align: left;
-}
-
-.group-header__main-info #group-subtitle {
-    margin: 0 0 15px 0;
+.close-modal {
+    position: absolute;
+    top: 10px;
+    right: 15px;
     color: var(--secondary-text-color);
+    font-size: 2em;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 10; /* Por encima del mapa */
+}
+.close-modal:hover {
+    color: var(--text-color);
+}
+
+/* --- Estilos para los popups de Leaflet --- */
+.leaflet-popup-content-wrapper {
+    background-color: var(--container-bg) !important;
+    color: var(--text-color) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--shadow-elevation-medium) !important;
+}
+.leaflet-popup-content {
+    margin: 12px !important;
+    font-family: 'Poppins', sans-serif !important;
+}
+.leaflet-popup-tip {
+    background-color: var(--container-bg) !important;
+}
+.leaflet-popup-close-button {
+    color: var(--text-color) !important;
+}
+.leaflet-popup-close-button:hover {
+    color: var(--accent-color-primary) !important;
+}
+.map-popup-content {
+    text-align: center;
+}
+.map-popup-content img {
+    width: 100%;
+    max-height: 120px;
+    object-fit: cover;
+    border-radius: 5px;
+    margin-bottom: 8px;
+}
+.map-popup-content h4 {
+    margin: 0 0 5px 0;
+    font-size: 1.1em;
+}
+.map-popup-content .score {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--accent-color-primary);
+}
+
+/* --- Estilos para el modal del foro --- */
+#list-forum-modal .modal-content {
+    max-width: 700px;
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+#forum-messages-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--border-radius-small);
+    margin-bottom: 15px;
+    background-color: rgba(0,0,0,0.1);
+}
+.forum-message {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: var(--container-bg-secondary);
+}
+.forum-message-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
     font-size: 0.9em;
 }
+.forum-message-header img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.forum-message-header .username {
+    font-weight: 600;
+    color: var(--accent-color-tertiary);
+}
+.forum-message-header .timestamp {
+    color: var(--secondary-text-color);
+    font-size: 0.9em;
+    margin-left: auto;
+}
+.forum-message-body {
+    line-height: 1.6;
+}
+.forum-input-area {
+    display: flex;
+    gap: 10px;
+}
+#new-forum-message {
+    flex-grow: 1;
+    min-height: 50px;
+    resize: vertical;
+}
+#send-forum-message {
+    flex-shrink: 0;
+}
 
-.place-info-actions {
+/* --- Estilos para el botón del foro en el header --- */
+.forum-button {
+    /* Hereda estilos de .header-action-button */
+}
+.forum-button.has-new-messages::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 10px;
+    height: 10px;
+    background-color: var(--accent-color-secondary);
+    border-radius: 50%;
+    border: 2px solid var(--primary-bg);
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--accent-color-secondary-rgb), 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(var(--accent-color-secondary-rgb), 0); }
+    100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--accent-color-secondary-rgb), 0); }
+}
+
+/* --- Estilos para la página de desarrollador --- */
+.developer-page-container {
+    max-width: 1000px;
+}
+.dev-section {
+    background-color: var(--container-bg-secondary);
+    padding: 20px;
+    margin-bottom: 25px;
+    border-radius: var(--border-radius-medium);
+    text-align: left;
+}
+.dev-section h2 {
+    text-align: left;
+    font-size: 1.5em;
+    color: var(--accent-color-secondary);
+    margin-top: 0;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+.dev-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
-
-/* Reutilizamos y adaptamos el estilo de info-tag */
-.info-tag.info-tag--place, .info-tag.info-tag--gmaps {
-    text-decoration: none;
-    font-size: 0.85em;
-    padding: 6px 12px;
+#dev-output {
+    margin-top: 20px;
+    background-color: rgba(0,0,0,0.2);
+    padding: 15px;
+    border-radius: var(--border-radius-small);
+    min-height: 100px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+}
+#dev-output.error {
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+}
+#dev-output.success {
+    color: var(--accent-color-tertiary);
+    border: 1px solid var(--accent-color-tertiary);
 }
 
-.group-header__stats-and-criteria {
-    flex: 1 1 350px; /* Crece y tiene una base mayor */
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+/* --- Estilos para la tabla de datos de desarrollador --- */
+.dev-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
 }
-
-.header-stats-container {
-    display: flex;
-    gap: 20px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.header-stats-container .stat-item {
+.dev-data-table th, .dev-data-table td {
+    border: 1px solid var(--border-color);
+    padding: 8px;
     text-align: left;
 }
-
-.header-stats-container .stat-item .score-value,
-.header-stats-container .stat-item .count-value {
-    font-size: 1.8em;
-    font-weight: 700;
-    color: var(--accent-color-primary);
-    display: block;
-    line-height: 1;
-}
-
-.header-stats-container .stat-item .label {
-    font-size: 0.8em;
-    color: var(--secondary-text-color);
-}
-
-#group-avg-criteria-bars .loading-placeholder {
-    font-style: italic;
-    font-size: 0.9em;
-    opacity: 0.7;
-}
-
-/* =================================================== */
-/* ===     ESTILOS PARA EL LIGHTBOX DE IMÁGENES     === */
-/* =================================================== */
-
-.lightbox-modal {
-    display: none;
-    position: fixed;
-    z-index: 1050;
-    left: 0; top: 0;
-    width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.9);
-    align-items: center;
-    justify-content: center;
-}
-
-.lightbox-content {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
-}
-
-#lightbox-image {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    border-radius: 5px;
-    animation: zoomIn 0.3s ease;
-}
-
-@keyframes zoomIn {
-    from { transform: scale(0.8); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-}
-
-.lightbox-close-button {
-    position: absolute;
-    top: 15px;
-    right: 35px;
-    color: #fff;
-    font-size: 40px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: color 0.2s;
-}
-.lightbox-close-button:hover { color: #ccc; }
-
-.lightbox-prev, .lightbox-next {
-    cursor: pointer;
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: auto;
-    padding: 16px;
-    color: white;
-    font-weight: bold;
-    font-size: 20px;
-    transition: 0.3s ease;
-    border-radius: 0 3px 3px 0;
-    user-select: none;
+.dev-data-table th {
     background-color: rgba(0,0,0,0.3);
 }
-.lightbox-next { right: 0; border-radius: 3px 0 0 3px; }
-.lightbox-prev { left: 0; }
-.lightbox-prev:hover, .lightbox-next:hover { background-color: rgba(0,0,0,0.8); }
-
-/* Ocultar flechas si solo hay una imagen */
-.lightbox-modal.single-image .lightbox-prev,
-.lightbox-modal.single-image .lightbox-next {
-    display: none;
+.dev-data-table tr:nth-child(even) {
+    background-color: rgba(0,0,0,0.1);
+}
+.dev-data-table td button {
+    font-size: 0.9em;
+    padding: 4px 8px;
+}
+.dev-data-table td input[type="text"] {
+    width: 100%;
+    padding: 5px;
+    font-size: 1em;
 }
 
+/* --- Estilos para la página de búsqueda (search.html) --- */
+.search-page-container {
+    max-width: 800px;
+}
+.search-form-container {
+    margin-bottom: 25px;
+}
+.search-results-container {
+    text-align: left;
+}
+.search-result-item {
+    background-color: var(--container-bg-secondary);
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: var(--border-radius-medium);
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+.search-result-item img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: var(--border-radius-small);
+}
+.search-result-info h3 {
+    margin: 0 0 5px 0;
+    font-size: 1.1em;
+}
+.search-result-info h3 a {
+    color: var(--text-color);
+    text-decoration: none;
+}
+.search-result-info h3 a:hover {
+    color: var(--accent-color-primary);
+}
+.search-result-info p {
+    margin: 0;
+    font-size: 0.9em;
+    color: var(--secondary-text-color);
+}
+.search-result-actions {
+    margin-left: auto;
+}
+.search-result-actions .button {
+    font-size: 0.9em;
+    padding: 6px 12px;
+}
+#search-results-placeholder {
+    text-align: center;
+    padding: 20px;
+    color: var(--secondary-text-color);
+}
+#search-results-placeholder i {
+    font-size: 3em;
+    margin-bottom: 10px;
+    display: block;
+}
+
+/* --- Estilos para el spinner de carga --- */
+.spinner {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 4px solid var(--accent-color-primary);
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-placeholder {
+    text-align: center;
+    padding: 20px;
+    color: var(--secondary-text-color);
+}
+.error-placeholder {
+    text-align: center;
+    padding: 20px;
+    color: var(--danger-color);
+    background-color: rgba(var(--danger-color-rgb), 0.1);
+    border: 1px solid var(--danger-color);
+    border-radius: var(--border-radius-small);
+}
+/* --- Estilos para las etiquetas (tags) --- */
+.tag {
+    display: inline-block;
+    padding: 5px 12px;
+    margin: 2px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    font-weight: 500;
+    background-color: var(--accent-color-quaternary); /* Un color base */
+    color: white;
+    transition: background-color 0.2s;
+}
+
+/* Si quieres variar los colores de las etiquetas, puedes añadir clases */
+.tag.tag-style-1 { background-color: var(--accent-color-primary); }
+.tag.tag-style-2 { background-color: var(--accent-color-secondary); }
+.tag.tag-style-3 { background-color: var(--accent-color-tertiary); color: #111; } /* Texto oscuro para colores claros */
+.tag.tag-style-4 { background-color: var(--accent-color-quaternary); }
+.tag.tag-style-5 { background-color: var(--accent-color-quinary); color: #111; }
+
+/* Contenedor de etiquetas en la tabla */
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+}
+
+/* --- Estilos para los botones de grupo en la página de detalle del lugar --- */
+#place-groups-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: flex-start; /* Alineado a la izquierda */
+}
+
+.group-tag-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between; /* Para separar nombre y puntuación */
+    gap: 1rem;
+    padding: 0.8rem 1.5rem;
+    border: 1px solid var(--border-color);
+    background: var(--container-bg-secondary);
+    color: var(--text-color);
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    box-shadow: var(--shadow-elevation-low);
+}
+
+.group-tag-button:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-color-primary);
+    background: rgba(var(--accent-color-primary-rgb), 0.1);
+    color: var(--accent-color-primary);
+    box-shadow: 0 4px 12px rgba(var(--accent-color-primary-rgb), 0.2);
+}
+
+.group-tag-button .group-tag-name {
+    font-weight: 600;
+}
+
+.group-tag-button .group-tag-score {
+    background-color: var(--accent-color-primary);
+    color: var(--main-button-text);
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    font-weight: bold;
+    min-width: 30px;
+    text-align: center;
+}
+
+.input-with-side-button {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.input-with-side-button .form-input {
+    flex-grow: 1;
+}
+
+.input-with-side-button .button {
+    flex-shrink: 0;
+}
+
+/* --- Responsive fix for input with side button --- */
+@media (max-width: 480px) {
+    .input-with-side-button {
+        flex-direction: column;
+        align-items: stretch; /* Make items take full width */
+        gap: 10px;
+    }
+}

@@ -166,6 +166,19 @@ ListopicApp.pageReviewForm = (() => {
 
             const findNearbyBtn = document.getElementById('find-nearby-btn');
             const searchByNameBtn = document.getElementById('search-by-name-btn');
+            const toggleManualLocationBtn = document.getElementById('toggle-manual-location-btn');
+
+            if (toggleManualLocationBtn) {
+                toggleManualLocationBtn.addEventListener('click', () => {
+                    const manualFields = document.getElementById('manual-location-fields');
+                    if (manualFields) {
+                        const isVisible = manualFields.style.display === 'block';
+                        manualFields.style.display = isVisible ? 'none' : 'block';
+                        toggleManualLocationBtn.querySelector('i').classList.toggle('fa-chevron-down', isVisible);
+                        toggleManualLocationBtn.querySelector('i').classList.toggle('fa-chevron-up', !isVisible);
+                    }
+                });
+            }
 
             if (findNearbyBtn) {
                 findNearbyBtn.addEventListener('click', () => placesService.fetchNearbyRestaurantsWithContext());
