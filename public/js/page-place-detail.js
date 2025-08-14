@@ -1,11 +1,10 @@
-// public/js/page-place-detail.js (VERSIÓN CORREGIDA)
-
 window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.pagePlaceDetail = {
     elements: {},
     placeId: null,
-    // Almacenaremos los datos originales para poder filtrar
+    currentUser: null,
+    isFollowing: false,
     originalReviews: [], 
     originalGroups: [],
 
@@ -20,8 +19,17 @@ ListopicApp.pagePlaceDetail = {
         }
         
         this.cacheDOMElements();
+        this.attachEventListeners(); // Unificamos la gestión de eventos
         this.loadPageData();
-        this.setupTabs();
+
+        // **INTEGRACIÓN**: Comprobamos si hay un usuario para mostrar el botón de seguir
+        ListopicApp.authService.onAuthStateChangedPromise().then(user => {
+            this.currentUser = user;
+            if (this.currentUser) {
+                this.elements.followUnfollowBtn.style.display = 'inline-block';
+                this.checkFollowStatus();
+            }
+        });
     },
 
     cacheDOMElements: function() {
@@ -35,10 +43,38 @@ ListopicApp.pagePlaceDetail = {
             listsCount: document.getElementById('place-lists-count'),
             reviewsContainer: document.getElementById('place-reviews-container'),
             groupsContainer: document.getElementById('place-groups-container'),
+            googleRating: document.getElementById('place-google-rating'), // Añadido
             tabButtons: document.querySelectorAll('.profile-tab-button'),
-            tabContents: document.querySelectorAll('.profile-tab-content')
+            tabContents: document.querySelectorAll('.profile-tab-content'),
+            followersCount: document.getElementById('place-followers-count'),
+            followUnfollowBtn: document.getElementById('follow-unfollow-place-btn'),
+            websiteContainer: document.getElementById('place-website-container'),
+            website: document.getElementById('place-website'),
+            phoneContainer: document.getElementById('place-phone-container'),
+            phone: document.getElementById('place-phone'),
+            hoursContainer: document.getElementById('place-hours-container'),
+            hours: document.getElementById('place-hours'),
+            priceContainer: document.getElementById('place-price-container'),
+            price: document.getElementById('place-price'),
         };
         console.log("[page-place-detail.js] Elementos del DOM cacheados.");
+    },
+    
+    // **INTEGRACIÓN**: Nueva función para manejar todos los listeners
+    attachEventListeners: function() {
+        // Listener para el nuevo botón de seguir
+        this.elements.followUnfollowBtn?.addEventListener('click', () => this.handleFollowToggle());
+
+        // Listeners para las pestañas
+        this.elements.tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tab = button.dataset.tab;
+                this.elements.tabButtons.forEach(btn => btn.classList.remove('active'));
+                this.elements.tabContents.forEach(content => content.classList.remove('active'));
+                button.classList.add('active');
+                document.getElementById(`${tab}-content`).classList.add('active');
+            });
+        });
     },
 
     loadPageData: async function() {
@@ -71,28 +107,60 @@ ListopicApp.pagePlaceDetail = {
     },
 
     renderPlaceDetails: function(placeData) {
-        console.log("[page-place-detail.js] Renderizando cabecera...", placeData);
-        const { name, formatted_address, photos, googleMapsUrl, reviewsCount, listsCount, averageRating } = placeData;
-        
+        // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
+        // Obtenemos 'googleRating' de los datos que recibimos
+        const {
+            name,
+            formatted_address,
+            photos,
+            googleMapsUrl,
+            reviewsCount,
+            averageRating,
+            followersCount,
+            website,
+            phone,
+            current_opening_hours,
+            priceLevel,
+            googleRating // Añadido
+        } = placeData;
+
+        // Renderizado de datos existentes
         document.title = `${name || 'Lugar'} - Listopic`;
         this.elements.placeName.textContent = name || 'Nombre no disponible';
-        
         if (this.elements.placeAddress?.querySelector('span')) {
-           this.elements.placeAddress.querySelector('span').textContent = formatted_address || 'Dirección no disponible';
+            this.elements.placeAddress.querySelector('span').textContent = formatted_address || 'Dirección no disponible';
         }
-        
-        // CORRECCIÓN de ruta de imagen: Usamos una imagen que sí existe.
         this.elements.placePhoto.src = photos?.[0] || 'img/logo-listopic400.png';
+        this.elements.googleMapsLink.href = googleMapsUrl || '#';
+        if (!googleMapsUrl) this.elements.googleMapsLink.style.display = 'none';
         
-        if (googleMapsUrl) {
-            this.elements.googleMapsLink.href = googleMapsUrl;
-        } else {
-            this.elements.googleMapsLink.style.display = 'none';
-        }
-        
+        // --- Renderizado de estadísticas (con los cambios) ---
         this.elements.reviewCount.textContent = reviewsCount !== undefined ? reviewsCount : '0';
-        this.elements.listsCount.textContent = listsCount !== undefined ? listsCount : '0';
         this.elements.avgRating.textContent = averageRating ? averageRating.toFixed(1) : 'N/A';
+        this.elements.followersCount.textContent = followersCount !== undefined ? followersCount : '0';
+        // Mostramos la nueva nota de Google, formateada a un decimal
+        this.elements.googleRating.textContent = googleRating ? googleRating.toFixed(1) : 'N/A';
+        
+        // --- Renderizado de información extra (sin cambios) ---
+        if (website) {
+            this.elements.website.href = website;
+            this.elements.website.textContent = new URL(website).hostname.replace('www.','');
+            this.elements.websiteContainer.style.display = 'block';
+        }
+        if (phone) {
+            this.elements.phone.textContent = phone;
+            this.elements.phoneContainer.style.display = 'block';
+        }
+        if (current_opening_hours) {
+            const isOpen = current_opening_hours.open_now;
+            this.elements.hours.textContent = isOpen ? 'Abierto ahora' : 'Cerrado ahora';
+            this.elements.hours.className = isOpen ? 'hours-status open' : 'hours-status closed';
+            this.elements.hoursContainer.style.display = 'block';
+        }
+        if (priceLevel !== undefined && priceLevel > 0) {
+            this.elements.price.textContent = '€'.repeat(priceLevel);
+            this.elements.priceContainer.style.display = 'block';
+        }
     },
 
     renderReviews: async function(reviews) {
@@ -186,7 +254,75 @@ ListopicApp.pagePlaceDetail = {
             </div>
         `;
     },
+    // --- NUEVAS FUNCIONES PARA SEGUIMIENTO ---
+
+checkFollowStatus: async function() {
+    if (!this.currentUser) return;
+    const db = ListopicApp.services.db;
+    const followDocRef = db.collection('places').doc(this.placeId).collection('followers').doc(this.currentUser.uid);
     
+    try {
+        const doc = await followDocRef.get();
+        this.isFollowing = doc.exists;
+        this.updateFollowButtonUI();
+    } catch (error) {
+        console.error("Error al comprobar el estado de seguimiento del lugar:", error);
+    }
+},
+
+updateFollowButtonUI: function() {
+    const btn = this.elements.followUnfollowBtn;
+    if (!btn) return;
+
+    if (this.isFollowing) {
+        btn.innerHTML = `<i class="fas fa-check"></i> Siguiendo`;
+        btn.classList.remove('primary-button');
+        btn.classList.add('secondary-button');
+    } else {
+        btn.innerHTML = `<i class="fas fa-bookmark"></i> Seguir Lugar`;
+        btn.classList.remove('secondary-button');
+        btn.classList.add('primary-button');
+    }
+},
+
+handleFollowToggle: async function() {
+    if (!this.currentUser) {
+        ListopicApp.services.showNotification("Debes iniciar sesión para seguir un lugar.", "error");
+        return;
+    }
+
+    const btn = this.elements.followUnfollowBtn;
+    btn.disabled = true;
+
+    try {
+        const functions = firebase.app().functions('europe-west1');
+        const toggleFollow = functions.httpsCallable('toggleFollowPlace'); // Asumimos que esta función existe
+        const result = await toggleFollow({ placeId: this.placeId });
+
+        this.isFollowing = result.data.status === 'followed';
+        this.updateFollowButtonUI();
+
+        const followersCountEl = this.elements.followersCount;
+        let currentFollowers = parseInt(followersCountEl.textContent, 10);
+        followersCountEl.textContent = this.isFollowing ? currentFollowers + 1 : Math.max(0, currentFollowers - 1);
+        
+        ListopicApp.services.showNotification(result.data.message, 'success');
+
+    } catch (error) {
+        console.error("Error al seguir/dejar de seguir el lugar:", error);
+        ListopicApp.services.showNotification(`Error: ${error.message}`, 'error');
+        // Revertir el estado visual si la operación falla
+        this.checkFollowStatus(); 
+    } finally {
+        btn.disabled = false;
+    }
+
+
+},
+
+
+
+// --- FUNCIONES EXISTENTES (SIN CAMBIOS) ---
     escapeHtml: function(str) {
         if (typeof str !== 'string') return '';
         const p = document.createElement("p");
@@ -194,9 +330,14 @@ ListopicApp.pagePlaceDetail = {
         return p.innerHTML;
     }
 };
+    
 
+// **CORRECCIÓN**: Volvemos a añadir el inicializador, pero con un retardo para evitar el problema de tiempo.
 document.addEventListener('DOMContentLoaded', () => {
-    if (document.querySelector('.place-detail-page-container')) {
-        ListopicApp.pagePlaceDetail.init();
-    }
+    // Este retardo se asegura de que los servicios principales (como authService) se hayan cargado primero.
+    setTimeout(() => {
+        if (document.querySelector('.place-detail-page-container')) {
+            ListopicApp.pagePlaceDetail.init();
+        }
+    }, 250); // Un cuarto de segundo es un margen seguro.
 });
