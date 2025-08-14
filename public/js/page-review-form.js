@@ -134,7 +134,10 @@ ListopicApp.pageReviewForm = (() => {
                         if (reviewData.placeId) {
                             const placeDoc = await db.collection('places').doc(reviewData.placeId).get();
                             if (placeDoc.exists) {
-                                uiUtils.updateReviewFormWithPlace(placeDoc.data());
+                                // ¡CORRECCIÓN CLAVE!
+                                // Pasamos el ID del documento junto con sus datos.
+                                const placeDataWithId = { id: placeDoc.id, ...placeDoc.data() };
+                                uiUtils.updateReviewFormWithPlace(placeDataWithId);
                             }
                         }
                         if (itemNameInput) itemNameInput.value = reviewData.itemName || '';

@@ -2870,7 +2870,7 @@ body.light-theme .entity-type-btn.active { /* O usa .selected si reutilizas esa 
 }
 
 .info-tag--place {
-    background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+    background: linear-gradient(135deg, #e8f5e8, #55f8c7);
     color: #1b5e20;
     border-color: #4caf50;
 }
@@ -4269,7 +4269,7 @@ body.light-theme .entity-type-btn.active { /* O usa .selected si reutilizas esa 
     align-items: center;
     gap: 6px;
     background-color: rgba(var(--accent-color-primary-rgb), 0.1);
-    color: var(--secondary-text-color);
+    color: var(--accent-color-primary);
     padding: 4px 10px;
     border-radius: 20px;
     font-size: 0.8em;
@@ -4307,7 +4307,7 @@ body.light-theme .profile-review-card {
 }
 
 body.light-theme .info-tag {
-    background-color: rgba(0,0,0,0.05);
+    background-color: rgba(95, 220, 255, 0.25);
     border: 1px solid rgba(0,0,0,0.1);
 }
 body.light-theme .info-tag:hover {
