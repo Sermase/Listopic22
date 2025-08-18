@@ -4531,10 +4531,6 @@ body.light-theme .info-tag:hover {
 
 
 
-/* =========================================== */
-/* ===         NUEVA VISTA DE LISTA v3.1     === */
-/* =========================================== */
-
 .reviews-grid-container {
     display: flex;
     flex-wrap: wrap;
@@ -4549,6 +4545,8 @@ body.light-theme .info-tag:hover {
     flex: 1 1 320px; /* Base de 320px, pero flexible */
     max-width: 450px; /* Evita que las tarjetas se hagan enormes en filas de 1 o 2 */
     
+    height: 200px; /* ¡NUEVA LÍNEA! Altura fija para todas las tarjetas */
+
     background-color: var(--container-bg);
     border: 1px solid var(--border-color-light);
     border-radius: var(--border-radius-medium);
@@ -4637,7 +4635,6 @@ body.light-theme .info-tag:hover {
     border-radius: var(--border-radius-medium);
 }
 .error-placeholder { color: var(--danger-color); }
-
 
 /* =========================================== */
 /* ===         AJUSTES PARA MÓVILES          === */
