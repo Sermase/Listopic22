@@ -15,25 +15,42 @@ ListopicApp.pageDetailView = (() => {
         // Elementos del DOM
         const detailEstablishmentNameEl = document.getElementById('detail-restaurant-name');
         const detailItemNameEl = document.getElementById('detail-dish-name');
-        const reviewAuthorNameEl = document.getElementById('review-author-name'); // <<--- ASEGÚRATE QUE ESTE ID ESTÉ EN TU HTML
+        const reviewAuthorNameEl = document.getElementById('review-author-name');
+        const reviewAuthorPhotoEl = document.getElementById('review-author-photo'); // NUEVO
+        const reviewAuthorLinkEl = document.getElementById('review-author-link'); // NUEVO
+        const reviewListNameEl = document.getElementById('review-list-name'); // NUEVO
+        const reviewCreationDateEl = document.getElementById('review-creation-date'); // NUEVO
         const detailImageEl = document.getElementById('detail-image');
         const detailScoreValueEl = document.getElementById('detail-score-value');
         const detailRatingsListEl = document.getElementById('detail-ratings');
-        const detailLocationLinkEl = document.getElementById('detail-location-link');
-        const detailLocationTextEl = document.getElementById('detail-location-text');
+        // REEMPLAZADO: const detailLocationLinkEl = document.getElementById('detail-location-link');
+        // REEMPLAZADO: const detailLocationTextEl = document.getElementById('detail-location-text');
+        // REEMPLAZADO: const detailLocationContainerEl = document.getElementById('detail-location-container');
+        const detailLocationButtonsEl = document.getElementById('detail-location-buttons'); // NUEVO
+        const placeDetailLinkEl = document.getElementById('place-detail-link'); // NUEVO
+        const googleMapsLinkEl = document.getElementById('google-maps-link'); // NUEVO
         const detailNoLocationDivEl = document.querySelector('.detail-no-location');
-        const detailLocationContainerEl = document.getElementById('detail-location-container');
         const detailCommentContainerEl = document.getElementById('detail-comment-container');
         const detailCommentTextEl = document.getElementById('detail-comment-text');
         const detailTagsContainerEl = document.getElementById('detail-tags-container');
         const detailTagsDivEl = document.getElementById('detail-tags');
-        const detailListNameEl = document.getElementById('detail-list-name');
+        const detailListNameHeaderEl = document.getElementById('detail-list-name'); // Ahora es un p distinto del nuevo span
 
+        // Elementos de la nueva sección de reacciones y comentarios
+        const likesCountEl = document.getElementById('likes-count');
+        const dislikesCountEl = document.getElementById('dislikes-count');
+        const commentsCountEl = document.getElementById('comments-count');
+        const likeButtonEl = document.querySelector('.like-button');
+        const dislikeButtonEl = document.querySelector('.dislike-button');
+        const commentButtonEl = document.querySelector('.comments-button');
+        const likeTextEl = document.getElementById('like-text');
+        const dislikeTextEl = document.getElementById('dislike-text');
+
+        // Configurar botón de Volver
         const backButton = document.querySelector('.container a.back-button');
         const editButton = document.querySelector('.edit-button');
         const deleteButton = document.querySelector('.delete-button.danger');
 
-        // Configurar botón de Volver
         if (backButton && listIdFromURL) {
             const fromPlaceIdParam = params.get('fromPlaceId'); // Usar fromPlaceId
             const fromItemParam = params.get('fromItem');
@@ -67,6 +84,11 @@ ListopicApp.pageDetailView = (() => {
                 if (detailItemNameEl) detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
                 if (detailScoreValueEl) detailScoreValueEl.textContent = reviewDataGlobal.overallRating !== undefined ? reviewDataGlobal.overallRating.toFixed(1) : 'N/A';
                 
+                // Mostrar fecha de creación (NUEVO)
+                if (reviewCreationDateEl && reviewDataGlobal.createdAt?.toDate) {
+                    reviewCreationDateEl.textContent = `Fecha: ${reviewDataGlobal.createdAt.toDate().toLocaleDateString()}`;
+                }
+
                 if (detailImageEl && detailImageEl.parentNode) {
                     if (reviewDataGlobal.photoUrl) {
                         detailImageEl.src = reviewDataGlobal.photoUrl;
@@ -114,24 +136,60 @@ ListopicApp.pageDetailView = (() => {
                     }
                     editButton.href = editHref;
                 }
-
-                // 2. Obtener la definición de la lista
-                return db.collection('lists').doc(listIdFromURL).get();
+                
+                const fetchPromises = [
+                    db.collection('lists').doc(listIdFromURL).get(),
+                    db.collection('users').doc(reviewDataGlobal.userId).get()
+                ];
+                
+                // 2. Obtener la definición de la lista y los datos del autor de la reseña
+                return Promise.all(fetchPromises);
             })
-            .then(listDoc => {
+            .then(async ([listDoc, userDoc]) => {
                 if (!listDoc.exists) throw new Error("Lista asociada no encontrada.");
-                listDataGlobal = listDoc.data(); // Guardar en el scope más amplio
+                listDataGlobal = listDoc.data();
                 state.currentListCriteriaDefinitions = listDataGlobal.criteriaDefinition || {};
 
-                if(detailListNameEl && listDataGlobal.name) {
-                    detailListNameEl.innerHTML = `Estás viendo en Listopic: <a href="list-view.html?listId=${listIdFromURL}">${uiUtils.escapeHtml(listDataGlobal.name)}</a>`;
-                    if (uiUtils.updatePageHeaderInfo) { // Actualizar header común
+                // Renderizar nombre de la lista
+                if (reviewListNameEl) reviewListNameEl.textContent = `en ${uiUtils.escapeHtml(listDataGlobal.name || 'Lista Desconocida')}`;
+
+                // Obtener datos de la categoría para las palabras de reacción
+                const categoryId = listDataGlobal.categoryId || 'Hmm...';
+                const categoryDoc = await db.collection('categories').doc(categoryId).get();
+                const categoryData = categoryDoc.exists ? categoryDoc.data() : {};
+                const likeWord = categoryData.rangos?.like || 'Me gusta';
+                const dislikeWord = categoryData.rangos?.dislike || 'No me gusta';
+
+                if(likeTextEl) likeTextEl.textContent = likeWord;
+                if(dislikeTextEl) dislikeTextEl.textContent = dislikeWord;
+
+                // Cargar contadores (por ahora placeholders)
+                if (likesCountEl) likesCountEl.textContent = 0; // Se actualizará con datos reales
+                if (dislikesCountEl) dislikesCountEl.textContent = 0; // Se actualizará con datos reales
+                if (commentsCountEl) commentsCountEl.textContent = 0; // Se actualizará con datos reales
+
+                if(detailListNameHeaderEl && listDataGlobal.name) {
+                    detailListNameHeaderEl.innerHTML = `Estás viendo en Listopic: <a href="list-view.html?listId=${listIdFromURL}">${uiUtils.escapeHtml(listDataGlobal.name)}</a>`;
+                    if (uiUtils.updatePageHeaderInfo) {
                         const currentCategory = listDataGlobal.categoryId || "Hmm...";
                         uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal.name);
                     }
-                } else if (detailListNameEl) {
-                     detailListNameEl.textContent = "Estás viendo en Listopic: Lista Desconocida";
+                } else if (detailListNameHeaderEl) {
+                     detailListNameHeaderEl.textContent = "Estás viendo en Listopic: Lista Desconocida";
                      if (uiUtils.updatePageHeaderInfo) uiUtils.updatePageHeaderInfo();
+                }
+
+                // Renderizar autor y foto (NUEVO)
+                if (userDoc && userDoc.exists) {
+                    const userData = userDoc.data();
+                    const authorName = uiUtils.escapeHtml(userData.username || userData.displayName || 'Usuario Anónimo');
+                    
+                    if (reviewAuthorNameEl) reviewAuthorNameEl.textContent = authorName;
+                    if (reviewAuthorPhotoEl) reviewAuthorPhotoEl.src = userData.photoUrl || 'img/default-avatar.png';
+                    if (reviewAuthorLinkEl) reviewAuthorLinkEl.href = `profile.html?viewUserId=${reviewDataGlobal.userId}`;
+                } else if (reviewDataGlobal.userId) { 
+                    if(reviewAuthorNameEl) reviewAuthorNameEl.textContent = 'Usuario Desconocido';
+                    console.warn(`Autor de reseña con ID ${reviewDataGlobal.userId} no encontrado.`);
                 }
                 
                 // Renderizar valoraciones detalladas
@@ -153,41 +211,14 @@ ListopicApp.pageDetailView = (() => {
                      detailRatingsListEl.innerHTML = '<li>No hay valoraciones detalladas disponibles.</li>';
                 }
 
-                // 3. Obtener datos del autor de la reseña
-                if (reviewDataGlobal.userId && reviewAuthorNameEl) {
-                    return db.collection('users').doc(reviewDataGlobal.userId).get(); // Esto devuelve una promesa
-                } else {
-                    if(reviewAuthorNameEl) reviewAuthorNameEl.textContent = 'Autor no especificado';
-                    return Promise.resolve(null); // Devolver promesa resuelta para el siguiente .then()
-                }
-            })
-            .then(userDocOrNull => { // userDocOrNull es el resultado de la promesa del autor
-                if (userDocOrNull && userDocOrNull.exists) {
-                    const userData = userDocOrNull.data();
-                    const authorName = uiUtils.escapeHtml(userData.username || userData.displayName || 'Usuario Anónimo');
-                    
-                    const authorLink = document.createElement('a');
-                    authorLink.href = `profile.html?viewUserId=${reviewDataGlobal.userId}`;
-                    authorLink.textContent = authorName;
-                    
-                    if (reviewAuthorNameEl) {
-                        reviewAuthorNameEl.innerHTML = ''; 
-                        reviewAuthorNameEl.appendChild(authorLink);
-                    }
-                } else if (reviewDataGlobal.userId && reviewAuthorNameEl) { 
-                    reviewAuthorNameEl.textContent = 'Usuario Desconocido';
-                    console.warn(`Autor de reseña con ID ${reviewDataGlobal.userId} no encontrado.`);
-                }
-                
-                // 4. Si la reseña tiene placeId, obtener datos del lugar
+                // 3. Si la reseña tiene placeId, obtener datos del lugar
                 if (reviewDataGlobal && reviewDataGlobal.placeId) {
-                    return db.collection('places').doc(reviewDataGlobal.placeId).get(); // Esto devuelve una promesa
+                    return db.collection('places').doc(reviewDataGlobal.placeId).get();
                 } else {
-                    // No hay placeId, mostrar N/A y resolver para finalizar cadena si es necesario
                     if(detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || "Establecimiento no especificado";
-                    if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                    if (detailLocationButtonsEl) detailLocationButtonsEl.style.display = 'none';
                     if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
-                    return Promise.resolve(null); // Devolver promesa resuelta
+                    return Promise.resolve(null);
                 }
             })
             .then(placeDocOrNull => { // placeDocOrNull es el resultado de la promesa del lugar
@@ -199,36 +230,49 @@ ListopicApp.pageDetailView = (() => {
                     if (detailImageEl && detailImageEl.alt === `Foto de reseña`) {
                          detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || placeData.name)}`;
                     }
+                    
+                    // Lógica para los nuevos botones (NUEVO)
+                    if (detailLocationButtonsEl && placeData && placeData.name) {
+                        detailLocationButtonsEl.style.display = 'block';
+                        if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'none';
+                        
+                        if (placeDetailLinkEl) {
+                           const fromPlaceIdParam = reviewDataGlobal.placeId;
+                           const fromItemParam = reviewDataGlobal.itemName;
+                           if (fromPlaceIdParam) {
+                               const listId = listIdFromURL;
+                               const item = encodeURIComponent(fromItemParam || "");
+                               placeDetailLinkEl.href = `grouped-detail-view.html?listId=${listId}&placeId=${fromPlaceIdParam}&item=${item}`;
+                           } else {
+                               placeDetailLinkEl.style.pointerEvents = "none";
+                           }
+                        }
 
-                    if (detailLocationContainerEl && detailLocationTextEl && detailNoLocationDivEl && (placeData.address || placeData.name || placeData.googleMapsUrl || placeData.googlePlaceId)) {
-                        let mapsUrl = "#";
-                        if (placeData.googleMapsUrl) mapsUrl = placeData.googleMapsUrl;
-                        else if (placeData.googlePlaceId) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.googlePlaceId}`;
-                        else if (placeData.location?.latitude && placeData.location?.longitude) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.location.latitude},${placeData.location.longitude}`;
+                        if (googleMapsLinkEl) {
+                            let mapsUrl = "#";
+                            if (placeData.googleMapsUrl) mapsUrl = placeData.googleMapsUrl;
+                            else if (placeData.googlePlaceId) mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeData.name)}&query_place_id=${placeData.googlePlaceId}`;
+                            else if (placeData.location?.latitude && placeData.location?.longitude) mapsUrl = `https://www.google.com/maps/search/?api=1&query=${placeData.location.latitude},${placeData.location.longitude}`;
 
-                        if (detailLocationLinkEl) {
                             if (mapsUrl !== "#") {
-                                detailLocationLinkEl.href = mapsUrl;
-                                detailLocationLinkEl.style.pointerEvents = "auto";
+                                googleMapsLinkEl.href = mapsUrl;
+                                googleMapsLinkEl.style.pointerEvents = "auto";
                             } else {
-                                detailLocationLinkEl.removeAttribute('href');
-                                detailLocationLinkEl.style.pointerEvents = "none";
+                                googleMapsLinkEl.removeAttribute('href');
+                                googleMapsLinkEl.style.pointerEvents = "none";
                             }
                         }
-                        detailLocationTextEl.textContent = placeData.address || placeData.name;
-                        detailNoLocationDivEl.style.display = 'none';
-                        detailLocationContainerEl.style.display = 'block';
-                    } else {
-                        if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                    } else { // Ocultar si no hay lugar
+                        if (detailLocationButtonsEl) detailLocationButtonsEl.style.display = 'none';
                         if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
                     }
+
                 } else if (reviewDataGlobal && reviewDataGlobal.placeId) { 
                     if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = "Lugar no encontrado en BD";
                     console.warn(`Lugar con ID ${reviewDataGlobal.placeId} no encontrado para la reseña ${reviewId}`);
-                    if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                    if (detailLocationButtonsEl) detailLocationButtonsEl.style.display = 'none';
                     if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
                 }
-                // Si placeDocOrNull es null, ya se manejó el caso sin placeId antes
             })
             .catch(error => {
                 console.error("Error fetching details for detail view:", error);

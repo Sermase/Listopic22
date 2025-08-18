@@ -3843,6 +3843,7 @@ body.light-theme .entity-type-btn.active { /* O usa .selected si reutilizas esa 
 .review-date {
     font-size: 0.8rem;
     color: var(--secondary-text-color);
+    place-content: right;
 }
 
 .review-content {
@@ -5434,3 +5435,209 @@ body.light-theme .leaflet-popup-tip {
     display: none;
 }
 
+/* Nuevos estilos para la superetiqueta de autor/lista */
+
+.review-meta-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color-light);
+}
+
+.review-creation-date-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.review-meta-info-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.author-info-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: var(--text-color);
+}
+
+.author-info-link:hover .author-text-container .review-author-name {
+    color: var(--accent-color-primary);
+}
+
+.review-author-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-color-primary);
+}
+
+.author-text-container {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+.review-author-name {
+    font-weight: 600;
+    font-size: 1.1em;
+    line-height: 1.2;
+    transition: color 0.2s ease;
+}
+
+.review-list-name {
+    font-size: 0.8em;
+    color: var(--secondary-text-color);
+    line-height: 1.2;
+}
+
+.review-creation-date-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+/* Nuevo contenedor para los botones de ubicación */
+.detail-location-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.place-action-button {
+    /* Herencia de .button o estilos específicos */
+    padding: 10px 20px;
+    font-size: 1em;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+/* Estilos para los botones de reacción y comentarios */
+.review-stats-bar {
+    display: flex;
+    justify-content: space-around;
+    gap: 15px;
+    margin-top: 25px;
+    padding: 10px;
+    background-color: var(--container-bg-secondary);
+    border-radius: var(--border-radius-medium);
+    box-shadow: var(--shadow-elevation-low);
+}
+
+.stats-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.reaction-button, .comments-button {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-size: 0.9em;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.2s ease, transform 0.1s ease;
+}
+
+.reaction-button:hover, .comments-button:hover {
+    color: var(--accent-color-primary);
+    transform: translateY(-1px);
+}
+.reaction-button i, .comments-button i {
+    font-size: 1.1em;
+}
+
+.like-button .fa-heart {
+    color: var(--accent-color-secondary);
+}
+
+.dislike-button .fa-thumbs-down {
+    color: var(--danger-color);
+}
+
+.stats-item .count {
+    font-weight: bold;
+    color: var(--title-color);
+}
+
+
+/* Nuevo contenedor para los botones de ubicación */
+.detail-location-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.place-action-button {
+    /* Herencia de .button o estilos específicos */
+    padding: 10px 20px;
+    font-size: 1em;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+/* Estilos para los botones de reacción y comentarios */
+.review-stats-bar {
+    display: flex;
+    justify-content: space-around;
+    gap: 15px;
+    margin-top: 25px;
+    padding: 10px;
+    background-color: var(--container-bg-secondary);
+    border-radius: var(--border-radius-medium);
+    box-shadow: var(--shadow-elevation-low);
+}
+
+.stats-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.reaction-button, .comments-button {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-size: 0.9em;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.2s ease, transform 0.1s ease;
+}
+
+.reaction-button:hover, .comments-button:hover {
+    color: var(--accent-color-primary);
+    transform: translateY(-1px);
+}
+.reaction-button i, .comments-button i {
+    font-size: 1.1em;
+}
+
+.like-button .fa-heart {
+    color: var(--accent-color-secondary);
+}
+
+.dislike-button .fa-thumbs-down {
+    color: var(--danger-color);
+}
+
+.stats-item .count {
+    font-weight: bold;
+    color: var(--title-color);
+}
+/* Resto de estilos del archivo style.css */
+/* ... */
