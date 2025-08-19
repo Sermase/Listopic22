@@ -14,54 +14,58 @@ const urlsToCache = [
   // Aquí podrías agregar otras URLs estáticas importantes
 ];
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
-  self.skipWaiting();
-});
+// URLs de Cloud Functions que no se deben cachear
+const cloudFunctionsUrls = [
+  'https://europe-west1-listopic.cloudfunctions.net/',
+];
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.filter((cacheName) => {
-          // Elimina las cachés viejas para evitar conflictos
-          return cacheName.startsWith('listopic-') && cacheName !== CACHE_NAME;
-        }).map((cacheName) => {
-          return caches.delete(cacheName);
+// Interceptación de peticiones de fetch
+self.addEventListener('fetch', (e) => {
+    // Excluir explícitamente las peticiones a las Cloud Functions
+    if (cloudFunctionsUrls.some(url => e.request.url.startsWith(url))) {
+        return; // No hacemos nada, la petición irá directamente a la red.
+    }
+
+    // Estrategia de caché: Cache-first para recursos estáticos
+    e.respondWith(
+        caches.match(e.request).then((response) => {
+            if (response) {
+                return response;
+            }
+
+            // Clona la petición para poder usarla en la caché
+            const fetchRequest = e.request.clone();
+
+            return fetch(fetchRequest).then((response) => {
+                if (!response || response.status !== 200 || response.type !== 'basic') {
+                    return response;
+                }
+
+                // Clona la respuesta para la caché
+                const responseToCache = response.clone();
+
+                caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(e.request, responseToCache);
+                });
+
+                return response;
+            });
         })
-      );
-    })
-  );
-  return self.clients.claim();
+    );
 });
 
-self.addEventListener('fetch', (event) => {
-  // Estrategia Stale-While-Revalidate para las peticiones a la API
-  if (event.request.url.includes('/api/')) { // Asumiendo que las peticiones a la API contienen /api/
-    event.respondWith(
-      caches.open(CACHE_NAME).then((cache) => {
-        return cache.match(event.request).then((cachedResponse) => {
-          const fetchPromise = fetch(event.request).then((networkResponse) => {
-            cache.put(event.request, networkResponse.clone());
-            return networkResponse;
-          });
-          // Devolver la respuesta cacheada si existe, mientras se actualiza en segundo plano
-          return cachedResponse || fetchPromise;
-        });
-      })
+// Evento de activación para limpiar cachés antiguas
+self.addEventListener('activate', (e) => {
+    const cacheWhitelist = [CACHE_NAME];
+    e.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheWhitelist.indexOf(cacheName) === -1) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
     );
-  } else {
-    // Para otras peticiones (recursos estáticos), usamos la estrategia Cache First
-    event.respondWith(
-      caches.match(event.request).then((response) => {
-        return response || fetch(event.request);
-      })
-    );
-  }
 });

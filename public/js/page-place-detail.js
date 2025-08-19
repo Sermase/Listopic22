@@ -321,6 +321,76 @@ handleFollowToggle: async function() {
 },
 
 
+// --- NUEVAS FUNCIONES PARA SEGUIMIENTO ---
+
+checkFollowStatus: async function() {
+    if (!this.currentUser) return;
+    const db = ListopicApp.services.db;
+    // CORRECCIÓN CLAVE: La colección de seguidores está en /places/{placeId}/followers, no en /users/{userId}/following
+    const followDocRef = db.collection('places').doc(this.placeId).collection('followers').doc(this.currentUser.uid);
+
+    try {
+        const doc = await followDocRef.get();
+        this.isFollowing = doc.exists;
+        this.updateFollowButtonUI();
+    } catch (error) {
+        console.error("Error al comprobar el estado de seguimiento del lugar:", error);
+    }
+},
+
+updateFollowButtonUI: function() {
+    const btn = this.elements.followUnfollowBtn;
+    if (!btn) return;
+
+    if (this.isFollowing) {
+        btn.innerHTML = `<i class="fas fa-check"></i> Siguiendo`;
+        btn.classList.remove('primary-button');
+        btn.classList.add('secondary-button');
+    } else {
+        btn.innerHTML = `<i class="fas fa-bookmark"></i> Seguir Lugar`;
+        btn.classList.remove('secondary-button');
+        btn.classList.add('primary-button');
+    }
+},
+
+handleFollowToggle: async function() {
+    if (!this.currentUser) {
+        ListopicApp.services.showNotification("Debes iniciar sesión para seguir un lugar.", "error");
+        return;
+    }
+
+    const btn = this.elements.followUnfollowBtn;
+    const originalContent = btn.innerHTML; // Guardar el estado original del botón
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Procesando...`;
+
+    try {
+        const functions = firebase.app().functions('europe-west1');
+        const toggleFollow = functions.httpsCallable('toggleFollowPlace');
+        const result = await toggleFollow({ placeId: this.placeId });
+
+        // AHORA USAMOS EL ESTADO DEVUELTO POR LA FUNCIÓN
+        this.isFollowing = result.data.status === 'followed';
+        this.updateFollowButtonUI();
+
+        const followersCountEl = this.elements.followersCount;
+        let currentFollowers = parseInt(followersCountEl.textContent, 10);
+        followersCountEl.textContent = this.isFollowing ? currentFollowers + 1 : Math.max(0, currentFollowers - 1);
+
+        ListopicApp.services.showNotification(result.data.message, 'success');
+
+    } catch (error) {
+        console.error("Error al seguir/dejar de seguir el lugar:", error);
+        ListopicApp.services.showNotification(`Error: ${error.message}`, 'error');
+        // En caso de error, volvemos a poner el botón como estaba
+        btn.innerHTML = originalContent;
+        // Revertir el estado visual si la operación falla
+        this.checkFollowStatus();
+    } finally {
+        btn.disabled = false;
+    }
+},
+
 
 // --- FUNCIONES EXISTENTES (SIN CAMBIOS) ---
     escapeHtml: function(str) {
