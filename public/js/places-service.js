@@ -63,16 +63,32 @@ ListopicApp.placesService = (() => {
             li.style.cursor = 'pointer';
 
             li.onclick = async () => {
-                suggestionsBox.innerHTML = `<p>Obteniendo detalles de "${place.name}"...</p>`;
-                const detailedPlace = await fetchPlaceDetails(place.place_id);
-
-                if (detailedPlace && window.ListopicApp.uiUtils && window.ListopicApp.uiUtils.updateReviewFormWithPlace) {
-                     window.ListopicApp.uiUtils.updateReviewFormWithPlace(detailedPlace);
-                } else {
-                    console.error("No se pudieron obtener detalles o la función uiUtils.updateReviewFormWithPlace no está definida.");
-                    suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">No se pudieron obtener los detalles completos.</p>`;
+                const currentUser = ListopicApp.services.auth.currentUser;
+                if (!currentUser) {
+                    console.error("Usuario no autenticado, no se pueden obtener detalles del lugar.");
+                    suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error: Debes estar conectado para ver los detalles.</p>`;
+                    return; // Detenemos la ejecución si no hay usuario
                 }
-                suggestionsBox.innerHTML = ''; // Limpiar al final
+
+                suggestionsBox.innerHTML = `<p>Obteniendo detalles de "${place.name}"...</p>`;
+                
+                try {
+                    // ¡AQUÍ ESTÁ EL CAMBIO CLAVE! Pasamos el place_id y el currentUser.uid
+                    const detailedPlace = await fetchPlaceDetails(place.place_id, currentUser.uid);
+
+                    if (detailedPlace && window.ListopicApp.uiUtils && window.ListopicApp.uiUtils.updateReviewFormWithPlace) {
+                        window.ListopicApp.uiUtils.updateReviewFormWithPlace(detailedPlace);
+                    } else {
+                        console.error("No se pudieron obtener detalles o la función uiUtils.updateReviewFormWithPlace no está definida.");
+                        suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">No se pudieron obtener los detalles completos.</p>`;
+                    }
+                } catch (error) {
+                    console.error("Error final al obtener detalles del lugar:", error);
+                    suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${error.message}</p>`;
+                } finally {
+                   // Nos aseguramos de limpiar las sugerencias incluso si hay un error
+                   setTimeout(() => { suggestionsBox.innerHTML = ''; }, 2000);
+                }
             };
             ul.appendChild(li);
         });
