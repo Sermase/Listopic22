@@ -21,9 +21,14 @@ const cloudFunctionsUrls = [
 
 // Interceptación de peticiones de fetch
 self.addEventListener('fetch', (e) => {
-    // Excluir explícitamente las peticiones a las Cloud Functions
+    // AÑADE ESTA LÍNEA PARA IGNORAR LO QUE NO SEA HTTP/HTTPS
+    if (!e.request.url.startsWith('http')) {
+        return; 
+    }
+
+    // El resto de tu código para excluir Cloud Functions, etc.
     if (cloudFunctionsUrls.some(url => e.request.url.startsWith(url))) {
-        return; // No hacemos nada, la petición irá directamente a la red.
+        return;
     }
 
     // Estrategia de caché: Cache-first para recursos estáticos

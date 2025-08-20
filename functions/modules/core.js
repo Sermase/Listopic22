@@ -244,76 +244,71 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 
 const placesTextSearch = onRequest(async (req, res) => {
     cors(req, res, async () => {
-      const { query, latitude, longitude } = req.query;
-      const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  
-      if (!query) {
-        return res.status(400).json({ message: "El término de búsqueda (query) es requerido." });
-      }
-      if (!apiKey) {
-          return res.status(500).json({ message: "Error de configuración del servidor." });
-      }
-  
-      let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}&language=es&type=establishment`;
-      
-      if (latitude && longitude) {
-        url += `&location=${latitude},${longitude}&radius=50000`;
-      }
-  
-      logger.info("placesTextSearch: Fetching Google Places", {url: url.replace(apiKey, "REDACTED_API_KEY")});
-      
-      try {
-        const placesResponse = await fetch(url);
-        const placesData = await placesResponse.json();
-  
-        if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
-          let results = placesData.results || [];
+        const { query, latitude, longitude } = req.query;
+        const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
-          // --- LÓGICA DE REORDENAMIENTO ---
-          if (results.length > 0 && latitude && longitude) {
-            const userLat = parseFloat(latitude);
-            const userLon = parseFloat(longitude);
-            const lowerCaseQuery = query.toLowerCase();
-
-            results.forEach(place => {
-                // 1. Calcular distancia
-                const placeLat = place.geometry.location.lat;
-                const placeLon = place.geometry.location.lng;
-                place.distance = getDistance(userLat, userLon, placeLat, placeLon);
-
-                // 2. Calcular puntuación de coincidencia
-                const lowerCaseName = place.name.toLowerCase();
-                if (lowerCaseName === lowerCaseQuery) {
-                    place.matchScore = 3; // Coincidencia exacta
-                } else if (lowerCaseName.startsWith(lowerCaseQuery)) {
-                    place.matchScore = 2; // Empieza con la búsqueda
-                } else if (lowerCaseName.includes(lowerCaseQuery)) {
-                    place.matchScore = 1; // Contiene la búsqueda
-                } else {
-                    place.matchScore = 0; // Sin coincidencia
-                }
-            });
-
-            // 3. Reordenar
-            results.sort((a, b) => {
-                if (a.matchScore !== b.matchScore) {
-                    return b.matchScore - a.matchScore; // Prioridad a mayor puntuación
-                }
-                return a.distance - b.distance; // Misma puntuación, ordena por distancia
-            });
-          }
-          
-          res.status(200).json(results);
-        } else {
-          logger.error("placesTextSearch: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message});
-          res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message });
+        if (!query) {
+            return res.status(400).json({ message: "El término de búsqueda (query) es requerido." });
         }
-      } catch (error) {
-        logger.error("placesTextSearch: Error al contactar Google Places API", error);
-        res.status(500).json({ message: "Error interno al buscar lugares por texto." });
-      }
+        if (!apiKey) {
+            return res.status(500).json({ message: "Error de configuración del servidor." });
+        }
+
+        let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}&language=es&type=establishment`;
+        
+        if (latitude && longitude) {
+            url += `&location=${latitude},${longitude}&radius=40000`; // radio en metros (40km)
+        }
+
+        logger.info("placesTextSearch: Fetching Google Places", { url: url.replace(apiKey, "REDACTED_API_KEY") });
+        
+        try {
+            const placesResponse = await fetch(url);
+            const placesData = await placesResponse.json();
+
+            if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
+                let results = placesData.results || [];
+
+                if (results.length > 0 && latitude && longitude) {
+                    const userLat = parseFloat(latitude);
+                    const userLon = parseFloat(longitude);
+                    const lowerCaseQuery = query.toLowerCase();
+
+                    results.forEach(place => {
+                        const lowerCaseName = place.name.toLowerCase();
+                        let matchScore = 0;
+                        if (lowerCaseName === lowerCaseQuery) matchScore = 3;
+                        else if (lowerCaseName.startsWith(lowerCaseQuery)) matchScore = 2;
+                        else if (lowerCaseName.includes(lowerCaseQuery)) matchScore = 1;
+
+                        const placeLat = place.geometry.location.lat;
+                        const placeLon = place.geometry.location.lng;
+                        const distance = getDistance(userLat, userLon, placeLat, placeLon);
+                        place.distanceInKm = distance;
+
+                        let distanceScore = 0;
+                        if (distance < 25) distanceScore = 10;
+                        else if (distance < 100) distanceScore = 5;
+                        else if (distance < 800) distanceScore = 1;
+                        else distanceScore = 0.1;
+
+                        place.finalScore = matchScore * distanceScore;
+                    });
+
+                    results.sort((a, b) => b.finalScore - a.finalScore);
+                }
+                
+                res.status(200).json(results);
+            } else {
+                logger.error("placesTextSearch: Error desde Google Places API", { status: placesData.status, error_message: placesData.error_message });
+                res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message });
+            }
+        } catch (error) {
+            logger.error("placesTextSearch: Error al contactar Google Places API", error);
+            res.status(500).json({ message: "Error interno al buscar lugares por texto." });
+        }
     });
-  });
+});
 
 
 // --- FUNCIÓN getPlaceDetailsFromGoogle ---
@@ -1639,6 +1634,13 @@ const toggleFollowPlace = onCall({cors: true}, async (request) => {
     }
 });
 
+// En functions/modules/core.js
+
+// Función auxiliar para calcular la distancia (sin cambios)
+
+
+
+
 // --- AL FINAL DEL ARCHIVO, LAS EXPORTAS TODAS ---
 module.exports = {
     groupedReviews,
@@ -1663,5 +1665,7 @@ module.exports = {
     adminGetCollection,
     adminUpdateSinglePlace,
     toggleFollowPlace,
+    getDistance,
+    
     // Asegúrate de que todas tus funciones estén listadas aquí
 };
