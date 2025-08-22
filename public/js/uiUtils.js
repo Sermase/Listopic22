@@ -500,52 +500,34 @@ createListViewGroupCard: function(group, listData, listIcon) {
 
     // Añade esta función dentro del objeto ListopicApp.uiUtils en tu archivo public/js/uiUtils.js
 
-    updateReviewFormWithPlace: function(place) {
-        if (!place) return;
+    updateReviewFormWithPlace: function(placeData) {
+    const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
+    const establishmentNameHidden = document.getElementById('establishment-name');
+    const locationDisplayNameInput = document.getElementById('location-display-name');
+    const locationAddressManualInput = document.getElementById('location-address-manual');
+    const locationRegionManualInput = document.getElementById('location-region-manual');
+    const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
+    const locationLatInput = document.getElementById('location-latitude');
+    const locationLonInput = document.getElementById('location-longitude');
+    const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
+    const locationCityGInput = document.getElementById('location-city-g');
+    const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
+    const locationCountryGInput = document.getElementById('location-country-g');
 
-        console.log("uiUtils: Updating form with CLEANED place object from backend:", place);
+    if (establishmentNameSearchInput) establishmentNameSearchInput.value = placeData.name || '';
+    if (establishmentNameHidden) establishmentNameHidden.value = placeData.name || '';
+    if (locationDisplayNameInput) locationDisplayNameInput.value = placeData.name || '';
+    if (locationAddressManualInput) locationAddressManualInput.value = placeData.addressFormatted || placeData.streetAddress || '';
+    if (locationRegionManualInput) locationRegionManualInput.value = placeData.region || '';
+    if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeData.mapsUrl || '';
+    if (locationLatInput) locationLatInput.value = placeData.latitude || "";
+    if (locationLonInput) locationLonInput.value = placeData.longitude || "";
+    if (locationPlaceIdInput) locationPlaceIdInput.value = placeData.id || placeData.placeId || "";
+    if (locationCityGInput) locationCityGInput.value = placeData.city || "";
+    if (locationPostalCodeGInput) locationPostalCodeGInput.value = placeData.postalCode || "";
+    if (locationCountryGInput) locationCountryGInput.value = placeData.country || "";
+},
 
-        // Actualizar el estado global con el objeto limpio de Firestore
-        window.ListopicApp.state.currentSelectedPlaceInfo = place;
-
-        // Actualizar los campos del formulario
-        const establishmentNameInput = document.getElementById('restaurant-name-search-input');
-        const establishmentNameHidden = document.getElementById('establishment-name');
-        const locationDisplayNameInput = document.getElementById('location-display-name');
-        const locationAddressManualInput = document.getElementById('location-address-manual');
-        const locationRegionManualInput = document.getElementById('location-region-manual');
-        const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
-        
-        // Campos ocultos
-        const locationLatInput = document.getElementById('location-latitude');
-        const locationLonInput = document.getElementById('location-longitude');
-        const locationPlaceIdInput = document.getElementById('location-googlePlaceId'); // El más importante
-        const locationCityGInput = document.getElementById('location-city-g');
-        const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
-        const locationCountryGInput = document.getElementById('location-country-g');
-
-        if (establishmentNameInput) establishmentNameInput.value = place.name || '';
-        if (establishmentNameHidden) establishmentNameHidden.value = place.name || '';
-        if (locationDisplayNameInput) locationDisplayNameInput.value = place.name || '';
-        // Usamos los campos del documento de Firestore
-        if (locationAddressManualInput) locationAddressManualInput.value = place.address || '';
-        if (locationRegionManualInput) locationRegionManualInput.value = place.region || '';
-        if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = place.googleMapsUrl || '';
-        
-        // Usamos la estructura anidada de 'location'
-        if (locationLatInput && place.location) locationLatInput.value = place.location.latitude || "";
-        if (locationLonInput && place.location) locationLonInput.value = place.location.longitude || "";
-        
-        // El ID del documento AHORA es el placeId que necesitamos
-        if (locationPlaceIdInput) locationPlaceIdInput.value = place.id || ""; 
-        
-        // Rellenamos el resto de campos si existen en nuestro objeto
-        if (locationCityGInput) locationCityGInput.value = place.city || "";
-        if (locationPostalCodeGInput) locationPostalCodeGInput.value = place.postalCode || "";
-        if (locationCountryGInput) locationCountryGInput.value = place.country || "";
-
-        // Los campos manuales ahora se gestionan con un botón de despliegue en la propia página del formulario.
-    },
 
     compressImage: function(file, options = {}) {
         return new Promise((resolve, reject) => {
