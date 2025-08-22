@@ -1,325 +1,213 @@
 window.ListopicApp = window.ListopicApp || {};
-ListopicApp.pageReviewForm = (() => {
 
-    function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
-        const container = document.getElementById('dynamic-tag-selection');
-        if (!container) return;
-        container.innerHTML = '';
+ListopicApp.placesService = (() => {
+    function displayPlaceSuggestions(places, suggestionsBox) {
+        suggestionsBox.innerHTML = '';
+        // currentSelectedPlaceInfo se maneja a través de ListopicApp.state
 
-        const createTagCheckbox = (tag, isFixed) => {
-            const label = document.createElement('label');
-            label.className = 'tag-checkbox';
+        if (places && places.length > 0) {
+            const ul = document.createElement('ul');
+            ul.className = 'suggestions-list';
+            places.forEach(place => {
+                const li = document.createElement('li');
+                const addressInfo = place.vicinity || place.formatted_address || 'Información de dirección no disponible';
+                li.textContent = `${place.name} (${addressInfo})`;
+                li.style.cursor = 'pointer';
+                li.onclick = () => {
+                    if (window.ListopicApp && window.ListopicApp.state) {
+                        const placeDetails = { // Objeto para almacenar detalles del lugar
+                            placeId: place.place_id,
+                            name: place.name,
+                            addressFormatted: place.formatted_address || place.vicinity,
+                            latitude: place.geometry?.location?.lat || null,
+                            longitude: place.geometry?.location?.lng || null,
+                            mapsUrl: place.place_id 
+                                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.place_id}` 
+                                : (place.geometry?.location?.lat && place.geometry?.location?.lng 
+                                    ? `https://www.google.com/maps/search/?api=1&query=${place.geometry.location.lat},${place.geometry.location.lng}` 
+                                    : ''),
+                            // Inicializar componentes de dirección
+                            streetAddress: '',
+                            city: '',
+                            postalCode: '',
+                            region: '', // Para provincia/estado
+                            country: ''
+                        };
 
-            const input = document.createElement('input');
-            input.type = 'checkbox';
-            input.name = 'tags';
-            input.value = tag;
-            input.checked = isFixed || selectedTags.includes(tag);
-            input.disabled = isFixed;
+                        // Intentar extraer componentes de dirección si están disponibles (Google Places API detallada)
+                        if (place.address_components) {
+                            for (const component of place.address_components) {
+                                if (component.types.includes('street_number')) {
+                                    placeDetails.streetAddress = `${component.long_name} ${placeDetails.streetAddress}`;
+                                }
+                                if (component.types.includes('route')) {
+                                    placeDetails.streetAddress = `${placeDetails.streetAddress} ${component.long_name}`.trim();
+                                }
+                                if (component.types.includes('locality') || component.types.includes('postal_town')) {
+                                    placeDetails.city = component.long_name;
+                                }
+                                if (component.types.includes('administrative_area_level_2') && !placeDetails.region) { // Provincia en España
+                                    placeDetails.region = component.long_name;
+                                }
+                                if (component.types.includes('administrative_area_level_1') && !placeDetails.region) { // Comunidad Autónoma en España o Estado
+                                    placeDetails.region = component.long_name; // Usar esto si nivel 2 no está o se prefiere
+                                }
+                                if (component.types.includes('country')) {
+                                    placeDetails.country = component.long_name;
+                                }
+                                if (component.types.includes('postal_code')) {
+                                    placeDetails.postalCode = component.long_name;
+                                }
+                            }
+                        }
+                        // Si la dirección de la calle no se formó bien, usar la formateada como fallback
+                        if (!placeDetails.streetAddress && placeDetails.addressFormatted) {
+                            placeDetails.streetAddress = placeDetails.addressFormatted.split(',')[0]; // Intento simple
+                        }
 
-            const span = document.createElement('span');
-            span.textContent = tag;
+                        window.ListopicApp.state.currentSelectedPlaceInfo = placeDetails;
+                        console.log("placesService: currentSelectedPlaceInfo actualizado:", window.ListopicApp.state.currentSelectedPlaceInfo);
 
-            if(isFixed) {
-                label.title = "Etiqueta fija de la categoría";
-            }
+                        // Actualizar los campos del formulario en review-form.html
+                        const establishmentNameInput = document.getElementById('restaurant-name-search-input'); // El input visible
+                        const establishmentNameHidden = document.getElementById('establishment-name');     // El oculto
+                        const locationDisplayNameInput = document.getElementById('location-display-name');
+                        const locationAddressManualInput = document.getElementById('location-address-manual');
+                        const locationRegionManualInput = document.getElementById('location-region-manual');
+                        const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
+                        // Campos ocultos
+                        const locationLatInput = document.getElementById('location-latitude');
+                        const locationLonInput = document.getElementById('location-longitude');
+                        const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
+                        const locationCityGInput = document.getElementById('location-city-g');
+                        const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
+                        const locationCountryGInput = document.getElementById('location-country-g');
 
-            label.appendChild(input);
-            label.appendChild(span);
-            return label;
-        };
-
-        if (fixedTags.length > 0) {
-            const fixedContainer = document.createElement('div');
-            fixedContainer.className = 'fixed-tags-container';
-            fixedContainer.innerHTML = '<h5>Etiquetas Fijas:</h5>';
-            fixedTags.forEach(tag => fixedContainer.appendChild(createTagCheckbox(tag, true)));
-            container.appendChild(fixedContainer);
-        }
-
-        const userTags = availableTags.filter(tag => !fixedTags.includes(tag));
-        if (userTags.length > 0) {
-            const userContainer = document.createElement('div');
-            userContainer.className = 'user-tags-container';
-            userContainer.innerHTML = '<h5>Otras Etiquetas:</h5>';
-            userTags.forEach(tag => userContainer.appendChild(createTagCheckbox(tag, false)));
-            container.appendChild(userContainer);
-        }
-
-        if (fixedTags.length === 0 && userTags.length === 0) {
-            container.innerHTML = '<p>No hay etiquetas disponibles para esta lista.</p>';
-        }
-    }
-
-    function setupPhotoHandling() {
-        const reviewForm = document.getElementById('review-form');
-        if (!reviewForm) return;
-
-        const photoFileInput = document.getElementById('photo-file');
-        const imagePreviewContainer = reviewForm.querySelector('.image-preview');
-        const photoUrlInput = document.getElementById('photo-url');
-        const uploadArea = reviewForm.querySelector('.image-upload-area');
-        const galleryButton = document.getElementById('browse-gallery-btn');
-        const state = ListopicApp.state;
-        const uiUtils = ListopicApp.uiUtils;
-
-        if (!photoFileInput || !imagePreviewContainer || !photoUrlInput || !uploadArea) {
-            console.warn("Faltan elementos de la UI para la subida de fotos.");
-            return;
-        }
-
-        // Hacemos que el área principal de subida sea clickeable
-        uploadArea.addEventListener('click', (e) => {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && e.target.parentElement.tagName !== 'BUTTON') {
-                photoFileInput.click();
-            }
-        });
-
-        // Hacemos que el botón específico "Desde Galería" también funcione
-        if (galleryButton) {
-            galleryButton.addEventListener('click', () => {
-                photoFileInput.click();
+                        if (establishmentNameInput) establishmentNameInput.value = placeDetails.name;
+                        if (establishmentNameHidden) establishmentNameHidden.value = placeDetails.name; // Para la lógica de findOrCreatePlace
+                        if (locationDisplayNameInput) locationDisplayNameInput.value = placeDetails.name; // Nombre del lugar para el usuario
+                        if (locationAddressManualInput) locationAddressManualInput.value = placeDetails.addressFormatted || placeDetails.streetAddress; // Dirección completa o de calle
+                        if (locationRegionManualInput) locationRegionManualInput.value = placeDetails.region; // Región/Provincia
+                        if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeDetails.mapsUrl;
+                        
+                        if(locationLatInput) locationLatInput.value = placeDetails.latitude || "";
+                        if(locationLonInput) locationLonInput.value = placeDetails.longitude || "";
+                        if(locationPlaceIdInput) locationPlaceIdInput.value = placeDetails.placeId || "";
+                        if(locationCityGInput) locationCityGInput.value = placeDetails.city || "";
+                        if(locationPostalCodeGInput) locationPostalCodeGInput.value = placeDetails.postalCode || "";
+                        if(locationCountryGInput) locationCountryGInput.value = placeDetails.country || "";
+                    } else {
+                        console.warn("ListopicApp.state not defined, currentSelectedPlaceInfo not updated in placesService.");
+                    }
+                    suggestionsBox.innerHTML = ''; // Limpiar sugerencias después de seleccionar
+                };
+                ul.appendChild(li);
             });
-        }
-
-        // Gestionamos la selección del archivo y la compresión
-        photoFileInput.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            photoUrlInput.value = '';
-            
-            try {
-                imagePreviewContainer.innerHTML = '<p class="loading-placeholder">Comprimiendo imagen...</p>';
-
-                const compressedFile = await uiUtils.compressImage(file, {
-                    maxWidth: 1280,
-                    maxHeight: 1280,
-                    quality: 0.7
-                });
-                
-                state.selectedFileForUpload = compressedFile;
-
-                const previewUrl = URL.createObjectURL(compressedFile);
-                uiUtils.showPreviewGlobal(previewUrl, imagePreviewContainer);
-
-            } catch (error) {
-                console.error("Error al comprimir la imagen:", error);
-                ListopicApp.services.showNotification("Error al procesar la imagen.", 'error');
-                if(uiUtils.clearPreviewGlobal) {
-                    uiUtils.clearPreviewGlobal(imagePreviewContainer, photoUrlInput, photoFileInput);
-                } else {
-                    imagePreviewContainer.innerHTML = '';
-                }
-            }
-        });
-
-        // Gestionamos la entrada de URL
-        photoUrlInput.addEventListener('input', () => {
-            if (photoUrlInput.value.trim() !== '') {
-                state.selectedFileForUpload = null;
-                if (photoFileInput) photoFileInput.value = null;
-                uiUtils.showPreviewGlobal(photoUrlInput.value.trim(), imagePreviewContainer);
-            }
-        });
-    }
-
-    function init() {
-        console.log('Initializing Review Form page logic - FINAL CORRECTED VERSION');
-        
-        const db = ListopicApp.services.db;
-        const auth = ListopicApp.services.auth;
-        const storage = ListopicApp.services.storage;
-        const uiUtils = ListopicApp.uiUtils;
-        const placesService = ListopicApp.placesService;
-        const state = ListopicApp.state;
-        const urlParams = new URLSearchParams(window.location.search);
-        const listId = urlParams.get('listId');
-        const reviewIdToEdit = urlParams.get('editId');
-
-        if (listId) {
-            state.currentListId = listId;
+            suggestionsBox.appendChild(ul);
         } else {
-            console.error("FATAL: listId no encontrado en la URL. El formulario no puede funcionar.");
+            suggestionsBox.innerHTML = '<p>No se encontraron lugares que coincidan.</p>';
+        }
+    }
+
+    async function fetchNearbyRestaurantsWithContext() {
+        const suggestionsBox = document.getElementById('restaurant-suggestions');
+        if (!suggestionsBox) return;
+
+        const state = window.ListopicApp.state || {};
+        const userLatitude = state.userLatitude;
+        const userLongitude = state.userLongitude;
+        const currentListNameForSearch = state.currentListNameForSearch;
+        
+        const functionUrl = ListopicApp.config.FUNCTION_URLS.placesNearbyRestaurants;
+        if (!functionUrl || functionUrl.includes("xxxxxxxxxx")) { // Chequeo adicional por si la URL no está bien configurada
+            console.error("URL de la función placesNearbyRestaurants no configurada o es un placeholder.");
+            if (suggestionsBox) suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error de configuración: URL de servicio no disponible.</p>`;
             return;
         }
 
-        const reviewForm = document.getElementById('review-form');
+        if (!userLatitude || !userLongitude) {
+             suggestionsBox.innerHTML = '<p style="color:var(--warning-color);">Por favor, pulsa "Ubicarme" primero.</p>';
+             return;
+        }
+
+        let searchKeywords = "";
+        if (currentListNameForSearch) {
+            const baseKeywordsForHmm = "restaurante bar pub comida";
+            searchKeywords = `${currentListNameForSearch.toLowerCase()} ${baseKeywordsForHmm}`;
+            searchKeywords = [...new Set(searchKeywords.split(' '))].join(' ');
+        }
+
+        suggestionsBox.innerHTML = `<p>Buscando lugares cercanos ${searchKeywords ? 'relacionados con "' + searchKeywords + '"': ''}...</p>`;
+
+        let fetchUrl = `${functionUrl}?latitude=${userLatitude}&longitude=${userLongitude}`;
+        if (searchKeywords) {
+             fetchUrl += `&keywords=${encodeURIComponent(searchKeywords)}`;
+        }
+        console.log('[placesService] Fetching URL:', fetchUrl);
+
+        try {
+            // Aquí se asume que la Cloud Function ya no necesitará un token de Firebase Auth
+            // porque la clave de Google Places está en el backend. Si la Cloud Function sí
+            // requiere autenticación del usuario por alguna razón, se debería añadir el token.
+            const response = await fetch(fetchUrl);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: `Error HTTP ${response.status}: ${response.statusText}` }));
+                throw new Error(errorData.message);
+            }
+            const places = await response.json();
+            displayPlaceSuggestions(places, suggestionsBox);
+        } catch (error) {
+            console.error("Error fetching nearby restaurants with context:", error);
+            if (suggestionsBox) suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error al buscar: ${error.message}</p>`;
+            ListopicApp.services.showNotification(`Error al buscar lugares cercanos: ${error.message}`, 'error');
+        }
+    }
+
+    async function searchRestaurantsByName(query) {
+        const suggestionsBox = document.getElementById('restaurant-suggestions');
+        if (!suggestionsBox) return;
+
+        const state = window.ListopicApp.state || {};
+        const userLatitude = state.userLatitude;
+        const userLongitude = state.userLongitude;
         
-        if (reviewForm) {
-            const formTitle = reviewForm.parentElement.querySelector('h2');
-            const criteriaContainer = document.getElementById('dynamic-rating-criteria');
-            const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
-            const itemNameInput = document.getElementById('item-name');
-            const backButtonReview = reviewForm.parentElement.querySelector('a.back-button');
+        const functionUrl = ListopicApp.config.FUNCTION_URLS.placesTextSearch;
+        if (!functionUrl || functionUrl.includes("xxxxxxxxxx")) { // Chequeo adicional
+            console.error("URL de la función placesTextSearch no configurada o es un placeholder.");
+            if (suggestionsBox) suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error de configuración: URL de servicio no disponible.</p>`;
+            return;
+        }
 
-            if (backButtonReview) {
-                const fromGrouped = urlParams.get('fromGrouped');
-                const fromEstablishment = urlParams.get('fromEstablishment');
-                const fromItem = urlParams.get('fromItem');
-                if (fromGrouped === 'true' && fromEstablishment) {
-                    backButtonReview.href = `grouped-detail-view.html?listId=${listId}&establishment=${encodeURIComponent(fromEstablishment)}&item=${encodeURIComponent(fromItem || '')}`;
-                } else {
-                    backButtonReview.href = `list-view.html?listId=${listId}`;
-                }
+        if (!query || query.trim() === "") {
+            suggestionsBox.innerHTML = '<p>Introduce un término de búsqueda.</p>';
+            return;
+        }
+        suggestionsBox.innerHTML = `<p>Buscando "${query}"...</p>`;
+
+        let url = `${functionUrl}?query=${encodeURIComponent(query)}`;
+        if (userLatitude && userLongitude) {
+            url += `&latitude=${userLatitude}&longitude=${userLongitude}`;
+        }
+        console.log('[placesService] Fetching URL (searchRestaurantsByName):', url);
+
+        try {
+            const response = await fetch(url);
+             if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: `Error HTTP ${response.status}: ${response.statusText}` }));
+                throw new Error(errorData.message);
             }
-
-            const findNearbyBtn = document.getElementById('find-nearby-btn');
-            const searchByNameBtn = document.getElementById('search-by-name-btn');
-            const toggleManualLocationBtn = document.getElementById('toggle-manual-location-btn');
-
-            if (toggleManualLocationBtn) {
-                toggleManualLocationBtn.addEventListener('click', () => {
-                    const manualFields = document.getElementById('manual-location-fields');
-                    if (manualFields) {
-                        const isVisible = manualFields.style.display === 'block';
-                        manualFields.style.display = isVisible ? 'none' : 'block';
-                        toggleManualLocationBtn.querySelector('i').classList.toggle('fa-chevron-down', isVisible);
-                        toggleManualLocationBtn.querySelector('i').classList.toggle('fa-chevron-up', !isVisible);
-                    }
-                });
-            }
-
-            if (findNearbyBtn) {
-                findNearbyBtn.addEventListener('click', () => placesService.fetchNearbyRestaurantsWithContext());
-            }
-            if (searchByNameBtn && establishmentNameSearchInput) {
-                searchByNameBtn.addEventListener('click', () => placesService.searchRestaurantsByName(establishmentNameSearchInput.value));
-                establishmentNameSearchInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        placesService.searchRestaurantsByName(establishmentNameSearchInput.value);
-                    }
-                });
-            }
-
-            setupPhotoHandling();
-
-            db.collection('lists').doc(listId).get().then(doc => {
-                if (!doc.exists) throw new Error("Datos de la lista no encontrados.");
-                const listData = doc.data();
-                state.currentListNameForSearch = listData.name || '';
-                state.currentListCriteriaDefinitions = listData.criteriaDefinition || {};
-
-                if (formTitle) formTitle.textContent = reviewIdToEdit ? `Editar Reseña para ${listData.name}` : `Añadir Nueva Reseña a ${listData.name}`;
-
-                if (reviewIdToEdit) {
-                    db.collection('lists').doc(listId).collection('reviews').doc(reviewIdToEdit).get().then(async reviewDoc => {
-                        if (!reviewDoc.exists) throw new Error("Reseña para editar no encontrada.");
-                        const reviewData = reviewDoc.data();
-                        if (reviewData.placeId) {
-                            const placeDoc = await db.collection('places').doc(reviewData.placeId).get();
-                            if (placeDoc.exists) {
-                                const placeDataWithId = { id: placeDoc.id, ...placeDoc.data() };
-                                uiUtils.updateReviewFormWithPlace(placeDataWithId);
-                            }
-                        }
-                        if (itemNameInput) itemNameInput.value = reviewData.itemName || '';
-                        if (reviewData.photoUrl) {
-                            uiUtils.showPreviewGlobal(reviewData.photoUrl, reviewForm.querySelector('.image-preview'));
-                            const photoUrlInputReview = document.getElementById('photo-url');
-                            if (photoUrlInputReview) photoUrlInputReview.value = reviewData.photoUrl;
-                        }
-                        const commentEl = document.getElementById('comment');
-                        if(commentEl) commentEl.value = reviewData.comment || '';
-                        uiUtils.renderCriteriaSliders(criteriaContainer, reviewData.scores || {}, state.currentListCriteriaDefinitions);
-                        renderTags(listData.availableTags || [], reviewData.userTags || [], listData.fixedTags || []);
-                    }).catch(error => console.error("Error al cargar la reseña para editar:", error));
-                } else {
-                    uiUtils.renderCriteriaSliders(criteriaContainer, {}, state.currentListCriteriaDefinitions);
-                    renderTags(listData.availableTags || [], [], listData.fixedTags || []);
-                }
-            }).catch(error => {
-                console.error("Error al cargar datos de la lista:", error);
-                if(formTitle) formTitle.textContent = "Error al cargar formulario";
-            });
-
-            reviewForm.addEventListener('submit', async (event) => {
-                event.preventDefault();
-                const submitButton = reviewForm.querySelector('.submit-button');
-                if (submitButton) submitButton.disabled = true;
-                
-                const currentUser = auth.currentUser;
-                if (!currentUser) {
-                    ListopicApp.services.showNotification("Debes estar autenticado.", 'error');
-                    if (submitButton) submitButton.disabled = false;
-                    return;
-                }
-
-                try {
-                    const placeIdToSave = document.getElementById('location-googlePlaceId').value;
-                    if (!placeIdToSave) {
-                        ListopicApp.services.showNotification("Error: Debes buscar y seleccionar un lugar válido.", 'error');
-                        if (submitButton) submitButton.disabled = false;
-                        return;
-                    }
-
-                    const formData = new FormData(reviewForm);
-                    const reviewDataPayload = {
-                        userId: currentUser.uid,
-                        listId: listId,
-                        placeId: placeIdToSave, 
-                        itemName: document.getElementById('item-name').value,
-                        comment: formData.get('comment'),
-                        scores: {},
-                        userTags: formData.getAll('tags'),
-                    };
-
-                    for (const [key, value] of formData.entries()) {
-                        if (key.startsWith('ratings[')) {
-                            reviewDataPayload.scores[key.substring(8, key.length - 1)] = parseFloat(value);
-                        }
-                    }
-                    
-                    let totalWeightedScore = 0;
-                    let ponderableCriteriaCount = 0;
-                    if (typeof state.currentListCriteriaDefinitions === 'object' && Object.keys(state.currentListCriteriaDefinitions).length > 0) {
-                        for (const scoreKey in reviewDataPayload.scores) {
-                            if (state.currentListCriteriaDefinitions[scoreKey]?.ponderable !== false) {
-                                totalWeightedScore += reviewDataPayload.scores[scoreKey];
-                                ponderableCriteriaCount++;
-                            }
-                        }
-                    }
-                    reviewDataPayload.overallRating = ponderableCriteriaCount > 0 ? parseFloat((totalWeightedScore / ponderableCriteriaCount).toFixed(2)) : 0;
-
-                    let finalImageUrl = document.getElementById('photo-url').value.trim();
-                    if (state.selectedFileForUpload && storage) {
-                        const fileName = `${Date.now()}-${state.selectedFileForUpload.name}`;
-                        const storagePath = `reviews/${currentUser.uid}/${listId}/${fileName}`;
-                        const storageRef = storage.ref(storagePath);
-                        finalImageUrl = await (await storageRef.put(state.selectedFileForUpload)).ref.getDownloadURL();
-                    }
-
-                    if (finalImageUrl) {
-                        reviewDataPayload.photoUrl = finalImageUrl;
-                    } else {
-                        delete reviewDataPayload.photoUrl;
-                    }
-
-                    const listRef = db.collection('lists').doc(listId);
-                    if (reviewIdToEdit) {
-                        reviewDataPayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-                        await listRef.collection('reviews').doc(reviewIdToEdit).update(reviewDataPayload);
-                    } else {
-                        reviewDataPayload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                        reviewDataPayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-                        await listRef.collection('reviews').add(reviewDataPayload);
-                    }
-
-                    ListopicApp.services.showNotification(`Reseña ${reviewIdToEdit ? 'actualizada' : 'guardada'} con éxito!`, 'success');
-                    window.location.href = `list-view.html?listId=${listId}`;
-
-                } catch (error) {
-                    console.error('Error al guardar la reseña:', error);
-                    ListopicApp.services.showNotification(`No se pudo guardar: ${error.message}`, 'error');
-                    if (submitButton) submitButton.disabled = false;
-                }
-            });
+            const places = await response.json();
+            displayPlaceSuggestions(places, suggestionsBox);
+        } catch (error) {
+            console.error("Error searching restaurants by name:", error);
+            if (suggestionsBox) suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error en búsqueda por nombre: ${error.message}</p>`;
+            ListopicApp.services.showNotification(`Error en búsqueda por nombre: ${error.message}`, 'error');
         }
     }
 
     return {
-        init
+        // displayPlaceSuggestions no necesita ser exportada si solo se usa internamente
+        fetchNearbyRestaurantsWithContext,
+        searchRestaurantsByName
     };
 })();
