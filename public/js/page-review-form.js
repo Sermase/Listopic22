@@ -90,6 +90,10 @@ ListopicApp.pageReviewForm = (() => {
             photoUrlInput.value = '';
             
             try {
+                // === INICIO DEL CÓDIGO AÑADIDO ===
+                console.log(`📸 Imagen original: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+                // === FIN DEL CÓDIGO AÑADIDO ===
+                
                 imagePreviewContainer.innerHTML = '<p class="loading-placeholder">Comprimiendo imagen...</p>';
 
                 const compressedFile = await uiUtils.compressImage(file, {
@@ -97,6 +101,10 @@ ListopicApp.pageReviewForm = (() => {
                     maxHeight: 1280,
                     quality: 0.7
                 });
+
+                // === INICIO DEL CÓDIGO AÑADIDO ===
+                console.log(`✅ Imagen comprimida: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
+                // === FIN DEL CÓDIGO AÑADIDO ===
                 
                 state.selectedFileForUpload = compressedFile;
 
