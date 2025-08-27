@@ -529,11 +529,101 @@ createListViewGroupCard: function(group, listData, listIcon) {
 },
 
 
+
+    // ==========================================================
+    // ===       FUNCIONES PARA RENDERIZAR BÚSQUEDA (MEJORADAS) ===
+    // ==========================================================
+
+    createListCard: function(listData, id) {
+        return `
+            <a href="list-view.html?listId=${id}" class="search-card">
+                <div class="search-card__icon-container">
+                    <i class="fas fa-list-alt"></i>
+                </div>
+                <div class="search-card__content">
+                    <h4 class="search-card__title">${this.escapeHtml(listData.name)}</h4>
+                    <div class="search-card__tags">
+                        <span class="info-tag info-tag--list"><i class="fas fa-stream"></i> Lista</span>
+                        <span class="info-tag"><i class="fas fa-user"></i> ${this.escapeHtml(listData.authorName || 'Anónimo')}</span>
+                        <span class="info-tag"><i class="fas fa-pencil-alt"></i> ${listData.reviewCount || 0} reseñas</span>
+                    </div>
+                </div>
+            </a>
+        `;
+    },
+
+    createUserCard: function(userData, id) {
+        const photoHtml = userData.photoUrl
+            ? `<img src="${this.escapeHtml(userData.photoUrl)}" alt="Avatar de ${this.escapeHtml(userData.username)}">`
+            : '<i class="fas fa-user"></i>';
+
+        return `
+            <a href="profile.html?viewUserId=${id}" class="search-card">
+                <div class="search-card__icon-container">
+                    ${photoHtml}
+                </div>
+                <div class="search-card__content">
+                    <h4 class="search-card__title">${this.escapeHtml(userData.displayName || userData.username)}</h4>
+                    <div class="search-card__tags">
+                        <span class="info-tag info-tag--user"><i class="fas fa-user"></i> Usuario</span>
+                        <span class="info-tag"><i class="fas fa-list-alt"></i> ${userData.publicListsCount || 0} listas</span>
+                        <span class="info-tag"><i class="fas fa-star"></i> ${userData.reviewsCount || 0} reseñas</span>
+                    </div>
+                </div>
+            </a>
+        `;
+    },
+
+    createPlaceCard: function(placeData, id) {
+        return `
+            <a href="place-detail.html?placeId=${id}" class="search-card">
+                <div class="search-card__icon-container">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <div class="search-card__content">
+                    <h4 class="search-card__title">${this.escapeHtml(placeData.name)}</h4>
+                    <div class="search-card__tags">
+                        <span class="info-tag info-tag--place"><i class="fas fa-map-pin"></i> Lugar</span>
+                         ${placeData.address ? `<span class="info-tag">${this.escapeHtml(placeData.address)}</span>` : ''}
+                    </div>
+                </div>
+            </a>
+        `;
+    },
+
+    createGroupedItemCard: function(itemData) {
+         // Los items agrupados no tienen una página de detalle propia, enlazan a la vista de lista con un filtro (esto es más complejo)
+         // Por ahora, no lo haremos enlazable.
+        return `
+            <div class="search-card">
+                <div class="search-card__icon-container">
+                    <i class="fas fa-star"></i>
+                </div>
+                <div class="search-card__content">
+                    <h4 class="search-card__title">${this.escapeHtml(itemData.itemName || 'Elemento sin nombre')}</h4>
+                    <p class="search-card__subtitle">${this.escapeHtml(itemData.establishmentName || '')}</p>
+                     <div class="search-card__tags">
+                        <span class="info-tag info-tag--item"><i class="fas fa-box-open"></i> Elemento</span>
+                        <span class="info-tag"><i class="fas fa-star-half-alt"></i> Media: ${itemData.averageRating ? itemData.averageRating.toFixed(1) : 'N/A'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+    
+    // ==========================================================
+    // === FUNCIÓN DE COMPRESIÓN DE IMÁGENES (REVISADA)       ===
+    // ==========================================================
+
     compressImage: function(file, options = {}) {
         return new Promise((resolve, reject) => {
+            if (!file.type.startsWith('image/')) {
+                return reject(new Error('El archivo no es una imagen.'));
+            }
+
             const { maxWidth = 1280, maxHeight = 1280, quality = 0.7 } = options;
             const reader = new FileReader();
-            reader.readAsDataURL(file);
+            
             reader.onload = (event) => {
                 const img = new Image();
                 img.src = event.target.result;
@@ -562,23 +652,26 @@ createListViewGroupCard: function(group, listData, listIcon) {
                     canvas.toBlob(
                         (blob) => {
                             if (blob) {
-                                const newFile = new File([blob], `compressed_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`.toLowerCase(), {
-                                    type: 'image/jpeg',
+                                // Generamos un nombre de archivo más limpio y seguro
+                                const safeFileName = `compressed_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_').toLowerCase()}`;
+                                const newFile = new File([blob], safeFileName, {
+                                    type: 'image/jpeg', // Forzamos a JPEG por la compresión con calidad
                                     lastModified: Date.now(),
                                 });
                                 resolve(newFile);
                             } else {
-                                reject(new Error('Canvas to Blob conversion failed'));
+                                reject(new Error('La conversión de Canvas a Blob falló.'));
                             }
                         },
                         'image/jpeg',
                         quality
                     );
                 };
-                img.onerror = (error) => reject(error);
+                img.onerror = (error) => reject(new Error('No se pudo cargar la imagen para comprimirla.'));
             };
-            reader.onerror = (error) => reject(error);
+            reader.onerror = (error) => reject(new Error('Error al leer el archivo de imagen.'));
+            
+            reader.readAsDataURL(file);
         });
     }
 };
-

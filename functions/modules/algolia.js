@@ -1,5 +1,5 @@
 // ===================================================================
-// ===            MÓDULO DE FUNCIONES DE ALGOLIA                 ===
+// ===            MÓDULO DE FUNCIONES DE ALGOLIA (CORREGIDO)       ===
 // ===            ARCHIVO: functions/algolia.js                  ===
 // ===================================================================
 
@@ -29,9 +29,9 @@ try {
 }
 
 // ===================================================================
-// ===         FUNCIONES DE SINCRONIZACIÓN AUTOMÁTICA              ===
+// ===       FUNCIONES DE SINCRONIZACIÓN AUTOMÁTICA              ===
 // ===================================================================
-
+// (Estas funciones se mantienen igual que las tenías)
 const onListCreated = onDocumentCreated("lists/{listId}", (event) => {
     if (!index) {
         logger.error("onListCreated: El índice de Algolia no está disponible. Abortando.");
@@ -73,21 +73,33 @@ const onListDeleted = onDocumentDeleted("lists/{listId}", (event) => {
         .catch(err => logger.error(`ERROR al eliminar ${objectID} de Algolia:`, err));
 });
 
+
 // ===================================================================
-// ===                FUNCIÓN DE ADMINISTRADOR                     ===
+// ===         FUNCIÓN DE ADMINISTRADOR (VERSIÓN "JEFE")         ===
 // ===================================================================
 
 const adminBackfillAlgolia = onCall({ cors: true }, async (request) => {
+    // 1. Verificar que el usuario está autenticado
     if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
-    }
-    const uid = request.auth.uid;
-    const userRecord = await admin.auth().getUser(uid);
-    if (userRecord.customClaims?.admin !== true) {
-        logger.error(`Intento no autorizado de ejecutar adminBackfillAlgolia por el usuario: ${uid}`);
-        throw new HttpsError('permission-denied', 'Solo los administradores pueden ejecutar esta operación.');
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado para realizar esta operación.');
     }
 
+    // 2. Leer el perfil del usuario desde Firestore para buscar el rol "jefe"
+    const uid = request.auth.uid;
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+
+    if (!userDoc.exists) {
+        throw new HttpsError('permission-denied', 'No se encontró tu perfil de usuario.');
+    }
+
+    const userData = userDoc.data();
+    // 3. Comprobar si el array userType contiene la palabra "jefe"
+    if (!userData.userType || !userData.userType.includes('jefe')) {
+        logger.error(`Intento no autorizado de ejecutar adminBackfillAlgolia por el usuario: ${uid}`);
+        throw new HttpsError('permission-denied', 'Solo los usuarios de tipo "jefe" pueden ejecutar esta operación.');
+    }
+
+    // 4. El resto de la lógica se mantiene igual
     const { collectionName } = request.data;
     const allowedCollections = ['lists', 'reviews', 'places', 'users'];
     if (!allowedCollections.includes(collectionName)) {
