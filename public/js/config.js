@@ -46,8 +46,8 @@ ListopicApp.config = {
         getPlaceDetails: "https://getplacedetails-jz4x2l2cfq-ew.a.run.app"
     },
     // Añade aquí tus claves de Algolia cuando las tengas en un lugar seguro
-    ALGOLIA_APP_ID: '7911M2M0S6',
-    ALGOLIA_SEARCH_KEY: '313361e335d15f1059952f01f8936611' 
+    ALGOLIA_APP_ID: 'FI4Q0XQABV',
+    ALGOLIA_SEARCH_KEY: '2eb82c39128de614fa26eceea96934b4' 
 };
 
 ListopicApp.services = {
