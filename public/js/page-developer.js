@@ -405,5 +405,32 @@ ListopicApp.pageDeveloper = (() => {
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
+    // --- NUEVA FUNCIÓN PARA ALGOLIA ---
+    async function backfillAlgolia(collectionName = null) {
+        const logContainer = document.getElementById('algolia-sync-log');
+        if (!logContainer) return;
+        
+        logContainer.innerHTML = '<p><code>Solicitando sincronización para Algolia...</code></p>';
+
+        try {
+            const functions = firebase.app().functions('europe-west1');
+            const backfill = functions.httpsCallable('algolia-adminBackfillAlgolia');
+            const collections = collectionName ? [collectionName] : ['lists', 'users', 'places'];
+            
+            for (const collection of collections) {
+                logContainer.innerHTML += `<p><code>⏳ Sincronizando '${collection}'...</code></p>`;
+                try {
+                    const result = await backfill({ collectionName: collection });
+                    logContainer.innerHTML += `<p style="color: var(--accent-color-tertiary);"><code>✅ ${collection}: ${result.data.message}</code></p>`;
+                } catch (error) {
+                    logContainer.innerHTML += `<p style="color: var(--danger-color);"><code>🔥 Error en '${collection}': ${error.message}</code></p>`;
+                }
+            }
+            logContainer.innerHTML += '<p><code>Proceso de sincronización completado.</code></p>';
+        } catch (error) {
+            logContainer.innerHTML += `<p style="color: var(--danger-color);"><code>🔥 Error general al llamar la función: ${error.message}</code></p>`;
+        }
+    }
+
     return { init };
 })();

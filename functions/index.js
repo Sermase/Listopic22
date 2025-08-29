@@ -16,3 +16,4 @@ module.exports = {
     ...algoliaFunctions,
     ...coreFunctions, // <-- Las añadimos a la exportación final
 };
+// Force redeploy
