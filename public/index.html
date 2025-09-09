@@ -66,15 +66,56 @@
     <main>
         <div class="container">
             <h1 class="brand-title"> <span class="logo-petal p1"></span> <span class="logo-petal p2"></span> Hmm...<span class="logo-petal p4"></span> <span class="logo-petal p5"></span> </h1>
-            <nav class="list-collection-container">
-                <ul id="list-circles-ul">
-                    <li><p>Cargando listas...</p></li>
-                </ul>
-                <a href="list-form.html" class="add-list-button" title="Crear nueva lista">
-                    <i class="fas fa-plus-circle"></i>
-                    <span>Crear Nueva Lista</span>
-                </a>
-            </nav>
+
+            <div class="tabs">
+                <button class="tab-button active" data-tab="explore">Explorar</button>
+                <button class="tab-button" data-tab="following">Novedades</button>
+            </div>
+
+            <div class="tab-content active" id="explore">
+                <section>
+                    <h2>Listas populares</h2>
+                    <ul class="placeholder-list">
+                        <li>Ejemplo de lista popular</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Listas recientes</h2>
+                    <nav class="list-collection-container">
+                        <ul id="list-circles-ul">
+                            <li><p>Cargando listas...</p></li>
+                        </ul>
+                        <a href="list-form.html" class="add-list-button" title="Crear nueva lista">
+                            <i class="fas fa-plus-circle"></i>
+                            <span>Crear Nueva Lista</span>
+                        </a>
+                    </nav>
+                </section>
+
+                <section>
+                    <h2>Lugares destacados cerca de ti</h2>
+                    <ul class="placeholder-list">
+                        <li>Ejemplo de lugar cercano</li>
+                    </ul>
+                </section>
+            </div>
+
+            <div class="tab-content" id="following">
+                <section>
+                    <h2>Novedades de perfiles que sigues</h2>
+                    <ul class="placeholder-list">
+                        <li>Tu amigo creó una nueva lista</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Novedades de lugares que sigues</h2>
+                    <ul class="placeholder-list">
+                        <li>El café de la esquina tiene una nueva reseña</li>
+                    </ul>
+                </section>
+            </div>
         </div>
     </main>
 
