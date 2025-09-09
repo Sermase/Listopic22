@@ -55,7 +55,7 @@ ListopicApp.pageIndex = (() => {
         const createListBtn = document.querySelector('.add-list-button');
         if (createListBtn) {
             createListBtn.addEventListener('click', (e) => {
-                e.preventDefault(); 
+                e.preventDefault();
                 if (auth.currentUser) {
                     window.location.href = 'list-form.html';
                 } else {
@@ -64,6 +64,22 @@ ListopicApp.pageIndex = (() => {
                 }
             });
         }
+
+        // Manejo de pestañas
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.tab;
+                tabButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                tabContents.forEach(c => c.classList.remove('active'));
+                const targetContent = document.getElementById(target);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                }
+            });
+        });
     }
 
     return {
