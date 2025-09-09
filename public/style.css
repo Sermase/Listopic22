@@ -5641,5 +5641,34 @@ body.light-theme .leaflet-popup-tip {
     font-weight: bold;
     color: var(--title-color);
 }
+
+/* Estilos para pestañas del index */
+.tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.tab-button {
+    padding: 0.5rem 1rem;
+    background: var(--container-bg-secondary);
+    border: none;
+    border-radius: var(--border-radius-small);
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.tab-button.active {
+    background: var(--accent-color-primary);
+    color: var(--main-button-text);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
 /* Resto de estilos del archivo style.css */
 /* ... */
