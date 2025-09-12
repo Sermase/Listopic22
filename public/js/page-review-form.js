@@ -1,4 +1,4 @@
-Window.ListopicApp = window.ListopicApp || {};
+window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageReviewForm = (() => {
 
     function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
@@ -189,14 +189,24 @@ ListopicApp.pageReviewForm = (() => {
             }
 
             if (findNearbyBtn) {
-                findNearbyBtn.addEventListener('click', () => placesService.fetchNearbyRestaurantsWithContext());
+                findNearbyBtn.addEventListener('click', () => {
+                    const ps = window.ListopicApp?.placesService;
+                    if (!ps) return console.error('placesService no disponible');
+                    ps.fetchNearbyRestaurantsWithContext();
+                });
             }
             if (searchByNameBtn && establishmentNameSearchInput) {
-                searchByNameBtn.addEventListener('click', () => placesService.searchRestaurantsByName(establishmentNameSearchInput.value));
+                searchByNameBtn.addEventListener('click', () => {
+                    const ps = window.ListopicApp?.placesService;
+                    if (!ps) return console.error('placesService no disponible');
+                    ps.searchRestaurantsByName(establishmentNameSearchInput.value);
+                });
                 establishmentNameSearchInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        placesService.searchRestaurantsByName(establishmentNameSearchInput.value);
+                        const ps = window.ListopicApp?.placesService;
+                        if (!ps) return console.error('placesService no disponible');
+                        ps.searchRestaurantsByName(establishmentNameSearchInput.value);
                     }
                 });
             }

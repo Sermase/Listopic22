@@ -15,20 +15,6 @@ ListopicApp.pageListView = (() => {
     let forumModal, closeModalForumBtn, forumListNameSpan, forumMessagesContainer,
         newForumMessageInput, sendForumMessageBtn, messagesCollectionRef;
 
-    // Filtros extra y mapa de opciones de lugares
-    const extraFiltersState = {
-        placeOptionsMap: new Map(),
-        filters: {
-            wheelchairEntrance: false,
-            wheelchairSeating: false,
-            outdoor: false,
-            dinein: false,
-            delivery: false,
-            takeout: false,
-            curbside: false
-        }
-    };
-
 
     const tileLayers = {
         light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
@@ -549,7 +535,7 @@ if (state.currentListId) {
         return fetchGroupedReviews(state.currentListId);
 
     })
-    .then(async responsePayload => {
+    .then(responsePayload => {
         if (!responsePayload || typeof responsePayload !== 'object') {
             throw new Error("Respuesta inesperada de la Cloud Function.");
         }
@@ -567,10 +553,7 @@ if (state.currentListId) {
         renderTagFilters_ListView();
         initForumModal();
 
-        state._allGroupedItemsBase = responsePayload.groupedReviews || [];
-        state.allGroupedItems = state._allGroupedItemsBase;
-        // Pre-cargar opciones de lugares para filtros extra
-        try { await preloadPlaceOptionsForGroups(state._allGroupedItemsBase); } catch(e) { console.warn('No se pudieron precargar opciones de lugares', e); }
+        state.allGroupedItems = responsePayload.groupedReviews || [];
         applyFiltersAndSort_ListView_Grouped();
     })
     .catch(error => {
@@ -588,69 +571,6 @@ if (state.currentListId) {
 
 // Listeners de UI (eliminamos el de la tabla)
 if(searchInput) searchInput.addEventListener('input', applyFiltersAndSort_ListView_Grouped);
-
-// --- Modal de filtros extra ---
-const showFiltersBtn = document.getElementById('show-filters-modal-btn');
-const extraFiltersModal = document.getElementById('extra-filters-modal');
-const btnFiltersApply = document.getElementById('extra-filters-apply');
-const btnFiltersClear = document.getElementById('extra-filters-clear');
-const btnFiltersCancel = document.getElementById('extra-filters-cancel');
-
-function openFiltersModal(){ if(extraFiltersModal) extraFiltersModal.style.display='flex'; }
-function closeFiltersModal(){ if(extraFiltersModal) extraFiltersModal.style.display='none'; }
-
-showFiltersBtn && showFiltersBtn.addEventListener('click', openFiltersModal);
-btnFiltersCancel && btnFiltersCancel.addEventListener('click', (e)=>{ e.preventDefault(); closeFiltersModal(); });
-btnFiltersClear && btnFiltersClear.addEventListener('click', (e)=>{
-    e.preventDefault();
-    Object.assign(extraFiltersState.filters, { wheelchairEntrance:false, wheelchairSeating:false, outdoor:false, dinein:false, delivery:false, takeout:false, curbside:false });
-    ['filt-wheelchair-entrance','filt-wheelchair-seating','filt-outdoor','filt-dinein','filt-delivery','filt-takeout','filt-curbside'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
-});
-btnFiltersApply && btnFiltersApply.addEventListener('click', (e)=>{
-    e.preventDefault();
-    extraFiltersState.filters.wheelchairEntrance = !!document.getElementById('filt-wheelchair-entrance')?.checked;
-    extraFiltersState.filters.wheelchairSeating = !!document.getElementById('filt-wheelchair-seating')?.checked;
-    extraFiltersState.filters.outdoor = !!document.getElementById('filt-outdoor')?.checked;
-    extraFiltersState.filters.dinein = !!document.getElementById('filt-dinein')?.checked;
-    extraFiltersState.filters.delivery = !!document.getElementById('filt-delivery')?.checked;
-    extraFiltersState.filters.takeout = !!document.getElementById('filt-takeout')?.checked;
-    extraFiltersState.filters.curbside = !!document.getElementById('filt-curbside')?.checked;
-    // Aplicar sobre el conjunto base y relanzar el render habitual
-    state.allGroupedItems = applyExtraPlaceFilters(state._allGroupedItemsBase || []);
-    applyFiltersAndSort_ListView_Grouped();
-    closeFiltersModal();
-});
-
-async function preloadPlaceOptionsForGroups(groups){
-    const ids = [...new Set(groups.map(g=>g.placeId).filter(Boolean))];
-    if(ids.length===0) return;
-    const db = ListopicApp.services.db;
-    // Cargas por lotes de 10
-    for(let i=0;i<ids.length;i+=10){
-        const slice = ids.slice(i,i+10);
-        const snaps = await Promise.all(slice.map(id=> db.collection('places').doc(id).get()));
-        snaps.forEach(doc=>{ if(doc.exists) extraFiltersState.placeOptionsMap.set(doc.id, doc.data()); });
-    }
-}
-
-function applyExtraPlaceFilters(groups){
-    const f = extraFiltersState.filters;
-    const needAny = f.wheelchairEntrance||f.wheelchairSeating||f.outdoor||f.dinein||f.delivery||f.takeout||f.curbside;
-    if(!needAny) return groups;
-    return groups.filter(g=>{
-        const p = extraFiltersState.placeOptionsMap.get(g.placeId) || {};
-        const acc = p.accessibility || {};
-        const sv = p.serviceOptions || {};
-        if(f.wheelchairEntrance && acc.wheelchairAccessibleEntrance !== true) return false;
-        if(f.wheelchairSeating && acc.wheelchairAccessibleSeating !== true) return false;
-        if(f.outdoor && sv.outdoorSeating !== true) return false;
-        if(f.dinein && sv.dineIn !== true) return false;
-        if(f.delivery && sv.delivery !== true) return false;
-        if(f.takeout && sv.takeout !== true) return false;
-        if(f.curbside && sv.curbsidePickup !== true) return false;
-        return true;
-    });
-}
 
 if (deleteListButton) {
     deleteListButton.addEventListener('click', async () => {
@@ -681,3 +601,4 @@ if (mapModal) mapModal.addEventListener('click', (e) => { if (e.target === mapMo
         init
     };
 })();
+

@@ -112,6 +112,9 @@
                 <button type="button" id="show-map-modal-btn" class="button secondary-button">
                     <i class="fas fa-map-marked-alt"></i> Ver en Mapa
                 </button>
+                <button type="button" id="show-filters-modal-btn" class="button secondary-button">
+                    <i class="fas fa-filter"></i> Más filtros
+                </button>
             </div>
             
             <div id="list-map-modal" class="modal">
@@ -124,6 +127,28 @@
             </div>
             <div class="tag-filter-container">
                 <p>Cargando filtros...</p>
+            </div>
+
+            <!-- Modal de filtros adicionales -->
+            <div id="extra-filters-modal" class="lp-modal-overlay" style="display:none;">
+                <div class="lp-modal">
+                    <h3>Filtros de accesibilidad y servicios</h3>
+                    <div class="lp-modal-body">
+                        <div class="form-row"><label><input type="checkbox" id="filt-wheelchair-entrance"> Acceso silla de ruedas</label></div>
+                        <div class="form-row"><label><input type="checkbox" id="filt-wheelchair-seating"> Asientos adaptados</label></div>
+                        <hr class="form-divider-light">
+                        <div class="form-row"><label><input type="checkbox" id="filt-outdoor"> Terraza</label></div>
+                        <div class="form-row"><label><input type="checkbox" id="filt-dinein"> Comer allí</label></div>
+                        <div class="form-row"><label><input type="checkbox" id="filt-delivery"> A domicilio</label></div>
+                        <div class="form-row"><label><input type="checkbox" id="filt-takeout"> Para llevar</label></div>
+                        <div class="form-row"><label><input type="checkbox" id="filt-curbside"> Recogida en coche</label></div>
+                    </div>
+                    <div class="lp-modal-actions">
+                        <button id="extra-filters-apply" class="button primary">Aplicar</button>
+                        <button id="extra-filters-clear" class="button secondary">Limpiar</button>
+                        <button id="extra-filters-cancel" class="button secondary">Cerrar</button>
+                    </div>
+                </div>
             </div>
         </div>
     

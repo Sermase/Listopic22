@@ -193,3 +193,7 @@ ListopicApp.placesService = (() => {
     };
 })();
 
+// Compatibilidad: exponer alias global esperado por page-review-form.js
+try {
+    window.placesService = window.ListopicApp && ListopicApp.placesService;
+} catch (_) {}
