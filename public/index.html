@@ -65,7 +65,27 @@
 
     <main>
         <div class="container">
-            <h1 class="brand-title"> <span class="logo-petal p1"></span> <span class="logo-petal p2"></span> Hmm...<span class="logo-petal p4"></span> <span class="logo-petal p5"></span> </h1>
+            <section class="hero" aria-label="Bienvenida">
+                <h1 class="brand-title">
+                    <span class="logo-petal p1"></span>
+                    <span class="logo-petal p2"></span>
+                    Hmm...
+                    <span class="logo-petal p4"></span>
+                    <span class="logo-petal p5"></span>
+                </h1>
+                <p class="hero-subtitle">Tu rincón personal de valoraciones. Crea listas, puntúa, comparte.</p>
+                <div class="hero-actions">
+                    <form id="hero-search-form" class="hero-search" role="search" aria-label="Buscar" action="search.html" method="GET">
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                        <input id="hero-search-input" name="q" type="search" placeholder="Buscar listas, lugares o etiquetas" aria-label="Buscar" />
+                        <button type="submit" class="button primary">Buscar</button>
+                    </form>
+                    <a href="list-form.html" class="button cta" id="hero-create-list-btn">
+                        <i class="fas fa-plus-circle"></i> Crear lista
+                    </a>
+                </div>
+                <div class="trending-tags" id="trending-tags" aria-live="polite" aria-label="Tendencias"></div>
+            </section>
 
             <div class="tabs">
                 <button class="tab-button active" data-tab="explore">Explorar</button>
@@ -75,9 +95,11 @@
             <div class="tab-content active" id="explore">
                 <section>
                     <h2>Listas populares</h2>
-                    <ul class="placeholder-list">
-                        <li>Ejemplo de lista popular</li>
-                    </ul>
+                    <div id="featured-lists" class="featured-grid" aria-live="polite">
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                    </div>
                 </section>
 
                 <section>
@@ -92,34 +114,18 @@
                         </a>
                     </nav>
                 </section>
-
-                <section>
-                    <h2>Lugares destacados cerca de ti</h2>
-                    <ul class="placeholder-list">
-                        <li>Ejemplo de lugar cercano</li>
-                    </ul>
-                </section>
             </div>
 
             <div class="tab-content" id="following">
                 <section>
-                    <h2>Novedades de perfiles que sigues</h2>
-                    <ul class="placeholder-list">
-                        <li>Tu amigo creó una nueva lista</li>
-                    </ul>
-                </section>
-
-                <section>
-                    <h2>Novedades de lugares que sigues</h2>
-                    <ul class="placeholder-list">
-                        <li>El café de la esquina tiene una nueva reseña</li>
-                    </ul>
+                    <h2>Actividad reciente</h2>
+                    <div id="feed-container" class="feed-container" aria-live="polite">
+                        <p class="loading-placeholder">Cargando novedades...</p>
+                    </div>
                 </section>
             </div>
         </div>
     </main>
-
-
 
     <footer> Listopic... Tu rincón personal de valoraciones. </footer>
 
