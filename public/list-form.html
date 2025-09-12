@@ -143,8 +143,8 @@
                     <div class="form-group">
                         <label for="list-category">Categoría de la Lista:</label>
                         <select id="list-category" name="categoryId" class="form-input">
-                            <option value="Hmm...">Hmm...</option>
-                            </select>
+                            <option value="" disabled selected>Cargando categorías...</option>
+                        </select>
                 </div>
                 
                 <div class="form-group">
@@ -180,7 +180,7 @@
                 <fieldset>
                     <legend>Etiquetas Disponibles para esta Lista</legend>
                 
-                    <div class="fixed-tags-group">
+                    <div id="fixed-tags-group" class="fixed-tags-group">
                         <label class="tag-checkbox">
                             <input type="checkbox" name="fixed-tags" value="Vegetariano" checked>
                             <span><i class="fas fa-leaf"></i> Vegetariano</span>

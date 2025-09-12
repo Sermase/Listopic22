@@ -432,5 +432,125 @@ ListopicApp.pageDeveloper = (() => {
         }
     }
 
-    return { init };
+    // --- Pestaña principal: conmutación ---
+    function setupMainTabs() {
+        const buttons = document.querySelectorAll('.dev-main-tab-button');
+        const panes = {
+            data: document.getElementById('tab-content-data'),
+            algolia: document.getElementById('tab-content-algolia'),
+            categories: document.getElementById('tab-content-categories')
+        };
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                buttons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                Object.values(panes).forEach(p => p && (p.style.display = 'none'));
+                const key = btn.dataset.tab;
+                panes[key] && (panes[key].style.display = 'block');
+            });
+        });
+    }
+
+    // --- Admin de categorías ---
+    async function initCategoriesAdminUI() {
+        const sel = document.getElementById('admin-category-select');
+        const idInput = document.getElementById('admin-cat-id');
+        const nameInput = document.getElementById('admin-cat-name');
+        const iconInput = document.getElementById('admin-cat-icon');
+        const orderInput = document.getElementById('admin-cat-order');
+        const likeInput = document.getElementById('admin-cat-like');
+        const dislikeInput = document.getElementById('admin-cat-dislike');
+        const fixedTagsTextarea = document.getElementById('admin-cat-fixed-tags');
+        const defaultCriteriaTextarea = document.getElementById('admin-cat-default-criteria');
+        const btnNew = document.getElementById('admin-cat-new');
+        const btnSave = document.getElementById('admin-cat-save');
+
+        async function loadSelect() {
+            // Traer todas las categorías (aunque no tengan 'order') y ordenar en cliente
+            const snap = await db.collection('categories').get();
+            const docsSorted = snap.docs.slice().sort((a,b) => {
+                const ao = (typeof a.data().order === 'number') ? a.data().order : Number.POSITIVE_INFINITY;
+                const bo = (typeof b.data().order === 'number') ? b.data().order : Number.POSITIVE_INFINITY;
+                return ao - bo;
+            });
+            const options = ['<option value="" disabled selected>Selecciona categoría...</option>']
+                .concat(docsSorted.map(d => {
+                    const data = d.data();
+                    return `<option value="${d.id}">${escapeHtml(data.name || d.id)}</option>`;
+                }));
+            sel.innerHTML = options.join('');
+            // Selección por defecto tipo "Comida"
+            const prefer = docsSorted.find(d => ((d.data().name||d.id||'').toString().toLowerCase().includes('comida')))
+                        || docsSorted.find(d => typeof d.data().order === 'number' && d.data().order === 1)
+                        || docsSorted[0];
+            if (prefer) {
+                sel.value = prefer.id;
+            }
+            sel.onchange = async () => {
+                const id = sel.value;
+                if (!id) return;
+                const doc = await db.collection('categories').doc(id).get();
+                if (!doc.exists) return;
+                const data = doc.data();
+                idInput.value = doc.id;
+                nameInput.value = data.name || '';
+                iconInput.value = data.icon || '';
+                orderInput.value = data.order ?? '';
+                likeInput.value = data.like || '';
+                dislikeInput.value = data.dislike || '';
+                const fixedTags = data['fixed-tags'] || data.fixedTags || [];
+                fixedTagsTextarea.value = Array.isArray(fixedTags) ? fixedTags.join(', ') : '';
+                defaultCriteriaTextarea.value = data.defaultCriteria ? JSON.stringify(data.defaultCriteria, null, 2) : '';
+            };
+            // Cargar datos de la preselección
+            sel.onchange();
+        }
+
+        btnNew && (btnNew.onclick = () => {
+            sel.value = '';
+            idInput.value = '';
+            nameInput.value = '';
+            iconInput.value = '';
+            orderInput.value = '';
+            likeInput.value = '';
+            dislikeInput.value = '';
+            fixedTagsTextarea.value = '';
+            defaultCriteriaTextarea.value = '';
+        });
+
+        btnSave && (btnSave.onclick = async () => {
+            try {
+                const name = nameInput.value.trim();
+                if (!name) { ListopicApp.services.showNotification('Nombre requerido', 'error'); return; }
+                const icon = iconInput.value.trim();
+                const order = parseInt(orderInput.value, 10) || 0;
+                const like = likeInput.value.trim();
+                const dislike = dislikeInput.value.trim();
+                const fixedTags = fixedTagsTextarea.value.split(',').map(s => s.trim()).filter(Boolean);
+                let defaultCriteria = {};
+                const raw = defaultCriteriaTextarea.value.trim();
+                if (raw) {
+                    try { defaultCriteria = JSON.parse(raw); }
+                    catch(e) { ListopicApp.services.showNotification('Default Criteria no es JSON válido', 'error'); return; }
+                }
+                const payload = { name, icon, order, like, dislike, 'fixed-tags': fixedTags, defaultCriteria };
+                let docId = idInput.value.trim();
+                if (!docId) {
+                    docId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '').slice(0, 64) || 'categoria';
+                }
+                await db.collection('categories').doc(docId).set(payload, { merge: true });
+                idInput.value = docId;
+                ListopicApp.services.showNotification('Categoría guardada', 'success');
+                await loadSelect();
+                sel.value = docId;
+            } catch (e) {
+                console.error('DEV: Error guardando categoría', e);
+                ListopicApp.services.showNotification('No se pudo guardar la categoría: ' + e.message, 'error');
+            }
+        });
+
+        await loadSelect();
+    }
+
+    return { init, setupMainTabs, initCategoriesAdminUI };
 })();

@@ -3,25 +3,25 @@ window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.placesService = (() => {
 
-    // ESTA ES LA MAGIA: Una única función para hablar con nuestro backend
+    // Puerta única para llamar a funciones HTTP (Cloud Run/HTTPS)
     async function callPlaceFunction(functionName, params) {
-        const functionUrl = ListopicApp.config.FUNCTION_URLS[functionName];
-        if (!functionUrl) {
+        const effectiveUrl = (ListopicApp.config.FUNCTION_URLS && (
+            ListopicApp.config.FUNCTION_URLS[functionName]
+            || (functionName === 'getPlaceDetailsFromGoogle' ? ListopicApp.config.FUNCTION_URLS['getPlaceDetails'] : undefined)
+        ));
+        if (!effectiveUrl) {
             throw new Error(`URL para la función '${functionName}' no está configurada.`);
         }
-        
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Obtenemos el usuario actual para sacar su ID
+
+        // Adjuntar userId del usuario autenticado
         const currentUser = ListopicApp.services.auth.currentUser;
         if (!currentUser) {
             throw new Error("Usuario no autenticado. No se puede realizar la llamada a Places.");
         }
-        // Añadimos el userId a los parámetros de la petición
         params.userId = currentUser.uid;
-        // --- FIN DE LA CORRECCIÓN ---
 
         const queryString = new URLSearchParams(params).toString();
-        const fullUrl = `${functionUrl}?${queryString}`;
+        const fullUrl = `${effectiveUrl}?${queryString}`;
 
         console.log(`[placesService] Calling function '${functionName}' with URL: ${fullUrl}`);
 
@@ -34,19 +34,16 @@ ListopicApp.placesService = (() => {
             return await response.json();
         } catch (error) {
             console.error(`Error en placesService al llamar a ${functionName}:`, error);
-            throw error; // Re-lanzamos para que el llamador lo gestione
+            throw error;
         }
     }
     
-    // En public/js/places-service.js
-
-    // Función para obtener detalles completos de un lugar
+    // Obtener detalles completos del lugar
     async function fetchPlaceDetails(placeId, userId) {
-        // Le pasamos el placeid y AHORA TAMBIÉN el userId
         return await callPlaceFunction('getPlaceDetailsFromGoogle', { placeid: placeId, userId: userId });
     }
 
-    // Muestra las sugerencias en la UI (Esta parte es más compleja, la simplificamos)
+    // Pintar sugerencias
     async function displayPlaceSuggestions(places, suggestionsBox) {
         suggestionsBox.innerHTML = '';
         if (!places || places.length === 0) {
@@ -67,13 +64,12 @@ ListopicApp.placesService = (() => {
                 if (!currentUser) {
                     console.error("Usuario no autenticado, no se pueden obtener detalles del lugar.");
                     suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">Error: Debes estar conectado para ver los detalles.</p>`;
-                    return; // Detenemos la ejecución si no hay usuario
+                    return;
                 }
 
                 suggestionsBox.innerHTML = `<p>Obteniendo detalles de "${place.name}"...</p>`;
                 
                 try {
-                    // ¡AQUÍ ESTÁ EL CAMBIO CLAVE! Pasamos el place_id y el currentUser.uid
                     const detailedPlace = await fetchPlaceDetails(place.place_id, currentUser.uid);
 
                     if (detailedPlace && window.ListopicApp.uiUtils && window.ListopicApp.uiUtils.updateReviewFormWithPlace) {
@@ -86,7 +82,6 @@ ListopicApp.placesService = (() => {
                     console.error("Error final al obtener detalles del lugar:", error);
                     suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${error.message}</p>`;
                 } finally {
-                   // Nos aseguramos de limpiar las sugerencias incluso si hay un error
                    setTimeout(() => { suggestionsBox.innerHTML = ''; }, 2000);
                 }
             };
@@ -95,7 +90,7 @@ ListopicApp.placesService = (() => {
         suggestionsBox.appendChild(ul);
     }
 
-    // Busca lugares cercanos, obteniendo la ubicación automáticamente
+    // Buscar cercanos con geolocalización del usuario y categoría de la lista
     async function fetchNearbyRestaurantsWithContext() {
         const suggestionsBox = document.getElementById('restaurant-suggestions');
         if (!suggestionsBox) return;
@@ -114,7 +109,7 @@ ListopicApp.placesService = (() => {
             state.userLongitude = position.coords.longitude;
         } catch (error) {
             console.error("Error obteniendo ubicación:", error);
-            suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">No se pudo obtener la ubicación: ${error.message}.</p>`;
+            suggestionsBox.innerHTML = `<p style=\"color:var(--danger-color);\">No se pudo obtener la ubicación: ${error.message}.</p>`;
             return;
         }
 
@@ -151,12 +146,12 @@ ListopicApp.placesService = (() => {
         }
     }
 
-    // Busca lugares por nombre, obteniendo la ubicación automáticamente
+    // Búsqueda por nombre + ubicación si disponible
     async function searchRestaurantsByName(query) {
         const suggestionsBox = document.getElementById('restaurant-suggestions');
         if (!suggestionsBox) return;
         if (!query || query.trim() === "") {
-            suggestionsBox.innerHTML = '<p>Introduce un término de búsqueda.</p>';
+            suggestionsBox.innerHTML = '<p>Introduce tu búsqueda.</p>';
             return;
         }
         suggestionsBox.innerHTML = `<p>Buscando "${query}"...</p>`;
@@ -197,3 +192,4 @@ ListopicApp.placesService = (() => {
         searchRestaurantsByName
     };
 })();
+

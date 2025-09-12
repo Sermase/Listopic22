@@ -20,13 +20,58 @@
     </div>
     <main class="dev-container">
         <h1><i class="fas fa-tools"></i> Panel de Desarrollador</h1>
-        <div class="dev-main-tabs"> <button class="dev-main-tab-button active" data-tab="data">Data Viewer</button> <button class="dev-main-tab-button" data-tab="algolia">Algolia Sync</button> </div>
+        <div class="dev-main-tabs"> <button class="dev-main-tab-button active" data-tab="data">Data Viewer</button> <button class="dev-main-tab-button" data-tab="algolia">Algolia Sync</button> <button class="dev-main-tab-button" data-tab="categories">Categorías</button> </div>
         <div id="tab-content-data" class="dev-tab-content" style="display: block;"> <div id="dev-tabs-container"></div> <div class="dev-actions-container"> <button id="export-csv-btn" class="button">Exportar a CSV</button> <button id="update-all-places-btn" class="button secondary-button">Actualizar TODO (Places)</button> <button id="update-selected-btn" class="button secondary-button" disabled>Actualizar Selección</button> <button id="delete-selected-btn" class="button danger-button" disabled>Eliminar Selección</button> </div> <div id="dev-content-container"></div> </div>
         <div id="tab-content-algolia" class="dev-tab-content" style="display: none;">
             <h3>Sincronización Manual con Algolia</h3>
             <p>Usa estos botones para forzar la re-indexación de las colecciones en Algolia.</p>
             <div class="dev-actions-container"> <button id="algolia-sync-all-btn" class="button primary-button"><i class="fas fa-sync"></i> Sincronizar TODO</button> <button id="algolia-sync-lists-btn" class="button secondary-button">Sincronizar 'lists'</button> <button id="algolia-sync-users-btn" class="button secondary-button">Sincronizar 'users'</button> <button id="algolia-sync-places-btn" class="button secondary-button">Sincronizar 'places'</button> </div>
             <h4>Log de Sincronización:</h4> <div id="algolia-sync-log"> <p><code>Esperando acciones...</code></p> </div>
+        </div>
+        <div id="tab-content-categories" class="dev-tab-content" style="display: none;">
+            <h3>Administrar categorías</h3>
+            <div class="dev-actions-container">
+                <select id="admin-category-select" class="form-input" style="min-width: 260px;"></select>
+                <button id="admin-cat-new" class="button secondary-button"><i class="fas fa-plus"></i> Nueva</button>
+                <button id="admin-cat-save" class="button primary-button"><i class="fas fa-save"></i> Guardar</button>
+            </div>
+            <div class="data-table-wrapper" style="padding: 12px;">
+                <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px;">
+                    <div>
+                        <label>ID (doc)</label>
+                        <input id="admin-cat-id" class="form-input" placeholder="(se autogenera con el nombre)" disabled>
+                    </div>
+                    <div>
+                        <label>Nombre</label>
+                        <input id="admin-cat-name" class="form-input" placeholder="Comida Hmm...">
+                    </div>
+                    <div>
+                        <label>Icono (FontAwesome)</label>
+                        <input id="admin-cat-icon" class="form-input" placeholder="fa-solid fa-utensils">
+                    </div>
+                    <div>
+                        <label>Orden</label>
+                        <input id="admin-cat-order" type="number" class="form-input" placeholder="1">
+                    </div>
+                    <div>
+                        <label>Texto Like</label>
+                        <input id="admin-cat-like" class="form-input" placeholder="ñam!">
+                    </div>
+                    <div>
+                        <label>Texto Dislike</label>
+                        <input id="admin-cat-dislike" class="form-input" placeholder="puaj!">
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <label>Etiquetas fijas (separadas por comas)</label>
+                        <textarea id="admin-cat-fixed-tags" class="form-input" rows="2" placeholder="Vegetariano, Sin gluten, Opción para llevar"></textarea>
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <label>Default Criteria (JSON)</label>
+                        <textarea id="admin-cat-default-criteria" class="form-input" rows="8" placeholder='{"sabor": {"label": "Sabor", "type": "slider", "min": 0, "max": 10, "step": 0.5, "labelMin": "Malo", "labelMax": "Exquisito", "ponderable": true}}'></textarea>
+                        <small>Consejo: pega aquí el objeto de criterios por defecto. Las claves del mapa serán los IDs (p.ej. "sabor").</small>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
     <footer><p>&copy; 2024 Listopic. All rights reserved.</p></footer>
@@ -50,6 +95,9 @@
                 ListopicApp.authService.onAuthStateChangedPromise().then(user => {
                     if (ListopicApp.pageDeveloper && ListopicApp.pageDeveloper.init) {
                         ListopicApp.pageDeveloper.init();
+                        ListopicApp.pageDeveloper.setupMainTabs && ListopicApp.pageDeveloper.setupMainTabs();
+                        const btn = document.querySelector('.dev-main-tab-button[data-tab="categories"]');
+                        btn && btn.addEventListener('click', () => ListopicApp.pageDeveloper.initCategoriesAdminUI && ListopicApp.pageDeveloper.initCategoriesAdminUI());
                     }
                 });
             } else {

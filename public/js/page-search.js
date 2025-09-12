@@ -137,6 +137,18 @@ ListopicApp.pageSearch = (() => {
         entityTypeButtons.forEach(button => {
             button.addEventListener('click', () => updateEntityTypeSelection(button));
         });
+
+        // Prefill from URL params (?q= or ?tag=) and auto-search
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const qParam = params.get('q') || params.get('tag');
+            if (qParam && mainSearchInput) {
+                mainSearchInput.value = qParam;
+                performSearch();
+            }
+        } catch (e) {
+            console.warn('page-search: no se pudo leer los parámetros de búsqueda.', e);
+        }
     }
 
     return {
