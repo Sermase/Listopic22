@@ -5776,3 +5776,18 @@ body.light-theme .leaflet-popup-tip {
 @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
 
 .feed-container { display: grid; gap: 14px; }
+
+/* ===== Generic Modal ===== */
+.lp-modal-overlay {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.5); z-index: 2000;
+}
+.lp-modal { background: var(--container-bg); border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-medium); padding: 16px; width: min(520px, 92vw);
+    box-shadow: var(--shadow-elevation-high);
+}
+.lp-modal h3 { margin: 0 0 10px; }
+.lp-modal-body { display: grid; gap: 10px; }
+.lp-modal-body .form-row { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; }
+.lp-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.advanced-button { margin-left: 8px; }

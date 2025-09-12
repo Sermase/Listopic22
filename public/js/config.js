@@ -43,8 +43,10 @@ ListopicApp.config = {
         groupedReviews: "https://groupedreviews-jz4x2l2cfq-ew.a.run.app",
         placesNearbyRestaurants: "https://placesnearbyrestaurants-jz4x2l2cfq-ew.a.run.app",
         placesTextSearch: "https://placestextsearch-jz4x2l2cfq-ew.a.run.app",
-        getPlaceDetails: "https://getplacedetails-jz4x2l2cfq-ew.a.run.app", 
-reverseGeocode: "https://europe-west1-listopic.cloudfunctions.net/reverseGeocode" 
+        getPlaceDetails: "https://getplacedetails-jz4x2l2cfq-ew.a.run.app",
+        // Alias para compatibilidad: algunas partes del frontend usan este nombre
+        getPlaceDetailsFromGoogle: "https://getPlaceDetailsFromGoogle-jz4x2l2cfq-ew.a.run.app",
+        reverseGeocode: "https://europe-west1-listopic.cloudfunctions.net/reverseGeocode" 
     },
     // Añade aquí tus claves de Algolia cuando las tengas en un lugar seguro
     ALGOLIA_APP_ID: 'FI4Q0XQABV',
