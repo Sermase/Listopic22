@@ -130,7 +130,9 @@ ListopicApp.pagePlaceDetail = {
         if (this.elements.placeAddress?.querySelector('span')) {
             this.elements.placeAddress.querySelector('span').textContent = formatted_address || 'Dirección no disponible';
         }
-        this.elements.placePhoto.src = photos?.[0] || 'img/logo-listopic400.png';
+        // Foto: usar foto de Google (si llega), si no, usar mainImageUrl del doc, y por último el logo
+        const fallbackPhoto = placeData.mainImageUrl || 'img/logo-listopic400.png';
+        this.elements.placePhoto.src = (photos && photos[0]) || fallbackPhoto;
         this.elements.googleMapsLink.href = googleMapsUrl || '#';
         if (!googleMapsUrl) this.elements.googleMapsLink.style.display = 'none';
         
@@ -161,6 +163,34 @@ ListopicApp.pagePlaceDetail = {
             this.elements.price.textContent = '€'.repeat(priceLevel);
             this.elements.priceContainer.style.display = 'block';
         }
+
+        // Renderizar atributos de accesibilidad y servicios
+        try {
+            const accEl = document.getElementById('place-accessibility');
+            const srvEl = document.getElementById('place-services');
+            if (accEl) {
+                accEl.innerHTML = '';
+                const acc = placeData.accessibility || {};
+                const items = [];
+                if (acc.wheelchairAccessibleEntrance === true) items.push('<span class="badge-attr"><i class="fas fa-wheelchair"></i> Acceso silla</span>');
+                if (acc.wheelchairAccessibleSeating === true) items.push('<span class="badge-attr"><i class="fas fa-chair"></i> Asientos adaptados</span>');
+                if (acc.wheelchairAccessibleParking === true) items.push('<span class="badge-attr"><i class="fas fa-square-parking"></i> Parking adaptado</span>');
+                if (acc.wheelchairAccessibleRestroom === true) items.push('<span class="badge-attr"><i class="fas fa-restroom"></i> Aseo adaptado</span>');
+                if (acc.hearingLoop === true) items.push('<span class="badge-attr"><i class="fas fa-assistive-listening-systems"></i> Bucle magnético</span>');
+                accEl.innerHTML = items.join('');
+            }
+            if (srvEl) {
+                srvEl.innerHTML = '';
+                const sv = placeData.serviceOptions || {};
+                const items = [];
+                if (sv.outdoorSeating === true) items.push('<span class="badge-attr"><i class="fas fa-umbrella-beach"></i> Terraza</span>');
+                if (sv.dineIn === true) items.push('<span class="badge-attr"><i class="fas fa-utensils"></i> Comer allí</span>');
+                if (sv.delivery === true) items.push('<span class="badge-attr"><i class="fas fa-truck"></i> A domicilio</span>');
+                if (sv.takeout === true) items.push('<span class="badge-attr"><i class="fas fa-bag-shopping"></i> Para llevar</span>');
+                if (sv.curbsidePickup === true) items.push('<span class="badge-attr"><i class="fas fa-car-side"></i> Recogida en coche</span>');
+                srvEl.innerHTML = items.join('');
+            }
+        } catch (e) { console.warn('[place-detail] No se pudieron renderizar atributos', e); }
     },
 
     renderReviews: async function(reviews) {

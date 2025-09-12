@@ -5791,3 +5791,15 @@ body.light-theme .leaflet-popup-tip {
 .lp-modal-body .form-row { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; }
 .lp-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .advanced-button { margin-left: 8px; }
+
+/* ===== Place attributes (badges) ===== */
+.place-attributes { margin-top: 10px; display: grid; gap: 6px; }
+.place-attributes .attr-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge-attr {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 8px; border-radius: 999px;
+    background: var(--container-bg-secondary);
+    border: 1px solid var(--border-color-light);
+    font-size: 0.85rem; color: var(--text-color);
+}
+.badge-attr i { color: var(--accent-color-primary); }

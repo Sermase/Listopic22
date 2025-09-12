@@ -344,8 +344,10 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
             return res.status(500).json({ message: "Error de configuración del servidor (API Key no encontrada)." });
         }
 
-        const fields = "name,place_id,formatted_address,geometry,url,photo,price_level,website,international_phone_number,address_components,rating,user_ratings_total,types";
-        const url = `https://maps.googleapis.com/maps/api/place/details/json?placeid=${placeid}&key=${apiKey}&fields=${fields}&language=es`;
+        // Añadimos campos de accesibilidad y opciones de servicio (si el endpoint legacy los soporta, serán devueltos)
+        // Usamos solo campos soportados por el endpoint legacy de Place Details
+        const fields = "name,place_id,formatted_address,geometry,url,photos,price_level,website,international_phone_number,address_components,rating,user_ratings_total,types";
+        const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeid}&key=${apiKey}&fields=${fields}&language=es`;
 
         try {
             const placeDetailsResponse = await fetch(url);
@@ -392,7 +394,17 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                     priceLevel: result.price_level !== undefined ? result.price_level : null,
                     googleRating: result.rating || 0, googleUserRatingsTotal: result.user_ratings_total || 0,
                     types: result.types || [],
-                    mainImageUrl: result.photo ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${result.photo.photo_reference}&key=${apiKey}`: null,
+                    mainImageUrl: (result.photos && result.photos.length > 0) ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${result.photos[0].photo_reference}&key=${apiKey}`: null,
+                    // Nuevos campos estructurados
+                    // Estos campos pueden rellenarse vía otras fuentes o con endpoints v1 en el futuro
+                    accessibility: result.accessibilityOptions ? {
+                        wheelchairAccessibleEntrance: result.accessibilityOptions.wheelchairAccessibleEntrance ?? null,
+                        wheelchairAccessibleSeating: result.accessibilityOptions.wheelchairAccessibleSeating ?? null,
+                        wheelchairAccessibleParking: result.accessibilityOptions.wheelchairAccessibleParking ?? null,
+                        wheelchairAccessibleRestroom: result.accessibilityOptions.wheelchairAccessibleRestroom ?? null,
+                        hearingLoop: result.accessibilityOptions.hearingLoop ?? null,
+                    } : (docSnapshot.exists ? (docSnapshot.data().accessibility || null) : null),
+                    serviceOptions: (docSnapshot.exists ? (docSnapshot.data().serviceOptions || null) : null),
                     updatedAt: FieldValue.serverTimestamp(), lastGoogleSync: FieldValue.serverTimestamp(),
                 };
 
@@ -1410,6 +1422,7 @@ const adminUpdateAllPlaces = onCall(async (request) => {
                 continue;
             }
 
+            // Campos soportados por Place Details legacy
             const fields = "name,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components";
             const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${apiKey}&fields=${fields}&language=es`;
 
@@ -1430,6 +1443,10 @@ const adminUpdateAllPlaces = onCall(async (request) => {
                         website: result.website,
                         phone: result.international_phone_number,
                         vicinity: result.vicinity,
+                        // Si en el futuro usamos Places v1, podremos mapear accessibilityOptions/serviceOptions.
+                        // De momento, preservamos lo existente en la BD.
+                        accessibility: placeData.accessibility || null,
+                        serviceOptions: placeData.serviceOptions || null,
                         updatedAt: FieldValue.serverTimestamp()
                     };
 
