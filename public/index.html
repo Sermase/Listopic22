@@ -74,25 +74,28 @@
                     <span class="logo-petal p5"></span>
                 </h1>
                 <p class="hero-subtitle">Tu rincón personal de valoraciones. Crea listas, puntúa, comparte.</p>
-                <div class="hero-actions">
-                    <form id="hero-search-form" class="hero-search" role="search" aria-label="Buscar" action="search.html" method="GET">
-                        <i class="fas fa-search" aria-hidden="true"></i>
-                        <input id="hero-search-input" name="q" type="search" placeholder="Buscar listas, lugares o etiquetas" aria-label="Buscar" />
-                        <button type="submit" class="button primary">Buscar</button>
-                    </form>
-                    <a href="list-form.html" class="button cta" id="hero-create-list-btn">
-                        <i class="fas fa-plus-circle"></i> Crear lista
-                    </a>
-                </div>
-                <div class="trending-tags" id="trending-tags" aria-live="polite" aria-label="Tendencias"></div>
-            </section>
+                
+                </section>
 
             <div class="tabs">
-                <button class="tab-button active" data-tab="explore">Explorar</button>
-                <button class="tab-button" data-tab="following">Novedades</button>
+                <button class="tab-button" data-tab="explore">Explorar</button>
+                <button class="tab-button active" data-tab="following">Novedades</button>
             </div>
 
-            <div class="tab-content active" id="explore">
+            <div class="tab-content" id="explore">
+                <section>
+                    <div class="hero-actions">
+                        <form id="hero-search-form" class="hero-search" role="search" aria-label="Buscar" action="search.html" method="GET">
+                            <i class="fas fa-search" aria-hidden="true"></i>
+                            <input id="hero-search-input" name="q" type="search" placeholder="Buscar listas, lugares o etiquetas" aria-label="Buscar" />
+                            <button type="submit" class="button primary">Buscar</button>
+                        </form>
+                        <a href="list-form.html" class="button cta" id="hero-create-list-btn">
+                            <i class="fas fa-plus-circle"></i> Crear lista
+                        </a>
+                    </div>
+                    <div class="trending-tags" id="trending-tags" aria-live="polite" aria-label="Tendencias"></div>
+                </section>
                 <section>
                     <h2>Listas populares</h2>
                     <div id="featured-lists" class="featured-grid" aria-live="polite">
@@ -116,7 +119,7 @@
                 </section>
             </div>
 
-            <div class="tab-content" id="following">
+            <div class="tab-content active" id="following">
                 <section>
                     <h2>Actividad reciente</h2>
                     <div id="feed-container" class="feed-container" aria-live="polite">
