@@ -1713,6 +1713,4 @@ module.exports = {
     adminUpdateSinglePlace,
     toggleFollowPlace,
     getDistance,
-    
-    // Asegúrate de que todas tus funciones estén listadas aquí
 };
