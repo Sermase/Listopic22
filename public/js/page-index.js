@@ -4,11 +4,60 @@ window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageIndex = (() => {
     let globalMapInstance = null;
     let currentTileLayer = null;
+    let globalMapUserLocated = false;
+    let initialGlobalMapParams = null; // { open, lat, lng, zoom }
 
     const tileLayers = {
         light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
         dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
     };
+
+    // User location icon (same style as list-view)
+    const userLocationIconSvg = `
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="24" cy="24" r="7" fill="#118AB2" stroke="white" stroke-width="2"/>
+        <circle cx="24" cy="24" r="12" stroke="#118AB2" stroke-width="2" stroke-opacity="0.9">
+          <animate attributeName="r" from="12" to="22" dur="1.7s" begin="0s" repeatCount="indefinite" keyTimes="0; 1" values="12; 22"/>
+          <animate attributeName="stroke-opacity" from="0.9" to="0" dur="1.7s" begin="0s" repeatCount="indefinite" keyTimes="0; 1" values="0.9; 0"/>
+        </circle>
+      </svg>
+    `;
+
+    // URL state helpers for the Global Map
+    function readGlobalMapParamsFromUrl() {
+        const p = new URLSearchParams(window.location.search);
+        const open = p.get('gmap') === '1';
+        if (!open) return { open: false };
+        const lat = parseFloat(p.get('glat'));
+        const lng = parseFloat(p.get('glng'));
+        const zoom = parseInt(p.get('gzoom') || '0', 10);
+        return {
+            open: true,
+            lat: isFinite(lat) ? lat : null,
+            lng: isFinite(lng) ? lng : null,
+            zoom: isFinite(zoom) ? zoom : null
+        };
+    }
+    function setGlobalMapParamsInUrl(open, center, zoom, push=false) {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            if (open) {
+                params.set('gmap', '1');
+                if (center) {
+                    params.set('glat', center.lat.toFixed(6));
+                    params.set('glng', center.lng.toFixed(6));
+                }
+                if (typeof zoom === 'number') params.set('gzoom', String(zoom));
+            } else {
+                params.delete('gmap');
+                params.delete('glat');
+                params.delete('glng');
+                params.delete('gzoom');
+            }
+            const newUrl = `${window.location.pathname}?${params.toString()}`;
+            if (push) window.history.pushState(null, '', newUrl); else window.history.replaceState(null, '', newUrl);
+        } catch (e) { /* noop */ }
+    }
 
     // Utilidades del pin (reutilizadas de list-view)
     const createPlaceIconSvg = (score, color = '#118AB2') => {
@@ -111,11 +160,17 @@ ListopicApp.pageIndex = (() => {
                     const iconClass = await ui.getListIcon(list);
                     const name = ui.escapeHtml(list.name || 'Lista sin nombre');
                     const reviews = list.reviewCount || 0;
+                    const comments = list.commentsCount || 0;
+                    const followers = list.followersCount || 0;
                     return `
                         <article class="featured-card">
                             <a href="list-view.html?listId=${list.id}">
                                 <h3><i class="${iconClass}"></i> ${name}</h3>
-                                <div class="meta"><i class="fas fa-pencil-alt"></i> ${reviews} reseñas</div>
+                                <div class="meta">
+                                    <span title="Reseñas"><i class="fas fa-pencil-alt"></i> ${reviews}</span>
+                                    <span title="Comentarios"><i class="fas fa-comments"></i> ${comments}</span>
+                                    <span title="Seguidores"><i class="fas fa-user-group"></i> ${followers}</span>
+                                </div>
                             </a>
                         </article>`;
                 }));
@@ -235,6 +290,24 @@ ListopicApp.pageIndex = (() => {
                         const newTheme = ev.detail.theme;
                         currentTileLayer && currentTileLayer.setUrl(tileLayers[newTheme]);
                     });
+                    // Try to center on user's location with a friendly zoom
+                    try {
+                        navigator.geolocation.getCurrentPosition(pos => {
+                            const userLatLng = [pos.coords.latitude, pos.coords.longitude];
+                            const userIcon = L.divIcon({ html: userLocationIconSvg, className: '', iconSize: [48, 48], iconAnchor: [24, 24] });
+                            L.marker(userLatLng, { icon: userIcon })
+                              .addTo(globalMapInstance)
+                              .bindPopup('¡Estás aquí!');
+                            globalMapInstance.setView(userLatLng, 13);
+                            globalMapUserLocated = true;
+                        }, () => { /* silent fallback */ });
+                    } catch(e) {}
+                    // Sync moves into URL without polluting history
+                    globalMapInstance.on('moveend zoomend', () => {
+                        try {
+                            setGlobalMapParamsInUrl(true, globalMapInstance.getCenter(), globalMapInstance.getZoom(), false);
+                        } catch(e){}
+                    });
                     try {
                         const snap = await ListopicApp.services.db.collection('places').get();
                         const places = snap.docs.map(doc => {
@@ -254,13 +327,52 @@ ListopicApp.pageIndex = (() => {
                     globalMapInstance.invalidateSize();
                 }
             }, 10);
+            try {
+                // Push state when opening
+                if (globalMapInstance) setGlobalMapParamsInUrl(true, globalMapInstance.getCenter(), globalMapInstance.getZoom(), true);
+                else setGlobalMapParamsInUrl(true, {lat:40.4167,lng:-3.703}, 5, true);
+            } catch(e){}
         }
         function closeGlobalMapModal() {
             if (mapModal) mapModal.classList.remove('active');
+            // Push state when closing
+            setGlobalMapParamsInUrl(false, null, null, true);
         }
         openBtn && openBtn.addEventListener('click', openGlobalMapModal);
         closeBtn && closeBtn.addEventListener('click', closeGlobalMapModal);
         mapModal && mapModal.addEventListener('click', (e) => { if (e.target === mapModal) closeGlobalMapModal(); });
+
+        // Restore from URL on load
+        try {
+            initialGlobalMapParams = readGlobalMapParamsFromUrl();
+            if (initialGlobalMapParams && initialGlobalMapParams.open) {
+                openGlobalMapModal();
+                setTimeout(() => {
+                    try {
+                        if (globalMapInstance && initialGlobalMapParams.lat != null && initialGlobalMapParams.lng != null) {
+                            globalMapInstance.setView([initialGlobalMapParams.lat, initialGlobalMapParams.lng], initialGlobalMapParams.zoom || globalMapInstance.getZoom());
+                        }
+                    } catch(e){}
+                }, 120);
+            }
+        } catch(e){}
+
+        // Popstate handler
+        window.addEventListener('popstate', () => {
+            const p = readGlobalMapParamsFromUrl();
+            if (p.open) {
+                if (!mapModal?.classList.contains('active')) openGlobalMapModal();
+                setTimeout(() => {
+                    try {
+                        if (globalMapInstance && p.lat != null && p.lng != null) {
+                            globalMapInstance.setView([p.lat, p.lng], p.zoom || globalMapInstance.getZoom());
+                        }
+                    } catch(e){}
+                }, 60);
+            } else {
+                closeGlobalMapModal();
+            }
+        });
     }
 
     function addGlobalPlacesToMap(places) {
@@ -309,7 +421,7 @@ ListopicApp.pageIndex = (() => {
                 m.addTo(globalMapInstance);
             }
         });
-        if (markers.length) {
+        if (markers.length && !globalMapUserLocated) {
             const fg = L.featureGroup(markers);
             const bounds = fg.getBounds();
             globalMapInstance.fitBounds(bounds.pad(0.1));
