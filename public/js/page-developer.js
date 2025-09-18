@@ -82,6 +82,10 @@ ListopicApp.pageDeveloper = (() => {
         const updateBtn = document.getElementById('update-selected-btn');
         if (updateBtn) updateBtn.addEventListener('click', updateSelectedPlaces);
 
+        // NUEVO: Botón actualizar listas seleccionadas
+        const updateListsBtn = document.getElementById('update-selected-lists-btn');
+        if (updateListsBtn) updateListsBtn.addEventListener('click', updateSelectedLists);
+
         // NUEVO: Botón de eliminar seleccionados
         const deleteBtn = document.getElementById('delete-selected-btn');
         if (deleteBtn) deleteBtn.addEventListener('click', deleteSelectedItems);
@@ -106,6 +110,12 @@ ListopicApp.pageDeveloper = (() => {
             const isPlacesTab = currentCollectionName === 'places';
             updateBtn.style.display = isPlacesTab ? 'inline-block' : 'none';
             updateBtn.disabled = !hasSelection || !isPlacesTab;
+        }
+        const updateListsBtn = document.getElementById('update-selected-lists-btn');
+        if (updateListsBtn) {
+            const isListsTab = currentCollectionName === 'lists';
+            updateListsBtn.style.display = isListsTab ? 'inline-block' : 'none';
+            updateListsBtn.disabled = !hasSelection || !isListsTab;
         }
     }
 
@@ -449,6 +459,32 @@ ListopicApp.pageDeveloper = (() => {
                 panes[key] && (panes[key].style.display = 'block');
             });
         });
+    }
+
+    // NUEVA: Actualizar agregados de listas seleccionadas
+    async function updateSelectedLists() {
+        if (selectedRowIds.size === 0) return;
+        if (!confirm(`¿Actualizar agregados de ${selectedRowIds.size} lista(s)?`)) return;
+        const btn = document.getElementById('update-selected-lists-btn');
+        btn.disabled = true;
+        const originalBtnText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+        let successCount = 0;
+        let errorCount = 0;
+        try {
+            const callable = firebase.app().functions('europe-west1').httpsCallable('adminUpdateSingleListAggregates');
+            await Promise.all(
+                Array.from(selectedRowIds).map(id => callable({ listId: id }).then(()=>successCount++).catch(()=>errorCount++))
+            );
+            alert(`Listas actualizadas: ${successCount}\nErrores: ${errorCount}`);
+            switchTab(currentCollectionName);
+        } catch (e) {
+            console.error('Error en updateSelectedLists', e);
+            alert('Error al actualizar listas: ' + e.message);
+        } finally {
+            btn.innerHTML = originalBtnText;
+            btn.disabled = false;
+        }
     }
 
     // --- Admin de categorías ---

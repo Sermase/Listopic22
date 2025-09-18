@@ -1,4 +1,4 @@
-window.ListopicApp = window.ListopicApp || {};
+﻿window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageListView = (() => {
     // Variables de estado
     let currentSortColumn = 'avgGeneralScore';
@@ -9,6 +9,7 @@ ListopicApp.pageListView = (() => {
     // Variables del DOM
     let listTitleElement, reviewsGridContainer, searchInput, tagFilterContainer,
     addReviewButton, editListLink, deleteListButton, showMapModalBtn,
+    followListBtn,
     mapModal, closeMapModalBtn, mapContainer, listMapInstance;
 
     let markersMap = new Map();
@@ -17,8 +18,9 @@ ListopicApp.pageListView = (() => {
 
     // Estado inicial del mapa si viene codificado en la URL
     let initialMapParams = null; // { open, lat, lng, zoom }
+    let isFollowingList = false;
 
-    function setMapParamsInUrl(open, center, zoom) {
+    function setMapParamsInUrl(open, center, zoom, push=false) {
         try {
             const params = new URLSearchParams(window.location.search);
             if (open) {
@@ -35,7 +37,7 @@ ListopicApp.pageListView = (() => {
                 params.delete('mzoom');
             }
             const newUrl = `${window.location.pathname}?${params.toString()}`;
-            window.history.replaceState(null, '', newUrl);
+            if (push) window.history.pushState(null, '', newUrl); else window.history.replaceState(null, '', newUrl);
         } catch (e) { /* noop */ }
     }
 
@@ -252,10 +254,16 @@ ListopicApp.pageListView = (() => {
                 listMapInstance.invalidateSize(); // recalcula el tamaño
             }
         }, 10);
+        try {
+            if (listMapInstance) setMapParamsInUrl(true, listMapInstance.getCenter(), listMapInstance.getZoom(), true);
+            else setMapParamsInUrl(true, {lat:40.4167,lng:-3.703}, 6, true);
+        } catch(e){}
     }
 
     function closeModal() {
         if (mapModal) mapModal.classList.remove('active');
+        // Push state when closing
+        setMapParamsInUrl(false, null, null, true);
     }
 
     function initializeListMap() {
@@ -284,6 +292,15 @@ ListopicApp.pageListView = (() => {
         fetchPlacesForCurrentList();
 
         document.addEventListener('themeChanged', handleThemeChangeOnMap);
+
+        // Sync map movements into URL without polluting history
+        try {
+            listMapInstance.on('moveend zoomend', () => {
+                try {
+                    setMapParamsInUrl(true, listMapInstance.getCenter(), listMapInstance.getZoom(), false);
+                } catch(e){}
+            });
+        } catch(e){}
 
     }
     
@@ -618,6 +635,21 @@ if (state.currentListId) {
         ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
         if (listTitleElement) listTitleElement.textContent = state.currentListName;
 
+        // Pintar estadísticas junto al título
+        try {
+            const statsEl = document.getElementById('list-stats');
+            if (statsEl) {
+                const rc = listData.reviewCount || 0;
+                const fc = listData.followersCount || 0;
+                const cc = listData.commentsCount || 0;
+                statsEl.innerHTML = `
+                    <span><i class="fas fa-star-half-alt"></i> ${rc} reseñas</span>
+                    <span><i class="fas fa-user-group"></i> <span id="list-followers-count">${fc}</span> seguidores</span>
+                    <span><i class="fas fa-comments"></i> ${cc} comentarios</span>
+                `;
+            }
+        } catch(e) { /* noop */ }
+
         return fetchGroupedReviews(state.currentListId);
 
     })
@@ -760,6 +792,91 @@ if (showMapModalBtn) showMapModalBtn.addEventListener('click', openMapModal);
 if (closeMapModalBtn) closeMapModalBtn.addEventListener('click', closeModal);
 if (mapModal) mapModal.addEventListener('click', (e) => { if (e.target === mapModal) closeModal(); });
 
+// --- Seguimiento de listas ---
+(function initFollowListUI(){
+    try {
+        followListBtn = document.getElementById('follow-list-btn');
+        if (!followListBtn) return;
+        const auth = ListopicApp.services.auth;
+        const db = ListopicApp.services.db;
+        const listId = (ListopicApp.state && ListopicApp.state.currentListId) || (new URLSearchParams(window.location.search)).get('listId');
+        if (!listId) return;
+        const updateBtnUI = () => {
+    if (!followListBtn) return;
+    if (isFollowingList) {
+        followListBtn.innerHTML = '<i class="fas fa-check"></i> Siguiendo';
+        followListBtn.title = 'Siguiendo lista';
+        followListBtn.classList.remove('follow-cta-button');
+        followListBtn.classList.add('secondary-button');
+    } else {
+        followListBtn.innerHTML = '<i class="fas fa-bookmark"></i> Seguir lista';
+        followListBtn.title = 'Seguir lista';
+        followListBtn.classList.remove('secondary-button');
+        followListBtn.classList.add('follow-cta-button');
+    }
+    followListBtn.style.display = 'inline-flex';
+};
+        const checkStatus = async () => {
+            const user = auth.currentUser;
+            if (!user) { // Mostrar el botón aunque no haya sesión
+                isFollowingList = false;
+                updateBtnUI();
+                return;
+            }
+            try {
+                const doc = await db.collection('users').doc(user.uid).collection('followingLists').doc(listId).get();
+                isFollowingList = doc.exists;
+                updateBtnUI();
+            } catch(e) { updateBtnUI(); }
+        };
+        followListBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) { window.location.href = 'auth.html'; return; }
+            followListBtn.disabled = true;
+            followListBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            try {
+                const toggleFollowList = firebase.app().functions('europe-west1').httpsCallable('toggleFollowList');
+                const res = await toggleFollowList({ listId });
+                isFollowingList = res.data?.status === 'followed';
+                updateBtnUI();
+                ListopicApp.services?.showNotification?.(res.data?.message || 'Hecho', 'success');
+                const cntEl = document.getElementById('list-followers-count');
+                if (cntEl) {
+                    const current = parseInt(cntEl.textContent || '0', 10) || 0;
+                    cntEl.textContent = isFollowingList ? (current + 1) : Math.max(0, current - 1);
+                }
+            } catch (e) {
+                ListopicApp.services?.showNotification?.(e.message, 'error');
+            } finally {
+                followListBtn.disabled = false;
+            }
+        });
+        // inicial y reintentos (garantiza estado correcto tras auth init)
+        checkStatus();
+        setTimeout(checkStatus, 500);
+        setTimeout(checkStatus, 1500);
+        // También en cambios de auth
+        ListopicApp.authService?.onAuthStateChangedPromise?.().then(checkStatus).catch(()=>{});
+    } catch(e) { /* noop */ }
+})();
+
+// Handle browser back/forward to restore map state
+window.addEventListener('popstate', () => {
+    const p = readMapParamsFromUrl();
+    if (p.open) {
+        if (!mapModal?.classList.contains('active')) openMapModal();
+        setTimeout(() => {
+            try {
+                if (listMapInstance && p.lat != null && p.lng != null) {
+                    listMapInstance.setView([p.lat, p.lng], p.zoom || listMapInstance.getZoom());
+                }
+            } catch(e){}
+        }, 60);
+    } else {
+        closeModal();
+    }
+});
+
 }// Fin de init
 
 
@@ -767,3 +884,5 @@ if (mapModal) mapModal.addEventListener('click', (e) => { if (e.target === mapMo
         init
     };
 })();
+
+

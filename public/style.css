@@ -5912,3 +5912,42 @@ body.light-theme .leaflet-popup-tip {
     font-size: 0.85rem; color: var(--text-color);
 }
 .badge-attr i { color: var(--accent-color-primary); }
+/* Follow list CTA bar */
+.follow-list-cta-bar { display:flex; justify-content:flex-end; gap: 8px; padding: 10px 16px; }
+.follow-cta-button { 
+  background: var(--accent-color-tertiary);
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+.follow-cta-button:disabled { opacity: 0.6; cursor: default; }
+/* List header stats */
+.list-header-actions{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.list-header-actions #list-title{margin:0}
+.list-stats{font-size:0.9rem;color:var(--secondary-text-color);display:flex;gap:12px}
+.list-stats i{margin-right:6px;color:var(--accent-color-tertiary)}
+/* Align follow button with stats */
+.list-header-actions .follow-cta-button{margin-left:auto}
+.list-header-actions{align-items:center}
+
+/* Chips for creator/follower */
+.chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.75rem;border:1px solid var(--border-color-light);margin-right:8px}
+.chip--creator{background-color: rgba(var(--accent-color-tertiary-rgb),0.15); color: var(--accent-color-tertiary); border-color: var(--accent-color-tertiary)}
+.chip--follower{background-color: rgba(var(--accent-color-quaternary-rgb,26,119,207),0.15); color: var(--accent-color-quaternary,#1a77cf); border-color: var(--accent-color-quaternary,#1a77cf)}
+
+/* Review actions menu */
+.review-menu{display:inline-block; position:relative; margin-left:8px}
+.review-menu__btn{background:transparent; border:0; cursor:pointer; color:var(--secondary-text-color); padding:4px}
+.review-menu__btn:hover{opacity:0.85}
+.review-menu__dropdown{display:none; position:absolute; right:0; top:22px; background: var(--container-bg); border:1px solid var(--border-color-light); border-radius:8px; padding:6px; box-shadow: var(--shadow-elevation-medium); min-width:160px; z-index:20}
+.review-menu__dropdown.open{display:block}
+.review-menu__dropdown .review-action{display:block; width:100%; background:transparent; border:0; padding:8px 10px; text-align:left; cursor:pointer; color:var(--text-color)}
+.review-menu__dropdown .review-action:hover{background: var(--container-bg-secondary)}
+.review-menu__dropdown .review-action.danger{color: var(--danger-color)}
+
+/* Toggle active state */
+#lists-toggle-main .button.active{background-color: var(--accent-color-tertiary); color: var(--main-button-text)}

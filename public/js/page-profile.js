@@ -1,4 +1,4 @@
-window.ListopicApp = window.ListopicApp || {};
+﻿window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.pageProfile = {
     // Objeto para guardar referencias a los elementos del DOM
@@ -36,6 +36,15 @@ ListopicApp.pageProfile = {
         editPhotoUrlInput: null,
         editPhotoFileInput: null,
         editPhotoPreview: null,
+
+    // --- Connections modal elements ---
+    connectionsModal: null,
+    closeConnectionsModalBtn: null,
+    connectionsTabs: null,
+    followersList: null,
+    followingList: null,
+    modalListsUl: null,
+    listsToggle: null,
     },
 
     // Variables de estado de la página
@@ -80,6 +89,8 @@ ListopicApp.pageProfile = {
         this.elements.usernameDisplayElement = document.getElementById('profile-username-display');
         this.elements.bioDisplayElement = document.getElementById('profile-bio-display');
         this.elements.locationDisplayElement = document.getElementById('profile-location-display');
+        
+        this.elements.listsToggleMain = document.getElementById('lists-toggle-main');
         this.elements.myListsUl = document.getElementById('my-lists-ul');
         this.elements.myReviewsContainer = document.getElementById('my-reviews-container'); // MODIFICADO
         this.elements.openEditModalBtn = document.getElementById('open-edit-profile-modal-btn');
@@ -113,7 +124,15 @@ ListopicApp.pageProfile = {
     
         this.elements.profileTabs = document.querySelector('.profile-tabs'); // El contenedor de las pestañas
         this.elements.reviewsContent = document.getElementById('reviews-content');
-        this.elements.listsContent = document.getElementById('lists-content');
+        
+        this.elements.listsToggleMain = document.getElementById('lists-toggle-main');
+        this.elements.connectionsModal = document.getElementById('connections-modal');
+        this.elements.closeConnectionsModalBtn = document.getElementById('close-connections-modal-btn');
+        this.elements.connectionsTabs = document.getElementById('connections-tabs');
+        this.elements.followersList = document.getElementById('followers-list');
+        this.elements.followingList = document.getElementById('following-list');
+        this.elements.modalListsUl = document.getElementById('modal-lists-ul');
+        this.elements.listsToggle = document.getElementById('lists-toggle');
     },
     
     updateEditButtonVisibility: function() {
@@ -183,6 +202,22 @@ ListopicApp.pageProfile = {
         this.elements.photoModal?.addEventListener('click', (event) => {
             if (event.target === this.elements.photoModal) {
                 this.closePhotoModal();
+        // Stats clicks
+        document.getElementById('lists-count')?.parentElement?.addEventListener('click', () => this.openConnectionsModal('lists'));
+        document.getElementById('followers-count')?.parentElement?.addEventListener('click', () => this.openConnectionsModal('followers'));
+        document.getElementById('following-count')?.parentElement?.addEventListener('click', () => this.openConnectionsModal('following'));
+        document.getElementById('reviews-count')?.parentElement?.addEventListener('click', () => {
+            // Switch to reviews tab
+            const tabBtn = document.querySelector('.profile-tab-button[data-tab="reviews"]');
+            tabBtn?.click();
+        });
+        // Connections modal close and tab
+        this.elements.closeConnectionsModalBtn?.addEventListener('click', () => this.closeConnectionsModal());
+        this.elements.connectionsModal?.addEventListener('click', (e) => { if (e.target === this.elements.connectionsModal) this.closeConnectionsModal(); });
+        this.elements.connectionsTabs?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.profile-tab-button'); if(!btn) return;
+            const tab = btn.dataset.tab; this.showConnectionsTab(tab);
+        });
             }
         });
         // Dentro de attachEventListeners en ListopicApp.pageProfile
@@ -276,6 +311,7 @@ ListopicApp.pageProfile = {
             if (docSnap.exists) {
                 this.profileData = docSnap.data();
                 this.renderProfileData();
+                this.setupMainListsToggle && this.setupMainListsToggle();
                 this.fetchUserLists(this.profileOwnerUserId); // MODIFICADO: Pasar el ID
                 this.fetchUserReviews(this.profileOwnerUserId); // MODIFICADO: Pasar el ID
             } else {
@@ -518,19 +554,74 @@ ListopicApp.pageProfile = {
     renderUserReviews: function(reviews) {
         const container = this.elements.myReviewsContainer;
         if (!container) return;
-        
         container.innerHTML = '';
-        if (reviews.length === 0) {
+        if (!reviews || reviews.length === 0) {
             container.innerHTML = '<p>Este usuario aún no ha escrito ninguna reseña.</p>';
             return;
         }
-
-        // ANTES: Tenía su propia lógica de renderizado.
-        // AHORA: Simplemente llama a la función centralizada. ¡Qué limpio!
-        container.innerHTML = reviews.map(review => 
-            ListopicApp.uiUtils.renderReviewSuperCard(review)
-        ).join('');
+        const ui = ListopicApp.uiUtils;
+        const currentUid = (ListopicApp.services?.auth?.currentUser || {}).uid;
+        reviews.forEach(r => {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = ui.renderReviewSuperCard(r);
+            const article = wrapper.firstElementChild;
+            if (article && currentUid && (r.author?.id === currentUid)) {
+                const score = article.querySelector('.review-super-card__score');
+                if (score) {
+                    const menu = document.createElement('div');
+                    menu.className = 'review-menu';
+                    menu.innerHTML = `
+                        <button class="review-menu__btn" title="Opciones"><i class="fas fa-ellipsis-h"></i></button>
+                        <div class="review-menu__dropdown">
+                            <button class="review-action" data-action="edit">Editar reseña</button>
+                            <button class="review-action" data-action="share">Compartir</button>
+                            <button class="review-action danger" data-action="delete">Eliminar</button>
+                        </div>`;
+                    score.appendChild(menu);
+                    const btn = menu.querySelector('.review-menu__btn');
+                    const dd = menu.querySelector('.review-menu__dropdown');
+                    btn.addEventListener('click', (e)=>{ e.stopPropagation(); dd.classList.toggle('open'); });
+                    menu.addEventListener('click', (e)=> e.stopPropagation());
+                    dd.querySelectorAll('.review-action').forEach(actBtn => {
+                        actBtn.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            const action = actBtn.dataset.action;
+                            if (action === 'edit') {
+                                window.location.href = `review-form.html?listId=${r.listId}&editId=${r.id}`;
+                            } else if (action === 'share') {
+                                const url = `${location.origin}${location.pathname.replace(/[^/]+$/, '')}detail-view.html?id=${r.id}&listId=${r.listId}`;
+                                if (navigator.share) {
+                                    try { await navigator.share({ title: 'Mi reseña en Listopic', url }); } catch(_){}
+                                } else if (navigator.clipboard) {
+                                    await navigator.clipboard.writeText(url);
+                                    ListopicApp.services?.showNotification?.('Enlace copiado al portapapeles','success');
+                                }
+                            } else if (action === 'delete') {
+                                if (!confirm('¿Eliminar esta reseña? Esta acción no se puede deshacer.')) return;
+                                try {
+                                    await ListopicApp.services.db.collection('lists').doc(r.listId).collection('reviews').doc(r.id).delete();
+                                    article.remove();
+                                    ListopicApp.services?.showNotification?.('Reseña eliminada','success');
+                                } catch (err) {
+                                    ListopicApp.services?.showNotification?.(err.message || 'Error eliminando reseña','error');
+                                }
+                            }
+                            dd.classList.remove('open');
+                        });
+                    });
+                }
+            }
+            container.appendChild(article);
+        });
     }
+
 };
 
 console.log("page-profile.js: Script PARSEADO y EJECUTADO exitosamente.");
+
+
+
+
+
+
+

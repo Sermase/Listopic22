@@ -1453,7 +1453,7 @@ const adminUpdateAllPlaces = onCall(async (request) => {
             }
 
             // Campos soportados por Place Details legacy
-            const fields = "name,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components";
+            const fields = "name,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components,rating,user_ratings_total";
             const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${apiKey}&fields=${fields}&language=es`;
 
             try {
@@ -1465,6 +1465,8 @@ const adminUpdateAllPlaces = onCall(async (request) => {
                     const updateData = {
                         name: result.name,
                         formatted_address: result.formatted_address,
+                        address: result.formatted_address,
+                        address_normalized: result.formatted_address ? result.formatted_address.toLowerCase() : (placeData.address_normalized || null),
                         'location.latitude': result.geometry?.location?.lat,
                         'location.longitude': result.geometry?.location?.lng,
                         googleMapsUrl: result.url,
@@ -1473,6 +1475,8 @@ const adminUpdateAllPlaces = onCall(async (request) => {
                         website: result.website,
                         phone: result.international_phone_number,
                         vicinity: result.vicinity,
+                        googleRating: typeof result.rating === 'number' ? result.rating : (placeData.googleRating ?? null),
+                        googleUserRatingsTotal: typeof result.user_ratings_total === 'number' ? result.user_ratings_total : (placeData.googleUserRatingsTotal ?? null),
                         // Si en el futuro usamos Places v1, podremos mapear accessibilityOptions/serviceOptions.
                         // De momento, preservamos lo existente en la BD.
                         accessibility: placeData.accessibility || null,
@@ -1578,7 +1582,7 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
     }
 
     const placeRef = db.collection('places').doc(documentId);
-    const fields = "name,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components";
+    const fields = "name,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components,rating,user_ratings_total";
     const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${googlePlaceId}&key=${apiKey}&fields=${fields}&language=es`;
 
     try {
@@ -1590,6 +1594,8 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
             const updateData = {
                 name: result.name,
                 formatted_address: result.formatted_address,
+                address: result.formatted_address,
+                address_normalized: result.formatted_address ? result.formatted_address.toLowerCase() : null,
                 location: { // Asegurarse de que el objeto location se actualiza correctamente
                     latitude: result.geometry?.location?.lat,
                     longitude: result.geometry?.location?.lng,
@@ -1600,6 +1606,8 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
                 website: result.website,
                 phone: result.international_phone_number,
                 vicinity: result.vicinity,
+                googleRating: typeof result.rating === 'number' ? result.rating : null,
+                googleUserRatingsTotal: typeof result.user_ratings_total === 'number' ? result.user_ratings_total : null,
                 updatedAt: FieldValue.serverTimestamp()
             };
             
@@ -1637,6 +1645,7 @@ const toggleFollowPlace = onCall({cors: true}, async (request) => {
     }
 
     const placeRef = db.collection('places').doc(placeId);
+    const placeFollowerRef = placeRef.collection('followers').doc(userId);
     const userFollowingRef = db.collection('users').doc(userId).collection('following');
     const userFollowDoc = userFollowingRef.doc(placeId);
 
@@ -1654,6 +1663,7 @@ const toggleFollowPlace = onCall({cors: true}, async (request) => {
         if (followDoc.exists) {
             logger.info(`Usuario ${userId} deja de seguir el lugar ${placeId}.`);
             batch.delete(userFollowDoc);
+            batch.delete(placeFollowerRef);
             batch.update(placeRef, { followersCount: FieldValue.increment(-1) });
             batch.update(db.collection('users').doc(userId), { followingCount: FieldValue.increment(-1) });
         } else {
@@ -1662,6 +1672,7 @@ const toggleFollowPlace = onCall({cors: true}, async (request) => {
                 placeId: placeId,
                 followedAt: FieldValue.serverTimestamp()
             });
+            batch.set(placeFollowerRef, { userId, followedAt: FieldValue.serverTimestamp() });
             batch.update(placeRef, { followersCount: FieldValue.increment(1) });
             batch.update(db.collection('users').doc(userId), { followingCount: FieldValue.increment(1) });
             status = 'followed';
@@ -1679,6 +1690,129 @@ const toggleFollowPlace = onCall({cors: true}, async (request) => {
         }
         throw new HttpsError('internal', 'Ocurrió un error inesperado al seguir/dejar de seguir el lugar.', error.message);
     }
+});
+
+// --- FUNCIÓN CALLABLE: toggleFollowList ---
+const toggleFollowList = onCall({cors: true}, async (request) => {
+    const contextAuth = request.auth;
+    const { listId } = request.data || {};
+
+    if (!contextAuth) {
+        logger.warn("toggleFollowList: llamada no autenticada.");
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado para seguir una lista.');
+    }
+    if (!listId) {
+        logger.warn(`toggleFollowList: listId no proporcionado por el usuario ${contextAuth.uid}.`);
+        throw new HttpsError('invalid-argument', 'Se requiere el ID de la lista (listId).');
+    }
+
+    const userId = contextAuth.uid;
+    const listRef = db.collection('lists').doc(listId);
+    const userRef = db.collection('users').doc(userId);
+    const userFollowingListRef = userRef.collection('followingLists').doc(listId);
+    const listFollowerRef = listRef.collection('followers').doc(userId);
+
+    try {
+        const listDoc = await listRef.get();
+        if (!listDoc.exists) {
+            throw new HttpsError('not-found', 'La lista no existe.');
+        }
+        const listData = listDoc.data();
+        // Si la lista es privada y no es del usuario, no permitir seguir
+        if (listData.isPublic === false && listData.userId !== userId) {
+            throw new HttpsError('permission-denied', 'No puedes seguir una lista privada.');
+        }
+
+        const already = await userFollowingListRef.get();
+        const batch = db.batch();
+        let status = 'unfollowed';
+        let message = 'Has dejado de seguir esta lista.';
+
+        if (already.exists) {
+            batch.delete(userFollowingListRef);
+            batch.delete(listFollowerRef);
+            batch.update(listRef, { followersCount: FieldValue.increment(-1) });
+            batch.update(userRef, { followingCount: FieldValue.increment(-1) });
+        } else {
+            batch.set(userFollowingListRef, { listId, followedAt: FieldValue.serverTimestamp() });
+            batch.set(listFollowerRef, { userId, followedAt: FieldValue.serverTimestamp() });
+            batch.update(listRef, { followersCount: FieldValue.increment(1) });
+            batch.update(userRef, { followingCount: FieldValue.increment(1) });
+            status = 'followed';
+            message = 'Ahora sigues esta lista.';
+        }
+
+        await batch.commit();
+        return { status, message };
+    } catch (error) {
+        logger.error(`Error en toggleFollowList para usuario ${userId} y lista ${listId}:`, error);
+        if (error.code) throw error;
+        throw new HttpsError('internal', 'Ocurrió un error al seguir/dejar de seguir la lista.', error.message);
+    }
+});
+
+// --- FUNCIÓN CALLABLE: adminUpdateSingleListAggregates ---
+const adminUpdateSingleListAggregates = onCall(async (request) => {
+    const contextAuth = request.auth;
+    if (!contextAuth) {
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+    }
+    // Admin check
+    try {
+        const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
+        if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
+        }
+    } catch (error) {
+        logger.error("adminUpdateSingleListAggregates: Error al verificar permisos", error);
+        throw new HttpsError('internal', 'Error al verificar permisos.');
+    }
+
+    const { listId } = request.data || {};
+    if (!listId) {
+        throw new HttpsError('invalid-argument', 'Se requiere listId.');
+    }
+
+    const listRef = db.collection('lists').doc(listId);
+    try {
+        // Contar reseñas en subcolección de la lista
+        const reviewsSnap = await listRef.collection('reviews').get();
+        const reviewCount = reviewsSnap.size;
+        // Contar comentarios en el foro real: listForums/{listId}/messages
+        const forumMsgsSnap = await db.collection('listForums').doc(listId).collection('messages').get();
+        const commentsCount = forumMsgsSnap.size;
+        // Contar seguidores
+        const followersSnap = await listRef.collection('followers').get();
+        const followersCount = followersSnap.size;
+
+        await listRef.update({
+            reviewCount,
+            commentsCount,
+            followersCount,
+            updatedAt: FieldValue.serverTimestamp(),
+        });
+        logger.info(`adminUpdateSingleListAggregates: ${listId} => r:${reviewCount} c:${commentsCount} f:${followersCount}`);
+        return { success: true, reviewCount, commentsCount, followersCount };
+    } catch (e) {
+        logger.error(`adminUpdateSingleListAggregates error para ${listId}:`, e);
+        throw new HttpsError('internal', 'Error al recalcular agregados de la lista.');
+    }
+});
+
+// Mantener commentsCount sincronizado con los mensajes del foro
+const updateAggregatesOnForumMessageChange = onDocumentWritten("listForums/{listId}/messages/{messageId}", async (event) => {
+  // Ignorar actualizaciones que no cambian el número de mensajes
+  if (event.data.before.exists && event.data.after.exists) return null;
+  const listId = event.params.listId;
+  try {
+    const forumMsgsSnap = await db.collection('listForums').doc(listId).collection('messages').get();
+    const commentsCount = forumMsgsSnap.size;
+    await db.collection('lists').doc(listId).update({ commentsCount });
+    logger.info(`commentsCount actualizado para lista ${listId}: ${commentsCount}`);
+  } catch (e) {
+    logger.error(`Error actualizando commentsCount para lista ${listId}:`, e);
+  }
+  return null;
 });
 
 // En functions/modules/core.js
@@ -1711,6 +1845,9 @@ module.exports = {
     adminUpdateAllPlaces,
     adminGetCollection,
     adminUpdateSinglePlace,
+    adminUpdateSingleListAggregates,
+    updateAggregatesOnForumMessageChange,
     toggleFollowPlace,
+    toggleFollowList,
     getDistance,
 };

@@ -1,4 +1,4 @@
-// Contenido completo para uiUtils.js
+﻿// Contenido completo para uiUtils.js
 
 window.ListopicApp = window.ListopicApp || {};
 
