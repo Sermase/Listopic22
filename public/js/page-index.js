@@ -2,6 +2,38 @@
 
 window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageIndex = (() => {
+    let globalMapInstance = null;
+    let currentTileLayer = null;
+
+    const tileLayers = {
+        light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    };
+
+    // Utilidades del pin (reutilizadas de list-view)
+    const createPlaceIconSvg = (score, color = '#118AB2') => {
+        const textColor = 'white';
+        const s = (score == null ? 0 : score).toFixed(1);
+        const gid = `pin_${String(s).replace('.', 'p')}_${Math.random().toString(36).slice(2,7)}`;
+        return `
+            <svg width="40" height="50" viewBox="0 0 40 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="${gid}" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:${color}; stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:black; stop-opacity:0.4" />
+                    </linearGradient>
+                </defs>
+                <path d="M20 0C9.5 0 1 8.5 1 19C1 31.5 18.5 48.5 20 50C21.5 48.5 39 31.5 39 19C39 8.5 30.5 0 20 0Z" fill="url(#${gid})" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" />
+                <circle cx="20" cy="19" r="14" fill="white" fill-opacity="0.2"/>
+                <text x="50%" y="43%" dominant-baseline="middle" text-anchor="middle" font-family="'Poppins', sans-serif" font-size="14" font-weight="700" fill="${textColor}">${s}</text>
+            </svg>`;
+    };
+    function getIconByScore(score) {
+        const scoreNum = parseFloat(score) || 0;
+        const color = ListopicApp.uiUtils.getRatingHexColor(scoreNum);
+        return L.divIcon({ html: createPlaceIconSvg(scoreNum, color), className: '', iconSize: [40, 50], iconAnchor: [20, 50], popupAnchor: [0, -50] });
+    }
+
     async function init() {
         console.log('Initializing Index page logic (epic)...');
 
@@ -183,6 +215,104 @@ ListopicApp.pageIndex = (() => {
                 console.error('INDEX: Error loading following feed', e);
                 feed.innerHTML = `<p class=\"error-placeholder\">${e.message}</p>`;
             }
+        }
+
+        // 5) Mapa global de lugares (modal como en list-view)
+        const mapModal = document.getElementById('global-map-modal');
+        const mapContainer = document.getElementById('global-map-container');
+        const openBtn = document.getElementById('show-global-map-modal-btn');
+        const closeBtn = document.getElementById('close-global-map-modal-btn');
+
+        function openGlobalMapModal() {
+            if (!mapModal) return;
+            mapModal.classList.add('active');
+            setTimeout(async () => {
+                if (!globalMapInstance && mapContainer && window.L) {
+                    const initialTheme = document.body.classList.contains('light-theme') ? 'light' : 'dark';
+                    globalMapInstance = L.map(mapContainer).setView([40.4167, -3.703], 5);
+                    currentTileLayer = L.tileLayer(tileLayers[initialTheme], { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(globalMapInstance);
+                    document.addEventListener('themeChanged', (ev) => {
+                        const newTheme = ev.detail.theme;
+                        currentTileLayer && currentTileLayer.setUrl(tileLayers[newTheme]);
+                    });
+                    try {
+                        const snap = await ListopicApp.services.db.collection('places').get();
+                        const places = snap.docs.map(doc => {
+                            const p = doc.data() || {};
+                            return {
+                                id: doc.id,
+                                name: p.name || 'Lugar',
+                                location: p.location,
+                                mainImageUrl: p.mainImageUrl || null,
+                                avgGeneralScore: typeof p.averageRating === 'number' ? p.averageRating : null,
+                                reviewsCount: p.reviewsCount || 0,
+                            };
+                        }).filter(p => p.location && typeof p.location.latitude === 'number' && typeof p.location.longitude === 'number' && (p.reviewsCount || 0) > 0 && (p.avgGeneralScore || 0) > 0);
+                        addGlobalPlacesToMap(places);
+                } catch (e) { console.error('INDEX: Error cargando lugares para el mapa global', e); }
+                } else if (globalMapInstance) {
+                    globalMapInstance.invalidateSize();
+                }
+            }, 10);
+        }
+        function closeGlobalMapModal() {
+            if (mapModal) mapModal.classList.remove('active');
+        }
+        openBtn && openBtn.addEventListener('click', openGlobalMapModal);
+        closeBtn && closeBtn.addEventListener('click', closeGlobalMapModal);
+        mapModal && mapModal.addEventListener('click', (e) => { if (e.target === mapModal) closeGlobalMapModal(); });
+    }
+
+    function addGlobalPlacesToMap(places) {
+        if (!globalMapInstance || !places) return;
+        const markers = [];
+        places.forEach(place => {
+            if (place.location?.latitude && place.location?.longitude) {
+                const m = L.marker([place.location.latitude, place.location.longitude], { icon: getIconByScore(place.avgGeneralScore) });
+
+                // Popup básico con placeholder de items
+                const popupId = `popup_items_${place.id}`;
+                const popupContent = `
+                    <div class="listopic-map-popup">
+                        ${place.mainImageUrl ? `<div class="popup-image" style="background-image: url('${ListopicApp.uiUtils.escapeHtml(place.mainImageUrl)}')"></div>` : ''}
+                        <div class="popup-content">
+                            <h5 class="popup-title">${ListopicApp.uiUtils.escapeHtml(place.name)}</h5>
+                            <div id="${popupId}" class="popup-items"><div class="loading-placeholder">Cargando elementos...</div></div>
+                            <a href="place-detail.html?placeId=${place.id}" class="popup-link button submit-button">Ver lugar</a>
+                        </div>
+                    </div>`;
+
+                m.bindPopup(popupContent);
+                m.on('dblclick', () => {
+                    window.location.href = `place-detail.html?placeId=${place.id}`;
+                });
+                m.on('popupopen', async () => {
+                    try {
+                        const getPlaceDetails = firebase.app().functions('europe-west1').httpsCallable('getPlaceDetails');
+                        const res = await getPlaceDetails({ placeId: place.id });
+                        const groups = res.data?.groups || [];
+                        const itemsHtml = groups.length ? groups.map(g => `
+                                <div class="popup-item__row">
+                                    <span class="popup-item__name">${ListopicApp.uiUtils.escapeHtml(g.itemName || 'General')}</span>
+                                    <span class="score-badge">${(g.avgGeneralScore || 0).toFixed(1)}</span>
+                                </div>
+                            `).join('') : '<div class="popup-item__row"><span class="popup-item__name">Sin elementos aún</span></div>';
+                        const el = document.getElementById(popupId);
+                        if (el) el.innerHTML = itemsHtml;
+                    } catch (e) {
+                        const el = document.getElementById(popupId);
+                        if (el) el.innerHTML = '<div class="popup-item__row"><span class="popup-item__name">Error al cargar</span></div>';
+                    }
+                });
+
+                markers.push(m);
+                m.addTo(globalMapInstance);
+            }
+        });
+        if (markers.length) {
+            const fg = L.featureGroup(markers);
+            const bounds = fg.getBounds();
+            globalMapInstance.fitBounds(bounds.pad(0.1));
         }
     }
 

@@ -11,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 
     <link rel="icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16x16.png">
@@ -73,7 +74,7 @@
                     <span class="logo-petal p4"></span>
                     <span class="logo-petal p5"></span>
                 </h1>
-                <p class="hero-subtitle">Tu rincón personal de valoraciones. Crea listas, puntúa, comparte.</p>
+                <!-- <p class="hero-subtitle">Tu rincón personal de valoraciones. Crea listas, puntúa, comparte.</p> -->
                 
                 </section>
 
@@ -95,6 +96,20 @@
                         </a>
                     </div>
                     <div class="trending-tags" id="trending-tags" aria-live="polite" aria-label="Tendencias"></div>
+                </section>
+                <section>
+                    <div class="list-view-actions" style="margin: 12px 0;">
+                        <button type="button" id="show-global-map-modal-btn" class="button secondary-button">
+                            <i class="fas fa-map-marked-alt"></i> Ver mapa de lugares
+                        </button>
+                    </div>
+                    <div id="global-map-modal" class="modal">
+                        <div class="modal-content map-modal-content">
+                            <span class="close-modal" id="close-global-map-modal-btn" title="Cerrar mapa">&times;</span>
+                            <h2 id="global-map-title">Mapa de Lugares</h2>
+                            <div id="global-map-container"></div>
+                        </div>
+                    </div>
                 </section>
                 <section>
                     <h2>Listas populares</h2>
@@ -121,7 +136,7 @@
 
             <div class="tab-content active" id="following">
                 <section>
-                    <h2>Actividad reciente</h2>
+                    <!-- <h2>Actividad reciente</h2> -->
                     <div id="feed-container" class="feed-container" aria-live="polite">
                         <p class="loading-placeholder">Cargando novedades...</p>
                     </div>
@@ -144,7 +159,7 @@
     <script src="js/uiUtils.js"></script>
     <script src="js/themeManager.js"></script>
     <script src="js/main.js"></script>
-
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="js/page-index.js"></script>
 
 </body>

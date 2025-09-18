@@ -143,6 +143,8 @@ ListopicApp.pageReviewForm = (() => {
         const state = ListopicApp.state;
         const urlParams = new URLSearchParams(window.location.search);
         const listId = urlParams.get('listId');
+        const prefillPlaceId = urlParams.get('placeId');
+        const prefillItemName = urlParams.get('itemName');
         const reviewIdToEdit = urlParams.get('editId');
 
         if (listId) {
@@ -175,6 +177,25 @@ ListopicApp.pageReviewForm = (() => {
             const findNearbyBtn = document.getElementById('find-nearby-btn');
             const searchByNameBtn = document.getElementById('search-by-name-btn');
             const toggleManualLocationBtn = document.getElementById('toggle-manual-location-btn');
+
+            // Prefill desde URL: lugar e item
+            if (prefillItemName && itemNameInput) {
+                itemNameInput.value = prefillItemName;
+            }
+            if (prefillPlaceId && ListopicApp.services?.db) {
+                try {
+                    ListopicApp.services.db.collection('places').doc(prefillPlaceId).get()
+                        .then(placeDoc => {
+                            if (placeDoc.exists) {
+                                const placeDataWithId = { id: placeDoc.id, ...placeDoc.data() };
+                                uiUtils.updateReviewFormWithPlace(placeDataWithId);
+                            }
+                        })
+                        .catch(e => console.warn('No se pudo precargar el lugar en el formulario', e));
+                } catch (e) {
+                    console.warn('No se pudo precargar el lugar en el formulario', e);
+                }
+            }
 
             if (toggleManualLocationBtn) {
                 toggleManualLocationBtn.addEventListener('click', () => {

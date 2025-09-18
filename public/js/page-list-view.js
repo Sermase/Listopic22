@@ -15,6 +15,45 @@ ListopicApp.pageListView = (() => {
     let forumModal, closeModalForumBtn, forumListNameSpan, forumMessagesContainer,
         newForumMessageInput, sendForumMessageBtn, messagesCollectionRef;
 
+    // Estado inicial del mapa si viene codificado en la URL
+    let initialMapParams = null; // { open, lat, lng, zoom }
+
+    function setMapParamsInUrl(open, center, zoom) {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            if (open) {
+                params.set('map', '1');
+                if (center) {
+                    params.set('mlat', center.lat.toFixed(6));
+                    params.set('mlng', center.lng.toFixed(6));
+                }
+                if (typeof zoom === 'number') params.set('mzoom', String(zoom));
+            } else {
+                params.delete('map');
+                params.delete('mlat');
+                params.delete('mlng');
+                params.delete('mzoom');
+            }
+            const newUrl = `${window.location.pathname}?${params.toString()}`;
+            window.history.replaceState(null, '', newUrl);
+        } catch (e) { /* noop */ }
+    }
+
+    function readMapParamsFromUrl() {
+        const p = new URLSearchParams(window.location.search);
+        const open = p.get('map') === '1';
+        if (!open) return { open: false };
+        const lat = parseFloat(p.get('mlat'));
+        const lng = parseFloat(p.get('mlng'));
+        const zoom = parseInt(p.get('mzoom') || '0', 10);
+        return {
+            open: true,
+            lat: isFinite(lat) ? lat : null,
+            lng: isFinite(lng) ? lng : null,
+            zoom: isFinite(zoom) ? zoom : null
+        };
+    }
+
     // Filtros extra y mapa de opciones de lugares
     const extraFiltersState = {
         placeOptionsMap: new Map(),
@@ -268,6 +307,18 @@ ListopicApp.pageListView = (() => {
         }
     }
 
+    // Devuelve top 3 elementos por lugar desde el estado si no vienen desde backend
+    function topItemsFromState(placeId) {
+        try {
+            const groups = (ListopicApp.state?._allGroupedItemsBase || []).filter(g => g.placeId === placeId);
+            if (!groups.length) return [];
+            return groups
+                .map(g => ({ name: g.itemName || 'General', avg: g.avgGeneralScore || 0, count: g.itemCount }))
+                .sort((a,b) => (b.avg || 0) - (a.avg || 0))
+                .slice(0, 3);
+        } catch(e) { return []; }
+    }
+
     function addPlacesToMap(places) {
         if (!listMapInstance || !places) return;
         markersMap.forEach(marker => marker.remove());
@@ -281,16 +332,37 @@ ListopicApp.pageListView = (() => {
                 const customIcon = getIconByScore(place.avgGeneralScore);
                 const marker = L.marker([place.location.latitude, place.location.longitude], { icon: customIcon });
                 
+                const items = Array.isArray(place.items) && place.items.length ? place.items.slice(0, 3) : topItemsFromState(place.id);
+                const itemsHtml = items.length ? `
+                    <div class="popup-items">
+                        ${items.map(it => `
+                            <a class="popup-item__row" href="grouped-detail-view.html?listId=${ListopicApp.state.currentListId}&placeId=${place.id}&item=${encodeURIComponent(it.name)}">
+                                <span class="popup-item__name">${ListopicApp.uiUtils.escapeHtml(it.name)}</span>
+                                <span class="score-badge">${(it.avg || 0).toFixed(1)}</span>
+                            </a>`).join('')}
+                    </div>` : '';
+
                 const popupContent = `
                 <div class="listopic-map-popup">
                     ${place.mainImageUrl ? `<div class="popup-image" style="background-image: url('${ListopicApp.uiUtils.escapeHtml(place.mainImageUrl)}')"></div>` : ''}
                     <div class="popup-content">
                         <h5 class="popup-title">${ListopicApp.uiUtils.escapeHtml(place.name)}</h5>
-                        <a href="grouped-detail-view.html?listId=${ListopicApp.state.currentListId}&placeId=${place.id}" class="popup-link button submit-button">Ver reseñas</a>
+                        ${itemsHtml}
+                        <a href="place-detail.html?placeId=${place.id}" class="popup-link button submit-button">Ver lugar</a>
                     </div>
                 </div>
                 `;
                 marker.bindPopup(popupContent);
+                // Clic: abrir popup y reflejar en la URL que el mapa está abierto
+                marker.on('click', () => {
+                    try {
+                        const center = listMapInstance.getCenter();
+                        const zoom = listMapInstance.getZoom();
+                        setMapParamsInUrl(true, center, zoom);
+                    } catch(e) {}
+                });
+                // Doble clic en el pin abre directamente la página del lugar
+                marker.on('dblclick', () => { window.location.href = `place-detail.html?placeId=${place.id}`; });
                 markers.push(marker);
                 markersMap.set(place.id, marker); 
             }
@@ -572,6 +644,20 @@ if (state.currentListId) {
         // Pre-cargar opciones de lugares para filtros extra
         try { await preloadPlaceOptionsForGroups(state._allGroupedItemsBase); } catch(e) { console.warn('No se pudieron precargar opciones de lugares', e); }
         applyFiltersAndSort_ListView_Grouped();
+
+        // Restaurar el estado del mapa si venimos de atrás con parámetros en la URL
+        initialMapParams = readMapParamsFromUrl();
+        if (initialMapParams && initialMapParams.open) {
+            // Abrimos el modal del mapa y restauramos vista tras inicializar
+            openMapModal();
+            setTimeout(() => {
+                try {
+                    if (listMapInstance && initialMapParams.lat != null && initialMapParams.lng != null) {
+                        listMapInstance.setView([initialMapParams.lat, initialMapParams.lng], initialMapParams.zoom || listMapInstance.getZoom());
+                    }
+                } catch(e) {}
+            }, 120);
+        }
     })
     .catch(error => {
         console.error("LIST-VIEW: Error en fetch o procesamiento:", error);

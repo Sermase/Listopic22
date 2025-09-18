@@ -18,14 +18,15 @@ try {
     const ALGOLIA_ADMIN_KEY = process.env.ALGOLIA_API_KEY;
 
     if (!ALGOLIA_APP_ID || !ALGOLIA_ADMIN_KEY) {
-        logger.error("FATAL: Variables de entorno de Algolia no definidas. Las funciones de Algolia no operarán.");
+        // Downgrade a warning para no bloquear análisis/despliegue
+        logger.warn("Algolia: variables de entorno no definidas. Módulo inactivo.");
     } else {
         algoliaClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_ADMIN_KEY);
         index = algoliaClient.initIndex('lists'); // Índice por defecto
         logger.info("Cliente de Algolia inicializado correctamente desde variables de entorno.");
     }
 } catch (e) {
-    logger.error("FATAL: Excepción al inicializar el cliente de Algolia.", e);
+    logger.warn("Algolia: Excepción al inicializar el cliente (módulo inactivo).", e);
 }
 
 // ===================================================================

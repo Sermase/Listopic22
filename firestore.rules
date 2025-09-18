@@ -22,7 +22,12 @@ service cloud.firestore {
       allow read: if true;
       allow list: if request.auth != null && isJefe(request.auth.uid);
       // Un usuario puede crear/editarse a sí mismo.
-      allow create, update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && (
+        (
+          request.auth.uid == userId && request.resource.data.userType == resource.data.userType
+        ) || isJefe(request.auth.uid)
+      );
       // Un usuario puede borrarse a sí mismo O un jefe puede borrarlo.
       allow delete: if request.auth != null && (request.auth.uid == userId || isJefe(request.auth.uid)); // <-- CAMBIO: Añadido permiso de borrado para jefe.
 

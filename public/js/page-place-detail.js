@@ -43,6 +43,7 @@ ListopicApp.pagePlaceDetail = {
             listsCount: document.getElementById('place-lists-count'),
             reviewsContainer: document.getElementById('place-reviews-container'),
             groupsContainer: document.getElementById('place-groups-container'),
+            addReviewGlobalBtn: document.getElementById('add-review-global-btn'),
             googleRating: document.getElementById('place-google-rating'), // Añadido
             tabButtons: document.querySelectorAll('.profile-tab-button'),
             tabContents: document.querySelectorAll('.profile-tab-content'),
@@ -97,6 +98,7 @@ ListopicApp.pagePlaceDetail = {
             this.renderPlaceDetails(placeInfo);
             this.renderReviews(this.originalReviews);
             this.renderGroups(this.originalGroups);
+            this.setupGlobalAddReviewButton(this.originalGroups, this.originalReviews);
 
         } catch (error) {
             console.error("Error CRÍTICO al cargar los datos de la página del lugar:", error);
@@ -266,23 +268,66 @@ ListopicApp.pagePlaceDetail = {
         }
     
         const groupId = encodeURIComponent(`${group.establishmentName}-${group.itemName}`);
-    
+        const avg = (group.avgGeneralScore || 0).toFixed(1);
+        const addReviewHref = group.listId ? `review-form.html?listId=${group.listId}&placeId=${encodeURIComponent(group.placeId || this.placeId)}&itemName=${encodeURIComponent(group.itemName || '')}` : '';
+        const detailHref = `grouped-detail-view.html?listId=${group.listId}&placeId=${encodeURIComponent(group.placeId || this.placeId)}&item=${encodeURIComponent(group.itemName || '')}`;
+        const thumbHtml = group.thumbnailUrl
+            ? `<img class=\"group-card-thumb\" src=\"${this.escapeHtml(group.thumbnailUrl)}\" alt=\"${this.escapeHtml(group.itemName)}\">`
+            : `<div class=\"group-card-icon\"><i class=\"fas ${groupIcon}\"></i></div>`;
+
+        const listSourceHtml = group.listName ? `<span class="group-card-list-source">de la lista: ${this.escapeHtml(group.listName)}</span>` : '';
+
         return `
             <div class="group-card-item">
-                <a href="grouped-detail-view.html?groupId=${groupId}&placeId=${group.placeId}">
-                    <div class="group-card-icon">
-                        <i class="fas ${groupIcon}"></i>
-                    </div>
+                <a class="group-card-link" href="${detailHref}">
+                    ${thumbHtml}
                     <div class="group-card-info">
                         <strong class="group-card-name">${this.escapeHtml(group.itemName)}</strong>
-                        <span class="group-card-list-source">
-                            de la lista: ${this.escapeHtml(group.listName || 'N/A')}
-                        </span>
+                        ${listSourceHtml}
                         ${tagsHtml}
                     </div>
                 </a>
+                <div class="group-card-actions">
+                    <div class="group-card-score" title="Valoración media">
+                        <span class="score-badge">${avg}</span>
+                    </div>
+                    ${addReviewHref ? `<a class=\"button secondary-button\" href=\"${addReviewHref}\"><i class=\"fas fa-plus\"></i> Valorar</a>` : ''}
+                </div>
             </div>
         `;
+    },
+
+    // Configura el botón global "Valorar este lugar" eligiendo una lista por defecto
+    setupGlobalAddReviewButton: function(groups, latestReviews) {
+        try {
+            const btn = this.elements.addReviewGlobalBtn;
+            if (!btn) return;
+
+            const freq = new Map();
+            (groups || []).forEach(g => {
+                if (g.listId) freq.set(g.listId, (freq.get(g.listId) || 0) + 1);
+            });
+            if (freq.size === 0 && Array.isArray(latestReviews) && latestReviews.length > 0) {
+                const firstWithList = latestReviews.find(r => !!r.listId);
+                if (firstWithList) freq.set(firstWithList.listId, 1);
+            }
+            if (freq.size === 0) {
+                btn.style.display = 'none';
+                return;
+            }
+            let bestListId = null; let bestCount = -1;
+            for (const [listId, count] of freq.entries()) {
+                if (count > bestCount) { bestCount = count; bestListId = listId; }
+            }
+            if (bestListId) {
+                btn.href = `review-form.html?listId=${bestListId}&placeId=${encodeURIComponent(this.placeId)}`;
+                btn.style.display = 'inline-flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        } catch (e) {
+            console.warn('[place-detail] No se pudo configurar botón global de reseña', e);
+        }
     },
     // --- NUEVAS FUNCIONES PARA SEGUIMIENTO ---
 

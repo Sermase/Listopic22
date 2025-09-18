@@ -13,12 +13,11 @@ ListopicApp.placesService = (() => {
             throw new Error(`URL para la función '${functionName}' no está configurada.`);
         }
 
-        // Adjuntar userId del usuario autenticado
+        // Requerir usuario autenticado y adjuntar ID token como Authorization Bearer
         const currentUser = ListopicApp.services.auth.currentUser;
         if (!currentUser) {
             throw new Error("Usuario no autenticado. No se puede realizar la llamada a Places.");
         }
-        params.userId = currentUser.uid;
 
         const queryString = new URLSearchParams(params).toString();
         const fullUrl = `${effectiveUrl}?${queryString}`;
@@ -26,7 +25,12 @@ ListopicApp.placesService = (() => {
         console.log(`[placesService] Calling function '${functionName}' with URL: ${fullUrl}`);
 
         try {
-            const response = await fetch(fullUrl);
+            const idToken = await currentUser.getIdToken();
+            const response = await fetch(fullUrl, {
+                headers: {
+                    'Authorization': `Bearer ${idToken}`
+                }
+            });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: `Error HTTP ${response.status}` }));
                 throw new Error(errorData.message || `Error ${response.status} en el servicio de Places.`);
@@ -39,8 +43,8 @@ ListopicApp.placesService = (() => {
     }
     
     // Obtener detalles completos del lugar
-    async function fetchPlaceDetails(placeId, userId) {
-        return await callPlaceFunction('getPlaceDetailsFromGoogle', { placeid: placeId, userId: userId });
+    async function fetchPlaceDetails(placeId) {
+        return await callPlaceFunction('getPlaceDetailsFromGoogle', { placeid: placeId });
     }
 
     // Pintar sugerencias
@@ -70,7 +74,7 @@ ListopicApp.placesService = (() => {
                 suggestionsBox.innerHTML = `<p>Obteniendo detalles de "${place.name}"...</p>`;
                 
                 try {
-                    const detailedPlace = await fetchPlaceDetails(place.place_id, currentUser.uid);
+                    const detailedPlace = await fetchPlaceDetails(place.place_id);
 
                     if (detailedPlace && window.ListopicApp.uiUtils && window.ListopicApp.uiUtils.updateReviewFormWithPlace) {
                         window.ListopicApp.uiUtils.updateReviewFormWithPlace(detailedPlace);
