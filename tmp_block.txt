@@ -1,0 +1,3 @@
+                    <div class="review-super-card__score">
+                        <span class="score-value" style="color: ${this.getRatingColor(overallRating)};">${overallRating}</span>
+                    </div>

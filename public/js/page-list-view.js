@@ -1,4 +1,4 @@
-window.ListopicApp = window.ListopicApp || {};
+﻿window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageListView = (() => {
     // Variables de estado
     let currentSortColumn = 'avgGeneralScore';
@@ -802,18 +802,20 @@ if (mapModal) mapModal.addEventListener('click', (e) => { if (e.target === mapMo
         const listId = (ListopicApp.state && ListopicApp.state.currentListId) || (new URLSearchParams(window.location.search)).get('listId');
         if (!listId) return;
         const updateBtnUI = () => {
-            if (!followListBtn) return;
-            if (isFollowingList) {
-                followListBtn.innerHTML = '<i class="fas fa-check"></i> Siguiendo';
-                followListBtn.classList.add('secondary-button');
-                followListBtn.title = 'Siguiendo lista';
-            } else {
-                followListBtn.innerHTML = '<i class="fas fa-bookmark"></i> Seguir lista';
-                followListBtn.classList.remove('secondary-button');
-                followListBtn.title = 'Seguir lista';
-            }
-            followListBtn.style.display = 'inline-flex';
-        };
+    if (!followListBtn) return;
+    if (isFollowingList) {
+        followListBtn.innerHTML = '<i class="fas fa-check"></i> Siguiendo';
+        followListBtn.title = 'Siguiendo lista';
+        followListBtn.classList.remove('follow-cta-button');
+        followListBtn.classList.add('secondary-button');
+    } else {
+        followListBtn.innerHTML = '<i class="fas fa-bookmark"></i> Seguir lista';
+        followListBtn.title = 'Seguir lista';
+        followListBtn.classList.remove('secondary-button');
+        followListBtn.classList.add('follow-cta-button');
+    }
+    followListBtn.style.display = 'inline-flex';
+};
         const checkStatus = async () => {
             const user = auth.currentUser;
             if (!user) { // Mostrar el botón aunque no haya sesión
@@ -822,7 +824,7 @@ if (mapModal) mapModal.addEventListener('click', (e) => { if (e.target === mapMo
                 return;
             }
             try {
-                const doc = await db.collection('lists').doc(listId).collection('followers').doc(user.uid).get();
+                const doc = await db.collection('users').doc(user.uid).collection('followingLists').doc(listId).get();
                 isFollowingList = doc.exists;
                 updateBtnUI();
             } catch(e) { updateBtnUI(); }
@@ -882,3 +884,5 @@ window.addEventListener('popstate', () => {
         init
     };
 })();
+
+

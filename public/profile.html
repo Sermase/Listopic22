@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -19,19 +19,22 @@
     <meta property="og:url" content="https://listopic.web.app/index.html">
     <meta property="og:type" content="website">
 
-    <script src="js/main.js" defer></script>
+        <!-- Firebase SDKs - Cargar primero -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
+
+    <!-- Módulos de la app -->
     <script src="js/config.js" defer></script>
     <script src="js/firebaseService.js" defer></script>
     <script src="js/uiUtils.js" defer></script>
     <script src="js/themeManager.js" defer></script>
     <script src="js/places-service.js" defer></script>
     <script src="js/authService.js" defer></script>
+    <script src="js/main.js" defer></script>
     <script src="js/page-profile.js" defer></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
 
 </head>
 
@@ -120,8 +123,7 @@
                         <p class="loading-placeholder">Cargando reseñas...</p>
                     </div>
                 </div>
-                <div id="lists-content" class="profile-tab-content">
-                     <ul id="my-lists-ul" class="profile-item-list">
+                <div id="lists-content" class="profile-tab-content">\n                     <div class="list-toggle" id="lists-toggle-main" style="display:flex;gap:8px;margin:8px 0 12px;"></div>\n                     <ul id="my-lists-ul" class="profile-item-list">
                         <li class="loading-placeholder">Cargando listas...</li>
                     </ul>
                 </div>
@@ -182,5 +184,32 @@
     <footer>
         <p>&copy; <span id="current-year"></span> Listopic. All rights reserved.</p>
     </footer>
+
+    <!-- Modal conexiones: Seguidores / Siguiendo / Listas -->
+    <div id="connections-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="close-connections-modal-btn">&times;</span>
+            <h2 id="connections-title">Conexiones</h2>
+            <div class="profile-tabs" id="connections-tabs">
+                <button class="profile-tab-button" data-tab="followers">Seguidores</button>
+                <button class="profile-tab-button" data-tab="following">Siguiendo</button>
+                <button class="profile-tab-button" data-tab="lists">Listas</button>
+            </div>
+            <div id="connections-content">
+                <div id="tab-followers" class="profile-tab-content">
+                    <div id="followers-list" class="profile-item-list"><p class="loading-placeholder">Cargando seguidores...</p></div>
+                </div>
+                <div id="tab-following" class="profile-tab-content">
+                    <div id="following-list" class="profile-item-list"><p class="loading-placeholder">Cargando seguidos...</p></div>
+                </div>
+                <div id="tab-lists" class="profile-tab-content">
+                    <div class="list-toggle" id="lists-toggle" style="display:flex;gap:8px;margin-bottom:12px;"></div>
+                    <ul id="modal-lists-ul" class="profile-item-list"><li class="loading-placeholder">Cargando listas...</li></ul>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
+
+
