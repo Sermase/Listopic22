@@ -247,7 +247,7 @@ ListopicApp.pageIndex = (() => {
                                 avgGeneralScore: typeof p.averageRating === 'number' ? p.averageRating : null,
                                 reviewsCount: p.reviewsCount || 0,
                             };
-                        }).filter(p => p.location && typeof p.location.latitude === 'number' && typeof p.location.longitude === 'number' && (p.reviewsCount || 0) > 0);
+                        }).filter(p => p.location && typeof p.location.latitude === 'number' && typeof p.location.longitude === 'number' && (p.reviewsCount || 0) > 0 && (p.avgGeneralScore || 0) > 0);
                         addGlobalPlacesToMap(places);
                 } catch (e) { console.error('INDEX: Error cargando lugares para el mapa global', e); }
                 } else if (globalMapInstance) {
@@ -311,7 +311,8 @@ ListopicApp.pageIndex = (() => {
         });
         if (markers.length) {
             const fg = L.featureGroup(markers);
-            globalMapInstance.fitBounds(fg.getBounds()).pad(0.1);
+            const bounds = fg.getBounds();
+            globalMapInstance.fitBounds(bounds.pad(0.1));
         }
     }
 

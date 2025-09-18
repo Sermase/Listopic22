@@ -444,7 +444,7 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                     placeDoc.createdAt = FieldValue.serverTimestamp();
                     placeDoc.followersCount = 0; // Inicializar campos específicos de la app
                     placeDoc.reviewsCount = 0;
-                    placeDoc.averageRating = 0;
+                    placeDoc.averageRating = null; // null hasta que existan reseñas
                 }
                 
                 // 4. Guardamos los datos. `merge: true` sigue siendo útil para no borrar otros campos.
