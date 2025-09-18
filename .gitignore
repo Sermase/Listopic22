@@ -4,3 +4,7 @@ node_modules/
 listopic-ser-firebase-adminsdk-key.json
 # Ignorar archivos de entorno con variables sensibles
 .env
+# Ignore any env files in functions
+functions/.env*
+functions/.env.*
+functions/.env.listopic

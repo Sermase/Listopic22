@@ -10,6 +10,23 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const db = getFirestore();
 
+// Helper: fetch place docs by IDs in chunks of 10 (Firestore 'in' limit)
+async function getPlaceDocsByIds(ids) {
+  if (!ids || ids.length === 0) return [];
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += 10) {
+    chunks.push(ids.slice(i, i + 10));
+  }
+  const results = [];
+  for (const chunk of chunks) {
+    const snap = await db
+      .collection('places')
+      .where(admin.firestore.FieldPath.documentId(), 'in', chunk)
+      .get();
+    results.push(...snap.docs);
+  }
+  return results;
+}
 
 const groupedReviews = onRequest(
     async (req, res) => {
@@ -42,7 +59,7 @@ const groupedReviews = onRequest(
               const placeIds = [...new Set(reviews.map(r => r.placeId).filter(id => !!id))];
               const placesDataMap = new Map();
               if (placeIds.length > 0) {
-                  const placeDocs = await db.collection('places').where(admin.firestore.FieldPath.documentId(), 'in', placeIds).get();
+                  const placeDocs = await getPlaceDocsByIds(placeIds);
                   placeDocs.forEach(doc => placesDataMap.set(doc.id, doc.data()));
               }
 
@@ -330,13 +347,26 @@ const provinceMap = {
 const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
     cors(req, res, async () => {
         // 1. AHORA ACEPTAMOS EL userId DESDE LA PETICIÓN
-        const { placeid, userId } = req.query;
+        // Autenticación: requerir ID token en Authorization: Bearer <token>
+        try {
+            const authHeader = req.get('Authorization') || '';
+            const m = authHeader.match(/^Bearer\s+(.*)$/i);
+            if (!m) {
+                return res.status(401).json({ message: 'No autorizado: falta token Bearer.' });
+            }
+            const decoded = await admin.auth().verifyIdToken(m[1]);
+            req.user = { uid: decoded.uid };
+        } catch (e) {
+            return res.status(401).json({ message: 'No autorizado: token inválido.' });
+        }
+
+        const { placeid } = req.query;
         const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
         if (!placeid) {
             return res.status(400).json({ message: "El ID del lugar (placeid) es requerido." });
         }
-        if (!userId) {
+        if (false) {
             return res.status(400).json({ message: "El ID del usuario (userId) es requerido para asignar la autoría." });
         }
         if (!apiKey) {
@@ -410,7 +440,7 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
 
                 // 3. SI NO EXISTE, AÑADIMOS LOS CAMPOS DE CREACIÓN
                 if (!docSnapshot.exists) {
-                    placeDoc.createdByUserId = userId;
+                    placeDoc.createdByUserId = req.user.uid;
                     placeDoc.createdAt = FieldValue.serverTimestamp();
                     placeDoc.followersCount = 0; // Inicializar campos específicos de la app
                     placeDoc.reviewsCount = 0;
@@ -1088,7 +1118,7 @@ const getPlacesForList = onCall({cors: true}, async (request) => {
             return { places: [] };
         }
 
-        const placeDocs = await db.collection('places').where(admin.firestore.FieldPath.documentId(), 'in', placeIds).get();
+        const placeDocs = await getPlaceDocsByIds(placeIds);
 
         const placesForMap = [];
         placeDocs.forEach(doc => {
@@ -1396,7 +1426,7 @@ const adminUpdateAllPlaces = onCall(async (request) => {
         throw new HttpsError('internal', 'Error al verificar permisos.');
     }
 
-    const apiKey = 'AIzaSyDXUk2b2VZu6Ui-HlBMZeMeQGBvzaSpHvE'; // TEMPORARY DEBUGGING - CHANGE TO process.env.GOOGLE_PLACES_API_KEY
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
         logger.error("adminUpdateAllPlaces: GOOGLE_PLACES_API_KEY no está disponible.");
         throw new HttpsError('internal', 'Error de configuración del servidor (Places API Key no encontrada).');

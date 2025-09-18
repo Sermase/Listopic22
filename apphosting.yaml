@@ -13,7 +13,6 @@ env:
   # See https://firebase.google.com/docs/app-hosting/configure#user-defined-environment
   - variable: GOOGLE_PLACES_API_KEY
     secret: google-places-api-key # <-- ¡CAMBIO IMPORTANTE!
-    value: 'AIzaSyBV26T665w65z1FNdDk8mwHSH1o0c2PeW8'
     availability:
       - RUNTIME
 
