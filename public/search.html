@@ -51,22 +51,35 @@
     <main>
         <div class="container search-page-container">
             <h1 class="brand-title">Explora Listopic</h1>
+            <div class="search-layout">
+                <aside class="search-filters-panel" id="search-filters-panel">
+                    <div class="filters-panel-header">
+                        <h2 id="filters-header-label">Filtros</h2>
+                        <button type="button" id="clear-filters-btn" class="filters-clear-btn" disabled>Limpiar</button>
+                    </div>
+                    <div id="filters-panel-content" class="filters-panel-content">
+                        <p class="filters-placeholder">Selecciona un tipo de contenido para ver filtros.</p>
+                    </div>
+                </aside>
 
-            <div class="search-input-area form-group">
-                <input type="search" id="main-search-input" class="form-input large-search-input" placeholder="Buscar elementos, listas, usuarios...">
-                <button type="button" id="execute-search-btn" class="submit-button primary-button">
-                    <i class="fas fa-search"></i>
-                </button>
-            </div>
-            <div class="entity-type-filters form-group">
-                <button class="tag-filter-button entity-type-btn active" data-type="all"><i class="fas fa-globe"></i> Todo</button>
-                <button class="tag-filter-button entity-type-btn" data-type="items"><i class="fas fa-star"></i> Elementos</button>
-                <button class="tag-filter-button entity-type-btn" data-type="lists"><i class="fas fa-list-alt"></i> Listas</button>
-                <button class="tag-filter-button entity-type-btn" data-type="places"><i class="fas fa-map-marker-alt"></i> Lugares</button>
-                <button class="tag-filter-button entity-type-btn" data-type="users"><i class="fas fa-user"></i> Usuarios</button>
-            </div>
-            <div id="search-results-area" class="search-results-container">
-                <p class="search-placeholder">Introduce tu búsqueda para ver resultados.</p>
+                <section class="search-results-column">
+                    <div class="search-input-area form-group">
+                        <input type="search" id="main-search-input" class="form-input large-search-input" placeholder="Buscar elementos, listas, usuarios...">
+                        <button type="button" id="execute-search-btn" class="submit-button primary-button">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <div class="entity-type-filters form-group">
+                        <button class="tag-filter-button entity-type-btn active" data-type="all"><i class="fas fa-globe"></i> Todo</button>
+                        <button class="tag-filter-button entity-type-btn" data-type="items"><i class="fas fa-star"></i> Elementos</button>
+                        <button class="tag-filter-button entity-type-btn" data-type="lists"><i class="fas fa-list-alt"></i> Listas</button>
+                        <button class="tag-filter-button entity-type-btn" data-type="places"><i class="fas fa-map-marker-alt"></i> Lugares</button>
+                        <button class="tag-filter-button entity-type-btn" data-type="users"><i class="fas fa-user"></i> Usuarios</button>
+                    </div>
+                    <div id="search-results-area" class="search-results-container">
+                        <p class="search-placeholder">Introduce tu busqueda para ver resultados.</p>
+                    </div>
+                </section>
             </div>
         </div>
     </main>

@@ -535,6 +535,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
     // ==========================================================
 
     createListCard: function(listData, id) {
+        const creatorName = this.escapeHtml(listData.authorName || listData.ownerName || 'Anonimo');
         return `
             <a href="list-view.html?listId=${id}" class="search-card">
                 <div class="search-card__icon-container">
@@ -544,8 +545,8 @@ createListViewGroupCard: function(group, listData, listIcon) {
                     <h4 class="search-card__title">${this.escapeHtml(listData.name)}</h4>
                     <div class="search-card__tags">
                         <span class="info-tag info-tag--list"><i class="fas fa-stream"></i> Lista</span>
-                        <span class="info-tag"><i class="fas fa-user"></i> ${this.escapeHtml(listData.authorName || 'Anónimo')}</span>
-                        <span class="info-tag"><i class="fas fa-pencil-alt"></i> ${listData.reviewCount || 0} reseñas</span>
+                        <span class="info-tag"><i class="fas fa-user"></i> ${creatorName}</span>
+                        <span class="info-tag"><i class="fas fa-pencil-alt"></i> ${listData.reviewCount || 0} resenas</span>
                     </div>
                 </div>
             </a>
@@ -592,19 +593,32 @@ createListViewGroupCard: function(group, listData, listIcon) {
     },
 
     createGroupedItemCard: function(itemData) {
-         // Los items agrupados no tienen una página de detalle propia, enlazan a la vista de lista con un filtro (esto es más complejo)
-         // Por ahora, no lo haremos enlazable.
+        const uiUtils = this;
+        const ratingValue = typeof itemData.avgGeneralScore === "number"
+            ? itemData.avgGeneralScore
+            : (typeof itemData.averageRating === "number" ? itemData.averageRating : null);
+        const ratingTag = ratingValue !== null
+            ? `<span class="info-tag"><i class="fas fa-star-half-alt"></i> Media: ${ratingValue.toFixed(1)}</span>`
+            : '';
+        const listTag = itemData.listName
+            ? `<span class="info-tag"><i class="fas fa-list"></i> ${uiUtils.escapeHtml(itemData.listName)}</span>`
+            : '';
+        const cityTag = itemData.placeCity
+            ? `<span class="info-tag"><i class="fas fa-city"></i> ${uiUtils.escapeHtml(itemData.placeCity)}</span>`
+            : '';
         return `
             <div class="search-card">
                 <div class="search-card__icon-container">
                     <i class="fas fa-star"></i>
                 </div>
                 <div class="search-card__content">
-                    <h4 class="search-card__title">${this.escapeHtml(itemData.itemName || 'Elemento sin nombre')}</h4>
-                    <p class="search-card__subtitle">${this.escapeHtml(itemData.establishmentName || '')}</p>
-                     <div class="search-card__tags">
+                    <h4 class="search-card__title">${uiUtils.escapeHtml(itemData.itemName || 'Elemento sin nombre')}</h4>
+                    <p class="search-card__subtitle">${uiUtils.escapeHtml(itemData.establishmentName || '')}</p>
+                    <div class="search-card__tags">
                         <span class="info-tag info-tag--item"><i class="fas fa-box-open"></i> Elemento</span>
-                        <span class="info-tag"><i class="fas fa-star-half-alt"></i> Media: ${itemData.averageRating ? itemData.averageRating.toFixed(1) : 'N/A'}</span>
+                        ${listTag}
+                        ${cityTag}
+                        ${ratingTag}
                     </div>
                 </div>
             </div>
