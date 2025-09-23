@@ -19,7 +19,8 @@ ListopicApp.placesService = (() => {
             throw new Error("Usuario no autenticado. No se puede realizar la llamada a Places.");
         }
 
-        const queryString = new URLSearchParams(params).toString();
+        const paramsWithUser = Object.assign({}, params || {}, { userId: (params && params.userId) ? params.userId : currentUser.uid });
+        const queryString = new URLSearchParams(paramsWithUser).toString();
         const fullUrl = `${effectiveUrl}?${queryString}`;
 
         console.log(`[placesService] Calling function '${functionName}' with URL: ${fullUrl}`);
