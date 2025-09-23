@@ -693,3 +693,36 @@ createListViewGroupCard: function(group, listData, listIcon) {
         });
     }
 };
+
+// Override de createGroupedItemCard con soporte de enlace y campos actuales
+ListopicApp.uiUtils.createGroupedItemCard = function(itemData) {
+    const listId = itemData.listId;
+    const placeId = itemData.placeId;
+    const itemName = itemData.itemName || '';
+    const avg = typeof itemData.avgGeneralScore === 'number' ? itemData.avgGeneralScore.toFixed(1) : 'N/A';
+    const count = typeof itemData.itemCount === 'number' ? itemData.itemCount : 0;
+
+    const imageHtml = itemData.thumbnailUrl
+        ? `<img src="${this.escapeHtml(itemData.thumbnailUrl)}" alt="Miniatura">`
+        : '<i class="fas fa-star"></i>';
+
+    const inner = `
+        <div class="search-card__icon-container">
+            ${imageHtml}
+        </div>
+        <div class="search-card__content">
+            <h4 class="search-card__title">${this.escapeHtml(itemData.itemName || 'Elemento sin nombre')}</h4>
+            <p class="search-card__subtitle">${this.escapeHtml(itemData.establishmentName || '')}</p>
+            <div class="search-card__tags">
+                <span class="info-tag info-tag--item"><i class="fas fa-box-open"></i> Elemento</span>
+                <span class="info-tag"><i class="fas fa-star-half-alt"></i> Media: ${avg}</span>
+                <span class="info-tag"><i class="fas fa-hashtag"></i> ${count} reseñas</span>
+            </div>
+        </div>`;
+
+    if (listId && placeId) {
+        const href = `grouped-detail-view.html?listId=${encodeURIComponent(listId)}&placeId=${encodeURIComponent(placeId)}&item=${encodeURIComponent(itemName)}`;
+        return `<a href="${href}" class="search-card">${inner}</a>`;
+    }
+    return `<div class="search-card">${inner}</div>`;
+};
