@@ -54,7 +54,8 @@ ListopicApp.config = {
         getPlaceDetails: "https://getplacedetails-jz4x2l2cfq-ew.a.run.app",
         // Alias para compatibilidad: algunas partes del frontend usan este nombre
         getPlaceDetailsFromGoogle: "https://getplacedetailsfromgoogle-jz4x2l2cfq-ew.a.run.app",
-        reverseGeocode: "https://europe-west1-listopic.cloudfunctions.net/reverseGeocode" 
+        reverseGeocode: "https://europe-west1-listopic.cloudfunctions.net/reverseGeocode",
+        storageImageProxy: "https://europe-west1-listopic.cloudfunctions.net/storageImageProxy"
     },
     // Añade aquí tus claves de Algolia cuando las tengas en un lugar seguro
     ALGOLIA_APP_ID: 'FI4Q0XQABV',

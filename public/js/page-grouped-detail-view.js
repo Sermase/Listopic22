@@ -146,7 +146,11 @@ ListopicApp.pageGroupedDetailView = (() => {
                 if (state.lightboxImageUrls.length > 0) {
                     // 1. Creamos el HTML para cada imagen
                     groupImageGalleryEl.innerHTML = state.lightboxImageUrls.map((url, index) =>
-                        `<img src="${uiUtils.escapeHtml(url)}" alt="Imagen de ${uiUtils.escapeHtml(placeData.name)}" class="gallery-thumbnail" data-lightbox-index="${index}">`
+                        uiUtils.createImageTag(url, `Imagen de ${placeData.name || 'lugar'}`, {
+                            className: 'gallery-thumbnail',
+                            placeholder: 'img/listopic-logo.png',
+                            attributes: { 'data-lightbox-index': index }
+                        })
                     ).join('');
                     
                     // 2. AÑADIMOS EL "PEGAMENTO": Buscamos cada imagen y le decimos que abra el lightbox al hacer clic

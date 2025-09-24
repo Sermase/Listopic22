@@ -172,6 +172,168 @@ ListopicApp.uiUtils = {
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     },
 
+    isFirebaseStorageUrl: function(url) {
+        if (typeof url !== 'string' || url.trim() === '') return false;
+        try {
+            const parsed = new URL(url);
+            const host = parsed.hostname.toLowerCase();
+            if (host === 'firebasestorage.googleapis.com' || host === 'storage.googleapis.com') {
+                return true;
+            }
+            if (host.endsWith('.firebasestorage.app')) {
+                return true;
+            }
+            return false;
+        } catch (error) {
+            return false;
+        }
+    },
+
+    normalizeImageUrl: function(src, placeholder) {
+        const fallback = typeof placeholder === 'string' && placeholder.trim() !== '' ? placeholder.trim() : '';
+        let candidate = typeof src === 'string' ? src.trim() : '';
+
+        if (!candidate && fallback) {
+            candidate = fallback;
+        }
+
+        if (candidate && candidate.startsWith('http://')) {
+            candidate = 'https://' + candidate.substring(7);
+        }
+
+        let sanitized = candidate;
+        try {
+            if (candidate) {
+                const parsed = new URL(candidate, window.location.origin);
+                if (parsed.protocol !== 'https:' && parsed.protocol !== 'data:' && parsed.protocol !== 'blob:') {
+                    parsed.protocol = 'https:';
+                }
+                sanitized = parsed.toString();
+            }
+        } catch (error) {
+            sanitized = candidate;
+        }
+
+        const proxy = this.buildStorageProxyUrl(sanitized);
+
+        return {
+            current: sanitized,
+            original: sanitized,
+            placeholder: fallback,
+            proxy
+        };
+    },
+
+    buildStorageProxyUrl: function(url) {
+        if (typeof url !== 'string' || url.trim() === '') return '';
+        const proxyBase = ListopicApp?.config?.FUNCTION_URLS?.storageImageProxy;
+        if (!proxyBase) return '';
+        if (!this.isFirebaseStorageUrl(url)) return '';
+        try {
+            return `${proxyBase}?url=${encodeURIComponent(url)}`;
+        } catch (error) {
+            return '';
+        }
+    },
+
+    createImageTag: function(src, altText, options = {}) {
+        const opts = options || {};
+        const placeholder = opts.placeholder || '';
+        const className = opts.className || '';
+        const loadingValue = opts.loading === null ? null : (opts.loading || 'lazy');
+        const extraAttributes = opts.attributes || {};
+        const meta = this.normalizeImageUrl(src, placeholder);
+
+        const attributes = [];
+        const finalSrc = meta.current || meta.placeholder || '';
+        attributes.push(`src="${this.escapeHtml(finalSrc)}"`);
+
+        const safeAlt = typeof altText === 'string' ? altText : '';
+        attributes.push(`alt="${this.escapeHtml(safeAlt)}"`);
+
+        if (className) {
+            attributes.push(`class="${this.escapeHtml(className)}"`);
+        }
+
+        if (loadingValue) {
+            attributes.push(`loading="${this.escapeHtml(loadingValue)}"`);
+        }
+
+        if (meta.original) {
+            attributes.push(`data-original-src="${this.escapeHtml(meta.original)}"`);
+        }
+        if (meta.proxy) {
+            attributes.push(`data-proxy-src="${this.escapeHtml(meta.proxy)}"`);
+        }
+        if (meta.placeholder) {
+            attributes.push(`data-placeholder="${this.escapeHtml(meta.placeholder)}"`);
+        }
+
+        Object.entries(extraAttributes).forEach(([key, value]) => {
+            if (value === undefined || value === null) return;
+            attributes.push(`${this.escapeHtml(String(key))}="${this.escapeHtml(String(value))}"`);
+        });
+
+        attributes.push('onerror="ListopicApp.uiUtils.handleImageError(event)"');
+
+        return `<img ${attributes.join(' ')}>`;
+    },
+
+    setImageWithFallback: function(imgElement, src, options = {}) {
+        if (!imgElement) return;
+        const opts = options || {};
+        const placeholder = opts.placeholder || '';
+        const altText = typeof opts.altText === 'string' ? opts.altText : '';
+        const loadingValue = opts.loading === null ? null : (opts.loading || 'lazy');
+        const meta = this.normalizeImageUrl(src, placeholder);
+
+        if (altText) {
+            imgElement.alt = altText;
+        }
+        if (loadingValue) {
+            imgElement.loading = loadingValue;
+        }
+
+        if (imgElement.dataset) {
+            if (meta.proxy) imgElement.dataset.proxySrc = meta.proxy; else delete imgElement.dataset.proxySrc;
+            if (meta.placeholder) imgElement.dataset.placeholder = meta.placeholder; else delete imgElement.dataset.placeholder;
+            if (meta.original) imgElement.dataset.originalSrc = meta.original; else delete imgElement.dataset.originalSrc;
+            delete imgElement.dataset.retriedProxy;
+            delete imgElement.dataset.replacedWithPlaceholder;
+        }
+
+        delete imgElement._listopicTriedProxy;
+        delete imgElement._listopicUsedPlaceholder;
+
+        imgElement.removeEventListener('error', this.handleImageError);
+        imgElement.addEventListener('error', this.handleImageError);
+
+        imgElement.src = meta.current || meta.placeholder || '';
+    },
+
+    handleImageError: function(event) {
+        const img = event && event.target ? event.target : null;
+        if (!img) return;
+
+        const dataset = img.dataset || {};
+        const proxySrc = dataset.proxySrc;
+        const placeholder = dataset.placeholder || 'img/listopic-logo.png';
+
+        if (!img._listopicTriedProxy && proxySrc && img.src !== proxySrc) {
+            img._listopicTriedProxy = true;
+            img.src = proxySrc;
+            return;
+        }
+
+        if (!img._listopicUsedPlaceholder && placeholder && img.src !== placeholder) {
+            img._listopicUsedPlaceholder = true;
+            img.src = placeholder;
+            return;
+        }
+
+        img.onerror = null;
+    },
+
     // ==========================================================
 // === FUNCIÓN CENTRALIZADA: SUPER TARJETA RESEÑA v3.0 =====
 // ==========================================================
@@ -185,7 +347,7 @@ ListopicApp.uiUtils = {
         const author = review.author || {};
         const authorId = author.id || review.userId;
         const authorName = uiUtils.escapeHtml(author.name || 'Usuario Anónimo');
-        const authorPhoto = uiUtils.escapeHtml(author.photoUrl || 'img/placeholder-avatar.png');
+        const authorPhotoUrl = author.photoUrl || 'img/placeholder-avatar.png';
 
         const place = review.place || {};
         const placeId = place.id || review.placeId;
@@ -227,8 +389,16 @@ ListopicApp.uiUtils = {
             : '';
 
         const imageHtml = review.photoUrl
-            ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(review.itemName)}" class="review-super-card__image">`
+            ? uiUtils.createImageTag(review.photoUrl, `Foto de ${review.itemName || 'reseña'}`, {
+                className: 'review-super-card__image',
+                placeholder: 'img/listopic-logo.png'
+            })
             : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
+
+        const authorImageHtml = uiUtils.createImageTag(authorPhotoUrl, `Avatar de ${author.name || 'Usuario'}`, {
+            className: 'author-avatar',
+            placeholder: 'img/placeholder-avatar.png'
+        });
         
         // --- 3. Ensamblado Final ---
         return `
@@ -236,7 +406,7 @@ ListopicApp.uiUtils = {
                 <header class="review-super-card__header">
                     <div class="header-main-info">
                         <a href="profile.html?viewUserId=${authorId}" class="author-link" onclick="event.stopPropagation()">
-                            <img src="${authorPhoto}" alt="Avatar de ${authorName}" class="author-avatar">
+                            ${authorImageHtml}
                             <span class="author-name">${authorName}</span>
                         </a>
                         <div class="list-highlight">

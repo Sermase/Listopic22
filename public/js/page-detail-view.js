@@ -69,8 +69,10 @@ ListopicApp.pageDetailView = (() => {
                 
                 if (detailImageEl && detailImageEl.parentNode) {
                     if (reviewDataGlobal.photoUrl) {
-                        detailImageEl.src = reviewDataGlobal.photoUrl;
-                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'reseña')}`;
+                        uiUtils.setImageWithFallback(detailImageEl, reviewDataGlobal.photoUrl, {
+                            placeholder: 'img/listopic-logo.png',
+                            altText: `Foto de ${reviewDataGlobal.itemName || 'reseña'}`
+                        });
                         detailImageEl.style.display = 'block';
                         const placeholderIcon = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
                         if(placeholderIcon) placeholderIcon.style.display = 'none';

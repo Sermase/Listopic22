@@ -160,7 +160,10 @@ ListopicApp.pageProfile = {
     // Dentro del objeto ListopicApp.pageProfile
     openPhotoModal: function() {
         if (this.elements.enlargedProfilePhoto && this.elements.photoModal && this.profileData.photoUrl) {
-            this.elements.enlargedProfilePhoto.src = this.profileData.photoUrl;
+            ListopicApp.uiUtils.setImageWithFallback(this.elements.enlargedProfilePhoto, this.profileData.photoUrl, {
+                placeholder: 'img/default-avatar.png',
+                altText: this.profileData.displayName || this.profileData.username || 'Usuario'
+            });
             this.elements.photoModal.classList.add('active');
         }
     },
@@ -338,7 +341,10 @@ ListopicApp.pageProfile = {
             }
         }
         if (this.elements.profilePhotoDisplay) {
-            this.elements.profilePhotoDisplay.src = photoUrl || 'img/default-avatar.png';
+            ListopicApp.uiUtils.setImageWithFallback(this.elements.profilePhotoDisplay, photoUrl, {
+                placeholder: 'img/default-avatar.png',
+                altText: displayName || username || 'Usuario'
+            });
         }
         
         // --- RENDERIZADO DE LAS ESTADÍSTICAS ---
@@ -368,7 +374,15 @@ ListopicApp.pageProfile = {
 
     showImagePreview: function(src) {
         if (this.elements.editPhotoPreview) {
-            this.elements.editPhotoPreview.innerHTML = src ? `<img src="${src}" alt="Previsualización">` : '';
+            if (src) {
+                this.elements.editPhotoPreview.innerHTML = ListopicApp.uiUtils.createImageTag(src, 'Previsualización', {
+                    className: 'preview-image',
+                    placeholder: 'img/default-avatar.png',
+                    loading: 'eager'
+                });
+            } else {
+                this.elements.editPhotoPreview.innerHTML = '';
+            }
         }
     },
     

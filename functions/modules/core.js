@@ -10,6 +10,28 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { buildGroupedItemsForList } = require("./grouped-aggregator");
 
 const db = getFirestore();
+const storageBucketName = (admin.app().options && admin.app().options.storageBucket) || process.env.FIREBASE_STORAGE_BUCKET || '';
+
+function extractBucketFromUrl(parsedUrl) {
+  if (!parsedUrl || !parsedUrl.hostname) return null;
+  const host = parsedUrl.hostname.toLowerCase();
+
+  if (host === 'firebasestorage.googleapis.com') {
+    const match = parsedUrl.pathname.match(/\/v0\/b\/([^/]+)\//);
+    return match ? match[1] : null;
+  }
+
+  if (host === 'storage.googleapis.com') {
+    const segments = parsedUrl.pathname.split('/').filter(Boolean);
+    return segments.length > 0 ? segments[0] : null;
+  }
+
+  if (host.endsWith('.firebasestorage.app')) {
+    return parsedUrl.hostname;
+  }
+
+  return null;
+}
 
 // Helper: fetch place docs by IDs in chunks of 10 (Firestore 'in' limit)
 async function getPlaceDocsByIds(ids) {
@@ -215,6 +237,90 @@ const placesTextSearch = onRequest(async (req, res) => {
         } catch (error) {
             logger.error("placesTextSearch: Error al contactar Google Places API", error);
             res.status(500).json({ message: "Error interno al buscar lugares por texto." });
+        }
+    });
+});
+
+const storageImageProxy = onRequest(async (req, res) => {
+    cors(req, res, async () => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Vary', 'Origin');
+
+        if (req.method === 'OPTIONS') {
+            res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            res.set('Access-Control-Allow-Headers', 'Content-Type');
+            return res.status(204).send('');
+        }
+
+        if (req.method !== 'GET') {
+            return res.status(405).json({ error: 'Método no permitido' });
+        }
+
+        const rawUrlParam = typeof req.query.url === 'string'
+            ? req.query.url
+            : (typeof req.query.src === 'string' ? req.query.src : '');
+
+        if (!rawUrlParam) {
+            return res.status(400).json({ error: 'Parámetro url requerido' });
+        }
+
+        let decodedParam;
+        try {
+            decodedParam = decodeURIComponent(rawUrlParam);
+        } catch (error) {
+            decodedParam = rawUrlParam;
+        }
+
+        let targetUrl;
+        try {
+            targetUrl = new URL(decodedParam);
+        } catch (error) {
+            return res.status(400).json({ error: 'URL inválida' });
+        }
+
+        if (targetUrl.protocol !== 'https:') {
+            return res.status(400).json({ error: 'Solo se permiten URLs https' });
+        }
+
+        const bucketFromUrl = extractBucketFromUrl(targetUrl);
+        if (!bucketFromUrl) {
+            return res.status(403).json({ error: 'Bucket no permitido' });
+        }
+
+        if (storageBucketName && bucketFromUrl !== storageBucketName) {
+            return res.status(403).json({ error: 'Bucket no permitido' });
+        }
+
+        try {
+            const upstream = await fetch(targetUrl.toString());
+            if (!upstream.ok) {
+                const upstreamBody = await upstream.text();
+                return res.status(upstream.status).send(upstreamBody);
+            }
+
+            const cacheControl = upstream.headers.get('cache-control') || 'public, max-age=300';
+            res.set('Cache-Control', cacheControl);
+
+            const contentType = upstream.headers.get('content-type');
+            if (contentType) {
+                res.set('Content-Type', contentType);
+            }
+
+            const contentLength = upstream.headers.get('content-length');
+            if (contentLength) {
+                res.set('Content-Length', contentLength);
+            }
+
+            const contentDisposition = upstream.headers.get('content-disposition');
+            if (contentDisposition) {
+                res.set('Content-Disposition', contentDisposition);
+            }
+
+            const arrayBuffer = await upstream.arrayBuffer();
+            return res.status(200).send(Buffer.from(arrayBuffer));
+        } catch (error) {
+            logger.error('storageImageProxy: Error obteniendo recurso de Storage', error);
+            return res.status(500).json({ error: 'No se pudo obtener el recurso solicitado.' });
         }
     });
 });
@@ -1719,6 +1825,7 @@ module.exports = {
     groupedReviews,
     placesNearbyRestaurants,
     placesTextSearch,
+    storageImageProxy,
     getPlaceDetailsFromGoogle,
     deleteOrOrphanList,
     createList,
