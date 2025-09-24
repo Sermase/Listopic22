@@ -21,7 +21,15 @@ const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 const storage = firebase.storage();
-const functions = firebase.functions();
+let functions = null;
+
+if (typeof firebase.functions === 'function') {
+    functions = firebase.functions();
+} else if (firebase.app && typeof firebase.app === 'function' && typeof firebase.app().functions === 'function') {
+    functions = firebase.app().functions();
+} else {
+    console.warn('[config] Firebase Functions SDK no disponible. Algunas funcionalidades podrían no estar activas.');
+}
 
 // 3. LÓGICA PARA CONECTAR A LOS EMULADORES EN LOCAL (sin cambios)
 /*
