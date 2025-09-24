@@ -1,139 +1,579 @@
-// ===================================================================
-// ===            MÓDULO DE FUNCIONES DE ALGOLIA (CORREGIDO)       ===
-// ===            ARCHIVO: functions/algolia.js                  ===
-// ===================================================================
+'use strict';
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const algoliasearch = require("algoliasearch");
+const { buildGroupedItemsForList } = require("./grouped-aggregator");
 
-// --- INICIALIZACIÓN SEGURA DE ALGOLIA ---
-let index;
-let algoliaClient;
+let algoliaClient = null;
+const indices = {};
+const ensuredSettings = new Set();
 
-try {
-    const ALGOLIA_APP_ID = process.env.ALGOLIA_APP_ID;
-    const ALGOLIA_ADMIN_KEY = process.env.ALGOLIA_API_KEY;
-
-    if (!ALGOLIA_APP_ID || !ALGOLIA_ADMIN_KEY) {
-        // Downgrade a warning para no bloquear análisis/despliegue
-        logger.warn("Algolia: variables de entorno no definidas. Módulo inactivo.");
-    } else {
-        algoliaClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_ADMIN_KEY);
-        index = algoliaClient.initIndex('lists'); // Índice por defecto
-        logger.info("Cliente de Algolia inicializado correctamente desde variables de entorno.");
+(function initAlgoliaClient() {
+    const appId = process.env.ALGOLIA_APP_ID;
+    const apiKey = process.env.ALGOLIA_API_KEY;
+    if (!appId || !apiKey) {
+        logger.warn("Algolia: environment variables not configured. Module inactive.");
+        return;
     }
-} catch (e) {
-    logger.warn("Algolia: Excepción al inicializar el cliente (módulo inactivo).", e);
+    try {
+        algoliaClient = algoliasearch(appId, apiKey);
+        logger.info("Algolia client initialised.");
+    } catch (error) {
+        logger.error("Algolia: unable to initialise client.", error);
+        algoliaClient = null;
+    }
+})();
+
+const COLLECTION_CONFIGS = {
+    lists: {
+        collection: "lists",
+        indexName: "lists",
+        transform: transformListRecord,
+        resolveObjectId: (docId) => docId
+    },
+    places: {
+        collection: "places",
+        indexName: "places",
+        transform: transformPlaceRecord,
+        resolveObjectId: (docId) => docId
+    },
+    users: {
+        collection: "users",
+        indexName: "users",
+        transform: transformUserRecord,
+        resolveObjectId: (docId) => docId
+    }
+};
+
+const INDEX_SETTINGS = {
+    lists: {
+        searchableAttributes: ["unordered(name)", "unordered(description)", "unordered(availableTags)", "unordered(categoryId)"],
+        attributesForFaceting: ["filterOnly(categoryId)", "availableTags", "ownerId"],
+        customRanking: ["desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"],
+        numericAttributesForFiltering: ["reviewCount", "followersCount"]
+    },
+    places: {
+        searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)"],
+        attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibility", "types"],
+        customRanking: ["desc(averageRating)", "desc(reviewsCount)"],
+        numericAttributesForFiltering: ["averageRating", "reviewsCount"]
+    },
+    users: {
+        searchableAttributes: ["unordered(username)", "unordered(bio)"],
+        attributesForFaceting: ["userType", "residence", "badges"],
+        customRanking: ["desc(followersCount)", "desc(reviewsCount)"],
+        numericAttributesForFiltering: ["followersCount", "reviewsCount"]
+    },
+    grouped_items: {
+        searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(groupTags)"],
+        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "groupTags", "placeCity", "placeProvince"],
+        customRanking: ["desc(avgGeneralScore)", "desc(reviewCount)"],
+        numericAttributesForFiltering: ["avgGeneralScore", "reviewCount"]
+    }
+};
+
+function getIndex(indexName) {
+    if (!algoliaClient) {
+        return null;
+    }
+    if (!indices[indexName]) {
+        indices[indexName] = algoliaClient.initIndex(indexName);
+    }
+    return indices[indexName];
 }
 
-// ===================================================================
-// ===       FUNCIONES DE SINCRONIZACIÓN AUTOMÁTICA              ===
-// ===================================================================
-// (Estas funciones se mantienen igual que las tenías)
-const onListCreated = onDocumentCreated("lists/{listId}", (event) => {
+async function getIndexWithSettings(indexName) {
+    const index = getIndex(indexName);
     if (!index) {
-        logger.error("onListCreated: El índice de Algolia no está disponible. Abortando.");
+        return null;
+    }
+    await ensureIndexSettings(indexName, index);
+    return index;
+}
+
+async function ensureIndexSettings(indexName, index) {
+    if (ensuredSettings.has(indexName)) {
         return;
     }
-    const snap = event.data;
-    if (!snap) { return; }
-    const data = snap.data();
-    data.objectID = snap.id;
-    return index.saveObject(data)
-        .then(() => logger.info(`ÉXITO: Objeto ${data.objectID} guardado en Algolia.`))
-        .catch(err => logger.error(`ERROR al guardar ${data.objectID} en Algolia:`, err));
-});
-
-const onListUpdated = onDocumentUpdated("lists/{listId}", (event) => {
-    if (!index) {
-        logger.error("onListUpdated: El índice de Algolia no está disponible. Abortando.");
+    const settings = INDEX_SETTINGS[indexName];
+    if (!settings) {
+        ensuredSettings.add(indexName);
         return;
     }
-    const snap = event.data?.after;
-    if (!snap) { return; }
-    const newData = snap.data();
-    newData.objectID = snap.id;
-    return index.saveObject(newData)
-        .then(() => logger.info(`ÉXITO: Objeto ${newData.objectID} actualizado en Algolia.`))
-        .catch(err => logger.error(`ERROR al actualizar ${newData.objectID} en Algolia:`, err));
-});
+    try {
+        await index.setSettings(settings);
+        ensuredSettings.add(indexName);
+    } catch (error) {
+        logger.error(`Algolia: failed to apply settings for ${indexName}`, error);
+    }
+}
 
-const onListDeleted = onDocumentDeleted("lists/{listId}", (event) => {
+function isNumber(value) {
+    return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNonEmptyString(value) {
+    return typeof value === "string" && value.trim().length > 0;
+}
+
+function toDate(value) {
+    if (!value) {
+        return null;
+    }
+    if (typeof value.toDate === "function") {
+        try {
+            return value.toDate();
+        } catch (_error) {
+            return null;
+        }
+    }
+    if (value instanceof Date) {
+        return value;
+    }
+    return null;
+}
+
+function toIsoString(value) {
+    const date = toDate(value);
+    return date ? date.toISOString() : null;
+}
+
+function toUnixSeconds(value) {
+    const date = toDate(value);
+    return date ? Math.floor(date.getTime() / 1000) : null;
+}
+
+function compactRecord(record) {
+    const result = {};
+    for (const [key, value] of Object.entries(record)) {
+        if (value === undefined) {
+            continue;
+        }
+        if (Array.isArray(value)) {
+            result[key] = value.filter((item) => item !== undefined && item !== null && item !== "");
+            continue;
+        }
+        result[key] = value;
+    }
+    return result;
+}
+
+function extractTrueKeys(obj) {
+    if (!obj || typeof obj !== "object") {
+        return [];
+    }
+    return Object.entries(obj)
+        .filter(([, value]) => value === true || value === "true")
+        .map(([key]) => key);
+}
+
+function extractGeolocFromData(data) {
+    if (!data || typeof data !== "object") {
+        return null;
+    }
+    const source = data.location || data.coordinates || data.geopoint || null;
+    if (!source) {
+        return null;
+    }
+    const lat = source.lat ?? source.latitude;
+    const lng = source.lng ?? source.longitude;
+    if (isNumber(lat) && isNumber(lng)) {
+        return { lat: Number(lat), lng: Number(lng) };
+    }
+    return null;
+}
+
+function buildFilterEquality(field, value) {
+    const text = String(value);
+    const needsQuotes = /[^A-Za-z0-9_-]/.test(text);
+    const escaped = text.replace(/"/g, '\\"');
+    return needsQuotes ? `${field}:"${escaped}"` : `${field}:${escaped}`;
+}
+
+function transformListRecord(data, docId) {
+    if (!data || data.isPublic === false) {
+        return null;
+    }
+    const tags = Array.isArray(data.availableTags) ? data.availableTags.filter(isNonEmptyString) : [];
+    const ownerName = [
+        data.authorName,
+        data.ownerName,
+        data.ownerDisplayName,
+        data.userDisplayName,
+        data.createdByName
+    ].find((value) => isNonEmptyString(value)) || null;
+    const ownerUsername = [data.ownerUsername, data.userHandle, data.username].find((value) => isNonEmptyString(value)) || null;
+    const record = {
+        objectID: docId,
+        entityType: "list",
+        name: data.name || "",
+        description: data.description || "",
+        summary: data.summary || "",
+        categoryId: data.categoryId || null,
+        availableTags: tags,
+        reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
+        followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
+        commentsCount: typeof data.commentsCount === "number" ? data.commentsCount : 0,
+        ownerId: data.userId || null,
+        authorName: ownerName || undefined,
+        ownerName: ownerName || undefined,
+        ownerUsername: ownerUsername || undefined,
+        isPublic: true,
+        createdAtISO: toIsoString(data.createdAt),
+        updatedAtISO: toIsoString(data.updatedAt),
+        updatedAtTimestamp: toUnixSeconds(data.updatedAt)
+    };
+    if (record.categoryId === null) {
+        delete record.categoryId;
+    }
+    return compactRecord(record);
+}
+
+function transformPlaceRecord(data, docId) {
+    if (!data) {
+        return null;
+    }
+    const serviceOptions = extractTrueKeys(data.serviceOptions);
+    const accessibility = extractTrueKeys(data.accessibility);
+    const geoloc = extractGeolocFromData(data);
+    const record = {
+        objectID: docId,
+        entityType: "place",
+        name: data.name || "",
+        address: data.address || data.formatted_address || "",
+        city: data.city || null,
+        province: data.province || data.region || null,
+        country: data.country || null,
+        postalCode: data.postalCode || null,
+        averageRating: typeof data.averageRating === "number" ? data.averageRating : (typeof data.googleRating === "number" ? data.googleRating : 0),
+        reviewsCount: typeof data.reviewsCount === "number" ? data.reviewsCount : (typeof data.googleUserRatingsTotal === "number" ? data.googleUserRatingsTotal : 0),
+        priceLevel: data.priceLevel ?? null,
+        serviceOptions,
+        accessibility,
+        types: Array.isArray(data.types) ? data.types : [],
+        googleMapsUrl: data.googleMapsUrl || data.url || null,
+        website: data.website || null,
+        phone: data.phone || null,
+        _geoloc: geoloc || undefined,
+        updatedAtISO: toIsoString(data.updatedAt),
+        lastGoogleSyncISO: toIsoString(data.lastGoogleSync)
+    };
+    if (!record._geoloc) {
+        delete record._geoloc;
+    }
+    if (!record.province) {
+        delete record.province;
+    }
+    if (!record.country) {
+        delete record.country;
+    }
+    return compactRecord(record);
+}
+
+function transformUserRecord(data, docId) {
+    if (!data) {
+        return null;
+    }
+    const userTypeArray = Array.isArray(data.userType)
+        ? data.userType.filter(isNonEmptyString)
+        : (isNonEmptyString(data.userType) ? [data.userType.trim()] : []);
+    const badges = Array.isArray(data.badges) ? data.badges.filter(isNonEmptyString) : [];
+    const record = {
+        objectID: docId,
+        entityType: "user",
+        username: data.username || "",
+        bio: data.bio || "",
+        userType: userTypeArray,
+        residence: data.residence || null,
+        badges,
+        followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
+        followingCount: typeof data.followingCount === "number" ? data.followingCount : 0,
+        reviewsCount: typeof data.reviewsCount === "number" ? data.reviewsCount : 0,
+        commentsCount: typeof data.commentsCount === "number" ? data.commentsCount : 0,
+        createdAtISO: toIsoString(data.createdAt),
+        updatedAtISO: toIsoString(data.updatedAt),
+        photoUrl: data.photoUrl || null
+    };
+    return compactRecord(record);
+}
+
+function mapGroupToAlgoliaRecord(listId, listData, group) {
+    const slug = group.objectSlug || `${group.establishmentName || 'item'}__${group.itemName || 'general'}`;
+    const objectID = `${listId}__${slug}`;
+    const listTags = Array.isArray(listData?.availableTags) ? listData.availableTags.filter(isNonEmptyString) : [];
+    const listOwnerName = [
+        listData?.authorName,
+        listData?.ownerName,
+        listData?.ownerDisplayName,
+        listData?.userDisplayName
+    ].find((value) => isNonEmptyString(value)) || null;
+    const record = {
+        objectID,
+        entityType: "item",
+        listId,
+        listName: listData?.name || "",
+        listCategoryId: listData?.categoryId || null,
+        listAvailableTags: listTags,
+        listOwnerId: listData?.userId || null,
+        listOwnerName: listOwnerName || undefined,
+        establishmentName: group.establishmentName,
+        itemName: group.itemName,
+        placeId: group.placeId || null,
+        placeName: group.establishmentName,
+        placeCity: group.placeCity || null,
+        placeProvince: group.placeProvince || null,
+        placeCountry: group.placeCountry || null,
+        placeAddress: group.placeAddress || null,
+        avgGeneralScore: typeof group.avgGeneralScore === "number" ? group.avgGeneralScore : 0,
+        avgScores: group.avgScores || {},
+        reviewCount: typeof group.itemCount === "number" ? group.itemCount : 0,
+        itemCount: typeof group.itemCount === "number" ? group.itemCount : 0,
+        averageRating: typeof group.avgGeneralScore === "number" ? group.avgGeneralScore : 0,
+        groupTags: Array.isArray(group.groupTags) ? group.groupTags : [],
+        thumbnailUrl: group.thumbnailUrl || null,
+        googleMapsUrl: group.googleMapsUrl || null,
+        _geoloc: group.geoloc && isNumber(group.geoloc.lat) && isNumber(group.geoloc.lng) ? { lat: group.geoloc.lat, lng: group.geoloc.lng } : undefined,
+        updatedAtISO: new Date().toISOString()
+    };
+    if (!record.listCategoryId) {
+        delete record.listCategoryId;
+    }
+    if (!record._geoloc) {
+        delete record._geoloc;
+    }
+    return compactRecord(record);
+}
+
+function createCollectionHandlers(collectionKey) {
+    const config = COLLECTION_CONFIGS[collectionKey];
+    const path = `${config.collection}/{docId}`;
+    return {
+        onCreated: onDocumentCreated(path, async (event) => {
+            await syncCreate(config, event.data);
+        }),
+        onUpdated: onDocumentUpdated(path, async (event) => {
+            await syncUpdate(config, event.data.before, event.data.after);
+        }),
+        onDeleted: onDocumentDeleted(path, async (event) => {
+            await syncDelete(config, event.data);
+        })
+    };
+}
+
+async function syncCreate(config, snapshot) {
+    if (!algoliaClient || !snapshot) {
+        return null;
+    }
+    const index = await getIndexWithSettings(config.indexName);
     if (!index) {
-        logger.error("onListDeleted: El índice de Algolia no está disponible. Abortando.");
+        return null;
+    }
+    const data = snapshot.data();
+    const record = config.transform(data, snapshot.id);
+    if (!record) {
+        return null;
+    }
+    try {
+        const response = await index.saveObject(record);
+        if (response?.taskID) {
+            await index.waitTask(response.taskID);
+        }
+    } catch (error) {
+        logger.error(`Algolia: failed saving ${config.indexName}/${snapshot.id}`, error);
+    }
+    return null;
+}
+
+async function syncUpdate(config, beforeSnap, afterSnap) {
+    if (!algoliaClient || !afterSnap) {
+        return null;
+    }
+    const index = await getIndexWithSettings(config.indexName);
+    if (!index) {
+        return null;
+    }
+    const data = afterSnap.data();
+    const record = config.transform(data, afterSnap.id);
+    if (record) {
+        try {
+            const response = await index.saveObject(record);
+            if (response?.taskID) {
+                await index.waitTask(response.taskID);
+            }
+        } catch (error) {
+            logger.error(`Algolia: failed updating ${config.indexName}/${afterSnap.id}`, error);
+        }
+    } else {
+        await deleteRecord(index, config, afterSnap.id, data);
+    }
+    return null;
+}
+
+async function syncDelete(config, snapshot) {
+    if (!algoliaClient || !snapshot) {
+        return null;
+    }
+    const index = await getIndexWithSettings(config.indexName);
+    if (!index) {
+        return null;
+    }
+    await deleteRecord(index, config, snapshot.id, snapshot.data());
+    return null;
+}
+
+async function deleteRecord(index, config, docId, data) {
+    const objectId = config.resolveObjectId ? config.resolveObjectId(docId, data) : (data && data.objectID) || docId;
+    if (!objectId) {
         return;
     }
-    const snap = event.data;
-    if (!snap) { return; }
-    const objectID = snap.id;
-    return index.deleteObject(objectID)
-        .then(() => logger.info(`ÉXITO: Objeto ${objectID} eliminado de Algolia.`))
-        .catch(err => logger.error(`ERROR al eliminar ${objectID} de Algolia:`, err));
+    try {
+        const response = await index.deleteObject(objectId);
+        if (response?.taskID) {
+            await index.waitTask(response.taskID);
+        }
+    } catch (error) {
+        logger.error(`Algolia: failed deleting ${config.indexName}/${objectId}`, error);
+    }
+}
+
+const { onCreated: onListCreated, onUpdated: onListUpdated, onDeleted: onListDeleted } = createCollectionHandlers("lists");
+const { onCreated: onPlaceCreated, onUpdated: onPlaceUpdated, onDeleted: onPlaceDeleted } = createCollectionHandlers("places");
+const { onCreated: onUserCreated, onUpdated: onUserUpdated, onDeleted: onUserDeleted } = createCollectionHandlers("users");
+
+const syncGroupedItemsIndex = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
+    if (!algoliaClient) {
+        return null;
+    }
+    const listId = event.params.listId;
+    const index = await getIndexWithSettings("grouped_items");
+    if (!index) {
+        return null;
+    }
+    try {
+        const { listData, groupedReviews } = await buildGroupedItemsForList(listId);
+        const filter = buildFilterEquality("listId", listId);
+        const deleteTask = await index.deleteBy({ filters: filter });
+        if (deleteTask?.taskID) {
+            await index.waitTask(deleteTask.taskID);
+        }
+        if (!listData || listData.isPublic === false) {
+            return null;
+        }
+        const records = (groupedReviews || []).map((group) => mapGroupToAlgoliaRecord(listId, listData, group));
+        if (records.length === 0) {
+            return null;
+        }
+        const response = await index.saveObjects(records);
+        if (response?.taskID) {
+            await index.waitTask(response.taskID);
+        }
+    } catch (error) {
+        logger.error(`Algolia: failed syncing grouped items for list ${listId}`, error);
+    }
+    return null;
 });
 
+async function backfillStandardCollection(collectionKey) {
+    const config = COLLECTION_CONFIGS[collectionKey];
+    const index = await getIndexWithSettings(config.indexName);
+    if (!index) {
+        throw new HttpsError("internal", "Algolia no esta configurado.");
+    }
+    const snapshot = await admin.firestore().collection(config.collection).get();
+    const records = [];
+    snapshot.forEach((doc) => {
+        const record = config.transform(doc.data(), doc.id);
+        if (record) {
+            records.push(record);
+        }
+    });
+    const response = await index.replaceAllObjects(records, { safe: true });
+    if (response?.taskID) {
+        await index.waitTask(response.taskID);
+    }
+    return { success: true, message: `Sincronizados ${records.length} registros de ${collectionKey}.` };
+}
 
-// ===================================================================
-// ===         FUNCIÓN DE ADMINISTRADOR (VERSIÓN "JEFE")         ===
-// ===================================================================
+async function backfillGroupedItems() {
+    const index = await getIndexWithSettings("grouped_items");
+    if (!index) {
+        throw new HttpsError("internal", "Algolia no esta configurado.");
+    }
+    const listSnapshot = await admin.firestore().collection("lists").get();
+    const records = [];
+    for (const doc of listSnapshot.docs) {
+        const data = doc.data();
+        if (data.isPublic === false) {
+            continue;
+        }
+        try {
+            const aggregation = await buildGroupedItemsForList(doc.id);
+            if (!aggregation.listData || aggregation.listData.isPublic === false) {
+                continue;
+            }
+            for (const group of aggregation.groupedReviews || []) {
+                records.push(mapGroupToAlgoliaRecord(doc.id, aggregation.listData, group));
+            }
+        } catch (error) {
+            logger.error(`Algolia: error aggregating grouped items for list ${doc.id}`, error);
+        }
+    }
+    if (records.length === 0) {
+        const task = await index.clearObjects();
+        if (task?.taskID) {
+            await index.waitTask(task.taskID);
+        }
+        return { success: true, message: "Indice de grouped_items limpiado (sin registros publicos)." };
+    }
+    const response = await index.replaceAllObjects(records, { safe: true });
+    if (response?.taskID) {
+        await index.waitTask(response.taskID);
+    }
+    return { success: true, message: `Sincronizados ${records.length} elementos agrupados.` };
+}
 
 const adminBackfillAlgolia = onCall({ cors: true }, async (request) => {
-    // 1. Verificar que el usuario está autenticado
     if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'Debes estar autenticado para realizar esta operación.');
+        throw new HttpsError("unauthenticated", "Debes estar autenticado para ejecutar esta operacion.");
     }
-
-    // 2. Leer el perfil del usuario desde Firestore para buscar el rol "jefe"
     const uid = request.auth.uid;
-    const userDoc = await admin.firestore().collection('users').doc(uid).get();
-
+    const userDoc = await admin.firestore().collection("users").doc(uid).get();
     if (!userDoc.exists) {
-        throw new HttpsError('permission-denied', 'No se encontró tu perfil de usuario.');
+        throw new HttpsError("permission-denied", "No se encontro tu perfil de usuario.");
     }
-
     const userData = userDoc.data();
-    // 3. Comprobar si el array userType contiene la palabra "jefe"
-    if (!userData.userType || !userData.userType.includes('jefe')) {
-        logger.error(`Intento no autorizado de ejecutar adminBackfillAlgolia por el usuario: ${uid}`);
-        throw new HttpsError('permission-denied', 'Solo los usuarios de tipo "jefe" pueden ejecutar esta operación.');
+    const userTypes = Array.isArray(userData.userType) ? userData.userType : [userData.userType];
+    if (!userTypes.some((type) => type === "jefe")) {
+        throw new HttpsError("permission-denied", "Solo los usuarios de tipo jefe pueden ejecutar esta operacion.");
     }
-
-    // 4. El resto de la lógica se mantiene igual
-    const { collectionName } = request.data;
-    const allowedCollections = ['lists', 'reviews', 'places', 'users'];
-    if (!allowedCollections.includes(collectionName)) {
-        throw new HttpsError('invalid-argument', `La colección "${collectionName}" no está permitida.`);
+    const collectionName = request.data?.collectionName;
+    if (!collectionName) {
+        throw new HttpsError("invalid-argument", "Debes indicar collectionName.");
     }
-
-    if (!algoliaClient) {
-        throw new HttpsError('internal', 'El servicio de Algolia no está configurado.');
+    if (collectionName === "grouped_items") {
+        return await backfillGroupedItems();
     }
-    const targetIndex = algoliaClient.initIndex(collectionName);
-    const db = admin.firestore();
-
-    try {
-        const snapshot = await db.collection(collectionName).get();
-        if (snapshot.empty) {
-            return { success: true, message: `La colección "${collectionName}" está vacía.` };
-        }
-        const records = snapshot.docs.map(doc => ({ ...doc.data(), objectID: doc.id }));
-        const { objectIDs } = await targetIndex.saveObjects(records);
-        const message = `Sincronización completada. ${objectIDs.length} registros de "${collectionName}" enviados a Algolia.`;
-        logger.info(message);
-        return { success: true, message: message };
-    } catch (error) {
-        logger.error(`Error durante el backfill de "${collectionName}":`, error);
-        throw new HttpsError('internal', 'Error al procesar la sincronización.');
+    if (!COLLECTION_CONFIGS[collectionName]) {
+        throw new HttpsError("invalid-argument", `La coleccion ${collectionName} no esta permitida.`);
     }
+    return await backfillStandardCollection(collectionName);
 });
 
-
-// Exportamos todas las funciones de este módulo
 module.exports = {
     onListCreated,
     onListUpdated,
     onListDeleted,
+    onPlaceCreated,
+    onPlaceUpdated,
+    onPlaceDeleted,
+    onUserCreated,
+    onUserUpdated,
+    onUserDeleted,
+    syncGroupedItemsIndex,
     adminBackfillAlgolia
 };
+
+
