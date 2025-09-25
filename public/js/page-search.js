@@ -1,4 +1,4 @@
-﻿window.ListopicApp = window.ListopicApp || {};
+window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageSearch = (() => {
     const ENTITY_TYPES = [
         { id: "items", label: "Elementos", icon: "fas fa-star" },
@@ -21,11 +21,11 @@ ListopicApp.pageSearch = (() => {
         users: "user",
         items: "item"
     };
+    const MOBILE_BREAKPOINT = 960;
 
     const FILTER_DEFINITIONS = {
         lists: [
             { id: "categories", label: "Categorias", type: "facet", attribute: "categoryId", stateKey: "categories", sort: "alpha", maxOptions: 60 },
-            { id: "tags", label: "Etiquetas", type: "facet", attribute: "availableTags", stateKey: "tags", sort: "alpha", maxOptions: 80 },
             {
                 id: "reviews",
                 label: "Resenas minimas",
@@ -40,8 +40,8 @@ ListopicApp.pageSearch = (() => {
             }
         ],
         places: [
-            { id: "provinces", label: "Provincia", type: "facet", attribute: "province", stateKey: "provinces", sort: "alpha", maxOptions: 80 },
-            { id: "cities", label: "Ciudad", type: "facet", attribute: "city", stateKey: "cities", sort: "alpha", maxOptions: 80 },
+            { id: "provinces", label: "Provincia", type: "facet", attribute: "province", stateKey: "provinces", sort: "alpha", maxOptions: 80, collapsible: true },
+            { id: "cities", label: "Localidad", type: "facet", attribute: "city", stateKey: "cities", sort: "alpha", maxOptions: 80, collapsible: true, defaultOpen: false },
             { id: "services", label: "Servicios", type: "facet", attribute: "serviceOptions", stateKey: "services", sort: "alpha", maxOptions: 60 },
             { id: "accessibility", label: "Accesibilidad", type: "facet", attribute: "accessibility", stateKey: "accessibility", sort: "alpha", maxOptions: 60 },
             {
@@ -58,8 +58,8 @@ ListopicApp.pageSearch = (() => {
             }
         ],
         items: [
+            { id: "categories", label: "Categorias", type: "facet", attribute: "listCategoryId", stateKey: "categories", sort: "alpha", maxOptions: 60 },
             { id: "lists", label: "Listas", type: "facet", attribute: "listName", stateKey: "lists", sort: "alpha", maxOptions: 60 },
-            { id: "tags", label: "Etiquetas", type: "facet", attribute: "groupTags", stateKey: "tags", sort: "alpha", maxOptions: 80 },
             { id: "provinces", label: "Provincia", type: "facet", attribute: "placeProvince", stateKey: "provinces", sort: "alpha", maxOptions: 80 },
             { id: "cities", label: "Ciudad", type: "facet", attribute: "placeCity", stateKey: "cities", sort: "alpha", maxOptions: 80 },
             {
@@ -76,8 +76,7 @@ ListopicApp.pageSearch = (() => {
             }
         ],
         users: [
-            { id: "userType", label: "Tipo de usuario", type: "facet", attribute: "userType", stateKey: "userTypes", sort: "alpha", maxOptions: 40 },
-            { id: "residence", label: "Residencia", type: "facet", attribute: "residence", stateKey: "residences", sort: "alpha", maxOptions: 80 },
+            { id: "location", label: "Lugar", type: "facet", attribute: "residence", stateKey: "locations", sort: "alpha", maxOptions: 80 },
             { id: "badges", label: "Insignias", type: "facet", attribute: "badges", stateKey: "badges", sort: "alpha", maxOptions: 40 },
             {
                 id: "followers",
@@ -98,7 +97,6 @@ ListopicApp.pageSearch = (() => {
         return {
             lists: {
                 categories: new Set(),
-                tags: new Set(),
                 minReviews: null
             },
             places: {
@@ -109,15 +107,14 @@ ListopicApp.pageSearch = (() => {
                 minRating: null
             },
             items: {
+                categories: new Set(),
                 lists: new Set(),
-                tags: new Set(),
                 provinces: new Set(),
                 cities: new Set(),
                 minRating: null
             },
             users: {
-                userTypes: new Set(),
-                residences: new Set(),
+                locations: new Set(),
                 badges: new Set(),
                 minFollowers: null
             }
@@ -129,7 +126,9 @@ ListopicApp.pageSearch = (() => {
         currentEntityType: "items",
         isSearching: false,
         filters: createInitialFilters(),
-        facetCache: {}
+        facetCache: {},
+        collapsedFilters: {},
+        isMobileFiltersOpen: false
     };
 
     const searchClient = algoliasearch(ListopicApp.config.ALGOLIA_APP_ID, ListopicApp.config.ALGOLIA_SEARCH_KEY);
@@ -150,10 +149,14 @@ ListopicApp.pageSearch = (() => {
         mainSearchInput = document.getElementById("main-search-input");
         searchResultsAreaEl = document.getElementById("search-results-area");
         executeSearchBtn = document.getElementById("execute-search-btn");
+        filtersPanelWrapper = document.getElementById("search-filters-panel");
         filtersPanelEl = document.getElementById("filters-panel-content");
         clearFiltersBtn = document.getElementById("clear-filters-btn");
         filtersHeaderLabel = document.getElementById("filters-header-label");
         activeFiltersSummaryEl = document.getElementById("active-filters-summary");
+        filtersMobileToggleBtn = document.getElementById("filters-mobile-toggle");
+        filtersMobileCloseBtn = document.getElementById("filters-mobile-close");
+        filtersMobileOverlay = document.getElementById("filters-mobile-overlay");
         entityTypeContainer = document.getElementById("filters-entity-type") || document.querySelector(".entity-type-filters");
     }
 
@@ -187,6 +190,97 @@ ListopicApp.pageSearch = (() => {
         });
     }
 
+    function ensureCollapseRegistry(type) {
+        if (!state.collapsedFilters[type]) {
+            state.collapsedFilters[type] = {};
+        }
+        return state.collapsedFilters[type];
+    }
+
+    function ensureCollapseDefaults(type, definitions) {
+        const registry = ensureCollapseRegistry(type);
+        definitions.forEach((definition) => {
+            if (definition.collapsible && typeof registry[definition.id] !== "boolean") {
+                registry[definition.id] = definition.defaultOpen === false;
+            }
+        });
+    }
+
+    function isFilterCollapsed(type, definition) {
+        const registry = ensureCollapseRegistry(type);
+        if (typeof registry[definition.id] === "boolean") {
+            return registry[definition.id];
+        }
+        return definition.defaultOpen === false;
+    }
+
+    function setFilterCollapsed(type, definitionId, isCollapsed) {
+        const registry = ensureCollapseRegistry(type);
+        registry[definitionId] = isCollapsed === true;
+    }
+
+    function isMobileViewport() {
+        return window.innerWidth <= MOBILE_BREAKPOINT;
+    }
+
+    function syncMobileFiltersToggleState() {
+        if (!filtersMobileToggleBtn) {
+            return;
+        }
+        filtersMobileToggleBtn.setAttribute("aria-expanded", state.isMobileFiltersOpen ? "true" : "false");
+    }
+
+    function applyMobileFiltersVisibility() {
+        if (!filtersPanelWrapper) {
+            return;
+        }
+        if (!isMobileViewport()) {
+            filtersPanelWrapper.classList.remove("is-mobile-open");
+            filtersMobileOverlay?.classList.remove("is-active");
+            document.body.classList.remove("filters-panel-open");
+            syncMobileFiltersToggleState();
+            return;
+        }
+        if (state.isMobileFiltersOpen) {
+            filtersPanelWrapper.classList.add("is-mobile-open");
+            filtersMobileOverlay?.classList.add("is-active");
+            document.body.classList.add("filters-panel-open");
+        } else {
+            filtersPanelWrapper.classList.remove("is-mobile-open");
+            filtersMobileOverlay?.classList.remove("is-active");
+            document.body.classList.remove("filters-panel-open");
+        }
+        syncMobileFiltersToggleState();
+    }
+
+    function openMobileFiltersPanel() {
+        if (!isMobileViewport()) {
+            return;
+        }
+        state.isMobileFiltersOpen = true;
+        applyMobileFiltersVisibility();
+    }
+
+    function closeMobileFiltersPanel() {
+        state.isMobileFiltersOpen = false;
+        applyMobileFiltersVisibility();
+    }
+
+    function toggleMobileFiltersPanel() {
+        if (!isMobileViewport()) {
+            return;
+        }
+        state.isMobileFiltersOpen = !state.isMobileFiltersOpen;
+        applyMobileFiltersVisibility();
+    }
+
+    function handleViewportResize() {
+        if (!isMobileViewport()) {
+            closeMobileFiltersPanel();
+            return;
+        }
+        applyMobileFiltersVisibility();
+    }
     function debounce(func, delay) {
         let timeout;
         return function debounced(...args) {
@@ -222,6 +316,9 @@ ListopicApp.pageSearch = (() => {
         state.currentEntityType = newType;
         syncEntityTypeSelection();
         renderFiltersPanel(state.currentEntityType);
+        if (isMobileViewport()) {
+            openMobileFiltersPanel();
+        }
         performSearch();
     }
 
@@ -453,6 +550,14 @@ ListopicApp.pageSearch = (() => {
     function createFacetSection(type, definition, facetValues) {
         const container = document.createElement("section");
         container.className = "filter-block";
+        if (definition.collapsible) {
+            container.classList.add("filter-block--collapsible");
+        }
+
+        const isCollapsed = definition.collapsible ? isFilterCollapsed(type, definition) : false;
+        if (isCollapsed) {
+            container.classList.add("filter-block--collapsed");
+        }
 
         const headerRow = document.createElement("div");
         headerRow.className = "filter-block__title-row";
@@ -461,6 +566,9 @@ ListopicApp.pageSearch = (() => {
         title.className = "filter-block__title";
         title.textContent = definition.label;
         headerRow.appendChild(title);
+
+        const headerActions = document.createElement("div");
+        headerActions.className = "filter-block__actions";
 
         const selectedSet = state.filters[type]?.[definition.stateKey];
         const clearBtn = document.createElement("button");
@@ -474,57 +582,94 @@ ListopicApp.pageSearch = (() => {
                 performSearch();
             }
         });
-        headerRow.appendChild(clearBtn);
+        headerActions.appendChild(clearBtn);
 
+        if (definition.collapsible) {
+            const toggleBtn = document.createElement("button");
+            toggleBtn.type = "button";
+            toggleBtn.className = "filter-block__toggle";
+            toggleBtn.setAttribute("aria-expanded", (!isCollapsed).toString());
+            toggleBtn.innerHTML = `<i class="fas ${isCollapsed ? "fa-chevron-down" : "fa-chevron-up"}"></i>`;
+            toggleBtn.addEventListener("click", () => {
+                setFilterCollapsed(type, definition.id, !isCollapsed);
+                renderFiltersPanel(type);
+                if (isMobileViewport()) {
+                    applyMobileFiltersVisibility();
+                }
+            });
+            headerActions.appendChild(toggleBtn);
+        }
+
+        headerRow.appendChild(headerActions);
         container.appendChild(headerRow);
 
-        const entries = getFacetEntries(definition, facetValues, selectedSet);
-        if (entries.length === 0) {
+        const isPlaceCityFacet = type === "places" && definition.id === "cities";
+        const provincesSet = state.filters.places?.provinces;
+        const provincesSelected = provincesSet instanceof Set && provincesSet.size > 0;
+        const citiesSelected = selectedSet instanceof Set && selectedSet.size > 0;
+        const gateCityFacet = isPlaceCityFacet && !provincesSelected && !citiesSelected;
+
+        const entries = gateCityFacet ? [] : getFacetEntries(definition, facetValues, selectedSet);
+
+        if (gateCityFacet) {
+            const helper = document.createElement("p");
+            helper.className = "filter-block__helper";
+            helper.textContent = "Selecciona una provincia para ver localidades.";
+            container.appendChild(helper);
+        }
+
+        if (!gateCityFacet && entries.length === 0) {
             const empty = document.createElement("p");
             empty.className = "filter-block__empty";
             empty.textContent = facetValues ? "Sin opciones disponibles" : "Empieza a buscar para ver opciones.";
             container.appendChild(empty);
-            return container;
         }
 
         const optionsWrapper = document.createElement("div");
         optionsWrapper.className = "filter-block__options filter-block__options--scroll";
+        if (definition.collapsible && isCollapsed) {
+            optionsWrapper.hidden = true;
+        }
 
-        entries.forEach(({ value, count }) => {
-            const option = document.createElement("label");
-            option.className = "filter-option";
+        if (entries.length > 0) {
+            entries.forEach(({ value, count }) => {
+                const option = document.createElement("label");
+                option.className = "filter-option";
 
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.value = value;
-            checkbox.checked = selectedSet instanceof Set ? selectedSet.has(value) : false;
-            checkbox.addEventListener("change", () => {
-                if (!(selectedSet instanceof Set)) {
-                    return;
-                }
-                if (checkbox.checked) {
-                    selectedSet.add(value);
-                } else {
-                    selectedSet.delete(value);
-                }
-                performSearch();
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.value = value;
+                checkbox.checked = selectedSet instanceof Set ? selectedSet.has(value) : false;
+                checkbox.addEventListener("change", () => {
+                    if (!(selectedSet instanceof Set)) {
+                        return;
+                    }
+                    if (checkbox.checked) {
+                        selectedSet.add(value);
+                    } else {
+                        selectedSet.delete(value);
+                    }
+                    performSearch();
+                });
+
+                const labelSpan = document.createElement("span");
+                labelSpan.className = "filter-option__label";
+                labelSpan.textContent = value;
+
+                const countSpan = document.createElement("span");
+                countSpan.className = "filter-option__count";
+                countSpan.textContent = numberFormatter.format(count);
+
+                option.appendChild(checkbox);
+                option.appendChild(labelSpan);
+                option.appendChild(countSpan);
+                optionsWrapper.appendChild(option);
             });
+            container.appendChild(optionsWrapper);
+        } else if (!gateCityFacet) {
+            container.appendChild(optionsWrapper);
+        }
 
-            const labelSpan = document.createElement("span");
-            labelSpan.className = "filter-option__label";
-            labelSpan.textContent = value;
-
-            const countSpan = document.createElement("span");
-            countSpan.className = "filter-option__count";
-            countSpan.textContent = numberFormatter.format(count);
-
-            option.appendChild(checkbox);
-            option.appendChild(labelSpan);
-            option.appendChild(countSpan);
-            optionsWrapper.appendChild(option);
-        });
-
-        container.appendChild(optionsWrapper);
         return container;
     }
     function createNumericSection(type, definition) {
@@ -539,6 +684,9 @@ ListopicApp.pageSearch = (() => {
         title.textContent = definition.label;
         headerRow.appendChild(title);
 
+        const headerActions = document.createElement("div");
+        headerActions.className = "filter-block__actions";
+
         const currentValue = state.filters[type]?.[definition.stateKey];
         const clearBtn = document.createElement("button");
         clearBtn.type = "button";
@@ -549,8 +697,9 @@ ListopicApp.pageSearch = (() => {
             state.filters[type][definition.stateKey] = null;
             performSearch();
         });
-        headerRow.appendChild(clearBtn);
+        headerActions.appendChild(clearBtn);
 
+        headerRow.appendChild(headerActions);
         container.appendChild(headerRow);
 
         const optionsWrapper = document.createElement("div");
@@ -598,14 +747,13 @@ ListopicApp.pageSearch = (() => {
         container.appendChild(optionsWrapper);
         return container;
     }
-
     function renderFiltersPanel(type) {
         if (!filtersPanelEl) {
             return;
         }
         if (filtersHeaderLabel) {
             const activeCount = countActiveFilters(type);
-            filtersHeaderLabel.textContent = activeCount > 0 ? `Filtros (${activeCount})` : "Filtros";
+            filtersHeaderLabel.textContent = activeCount > 0 ? "Filtros (" + activeCount + ")" : "Filtros";
         }
         if (clearFiltersBtn) {
             const hasFilters = countActiveFilters(type) > 0;
@@ -616,13 +764,26 @@ ListopicApp.pageSearch = (() => {
 
         if (type === "all") {
             filtersPanelEl.innerHTML = '<p class="filters-placeholder">Selecciona un tipo de contenido para ver filtros.</p>';
+            applyMobileFiltersVisibility();
             return;
         }
 
         const definitions = FILTER_DEFINITIONS[type] || [];
         if (definitions.length === 0) {
             filtersPanelEl.innerHTML = '<p class="filters-placeholder">No hay filtros disponibles para este tipo.</p>';
+            applyMobileFiltersVisibility();
             return;
+        }
+
+        ensureCollapseDefaults(type, definitions);
+
+        if (type === "places") {
+            const provincesSet = state.filters.places?.provinces;
+            const provincesSelected = provincesSet instanceof Set && provincesSet.size > 0;
+            const citiesDefinition = definitions.find((definition) => definition.id === "cities");
+            if (provincesSelected && citiesDefinition && isFilterCollapsed(type, citiesDefinition)) {
+                setFilterCollapsed(type, citiesDefinition.id, false);
+            }
         }
 
         const facetData = state.facetCache[type] || {};
@@ -637,8 +798,8 @@ ListopicApp.pageSearch = (() => {
 
         filtersPanelEl.innerHTML = "";
         filtersPanelEl.appendChild(fragment);
+        applyMobileFiltersVisibility();
     }
-
     async function performSearch() {
         if (state.isSearching) {
             return;
@@ -800,6 +961,7 @@ ListopicApp.pageSearch = (() => {
         console.log("Initializing Search page logic with Algolia filters...");
         cacheDOMElements();
         renderEntityTypeControls();
+        handleViewportResize();
         debouncedSearch = debounce(performSearch, 300);
         loadInitialQueryFromUrl();
         syncEntityTypeSelection();
@@ -812,6 +974,5 @@ ListopicApp.pageSearch = (() => {
         init
     };
 })();
-
 
 

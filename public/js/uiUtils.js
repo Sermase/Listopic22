@@ -554,6 +554,8 @@ createListViewGroupCard: function(group, listData, listIcon) {
     },
 
     createUserCard: function(userData, id) {
+        const followersCountRaw = userData.followersCount ?? (Array.isArray(userData.followers) ? userData.followers.length : 0);
+        const followersCount = Number.isFinite(Number(followersCountRaw)) ? Number(followersCountRaw) : 0;
         const photoHtml = userData.photoUrl
             ? `<img src="${this.escapeHtml(userData.photoUrl)}" alt="Avatar de ${this.escapeHtml(userData.username)}">`
             : '<i class="fas fa-user"></i>';
@@ -568,7 +570,8 @@ createListViewGroupCard: function(group, listData, listIcon) {
                     <div class="search-card__tags">
                         <span class="info-tag info-tag--user"><i class="fas fa-user"></i> Usuario</span>
                         <span class="info-tag"><i class="fas fa-list-alt"></i> ${userData.publicListsCount || 0} listas</span>
-                        <span class="info-tag"><i class="fas fa-star"></i> ${userData.reviewsCount || 0} reseñas</span>
+                        <span class="info-tag"><i class="fas fa-star"></i> ${userData.reviewsCount || 0} resenas</span>
+                        <span class="info-tag info-tag--followers"><i class="fas fa-user-friends"></i> ${followersCount} seguidores</span>
                     </div>
                 </div>
             </a>
@@ -689,3 +692,4 @@ createListViewGroupCard: function(group, listData, listIcon) {
         });
     }
 };
+

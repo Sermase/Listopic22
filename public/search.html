@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -51,11 +51,19 @@
     <main>
         <div class="container search-page-container">
             <h1 class="brand-title">Explora Listopic</h1>
+            <div class="search-mobile-controls">
+                <button type="button" id="filters-mobile-toggle" class="filters-mobile-toggle" aria-controls="search-filters-panel" aria-expanded="false">
+                    <i class="fas fa-sliders-h"></i> Filtros
+                </button>
+            </div>
             <div class="search-layout">
                 <aside class="search-filters-panel" id="search-filters-panel">
                     <div class="filters-panel-header">
                         <h2 id="filters-header-label">Filtros</h2>
                         <button type="button" id="clear-filters-btn" class="filters-clear-btn" disabled>Limpiar</button>
+                        <button type="button" id="filters-mobile-close" class="filters-mobile-close" aria-label="Cerrar filtros">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                     <div class="filters-type-block">
                         <h3 class="filters-type-title">Tipo de contenido</h3>
@@ -66,6 +74,7 @@
                         <p class="filters-placeholder">Selecciona un tipo de contenido para ver filtros.</p>
                     </div>
                 </aside>
+                <div id="filters-mobile-overlay" class="filters-mobile-overlay"></div>
 
                 <section class="search-results-column">
                     <div class="search-input-area form-group">
@@ -82,8 +91,6 @@
             </div>
         </div>
     </main>
-
-    <footer>Listopic... Tu rincon personal de valoraciones.</footer>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>

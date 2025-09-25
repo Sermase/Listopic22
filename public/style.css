@@ -2223,6 +2223,22 @@ body.light-theme .entity-type-btn.active { /* O usa .selected si reutilizas esa 
     box-shadow: var(--shadow-elevation-medium);
     position: sticky;
     top: 110px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+.search-filters-panel::-webkit-scrollbar {
+    width: 8px;
+}
+.search-filters-panel::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+}
+
+.search-mobile-controls {
+    display: none;
+    justify-content: flex-end;
+    margin-bottom: 12px;
 }
 
 .filters-panel-header {
@@ -6319,4 +6335,157 @@ body.light-theme .active-filter-chip {
 
 body.light-theme .active-filter-chip:hover {
     background-color: rgba(76, 130, 255, 0.2);
+}
+.filter-block__actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.filter-block__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--border-radius-small);
+    transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+.filter-block__toggle:hover {
+    color: var(--accent-color-primary);
+    background-color: rgba(76, 130, 255, 0.18);
+}
+
+.filter-block__toggle i {
+    transition: transform 0.2s ease;
+}
+
+.filter-block--collapsed .filter-block__toggle i {
+    transform: rotate(180deg);
+}
+
+.filter-block__helper {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--secondary-text-color);
+}
+
+.filters-mobile-toggle {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--accent-color-primary);
+    background-color: rgba(76, 130, 255, 0.14);
+    color: var(--accent-color-primary);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.filters-mobile-toggle i {
+    font-size: 0.9rem;
+}
+
+.filters-mobile-toggle:hover {
+    background-color: rgba(76, 130, 255, 0.22);
+}
+
+.filters-mobile-toggle:focus-visible {
+    outline: 2px solid var(--accent-color-primary);
+    outline-offset: 2px;
+}
+
+.filters-mobile-close {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--border-radius-small);
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.filters-mobile-close:hover {
+    color: var(--accent-color-primary);
+    background-color: rgba(76, 130, 255, 0.18);
+}
+
+.filters-mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    z-index: 35;
+}
+
+.filters-mobile-overlay.is-active {
+    display: block;
+}
+
+body.filters-panel-open {
+    overflow: hidden;
+}
+
+@media (max-width: 960px) {
+    .search-layout {
+        display: block;
+    }
+
+    .filters-mobile-toggle {
+        display: inline-flex;
+    }
+
+    .filters-mobile-close {
+        display: inline-flex;
+    }
+
+    .search-mobile-controls {
+        display: flex;
+    }
+
+    .search-filters-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        max-height: 100vh;
+        width: min(320px, 88vw);
+        transform: translateX(-110%);
+        transition: transform 0.3s ease;
+        z-index: 40;
+        border-radius: 0 16px 16px 0;
+        padding: 28px 22px;
+    }
+
+    .search-filters-panel.is-mobile-open {
+        transform: translateX(0);
+    }
+
+    .active-filters-summary {
+        margin-top: 0;
+    }
+}
+
+body.light-theme .search-filters-panel::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.18);
+}
+
+body.light-theme .filters-mobile-toggle {
+    background-color: rgba(76, 130, 255, 0.12);
+}
+
+body.light-theme .filters-mobile-toggle:hover {
+    background-color: rgba(76, 130, 255, 0.18);
+}
+
+body.light-theme .filters-mobile-close:hover {
+    background-color: rgba(76, 130, 255, 0.12);
 }
