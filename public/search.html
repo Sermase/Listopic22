@@ -15,7 +15,7 @@
     <div class="header-actions-container">
         <div class="header-left-content">
             <div class="app-logo-container">
-                <a href="Index.html" title="Ir a la página de inicio">
+                <a href="Index.html" title="Ir a la pagina de inicio">
                     <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
                 </a>
             </div>
@@ -25,7 +25,7 @@
                 <i class="fas fa-search"></i>
             </a>
             <div class="user-profile-menu-container">
-                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
+                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menu de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
                     <i class="fas fa-user-circle"></i>
                 </button>
                 <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
@@ -34,12 +34,12 @@
                     <a href="profile.html#profile-my-lists" role="menuitem">Listas</a>
                     <a href="profile.html#profile-my-reviews" role="menuitem">Reviews</a>
                     <hr class="user-menu-divider">
-                    
+
                     <button type="button" role="menuitem" id="installPwaBtn" style="display: none;">
-                        <i class="fas fa-download"></i> Instalar Aplicación
+                        <i class="fas fa-download"></i> Instalar Aplicacion
                     </button>
 
-                    <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
+                    <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesion</button>
                 </div>
             </div>
             <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
@@ -51,16 +51,30 @@
     <main>
         <div class="container search-page-container">
             <h1 class="brand-title">Explora Listopic</h1>
+            <div class="search-mobile-controls">
+                <button type="button" id="filters-mobile-toggle" class="filters-mobile-toggle" aria-controls="search-filters-panel" aria-expanded="false">
+                    <i class="fas fa-sliders-h"></i> Filtros
+                </button>
+            </div>
             <div class="search-layout">
                 <aside class="search-filters-panel" id="search-filters-panel">
                     <div class="filters-panel-header">
                         <h2 id="filters-header-label">Filtros</h2>
                         <button type="button" id="clear-filters-btn" class="filters-clear-btn" disabled>Limpiar</button>
+                        <button type="button" id="filters-mobile-close" class="filters-mobile-close" aria-label="Cerrar filtros">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="filters-type-block">
+                        <h3 class="filters-type-title">Tipo de contenido</h3>
+                        <p class="filters-type-helper">Elige que quieres explorar; usa Todo para buscar en general y afina con los filtros.</p>
+                        <div id="filters-entity-type" class="filters-entity-type"></div>
                     </div>
                     <div id="filters-panel-content" class="filters-panel-content">
                         <p class="filters-placeholder">Selecciona un tipo de contenido para ver filtros.</p>
                     </div>
                 </aside>
+                <div id="filters-mobile-overlay" class="filters-mobile-overlay"></div>
 
                 <section class="search-results-column">
                     <div class="search-input-area form-group">
@@ -69,22 +83,14 @@
                             <i class="fas fa-search"></i>
                         </button>
                     </div>
-                    <div class="entity-type-filters form-group">
-                        <button class="tag-filter-button entity-type-btn active" data-type="all"><i class="fas fa-globe"></i> Todo</button>
-                        <button class="tag-filter-button entity-type-btn" data-type="items"><i class="fas fa-star"></i> Elementos</button>
-                        <button class="tag-filter-button entity-type-btn" data-type="lists"><i class="fas fa-list-alt"></i> Listas</button>
-                        <button class="tag-filter-button entity-type-btn" data-type="places"><i class="fas fa-map-marker-alt"></i> Lugares</button>
-                        <button class="tag-filter-button entity-type-btn" data-type="users"><i class="fas fa-user"></i> Usuarios</button>
-                    </div>
+                    <div id="active-filters-summary" class="active-filters-summary"></div>
                     <div id="search-results-area" class="search-results-container">
-                        <p class="search-placeholder">Introduce tu busqueda para ver resultados.</p>
+                        <p class="search-placeholder">Introduce tu busqueda o usa los filtros para descubrir contenido.</p>
                     </div>
                 </section>
             </div>
         </div>
     </main>
-
-    <footer>Listopic... Tu rincón personal de valoraciones.</footer>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
