@@ -55,14 +55,21 @@
                 <aside class="search-filters-panel" id="search-filters-panel">
                     <div class="filters-panel-header">
                         <h2 id="filters-header-label">Filtros</h2>
+                        <button type="button" id="close-filters-btn" class="filters-close-btn" aria-label="Cerrar filtros">
+                            <i class="fas fa-times"></i>
+                        </button>
                         <button type="button" id="clear-filters-btn" class="filters-clear-btn" disabled>Limpiar</button>
                     </div>
                     <div id="filters-panel-content" class="filters-panel-content">
                         <p class="filters-placeholder">Selecciona un tipo de contenido para ver filtros.</p>
                     </div>
                 </aside>
+                <div id="filters-backdrop" class="filters-backdrop" hidden></div>
 
                 <section class="search-results-column">
+                    <button type="button" class="filters-toggle-btn" id="filters-toggle-btn" aria-controls="search-filters-panel" aria-expanded="false">
+                        <i class="fas fa-sliders-h"></i> Filtros
+                    </button>
                     <div class="search-input-area form-group">
                         <input type="search" id="main-search-input" class="form-input large-search-input" placeholder="Buscar elementos, listas, usuarios...">
                         <button type="button" id="execute-search-btn" class="submit-button primary-button">

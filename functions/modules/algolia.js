@@ -57,7 +57,7 @@ const INDEX_SETTINGS = {
     },
     places: {
         searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)"],
-        attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibility", "types"],
+        attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibility", "types", "priceLevel"],
         customRanking: ["desc(averageRating)", "desc(reviewsCount)"],
         numericAttributesForFiltering: ["averageRating", "reviewsCount"]
     },
@@ -69,7 +69,7 @@ const INDEX_SETTINGS = {
     },
     grouped_items: {
         searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(groupTags)"],
-        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "groupTags", "placeCity", "placeProvince"],
+        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "filterOnly(listAvailableTags)", "groupTags", "placeCity", "placeProvince"],
         customRanking: ["desc(avgGeneralScore)", "desc(reviewCount)"],
         numericAttributesForFiltering: ["avgGeneralScore", "reviewCount"]
     }
@@ -575,5 +575,7 @@ module.exports = {
     syncGroupedItemsIndex,
     adminBackfillAlgolia
 };
+
+
 
 
