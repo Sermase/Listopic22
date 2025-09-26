@@ -2,7 +2,6 @@ window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageDeveloper = (() => {
     const db = ListopicApp.services.db;
     const auth = ListopicApp.services.auth;
-    const functionsService = ListopicApp.services.functions;
     const collectionsToFetch = ['users', 'lists', 'places', 'categories', 'listForums'];
 
     let currentData = [];
@@ -27,7 +26,7 @@ ListopicApp.pageDeveloper = (() => {
             if (userProfileDoc.exists && Array.isArray(userProfileDoc.data().userType) && userProfileDoc.data().userType.includes('jefe')) {
                 console.log('Permiso de administrador concedido. Cargando dashboard.');
                 setupTabs();
-                setupActionButtons(); // <-- Se llama aquÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ para que los botones existan desde el principio
+                setupActionButtons(); // <-- Se llama aquí para que los botones existan desde el principio
                 if (collectionsToFetch.length > 0) {
                     switchTab(collectionsToFetch[0]);
                 }
@@ -41,7 +40,7 @@ ListopicApp.pageDeveloper = (() => {
         }
     }
 
-    function showAccessDenied(message = 'No tienes permiso para ver esta pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡gina.') {
+    function showAccessDenied(message = 'No tienes permiso para ver esta página.') {
         const devContainer = document.querySelector('.dev-container');
         if (devContainer) {
             devContainer.innerHTML = `
@@ -69,52 +68,29 @@ ListopicApp.pageDeveloper = (() => {
         });
     }
     
-    // --- LÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³gica de los Botones de AcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n ---
+    // --- Lógica de los Botones de Acción ---
     function setupActionButtons() {
-        // BotÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de exportar
+        // Botón de exportar
         const exportBtn = document.getElementById('export-csv-btn');
         if (exportBtn) exportBtn.addEventListener('click', exportSelectedToCsv);
 
-        // BotÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de actualizar todos los lugares
+        // Botón de actualizar todos los lugares
         const updateAllPlacesBtn = document.getElementById('update-all-places-btn');
         if (updateAllPlacesBtn) updateAllPlacesBtn.addEventListener('click', handleUpdateAllPlaces);
 
-        // NUEVO: BotÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de actualizar seleccionados
+        // NUEVO: Botón de actualizar seleccionados
         const updateBtn = document.getElementById('update-selected-btn');
         if (updateBtn) updateBtn.addEventListener('click', updateSelectedPlaces);
 
-        // NUEVO: BotÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n actualizar listas seleccionadas
+        // NUEVO: Botón actualizar listas seleccionadas
         const updateListsBtn = document.getElementById('update-selected-lists-btn');
         if (updateListsBtn) updateListsBtn.addEventListener('click', updateSelectedLists);
 
-        attachAlgoliaButton("algolia-sync-all-btn", null);
-        attachAlgoliaButton("algolia-sync-lists-btn", "lists");
-        attachAlgoliaButton("algolia-sync-users-btn", "users");
-        attachAlgoliaButton("algolia-sync-places-btn", "places");
-        // NUEVO: BotÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de eliminar seleccionados
+        // NUEVO: Botón de eliminar seleccionados
         const deleteBtn = document.getElementById('delete-selected-btn');
         if (deleteBtn) deleteBtn.addEventListener('click', deleteSelectedItems);
     }
 
-    function attachAlgoliaButton(buttonId, collectionName) {
-        const button = document.getElementById(buttonId);
-        if (!button) {
-            return;
-        }
-        button.addEventListener("click", async () => {
-            const originalHtml = button.innerHTML;
-            button.disabled = true;
-            button.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Sincronizando...";
-            try {
-                await backfillAlgolia(collectionName || null);
-            } catch (error) {
-                console.error("DEV: Error al sincronizar Algolia", error);
-            } finally {
-                button.disabled = false;
-                button.innerHTML = originalHtml;
-            }
-        });
-    }
     function updateActionButtonsState() {
         const updateBtn = document.getElementById('update-selected-btn');
         const deleteBtn = document.getElementById('delete-selected-btn');
@@ -127,7 +103,7 @@ ListopicApp.pageDeveloper = (() => {
             deleteBtn.style.display = 'inline-block'; // Siempre visible pero deshabilitado
         }
         if (exportBtn) {
-            // El botÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de exportar ahora exportarÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ lo seleccionado, o todo si no hay nada seleccionado
+            // El botón de exportar ahora exportará lo seleccionado, o todo si no hay nada seleccionado
             exportBtn.textContent = hasSelection ? `Exportar ${selectedRowIds.size} a CSV` : 'Exportar Todo a CSV';
         }
         if (updateBtn) {
@@ -143,7 +119,7 @@ ListopicApp.pageDeveloper = (() => {
         }
     }
 
-    // --- Funciones para los Botones de AcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n ---
+    // --- Funciones para los Botones de Acción ---
 
     function exportSelectedToCsv() {
         const dataToExport = selectedRowIds.size > 0 
@@ -159,7 +135,7 @@ ListopicApp.pageDeveloper = (() => {
     }
 
     async function handleUpdateAllPlaces() {
-        if (!confirm('ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿EstÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s seguro de que quieres actualizar TODOS los lugares? Esta operaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n puede tardar y consumir cuota de la API de Google.')) return;
+        if (!confirm('¿Estás seguro de que quieres actualizar TODOS los lugares? Esta operación puede tardar y consumir cuota de la API de Google.')) return;
         const btn = document.getElementById('update-all-places-btn');
         const originalBtnText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
@@ -169,7 +145,7 @@ ListopicApp.pageDeveloper = (() => {
             const adminUpdateAllPlaces = firebase.app().functions('europe-west1').httpsCallable('adminUpdateAllPlaces');
             const result = await adminUpdateAllPlaces();
             const { updated, skipped, errors } = result.data;
-            alert(`ActualizaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n completada.\n\nActualizados: ${updated}\nOmitidos: ${skipped}\nErrores: ${errors}`);
+            alert(`Actualización completada.\n\nActualizados: ${updated}\nOmitidos: ${skipped}\nErrores: ${errors}`);
         } catch (error) {
             console.error("Error al ejecutar adminUpdateAllPlaces:", error);
             alert(`Error al actualizar los lugares: ${error.message}`);
@@ -182,7 +158,7 @@ ListopicApp.pageDeveloper = (() => {
     // NUEVA: Actualizar solo los lugares seleccionados
     async function updateSelectedPlaces() {
         if (selectedRowIds.size === 0) return;
-        if (!confirm(`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿EstÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s seguro de que quieres actualizar ${selectedRowIds.size} lugar(es) seleccionados?`)) return;
+        if (!confirm(`¿Estás seguro de que quieres actualizar ${selectedRowIds.size} lugar(es) seleccionados?`)) return;
 
         const btn = document.getElementById('update-selected-btn');
         btn.disabled = true;
@@ -212,9 +188,9 @@ ListopicApp.pageDeveloper = (() => {
         
         await Promise.all(updatePromises);
         
-        alert(`OperaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n completada.\n\nActualizados: ${successCount}\nErrores: ${errorCount}`);
+        alert(`Operación completada.\n\nActualizados: ${successCount}\nErrores: ${errorCount}`);
         btn.disabled = false;
-        btn.innerHTML = 'Actualizar SelecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n';
+        btn.innerHTML = 'Actualizar Selección';
         switchTab(currentCollectionName); // Recargar la vista
     }
 
@@ -222,7 +198,7 @@ ListopicApp.pageDeveloper = (() => {
     // NUEVA: Borrado suave de elementos seleccionados
     async function deleteSelectedItems() {
         if (selectedRowIds.size === 0) return;
-        if (!confirm(`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿EstÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s seguro de que quieres eliminar ${selectedRowIds.size} elemento(s)? SerÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡n movidos a una papelera temporal.`)) return;
+        if (!confirm(`¿Estás seguro de que quieres eliminar ${selectedRowIds.size} elemento(s)? Serán movidos a una papelera temporal.`)) return;
 
         const btn = document.getElementById('delete-selected-btn');
         btn.disabled = true;
@@ -254,9 +230,9 @@ ListopicApp.pageDeveloper = (() => {
             alert(`${selectedRowIds.size} elemento(s) han sido eliminados y archivados.`);
         } catch (error) {
             console.error("Error durante el borrado suave:", error);
-            alert(`OcurriÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ un error: ${error.message}`);
+            alert(`Ocurrió un error: ${error.message}`);
         } finally {
-            btn.innerHTML = 'Eliminar SelecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n';
+            btn.innerHTML = 'Eliminar Selección';
             switchTab(currentCollectionName); // Recargar la vista actual
         }
     }
@@ -300,14 +276,14 @@ ListopicApp.pageDeveloper = (() => {
         const contentContainer = document.getElementById('dev-content-container');
         contentContainer.innerHTML = `<p>Cargando datos de "${collectionName}"...</p>`;
         sortState = {};
-        selectedRowIds.clear(); // Limpiar selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n al cambiar de pestaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a
+        selectedRowIds.clear(); // Limpiar selección al cambiar de pestaña
         updateActionButtonsState(); // Actualizar estado de botones
 
         try {
             const snapshot = await db.collection(collectionName).limit(100).get();
             currentData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             if (currentData.length === 0) {
-                contentContainer.innerHTML = `<p>No se encontraron documentos en la colecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n "${collectionName}".</p>`;
+                contentContainer.innerHTML = `<p>No se encontraron documentos en la colección "${collectionName}".</p>`;
                 return;
             }
             renderTable(currentData, contentContainer);
@@ -327,12 +303,12 @@ ListopicApp.pageDeveloper = (() => {
         data.forEach(item => Object.keys(item).forEach(key => allKeys.add(key)));
         const headers = Array.from(allKeys);
         
-        // AÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±adimos la columna de selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n al principio
+        // Añadimos la columna de selección al principio
         const tableHeaders = [
             `<th><input type="checkbox" id="select-all-checkbox" title="Seleccionar todo"></th>`,
             ...headers.map(key => {
                 const sortClass = sortState[key] ? `sort-${sortState[key]}` : '';
-                const icon = sortState[key] === 'asc' ? 'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â²' : sortState[key] === 'desc' ? 'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼' : '';
+                const icon = sortState[key] === 'asc' ? '▲' : sortState[key] === 'desc' ? '▼' : '';
                 return `<th class="sortable ${sortClass}" data-key="${escapeHtml(key)}">${escapeHtml(key)} <span class="sort-icon">${icon}</span></th>`;
             })
         ].join('');
@@ -359,7 +335,7 @@ ListopicApp.pageDeveloper = (() => {
     }
 
     function addTableEventListeners(container) {
-        // Listeners de ordenaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
+        // Listeners de ordenación
         container.querySelectorAll('.sortable').forEach(th => {
             th.addEventListener('click', () => {
                 const key = th.dataset.key;
@@ -370,7 +346,7 @@ ListopicApp.pageDeveloper = (() => {
             });
         });
 
-        // Listeners de selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
+        // Listeners de selección
         const selectAllCheckbox = container.querySelector('#select-all-checkbox');
         const rowCheckboxes = container.querySelectorAll('.row-selector');
 
@@ -439,33 +415,34 @@ ListopicApp.pageDeveloper = (() => {
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    // --- NUEVA FUNCIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN PARA ALGOLIA ---
+    // --- NUEVA FUNCIÓN PARA ALGOLIA ---
     async function backfillAlgolia(collectionName = null) {
         const logContainer = document.getElementById('algolia-sync-log');
         if (!logContainer) return;
         
-        logContainer.innerHTML = '<p><code>Solicitando sincronizaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n para Algolia...</code></p>';
+        logContainer.innerHTML = '<p><code>Solicitando sincronización para Algolia...</code></p>';
 
         try {
-            const backfill = (functionsService || firebase.app().functions('europe-west1')).httpsCallable('algolia-adminBackfillAlgolia');
+            const functions = firebase.app().functions('europe-west1');
+            const backfill = functions.httpsCallable('algolia-adminBackfillAlgolia');
             const collections = collectionName ? [collectionName] : ['lists', 'users', 'places'];
             
             for (const collection of collections) {
-                logContainer.innerHTML += `<p><code>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ Sincronizando '${collection}'...</code></p>`;
+                logContainer.innerHTML += `<p><code>⏳ Sincronizando '${collection}'...</code></p>`;
                 try {
                     const result = await backfill({ collectionName: collection });
-                    logContainer.innerHTML += `<p style="color: var(--accent-color-tertiary);"><code>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ ${collection}: ${result.data.message}</code></p>`;
+                    logContainer.innerHTML += `<p style="color: var(--accent-color-tertiary);"><code>✅ ${collection}: ${result.data.message}</code></p>`;
                 } catch (error) {
-                    logContainer.innerHTML += `<p style="color: var(--danger-color);"><code>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ Error en '${collection}': ${error.message}</code></p>`;
+                    logContainer.innerHTML += `<p style="color: var(--danger-color);"><code>🔥 Error en '${collection}': ${error.message}</code></p>`;
                 }
             }
-            logContainer.innerHTML += '<p><code>Proceso de sincronizaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n completado.</code></p>';
+            logContainer.innerHTML += '<p><code>Proceso de sincronización completado.</code></p>';
         } catch (error) {
-            logContainer.innerHTML += `<p style="color: var(--danger-color);"><code>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ Error general al llamar la funciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n: ${error.message}</code></p>`;
+            logContainer.innerHTML += `<p style="color: var(--danger-color);"><code>🔥 Error general al llamar la función: ${error.message}</code></p>`;
         }
     }
 
-    // --- PestaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a principal: conmutaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n ---
+    // --- Pestaña principal: conmutación ---
     function setupMainTabs() {
         const buttons = document.querySelectorAll('.dev-main-tab-button');
         const panes = {
@@ -487,7 +464,7 @@ ListopicApp.pageDeveloper = (() => {
     // NUEVA: Actualizar agregados de listas seleccionadas
     async function updateSelectedLists() {
         if (selectedRowIds.size === 0) return;
-        if (!confirm(`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿Actualizar agregados de ${selectedRowIds.size} lista(s)?`)) return;
+        if (!confirm(`¿Actualizar agregados de ${selectedRowIds.size} lista(s)?`)) return;
         const btn = document.getElementById('update-selected-lists-btn');
         btn.disabled = true;
         const originalBtnText = btn.innerHTML;
@@ -510,7 +487,7 @@ ListopicApp.pageDeveloper = (() => {
         }
     }
 
-    // --- Admin de categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as ---
+    // --- Admin de categorías ---
     async function initCategoriesAdminUI() {
         const sel = document.getElementById('admin-category-select');
         const idInput = document.getElementById('admin-cat-id');
@@ -525,20 +502,20 @@ ListopicApp.pageDeveloper = (() => {
         const btnSave = document.getElementById('admin-cat-save');
 
         async function loadSelect() {
-            // Traer todas las categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as (aunque no tengan 'order') y ordenar en cliente
+            // Traer todas las categorías (aunque no tengan 'order') y ordenar en cliente
             const snap = await db.collection('categories').get();
             const docsSorted = snap.docs.slice().sort((a,b) => {
                 const ao = (typeof a.data().order === 'number') ? a.data().order : Number.POSITIVE_INFINITY;
                 const bo = (typeof b.data().order === 'number') ? b.data().order : Number.POSITIVE_INFINITY;
                 return ao - bo;
             });
-            const options = ['<option value="" disabled selected>Selecciona categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a...</option>']
+            const options = ['<option value="" disabled selected>Selecciona categoría...</option>']
                 .concat(docsSorted.map(d => {
                     const data = d.data();
                     return `<option value="${d.id}">${escapeHtml(data.name || d.id)}</option>`;
                 }));
             sel.innerHTML = options.join('');
-            // SelecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n por defecto tipo "Comida"
+            // Selección por defecto tipo "Comida"
             const prefer = docsSorted.find(d => ((d.data().name||d.id||'').toString().toLowerCase().includes('comida')))
                         || docsSorted.find(d => typeof d.data().order === 'number' && d.data().order === 1)
                         || docsSorted[0];
@@ -561,7 +538,7 @@ ListopicApp.pageDeveloper = (() => {
                 fixedTagsTextarea.value = Array.isArray(fixedTags) ? fixedTags.join(', ') : '';
                 defaultCriteriaTextarea.value = data.defaultCriteria ? JSON.stringify(data.defaultCriteria, null, 2) : '';
             };
-            // Cargar datos de la preselecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
+            // Cargar datos de la preselección
             sel.onchange();
         }
 
@@ -590,7 +567,7 @@ ListopicApp.pageDeveloper = (() => {
                 const raw = defaultCriteriaTextarea.value.trim();
                 if (raw) {
                     try { defaultCriteria = JSON.parse(raw); }
-                    catch(e) { ListopicApp.services.showNotification('Default Criteria no es JSON vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lido', 'error'); return; }
+                    catch(e) { ListopicApp.services.showNotification('Default Criteria no es JSON válido', 'error'); return; }
                 }
                 const payload = { name, icon, order, like, dislike, 'fixed-tags': fixedTags, defaultCriteria };
                 let docId = idInput.value.trim();
@@ -599,12 +576,12 @@ ListopicApp.pageDeveloper = (() => {
                 }
                 await db.collection('categories').doc(docId).set(payload, { merge: true });
                 idInput.value = docId;
-                ListopicApp.services.showNotification('CategorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a guardada', 'success');
+                ListopicApp.services.showNotification('Categoría guardada', 'success');
                 await loadSelect();
                 sel.value = docId;
             } catch (e) {
-                console.error('DEV: Error guardando categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a', e);
-                ListopicApp.services.showNotification('No se pudo guardar la categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a: ' + e.message, 'error');
+                console.error('DEV: Error guardando categoría', e);
+                ListopicApp.services.showNotification('No se pudo guardar la categoría: ' + e.message, 'error');
             }
         });
 
