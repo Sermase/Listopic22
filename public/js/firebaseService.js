@@ -10,10 +10,9 @@ ListopicApp.services = (() => {
 
     const auth = firebase.auth();
     const storage = firebase.storage();
-    const functions = firebase.app().functions("europe-west1");
     const db = firebase.firestore();
 
-    // FunciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n para mostrar notificaciones
+    // Función para mostrar notificaciones
     function showNotification(message, type = 'info') {
         let notificationContainer = document.getElementById('notification-container');
         if (!notificationContainer) {
@@ -55,7 +54,7 @@ ListopicApp.services = (() => {
         }, 5000); // Tiempo total antes de remover el elemento
     }
 
-    // Agregar estilos para las animaciones de notificaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n (solo una vez)
+    // Agregar estilos para las animaciones de notificación (solo una vez)
     if (!document.getElementById('notification-animation-styles')) {
         const style = document.createElement('style');
         style.id = 'notification-animation-styles';
@@ -110,7 +109,7 @@ ListopicApp.services = (() => {
         }
     };
 
-    // FunciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n para crear usuario en Auth y Firestore
+    // Función para crear usuario en Auth y Firestore
     const createUserInAuthAndFirestore = async (email, password, username) => {
         try {
             console.log('[firebaseService] Iniciando createUserInAuthAndFirestore con:', email, username);
@@ -132,25 +131,25 @@ ListopicApp.services = (() => {
                 username: username,
                 email: email,
                 bio: "", // Valor inicial
-                photoUrl: user.photoURL || "", // Tomar de Auth si existe, sino vacÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­o
+                photoUrl: user.photoURL || "", // Tomar de Auth si existe, sino vacío
                 userType: 'basico', // Valor inicial por defecto
                 followersCount: 0, // Valor inicial
                 followingCount: 0, // Valor inicial
-                badges: [], // Array vacÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­o inicialmente
+                badges: [], // Array vacío inicialmente
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp del servidor
                 dateOfBirth: null, // Nuevo campo, se inicializa como null
-                residence: ""      // Nuevo campo, se inicializa vacÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­o
+                residence: ""      // Nuevo campo, se inicializa vacío
             };
             console.log('[firebaseService] Paso 3: Documento a guardar en Firestore:', newUserDocument);
 
             // 4. Guardar en Firestore
             console.log('[firebaseService] Paso 4: Guardando en Firestore en users/' + user.uid);
             await db.collection('users').doc(user.uid).set(newUserDocument);
-            showNotification('Usuario creado y perfil completo guardado.', 'info'); // NotificaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n de ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©xito global de la funciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n
+            showNotification('Usuario creado y perfil completo guardado.', 'info'); // Notificación de éxito global de la función
             console.log('[firebaseService] Documento guardado en Firestore exitosamente.');
             
 
-            // 5. Devolver el user para confirmaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n
+            // 5. Devolver el user para confirmación
             return user;
         } catch (error) {
             console.error('[firebaseService] Error detallado en createUserInAuthAndFirestore:', error);
@@ -160,7 +159,7 @@ ListopicApp.services = (() => {
         }
     };
 
-    // NUEVA FUNCIÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN: Asegura que el perfil de usuario exista en Firestore.
+    // NUEVA FUNCIÓN: Asegura que el perfil de usuario exista en Firestore.
     // Es idempotente: si ya existe, no hace nada; si no, lo crea.
     const ensureUserProfileExists = async (user) => {
         if (!user || !user.uid) {
@@ -182,10 +181,10 @@ ListopicApp.services = (() => {
                     userType: 'basico',
                     followersCount: 0,
                     followingCount: 0,
-                    publicListsCount: 0, // AÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±adir contadores de listas
+                    publicListsCount: 0, // Añadir contadores de listas
                     privateListsCount: 0,
-                    reviewsCount: 0,     // AÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±adir contador de reseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±as
-                    commentsCount: 0,    // AÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±adir contador de comentarios
+                    reviewsCount: 0,     // Añadir contador de reseñas
+                    commentsCount: 0,    // Añadir contador de comentarios
                     badges: [],
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     dateOfBirth: null,
@@ -195,7 +194,7 @@ ListopicApp.services = (() => {
                 console.log(`[firebaseService] Perfil Firestore creado para UID: ${user.uid}.`);
             } else {
                 console.log(`[firebaseService] Perfil Firestore ya existe para UID: ${user.uid}. No se necesita crear.`);
-                // Opcional: podrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­as actualizar displayName o photoUrl si ha cambiado en Auth
+                // Opcional: podrías actualizar displayName o photoUrl si ha cambiado en Auth
                 // await userDocRef.update({
                 //     username: user.displayName || doc.data().username,
                 //     photoUrl: user.photoURL || doc.data().photoUrl,
@@ -213,11 +212,10 @@ ListopicApp.services = (() => {
         auth: auth,
         storage: storage,
         db: db,
-        functions: functions,
         getListsByUserId: getListsByUserId,
         getReviewsByUserId: getReviewsByUserId,
         createUserInAuthAndFirestore: createUserInAuthAndFirestore,
         showNotification: showNotification,
-        ensureUserProfileExists: ensureUserProfileExists // Exportar la nueva funciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n
+        ensureUserProfileExists: ensureUserProfileExists // Exportar la nueva función
     };
 })();
