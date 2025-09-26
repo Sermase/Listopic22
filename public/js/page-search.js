@@ -23,9 +23,13 @@ ListopicApp.pageSearch = (() => {
     };
     const MOBILE_BREAKPOINT = 960;
 
+    const ENTITY_TYPES = ["all", ...Object.keys(INDEX_NAME_BY_ENTITY)];
+
     const FILTER_DEFINITIONS = {
         lists: [
-            { id: "categories", label: "Categorias", type: "facet", attribute: "categoryId", stateKey: "categories", sort: "alpha", maxOptions: 60 },
+
+            { id: "categories", label: "Categorias", type: "facet", attribute: "categoryId", stateKey: "categories", formatValue: formatCategoryLabel, sortByLabel: true },
+
             {
                 id: "reviews",
                 label: "Resenas minimas",
@@ -37,42 +41,59 @@ ListopicApp.pageSearch = (() => {
                     { value: 25, label: "25+" },
                     { value: 50, label: "50+" }
                 ]
+            },
+            {
+                id: "followers",
+                label: "Seguidores minimos",
+                type: "numeric",
+                attribute: "followersCount",
+                stateKey: "minFollowers",
+                options: [
+                    { value: 100, label: "100+" },
+                    { value: 250, label: "250+" },
+                    { value: 500, label: "500+" }
+                ]
             }
         ],
         places: [
-            { id: "provinces", label: "Provincia", type: "facet", attribute: "province", stateKey: "provinces", sort: "alpha", maxOptions: 80, collapsible: true },
-            { id: "cities", label: "Localidad", type: "facet", attribute: "city", stateKey: "cities", sort: "alpha", maxOptions: 80, collapsible: true, defaultOpen: false },
-            { id: "services", label: "Servicios", type: "facet", attribute: "serviceOptions", stateKey: "services", sort: "alpha", maxOptions: 60 },
-            { id: "accessibility", label: "Accesibilidad", type: "facet", attribute: "accessibility", stateKey: "accessibility", sort: "alpha", maxOptions: 60 },
+
+            { id: "cities", label: "Ciudad", type: "facet", attribute: "city", stateKey: "cities" },
+            { id: "provinces", label: "Provincia", type: "facet", attribute: "province", stateKey: "provinces" },
+            { id: "services", label: "Servicios", type: "facet", attribute: "serviceOptions", stateKey: "services" },
+            { id: "accessibility", label: "Accesibilidad", type: "facet", attribute: "accessibility", stateKey: "accessibility" },
+            { id: "priceLevel", label: "Nivel de precios", type: "facet", attribute: "priceLevel", stateKey: "priceLevels" },
+            { id: "placeType", label: "Tipo de lugar", type: "facet", attribute: "types", stateKey: "placeTypes" },
+
             {
                 id: "rating",
                 label: "Valoracion minima",
-                type: "numeric",
+                type: "range",
                 attribute: "averageRating",
                 stateKey: "minRating",
-                options: [
-                    { value: 4, label: "4+" },
-                    { value: 3.5, label: "3.5+" },
-                    { value: 3, label: "3+" }
-                ]
+                min: 0,
+                max: 10,
+                step: 0.5,
+                displaySuffix: "/10"
             }
         ],
         items: [
-            { id: "categories", label: "Categorias", type: "facet", attribute: "listCategoryId", stateKey: "categories", sort: "alpha", maxOptions: 60 },
-            { id: "lists", label: "Listas", type: "facet", attribute: "listName", stateKey: "lists", sort: "alpha", maxOptions: 60 },
-            { id: "provinces", label: "Provincia", type: "facet", attribute: "placeProvince", stateKey: "provinces", sort: "alpha", maxOptions: 80 },
-            { id: "cities", label: "Ciudad", type: "facet", attribute: "placeCity", stateKey: "cities", sort: "alpha", maxOptions: 80 },
+
+            { id: "categories", label: "Categoria", type: "facet", attribute: "listCategoryId", stateKey: "categories", formatValue: formatCategoryLabel, sortByLabel: true },
+            { id: "lists", label: "Listas", type: "listSelector", attribute: "listId", stateKey: "lists" },
+            { id: "baseTags", label: "Etiquetas base", type: "categoryTags", attribute: "listAvailableTags", stateKey: "baseTags" },
+            { id: "cities", label: "Ciudad", type: "facet", attribute: "placeCity", stateKey: "cities" },
+            { id: "provinces", label: "Provincia", type: "facet", attribute: "placeProvince", stateKey: "provinces" },
+
             {
                 id: "rating",
                 label: "Valoracion minima",
-                type: "numeric",
+                type: "range",
                 attribute: "avgGeneralScore",
                 stateKey: "minRating",
-                options: [
-                    { value: 4, label: "4+" },
-                    { value: 3.5, label: "3.5+" },
-                    { value: 3, label: "3+" }
-                ]
+                min: 0,
+                max: 10,
+                step: 0.5,
+                displaySuffix: "/10"
             }
         ],
         users: [
@@ -97,20 +118,29 @@ ListopicApp.pageSearch = (() => {
         return {
             lists: {
                 categories: new Set(),
-                minReviews: null
+
+                minReviews: null,
+                minFollowers: null
+
             },
             places: {
                 provinces: new Set(),
                 cities: new Set(),
                 services: new Set(),
                 accessibility: new Set(),
+                priceLevels: new Set(),
+                placeTypes: new Set(),
                 minRating: null
             },
             items: {
                 categories: new Set(),
                 lists: new Set(),
-                provinces: new Set(),
+
+                categories: new Set(),
+                baseTags: new Set(),
+
                 cities: new Set(),
+                provinces: new Set(),
                 minRating: null
             },
             users: {
@@ -123,12 +153,21 @@ ListopicApp.pageSearch = (() => {
 
     const state = {
         currentSearchQuery: "",
-        currentEntityType: "items",
+
+        currentEntityType: "lists",
+
         isSearching: false,
+        isFiltersPanelOpen: false,
         filters: createInitialFilters(),
         facetCache: {},
-        collapsedFilters: {},
-        isMobileFiltersOpen: false
+
+        lastFacetQueryByType: {},
+        categoriesLoaded: false,
+        categoriesLoadingPromise: null,
+        listsCacheByCategory: {},
+        listsLoadingByCategory: {},
+        listNameById: {}
+
     };
 
     const searchClient = algoliasearch(ListopicApp.config.ALGOLIA_APP_ID, ListopicApp.config.ALGOLIA_SEARCH_KEY);
@@ -139,10 +178,14 @@ ListopicApp.pageSearch = (() => {
     let entityTypeButtons = [];
     let searchResultsAreaEl;
     let executeSearchBtn;
+    let filtersPanelWrapper;
     let filtersPanelEl;
     let clearFiltersBtn;
     let filtersHeaderLabel;
-    let activeFiltersSummaryEl;
+    let filtersToggleBtn;
+    let filtersBackdrop;
+    let closeFiltersBtn;
+
     let debouncedSearch;
 
     function cacheDOMElements() {
@@ -153,125 +196,11 @@ ListopicApp.pageSearch = (() => {
         filtersPanelEl = document.getElementById("filters-panel-content");
         clearFiltersBtn = document.getElementById("clear-filters-btn");
         filtersHeaderLabel = document.getElementById("filters-header-label");
-        activeFiltersSummaryEl = document.getElementById("active-filters-summary");
-        filtersMobileToggleBtn = document.getElementById("filters-mobile-toggle");
-        filtersMobileCloseBtn = document.getElementById("filters-mobile-close");
-        filtersMobileOverlay = document.getElementById("filters-mobile-overlay");
-        entityTypeContainer = document.getElementById("filters-entity-type") || document.querySelector(".entity-type-filters");
-    }
 
-    function renderEntityTypeControls() {
-        if (!entityTypeContainer) {
-            entityTypeButtons = Array.from(document.querySelectorAll(".entity-type-btn"));
-            syncEntityTypeSelection();
-            return;
-        }
-        entityTypeContainer.innerHTML = "";
-        const fragment = document.createDocumentFragment();
-        ENTITY_TYPES.forEach(({ id, label, icon }) => {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.className = "entity-type-btn filter-pill";
-            button.dataset.type = id;
-            button.setAttribute("aria-pressed", "false");
-            button.innerHTML = `<i class="${icon}"></i> ${label}`;
-            fragment.appendChild(button);
-        });
-        entityTypeContainer.appendChild(fragment);
-        entityTypeButtons = Array.from(entityTypeContainer.querySelectorAll(".entity-type-btn"));
-        syncEntityTypeSelection();
-    }
+        filtersToggleBtn = document.getElementById("filters-toggle-btn");
+        filtersBackdrop = document.getElementById("filters-backdrop");
+        closeFiltersBtn = document.getElementById("close-filters-btn");
 
-    function syncEntityTypeSelection() {
-        entityTypeButtons.forEach((button) => {
-            const isActive = button.dataset.type === state.currentEntityType;
-            button.classList.toggle("active", isActive);
-            button.setAttribute("aria-pressed", isActive ? "true" : "false");
-        });
-    }
-
-    function ensureCollapseRegistry(type) {
-        if (!state.collapsedFilters[type]) {
-            state.collapsedFilters[type] = {};
-        }
-        return state.collapsedFilters[type];
-    }
-
-    function ensureCollapseDefaults(type, definitions) {
-        const registry = ensureCollapseRegistry(type);
-        definitions.forEach((definition) => {
-            if (definition.collapsible && typeof registry[definition.id] !== "boolean") {
-                registry[definition.id] = definition.defaultOpen === false;
-            }
-        });
-    }
-
-    function isFilterCollapsed(type, definition) {
-        const registry = ensureCollapseRegistry(type);
-        if (typeof registry[definition.id] === "boolean") {
-            return registry[definition.id];
-        }
-        return definition.defaultOpen === false;
-    }
-
-    function setFilterCollapsed(type, definitionId, isCollapsed) {
-        const registry = ensureCollapseRegistry(type);
-        registry[definitionId] = isCollapsed === true;
-    }
-
-    function isMobileViewport() {
-        return window.innerWidth <= MOBILE_BREAKPOINT;
-    }
-
-    function syncMobileFiltersToggleState() {
-        if (!filtersMobileToggleBtn) {
-            return;
-        }
-        filtersMobileToggleBtn.setAttribute("aria-expanded", state.isMobileFiltersOpen ? "true" : "false");
-    }
-
-    function applyMobileFiltersVisibility() {
-        if (!filtersPanelWrapper) {
-            return;
-        }
-        if (!isMobileViewport()) {
-            filtersPanelWrapper.classList.remove("is-mobile-open");
-            filtersMobileOverlay?.classList.remove("is-active");
-            document.body.classList.remove("filters-panel-open");
-            syncMobileFiltersToggleState();
-            return;
-        }
-        if (state.isMobileFiltersOpen) {
-            filtersPanelWrapper.classList.add("is-mobile-open");
-            filtersMobileOverlay?.classList.add("is-active");
-            document.body.classList.add("filters-panel-open");
-        } else {
-            filtersPanelWrapper.classList.remove("is-mobile-open");
-            filtersMobileOverlay?.classList.remove("is-active");
-            document.body.classList.remove("filters-panel-open");
-        }
-        syncMobileFiltersToggleState();
-    }
-
-    function openMobileFiltersPanel() {
-        if (!isMobileViewport()) {
-            return;
-        }
-        state.isMobileFiltersOpen = true;
-        applyMobileFiltersVisibility();
-    }
-
-    function closeMobileFiltersPanel() {
-        state.isMobileFiltersOpen = false;
-        applyMobileFiltersVisibility();
-    }
-
-    function toggleMobileFiltersPanel() {
-        if (!isMobileViewport()) {
-            return;
-        }
-        state.isMobileFiltersOpen = !state.isMobileFiltersOpen;
-        applyMobileFiltersVisibility();
     }
 
     function handleViewportResize() {
@@ -301,25 +230,339 @@ ListopicApp.pageSearch = (() => {
             .replace(/'/g, "&#39;");
     }
 
-    function onEntityTypeButtonClick(event) {
-        updateEntityTypeSelection(event.currentTarget);
+    function getCategoryCache() {
+        ListopicApp.state = ListopicApp.state || {};
+        ListopicApp.state.categoryCache = ListopicApp.state.categoryCache || {};
+        return ListopicApp.state.categoryCache;
+    }
+
+    function formatCategoryLabel(categoryId) {
+        if (!categoryId) {
+            return categoryId;
+        }
+        const cache = getCategoryCache();
+        const entry = cache[categoryId];
+        if (!entry) {
+            return categoryId;
+        }
+        const label = [entry.displayName, entry.name, entry.title, entry.label]
+            .find((value) => typeof value === "string" && value.trim());
+        return label ? label.trim() : categoryId;
+    }
+
+    function extractBaseTagsFromCategory(categoryData) {
+        if (!categoryData) {
+            return [];
+        }
+        const raw = categoryData["fixed-tags"] ?? categoryData.fixedTags ?? categoryData.fixed_tags ?? [];
+        if (!Array.isArray(raw)) {
+            return [];
+        }
+        const normalized = raw
+            .map((tag) => String(tag).trim())
+            .filter((tag) => tag.length > 0);
+        return Array.from(new Set(normalized));
+    }
+
+    async function ensureCategoriesLoaded() {
+        const cache = getCategoryCache();
+        if (Object.keys(cache).length > 0) {
+            state.categoriesLoaded = true;
+            return;
+        }
+        if (state.categoriesLoadingPromise) {
+            try {
+                await state.categoriesLoadingPromise;
+            } catch (_) {
+                // Ignorar errores previos
+            }
+            return;
+        }
+        const db = ListopicApp.services?.db;
+        if (!db) {
+            console.warn("page-search: Firestore no disponible para categorias.");
+            return;
+        }
+        state.categoriesLoadingPromise = db.collection("categories").get()
+            .then((snapshot) => {
+                snapshot.forEach((doc) => {
+                    const data = doc.data() || {};
+                    const normalizedTags = extractBaseTagsFromCategory(data);
+                    cache[doc.id] = { id: doc.id, ...data, _baseTags: normalizedTags };
+                });
+                state.categoriesLoaded = true;
+            })
+            .catch((error) => {
+                console.warn("page-search: no se pudieron cargar las categorias.", error);
+            })
+            .finally(() => {
+                state.categoriesLoadingPromise = null;
+            });
+        await state.categoriesLoadingPromise;
+    }
+
+    function getBaseTagsForSelectedCategories() {
+        const selected = state.filters?.items?.categories;
+        if (!(selected instanceof Set) || selected.size === 0) {
+            return [];
+        }
+        const cache = getCategoryCache();
+        const tagSet = new Set();
+        selected.forEach((categoryId) => {
+            const entry = cache[categoryId];
+            if (!entry) {
+                return;
+            }
+            const tags = Array.isArray(entry._baseTags) ? entry._baseTags : extractBaseTagsFromCategory(entry);
+            tags.forEach((tag) => {
+                if (tag) {
+                    tagSet.add(tag);
+                }
+            });
+        });
+        return Array.from(tagSet).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+    }
+
+    function sanitizeItemBaseTags() {
+        const baseTagsSet = state.filters?.items?.baseTags;
+        if (!(baseTagsSet instanceof Set)) {
+            return;
+        }
+        const selectedCategories = state.filters?.items?.categories;
+        if (!(selectedCategories instanceof Set) || selectedCategories.size === 0) {
+            if (baseTagsSet.size > 0) {
+                baseTagsSet.clear();
+            }
+            return;
+        }
+        const allowed = new Set(getBaseTagsForSelectedCategories());
+        Array.from(baseTagsSet).forEach((tag) => {
+            if (!allowed.has(tag)) {
+                baseTagsSet.delete(tag);
+            }
+        });
+    }
+
+    function sanitizeItemLists() {
+        const listSet = state.filters?.items?.lists;
+        if (!(listSet instanceof Set)) {
+            return;
+        }
+        const categorySet = state.filters?.items?.categories;
+        if (!(categorySet instanceof Set) || categorySet.size === 0) {
+            if (listSet.size > 0) {
+                listSet.clear();
+            }
+            return;
+        }
+    }
+
+
+    function shouldUseMobileFilters() {
+        if (typeof window.matchMedia === "function") {
+            return window.matchMedia("(max-width: 1024px)").matches;
+        }
+        return window.innerWidth <= 1024;
+    }
+
+    function openFiltersPanel() {
+        if (!filtersPanelWrapper || !shouldUseMobileFilters()) {
+            return;
+        }
+        filtersPanelWrapper.classList.add("is-open");
+        filtersPanelWrapper.setAttribute("aria-hidden", "false");
+        if (filtersBackdrop) {
+            filtersBackdrop.classList.add("is-visible");
+            filtersBackdrop.removeAttribute("hidden");
+        }
+        if (filtersToggleBtn) {
+            filtersToggleBtn.setAttribute("aria-expanded", "true");
+        }
+        if (document.body) {
+            document.body.classList.add("filters-panel-open");
+        }
+        state.isFiltersPanelOpen = true;
+    }
+
+    function closeFiltersPanel(options = {}) {
+        if (!filtersPanelWrapper) {
+            return;
+        }
+        const { skipFocus = false } = options;
+        const isMobile = shouldUseMobileFilters();
+
+        filtersPanelWrapper.classList.remove("is-open");
+        if (isMobile) {
+            filtersPanelWrapper.setAttribute("aria-hidden", "true");
+        } else {
+            filtersPanelWrapper.removeAttribute("aria-hidden");
+        }
+
+        if (filtersBackdrop) {
+            filtersBackdrop.classList.remove("is-visible");
+            if (!filtersBackdrop.hasAttribute("hidden")) {
+                filtersBackdrop.setAttribute("hidden", "");
+            }
+        }
+
+        if (filtersToggleBtn) {
+            filtersToggleBtn.setAttribute("aria-expanded", "false");
+        }
+
+        if (document.body) {
+            document.body.classList.remove("filters-panel-open");
+        }
+        state.isFiltersPanelOpen = false;
+
+        if (!skipFocus && filtersToggleBtn && isMobile) {
+            filtersToggleBtn.focus();
+        }
+    }
+
+    function toggleFiltersPanel() {
+        if (state.isFiltersPanelOpen) {
+            closeFiltersPanel();
+        } else {
+            openFiltersPanel();
+        }
+    }
+
+    function handleFiltersKeydown(event) {
+        if (event.key === "Escape" && state.isFiltersPanelOpen && shouldUseMobileFilters()) {
+            closeFiltersPanel();
+        }
+    }
+
+    function handleResponsiveFilters() {
+        const isMobile = shouldUseMobileFilters();
+
+        if (filtersToggleBtn) {
+            filtersToggleBtn.hidden = !isMobile;
+            filtersToggleBtn.setAttribute("aria-expanded", state.isFiltersPanelOpen ? "true" : "false");
+        }
+
+        if (filtersPanelWrapper) {
+            if (isMobile) {
+                filtersPanelWrapper.setAttribute("aria-hidden", state.isFiltersPanelOpen ? "false" : "true");
+            } else {
+                filtersPanelWrapper.classList.remove("is-open");
+                filtersPanelWrapper.removeAttribute("aria-hidden");
+            }
+        }
+
+        if (!isMobile) {
+            if (filtersBackdrop) {
+                filtersBackdrop.classList.remove("is-visible");
+                if (!filtersBackdrop.hasAttribute("hidden")) {
+                    filtersBackdrop.setAttribute("hidden", "");
+                }
+            }
+            if (document.body) {
+                document.body.classList.remove("filters-panel-open");
+            }
+            state.isFiltersPanelOpen = false;
+        }
+    }
+
+    function formatRangeValue(value, definition) {
+        if (value === null || value === undefined || Number.isNaN(Number(value))) {
+            return "Cualquiera";
+        }
+        const numericValue = Number(value);
+        const step = Number(definition?.step ?? 1);
+        const decimals = Number.isInteger(step) ? 0 : 1;
+        const formatted = decimals > 0 ? numericValue.toFixed(decimals) : String(Math.round(numericValue));
+        const suffix = definition?.displaySuffix || "";
+        return `${formatted}${suffix}`;
+    }
+
+    function createRangeSection(type, definition) {
+        const container = document.createElement("div");
+        container.className = "filter-block filter-block--range";
+
+        const header = document.createElement("div");
+        header.className = "filter-range__header";
+
+        const title = document.createElement("h3");
+        title.className = "filter-block__title";
+        title.textContent = definition.label;
+        header.appendChild(title);
+
+        const valueLabel = document.createElement("span");
+        valueLabel.className = "filter-range__value";
+        const currentValue = state.filters[type][definition.stateKey];
+        valueLabel.textContent = formatRangeValue(currentValue, definition);
+        header.appendChild(valueLabel);
+
+        container.appendChild(header);
+
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.className = "filter-range__slider";
+        const sliderMin = Number(definition.min ?? 0);
+        slider.min = String(sliderMin);
+        slider.max = String(Number(definition.max ?? 10));
+        slider.step = String(Number(definition.step ?? 1));
+        const storedValue = typeof currentValue === "number" ? currentValue : sliderMin;
+        slider.value = String(storedValue);
+        slider.setAttribute("aria-label", definition.label);
+
+        slider.addEventListener("input", () => {
+            const numericValue = Number(slider.value);
+            const epsilon = Math.max(Number(definition.step ?? 1) / 2, 0.05);
+            const isAtMin = Math.abs(numericValue - sliderMin) <= epsilon;
+            state.filters[type][definition.stateKey] = isAtMin ? null : numericValue;
+            valueLabel.textContent = isAtMin ? "Cualquiera" : formatRangeValue(numericValue, definition);
+        });
+
+        slider.addEventListener("change", () => {
+            performSearch();
+        });
+
+        container.appendChild(slider);
+
+        const actions = document.createElement("div");
+        actions.className = "filter-range__actions";
+
+        const resetBtn = document.createElement("button");
+        resetBtn.type = "button";
+        resetBtn.className = "filter-range__reset";
+        resetBtn.textContent = "Restablecer";
+        resetBtn.addEventListener("click", () => {
+            slider.value = String(sliderMin);
+            state.filters[type][definition.stateKey] = null;
+            valueLabel.textContent = "Cualquiera";
+            performSearch();
+        });
+
+        actions.appendChild(resetBtn);
+        container.appendChild(actions);
+
+        return container;
+
     }
 
     function updateEntityTypeSelection(button) {
         if (!button) {
             return;
         }
-        const newType = button.dataset.type;
-        if (!newType || newType === state.currentEntityType) {
-            return;
+
+        entityTypeButtons.forEach((btn) => btn.classList.remove("active"));
+        button.classList.add("active");
+        state.currentEntityType = button.dataset.type;
+        if (state.currentEntityType === "lists" || state.currentEntityType === "items") {
+            ensureCategoriesLoaded().catch(() => {});
         }
-        state.currentEntityType = newType;
-        syncEntityTypeSelection();
+
         renderFiltersPanel(state.currentEntityType);
         if (isMobileViewport()) {
             openMobileFiltersPanel();
         }
         performSearch();
+        if (shouldUseMobileFilters() && state.isFiltersPanelOpen) {
+            closeFiltersPanel({ skipFocus: true });
+        }
+        handleResponsiveFilters();
     }
 
     function buildFacetFilter(attribute, value) {
@@ -336,7 +579,7 @@ ListopicApp.pageSearch = (() => {
         const definitions = FILTER_DEFINITIONS[type] || [];
         const facetFilters = [];
         definitions.forEach((definition) => {
-            if (definition.type !== "facet") {
+            if (definition.type !== "facet" && definition.type !== "categoryTags") {
                 return;
             }
             const selected = state.filters[type]?.[definition.stateKey];
@@ -360,12 +603,24 @@ ListopicApp.pageSearch = (() => {
         const definitions = FILTER_DEFINITIONS[type] || [];
         const expressions = [];
         definitions.forEach((definition) => {
+
+            const selectedValue = state.filters[type][definition.stateKey];
+            if (definition.type === "numeric") {
+                if (selectedValue !== null && selectedValue !== undefined) {
+                    expressions.push(`${definition.attribute} >= ${Number(selectedValue)}`);
+                }
+            } else if (definition.type === "range") {
+                if (typeof selectedValue === "number" && !Number.isNaN(selectedValue)) {
+                    expressions.push(`${definition.attribute} >= ${Number(selectedValue)}`);
+                }
+
             if (definition.type !== "numeric") {
                 return;
             }
             const selectedValue = state.filters[type]?.[definition.stateKey];
             if (selectedValue !== null && selectedValue !== undefined) {
                 expressions.push(`${definition.attribute} >= ${Number(selectedValue)}`);
+
             }
         });
         return expressions.length > 0 ? expressions.join(" AND ") : undefined;
@@ -405,29 +660,96 @@ ListopicApp.pageSearch = (() => {
         }
         let total = 0;
         definitions.forEach((definition) => {
-            const value = filterState[definition.stateKey];
-            if (definition.type === "facet" && value instanceof Set) {
+
+            const value = state.filters[type][definition.stateKey];
+            if ((definition.type === "facet" || definition.type === "categoryTags") && value instanceof Set) {
+
                 total += value.size;
             } else if (definition.type === "numeric" && value !== null && value !== undefined) {
+                total += 1;
+            } else if (definition.type === "range" && typeof value === "number" && !Number.isNaN(value)) {
                 total += 1;
             }
         });
         return total;
     }
 
-    function getFilterDefinitionById(type, definitionId) {
-        const definitions = FILTER_DEFINITIONS[type] || [];
-        return definitions.find((definition) => definition.id === definitionId) || null;
+
+
+    async function ensureFacetData(type, query) {
+        if (type === "all") {
+            return;
+        }
+        const normalizedQuery = query || "";
+        if (
+            state.facetCache[type] &&
+            Object.keys(state.facetCache[type]).length > 0 &&
+            state.lastFacetQueryByType[type] === normalizedQuery
+        ) {
+            return;
+        }
+        const indexName = INDEX_NAME_BY_ENTITY[type];
+        if (!indexName) {
+            return;
+        }
+        try {
+            const index = searchClient.initIndex(indexName);
+            const params = { ...getSearchParams(type), hitsPerPage: 0 };
+            const response = await index.search(normalizedQuery, params);
+            state.facetCache[type] = response.facets || {};
+            state.lastFacetQueryByType[type] = normalizedQuery;
+        } catch (error) {
+            console.warn("page-search: no se pudieron precargar los filtros.", error);
+        }
     }
 
-    function collectActiveFilters(type) {
-        if (type === "all") {
-            return [];
+    async function performSearch() {
+        if (state.isSearching) {
+            return;
         }
-        const definitions = FILTER_DEFINITIONS[type] || [];
-        const filterState = state.filters[type];
-        if (!filterState) {
-            return [];
+        state.isSearching = true;
+        if (executeSearchBtn) {
+            executeSearchBtn.disabled = true;
+        }
+
+        const query = (mainSearchInput?.value || "").trim();
+        state.currentSearchQuery = query;
+        const currentType = state.currentEntityType;
+
+        if (currentType === "items" || currentType === "lists") {
+            try {
+                await ensureCategoriesLoaded();
+            } catch (_) {
+                // Ignorar fallos al precargar categorias
+            }
+        }
+        if (currentType === "items") {
+            sanitizeItemBaseTags();
+            sanitizeItemLists();
+        }
+
+        const hasActiveFilters = currentType !== "all" && countActiveFilters(currentType) > 0;
+
+        if (!query && !hasActiveFilters && currentType === "all") {
+            if (searchResultsAreaEl) {
+                searchResultsAreaEl.innerHTML = '<p class="search-placeholder">Introduce tu busqueda para ver resultados.</p>';
+            }
+            renderFiltersPanel(currentType);
+            state.isSearching = false;
+            if (executeSearchBtn) {
+                executeSearchBtn.disabled = false;
+            }
+            return;
+        }
+
+        if (currentType !== "all") {
+            await ensureFacetData(currentType, query);
+            renderFiltersPanel(currentType);
+        }
+
+        if (searchResultsAreaEl) {
+            searchResultsAreaEl.innerHTML = '<p class="search-placeholder"><i class="fas fa-spinner fa-spin"></i> Buscando...</p>';
+
         }
         const active = [];
         definitions.forEach((definition) => {
@@ -443,16 +765,30 @@ ListopicApp.pageSearch = (() => {
                         rawValue: entry
                     });
                 });
-            } else if (definition.type === "numeric" && value !== null && value !== undefined) {
-                const option = (definition.options || []).find((opt) => Number(opt.value) === Number(value));
-                active.push({
-                    id: definition.id,
-                    type,
-                    stateKey: definition.stateKey,
-                    label: definition.label,
-                    displayValue: option ? option.label : value,
-                    rawValue: Number(value)
-                });
+
+                renderResults(aggregated);
+            } else {
+                const indexName = INDEX_NAME_BY_ENTITY[currentType];
+                const index = searchClient.initIndex(indexName);
+                const params = getSearchParams(currentType);
+                const response = await index.search(query, params);
+                state.facetCache[currentType] = response.facets || {};
+                state.lastFacetQueryByType[currentType] = query || "";
+                renderFiltersPanel(currentType);
+                const resultType = RESULT_TYPE_BY_ENTITY[currentType];
+                const hits = (response.hits || []).map((hit) => ({ ...hit, type: resultType }));
+                renderResults(hits);
+            }
+        } catch (error) {
+            console.error("Error en la busqueda con Algolia:", error);
+            if (searchResultsAreaEl) {
+                searchResultsAreaEl.innerHTML = '<p class="search-placeholder error-placeholder">Vaya, algo ha fallado al buscar.</p>';
+            }
+        } finally {
+            state.isSearching = false;
+            if (executeSearchBtn) {
+                executeSearchBtn.disabled = false;
+
             }
         });
         return active;
@@ -511,25 +847,41 @@ ListopicApp.pageSearch = (() => {
         activeFiltersSummaryEl.appendChild(chipsWrapper);
     }
 
-    function getFacetEntries(definition, facetValues, selectedSet) {
-        const entries = Object.entries(facetValues || {}).map(([value, count]) => ({
-            value,
-            count: Number(count) || 0
-        }));
-        if (selectedSet instanceof Set) {
-            selectedSet.forEach((value) => {
-                if (!entries.some((entry) => entry.value === value)) {
-                    entries.push({ value, count: 0 });
-                }
-            });
+    function renderFiltersPanel(type) {
+        if (!filtersPanelEl) {
+            return;
         }
-        const normalizedSet = selectedSet instanceof Set ? selectedSet : null;
-        const sortMode = definition.sort === "alpha" ? "alpha" : "count";
-        entries.sort((a, b) => {
-            const aSelected = normalizedSet ? normalizedSet.has(a.value) : false;
-            const bSelected = normalizedSet ? normalizedSet.has(b.value) : false;
-            if (aSelected !== bSelected) {
-                return aSelected ? -1 : 1;
+        if (filtersHeaderLabel) {
+            const activeCount = countActiveFilters(type);
+            filtersHeaderLabel.textContent = activeCount > 0 ? `Filtros (${activeCount})` : "Filtros";
+        }
+        if (clearFiltersBtn) {
+            const hasFilters = countActiveFilters(type) > 0;
+            clearFiltersBtn.disabled = type === "all" || !hasFilters;
+        }
+        if (type === "all") {
+            filtersPanelEl.innerHTML = '<p class="filters-placeholder">Selecciona un tipo de contenido para ver filtros.</p>';
+            return;
+        }
+        const facetData = state.facetCache[type] || {};
+        const definitions = FILTER_DEFINITIONS[type] || [];
+        if (definitions.length === 0) {
+            filtersPanelEl.innerHTML = '<p class="filters-placeholder">No hay filtros disponibles para este tipo.</p>';
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        definitions.forEach((definition) => {
+            if (definition.type === "facet") {
+                const section = createFacetSection(type, definition, facetData[definition.attribute] || {});
+                fragment.appendChild(section);
+            } else if (definition.type === "numeric") {
+                fragment.appendChild(createNumericSection(type, definition));
+            } else if (definition.type === "categoryTags") {
+                fragment.appendChild(createCategoryTagsSection(type, definition));
+            } else if (definition.type === "range") {
+                fragment.appendChild(createRangeSection(type, definition));
+
             }
             if (sortMode === "alpha") {
                 const comparison = a.value.localeCompare(b.value, "es", { sensitivity: "base" });
@@ -618,7 +970,26 @@ ListopicApp.pageSearch = (() => {
             container.appendChild(helper);
         }
 
-        if (!gateCityFacet && entries.length === 0) {
+        if (type === "items" && definition.attribute === "listName") {
+            sanitizeItemLists();
+            const categorySet = state.filters?.items?.categories;
+            if (!(categorySet instanceof Set) || categorySet.size === 0) {
+                const empty = document.createElement("p");
+                empty.className = "filter-block__empty";
+                empty.textContent = "Selecciona una categoria para ver sus listas.";
+                container.appendChild(empty);
+                return container;
+            }
+        }
+
+        let entries = Object.entries(facetValues || {});
+        if (entries.length === 0 && (definition.attribute === "categoryId" || definition.attribute === "listCategoryId")) {
+            const cache = getCategoryCache();
+            entries = Object.keys(cache).map((categoryId) => [categoryId, 0]);
+        }
+
+        if (entries.length === 0) {
+
             const empty = document.createElement("p");
             empty.className = "filter-block__empty";
             empty.textContent = facetValues ? "Sin opciones disponibles" : "Empieza a buscar para ver opciones.";
@@ -626,49 +997,149 @@ ListopicApp.pageSearch = (() => {
         }
 
         const optionsWrapper = document.createElement("div");
-        optionsWrapper.className = "filter-block__options filter-block__options--scroll";
-        if (definition.collapsible && isCollapsed) {
-            optionsWrapper.hidden = true;
+        optionsWrapper.className = "filter-block__options";
+        let selectedSet = state.filters[type][definition.stateKey];
+        if (!(selectedSet instanceof Set)) {
+            selectedSet = new Set();
+            state.filters[type][definition.stateKey] = selectedSet;
         }
 
-        if (entries.length > 0) {
-            entries.forEach(({ value, count }) => {
-                const option = document.createElement("label");
-                option.className = "filter-option";
 
-                const checkbox = document.createElement("input");
-                checkbox.type = "checkbox";
-                checkbox.value = value;
-                checkbox.checked = selectedSet instanceof Set ? selectedSet.has(value) : false;
-                checkbox.addEventListener("change", () => {
-                    if (!(selectedSet instanceof Set)) {
-                        return;
+        const sortedEntries = entries.slice();
+        if (definition.sortByLabel) {
+            sortedEntries.sort((a, b) => {
+                const labelA = typeof definition.formatValue === "function" ? definition.formatValue(a[0]) : a[0];
+                const labelB = typeof definition.formatValue === "function" ? definition.formatValue(b[0]) : b[0];
+                return String(labelA).localeCompare(String(labelB), "es", { sensitivity: "base" });
+            });
+        } else {
+            sortedEntries.sort((a, b) => b[1] - a[1]);
+        }
+
+        sortedEntries.slice(0, 30).forEach(([value, count]) => {
+            const option = document.createElement("label");
+            option.className = "filter-option";
+
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = value;
+            checkbox.checked = selectedSet.has(value);
+            checkbox.addEventListener("change", () => {
+                if (checkbox.checked) {
+                    selectedSet.add(value);
+                } else {
+                    selectedSet.delete(value);
+                }
+                if (type === "items") {
+                    if (definition.attribute === "listCategoryId") {
+                        sanitizeItemBaseTags();
+                        sanitizeItemLists();
+                    } else if (definition.attribute === "listName") {
+                        sanitizeItemLists();
                     }
-                    if (checkbox.checked) {
-                        selectedSet.add(value);
-                    } else {
-                        selectedSet.delete(value);
-                    }
-                    performSearch();
-                });
-
-                const labelSpan = document.createElement("span");
-                labelSpan.className = "filter-option__label";
-                labelSpan.textContent = value;
-
-                const countSpan = document.createElement("span");
-                countSpan.className = "filter-option__count";
-                countSpan.textContent = numberFormatter.format(count);
-
-                option.appendChild(checkbox);
-                option.appendChild(labelSpan);
-                option.appendChild(countSpan);
-                optionsWrapper.appendChild(option);
+                }
+                performSearch();
             });
             container.appendChild(optionsWrapper);
         } else if (!gateCityFacet) {
             container.appendChild(optionsWrapper);
         }
+
+            const labelSpan = document.createElement("span");
+            labelSpan.className = "filter-option__label";
+            const displayValue = typeof definition.formatValue === "function" ? definition.formatValue(value) : value;
+            labelSpan.textContent = displayValue;
+            if (displayValue !== value) {
+                labelSpan.title = value;
+            }
+
+            const countSpan = document.createElement("span");
+            countSpan.className = "filter-option__count";
+            countSpan.textContent = typeof count === "number" ? count : 0;
+
+            option.appendChild(checkbox);
+            option.appendChild(labelSpan);
+            option.appendChild(countSpan);
+            optionsWrapper.appendChild(option);
+        });
+
+        container.appendChild(optionsWrapper);
+        return container;
+    }
+
+    function createCategoryTagsSection(type, definition) {
+        const container = document.createElement("div");
+        container.className = "filter-block";
+
+        const title = document.createElement("h3");
+        title.className = "filter-block__title";
+        title.textContent = definition.label;
+        container.appendChild(title);
+
+        sanitizeItemBaseTags();
+
+        const categorySet = state.filters[type]?.categories;
+        if (!(categorySet instanceof Set) || categorySet.size === 0) {
+            const empty = document.createElement("p");
+            empty.className = "filter-block__empty";
+            empty.textContent = "Selecciona una categoria para ver etiquetas.";
+            container.appendChild(empty);
+            return container;
+        }
+
+        const baseTags = getBaseTagsForSelectedCategories();
+        let selectedSet = state.filters[type][definition.stateKey];
+        if (!(selectedSet instanceof Set)) {
+            selectedSet = new Set();
+            state.filters[type][definition.stateKey] = selectedSet;
+        }
+
+        if (baseTags.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "filter-block__empty";
+            empty.textContent = "Las categorias seleccionadas no tienen etiquetas base.";
+            container.appendChild(empty);
+            return container;
+        }
+
+        const allowedSet = new Set(baseTags);
+        Array.from(selectedSet).forEach((tag) => {
+            if (!allowedSet.has(tag)) {
+                selectedSet.delete(tag);
+            }
+        });
+
+        const optionsWrapper = document.createElement("div");
+        optionsWrapper.className = "filter-block__options";
+        container.appendChild(optionsWrapper);
+
+        baseTags.forEach((tag) => {
+            const option = document.createElement("label");
+            option.className = "filter-option";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = tag;
+            checkbox.checked = selectedSet.has(tag);
+            checkbox.addEventListener("change", () => {
+                if (checkbox.checked) {
+                    selectedSet.add(tag);
+                } else {
+                    selectedSet.delete(tag);
+                }
+                performSearch();
+            });
+
+            const labelSpan = document.createElement("span");
+            labelSpan.className = "filter-option__label";
+            labelSpan.textContent = tag;
+
+            option.appendChild(checkbox);
+            option.appendChild(labelSpan);
+            optionsWrapper.appendChild(option);
+        });
+
 
         return container;
     }
@@ -919,8 +1390,24 @@ ListopicApp.pageSearch = (() => {
         }
         const freshFilters = createInitialFilters();
         state.filters[type] = freshFilters[type];
-        renderFiltersPanel(type);
+
+        state.facetCache[type] = {};
+        state.lastFacetQueryByType[type] = undefined;
+
         performSearch();
+    }
+
+    function getInitialEntityTypeFromUrl() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const typeParam = params.get("type");
+            if (typeParam && ENTITY_TYPES.includes(typeParam)) {
+                return typeParam;
+            }
+        } catch (error) {
+            console.warn("page-search: no se pudo leer el tipo desde la URL.", error);
+        }
+        return null;
     }
 
     function loadInitialQueryFromUrl() {
@@ -955,6 +1442,16 @@ ListopicApp.pageSearch = (() => {
         if (clearFiltersBtn) {
             clearFiltersBtn.addEventListener("click", resetFiltersForCurrentType);
         }
+        if (filtersToggleBtn) {
+            filtersToggleBtn.addEventListener("click", toggleFiltersPanel);
+        }
+        if (filtersBackdrop) {
+            filtersBackdrop.addEventListener("click", () => closeFiltersPanel());
+        }
+        if (closeFiltersBtn) {
+            closeFiltersBtn.addEventListener("click", () => closeFiltersPanel());
+        }
+        document.addEventListener("keydown", handleFiltersKeydown);
     }
 
     function init() {
@@ -963,6 +1460,22 @@ ListopicApp.pageSearch = (() => {
         renderEntityTypeControls();
         handleViewportResize();
         debouncedSearch = debounce(performSearch, 300);
+        initEventListeners();
+        ensureCategoriesLoaded().catch(() => {});
+        handleResponsiveFilters();
+        window.addEventListener("resize", handleResponsiveFilters);
+        const initialTypeFromUrl = getInitialEntityTypeFromUrl();
+        const targetType = initialTypeFromUrl || state.currentEntityType;
+        const typeButtonArray = Array.from(entityTypeButtons || []);
+        const defaultButton = typeButtonArray.find((button) => button.dataset.type === targetType);
+        if (defaultButton) {
+            updateEntityTypeSelection(defaultButton);
+        } else {
+            state.currentEntityType = targetType;
+            renderFiltersPanel(state.currentEntityType);
+            performSearch();
+        }
+
         loadInitialQueryFromUrl();
         syncEntityTypeSelection();
         renderFiltersPanel(state.currentEntityType);
@@ -974,5 +1487,3 @@ ListopicApp.pageSearch = (() => {
         init
     };
 })();
-
-

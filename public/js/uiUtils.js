@@ -597,11 +597,11 @@ createListViewGroupCard: function(group, listData, listIcon) {
 
     createGroupedItemCard: function(itemData) {
         const uiUtils = this;
-        const ratingValue = typeof itemData.avgGeneralScore === "number"
+        const ratingValue = typeof itemData.avgGeneralScore === 'number'
             ? itemData.avgGeneralScore
-            : (typeof itemData.averageRating === "number" ? itemData.averageRating : null);
+            : (typeof itemData.averageRating === 'number' ? itemData.averageRating : null);
         const ratingTag = ratingValue !== null
-            ? `<span class="info-tag"><i class="fas fa-star-half-alt"></i> Media: ${ratingValue.toFixed(1)}</span>`
+            ? `<span class="info-tag info-tag--rating"><i class="fas fa-star"></i> ${ratingValue.toFixed(1)}/10</span>`
             : '';
         const listTag = itemData.listName
             ? `<span class="info-tag"><i class="fas fa-list"></i> ${uiUtils.escapeHtml(itemData.listName)}</span>`
@@ -609,8 +609,21 @@ createListViewGroupCard: function(group, listData, listIcon) {
         const cityTag = itemData.placeCity
             ? `<span class="info-tag"><i class="fas fa-city"></i> ${uiUtils.escapeHtml(itemData.placeCity)}</span>`
             : '';
+
+        const params = [];
+        if (itemData.listId) {
+            params.push(`listId=${encodeURIComponent(itemData.listId)}`);
+        }
+        if (itemData.placeId) {
+            params.push(`placeId=${encodeURIComponent(itemData.placeId)}`);
+        }
+        if (itemData.itemName) {
+            params.push(`item=${encodeURIComponent(itemData.itemName)}`);
+        }
+        const detailHref = `grouped-detail-view.html${params.length ? `?${params.join('&')}` : ''}`;
+
         return `
-            <div class="search-card">
+            <a href="${detailHref}" class="search-card search-card--item">
                 <div class="search-card__icon-container">
                     <i class="fas fa-star"></i>
                 </div>
@@ -624,7 +637,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
                         ${ratingTag}
                     </div>
                 </div>
-            </div>
+            </a>
         `;
     },
     
