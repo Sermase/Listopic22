@@ -89,6 +89,9 @@ ListopicApp.pageDeveloper = (() => {
         // NUEVO: Botón de eliminar seleccionados
         const deleteBtn = document.getElementById('delete-selected-btn');
         if (deleteBtn) deleteBtn.addEventListener('click', deleteSelectedItems);
+
+        const auditStatsBtn = document.getElementById('audit-stats-btn');
+        if (auditStatsBtn) auditStatsBtn.addEventListener('click', runStatisticsAudit);
     }
 
     function updateActionButtonsState() {
@@ -586,6 +589,113 @@ ListopicApp.pageDeveloper = (() => {
         });
 
         await loadSelect();
+    }
+
+    async function runStatisticsAudit() {
+        const btn = document.getElementById('audit-stats-btn');
+        const logContainer = document.getElementById('stats-audit-log');
+        if (!btn || !logContainer) return;
+
+        const originalLabel = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Revisando...';
+        logContainer.innerHTML = '<p><code>Iniciando repaso de estadísticas...</code></p>';
+
+        try {
+            const callable = firebase.app().functions('europe-west1').httpsCallable('adminAuditStatistics');
+            const result = await callable();
+            renderStatisticsAuditLog(result?.data);
+        } catch (error) {
+            console.error('Error al ejecutar adminAuditStatistics', error);
+            const message = error?.message || 'Error desconocido al ejecutar el repaso.';
+            logContainer.innerHTML = `<p style="color: var(--danger-color);"><code>${escapeHtml(message)}</code></p>`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalLabel;
+        }
+    }
+
+    function renderStatisticsAuditLog(result) {
+        const container = document.getElementById('stats-audit-log');
+        if (!container) return;
+
+        if (!result || typeof result !== 'object') {
+            container.innerHTML = '<p><code>Respuesta vacía del servidor.</code></p>';
+            return;
+        }
+
+        const summary = result.summary || {};
+        const details = result.details || {};
+        const checked = summary.checked || {};
+        const updated = summary.updated || {};
+        const errors = Array.isArray(summary.errors) ? summary.errors : [];
+        const totalUpdates = (updated.places || 0) + (updated.users || 0) + (updated.lists || 0);
+        const duration = typeof summary.durationMs === 'number' ? `${summary.durationMs} ms` : 'desconocido';
+        const completedAt = summary.completedAt ? new Date(summary.completedAt).toLocaleString() : '';
+
+        const summaryHtml = `
+            <div class="audit-summary">
+                <h4>Resumen</h4>
+                <ul>
+                    <li><strong>Lugares revisados:</strong> ${checked.places || 0} · actualizados: ${updated.places || 0}</li>
+                    <li><strong>Usuarios revisados:</strong> ${checked.users || 0} · actualizados: ${updated.users || 0}</li>
+                    <li><strong>Listas revisadas:</strong> ${checked.lists || 0} · actualizadas: ${updated.lists || 0}</li>
+                    <li><strong>Listas con grupos ajustados:</strong> ${updated.groupedItems || 0}</li>
+                </ul>
+                <p><small>Duración: ${escapeHtml(duration)}${completedAt ? ` · Finalizado: ${escapeHtml(completedAt)}` : ''}</small></p>
+            </div>
+        `;
+
+        const errorsHtml = errors.length > 0
+            ? `<details><summary>Errores (${errors.length})</summary><ul>${errors.map(err => `<li><code>${escapeHtml(err.type || 'desconocido')}</code> ${err.id ? `(${escapeHtml(err.id)})` : ''}: ${escapeHtml(err.message || 'Error sin mensaje')}</li>`).join('')}</ul></details>`
+            : '';
+
+        if (totalUpdates === 0 && errors.length === 0) {
+            container.innerHTML = `${summaryHtml}<p>Todo estaba en orden. ✅</p>`;
+            return;
+        }
+
+        const placesHtml = renderAuditDetailSection('Lugares ajustados', details.places || []);
+        const usersHtml = renderAuditDetailSection('Usuarios ajustados', details.users || []);
+        const listsHtml = renderAuditDetailSection('Listas ajustadas', details.lists || []);
+        const groupsHtml = renderGroupedItemsSection('Elementos (grupos) actualizados', details.groupedItems || []);
+
+        container.innerHTML = [summaryHtml, errorsHtml, placesHtml, usersHtml, listsHtml, groupsHtml]
+            .filter(Boolean)
+            .join('');
+    }
+
+    function renderAuditDetailSection(title, entries) {
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return `<details><summary>${escapeHtml(title)}</summary><p>Sin discrepancias.</p></details>`;
+        }
+
+        const itemsHtml = entries.map(entry => {
+            const identifier = entry.name
+                ? `${escapeHtml(entry.name)} <small>(${escapeHtml(entry.id)})</small>`
+                : escapeHtml(entry.id);
+            const diffs = Array.isArray(entry.diffs)
+                ? entry.diffs.map(diff => `<li><code>${escapeHtml(diff.field)}</code>: ${escapeHtml(String(diff.previous ?? 0))} → <strong>${escapeHtml(String(diff.value))}</strong></li>`).join('')
+                : '';
+            return `<li><strong>${identifier}</strong><ul>${diffs}</ul></li>`;
+        }).join('');
+
+        return `<details open><summary>${escapeHtml(title)} (${entries.length})</summary><ol>${itemsHtml}</ol></details>`;
+    }
+
+    function renderGroupedItemsSection(title, entries) {
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return `<details><summary>${escapeHtml(title)}</summary><p>Sin ajustes necesarios.</p></details>`;
+        }
+
+        const itemsHtml = entries.map(entry => {
+            const identifier = entry.name
+                ? `${escapeHtml(entry.name)} <small>(${escapeHtml(entry.listId)})</small>`
+                : escapeHtml(entry.listId);
+            return `<li><strong>${identifier}</strong>: ${escapeHtml(String(entry.previousValue ?? 0))} → <strong>${escapeHtml(String(entry.newValue ?? 0))}</strong></li>`;
+        }).join('');
+
+        return `<details open><summary>${escapeHtml(title)} (${entries.length})</summary><ul>${itemsHtml}</ul></details>`;
     }
 
     return { init, setupMainTabs, initCategoriesAdminUI };
