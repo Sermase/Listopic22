@@ -19,6 +19,246 @@ ListopicApp.state = {
     // Firebase services no deberían estar en state, se acceden desde ListopicApp.services
 };
 
+const notificationsRelativeTimeFormatter = (typeof Intl !== 'undefined' && typeof Intl.RelativeTimeFormat !== 'undefined')
+    ? new Intl.RelativeTimeFormat('es', { numeric: 'auto' })
+    : null;
+
+function formatRelativeTimeForNotifications(date) {
+    if (!(date instanceof Date)) {
+        return '';
+    }
+
+    if (!notificationsRelativeTimeFormatter) {
+        const diffMinutes = Math.round((Date.now() - date.getTime()) / 60000);
+        if (Math.abs(diffMinutes) <= 1) {
+            return 'justo ahora';
+        }
+        const suffix = diffMinutes >= 0 ? 'hace' : 'en';
+        return `${suffix} ${Math.abs(diffMinutes)} min`;
+    }
+
+    const timeUnits = [
+        { unit: 'year', ms: 1000 * 60 * 60 * 24 * 365 },
+        { unit: 'month', ms: 1000 * 60 * 60 * 24 * 30 },
+        { unit: 'week', ms: 1000 * 60 * 60 * 24 * 7 },
+        { unit: 'day', ms: 1000 * 60 * 60 * 24 },
+        { unit: 'hour', ms: 1000 * 60 * 60 },
+        { unit: 'minute', ms: 1000 * 60 },
+        { unit: 'second', ms: 1000 }
+    ];
+
+    const diff = date.getTime() - Date.now();
+    for (const { unit, ms } of timeUnits) {
+        if (Math.abs(diff) >= ms || unit === 'second') {
+            const value = Math.round(diff / ms);
+            return notificationsRelativeTimeFormatter.format(value, unit);
+        }
+    }
+
+    return '';
+}
+
+function ensureNotificationsModalElements() {
+    let modal = document.getElementById('notificationsModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'notificationsModal';
+        modal.className = 'modal notifications-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'notificationsModalTitle');
+        modal.innerHTML = `
+            <div class="modal-content notifications-modal-content">
+                <button type="button" class="close-button close-notifications-modal" aria-label="Cerrar notificaciones">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h2 id="notificationsModalTitle">Notificaciones</h2>
+                <div class="notifications-modal-body">
+                    <p class="notifications-loading-state">Cargando notificaciones...</p>
+                    <ul class="notifications-list" role="list"></ul>
+                    <p class="notifications-empty-state" hidden>No tienes notificaciones nuevas.</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    const listElement = modal.querySelector('.notifications-list');
+    const loadingElement = modal.querySelector('.notifications-loading-state');
+    const emptyElement = modal.querySelector('.notifications-empty-state');
+    const closeButton = modal.querySelector('.close-notifications-modal');
+
+    return {
+        modal,
+        listElement,
+        loadingElement,
+        emptyElement,
+        closeButton
+    };
+}
+
+function setupNotificationsUI(currentUser) {
+    const notificationsButton = document.getElementById('notificationsButton');
+    if (!notificationsButton || notificationsButton.dataset.notificationsSetup === 'true') {
+        return;
+    }
+
+    const {
+        modal,
+        listElement,
+        loadingElement,
+        emptyElement,
+        closeButton
+    } = ensureNotificationsModalElements();
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        document.body.classList.remove('modal-open');
+        notificationsButton.setAttribute('aria-expanded', 'false');
+        notificationsButton.disabled = false;
+        delete notificationsButton.dataset.loading;
+        notificationsButton.focus();
+    };
+
+    const handleKeyDown = (event) => {
+        if (event.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    };
+
+    if (!modal.dataset.listenersAttached) {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        if (closeButton) {
+            closeButton.addEventListener('click', closeModal);
+        }
+
+        document.addEventListener('keydown', handleKeyDown);
+        modal.dataset.listenersAttached = 'true';
+    }
+
+    const renderNotifications = (notifications) => {
+        listElement.innerHTML = '';
+
+        notifications.forEach(notification => {
+            const item = document.createElement('li');
+            item.className = 'notifications-item';
+
+            const iconWrapper = document.createElement('div');
+            iconWrapper.className = 'notification-icon';
+            const iconElement = document.createElement('i');
+            iconElement.className = notification.icon || 'fas fa-bell';
+            iconWrapper.appendChild(iconElement);
+
+            const mainWrapper = document.createElement('div');
+            mainWrapper.className = 'notification-main';
+
+            if (notification.title) {
+                const titleElement = document.createElement('h3');
+                titleElement.className = 'notification-title';
+                titleElement.textContent = notification.title;
+                mainWrapper.appendChild(titleElement);
+            }
+
+            const messageElement = document.createElement('p');
+            messageElement.className = 'notification-message';
+            messageElement.textContent = notification.message || notification.text || 'Tienes una nueva notificación.';
+            mainWrapper.appendChild(messageElement);
+
+            if (notification.url) {
+                const linkElement = document.createElement('a');
+                linkElement.className = 'notification-link';
+                linkElement.href = notification.url;
+                linkElement.target = '_blank';
+                linkElement.rel = 'noopener noreferrer';
+                linkElement.textContent = 'Ver detalles';
+                mainWrapper.appendChild(linkElement);
+            }
+
+            const timestamp = notification.createdAt;
+            let notificationDate = null;
+            if (timestamp && typeof timestamp.toDate === 'function') {
+                notificationDate = timestamp.toDate();
+            } else if (timestamp instanceof Date) {
+                notificationDate = timestamp;
+            } else if (typeof timestamp === 'number' || typeof timestamp === 'string') {
+                const parsedDate = new Date(timestamp);
+                if (!isNaN(parsedDate)) {
+                    notificationDate = parsedDate;
+                }
+            }
+
+            if (notificationDate instanceof Date && !isNaN(notificationDate)) {
+                const timeElement = document.createElement('time');
+                timeElement.className = 'notification-time';
+                timeElement.dateTime = notificationDate.toISOString();
+                timeElement.textContent = formatRelativeTimeForNotifications(notificationDate) || notificationDate.toLocaleString();
+                mainWrapper.appendChild(timeElement);
+            }
+
+            item.appendChild(iconWrapper);
+            item.appendChild(mainWrapper);
+            listElement.appendChild(item);
+        });
+    };
+
+    const openModal = async () => {
+        notificationsButton.disabled = true;
+        notificationsButton.setAttribute('aria-expanded', 'true');
+        notificationsButton.dataset.loading = 'true';
+        modal.classList.add('active');
+        document.body.classList.add('modal-open');
+
+        listElement.innerHTML = '';
+        emptyElement.hidden = true;
+        emptyElement.textContent = 'No tienes notificaciones nuevas.';
+        loadingElement.hidden = false;
+
+        if (!currentUser) {
+            loadingElement.hidden = true;
+            emptyElement.hidden = false;
+            emptyElement.textContent = 'Inicia sesión para ver tus notificaciones.';
+            notificationsButton.disabled = false;
+            return;
+        }
+
+        if (!ListopicApp.services || typeof ListopicApp.services.getUserNotifications !== 'function') {
+            loadingElement.hidden = true;
+            emptyElement.hidden = false;
+            emptyElement.textContent = 'El servicio de notificaciones no está disponible en este momento.';
+            notificationsButton.disabled = false;
+            return;
+        }
+
+        try {
+            const notifications = await ListopicApp.services.getUserNotifications(currentUser.uid, { limit: 30 });
+            loadingElement.hidden = true;
+
+            if (!notifications || notifications.length === 0) {
+                emptyElement.hidden = false;
+                return;
+            }
+
+            renderNotifications(notifications);
+        } catch (error) {
+            console.error('main.js: No se pudieron cargar las notificaciones:', error);
+            loadingElement.hidden = true;
+            emptyElement.hidden = false;
+            emptyElement.textContent = 'No pudimos cargar tus notificaciones. Intenta nuevamente más tarde.';
+        } finally {
+            notificationsButton.disabled = false;
+            delete notificationsButton.dataset.loading;
+        }
+    };
+
+    notificationsButton.addEventListener('click', openModal);
+    notificationsButton.dataset.notificationsSetup = 'true';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log("MAIN.JS: DOMContentLoaded disparado."); // <--- LOG 1
 
@@ -65,6 +305,12 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("MAIN.JS: Esperando resolución de onAuthStateChangedPromise..."); // <--- LOG 10
     ListopicApp.authService.onAuthStateChangedPromise().then(user => {
         console.log("MAIN.JS: onAuthStateChangedPromise resuelta. Usuario:", user ? user.uid : 'No hay usuario'); // <--- LOG 11
+
+        try {
+            setupNotificationsUI(user);
+        } catch (notificationsError) {
+            console.error('MAIN.JS: Error inicializando el modal de notificaciones:', notificationsError);
+        }
 
         if (pageName === 'auth.html') {
             console.log("MAIN.JS: Es auth.html, intentando inicializar pageAuth..."); // <--- LOG 12
@@ -114,6 +360,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     ListopicApp.pageProfile.init();
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageProfile.init no encontrado!"); // Log de error
+                }
+            } else if (pageName === 'chats.html') {
+                if (ListopicApp.pageChats && ListopicApp.pageChats.init) {
+                    ListopicApp.pageChats.init();
                 }
             } else if (pageName === 'search.html') { // NUEVA CONDICIÓN
                 if (ListopicApp.pageSearch && ListopicApp.pageSearch.init) {

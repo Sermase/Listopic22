@@ -11,6 +11,7 @@ ListopicApp.services = (() => {
     const auth = firebase.auth();
     const storage = firebase.storage();
     const db = firebase.firestore();
+    const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
 
     // Función para mostrar notificaciones
     function showNotification(message, type = 'info') {
@@ -208,6 +209,221 @@ ListopicApp.services = (() => {
         }
     };
 
+    const listenToUserChats = (userId, callback) => {
+        if (!userId || !callback) {
+            console.warn('[firebaseService] listenToUserChats requiere un userId y un callback');
+            return () => {};
+        }
+        return db.collection('chats')
+            .where('memberIds', 'array-contains', userId)
+            .orderBy('updatedAt', 'desc')
+            .onSnapshot(snapshot => {
+                const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                callback(chats);
+            }, error => {
+                console.error('[firebaseService] Error escuchando chats del usuario:', error);
+            });
+    };
+
+    const listenToChatMessages = (chatId, callback) => {
+        if (!chatId || !callback) {
+            console.warn('[firebaseService] listenToChatMessages requiere un chatId y un callback');
+            return () => {};
+        }
+        return db.collection('chats')
+            .doc(chatId)
+            .collection('messages')
+            .orderBy('sentAt', 'asc')
+            .onSnapshot(snapshot => {
+                const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                callback(messages);
+            }, error => {
+                console.error('[firebaseService] Error escuchando mensajes del chat:', error);
+            });
+    };
+
+    const sendChatMessage = async (chatId, senderId, text) => {
+        if (!chatId || !senderId || !text) {
+            throw new Error('Todos los campos son obligatorios para enviar un mensaje.');
+        }
+        const trimmedText = text.trim();
+        if (!trimmedText) {
+            return;
+        }
+        const chatRef = db.collection('chats').doc(chatId);
+        await chatRef.collection('messages').add({
+            text: trimmedText,
+            senderId,
+            sentAt: serverTimestamp(),
+            type: 'text'
+        });
+        await chatRef.update({
+            lastMessage: {
+                text: trimmedText,
+                senderId,
+                sentAt: serverTimestamp()
+            },
+            updatedAt: serverTimestamp()
+        });
+    };
+
+    const getOrCreatePrivateChat = async (currentUserId, otherUserId) => {
+        if (!currentUserId || !otherUserId) {
+            throw new Error('Los identificadores de usuario son obligatorios.');
+        }
+        if (currentUserId === otherUserId) {
+            throw new Error('No puedes iniciar un chat contigo mismo.');
+        }
+        const snapshot = await db.collection('chats')
+            .where('type', '==', 'private')
+            .where('memberIds', 'array-contains', currentUserId)
+            .get();
+        let existingChat = null;
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (Array.isArray(data.memberIds) && data.memberIds.includes(otherUserId)) {
+                existingChat = { id: doc.id, ...data };
+            }
+        });
+        if (existingChat) {
+            return existingChat;
+        }
+        const chatData = {
+            type: 'private',
+            memberIds: [currentUserId, otherUserId],
+            createdBy: currentUserId,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        };
+        const chatRef = await db.collection('chats').add(chatData);
+        return { id: chatRef.id, ...chatData };
+    };
+
+    const createGroupChat = async (name, memberIds = [], createdBy) => {
+        if (!createdBy) {
+            throw new Error('Debe indicarse el creador del grupo.');
+        }
+        const uniqueMembers = Array.from(new Set([createdBy, ...memberIds]));
+        if (uniqueMembers.length < 3) {
+            throw new Error('Un grupo necesita al menos tres participantes.');
+        }
+        const chatData = {
+            type: 'group',
+            name: name || 'Nuevo grupo',
+            memberIds: uniqueMembers,
+            createdBy,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        };
+        const chatRef = await db.collection('chats').add(chatData);
+        return { id: chatRef.id, ...chatData };
+    };
+
+    const addMembersToChat = async (chatId, memberIds = []) => {
+        if (!chatId || !memberIds.length) {
+            throw new Error('Se requiere chatId y al menos un usuario para agregar.');
+        }
+        const chatRef = db.collection('chats').doc(chatId);
+        await chatRef.update({
+            memberIds: firebase.firestore.FieldValue.arrayUnion(...memberIds),
+            updatedAt: serverTimestamp()
+        });
+    };
+
+    const getUserProfileById = async (userId) => {
+        if (!userId) {
+            return null;
+        }
+        try {
+            const doc = await db.collection('users').doc(userId).get();
+            if (!doc.exists) {
+                return null;
+            }
+            return { id: doc.id, ...doc.data() };
+        } catch (error) {
+            console.error('[firebaseService] Error obteniendo usuario por ID:', error);
+            return null;
+        }
+    };
+
+    const getUserProfilesByIds = async (userIds = []) => {
+        const result = {};
+        if (!Array.isArray(userIds) || !userIds.length) {
+            return result;
+        }
+        const promises = userIds.map(async (userId) => {
+            const profile = await getUserProfileById(userId);
+            if (profile) {
+                result[userId] = profile;
+            }
+        });
+        await Promise.all(promises);
+        return result;
+    };
+
+    const findUserByIdentifier = async (identifier) => {
+        if (!identifier) {
+            return null;
+        }
+        const cleanedIdentifier = identifier.trim();
+        let queryField = 'username';
+        if (cleanedIdentifier.includes('@')) {
+            queryField = 'email';
+        }
+        try {
+            const snapshot = await db.collection('users')
+                .where(queryField, '==', cleanedIdentifier)
+                .limit(1)
+                .get();
+            if (snapshot.empty && queryField === 'username') {
+                // Intentar también por email si no se encontró por nombre de usuario
+                const emailSnapshot = await db.collection('users')
+                    .where('email', '==', cleanedIdentifier)
+                    .limit(1)
+                    .get();
+                if (!emailSnapshot.empty) {
+                    const doc = emailSnapshot.docs[0];
+                    return { id: doc.id, ...doc.data() };
+                }
+                return null;
+            }
+            if (snapshot.empty) {
+                return null;
+            }
+            const doc = snapshot.docs[0];
+            return { id: doc.id, ...doc.data() };
+        } catch (error) {
+            console.error('[firebaseService] Error buscando usuario por identificador:', error);
+            return null;
+        }
+    };
+
+    const getUserNotifications = async (userId, options = {}) => {
+        if (!userId) {
+            console.warn('[firebaseService] getUserNotifications requiere un userId.');
+            return [];
+        }
+
+        const { limit = 20 } = options;
+
+        try {
+            let query = db
+                .collection('notifications')
+                .where('recipientIds', 'array-contains', userId)
+                .orderBy('createdAt', 'desc');
+
+            if (typeof limit === 'number' && limit > 0) {
+                query = query.limit(limit);
+            }
+
+            const snapshot = await query.get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (error) {
+            console.error('[firebaseService] Error al obtener notificaciones del usuario:', error);
+            throw error;
+        }
+    };
+
     return {
         auth: auth,
         storage: storage,
@@ -216,6 +432,16 @@ ListopicApp.services = (() => {
         getReviewsByUserId: getReviewsByUserId,
         createUserInAuthAndFirestore: createUserInAuthAndFirestore,
         showNotification: showNotification,
-        ensureUserProfileExists: ensureUserProfileExists // Exportar la nueva función
+        ensureUserProfileExists: ensureUserProfileExists,
+        listenToUserChats: listenToUserChats,
+        listenToChatMessages: listenToChatMessages,
+        sendChatMessage: sendChatMessage,
+        getOrCreatePrivateChat: getOrCreatePrivateChat,
+        createGroupChat: createGroupChat,
+        addMembersToChat: addMembersToChat,
+        getUserProfileById: getUserProfileById,
+        getUserProfilesByIds: getUserProfilesByIds,
+        findUserByIdentifier: findUserByIdentifier,
+        getUserNotifications: getUserNotifications
     };
 })();

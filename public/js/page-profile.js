@@ -19,6 +19,7 @@ ListopicApp.pageProfile = {
         myReviewsContainer: null,
         openEditModalBtn: null,
         followUnfollowBtn: null, // NUEVO
+        openChatButton: null,
         profileMessageArea: null,
         
         // --- Elementos del Modal ---
@@ -95,6 +96,7 @@ ListopicApp.pageProfile = {
         this.elements.myReviewsContainer = document.getElementById('my-reviews-container'); // MODIFICADO
         this.elements.openEditModalBtn = document.getElementById('open-edit-profile-modal-btn');
         this.elements.followUnfollowBtn = document.getElementById('follow-unfollow-btn'); // NUEVO
+        this.elements.openChatButton = document.getElementById('open-chat-button');
         this.elements.profileMessageArea = document.getElementById('profile-message-area');
         
         // --- CACHE DE LOS NUEVOS ELEMENTOS DE ESTADÍSTICAS ---
@@ -154,6 +156,10 @@ ListopicApp.pageProfile = {
         if (this.elements.followUnfollowBtn) {
             this.elements.followUnfollowBtn.style.display = isOwnProfile ? 'none' : 'inline-block';
         }
+        if (this.elements.openChatButton) {
+            this.elements.openChatButton.style.display = 'inline-block';
+            this.elements.openChatButton.textContent = isOwnProfile ? 'Ir a mis chats' : 'Enviar mensaje';
+        }
         // Cuando confirmemos que aparecen, volveremos a la lógica original.
     },
 
@@ -198,6 +204,7 @@ ListopicApp.pageProfile = {
         });
         // Dentro de attachEventListeners en ListopicApp.pageProfile
         this.elements.profilePhotoDisplay?.addEventListener('click', () => this.openPhotoModal());
+        this.elements.openChatButton?.addEventListener('click', () => this.handleOpenChat());
         this.elements.closePhotoModalBtn?.addEventListener('click', () => this.closePhotoModal());
         this.elements.photoModal?.addEventListener('click', (event) => {
             if (event.target === this.elements.photoModal) {
@@ -230,7 +237,7 @@ ListopicApp.pageProfile = {
         this.elements.profileTabs?.addEventListener('click', (event) => {
             const tabButton = event.target.closest('.profile-tab-button');
             if (!tabButton) return;
-        
+
             const tabName = tabButton.dataset.tab;
         
             // Quitar 'active' de todos los botones y contenidos
@@ -244,6 +251,20 @@ ListopicApp.pageProfile = {
                 activeContent.classList.add('active');
             }
         });
+    },
+
+    handleOpenChat: function() {
+        if (!this.currentUser) {
+            return;
+        }
+        const isOwnProfile = this.currentUser.uid === this.profileOwnerUserId;
+        if (isOwnProfile) {
+            window.location.href = 'chats.html';
+            return;
+        }
+        if (this.profileOwnerUserId) {
+            window.location.href = `chats.html?userId=${encodeURIComponent(this.profileOwnerUserId)}`;
+        }
     },
 
     checkFollowStatus: async function() {
