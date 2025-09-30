@@ -23,8 +23,38 @@
 </head>
 <body>
     <div class="header-actions-container">
-        <div class="header-left-content"> <div class="app-logo-container"><a href="Index.html" title="Ir a la página de inicio"><img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo"></a></div> </div>
-        <div class="header-right-actions"> <a href="search.html" class="search-button header-action-button" aria-label="Search"><i class="fas fa-search"></i></a> <div class="user-profile-menu-container"> <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario"><i class="fas fa-user-circle"></i></button> <div class="user-menu" id="userMenuDropdown"><a href="profile.html">Perfil</a><a href="profile.html#profile-my-lists">Mis Listas</a><hr class="user-menu-divider"><button type="button" id="logoutBtnUserMenu">Cerrar sesión</button></div> </div> <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema"><i class="fas fa-moon"></i></button> </div>
+        <div class="header-left-content">
+            <div class="app-logo-container">
+                <a href="Index.html" title="Ir a la página de inicio">
+                    <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
+                </a>
+            </div>
+        </div>
+        <div class="header-right-actions">
+            <a href="search.html" class="search-button header-action-button" aria-label="Search">
+                <i class="fas fa-search"></i>
+            </a>
+            <button type="button" id="notificationsButton" class="notifications-button header-action-button" aria-label="Notificaciones" aria-haspopup="dialog" aria-controls="notificationsModal" aria-expanded="false">
+                <i class="fas fa-bell"></i>
+            </button>
+            <a href="chats.html" class="chat-button header-action-button" aria-label="Abrir chats">
+                <i class="fas fa-comments"></i>
+            </a>
+            <div class="user-profile-menu-container">
+                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario">
+                    <i class="fas fa-user-circle"></i>
+                </button>
+                <div class="user-menu" id="userMenuDropdown">
+                    <a href="profile.html">Perfil</a>
+                    <a href="profile.html#profile-my-lists">Mis Listas</a>
+                    <hr class="user-menu-divider">
+                    <button type="button" id="logoutBtnUserMenu">Cerrar sesión</button>
+                </div>
+            </div>
+            <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
     </div>
     <main class="dev-container">
         <h1><i class="fas fa-tools"></i> Panel de Desarrollador</h1>

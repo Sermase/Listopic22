@@ -398,6 +398,32 @@ ListopicApp.services = (() => {
         }
     };
 
+    const getUserNotifications = async (userId, options = {}) => {
+        if (!userId) {
+            console.warn('[firebaseService] getUserNotifications requiere un userId.');
+            return [];
+        }
+
+        const { limit = 20 } = options;
+
+        try {
+            let query = db
+                .collection('notifications')
+                .where('recipientIds', 'array-contains', userId)
+                .orderBy('createdAt', 'desc');
+
+            if (typeof limit === 'number' && limit > 0) {
+                query = query.limit(limit);
+            }
+
+            const snapshot = await query.get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (error) {
+            console.error('[firebaseService] Error al obtener notificaciones del usuario:', error);
+            throw error;
+        }
+    };
+
     return {
         auth: auth,
         storage: storage,
@@ -415,6 +441,7 @@ ListopicApp.services = (() => {
         addMembersToChat: addMembersToChat,
         getUserProfileById: getUserProfileById,
         getUserProfilesByIds: getUserProfilesByIds,
-        findUserByIdentifier: findUserByIdentifier
+        findUserByIdentifier: findUserByIdentifier,
+        getUserNotifications: getUserNotifications
     };
 })();
