@@ -115,6 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageProfile.init no encontrado!"); // Log de error
                 }
+            } else if (pageName === 'chats.html') {
+                if (ListopicApp.pageChats && ListopicApp.pageChats.init) {
+                    ListopicApp.pageChats.init();
+                }
             } else if (pageName === 'search.html') { // NUEVA CONDICIÓN
                 if (ListopicApp.pageSearch && ListopicApp.pageSearch.init) {
                     ListopicApp.pageSearch.init();

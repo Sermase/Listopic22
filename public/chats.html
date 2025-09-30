@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chats - Listopic</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="/site.webmanifest">
+
+    <link rel="icon" href="img/favicon.ico" type="image/x-icon">
+    <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
+
+    <!-- App scripts -->
+    <script src="js/config.js" defer></script>
+    <script src="js/firebaseService.js" defer></script>
+    <script src="js/uiUtils.js" defer></script>
+    <script src="js/themeManager.js" defer></script>
+    <script src="js/places-service.js" defer></script>
+    <script src="js/authService.js" defer></script>
+    <script src="js/main.js" defer></script>
+    <script src="js/page-chats.js" defer></script>
+</head>
+<body>
+    <div class="header-actions-container">
+        <div class="header-left-content">
+            <div class="app-logo-container">
+                <a href="Index.html" title="Ir a la página de inicio">
+                    <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
+                </a>
+            </div>
+            <div class="header-dynamic-page-info">
+                <span>Mensajería</span>
+            </div>
+        </div>
+        <div class="header-right-actions">
+            <a href="search.html" id="search-link-button" class="search-button header-action-button" aria-label="Buscar">
+                <i class="fas fa-search"></i>
+            </a>
+            <div class="user-profile-menu-container">
+                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
+                    <i class="fas fa-user-circle"></i>
+                </button>
+                <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
+                    <a href="profile.html" role="menuitem">Perfil</a>
+                    <a href="chats.html" role="menuitem">Chats</a>
+                    <a href="profile.html#profile-my-lists" role="menuitem">Mis Listas</a>
+                    <hr class="user-menu-divider">
+                    <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
+                </div>
+            </div>
+            <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+    </div>
+
+    <main class="chat-main">
+        <div class="chat-page">
+            <aside class="chat-sidebar" aria-label="Lista de chats">
+                <div class="chat-sidebar-header">
+                    <h1 class="chat-sidebar-title">Mis conversaciones</h1>
+                    <button id="new-chat-btn" class="button primary-button">
+                        <i class="fas fa-comments"></i>
+                        <span>Nuevo chat</span>
+                    </button>
+                </div>
+                <div id="chat-list" class="chat-list" role="listbox" aria-live="polite">
+                    <div class="chat-empty-state">
+                        <i class="fas fa-comments"></i>
+                        <p>Aún no tienes conversaciones.</p>
+                        <p class="hint">Crea un chat privado o un grupo para empezar a hablar.</p>
+                    </div>
+                </div>
+            </aside>
+            <section class="chat-content" aria-live="polite">
+                <div class="chat-content-header">
+                    <div>
+                        <h2 id="chat-title">Selecciona un chat</h2>
+                        <p id="chat-subtitle">Elige una conversación para ver los mensajes.</p>
+                    </div>
+                    <div id="chat-members" class="chat-members"></div>
+                </div>
+                <div id="chat-messages" class="chat-messages" aria-live="polite">
+                    <div class="chat-empty-state">
+                        <i class="fas fa-message"></i>
+                        <p>No hay mensajes</p>
+                        <p class="hint">Selecciona un chat para comenzar la conversación.</p>
+                    </div>
+                </div>
+                <form id="message-form" class="chat-message-form" aria-label="Enviar mensaje">
+                    <input id="message-input" type="text" class="form-input" placeholder="Escribe tu mensaje" autocomplete="off" disabled>
+                    <button type="submit" class="button primary-button" disabled>
+                        <span>Enviar</span>
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <div id="new-chat-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="new-chat-title">
+        <div class="modal-content chat-modal-content">
+            <button class="close-button" id="close-new-chat-modal" aria-label="Cerrar">
+                <span>&times;</span>
+            </button>
+            <h2 id="new-chat-title">Crear nueva conversación</h2>
+            <form id="new-chat-form">
+                <div class="form-group">
+                    <label class="form-label">Tipo de chat</label>
+                    <div class="chat-type-options">
+                        <label class="chat-type-option">
+                            <input type="radio" name="chat-type" value="private" checked>
+                            <span>Privado (1 a 1)</span>
+                        </label>
+                        <label class="chat-type-option">
+                            <input type="radio" name="chat-type" value="group">
+                            <span>Grupo</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group" id="group-name-field" hidden>
+                    <label for="group-name-input" class="form-label">Nombre del grupo</label>
+                    <input id="group-name-input" type="text" class="form-input" placeholder="Ej. Planes del fin de semana">
+                </div>
+                <div class="form-group">
+                    <label for="chat-participants-input" class="form-label">Personas</label>
+                    <textarea id="chat-participants-input" class="form-textarea" rows="3" placeholder="Introduce los nombres de usuario, correos o IDs separados por comas"></textarea>
+                    <p class="form-hint">Puedes invitar a varios usuarios para crear un grupo. Tú siempre estarás incluido.</p>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="button primary-button">
+                        <i class="fas fa-check"></i>
+                        <span>Crear chat</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
