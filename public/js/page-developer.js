@@ -90,6 +90,7 @@ ListopicApp.pageDeveloper = (() => {
         const deleteBtn = document.getElementById('delete-selected-btn');
         if (deleteBtn) deleteBtn.addEventListener('click', deleteSelectedItems);
 
+      
         const auditStatsBtn = document.getElementById('audit-stats-btn');
         if (auditStatsBtn) auditStatsBtn.addEventListener('click', runStatisticsAudit);
     }
@@ -590,6 +591,7 @@ ListopicApp.pageDeveloper = (() => {
 
         await loadSelect();
     }
+
 
     async function runStatisticsAudit() {
         const btn = document.getElementById('audit-stats-btn');
