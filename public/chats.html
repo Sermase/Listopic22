@@ -94,20 +94,19 @@
             <section class="chats-page" aria-label="Mensajes directos">
                 <aside class="chat-panel chat-list-panel" id="chat-list-panel">
                     <header class="chat-list-header">
-                        <h3>Conversaciones</h3>
+                        <div class="chat-list-header-main">
+                            <h3>Conversaciones</h3>
+                            <button type="button" class="chat-create-group" id="open-group-modal">
+                                <i class="fas fa-users"></i>
+                                <span>Nuevo grupo</span>
+                            </button>
+                        </div>
                         <button type="button" class="chat-list-close" id="chat-list-close" aria-label="Cerrar listado de chats">
                             <i class="fas fa-times"></i>
                         </button>
                     </header>
                     <p id="chat-list-status" class="chat-list-status">Cargando conversaciones...</p>
                     <div class="chat-list" id="chat-list"></div>
-                    <form id="new-chat-form" class="new-chat-form" autocomplete="off">
-                        <label for="new-chat-identifiers">Iniciar chat (usuario o email)</label>
-                        <input type="text" id="new-chat-identifiers" name="new-chat-identifiers" placeholder="usuario1, usuario2" required>
-                        <small>Separa varios destinatarios con comas. Solo podras chatear con usuarios existentes.</small>
-                        <button type="submit" class="button primary">Crear chat</button>
-                        <p class="form-error-inline" id="new-chat-error" style="display:none;"></p>
-                    </form>
                 </aside>
                 <div class="chat-list-backdrop" id="chat-list-backdrop" hidden></div>
 
@@ -124,6 +123,9 @@
                                 <p id="chat-detail-subtitle">Elige una conversacion para empezar.</p>
                             </div>
                         </div>
+                        <button type="button" class="chat-info-button" id="chat-info-button" aria-label="Ver informacion del chat" disabled>
+                            <i class="fas fa-circle-info"></i>
+                        </button>
                     </header>
                     <div class="chat-messages" id="chat-messages">
                         <div class="chat-empty-state" id="chat-empty-state">
@@ -131,11 +133,54 @@
                         </div>
                     </div>
                     <form id="message-form" class="message-composer" autocomplete="off" hidden>
-                        <textarea id="message-input" name="message" placeholder="Escribe un mensaje" required maxlength="2000"></textarea>
-                        <button type="submit" class="button primary">Enviar</button>
+                        <textarea id="message-input" name="message" placeholder="Escribe un mensaje" required maxlength="2000" rows="1"></textarea>
+                        <button type="submit" class="chat-send-button" aria-label="Enviar mensaje">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
                     </form>
                 </section>
             </section>
+        </div>
+
+        <div id="chat-group-modal" class="chat-modal" aria-hidden="true">
+            <div class="chat-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="chat-group-modal-title">
+                <button type="button" class="chat-modal-close" id="chat-group-modal-close" aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+                <form id="chat-group-form" class="chat-modal-content">
+                    <h3 id="chat-group-modal-title">Nuevo grupo</h3>
+                    <div id="group-name-field" class="chat-modal-field">
+                        <label for="group-name-input">Nombre del grupo</label>
+                        <input type="text" id="group-name-input" name="group-name" maxlength="80" placeholder="Nombre del grupo" required>
+                    </div>
+                    <label for="group-search-input" class="chat-modal-field-label">Anadir participantes</label>
+                    <input type="text" id="group-search-input" class="chat-modal-search" placeholder="Busca entre tus seguidos">
+                    <p id="group-modal-empty-state" class="chat-modal-empty">Empieza a escribir para buscar entre tus seguidos.</p>
+                    <div id="group-search-results" class="chat-search-results"></div>
+                    <div id="group-selected-users" class="chat-selected-users is-empty"></div>
+                    <div class="chat-modal-actions">
+                        <button type="button" class="button secondary" id="chat-group-cancel">Cancelar</button>
+                        <button type="submit" class="button primary" id="chat-group-submit" disabled>Crear grupo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="chat-info-modal" class="chat-modal" aria-hidden="true">
+            <div class="chat-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="chat-info-title">
+                <button type="button" class="chat-modal-close" id="chat-info-modal-close" aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+                <div class="chat-modal-content">
+                    <h3 id="chat-info-title">Informacion del chat</h3>
+                    <p id="chat-info-subtitle" class="chat-info-subtitle"></p>
+                    <div id="chat-info-participants" class="chat-info-participants"></div>
+                    <div class="chat-modal-actions">
+                        <button type="button" class="button secondary" id="chat-info-add">Agregar participantes</button>
+                        <button type="button" class="button primary" id="chat-info-close">Cerrar</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 </body>

@@ -322,6 +322,9 @@ ListopicApp.pageChats = (() => {
         if (groupNameField) {
             groupNameField.hidden = mode !== 'create';
         }
+        if (groupNameInput) {
+            groupNameInput.required = mode === 'create';
+        }
         if (groupModalSubmitButton) {
             groupModalSubmitButton.textContent = mode === 'create' ? 'Crear grupo' : 'Agregar';
         }
@@ -719,6 +722,16 @@ ListopicApp.pageChats = (() => {
         currentChatId = chatId;
         const chat = chatsCache.find(c => c.id === chatId);
         currentChatData = chat || null;
+
+        if (chat && currentUser?.uid && chat.unreadCounts && typeof chat.unreadCounts === 'object') {
+            const unreadCount = chat.unreadCounts[currentUser.uid] || 0;
+            if (unreadCount > 0) {
+                const updatedCounts = { ...chat.unreadCounts, [currentUser.uid]: 0 };
+                updateLocalChatData(chat.id, { unreadCounts: updatedCounts });
+                renderChatList(chatsCache);
+            }
+        }
+
         renderChatHeader(currentChatData);
 
         if (unsubscribeMessages) {
@@ -872,6 +885,19 @@ ListopicApp.pageChats = (() => {
     const attachEventListeners = () => {
         if (messageForm) {
             messageForm.addEventListener('submit', handleMessageSubmit);
+        }
+        if (messageInput) {
+            messageInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey && !isMobileLayout()) {
+                    event.preventDefault();
+                    if (typeof messageForm?.requestSubmit === 'function') {
+                        messageForm.requestSubmit();
+                    } else if (messageForm) {
+                        const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                        messageForm.dispatchEvent(submitEvent);
+                    }
+                }
+            });
         }
         if (mobileListOpenButton) {
             mobileListOpenButton.addEventListener('click', () => openChatListModal());
