@@ -11,6 +11,12 @@ ListopicApp.pageChats = (() => {
     let newChatErrorElement;
     let chatTitleElement;
     let emptyStateElement;
+    let chatListPanel;
+    let chatListBackdrop;
+    let mobileListOpenButton;
+    let mobileListCloseButton;
+    let chatHeaderAvatarsElement;
+    let chatHeaderSubtitleElement;
 
     let unsubscribeChats = null;
     let unsubscribeMessages = null;
@@ -33,93 +39,267 @@ ListopicApp.pageChats = (() => {
         return date.toLocaleDateString();
     };
 
+    const getOtherParticipants = (chat) => {
+        if (!chat || !Array.isArray(chat.participants)) {
+            return [];
+        }
+        const profiles = chat.participantProfiles || {};
+        return chat.participants
+            .filter(uid => uid !== currentUser.uid)
+            .map(uid => {
+                const profile = profiles[uid] || {};
+                return {
+                    uid,
+                    username: profile.username || '',
+                    displayName: profile.displayName || '',
+                    email: profile.email || '',
+                    photoUrl: profile.photoUrl || ''
+                };
+            });
+    };
+
+    const createAvatarElement = (user = {}, options = {}) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'chat-avatar';
+        if (options.size === 'sm') {
+            wrapper.classList.add('sm');
+        }
+        const altLabel = options.alt || user.displayName || user.username || user.email || 'Avatar';
+
+        if (user.photoUrl) {
+            const img = document.createElement('img');
+            img.src = user.photoUrl;
+            img.alt = altLabel;
+            wrapper.appendChild(img);
+        } else {
+            const fallback = document.createElement('span');
+            const initialSource = (user.displayName || user.username || user.email || '?').trim();
+            fallback.textContent = initialSource ? initialSource.charAt(0).toUpperCase() : '?';
+            fallback.setAttribute('aria-hidden', 'true');
+            wrapper.appendChild(fallback);
+        }
+
+        wrapper.title = altLabel;
+        wrapper.setAttribute('aria-label', altLabel);
+        return wrapper;
+    };
+
     const getChatDisplayName = (chat) => {
         if (!chat) return 'Chat';
-        const participants = chat.participants || [];
-        const otherParticipants = participants.filter(uid => uid !== currentUser.uid);
-        if (otherParticipants.length === 0) return 'Conversación personal';
-
-        const profiles = chat.participantProfiles || {};
-        const names = otherParticipants.map(uid => {
-            const profile = profiles[uid] || {};
-            return profile.username || profile.displayName || profile.email || 'Usuario';
-        });
+        const otherParticipants = getOtherParticipants(chat);
+        if (!otherParticipants.length) {
+            return 'Conversacion personal';
+        }
+        const names = otherParticipants.map(user => user.displayName || user.username || user.email || 'Usuario');
         return names.join(', ');
     };
 
     const renderChatList = (chats) => {
-        chatsCache = chats;
+        chatsCache = Array.isArray(chats) ? chats : [];
+        if (!chatListElement) return;
+
         chatListElement.innerHTML = '';
 
-        if (!chats.length) {
-            if (chatListStatusElement) {
-                chatListStatusElement.textContent = 'No tienes chats activos todavía.';
+        if (chatListStatusElement) {
+            if (!chatsCache.length) {
+                chatListStatusElement.textContent = 'No tienes chats activos todavia.';
+                chatListStatusElement.style.display = 'block';
+            } else {
+                chatListStatusElement.textContent = '';
+                chatListStatusElement.style.display = 'none';
             }
+        }
+
+        if (!chatsCache.length) {
             return;
         }
 
-        if (chatListStatusElement) {
-            chatListStatusElement.textContent = '';
-        }
-
-        chats.forEach(chat => {
-            const item = document.createElement('button');
-            item.type = 'button';
+        chatsCache.forEach(chat => {
+            const item = document.createElement('div');
             item.className = 'chat-list-item';
             item.dataset.chatId = chat.id;
+            item.tabIndex = 0;
+
             if (chat.id === currentChatId) {
                 item.classList.add('active');
             }
 
-            const avatar = document.createElement('div');
-            avatar.className = 'avatar';
-            const name = getChatDisplayName(chat);
-            avatar.textContent = name.substring(0, 1).toUpperCase();
+            const otherUsers = getOtherParticipants(chat);
 
-            const info = document.createElement('div');
-            info.className = 'chat-info';
+            const avatarsContainer = document.createElement('div');
+            avatarsContainer.className = 'chat-avatars';
+
+            if (!otherUsers.length) {
+                const selfName = currentUser ? (currentUser.displayName || currentUser.email || '') : '';
+                avatarsContainer.appendChild(createAvatarElement({
+                    displayName: selfName || 'Tu',
+                    username: selfName,
+                    photoUrl: currentUser && currentUser.photoURL ? currentUser.photoURL : ''
+                }, { size: 'sm', alt: 'Tu avatar' }));
+            } else {
+                otherUsers.slice(0, 3).forEach(user => {
+                    const link = document.createElement('a');
+                    link.href = `profile.html?viewUserId=${user.uid}`;
+                    link.title = user.displayName || user.username || 'Ver perfil';
+                    link.appendChild(createAvatarElement(user, { size: 'sm', alt: link.title }));
+                    link.addEventListener('click', event => event.stopPropagation());
+                    avatarsContainer.appendChild(link);
+                });
+            }
+
+            item.appendChild(avatarsContainer);
+
+            const body = document.createElement('div');
+            body.className = 'chat-list-body';
+
+            const topRow = document.createElement('div');
+            topRow.className = 'chat-list-row';
 
             const nameElement = document.createElement('span');
             nameElement.className = 'chat-name';
-            nameElement.textContent = name;
-
-            const lastMessageElement = document.createElement('span');
-            lastMessageElement.className = 'chat-last-message';
-            lastMessageElement.textContent = chat.lastMessage || 'Sin mensajes todavía.';
+            nameElement.textContent = getChatDisplayName(chat);
+            topRow.appendChild(nameElement);
 
             const updatedAtElement = document.createElement('span');
             updatedAtElement.className = 'chat-updated-at';
-            updatedAtElement.textContent = formatRelativeTime(chat.updatedAt);
+            const updatedText = formatRelativeTime(chat.updatedAt) || '';
+            updatedAtElement.textContent = updatedText || 'Sin actividad';
+            topRow.appendChild(updatedAtElement);
 
-            info.appendChild(nameElement);
-            info.appendChild(lastMessageElement);
-            info.appendChild(updatedAtElement);
+            body.appendChild(topRow);
 
-            item.appendChild(avatar);
-            item.appendChild(info);
+            const bottomRow = document.createElement('div');
+            bottomRow.className = 'chat-list-row';
+
+            const lastMessageElement = document.createElement('span');
+            lastMessageElement.className = 'chat-last-message';
+            lastMessageElement.textContent = chat.lastMessage || 'Sin mensajes todavia.';
+            bottomRow.appendChild(lastMessageElement);
+
+            const actionsContainer = document.createElement('div');
+            actionsContainer.className = 'chat-list-actions';
 
             const unreadCount = chat.unreadCounts && chat.unreadCounts[currentUser.uid];
             if (unreadCount && unreadCount > 0) {
                 const indicator = document.createElement('span');
                 indicator.className = 'chat-unread-indicator';
                 indicator.title = `${unreadCount} mensaje(s) sin leer`;
-                item.appendChild(indicator);
+                actionsContainer.appendChild(indicator);
             }
 
+            if (otherUsers.length === 1) {
+                const profileLink = document.createElement('a');
+                profileLink.href = `profile.html?viewUserId=${otherUsers[0].uid}`;
+                profileLink.className = 'chat-profile-link';
+                profileLink.setAttribute('aria-label', `Ver perfil de ${otherUsers[0].displayName || otherUsers[0].username || 'usuario'}`);
+                profileLink.innerHTML = '<i class="fas fa-user"></i>';
+                profileLink.addEventListener('click', event => event.stopPropagation());
+                actionsContainer.appendChild(profileLink);
+            }
+
+            if (actionsContainer.children.length > 0) {
+                bottomRow.appendChild(actionsContainer);
+            }
+            body.appendChild(bottomRow);
+
+            item.appendChild(body);
+
             item.addEventListener('click', () => selectChat(chat.id));
+            item.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    selectChat(chat.id);
+                }
+            });
+
             chatListElement.appendChild(item);
         });
     };
 
+    const isMobileLayout = () => window.matchMedia('(max-width: 900px)').matches;
+
+    const openChatListModal = () => {
+        if (!chatListPanel) return;
+        if (!isMobileLayout()) return;
+        chatListPanel.classList.add('is-open');
+        if (chatListBackdrop) {
+            chatListBackdrop.hidden = false;
+            chatListBackdrop.classList.add('is-active');
+        }
+        document.body.classList.add('chat-list-modal-open');
+    };
+
+    const closeChatListModal = () => {
+        if (chatListPanel) {
+            chatListPanel.classList.remove('is-open');
+        }
+        if (chatListBackdrop) {
+            chatListBackdrop.classList.remove('is-active');
+            chatListBackdrop.hidden = true;
+        }
+        document.body.classList.remove('chat-list-modal-open');
+    };
+
+    const renderChatHeader = (chat) => {
+        if (!chatTitleElement || !chatHeaderSubtitleElement || !chatHeaderAvatarsElement) return;
+
+        chatHeaderAvatarsElement.innerHTML = '';
+
+        if (!chat) {
+            chatTitleElement.textContent = 'Selecciona un chat';
+            chatHeaderSubtitleElement.textContent = 'Elige una conversacion para empezar.';
+            return;
+        }
+
+        chatTitleElement.textContent = getChatDisplayName(chat);
+
+        const otherUsers = getOtherParticipants(chat);
+
+        if (!otherUsers.length) {
+            const selfName = currentUser ? (currentUser.displayName || currentUser.email || 'Tu') : 'Tu';
+            const avatar = createAvatarElement({
+                displayName: selfName,
+                username: selfName,
+                photoUrl: currentUser && currentUser.photoURL ? currentUser.photoURL : ''
+            }, { alt: 'Tu avatar' });
+            chatHeaderAvatarsElement.appendChild(avatar);
+        } else {
+            otherUsers.slice(0, 4).forEach(user => {
+                const link = document.createElement('a');
+                link.href = `profile.html?viewUserId=${user.uid}`;
+                link.title = user.displayName || user.username || 'Ver perfil';
+                link.appendChild(createAvatarElement(user, { alt: link.title }));
+                chatHeaderAvatarsElement.appendChild(link);
+            });
+        }
+
+        const participantsSummary = otherUsers.length > 1
+            ? `${otherUsers.length} participantes`
+            : (otherUsers[0] && otherUsers[0].username ? `@${otherUsers[0].username}` : '');
+
+        const updatedText = formatRelativeTime(chat.updatedAt) || 'Sin actividad reciente';
+
+        const subtitleBits = [];
+        if (participantsSummary) subtitleBits.push(participantsSummary);
+        if (updatedText) subtitleBits.push(updatedText);
+
+        chatHeaderSubtitleElement.textContent = subtitleBits.join(' - ');
+    };
+
     const renderMessages = (messages) => {
+        if (!chatMessagesElement) return;
         chatMessagesElement.innerHTML = '';
 
         if (!messages.length) {
-            const empty = document.createElement('div');
-            empty.className = 'chat-empty-state';
-            empty.innerHTML = '<p>Empieza la conversación enviando el primer mensaje.</p>';
-            chatMessagesElement.appendChild(empty);
+            if (emptyStateElement) {
+                emptyStateElement.style.display = 'block';
+                chatMessagesElement.appendChild(emptyStateElement);
+            }
             return;
+        }
+
+        if (emptyStateElement) {
+            emptyStateElement.style.display = 'none';
         }
 
         messages.forEach(msg => {
@@ -132,9 +312,10 @@ ListopicApp.pageChats = (() => {
 
             const meta = document.createElement('span');
             meta.className = 'message-meta';
-            const senderProfile = msg.senderId === currentUser.uid ? 'Tú' : (msg.senderProfile?.username || msg.senderProfile?.displayName || 'Usuario');
-            const time = msg.createdAt ? formatRelativeTime(msg.createdAt) : '';
-            meta.textContent = `${senderProfile} · ${time}`;
+            const isOwnMessage = msg.senderId === currentUser.uid;
+            const senderLabel = isOwnMessage ? 'Tu' : (msg.senderProfile?.displayName || msg.senderProfile?.username || 'Usuario');
+            const timeLabel = msg.createdAt ? formatRelativeTime(msg.createdAt) : '';
+            meta.textContent = timeLabel ? `${senderLabel} - ${timeLabel}` : senderLabel;
             bubble.appendChild(meta);
 
             chatMessagesElement.appendChild(bubble);
@@ -204,7 +385,12 @@ ListopicApp.pageChats = (() => {
     };
 
     const selectChat = (chatId) => {
-        if (currentChatId === chatId) return;
+        if (!chatId) return;
+
+        if (currentChatId === chatId) {
+            closeChatListModal();
+            return;
+        }
         currentChatId = chatId;
 
         if (unsubscribeMessages) {
@@ -213,18 +399,31 @@ ListopicApp.pageChats = (() => {
         }
 
         if (!ListopicApp.services.listenToChatMessages) {
-            console.error('[page-chats] El servicio de mensajes no está disponible.');
+            console.error('[page-chats] El servicio de mensajes no esta disponible.');
             return;
         }
 
-        Array.from(chatListElement.querySelectorAll('.chat-list-item')).forEach(item => {
-            item.classList.toggle('active', item.dataset.chatId === chatId);
-        });
+        if (chatListElement) {
+            Array.from(chatListElement.querySelectorAll('.chat-list-item')).forEach(item => {
+                item.classList.toggle('active', item.dataset.chatId === chatId);
+            });
+        }
 
         const chat = chatsCache.find(c => c.id === chatId);
-        chatTitleElement.textContent = getChatDisplayName(chat);
+        renderChatHeader(chat);
+
+        if (!chat) {
+            messageForm.hidden = true;
+            renderMessages([]);
+            return;
+        }
+
         messageForm.hidden = false;
-        emptyStateElement && (emptyStateElement.style.display = 'none');
+        if (emptyStateElement) {
+            emptyStateElement.style.display = 'none';
+        }
+
+        closeChatListModal();
 
         unsubscribeMessages = ListopicApp.services.listenToChatMessages(chatId, async messages => {
             renderMessages(messages);
@@ -271,6 +470,14 @@ ListopicApp.pageChats = (() => {
 
         unsubscribeChats = ListopicApp.services.listenToUserChats(currentUser.uid, chats => {
             renderChatList(chats);
+
+            if (currentChatId) {
+                const activeChat = chats.find(chat => chat.id === currentChatId);
+                if (activeChat) {
+                    renderChatHeader(activeChat);
+                }
+            }
+
             if (pendingChatId) {
                 const pendingExists = chats.some(chat => chat.id === pendingChatId);
                 if (pendingExists) {
@@ -281,19 +488,23 @@ ListopicApp.pageChats = (() => {
 
             if (currentChatId) {
                 const stillExists = chats.some(chat => chat.id === currentChatId);
-                if (!stillExists && unsubscribeMessages) {
-                    unsubscribeMessages();
-                    unsubscribeMessages = null;
+                if (!stillExists) {
+                    if (unsubscribeMessages) {
+                        unsubscribeMessages();
+                        unsubscribeMessages = null;
+                    }
                     currentChatId = null;
-                    chatTitleElement.textContent = 'Selecciona un chat';
-                    chatMessagesElement.innerHTML = '';
                     messageForm.hidden = true;
+                    renderChatHeader(null);
+                    renderMessages([]);
+                    closeChatListModal();
                 }
             }
         }, error => {
             console.error('[page-chats] Error listening user chats:', error);
             if (chatListStatusElement) {
                 chatListStatusElement.textContent = 'No se pudieron cargar tus chats.';
+                chatListStatusElement.style.display = 'block';
             }
         });
     };
@@ -309,6 +520,17 @@ ListopicApp.pageChats = (() => {
         newChatErrorElement = document.getElementById('new-chat-error');
         chatTitleElement = document.getElementById('chat-detail-title');
         emptyStateElement = document.getElementById('chat-empty-state');
+        chatListPanel = document.getElementById('chat-list-panel');
+        chatListBackdrop = document.getElementById('chat-list-backdrop');
+        mobileListOpenButton = document.getElementById('chat-list-open');
+        mobileListCloseButton = document.getElementById('chat-list-close');
+        chatHeaderAvatarsElement = document.getElementById('chat-detail-avatars');
+        chatHeaderSubtitleElement = document.getElementById('chat-detail-subtitle');
+        if (chatListStatusElement) {
+            chatListStatusElement.style.display = 'block';
+        }
+        renderChatHeader(null);
+        closeChatListModal();
     };
 
     const attachEventListeners = () => {
@@ -318,9 +540,28 @@ ListopicApp.pageChats = (() => {
         if (messageForm) {
             messageForm.addEventListener('submit', handleMessageSubmit);
         }
+        if (mobileListOpenButton) {
+            mobileListOpenButton.addEventListener('click', openChatListModal);
+        }
+        if (mobileListCloseButton) {
+            mobileListCloseButton.addEventListener('click', closeChatListModal);
+        }
+        if (chatListBackdrop) {
+            chatListBackdrop.addEventListener('click', closeChatListModal);
+        }
         window.addEventListener('beforeunload', () => {
             unsubscribeChats && unsubscribeChats();
             unsubscribeMessages && unsubscribeMessages();
+        });
+        window.addEventListener('resize', () => {
+            if (!isMobileLayout()) {
+                closeChatListModal();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && chatListPanel && chatListPanel.classList.contains('is-open')) {
+                closeChatListModal();
+            }
         });
     };
 
@@ -350,3 +591,8 @@ ListopicApp.pageChats = (() => {
         init
     };
 })();
+
+
+
+
+

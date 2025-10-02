@@ -272,79 +272,182 @@ ListopicApp.services = (() => {
             throw new Error('Debes indicar al menos un usuario.');
         }
 
-        try {
-            const functions = firebase.app().functions('europe-west1');
-            const resolver = functions.httpsCallable('resolveChatParticipants');
-            const response = await resolver({ identifiers: sanitized });
-            const responseData = response && response.data ? response.data : {};
-            const resolvedUsersRaw = Array.isArray(responseData.users) ? responseData.users : [];
-            const resolvedUsers = resolvedUsersRaw.filter(user => user.uid !== currentUser.uid);
+        const usersCollection = db.collection('users');
+        const resolvedMap = new Map();
+        const unresolvedSet = new Set();
 
-            if (!resolvedUsers.length) {
-                throw new Error('No se encontraron usuarios con los datos proporcionados.');
+        const includeUserCore = (uid, data = {}) => {
+            if (!uid) {
+                return false;
             }
-
-            const participantIds = new Set([currentUser.uid]);
-            const participantProfiles = {};
-
-            const currentProfileSnap = await db.collection('users').doc(currentUser.uid).get();
-            const currentProfile = currentProfileSnap.exists ? currentProfileSnap.data() : {};
-            participantProfiles[currentUser.uid] = {
-                username: currentProfile.username || currentUser.displayName || currentUser.email || '',
-                displayName: currentProfile.displayName || currentProfile.username || currentUser.displayName || '',
-                photoUrl: currentProfile.photoUrl || currentUser.photoURL || '',
-                email: currentProfile.email || currentUser.email || ''
-            };
-
-            resolvedUsers.forEach(user => {
-                participantIds.add(user.uid);
-                participantProfiles[user.uid] = {
-                    username: user.username || user.displayName || user.email || '',
-                    displayName: user.displayName || user.username || '',
-                    photoUrl: user.photoUrl || '',
-                    email: user.email || ''
-                };
+            if (uid === currentUser.uid) {
+                return true;
+            }
+            if (resolvedMap.has(uid)) {
+                return true;
+            }
+            resolvedMap.set(uid, {
+                uid,
+                username: data.username || '',
+                displayName: data.displayName || '',
+                email: data.email || data.emailLowerCase || '',
+                photoUrl: data.photoUrl || data.photoURL || ''
             });
+            return true;
+        };
 
-            if (participantIds.size < 2) {
-                throw new Error('Debes seleccionar al menos otro usuario.');
+        const includeUserDoc = (doc) => {
+            if (!doc || !doc.exists) {
+                return false;
+            }
+            return includeUserCore(doc.id, doc.data() || {});
+        };
+
+        for (const identifier of sanitized) {
+            let matched = false;
+            let candidate = identifier;
+
+            if (candidate.startsWith('uid:')) {
+                candidate = candidate.slice(4);
             }
 
-            const participantsArray = Array.from(participantIds).sort();
-            const participantsHash = participantsArray.join('_');
-
-            const existingChatSnapshot = await db.collection('chats')
-                .where('participantsHash', '==', participantsHash)
-                .limit(1)
-                .get();
-
-            if (!existingChatSnapshot.empty) {
-                const existingChat = existingChatSnapshot.docs[0];
-                return { chatId: existingChat.id, alreadyExists: true };
+            if (!matched && /^[A-Za-z0-9_-]{20,}$/.test(candidate)) {
+                try {
+                    const docSnap = await usersCollection.doc(candidate).get();
+                    matched = includeUserDoc(docSnap);
+                } catch (error) {
+                    console.error('[firebaseService] Error buscando usuario por ID:', error);
+                }
             }
 
-            const unreadCounts = {};
-            participantsArray.forEach(uid => {
-                unreadCounts[uid] = 0;
-            });
+            if (!matched && candidate.includes('@') && candidate.includes('.')) {
+                const emailCandidates = [];
+                const lowered = candidate.toLowerCase();
+                emailCandidates.push(lowered);
+                if (lowered !== candidate) {
+                    emailCandidates.push(candidate);
+                }
+                for (const emailValue of emailCandidates) {
+                    try {
+                        const emailSnapshot = await usersCollection
+                            .where('email', '==', emailValue)
+                            .limit(1)
+                            .get();
+                        if (!emailSnapshot.empty && includeUserDoc(emailSnapshot.docs[0])) {
+                            matched = true;
+                            break;
+                        }
+                    } catch (error) {
+                        console.error('[firebaseService] Error buscando usuario por email:', error);
+                    }
+                }
+            }
 
-            const chatData = {
-                participants: participantsArray,
-                participantsHash,
-                participantProfiles,
-                createdAt: FieldValue.serverTimestamp(),
-                updatedAt: FieldValue.serverTimestamp(),
-                lastMessage: '',
-                lastMessageSenderId: null,
-                unreadCounts
-            };
+            if (!matched) {
+                try {
+                    const usernameSnapshot = await usersCollection
+                        .where('username', '==', candidate)
+                        .limit(1)
+                        .get();
+                    if (!usernameSnapshot.empty && includeUserDoc(usernameSnapshot.docs[0])) {
+                        matched = true;
+                    }
+                } catch (error) {
+                    console.error('[firebaseService] Error buscando usuario por nombre de usuario:', error);
+                }
+            }
 
-            const newChatRef = await db.collection('chats').add(chatData);
-            return { chatId: newChatRef.id, alreadyExists: false };
-        } catch (error) {
-            console.error('[firebaseService] Error creando chat:', error);
-            throw error;
+            if (!matched) {
+                unresolvedSet.add(candidate);
+            }
         }
+
+        if (unresolvedSet.size) {
+            try {
+                const functionsFactory = typeof firebase.app === 'function' && typeof firebase.app().functions === 'function'
+                    ? () => firebase.app().functions('europe-west1')
+                    : (typeof firebase.functions === 'function' ? () => firebase.functions('europe-west1') : null);
+
+                const functionsInstance = functionsFactory ? functionsFactory() : null;
+                if (functionsInstance && typeof functionsInstance.httpsCallable === 'function') {
+                    const resolver = functionsInstance.httpsCallable('resolveChatParticipants');
+                    const response = await resolver({ identifiers: Array.from(unresolvedSet) });
+                    const responseData = response && response.data ? response.data : {};
+                    const resolvedUsersRaw = Array.isArray(responseData.users) ? responseData.users : [];
+                    resolvedUsersRaw.forEach(user => {
+                        if (user && user.uid) {
+                            includeUserCore(user.uid, user);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('[firebaseService] Error resolviendo usuarios vía función:', error);
+            }
+        }
+
+        const resolvedUsers = Array.from(resolvedMap.values());
+        if (!resolvedUsers.length) {
+            throw new Error('No se encontraron usuarios con los datos proporcionados.');
+        }
+
+        const participantIds = new Set([currentUser.uid]);
+        const participantProfiles = {};
+
+        const currentProfileSnap = await usersCollection.doc(currentUser.uid).get();
+        const currentProfile = currentProfileSnap.exists ? currentProfileSnap.data() : {};
+        participantProfiles[currentUser.uid] = {
+            username: currentProfile.username || currentUser.displayName || currentUser.email || '',
+            displayName: currentProfile.displayName || currentProfile.username || currentUser.displayName || '',
+            photoUrl: currentProfile.photoUrl || currentUser.photoURL || '',
+            email: currentProfile.email || currentUser.email || ''
+        };
+
+        resolvedUsers.forEach(user => {
+            participantIds.add(user.uid);
+            participantProfiles[user.uid] = {
+                username: user.username || user.displayName || user.email || '',
+                displayName: user.displayName || user.username || '',
+                photoUrl: user.photoUrl || '',
+                email: user.email || ''
+            };
+        });
+
+        if (participantIds.size < 2) {
+            throw new Error('Debes seleccionar al menos otro usuario.');
+        }
+
+        const participantsArray = Array.from(participantIds).sort();
+        const participantsHash = participantsArray.join('_');
+
+        const existingChatSnapshot = await db.collection('chats')
+            .where('participantsHash', '==', participantsHash)
+            .limit(1)
+            .get();
+
+        if (!existingChatSnapshot.empty) {
+            const existingChat = existingChatSnapshot.docs[0];
+            return { chatId: existingChat.id, alreadyExists: true };
+        }
+
+        const unreadCounts = {};
+        participantsArray.forEach(uid => {
+            unreadCounts[uid] = 0;
+        });
+
+        const timestamp = FieldValue.serverTimestamp();
+        const chatData = {
+            participants: participantsArray,
+            participantsHash,
+            participantProfiles,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            lastMessage: '',
+            lastMessageSenderId: null,
+            unreadCounts
+        };
+
+        const newChatRef = await db.collection('chats').add(chatData);
+        return { chatId: newChatRef.id, alreadyExists: false };
     };
 
     const sendChatMessage = async (chatId, senderId, text) => {

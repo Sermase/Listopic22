@@ -84,30 +84,44 @@
     </div>
 
     <main>
-        <div class="container">
+        <div class="container container-wide">
             <section class="chats-page" aria-label="Mensajes directos">
-                <aside class="chat-panel" id="chat-list-panel">
-                    <header>
-                        <h2>Tus chats</h2>
-                        <p id="chat-list-status" class="notifications-empty-state" style="text-align:left; margin-top:6px;">Cargando conversaciones...</p>
+                <aside class="chat-panel chat-list-panel" id="chat-list-panel">
+                    <header class="chat-list-header">
+                        <h3>Conversaciones</h3>
+                        <button type="button" class="chat-list-close" id="chat-list-close" aria-label="Cerrar listado de chats">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </header>
+                    <p id="chat-list-status" class="chat-list-status">Cargando conversaciones...</p>
                     <div class="chat-list" id="chat-list"></div>
                     <form id="new-chat-form" class="new-chat-form" autocomplete="off">
                         <label for="new-chat-identifiers">Iniciar chat (usuario o email)</label>
                         <input type="text" id="new-chat-identifiers" name="new-chat-identifiers" placeholder="usuario1, usuario2" required>
-                        <small>Separa varios destinatarios con comas. Solo podrás chatear con usuarios existentes.</small>
+                        <small>Separa varios destinatarios con comas. Solo podras chatear con usuarios existentes.</small>
                         <button type="submit" class="button primary">Crear chat</button>
-                        <p class="notifications-empty-state" id="new-chat-error" style="display:none;"></p>
+                        <p class="form-error-inline" id="new-chat-error" style="display:none;"></p>
                     </form>
                 </aside>
+                <div class="chat-list-backdrop" id="chat-list-backdrop" hidden></div>
 
-                <section class="chat-panel" id="chat-messages-panel" aria-live="polite">
-                    <header>
-                        <h2 id="chat-detail-title">Selecciona un chat</h2>
+                <section class="chat-panel chat-messages-panel" id="chat-messages-panel" aria-live="polite">
+                    <header class="chat-header">
+                        <button type="button" class="chat-mobile-toggle" id="chat-list-open" aria-label="Abrir listado de chats">
+                            <i class="fas fa-bars"></i>
+                            <span>Chats</span>
+                        </button>
+                        <div class="chat-header-info">
+                            <div class="chat-header-avatars" id="chat-detail-avatars"></div>
+                            <div class="chat-header-text">
+                                <h3 id="chat-detail-title">Selecciona un chat</h3>
+                                <p id="chat-detail-subtitle">Elige una conversacion para empezar.</p>
+                            </div>
+                        </div>
                     </header>
                     <div class="chat-messages" id="chat-messages">
                         <div class="chat-empty-state" id="chat-empty-state">
-                            <p>Elige una conversación para ver los mensajes.</p>
+                            <p>Elige una conversacion para ver los mensajes.</p>
                         </div>
                     </div>
                     <form id="message-form" class="message-composer" autocomplete="off" hidden>
@@ -120,3 +134,9 @@
     </main>
 </body>
 </html>
+
+
+
+
+
+

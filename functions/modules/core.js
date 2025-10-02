@@ -966,11 +966,14 @@ const toggleFollowUser = onCall(async (request) => {
             try {
                 const followerProfileSnap = await currentUserRef.get();
                 const followerProfile = followerProfileSnap.exists ? followerProfileSnap.data() : {};
+                const followerUsername = followerProfile.username || followerProfile.displayName || followerProfile.email || '';
+                const followerDisplayName = followerProfile.displayName || followerProfile.username || '';
                 await userToFollowRef.collection('notifications').add({
                     type: 'new_follower',
                     followerId: currentUserId,
-                    followerUsername: followerProfile.username || followerProfile.displayName || followerProfile.email || '',
-                    followerPhotoUrl: followerProfile.photoUrl || '',
+                    followerUsername,
+                    followerDisplayName,
+                    followerPhotoUrl: followerProfile.photoUrl || followerProfile.photoURL || '',
                     createdAt: FieldValue.serverTimestamp(),
                     read: false
                 });

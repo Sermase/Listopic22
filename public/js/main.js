@@ -61,23 +61,33 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
     container.removeAttribute('hidden');
     if (emptyStateElement) {
         const unread = notifications.filter(n => !n.read).length;
-        emptyStateElement.textContent = unread > 0 ? 'Tienes nuevas notificaciones.' : 'Esto es lo último que ha pasado.';
+        emptyStateElement.textContent = unread > 0 ? 'Tienes nuevas notificaciones.' : 'Esto es lo ultimo que ha pasado.';
     }
 
     notifications.forEach(notification => {
-        const item = document.createElement('div');
+        const isFollowerNotification = notification.type === 'new_follower' && notification.followerId;
+        const linkTarget = isFollowerNotification ? `profile.html?viewUserId=${notification.followerId}` : null;
+        const item = document.createElement(linkTarget ? 'a' : 'div');
         item.className = 'notification-item';
+        if (linkTarget) {
+            item.href = linkTarget;
+            item.setAttribute('aria-label', 'Ver perfil del nuevo seguidor');
+        }
+        if (notification.id) {
+            item.dataset.notificationId = notification.id;
+        }
         if (!notification.read) {
             item.classList.add('unread');
         }
 
         const avatar = document.createElement('img');
         if (notification.type === 'new_follower') {
+            const followerLabel = notification.followerDisplayName || notification.followerUsername || 'Nuevo seguidor';
             avatar.src = notification.followerPhotoUrl || 'img/default-avatar.png';
-            avatar.alt = `Avatar de ${notification.followerUsername || 'nuevo seguidor'}`;
+            avatar.alt = `Avatar de ${followerLabel}`;
         } else {
             avatar.src = 'img/default-avatar.png';
-            avatar.alt = 'Avatar de notificación';
+            avatar.alt = 'Avatar de notificacion';
         }
 
         const content = document.createElement('div');
@@ -86,9 +96,13 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
         const title = document.createElement('span');
         title.className = 'notification-title';
         if (notification.type === 'new_follower') {
-            title.textContent = `${notification.followerUsername || 'Un usuario'} empezó a seguirte.`;
+            const displayName = notification.followerDisplayName || notification.followerUsername || 'Un usuario';
+            const username = notification.followerUsername && notification.followerUsername.toLowerCase() !== displayName.toLowerCase()
+                ? notification.followerUsername
+                : null;
+            title.textContent = `${displayName} empezo a seguirte${username ? ` (@${username})` : ''}.`;
         } else {
-            title.textContent = notification.title || 'Nueva notificación';
+            title.textContent = notification.title || 'Nueva notificacion';
         }
 
         const meta = document.createElement('span');
@@ -96,11 +110,47 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
         meta.textContent = formatTimestampForUi(notification.createdAt);
 
         content.appendChild(title);
+
+        if (notification.type === 'new_follower' && notification.followerUsername && (!notification.followerDisplayName || notification.followerDisplayName.toLowerCase() !== notification.followerUsername.toLowerCase())) {
+            const usernameBadge = document.createElement('span');
+            usernameBadge.className = 'notification-subtitle';
+            usernameBadge.textContent = `@${notification.followerUsername}`;
+            content.appendChild(usernameBadge);
+        }
+
         content.appendChild(meta);
 
         item.appendChild(avatar);
         item.appendChild(content);
         container.appendChild(item);
+
+        const markAsRead = () => {
+            if (notification.read || !notification.id || !ListopicApp.services || !ListopicApp.services.markNotificationsAsRead) {
+                return;
+            }
+            const auth = ListopicApp.services.auth;
+            const authUser = auth && auth.currentUser;
+            if (authUser) {
+                ListopicApp.services.markNotificationsAsRead(authUser.uid, [notification.id]).catch(error => {
+                    console.error('[main] Error marcando notificación como leída:', error);
+                });
+            }
+        };
+
+        item.addEventListener('click', () => {
+            markAsRead();
+            if (linkTarget) {
+                const dropdown = document.getElementById('notifications-dropdown');
+                const button = document.getElementById('notifications-button');
+                if (dropdown) {
+                    dropdown.classList.remove('active');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                }
+                if (button) {
+                    button.setAttribute('aria-expanded', 'false');
+                }
+            }
+        }, { once: true });
     });
 };
 
@@ -194,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Podrías mostrar un error al usuario aquí si la app no puede funcionar.
         const body = document.querySelector('body');
         if (body) {
-            body.innerHTML = '<p style="color:red; text-align:center; margin-top: 50px;">Error crítico: La aplicación no pudo inicializar los servicios base. Por favor, recarga o contacta soporte.</p>';
+            body.innerHTML = '<p style="color:red; text-align:center; margin-top: 50px;">Error critico: La aplicacion no pudo inicializar los servicios base. Por favor, recarga o contacta soporte.</p>';
         }
         return;
     }
@@ -220,8 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("MAIN.JS: pageName calculado:", pageName); // <--- LOG 9
     const isIndexPage = pageName === '' || pageName === 'index.html';
 
-    // Esperar a que el estado de autenticación se resuelva antes de inicializar páginas protegidas
-    console.log("MAIN.JS: Esperando resolución de onAuthStateChangedPromise..."); // <--- LOG 10
+    // Esperar a que el estado de autenticacion se resuelva antes de inicializar paginas protegidas
+    console.log("MAIN.JS: Esperando resolucion de onAuthStateChangedPromise..."); // <--- LOG 10
     ListopicApp.authService.onAuthStateChangedPromise().then(user => {
         console.log("MAIN.JS: onAuthStateChangedPromise resuelta. Usuario:", user ? user.uid : 'No hay usuario'); // <--- LOG 11
 
@@ -231,13 +281,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 ListopicApp.pageAuth.init(); // pageAuth puede tener lógica incluso si el usuario ya está logueado (para redirigir)
             }
         } else if (!user) {
-            // Si no es la página de autenticación y no hay usuario, authService ya debería haber redirigido.
-            // No se inicializa ninguna otra lógica de página.
+            // Si no es la pagina de autenticacion y no hay usuario, authService ya debería haber redirigido.
+            // No se inicializa ninguna otra lógica de pagina.
             console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService debería redirigir."); // <--- LOG 13
             return;
         } else {
-            // Usuario autenticado, o página pública que no requiere autenticación (como index, si se decide)
-            console.log("MAIN.JS: Usuario autenticado o página pública. Procediendo a inicializar lógica de página específica."); // <--- LOG 14
+            // Usuario autenticado, o pagina pública que no requiere autenticacion (como index, si se decide)
+            console.log("MAIN.JS: Usuario autenticado o pagina pública. Procediendo a inicializar lógica de pagina específica."); // <--- LOG 14
             initializeGlobalRealtimeFeatures(user);
             if (isIndexPage) {
                 console.log("MAIN.JS: Es Index page, intentando inicializar pageIndex..."); // <--- LOG 15
@@ -293,12 +343,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 // Esta es la línea 95 en la estructura original del if/else if
-                console.warn("MAIN.JS: No se detectó una página conocida. pageName:", pageName); // <--- LOG si ninguna coincide
+                console.warn("MAIN.JS: No se detectó una pagina conocida. pageName:", pageName); // <--- LOG si ninguna coincide
             }
         }
     }).catch(error => {
         console.error("MAIN.JS: Error en onAuthStateChangedPromise:", error); // <--- LOG 18 (si la promesa falla)
-        // Manejar error crítico si la autenticación no se puede verificar
+        // Manejar error crítico si la autenticacion no se puede verificar
     });
 
     console.log("MAIN.JS: Fin del script de inicialización de main.js."); // <--- LOG 19
@@ -365,7 +415,7 @@ function isAppInstalled() {
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Al cargar la página, si ya está en modo standalone, nos aseguramos
+// Al cargar la pagina, si ya está en modo standalone, nos aseguramos
 // de que el botón no aparezca por si acaso.
 if (isAppInstalled() && installMenuItem) {
     console.log("La app ya se está ejecutando en modo standalone. La opción de instalar no se mostrará.");
@@ -398,3 +448,8 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
+
+
+
+
+
