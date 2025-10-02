@@ -21,15 +21,25 @@
             </div>
         </div>
         <div class="header-right-actions">
-            <a href="search.html" id="search-link-button" class="search-button header-action-button" aria-label="Search">
+            <a href="search.html" id="search-link-button" class="search-button header-action-button icon-with-badge" aria-label="Buscar">
                 <i class="fas fa-search"></i>
             </a>
-            <button type="button" id="notificationsButton" class="notifications-button header-action-button" aria-label="Notificaciones" aria-haspopup="dialog" aria-controls="notificationsModal" aria-expanded="false">
-                <i class="fas fa-bell"></i>
-            </button>
-            <a href="chats.html" class="chat-button header-action-button" aria-label="Abrir chats">
+            <a href="chats.html" id="chats-link-button" class="header-action-button icon-with-badge" aria-label="Chats">
                 <i class="fas fa-comments"></i>
+                <span class="badge-indicator" id="chats-badge" hidden></span>
             </a>
+            <div class="header-icon-group">
+                <button id="notifications-button" class="header-action-button icon-with-badge" aria-label="Notificaciones" aria-expanded="false" aria-haspopup="true">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge-indicator" id="notifications-badge" hidden></span>
+                </button>
+                <div id="notifications-dropdown" class="notifications-dropdown" role="menu" aria-hidden="true">
+                    <h4>Notificaciones</h4>
+                    <p class="notifications-empty-state">Sin notificaciones nuevas.</p>
+                    <div class="notifications-list" id="notifications-list" hidden></div>
+                </div>
+            </div>
+
             <div class="user-profile-menu-container">
                 <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
                     <i class="fas fa-user-circle"></i>
@@ -40,7 +50,7 @@
                     <a href="profile.html#profile-my-lists" role="menuitem">Listas</a>
                     <a href="profile.html#profile-my-reviews" role="menuitem">Reviews</a>
                     <hr class="user-menu-divider">
-                    
+
                     <button type="button" role="menuitem" id="installPwaBtn" style="display: none;">
                         <i class="fas fa-download"></i> Instalar Aplicación
                     </button>

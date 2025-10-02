@@ -17,6 +17,215 @@ ListopicApp.state = {
     lightboxImageUrls: [],
     currentLightboxImageIndex: 0,
     // Firebase services no deberían estar en state, se acceden desde ListopicApp.services
+    globalRealtimeInitialized: false,
+    globalRealtimeCleanup: [],
+    notificationsCache: []
+};
+
+const setBadgeVisibility = (badgeElement, visible) => {
+    if (!badgeElement) return;
+    if (visible) {
+        badgeElement.hidden = false;
+        badgeElement.setAttribute('data-visible', 'true');
+    } else {
+        badgeElement.hidden = true;
+        badgeElement.setAttribute('data-visible', 'false');
+    }
+};
+
+const formatTimestampForUi = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMinutes = Math.round(diffMs / 60000);
+    if (diffMinutes < 1) return 'Justo ahora';
+    if (diffMinutes < 60) return `Hace ${diffMinutes} min`;
+    const diffHours = Math.round(diffMinutes / 60);
+    if (diffHours < 24) return `Hace ${diffHours} h`;
+    return date.toLocaleDateString();
+};
+
+const renderNotificationsList = (notifications, container, emptyStateElement) => {
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!notifications || notifications.length === 0) {
+        container.setAttribute('hidden', 'true');
+        if (emptyStateElement) {
+            emptyStateElement.textContent = 'Sin notificaciones nuevas.';
+        }
+        return;
+    }
+
+    container.removeAttribute('hidden');
+    if (emptyStateElement) {
+        const unread = notifications.filter(n => !n.read).length;
+        emptyStateElement.textContent = unread > 0 ? 'Tienes nuevas notificaciones.' : 'Esto es lo ultimo que ha pasado.';
+    }
+
+    notifications.forEach(notification => {
+        const isFollowerNotification = notification.type === 'new_follower' && notification.followerId;
+        const linkTarget = isFollowerNotification ? `profile.html?viewUserId=${notification.followerId}` : null;
+        const item = document.createElement(linkTarget ? 'a' : 'div');
+        item.className = 'notification-item';
+        if (linkTarget) {
+            item.href = linkTarget;
+            item.setAttribute('aria-label', 'Ver perfil del nuevo seguidor');
+        }
+        if (notification.id) {
+            item.dataset.notificationId = notification.id;
+        }
+        if (!notification.read) {
+            item.classList.add('unread');
+        }
+
+        const avatar = document.createElement('img');
+        if (notification.type === 'new_follower') {
+            const followerLabel = notification.followerDisplayName || notification.followerUsername || 'Nuevo seguidor';
+            avatar.src = notification.followerPhotoUrl || 'img/default-avatar.png';
+            avatar.alt = `Avatar de ${followerLabel}`;
+        } else {
+            avatar.src = 'img/default-avatar.png';
+            avatar.alt = 'Avatar de notificacion';
+        }
+
+        const content = document.createElement('div');
+        content.className = 'notification-content';
+
+        const title = document.createElement('span');
+        title.className = 'notification-title';
+        if (notification.type === 'new_follower') {
+            const displayName = notification.followerDisplayName || notification.followerUsername || 'Un usuario';
+            const username = notification.followerUsername && notification.followerUsername.toLowerCase() !== displayName.toLowerCase()
+                ? notification.followerUsername
+                : null;
+            title.textContent = `${displayName} empezo a seguirte${username ? ` (@${username})` : ''}.`;
+        } else {
+            title.textContent = notification.title || 'Nueva notificacion';
+        }
+
+        const meta = document.createElement('span');
+        meta.className = 'notification-meta';
+        meta.textContent = formatTimestampForUi(notification.createdAt);
+
+        content.appendChild(title);
+
+        if (notification.type === 'new_follower' && notification.followerUsername && (!notification.followerDisplayName || notification.followerDisplayName.toLowerCase() !== notification.followerUsername.toLowerCase())) {
+            const usernameBadge = document.createElement('span');
+            usernameBadge.className = 'notification-subtitle';
+            usernameBadge.textContent = `@${notification.followerUsername}`;
+            content.appendChild(usernameBadge);
+        }
+
+        content.appendChild(meta);
+
+        item.appendChild(avatar);
+        item.appendChild(content);
+        container.appendChild(item);
+
+        const markAsRead = () => {
+            if (notification.read || !notification.id || !ListopicApp.services || !ListopicApp.services.markNotificationsAsRead) {
+                return;
+            }
+            const auth = ListopicApp.services.auth;
+            const authUser = auth && auth.currentUser;
+            if (authUser) {
+                ListopicApp.services.markNotificationsAsRead(authUser.uid, [notification.id]).catch(error => {
+                    console.error('[main] Error marcando notificación como leída:', error);
+                });
+            }
+        };
+
+        item.addEventListener('click', () => {
+            markAsRead();
+            if (linkTarget) {
+                const dropdown = document.getElementById('notifications-dropdown');
+                const button = document.getElementById('notifications-button');
+                if (dropdown) {
+                    dropdown.classList.remove('active');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                }
+                if (button) {
+                    button.setAttribute('aria-expanded', 'false');
+                }
+            }
+        }, { once: true });
+    });
+};
+
+const initializeGlobalRealtimeFeatures = (user) => {
+    if (!user || ListopicApp.state.globalRealtimeInitialized || !ListopicApp.services) return;
+
+    const chatsBadge = document.getElementById('chats-badge');
+    const notificationsBadge = document.getElementById('notifications-badge');
+    const notificationsButton = document.getElementById('notifications-button');
+    const notificationsDropdown = document.getElementById('notifications-dropdown');
+    const notificationsList = document.getElementById('notifications-list');
+    const emptyStateElement = notificationsDropdown ? notificationsDropdown.querySelector('.notifications-empty-state') : null;
+
+    const cleanupFunctions = [];
+
+    if (ListopicApp.services.listenToUserChats && chatsBadge) {
+        const unsubscribeChats = ListopicApp.services.listenToUserChats(user.uid, chats => {
+            const hasUnread = Array.isArray(chats) && chats.some(chat => (chat.unreadCounts && chat.unreadCounts[user.uid] > 0));
+            setBadgeVisibility(chatsBadge, hasUnread);
+        }, error => {
+            console.error('[main] Error monitorizando chats para badge:', error);
+        });
+        cleanupFunctions.push(unsubscribeChats);
+    }
+
+    if (ListopicApp.services.listenToNotifications && notificationsList) {
+        const unsubscribeNotifications = ListopicApp.services.listenToNotifications(user.uid, notifications => {
+            ListopicApp.state.notificationsCache = notifications;
+            const unreadCount = notifications.filter(n => !n.read).length;
+            setBadgeVisibility(notificationsBadge, unreadCount > 0);
+            renderNotificationsList(notifications, notificationsList, emptyStateElement);
+        }, error => {
+            console.error('[main] Error monitorizando notificaciones:', error);
+        });
+        cleanupFunctions.push(unsubscribeNotifications);
+    }
+
+    if (notificationsButton && notificationsDropdown) {
+        const toggleDropdown = (event) => {
+            event.stopPropagation();
+            const willOpen = !notificationsDropdown.classList.contains('active');
+            notificationsDropdown.classList.toggle('active', willOpen);
+            notificationsDropdown.setAttribute('aria-hidden', (!willOpen).toString());
+            notificationsButton.setAttribute('aria-expanded', willOpen.toString());
+            if (willOpen) {
+                const unreadIds = (ListopicApp.state.notificationsCache || []).filter(n => !n.read).map(n => n.id);
+                if (unreadIds.length > 0 && ListopicApp.services.markNotificationsAsRead) {
+                    ListopicApp.services.markNotificationsAsRead(user.uid, unreadIds);
+                }
+                setBadgeVisibility(notificationsBadge, false);
+            }
+        };
+
+        notificationsButton.addEventListener('click', toggleDropdown);
+
+        document.addEventListener('click', (event) => {
+            if (!notificationsDropdown.classList.contains('active')) return;
+            if (!notificationsDropdown.contains(event.target) && !notificationsButton.contains(event.target)) {
+                notificationsDropdown.classList.remove('active');
+                notificationsDropdown.setAttribute('aria-hidden', 'true');
+                notificationsButton.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && notificationsDropdown.classList.contains('active')) {
+                notificationsDropdown.classList.remove('active');
+                notificationsDropdown.setAttribute('aria-hidden', 'true');
+                notificationsButton.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+
+    ListopicApp.state.globalRealtimeCleanup = cleanupFunctions;
+    ListopicApp.state.globalRealtimeInitialized = true;
 };
 
 const notificationsRelativeTimeFormatter = (typeof Intl !== 'undefined' && typeof Intl.RelativeTimeFormat !== 'undefined')
@@ -275,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Podrías mostrar un error al usuario aquí si la app no puede funcionar.
         const body = document.querySelector('body');
         if (body) {
-            body.innerHTML = '<p style="color:red; text-align:center; margin-top: 50px;">Error crítico: La aplicación no pudo inicializar los servicios base. Por favor, recarga o contacta soporte.</p>';
+            body.innerHTML = '<p style="color:red; text-align:center; margin-top: 50px;">Error critico: La aplicacion no pudo inicializar los servicios base. Por favor, recarga o contacta soporte.</p>';
         }
         return;
     }
@@ -301,8 +510,8 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("MAIN.JS: pageName calculado:", pageName); // <--- LOG 9
     const isIndexPage = pageName === '' || pageName === 'index.html';
 
-    // Esperar a que el estado de autenticación se resuelva antes de inicializar páginas protegidas
-    console.log("MAIN.JS: Esperando resolución de onAuthStateChangedPromise..."); // <--- LOG 10
+    // Esperar a que el estado de autenticacion se resuelva antes de inicializar paginas protegidas
+    console.log("MAIN.JS: Esperando resolucion de onAuthStateChangedPromise..."); // <--- LOG 10
     ListopicApp.authService.onAuthStateChangedPromise().then(user => {
         console.log("MAIN.JS: onAuthStateChangedPromise resuelta. Usuario:", user ? user.uid : 'No hay usuario'); // <--- LOG 11
 
@@ -318,13 +527,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 ListopicApp.pageAuth.init(); // pageAuth puede tener lógica incluso si el usuario ya está logueado (para redirigir)
             }
         } else if (!user) {
-            // Si no es la página de autenticación y no hay usuario, authService ya debería haber redirigido.
-            // No se inicializa ninguna otra lógica de página.
+            // Si no es la pagina de autenticacion y no hay usuario, authService ya debería haber redirigido.
+            // No se inicializa ninguna otra lógica de pagina.
             console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService debería redirigir."); // <--- LOG 13
             return;
         } else {
-            // Usuario autenticado, o página pública que no requiere autenticación (como index, si se decide)
-            console.log("MAIN.JS: Usuario autenticado o página pública. Procediendo a inicializar lógica de página específica."); // <--- LOG 14
+            // Usuario autenticado, o pagina pública que no requiere autenticacion (como index, si se decide)
+            console.log("MAIN.JS: Usuario autenticado o pagina pública. Procediendo a inicializar lógica de pagina específica."); // <--- LOG 14
+            initializeGlobalRealtimeFeatures(user);
             if (isIndexPage) {
                 console.log("MAIN.JS: Es Index page, intentando inicializar pageIndex..."); // <--- LOG 15
                  if(ListopicApp.pageIndex && ListopicApp.pageIndex.init) {
@@ -377,14 +587,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (ListopicApp.pagePlace && ListopicApp.pageDeveloper.init) {
                 ListopicApp.pagePlace.init();
                 }
+            } else if (pageName === 'chats.html') {
+                if (ListopicApp.pageChats && ListopicApp.pageChats.init) {
+                    ListopicApp.pageChats.init();
+                }
             } else {
                 // Esta es la línea 95 en la estructura original del if/else if
-                console.warn("MAIN.JS: No se detectó una página conocida. pageName:", pageName); // <--- LOG si ninguna coincide
+                console.warn("MAIN.JS: No se detectó una pagina conocida. pageName:", pageName); // <--- LOG si ninguna coincide
             }
         }
     }).catch(error => {
         console.error("MAIN.JS: Error en onAuthStateChangedPromise:", error); // <--- LOG 18 (si la promesa falla)
-        // Manejar error crítico si la autenticación no se puede verificar
+        // Manejar error crítico si la autenticacion no se puede verificar
     });
 
     console.log("MAIN.JS: Fin del script de inicialización de main.js."); // <--- LOG 19
@@ -451,7 +665,7 @@ function isAppInstalled() {
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Al cargar la página, si ya está en modo standalone, nos aseguramos
+// Al cargar la pagina, si ya está en modo standalone, nos aseguramos
 // de que el botón no aparezca por si acaso.
 if (isAppInstalled() && installMenuItem) {
     console.log("La app ya se está ejecutando en modo standalone. La opción de instalar no se mostrará.");
@@ -484,3 +698,8 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
+
+
+
+
+
