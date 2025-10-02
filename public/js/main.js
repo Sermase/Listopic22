@@ -17,6 +17,165 @@ ListopicApp.state = {
     lightboxImageUrls: [],
     currentLightboxImageIndex: 0,
     // Firebase services no deberían estar en state, se acceden desde ListopicApp.services
+    globalRealtimeInitialized: false,
+    globalRealtimeCleanup: [],
+    notificationsCache: []
+};
+
+const setBadgeVisibility = (badgeElement, visible) => {
+    if (!badgeElement) return;
+    if (visible) {
+        badgeElement.hidden = false;
+        badgeElement.setAttribute('data-visible', 'true');
+    } else {
+        badgeElement.hidden = true;
+        badgeElement.setAttribute('data-visible', 'false');
+    }
+};
+
+const formatTimestampForUi = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMinutes = Math.round(diffMs / 60000);
+    if (diffMinutes < 1) return 'Justo ahora';
+    if (diffMinutes < 60) return `Hace ${diffMinutes} min`;
+    const diffHours = Math.round(diffMinutes / 60);
+    if (diffHours < 24) return `Hace ${diffHours} h`;
+    return date.toLocaleDateString();
+};
+
+const renderNotificationsList = (notifications, container, emptyStateElement) => {
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!notifications || notifications.length === 0) {
+        container.setAttribute('hidden', 'true');
+        if (emptyStateElement) {
+            emptyStateElement.textContent = 'Sin notificaciones nuevas.';
+        }
+        return;
+    }
+
+    container.removeAttribute('hidden');
+    if (emptyStateElement) {
+        const unread = notifications.filter(n => !n.read).length;
+        emptyStateElement.textContent = unread > 0 ? 'Tienes nuevas notificaciones.' : 'Esto es lo último que ha pasado.';
+    }
+
+    notifications.forEach(notification => {
+        const item = document.createElement('div');
+        item.className = 'notification-item';
+        if (!notification.read) {
+            item.classList.add('unread');
+        }
+
+        const avatar = document.createElement('img');
+        if (notification.type === 'new_follower') {
+            avatar.src = notification.followerPhotoUrl || 'img/default-avatar.png';
+            avatar.alt = `Avatar de ${notification.followerUsername || 'nuevo seguidor'}`;
+        } else {
+            avatar.src = 'img/default-avatar.png';
+            avatar.alt = 'Avatar de notificación';
+        }
+
+        const content = document.createElement('div');
+        content.className = 'notification-content';
+
+        const title = document.createElement('span');
+        title.className = 'notification-title';
+        if (notification.type === 'new_follower') {
+            title.textContent = `${notification.followerUsername || 'Un usuario'} empezó a seguirte.`;
+        } else {
+            title.textContent = notification.title || 'Nueva notificación';
+        }
+
+        const meta = document.createElement('span');
+        meta.className = 'notification-meta';
+        meta.textContent = formatTimestampForUi(notification.createdAt);
+
+        content.appendChild(title);
+        content.appendChild(meta);
+
+        item.appendChild(avatar);
+        item.appendChild(content);
+        container.appendChild(item);
+    });
+};
+
+const initializeGlobalRealtimeFeatures = (user) => {
+    if (!user || ListopicApp.state.globalRealtimeInitialized || !ListopicApp.services) return;
+
+    const chatsBadge = document.getElementById('chats-badge');
+    const notificationsBadge = document.getElementById('notifications-badge');
+    const notificationsButton = document.getElementById('notifications-button');
+    const notificationsDropdown = document.getElementById('notifications-dropdown');
+    const notificationsList = document.getElementById('notifications-list');
+    const emptyStateElement = notificationsDropdown ? notificationsDropdown.querySelector('.notifications-empty-state') : null;
+
+    const cleanupFunctions = [];
+
+    if (ListopicApp.services.listenToUserChats && chatsBadge) {
+        const unsubscribeChats = ListopicApp.services.listenToUserChats(user.uid, chats => {
+            const hasUnread = Array.isArray(chats) && chats.some(chat => (chat.unreadCounts && chat.unreadCounts[user.uid] > 0));
+            setBadgeVisibility(chatsBadge, hasUnread);
+        }, error => {
+            console.error('[main] Error monitorizando chats para badge:', error);
+        });
+        cleanupFunctions.push(unsubscribeChats);
+    }
+
+    if (ListopicApp.services.listenToNotifications && notificationsList) {
+        const unsubscribeNotifications = ListopicApp.services.listenToNotifications(user.uid, notifications => {
+            ListopicApp.state.notificationsCache = notifications;
+            const unreadCount = notifications.filter(n => !n.read).length;
+            setBadgeVisibility(notificationsBadge, unreadCount > 0);
+            renderNotificationsList(notifications, notificationsList, emptyStateElement);
+        }, error => {
+            console.error('[main] Error monitorizando notificaciones:', error);
+        });
+        cleanupFunctions.push(unsubscribeNotifications);
+    }
+
+    if (notificationsButton && notificationsDropdown) {
+        const toggleDropdown = (event) => {
+            event.stopPropagation();
+            const willOpen = !notificationsDropdown.classList.contains('active');
+            notificationsDropdown.classList.toggle('active', willOpen);
+            notificationsDropdown.setAttribute('aria-hidden', (!willOpen).toString());
+            notificationsButton.setAttribute('aria-expanded', willOpen.toString());
+            if (willOpen) {
+                const unreadIds = (ListopicApp.state.notificationsCache || []).filter(n => !n.read).map(n => n.id);
+                if (unreadIds.length > 0 && ListopicApp.services.markNotificationsAsRead) {
+                    ListopicApp.services.markNotificationsAsRead(user.uid, unreadIds);
+                }
+                setBadgeVisibility(notificationsBadge, false);
+            }
+        };
+
+        notificationsButton.addEventListener('click', toggleDropdown);
+
+        document.addEventListener('click', (event) => {
+            if (!notificationsDropdown.classList.contains('active')) return;
+            if (!notificationsDropdown.contains(event.target) && !notificationsButton.contains(event.target)) {
+                notificationsDropdown.classList.remove('active');
+                notificationsDropdown.setAttribute('aria-hidden', 'true');
+                notificationsButton.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && notificationsDropdown.classList.contains('active')) {
+                notificationsDropdown.classList.remove('active');
+                notificationsDropdown.setAttribute('aria-hidden', 'true');
+                notificationsButton.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+
+    ListopicApp.state.globalRealtimeCleanup = cleanupFunctions;
+    ListopicApp.state.globalRealtimeInitialized = true;
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -79,6 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // Usuario autenticado, o página pública que no requiere autenticación (como index, si se decide)
             console.log("MAIN.JS: Usuario autenticado o página pública. Procediendo a inicializar lógica de página específica."); // <--- LOG 14
+            initializeGlobalRealtimeFeatures(user);
             if (isIndexPage) {
                 console.log("MAIN.JS: Es Index page, intentando inicializar pageIndex..."); // <--- LOG 15
                  if(ListopicApp.pageIndex && ListopicApp.pageIndex.init) {
@@ -126,6 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (pageName === 'developer.html') { // PÁGINA DE LUGAR
             if (ListopicApp.pagePlace && ListopicApp.pageDeveloper.init) {
                 ListopicApp.pagePlace.init();
+                }
+            } else if (pageName === 'chats.html') {
+                if (ListopicApp.pageChats && ListopicApp.pageChats.init) {
+                    ListopicApp.pageChats.init();
                 }
             } else {
                 // Esta es la línea 95 en la estructura original del if/else if

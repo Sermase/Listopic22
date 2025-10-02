@@ -53,6 +53,12 @@ service cloud.firestore {
         allow read, list: if request.auth != null && request.auth.uid == userId;
         allow write: if false;
       }
+
+      match /notifications/{notificationId} {
+        allow read, list, update: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow delete: if false;
+      }
     }
 
     // ===============================================
@@ -138,6 +144,30 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read, list, create: if canAccessList();
         allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
+      }
+    }
+
+    match /chats/{chatId} {
+      allow read, list: if request.auth != null
+                        && resource.data.participants != null
+                        && resource.data.participants.hasAny([request.auth.uid]);
+      allow create: if request.auth != null
+                     && request.resource.data.participants is list
+                     && request.resource.data.participants.hasAny([request.auth.uid]);
+      allow update: if request.auth != null
+                     && resource.data.participants != null
+                     && resource.data.participants.hasAny([request.auth.uid]);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read, list: if request.auth != null
+                           && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]);
+        allow create: if request.auth != null
+                       && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid])
+                       && request.resource.data.senderId == request.auth.uid;
+        allow update: if request.auth != null
+                       && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]);
+        allow delete: if false;
       }
     }
   }
