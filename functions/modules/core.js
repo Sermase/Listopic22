@@ -949,7 +949,7 @@ const toggleFollowUser = onCall(async (request) => {
             batch.delete(followerRef);
             batch.update(currentUserRef, { followingCount: FieldValue.increment(-1) });
             batch.update(userToFollowRef, { followersCount: FieldValue.increment(-1) });
-            
+
             await batch.commit();
             logger.info(`Usuario ${currentUserId} ha dejado de seguir a ${userIdToFollow}.`);
             return { status: 'unfollowed', message: 'Has dejado de seguir a este usuario.' };
@@ -962,12 +962,121 @@ const toggleFollowUser = onCall(async (request) => {
 
             await batch.commit();
             logger.info(`Usuario ${currentUserId} ahora sigue a ${userIdToFollow}.`);
+
+            try {
+                const followerProfileSnap = await currentUserRef.get();
+                const followerProfile = followerProfileSnap.exists ? followerProfileSnap.data() : {};
+                await userToFollowRef.collection('notifications').add({
+                    type: 'new_follower',
+                    followerId: currentUserId,
+                    followerUsername: followerProfile.username || followerProfile.displayName || followerProfile.email || '',
+                    followerPhotoUrl: followerProfile.photoUrl || '',
+                    createdAt: FieldValue.serverTimestamp(),
+                    read: false
+                });
+            } catch (notificationError) {
+                logger.error(`toggleFollowUser: Error creando notificaciÃ³n de nuevo seguidor para ${userIdToFollow}`, notificationError);
+            }
+
             return { status: 'followed', message: 'Ahora sigues a este usuario.' };
         }
     } catch (error) {
         logger.error(`Error en toggleFollowUser para ${currentUserId} -> ${userIdToFollow}:`, error);
         throw new HttpsError('internal', 'OcurriÃ³ un error al procesar la solicitud.');
     }
+});
+
+const resolveChatParticipants = onCall(async (request) => {
+    const contextAuth = request.auth;
+    if (!contextAuth) {
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+    }
+
+    const rawIdentifiers = request.data && request.data.identifiers;
+    if (!Array.isArray(rawIdentifiers) || rawIdentifiers.length === 0) {
+        throw new HttpsError('invalid-argument', 'Debes proporcionar los identificadores de los usuarios.');
+    }
+
+    const normalizeIdentifier = (value) => {
+        if (typeof value !== 'string') {
+            return '';
+        }
+        let cleaned = value.trim();
+        cleaned = cleaned.replace(/^[@#]+/, '');
+        cleaned = cleaned.replace(/[\s,;]+$/, '');
+        return cleaned.trim();
+    };
+
+    const identifiers = rawIdentifiers
+        .map(normalizeIdentifier)
+        .filter(identifier => identifier.length > 0);
+
+    if (!identifiers.length) {
+        throw new HttpsError('invalid-argument', 'Debes proporcionar identificadores válidos.');
+    }
+
+    const results = [];
+    const seen = new Set();
+
+    for (const identifier of identifiers) {
+        const dedupeKey = identifier.toLowerCase();
+        if (seen.has(dedupeKey)) {
+            continue;
+        }
+        seen.add(dedupeKey);
+
+        let userDoc = null;
+
+        try {
+            if (identifier.includes('@') && identifier.includes('.')) {
+                const lowered = identifier.toLowerCase();
+                const emailSnapshot = await db.collection('users').where('email', '==', lowered).limit(1).get();
+                if (!emailSnapshot.empty) {
+                    userDoc = emailSnapshot.docs[0];
+                } else if (lowered !== identifier) {
+                    const originalSnapshot = await db.collection('users').where('email', '==', identifier).limit(1).get();
+                    if (!originalSnapshot.empty) {
+                        userDoc = originalSnapshot.docs[0];
+                    }
+                }
+            }
+
+            if (!userDoc) {
+                const usernameSnapshot = await db.collection('users').where('username', '==', identifier).limit(1).get();
+                if (!usernameSnapshot.empty) {
+                    userDoc = usernameSnapshot.docs[0];
+                }
+            }
+
+            if (!userDoc) {
+                const possibleDoc = await db.collection('users').doc(identifier).get();
+                if (possibleDoc.exists) {
+                    userDoc = possibleDoc;
+                }
+            }
+
+            if (userDoc && userDoc.exists) {
+                if (userDoc.id === contextAuth.uid) {
+                    continue; // No incluimos al propio usuario
+                }
+                if (results.some(existing => existing.uid === userDoc.id)) {
+                    continue;
+                }
+                const data = userDoc.data();
+                results.push({
+                    uid: userDoc.id,
+                    username: data.username || '',
+                    displayName: data.displayName || '',
+                    email: data.email || '',
+                    photoUrl: data.photoUrl || ''
+                });
+            }
+        } catch (error) {
+            logger.error(`resolveChatParticipants: error buscando identificador ${identifier}`, error);
+        }
+    }
+
+    return { users: results };
 });
 
 // En functions/index.js, reemplaza la funciÃ³n getPlacesForList entera por esta:
@@ -2016,6 +2125,7 @@ module.exports = {
     updateUserStatsOnListChange,
     updateAggregatesOnCommentChange,
     toggleFollowUser,
+    resolveChatParticipants,
     getPlacesForList,
     getPlaceDetails,
     getGroupsForPlace,

@@ -19,6 +19,7 @@ ListopicApp.pageProfile = {
         myReviewsContainer: null,
         openEditModalBtn: null,
         followUnfollowBtn: null, // NUEVO
+        directMessageBtn: null,
         profileMessageArea: null,
         
         // --- Elementos del Modal ---
@@ -95,6 +96,7 @@ ListopicApp.pageProfile = {
         this.elements.myReviewsContainer = document.getElementById('my-reviews-container'); // MODIFICADO
         this.elements.openEditModalBtn = document.getElementById('open-edit-profile-modal-btn');
         this.elements.followUnfollowBtn = document.getElementById('follow-unfollow-btn'); // NUEVO
+        this.elements.directMessageBtn = document.getElementById('direct-message-btn');
         this.elements.profileMessageArea = document.getElementById('profile-message-area');
         
         // --- CACHE DE LOS NUEVOS ELEMENTOS DE ESTADÍSTICAS ---
@@ -143,18 +145,19 @@ ListopicApp.pageProfile = {
     },
 
     updateProfileButtons: function() {
-        // --- LÓGICA DE DEPURACIÓN ---
-        // Forzamos ambos botones a ser visibles para ver si el problema es de la lógica o del renderizado.
-        console.log("[DEBUG] Forzando botones a ser visibles para depuración.");
         const isOwnProfile = this.currentUser && this.currentUser.uid === this.profileOwnerUserId;
-        
+
         if (this.elements.openEditModalBtn) {
             this.elements.openEditModalBtn.style.display = isOwnProfile ? 'inline-block' : 'none';
         }
+
         if (this.elements.followUnfollowBtn) {
             this.elements.followUnfollowBtn.style.display = isOwnProfile ? 'none' : 'inline-block';
         }
-        // Cuando confirmemos que aparecen, volveremos a la lógica original.
+
+        if (this.elements.directMessageBtn) {
+            this.elements.directMessageBtn.style.display = isOwnProfile ? 'none' : 'inline-flex';
+        }
     },
 
     // Dentro del objeto ListopicApp.pageProfile
@@ -174,6 +177,7 @@ ListopicApp.pageProfile = {
     attachEventListeners: function() {
         this.elements.openEditModalBtn?.addEventListener('click', () => this.openEditModal());
         this.elements.followUnfollowBtn?.addEventListener('click', () => this.handleFollowToggle()); // NUEVO
+        this.elements.directMessageBtn?.addEventListener('click', () => this.handleDirectMessage());
         this.elements.closeEditModalBtn?.addEventListener('click', () => this.closeEditModal());
         this.elements.editProfileModal?.addEventListener('click', (event) => {
             if (event.target === this.elements.editProfileModal) {
@@ -278,7 +282,7 @@ ListopicApp.pageProfile = {
         const btn = this.elements.followUnfollowBtn;
         if (!btn) return;
         btn.disabled = true;
-        
+
         try {
             const functions = firebase.app().functions('europe-west1');
             const toggleFollow = functions.httpsCallable('toggleFollowUser');
@@ -300,6 +304,40 @@ ListopicApp.pageProfile = {
             ListopicApp.services.showNotification(`Error: ${error.message}`, 'error');
         } finally {
             btn.disabled = false;
+        }
+    },
+
+    handleDirectMessage: async function() {
+        const btn = this.elements.directMessageBtn;
+        if (!btn || !this.currentUser || this.currentUser.uid === this.profileOwnerUserId) {
+            return;
+        }
+
+        btn.disabled = true;
+        let redirecting = false;
+
+        try {
+            if (!ListopicApp.services.createChatWithParticipants) {
+                throw new Error('El servicio de chats no está disponible en este momento.');
+            }
+
+            const result = await ListopicApp.services.createChatWithParticipants(this.currentUser, [this.profileOwnerUserId]);
+            if (result && result.chatId) {
+                const chatUrl = new URL('chats.html', window.location.origin);
+                chatUrl.searchParams.set('chatId', result.chatId);
+                redirecting = true;
+                window.location.href = chatUrl.toString();
+            } else {
+                throw new Error('No se pudo crear la conversación.');
+            }
+        } catch (error) {
+            console.error('[page-profile] Error al iniciar mensaje directo:', error);
+            const message = error && error.message ? error.message : 'No se pudo abrir el chat.';
+            ListopicApp.services.showNotification?.(message, 'error');
+        } finally {
+            if (!redirecting) {
+                btn.disabled = false;
+            }
         }
     },
 
