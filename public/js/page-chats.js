@@ -19,6 +19,7 @@ ListopicApp.pageChats = (() => {
     let currentUser = null;
     let pendingChatId = null;
 
+
     const formatRelativeTime = (timestamp) => {
         if (!timestamp) return '';
         const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -277,6 +278,7 @@ ListopicApp.pageChats = (() => {
                     pendingChatId = null;
                 }
             }
+
             if (currentChatId) {
                 const stillExists = chats.some(chat => chat.id === currentChatId);
                 if (!stillExists && unsubscribeMessages) {
@@ -339,6 +341,7 @@ ListopicApp.pageChats = (() => {
 
         const params = new URLSearchParams(window.location.search);
         pendingChatId = params.get('chatId');
+
 
         subscribeToChats();
     };
