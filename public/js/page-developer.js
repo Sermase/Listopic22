@@ -89,8 +89,8 @@ ListopicApp.pageDeveloper = (() => {
         // NUEVO: Botón de eliminar seleccionados
         const deleteBtn = document.getElementById('delete-selected-btn');
         if (deleteBtn) deleteBtn.addEventListener('click', deleteSelectedItems);
-    
-    
+
+      
         const auditStatsBtn = document.getElementById('audit-stats-btn');
         if (auditStatsBtn) auditStatsBtn.addEventListener('click', runStatisticsAudit);
     }
