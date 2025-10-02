@@ -11,6 +11,7 @@ ListopicApp.services = (() => {
     const auth = firebase.auth();
     const storage = firebase.storage();
     const db = firebase.firestore();
+    const FieldValue = firebase.firestore.FieldValue;
 
     // Función para mostrar notificaciones
     function showNotification(message, type = 'info') {
@@ -208,6 +209,276 @@ ListopicApp.services = (() => {
         }
     };
 
+    const listenToUserChats = (userId, onUpdate, onError) => {
+        if (!userId) return () => {};
+        try {
+            const query = db.collection('chats')
+                .where('participants', 'array-contains', userId)
+                .orderBy('updatedAt', 'desc');
+            const unsubscribe = query.onSnapshot(snapshot => {
+                const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                onUpdate && onUpdate(chats);
+            }, error => {
+                console.error('[firebaseService] Error escuchando chats del usuario:', error);
+                onError && onError(error);
+            });
+            return unsubscribe;
+        } catch (error) {
+            console.error('[firebaseService] Error creando listener de chats:', error);
+            onError && onError(error);
+            return () => {};
+        }
+    };
+
+    const listenToChatMessages = (chatId, onUpdate, onError) => {
+        if (!chatId) return () => {};
+        try {
+            const query = db.collection('chats').doc(chatId).collection('messages').orderBy('createdAt', 'asc');
+            const unsubscribe = query.onSnapshot(snapshot => {
+                const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                onUpdate && onUpdate(messages);
+            }, error => {
+                console.error('[firebaseService] Error escuchando mensajes del chat:', error);
+                onError && onError(error);
+            });
+            return unsubscribe;
+        } catch (error) {
+            console.error('[firebaseService] Error creando listener de mensajes:', error);
+            onError && onError(error);
+            return () => {};
+        }
+    };
+
+    const createChatWithParticipants = async (currentUser, identifiers) => {
+        if (!currentUser || !currentUser.uid) {
+            throw new Error('Usuario no autenticado.');
+        }
+
+        const normalizeIdentifier = (value) => {
+            if (typeof value !== 'string') {
+                return '';
+            }
+            let cleaned = value.trim();
+            cleaned = cleaned.replace(/^[@#]+/, '');
+            cleaned = cleaned.replace(/[\s,;]+$/, '');
+            return cleaned.trim();
+        };
+
+        const sanitized = Array.isArray(identifiers)
+            ? identifiers.map(normalizeIdentifier).filter(Boolean)
+            : [];
+
+        if (!sanitized.length) {
+            throw new Error('Debes indicar al menos un usuario.');
+        }
+
+        try {
+            const functions = firebase.app().functions('europe-west1');
+            const resolver = functions.httpsCallable('resolveChatParticipants');
+            const response = await resolver({ identifiers: sanitized });
+            const responseData = response && response.data ? response.data : {};
+            const resolvedUsersRaw = Array.isArray(responseData.users) ? responseData.users : [];
+            const resolvedUsers = resolvedUsersRaw.filter(user => user.uid !== currentUser.uid);
+
+            if (!resolvedUsers.length) {
+                throw new Error('No se encontraron usuarios con los datos proporcionados.');
+            }
+
+            const participantIds = new Set([currentUser.uid]);
+            const participantProfiles = {};
+
+            const currentProfileSnap = await db.collection('users').doc(currentUser.uid).get();
+            const currentProfile = currentProfileSnap.exists ? currentProfileSnap.data() : {};
+            participantProfiles[currentUser.uid] = {
+                username: currentProfile.username || currentUser.displayName || currentUser.email || '',
+                displayName: currentProfile.displayName || currentProfile.username || currentUser.displayName || '',
+                photoUrl: currentProfile.photoUrl || currentUser.photoURL || '',
+                email: currentProfile.email || currentUser.email || ''
+            };
+
+            resolvedUsers.forEach(user => {
+                participantIds.add(user.uid);
+                participantProfiles[user.uid] = {
+                    username: user.username || user.displayName || user.email || '',
+                    displayName: user.displayName || user.username || '',
+                    photoUrl: user.photoUrl || '',
+                    email: user.email || ''
+                };
+            });
+
+            if (participantIds.size < 2) {
+                throw new Error('Debes seleccionar al menos otro usuario.');
+            }
+
+            const participantsArray = Array.from(participantIds).sort();
+            const participantsHash = participantsArray.join('_');
+
+            const existingChatSnapshot = await db.collection('chats')
+                .where('participantsHash', '==', participantsHash)
+                .limit(1)
+                .get();
+
+            if (!existingChatSnapshot.empty) {
+                const existingChat = existingChatSnapshot.docs[0];
+                return { chatId: existingChat.id, alreadyExists: true };
+            }
+
+            const unreadCounts = {};
+            participantsArray.forEach(uid => {
+                unreadCounts[uid] = 0;
+            });
+
+            const chatData = {
+                participants: participantsArray,
+                participantsHash,
+                participantProfiles,
+                createdAt: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp(),
+                lastMessage: '',
+                lastMessageSenderId: null,
+                unreadCounts
+            };
+
+            const newChatRef = await db.collection('chats').add(chatData);
+            return { chatId: newChatRef.id, alreadyExists: false };
+        } catch (error) {
+            console.error('[firebaseService] Error creando chat:', error);
+            throw error;
+        }
+    };
+
+    const sendChatMessage = async (chatId, senderId, text) => {
+        if (!chatId || !senderId || !text) {
+            throw new Error('Datos incompletos para enviar el mensaje.');
+        }
+
+        const trimmed = text.trim();
+        if (!trimmed) {
+            throw new Error('El mensaje está vacío.');
+        }
+
+        const chatRef = db.collection('chats').doc(chatId);
+        const senderProfileSnap = await db.collection('users').doc(senderId).get();
+        const senderProfile = senderProfileSnap.exists ? senderProfileSnap.data() : {};
+        const currentAuthUser = auth.currentUser;
+
+        await db.runTransaction(async (transaction) => {
+            const chatSnap = await transaction.get(chatRef);
+            if (!chatSnap.exists) {
+                throw new Error('El chat ya no existe.');
+            }
+
+            const chatData = chatSnap.data();
+            if (!Array.isArray(chatData.participants) || !chatData.participants.includes(senderId)) {
+                throw new Error('No puedes enviar mensajes en este chat.');
+            }
+
+            const messageRef = chatRef.collection('messages').doc();
+            const timestamp = FieldValue.serverTimestamp();
+
+            transaction.set(messageRef, {
+                text: trimmed,
+                senderId,
+                createdAt: timestamp,
+                readBy: [senderId],
+                senderProfile: {
+                    username: senderProfile.username || senderProfile.displayName || senderProfile.email || (currentAuthUser ? (currentAuthUser.displayName || currentAuthUser.email || '') : ''),
+                    displayName: senderProfile.displayName || senderProfile.username || (currentAuthUser ? (currentAuthUser.displayName || '') : ''),
+                    photoUrl: senderProfile.photoUrl || (currentAuthUser ? currentAuthUser.photoURL || '' : '')
+                }
+            });
+
+            const updatePayload = {
+                lastMessage: trimmed,
+                lastMessageSenderId: senderId,
+                updatedAt: timestamp
+            };
+
+            const currentUnread = chatData.unreadCounts || {};
+            (chatData.participants || []).forEach(participantId => {
+                if (participantId === senderId) {
+                    updatePayload[`unreadCounts.${participantId}`] = 0;
+                } else {
+                    const previous = currentUnread[participantId] || 0;
+                    updatePayload[`unreadCounts.${participantId}`] = previous + 1;
+                }
+            });
+
+            transaction.update(chatRef, updatePayload);
+        });
+    };
+
+    const markChatMessagesAsRead = async (chatId, userId, messageIds = []) => {
+        if (!chatId || !userId) return;
+        try {
+            const chatRef = db.collection('chats').doc(chatId);
+            const unreadUpdate = {};
+            unreadUpdate[`unreadCounts.${userId}`] = 0;
+            await chatRef.set(unreadUpdate, { merge: true });
+
+            const idsToUpdate = Array.isArray(messageIds) ? messageIds.filter(Boolean) : [];
+            if (idsToUpdate.length > 0) {
+                const batch = db.batch();
+                idsToUpdate.forEach(messageId => {
+                    const messageRef = chatRef.collection('messages').doc(messageId);
+                    batch.set(messageRef, { readBy: FieldValue.arrayUnion(userId) }, { merge: true });
+                });
+                await batch.commit();
+            }
+        } catch (error) {
+            console.error('[firebaseService] Error marcando mensajes como leídos:', error);
+        }
+    };
+
+    const listenToNotifications = (userId, onUpdate, onError) => {
+        if (!userId) return () => {};
+        try {
+            const query = db.collection('users')
+                .doc(userId)
+                .collection('notifications')
+                .orderBy('createdAt', 'desc')
+                .limit(30);
+
+            const unsubscribe = query.onSnapshot(snapshot => {
+                const notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                onUpdate && onUpdate(notifications);
+            }, error => {
+                console.error('[firebaseService] Error escuchando notificaciones:', error);
+                onError && onError(error);
+            });
+
+            return unsubscribe;
+        } catch (error) {
+            console.error('[firebaseService] Error creando listener de notificaciones:', error);
+            onError && onError(error);
+            return () => {};
+        }
+    };
+
+    const markNotificationsAsRead = async (userId, notificationIds = []) => {
+        if (!userId) return;
+        try {
+            const notificationsRef = db.collection('users').doc(userId).collection('notifications');
+            let targets = Array.isArray(notificationIds) ? notificationIds.filter(Boolean) : [];
+
+            if (!targets.length) {
+                const snapshot = await notificationsRef.where('read', '==', false).get();
+                targets = snapshot.docs.map(doc => doc.id);
+            }
+
+            if (!targets.length) return;
+
+            const batch = db.batch();
+            targets.forEach(notificationId => {
+                const ref = notificationsRef.doc(notificationId);
+                batch.set(ref, { read: true, readAt: FieldValue.serverTimestamp() }, { merge: true });
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error('[firebaseService] Error marcando notificaciones como leídas:', error);
+        }
+    };
+
     return {
         auth: auth,
         storage: storage,
@@ -216,6 +487,13 @@ ListopicApp.services = (() => {
         getReviewsByUserId: getReviewsByUserId,
         createUserInAuthAndFirestore: createUserInAuthAndFirestore,
         showNotification: showNotification,
-        ensureUserProfileExists: ensureUserProfileExists // Exportar la nueva función
+        ensureUserProfileExists: ensureUserProfileExists,
+        listenToUserChats,
+        listenToChatMessages,
+        createChatWithParticipants,
+        sendChatMessage,
+        markChatMessagesAsRead,
+        listenToNotifications,
+        markNotificationsAsRead
     };
 })();
