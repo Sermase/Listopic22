@@ -3,14 +3,14 @@ window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageProfile = {
     // Objeto para guardar referencias a los elementos del DOM
     elements: {
-        // --- Elementos de la página principal ---
+        // --- Elementos de la pï¿½gina principal ---
         profilePhotoDisplay: null,
         profilePicturePlaceholder: null,
         displayNameElement: null,
         usernameDisplayElement: null,
         bioDisplayElement: null,
         locationDisplayElement: null,
-        // --- NUEVOS ELEMENTOS PARA ESTADÍSTICAS ---
+        // --- NUEVOS ELEMENTOS PARA ESTADï¿½STICAS ---
         listsCountElement: null,
         reviewsCountElement: null,
         followersCountElement: null,
@@ -20,6 +20,7 @@ ListopicApp.pageProfile = {
         openEditModalBtn: null,
         followUnfollowBtn: null, // NUEVO
         directMessageBtn: null,
+
         profileMessageArea: null,
         
         // --- Elementos del Modal ---
@@ -48,10 +49,10 @@ ListopicApp.pageProfile = {
     listsToggle: null,
     },
 
-    // Variables de estado de la página
+    // Variables de estado de la pï¿½gina
     currentUser: null,
     profileOwnerUserId: null,
-    profileData: null, // Guardaremos los datos del perfil aquí
+    profileData: null, // Guardaremos los datos del perfil aquï¿½
     selectedPhotoFile: null,
     isFollowing: false, // NUEVO
 
@@ -60,7 +61,7 @@ ListopicApp.pageProfile = {
         const urlParams = new URLSearchParams(window.location.search);
         const userIdFromUrl = urlParams.get('viewUserId');
 
-        // La función dentro del .then() ahora es ASÍNCRONA
+        // La funciï¿½n dentro del .then() ahora es ASï¿½NCRONA
         ListopicApp.authService.onAuthStateChangedPromise().then(async (user) => {
             if (!user) {
                 window.location.href = 'auth.html';
@@ -74,10 +75,10 @@ ListopicApp.pageProfile = {
                 await this.checkFollowStatus();
             }
 
-            // PASO 2: AHORA SÍ, pintamos los botones con la información correcta.
+            // PASO 2: AHORA Sï¿½, pintamos los botones con la informaciï¿½n correcta.
             this.updateProfileButtons(); 
             
-            // PASO 3: Cargamos el resto de la información y activamos listeners.
+            // PASO 3: Cargamos el resto de la informaciï¿½n y activamos listeners.
             this.loadUserProfileData();
             this.attachEventListeners();
         });
@@ -96,10 +97,13 @@ ListopicApp.pageProfile = {
         this.elements.myReviewsContainer = document.getElementById('my-reviews-container'); // MODIFICADO
         this.elements.openEditModalBtn = document.getElementById('open-edit-profile-modal-btn');
         this.elements.followUnfollowBtn = document.getElementById('follow-unfollow-btn'); // NUEVO
+
         this.elements.directMessageBtn = document.getElementById('direct-message-btn');
+
+    
         this.elements.profileMessageArea = document.getElementById('profile-message-area');
         
-        // --- CACHE DE LOS NUEVOS ELEMENTOS DE ESTADÍSTICAS ---
+        // --- CACHE DE LOS NUEVOS ELEMENTOS DE ESTADï¿½STICAS ---
         this.elements.listsCountElement = document.getElementById('lists-count');
         this.elements.reviewsCountElement = document.getElementById('reviews-count');
         this.elements.followersCountElement = document.getElementById('followers-count');
@@ -124,7 +128,7 @@ ListopicApp.pageProfile = {
         this.elements.closePhotoModalBtn = document.getElementById('close-photo-modal-btn');
         this.elements.enlargedProfilePhoto = document.getElementById('enlarged-profile-photo');
     
-        this.elements.profileTabs = document.querySelector('.profile-tabs'); // El contenedor de las pestañas
+        this.elements.profileTabs = document.querySelector('.profile-tabs'); // El contenedor de las pestaï¿½as
         this.elements.reviewsContent = document.getElementById('reviews-content');
         
         this.elements.listsToggleMain = document.getElementById('lists-toggle-main');
@@ -158,6 +162,7 @@ ListopicApp.pageProfile = {
         if (this.elements.directMessageBtn) {
             this.elements.directMessageBtn.style.display = isOwnProfile ? 'none' : 'inline-flex';
         }
+
     },
 
     // Dentro del objeto ListopicApp.pageProfile
@@ -202,6 +207,7 @@ ListopicApp.pageProfile = {
         });
         // Dentro de attachEventListeners en ListopicApp.pageProfile
         this.elements.profilePhotoDisplay?.addEventListener('click', () => this.openPhotoModal());
+        this.elements.openChatButton?.addEventListener('click', () => this.handleOpenChat());
         this.elements.closePhotoModalBtn?.addEventListener('click', () => this.closePhotoModal());
         this.elements.photoModal?.addEventListener('click', (event) => {
             if (event.target === this.elements.photoModal) {
@@ -234,20 +240,34 @@ ListopicApp.pageProfile = {
         this.elements.profileTabs?.addEventListener('click', (event) => {
             const tabButton = event.target.closest('.profile-tab-button');
             if (!tabButton) return;
-        
+
             const tabName = tabButton.dataset.tab;
         
             // Quitar 'active' de todos los botones y contenidos
             this.elements.profileTabs.querySelectorAll('.profile-tab-button').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.profile-tab-content').forEach(content => content.classList.remove('active'));
         
-            // Añadir 'active' al botón y contenido correctos
+            // Aï¿½adir 'active' al botï¿½n y contenido correctos
             tabButton.classList.add('active');
             const activeContent = document.getElementById(`${tabName}-content`);
             if (activeContent) {
                 activeContent.classList.add('active');
             }
         });
+    },
+
+    handleOpenChat: function() {
+        if (!this.currentUser) {
+            return;
+        }
+        const isOwnProfile = this.currentUser.uid === this.profileOwnerUserId;
+        if (isOwnProfile) {
+            window.location.href = 'chats.html';
+            return;
+        }
+        if (this.profileOwnerUserId) {
+            window.location.href = `chats.html?userId=${encodeURIComponent(this.profileOwnerUserId)}`;
+        }
     },
 
     checkFollowStatus: async function() {
@@ -288,11 +308,11 @@ ListopicApp.pageProfile = {
             const toggleFollow = functions.httpsCallable('toggleFollowUser');
             const result = await toggleFollow({ userIdToFollow: this.profileOwnerUserId });
 
-            // Actualizar estado y UI localmente para feedback instantáneo
+            // Actualizar estado y UI localmente para feedback instantï¿½neo
             this.isFollowing = result.data.status === 'followed';
             this.updateFollowButtonUI();
 
-            // Actualizar contador de seguidores en la página
+            // Actualizar contador de seguidores en la pï¿½gina
             const followersCountEl = this.elements.followersCountElement;
             let currentFollowers = parseInt(followersCountEl.textContent, 10);
             followersCountEl.textContent = this.isFollowing ? currentFollowers + 1 : currentFollowers - 1;
@@ -318,7 +338,7 @@ ListopicApp.pageProfile = {
 
         try {
             if (!ListopicApp.services.createChatWithParticipants) {
-                throw new Error('El servicio de chats no está disponible en este momento.');
+                throw new Error('El servicio de chats no estï¿½ disponible en este momento.');
             }
 
             const result = await ListopicApp.services.createChatWithParticipants(this.currentUser, [this.profileOwnerUserId]);
@@ -328,7 +348,7 @@ ListopicApp.pageProfile = {
                 redirecting = true;
                 window.location.href = chatUrl.toString();
             } else {
-                throw new Error('No se pudo crear la conversación.');
+                throw new Error('No se pudo crear la conversaciï¿½n.');
             }
         } catch (error) {
             console.error('[page-profile] Error al iniciar mensaje directo:', error);
@@ -366,7 +386,7 @@ ListopicApp.pageProfile = {
 
         if (this.elements.displayNameElement) this.elements.displayNameElement.textContent = displayName || username || 'Usuario';
         if (this.elements.usernameDisplayElement) this.elements.usernameDisplayElement.textContent = `@${username || 'usuario'}`;
-        if (this.elements.bioDisplayElement) this.elements.bioDisplayElement.textContent = bio || 'Este usuario aún no ha añadido una biografía.';
+        if (this.elements.bioDisplayElement) this.elements.bioDisplayElement.textContent = bio || 'Este usuario aï¿½n no ha aï¿½adido una biografï¿½a.';
         if (this.elements.locationDisplayElement) {
             if (location) {
                 this.elements.locationDisplayElement.querySelector('span').textContent = location;
@@ -379,7 +399,7 @@ ListopicApp.pageProfile = {
             this.elements.profilePhotoDisplay.src = photoUrl || 'img/default-avatar.png';
         }
         
-        // --- RENDERIZADO DE LAS ESTADÍSTICAS ---
+        // --- RENDERIZADO DE LAS ESTADï¿½STICAS ---
         if(this.elements.listsCountElement) this.elements.listsCountElement.textContent = totalLists;
         if(this.elements.reviewsCountElement) this.elements.reviewsCountElement.textContent = reviewsCount || 0;
         if(this.elements.followersCountElement) this.elements.followersCountElement.textContent = followersCount || 0;
@@ -406,7 +426,7 @@ ListopicApp.pageProfile = {
 
     showImagePreview: function(src) {
         if (this.elements.editPhotoPreview) {
-            this.elements.editPhotoPreview.innerHTML = src ? `<img src="${src}" alt="Previsualización">` : '';
+            this.elements.editPhotoPreview.innerHTML = src ? `<img src="${src}" alt="Previsualizaciï¿½n">` : '';
         }
     },
     
@@ -440,7 +460,7 @@ ListopicApp.pageProfile = {
                 location: this.elements.editLocationInput.value.trim(),
                 bio: this.elements.editBioInput.value.trim(),
                 photoUrl: newPhotoURL,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Buena práctica
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Buena prï¿½ctica
             };
             
             const updatesForAuth = {
@@ -451,7 +471,7 @@ ListopicApp.pageProfile = {
             await db.collection('users').doc(this.currentUser.uid).update(updatesForFirestore);
             await auth.currentUser.updateProfile(updatesForAuth);
             
-            this.displayModalMessage("Perfil actualizado con éxito.", false);
+            this.displayModalMessage("Perfil actualizado con ï¿½xito.", false);
             
             setTimeout(() => {
                 this.closeEditModal();
@@ -474,7 +494,7 @@ ListopicApp.pageProfile = {
         let listsQuery = ListopicApp.services.db.collection('lists')
             .where('userId', '==', userIdToLoad);
 
-        // Si NO es nuestro propio perfil, solo mostramos las listas públicas.
+        // Si NO es nuestro propio perfil, solo mostramos las listas pï¿½blicas.
         if (!isOwnProfile) {
             listsQuery = listsQuery.where('isPublic', '==', true);
         }
@@ -494,7 +514,7 @@ ListopicApp.pageProfile = {
         if (!this.elements.myListsUl) return;
         this.elements.myListsUl.innerHTML = '';
         if (listDocs.length === 0) {
-            this.elements.myListsUl.innerHTML = '<li>Este usuario aún no ha creado ninguna lista visible.</li>';
+            this.elements.myListsUl.innerHTML = '<li>Este usuario aï¿½n no ha creado ninguna lista visible.</li>';
             return;
         }
 
@@ -505,14 +525,14 @@ ListopicApp.pageProfile = {
             li.className = 'profile-list-item';
 
             const privacyIcon = list.isPublic ? 'fa-globe-americas' : 'fa-lock';
-            const privacyText = list.isPublic ? 'Pública' : 'Privada';
+            const privacyText = list.isPublic ? 'Pï¿½blica' : 'Privada';
             const listIcon = await uiUtils.getListIcon(list);
 
             li.innerHTML = `
                 <a href="list-view.html?listId=${doc.id}">
                     <strong class="profile-list-item-name"><i class="fas ${listIcon}" style="margin-right: 8px;"></i>${uiUtils.escapeHtml(list.name)}</strong>
                     <div class="profile-list-item-meta">
-                        <span><i class="fas fa-pencil-alt"></i> ${list.reviewCount || 0} reseñas</span>
+                        <span><i class="fas fa-pencil-alt"></i> ${list.reviewCount || 0} reseï¿½as</span>
                         <span><i class="fas ${privacyIcon}"></i> ${privacyText}</span>
                     </div>
                 </a>
@@ -524,7 +544,7 @@ ListopicApp.pageProfile = {
     fetchUserReviews: async function(userIdToLoad) {
         const container = this.elements.myReviewsContainer;
         if (!container) return;
-        container.innerHTML = `<p class="loading-placeholder">Buscando reseñas...</p>`;
+        container.innerHTML = `<p class="loading-placeholder">Buscando reseï¿½as...</p>`;
         
         try {
             const reviewsSnapshot = await ListopicApp.services.db.collectionGroup('reviews')
@@ -585,7 +605,7 @@ ListopicApp.pageProfile = {
             this.renderUserReviews(enrichedReviews);
         } catch (error) {
             console.error(`page-profile: Error fetching reviews:`, error);
-            container.innerHTML = '<p class="error-placeholder">Error al cargar las reseñas.</p>';
+            container.innerHTML = '<p class="error-placeholder">Error al cargar las reseï¿½as.</p>';
         }
     },
 
@@ -594,7 +614,7 @@ ListopicApp.pageProfile = {
         if (!container) return;
         container.innerHTML = '';
         if (!reviews || reviews.length === 0) {
-            container.innerHTML = '<p>Este usuario aún no ha escrito ninguna reseña.</p>';
+            container.innerHTML = '<p>Este usuario aï¿½n no ha escrito ninguna reseï¿½a.</p>';
             return;
         }
         const ui = ListopicApp.uiUtils;
@@ -611,7 +631,7 @@ ListopicApp.pageProfile = {
                     menu.innerHTML = `
                         <button class="review-menu__btn" title="Opciones"><i class="fas fa-ellipsis-h"></i></button>
                         <div class="review-menu__dropdown">
-                            <button class="review-action" data-action="edit">Editar reseña</button>
+                            <button class="review-action" data-action="edit">Editar reseï¿½a</button>
                             <button class="review-action" data-action="share">Compartir</button>
                             <button class="review-action danger" data-action="delete">Eliminar</button>
                         </div>`;
@@ -629,19 +649,19 @@ ListopicApp.pageProfile = {
                             } else if (action === 'share') {
                                 const url = `${location.origin}${location.pathname.replace(/[^/]+$/, '')}detail-view.html?id=${r.id}&listId=${r.listId}`;
                                 if (navigator.share) {
-                                    try { await navigator.share({ title: 'Mi reseña en Listopic', url }); } catch(_){}
+                                    try { await navigator.share({ title: 'Mi reseï¿½a en Listopic', url }); } catch(_){}
                                 } else if (navigator.clipboard) {
                                     await navigator.clipboard.writeText(url);
                                     ListopicApp.services?.showNotification?.('Enlace copiado al portapapeles','success');
                                 }
                             } else if (action === 'delete') {
-                                if (!confirm('¿Eliminar esta reseña? Esta acción no se puede deshacer.')) return;
+                                if (!confirm('ï¿½Eliminar esta reseï¿½a? Esta acciï¿½n no se puede deshacer.')) return;
                                 try {
                                     await ListopicApp.services.db.collection('lists').doc(r.listId).collection('reviews').doc(r.id).delete();
                                     article.remove();
-                                    ListopicApp.services?.showNotification?.('Reseña eliminada','success');
+                                    ListopicApp.services?.showNotification?.('Reseï¿½a eliminada','success');
                                 } catch (err) {
-                                    ListopicApp.services?.showNotification?.(err.message || 'Error eliminando reseña','error');
+                                    ListopicApp.services?.showNotification?.(err.message || 'Error eliminando reseï¿½a','error');
                                 }
                             }
                             dd.classList.remove('open');

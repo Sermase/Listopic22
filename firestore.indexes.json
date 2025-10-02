@@ -7,6 +7,7 @@
         { "fieldPath": "participants", "arrayConfig": "CONTAINS" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
+
     }
   ],
   "fieldOverrides": []

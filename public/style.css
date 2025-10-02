@@ -363,6 +363,20 @@ main > .table-container {
 .secondary-button { background-color: var(--accent-color-quaternary); color: white; }
 .secondary-button:hover { background-color: #1a75cf; box-shadow: 0 4px 15px rgba(var(--accent-color-quaternary-rgb), 0.3); }
 
+.tertiary-button {
+    background-color: transparent;
+    color: var(--accent-color-secondary);
+    border: 1px solid rgba(var(--accent-color-secondary-rgb), 0.6);
+    box-shadow: none;
+    transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.tertiary-button:hover {
+    background-color: rgba(var(--accent-color-secondary-rgb), 0.15);
+    color: var(--accent-color-secondary);
+    box-shadow: 0 4px 12px rgba(var(--accent-color-secondary-rgb), 0.25);
+}
+
 .edit-button { background-color: var(--accent-color-tertiary); color: var(--main-button-text); }
 .edit-button:hover { background-color: #00cf6b; box-shadow: 0 4px 15px rgba(var(--accent-color-tertiary-rgb), 0.3); }
 .delete-button.danger, .delete-list-button.danger, .remove-button.danger { background-color: var(--danger-color); color: white; }
@@ -1484,6 +1498,26 @@ body.light-theme .user-menu-divider {
     gap: 9px; /* Espacio entre los botones de acción */
 }
 
+.header-action-button.notifications-button,
+.header-action-button.chat-button {
+    position: relative;
+}
+
+.notifications-button[data-loading="true"] {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.notifications-button .fa-bell,
+.chat-button .fa-comments {
+    transition: transform 0.2s ease;
+}
+
+.notifications-button:hover .fa-bell,
+.chat-button:hover .fa-comments {
+    transform: scale(1.05);
+}
+
 /* En style.css */
 
 /* Estilo general para los botones de acción del header, incluyendo los que son enlaces */
@@ -1911,6 +1945,9 @@ a.header-action-button:hover {
 .modal.active {
     display: flex; /* Use flex to center content */
 }
+body.modal-open {
+    overflow: hidden;
+}
 .modal-content {
     background-color: var(--container-bg);
     margin: auto;
@@ -1938,6 +1975,101 @@ a.header-action-button:hover {
 }
 .close-button:hover, .close-button:focus {
     color: var(--text-color);
+}
+
+.notifications-modal-content {
+    max-width: 460px;
+    padding: 24px 28px 28px;
+}
+
+.notifications-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: 70vh;
+}
+
+.notifications-loading-state,
+.notifications-empty-state {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--secondary-text-color);
+}
+
+.notifications-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 52vh;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.notifications-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    border-radius: var(--border-radius-medium);
+    background-color: var(--container-bg-secondary);
+    border: 1px solid var(--border-color-light);
+    box-shadow: var(--shadow-elevation-low);
+}
+
+.notification-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background-color: rgba(var(--accent-color-secondary-rgb), 0.18);
+    color: var(--accent-color-secondary);
+    font-size: 1.1rem;
+}
+
+.notification-main {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.notification-title {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--title-color);
+}
+
+.notification-message {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-color);
+    line-height: 1.4;
+}
+
+.notification-link {
+    align-self: flex-start;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent-color-secondary);
+    text-decoration: none;
+}
+
+.notification-link:hover,
+.notification-link:focus {
+    text-decoration: underline;
+}
+
+.notification-time {
+    font-size: 0.8rem;
+    color: var(--secondary-text-color);
+}
+
+body.dark-theme .notifications-item {
+    background-color: rgba(255, 255, 255, 0.02);
 }
 
 /* Save button specific to modals, if different from global .button or .submit-button */
@@ -6942,4 +7074,5 @@ body.chat-list-modal-open {
         height: 40px;
     }
 }
+
 

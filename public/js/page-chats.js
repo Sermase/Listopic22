@@ -587,12 +587,8 @@ ListopicApp.pageChats = (() => {
         subscribeToChats();
     };
 
+
     return {
         init
     };
 })();
-
-
-
-
-

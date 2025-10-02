@@ -13,6 +13,8 @@ ListopicApp.services = (() => {
     const db = firebase.firestore();
     const FieldValue = firebase.firestore.FieldValue;
 
+
+
     // Función para mostrar notificaciones
     function showNotification(message, type = 'info') {
         let notificationContainer = document.getElementById('notification-container');
@@ -579,6 +581,7 @@ ListopicApp.services = (() => {
             await batch.commit();
         } catch (error) {
             console.error('[firebaseService] Error marcando notificaciones como leídas:', error);
+
         }
     };
 
@@ -598,5 +601,6 @@ ListopicApp.services = (() => {
         markChatMessagesAsRead,
         listenToNotifications,
         markNotificationsAsRead
+
     };
 })();
