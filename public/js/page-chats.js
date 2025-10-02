@@ -307,6 +307,8 @@ ListopicApp.pageChats = (() => {
             bubble.className = 'message-bubble';
             if (msg.senderId === currentUser.uid) {
                 bubble.classList.add('sent');
+            } else {
+                bubble.classList.add('received');
             }
             bubble.textContent = msg.text;
 
@@ -591,6 +593,7 @@ ListopicApp.pageChats = (() => {
         init
     };
 })();
+
 
 
 

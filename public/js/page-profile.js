@@ -323,10 +323,10 @@ ListopicApp.pageProfile = {
 
             const result = await ListopicApp.services.createChatWithParticipants(this.currentUser, [this.profileOwnerUserId]);
             if (result && result.chatId) {
-                const chatUrl = new URL('./chats.html', window.location.href);
-                chatUrl.searchParams.set('chatId', result.chatId);
+                const baseFromPath = window.location.pathname.replace(/[^/]+$/, '');
+                const targetPath = `${baseFromPath}chats.html`;
                 redirecting = true;
-                window.location.href = chatUrl.toString();
+                window.location.href = `${targetPath}?chatId=${encodeURIComponent(result.chatId)}`;
             } else {
                 throw new Error('No se pudo crear la conversación.');
             }
