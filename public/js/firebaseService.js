@@ -69,6 +69,29 @@ ListopicApp.services = (() => {
     }
 
     // Function to get lists by user ID
+    const chunkArray = (source, size = 10) => {
+        if (!Array.isArray(source) || source.length === 0) return [];
+        const result = [];
+        for (let i = 0; i < source.length; i += size) {
+            result.push(source.slice(i, i + size));
+        }
+        return result;
+    };
+
+    const mapUserProfile = (doc) => {
+        if (!doc || !doc.exists) {
+            return null;
+        }
+        const data = doc.data() || {};
+        return {
+            uid: doc.id,
+            username: data.username || '',
+            displayName: data.displayName || '',
+            email: data.email || data.emailLowerCase || '',
+            photoUrl: data.photoUrl || ''
+        };
+    };
+
     const getListsByUserId = async (userId) => {
         if (!userId) {
             console.error("User ID is required to fetch lists.");
@@ -248,6 +271,49 @@ ListopicApp.services = (() => {
             console.error('[firebaseService] Error creando listener de mensajes:', error);
             onError && onError(error);
             return () => {};
+        }
+    };
+
+    const getUsersByIds = async (ids = []) => {
+        const uniqueIds = Array.from(new Set((ids || []).filter(Boolean)));
+        if (!uniqueIds.length) {
+            return [];
+        }
+        const chunks = chunkArray(uniqueIds, 10);
+        const results = [];
+        for (const chunk of chunks) {
+            const snapshot = await db.collection('users')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', chunk)
+                .get();
+            snapshot.forEach(doc => {
+                const profile = mapUserProfile(doc);
+                if (profile) {
+                    results.push(profile);
+                }
+            });
+        }
+        return results;
+    };
+
+    const getFollowingUsers = async (userId) => {
+        if (!userId) {
+            return [];
+        }
+        try {
+            const followingSnapshot = await db.collection('users')
+                .doc(userId)
+                .collection('following')
+                .get();
+
+            const followingIds = followingSnapshot.docs.map(doc => doc.id).filter(Boolean);
+            if (!followingIds.length) {
+                return [];
+            }
+
+            return await getUsersByIds(followingIds);
+        } catch (error) {
+            console.error('[firebaseService] Error obteniendo usuarios seguidos:', error);
+            throw new Error('No se pudieron obtener tus usuarios seguidos.');
         }
     };
 
@@ -445,11 +511,194 @@ ListopicApp.services = (() => {
             updatedAt: timestamp,
             lastMessage: '',
             lastMessageSenderId: null,
-            unreadCounts
+            unreadCounts,
+            ownerId: currentUser.uid,
+            isGroup: false,
+            groupName: null
         };
 
         const newChatRef = await db.collection('chats').add(chatData);
         return { chatId: newChatRef.id, alreadyExists: false };
+    };
+
+    const createGroupChat = async (currentUser, participantIds = [], groupName = '') => {
+        if (!currentUser || !currentUser.uid) {
+            throw new Error('Usuario no autenticado.');
+        }
+
+        const trimmedName = typeof groupName === 'string' ? groupName.trim() : '';
+        if (!trimmedName) {
+            throw new Error('Debes indicar un nombre para el grupo.');
+        }
+
+        const normalized = Array.isArray(participantIds) ? participantIds : [];
+        const sanitizedIds = Array.from(new Set(normalized.map(value => {
+            if (!value) return '';
+            if (typeof value === 'string') return value.trim();
+            if (typeof value === 'object') {
+                return (value.uid || value.id || '').toString().trim();
+            }
+            return '';
+        }).filter(Boolean)));
+        const filteredIds = sanitizedIds.filter(uid => uid !== currentUser.uid);
+
+        if (!filteredIds.length) {
+            throw new Error('Selecciona al menos un usuario.');
+        }
+
+        try {
+            const additionalProfiles = await getUsersByIds(filteredIds);
+            if (additionalProfiles.length !== filteredIds.length) {
+                throw new Error('Algunos usuarios seleccionados no son validos.');
+            }
+
+            const ownerDoc = await db.collection('users').doc(currentUser.uid).get();
+            const ownerData = ownerDoc.exists ? ownerDoc.data() : {};
+
+            const participantsSet = new Set([currentUser.uid]);
+            const participantProfiles = {};
+            participantProfiles[currentUser.uid] = {
+                username: ownerData.username || currentUser.displayName || currentUser.email || '',
+                displayName: ownerData.displayName || ownerData.username || currentUser.displayName || '',
+                photoUrl: ownerData.photoUrl || currentUser.photoURL || '',
+                email: ownerData.email || currentUser.email || ''
+            };
+
+            additionalProfiles.forEach(profile => {
+                if (profile && profile.uid && profile.uid !== currentUser.uid && !participantsSet.has(profile.uid)) {
+                    participantsSet.add(profile.uid);
+                    participantProfiles[profile.uid] = {
+                        username: profile.username || profile.displayName || profile.email || '',
+                        displayName: profile.displayName || profile.username || '',
+                        photoUrl: profile.photoUrl || '',
+                        email: profile.email || ''
+                    };
+                }
+            });
+
+            if (participantsSet.size < 2) {
+                throw new Error('Selecciona al menos otro usuario.');
+            }
+
+            const participantsArray = Array.from(participantsSet).sort();
+            const unreadCounts = {};
+            participantsArray.forEach(uid => { unreadCounts[uid] = 0; });
+
+            const timestamp = FieldValue.serverTimestamp();
+            const chatData = {
+                participants: participantsArray,
+                participantsHash: participantsArray.join('_'),
+                participantProfiles,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+                lastMessage: '',
+                lastMessageSenderId: null,
+                unreadCounts,
+                ownerId: currentUser.uid,
+                isGroup: true,
+                groupName: trimmedName
+            };
+
+            const newChatRef = await db.collection('chats').add(chatData);
+            return { chatId: newChatRef.id, alreadyExists: false };
+        } catch (error) {
+            console.error('[firebaseService] Error creando grupo:', error);
+            throw error;
+        }
+    };
+
+    const updateGroupChatParticipants = async (chatId, ownerId, options = {}) => {
+        if (!chatId || !ownerId) {
+            throw new Error('Datos incompletos para actualizar el grupo.');
+        }
+
+        const normalizeEntry = (entry) => {
+            if (!entry) return '';
+            if (typeof entry === 'string') return entry.trim();
+            if (typeof entry === 'object') {
+                return (entry.uid || entry.id || '').toString().trim();
+            }
+            return '';
+        };
+
+        const addIds = Array.from(new Set((Array.isArray(options.add) ? options.add : []).map(normalizeEntry).filter(Boolean)));
+        const removeIds = Array.from(new Set((Array.isArray(options.remove) ? options.remove : []).map(normalizeEntry).filter(Boolean))).filter(uid => uid !== ownerId);
+
+        if (!addIds.length && !removeIds.length) {
+            return null;
+        }
+
+        const profilesToAdd = addIds.length ? await getUsersByIds(addIds) : [];
+        if (profilesToAdd.length !== addIds.length) {
+            throw new Error('Algunos usuarios seleccionados no son validos.');
+        }
+
+        let updatedSummary = null;
+        await db.runTransaction(async (transaction) => {
+            const chatRef = db.collection('chats').doc(chatId);
+            const chatSnap = await transaction.get(chatRef);
+            if (!chatSnap.exists) {
+                throw new Error('El chat ya no existe.');
+            }
+
+            const chatData = chatSnap.data() || {};
+            if (!chatData.isGroup) {
+                throw new Error('Solo los grupos pueden gestionarse.');
+            }
+            if (chatData.ownerId !== ownerId) {
+                throw new Error('Solo el creador del grupo puede gestionarlo.');
+            }
+
+            const participantSet = new Set(Array.isArray(chatData.participants) ? chatData.participants : []);
+            const participantProfiles = Object.assign({}, chatData.participantProfiles || {});
+            const unreadCounts = Object.assign({}, chatData.unreadCounts || {});
+
+            removeIds.forEach(uid => {
+                if (uid && participantSet.has(uid)) {
+                    participantSet.delete(uid);
+                    delete participantProfiles[uid];
+                    delete unreadCounts[uid];
+                }
+            });
+
+            profilesToAdd.forEach(profile => {
+                if (!profile || !profile.uid || profile.uid === ownerId) return;
+                if (!participantSet.has(profile.uid)) {
+                    participantSet.add(profile.uid);
+                    participantProfiles[profile.uid] = {
+                        username: profile.username || profile.displayName || profile.email || '',
+                        displayName: profile.displayName || profile.username || '',
+                        photoUrl: profile.photoUrl || '',
+                        email: profile.email || ''
+                    };
+                    unreadCounts[profile.uid] = 0;
+                }
+            });
+
+            const participantsArray = Array.from(participantSet).sort();
+            if (participantsArray.length < 2) {
+                throw new Error('El grupo debe tener al menos dos participantes.');
+            }
+
+            transaction.update(chatRef, {
+                participants: participantsArray,
+                participantsHash: participantsArray.join('_'),
+                participantProfiles,
+                unreadCounts,
+                updatedAt: FieldValue.serverTimestamp()
+            });
+
+            updatedSummary = {
+                participants: participantsArray,
+                participantProfiles,
+                unreadCounts,
+                ownerId: chatData.ownerId,
+                groupName: chatData.groupName,
+                isGroup: true
+            };
+        });
+
+        return updatedSummary;
     };
 
     const sendChatMessage = async (chatId, senderId, text) => {
@@ -597,6 +846,9 @@ ListopicApp.services = (() => {
         listenToUserChats,
         listenToChatMessages,
         createChatWithParticipants,
+        createGroupChat,
+        updateGroupChatParticipants,
+        getFollowingUsers,
         sendChatMessage,
         markChatMessagesAsRead,
         listenToNotifications,

@@ -274,6 +274,11 @@ main { width: 100%; display: flex; flex-direction: column; align-items: center; 
     text-align: center; 
     margin: 0 auto 10px auto; /* Centrado horizontal y margen inferior */
 }
+.container-wide {
+    max-width: min(1400px, 96vw);
+    width: 100%;
+}
+
 
 /* === ESTILOS PARA LA PÁGINA PRINCIPAL (index.html) === */
 .list-collection-container { margin-top: 20px; }
@@ -6955,14 +6960,29 @@ body.light-theme .leaflet-popup-tip {
     border-radius: 16px;
     line-height: 1.4;
     position: relative;
-    background: var(--card-bg, rgba(255,255,255,0.06));
-    color: inherit;
+    align-self: flex-start;
+    margin-right: auto;
+    background: var(--chat-received-bg, rgba(255,255,255,0.12));
+    color: var(--text-color, inherit);
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.message-bubble.received {
+    background: var(--chat-received-bg, rgba(0,0,0,0.08));
+    color: var(--text-color, inherit);
+}
+
+body.light-theme .message-bubble.received {
+    background: var(--chat-received-bg-light, #f1f3f5);
+    border-color: rgba(0,0,0,0.08);
 }
 
 .message-bubble.sent {
     margin-left: auto;
+    margin-right: 0;
     background: var(--accent-color-primary);
     color: var(--main-button-text);
+    border: none;
 }
 
 .message-bubble .message-meta {
