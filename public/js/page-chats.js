@@ -17,6 +17,8 @@ ListopicApp.pageChats = (() => {
     let currentChatId = null;
     let chatsCache = [];
     let currentUser = null;
+    let pendingChatId = null;
+
 
     const formatRelativeTime = (timestamp) => {
         if (!timestamp) return '';
@@ -269,6 +271,14 @@ ListopicApp.pageChats = (() => {
 
         unsubscribeChats = ListopicApp.services.listenToUserChats(currentUser.uid, chats => {
             renderChatList(chats);
+            if (pendingChatId) {
+                const pendingExists = chats.some(chat => chat.id === pendingChatId);
+                if (pendingExists) {
+                    selectChat(pendingChatId);
+                    pendingChatId = null;
+                }
+            }
+
             if (currentChatId) {
                 const stillExists = chats.some(chat => chat.id === currentChatId);
                 if (!stillExists && unsubscribeMessages) {
@@ -328,6 +338,11 @@ ListopicApp.pageChats = (() => {
 
         cacheDomElements();
         attachEventListeners();
+
+        const params = new URLSearchParams(window.location.search);
+        pendingChatId = params.get('chatId');
+
+
         subscribeToChats();
     };
 
