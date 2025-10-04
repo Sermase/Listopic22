@@ -43,21 +43,38 @@ ListopicApp.reviewActions = (() => {
         }
     };
 
+    const decodeDatasetValue = (() => {
+        let textarea = null;
+        return (value) => {
+            if (typeof value !== 'string') {
+                return '';
+            }
+            if (!textarea) {
+                textarea = document.createElement('textarea');
+            }
+            textarea.innerHTML = value;
+            return textarea.value;
+        };
+    })();
+
     const getReviewData = (card) => {
         if (!card) {
             return null;
         }
         const dataset = card.dataset || {};
         return {
-            reviewId: dataset.reviewId || '',
-            listId: dataset.listId || '',
-            authorId: dataset.authorId || '',
-            authorName: dataset.authorName || '',
-            listName: dataset.listName || '',
-            itemName: dataset.itemName || '',
-            placeId: dataset.placeId || '',
-            detailUrl: dataset.detailUrl || '',
-            overallRating: dataset.overallRating || '',
+            reviewId: decodeDatasetValue(dataset.reviewId || ''),
+            listId: decodeDatasetValue(dataset.listId || ''),
+            authorId: decodeDatasetValue(dataset.authorId || ''),
+            authorName: decodeDatasetValue(dataset.authorName || ''),
+            listName: decodeDatasetValue(dataset.listName || ''),
+            itemName: decodeDatasetValue(dataset.itemName || ''),
+            placeId: decodeDatasetValue(dataset.placeId || ''),
+            placeName: decodeDatasetValue(dataset.placeName || ''),
+            detailUrl: decodeDatasetValue(dataset.detailUrl || ''),
+            overallRating: decodeDatasetValue(dataset.overallRating || ''),
+            photoUrl: decodeDatasetValue(dataset.photoUrl || ''),
+            comment: decodeDatasetValue(dataset.comment || ''),
             isOwner: dataset.isOwner === '1',
             element: card
         };
@@ -565,8 +582,28 @@ ListopicApp.reviewShare = (() => {
         if (data?.overallRating) {
             parts.push(`Puntuacion: ${data.overallRating}/10.`);
         }
-        parts.push(link);
-        return parts.join(' ');
+
+        const messageText = parts.join(' ').trim();
+        const defaultText = 'Te comparto una rese\u00f1a.';
+        const textToSend = messageText || defaultText;
+
+        if (!data) {
+            return { text: textToSend, payload: null };
+        }
+
+        const payload = {
+            type: 'review-share',
+            detailUrl: (link || data.detailUrl || '').trim(),
+            photoUrl: (data.photoUrl || '').trim(),
+            comment: (data.comment || '').trim(),
+            rating: (data.overallRating || '').trim(),
+            listName: (data.listName || '').trim(),
+            itemName: (data.itemName || '').trim(),
+            placeName: (data.placeName || '').trim(),
+            authorName: (data.authorName || '').trim()
+        };
+
+        return { text: textToSend, payload };
     };
 
     const handleChatShare = async (chat, button, currentUserId) => {
@@ -586,8 +623,8 @@ ListopicApp.reviewShare = (() => {
         button.disabled = true;
         button.classList.add('is-loading');
         try {
-            const message = composeChatMessage(currentData, currentLink);
-            await services.sendChatMessage(chat.id, currentUserId, message);
+            const { text, payload } = composeChatMessage(currentData, currentLink);
+            await services.sendChatMessage(chat.id, currentUserId, text, payload);
             setFeedbackMessage(chatFeedbackElement, 'rese\u00f1a compartida en el chat.', 'success');
         } catch (error) {
             console.error('[reviewShare] Error compartiendo en chat:', error);
