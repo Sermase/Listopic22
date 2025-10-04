@@ -1,20 +1,20 @@
 /* Archivo: style.css (Updated for Listopic - v15.1 fixes) */
 
-/* --- Variables de Color y Diseño --- */
+/* --- Variables de Color y DiseÃ±o --- */
 :root {
     /* TEMA OSCURO REFINADO */
-    --primary-bg: #121212;                     /* Negro profundo, estándar de apps modernas (Spotify, Netflix) */
+    --primary-bg: #121212;                     /* Negro profundo, estÃ¡ndar de apps modernas (Spotify, Netflix) */
     --container-bg: rgba(30, 30, 30, 0.7);     /* Contenedor casi negro, con efecto vidrio */
-    --container-bg-secondary: rgba(40, 40, 40, 0.85); /* Un poco más claro para distinguir secciones */
+    --container-bg-secondary: rgba(40, 40, 40, 0.85); /* Un poco mÃ¡s claro para distinguir secciones */
     
     --text-color: #EAEAEA;                     /* Texto principal casi blanco para alto contraste */
     --secondary-text-color: rgba(234, 234, 234, 0.7); /* Texto secundario con menor opacidad */
-    --title-color: #FFFFFF;                    /* Títulos en blanco puro */
+    --title-color: #FFFFFF;                    /* TÃ­tulos en blanco puro */
 
     --accent-color-primary: #1DB954;           /* Verde Spotify: vibrante y reconocible */
-    --accent-color-secondary: #f56ead;         /* Rosa neón para toques llamativos */
-    --accent-color-tertiary: #06D6A0;           /* Menta brillante que ya usábamos */
-    --accent-color-quaternary: #118AB2;         /* Azul digital que ya usábamos */
+    --accent-color-secondary: #f56ead;         /* Rosa neÃ³n para toques llamativos */
+    --accent-color-tertiary: #06D6A0;           /* Menta brillante que ya usÃ¡bamos */
+    --accent-color-quaternary: #118AB2;         /* Azul digital que ya usÃ¡bamos */
     --accent-color-quinary: #FFD166;           /* Amarillo/Oro para destacar */
 
     /* Valores RGB para usar en rgba() */
@@ -34,7 +34,7 @@
     --input-border: rgba(255, 255, 255, 0.2);
     --input-focus-border: var(--accent-color-primary);
     --main-button-text: #FFFFFF;               /* Texto blanco en botones de acento */
-    --main-button-hover-bg: #1ED760;           /* Hover más brillante para el verde */
+    --main-button-hover-bg: #1ED760;           /* Hover mÃ¡s brillante para el verde */
     --danger-color: #D9534F;
     --danger-hover-bg: #C9302C;
     --disabled-bg: #333;
@@ -58,22 +58,22 @@
 
 /* --- TEMA CLARO REFINADO --- */
 body.light-theme {
-    --primary-bg: #FFFFFF;                     /* Fondo blanco puro. ¡Más claro imposible! */
+    --primary-bg: #FFFFFF;                     /* Fondo blanco puro. Â¡MÃ¡s claro imposible! */
     --container-bg: rgba(245, 245, 247, 0.7);  /* Contenedores de un gris casi imperceptible */
     --container-bg-secondary: #F5F5F7;         /* Un gris muy claro para secciones secundarias */
 
-    --text-color: #1d1d1f;                     /* Texto negro (estilo Apple) para máxima legibilidad */
+    --text-color: #1d1d1f;                     /* Texto negro (estilo Apple) para mÃ¡xima legibilidad */
     --secondary-text-color: rgba(29, 29, 31, 0.7);
-    --title-color: #000000;                    /* Títulos en negro puro */
+    --title-color: #000000;                    /* TÃ­tulos en negro puro */
 
     --border-color: rgba(0, 0, 0, 0.1);
     --border-color-light: rgba(0, 0, 0, 0.08);
 
-    /* Colores de acento ajustados para el tema claro, con más saturación */
+    /* Colores de acento ajustados para el tema claro, con mÃ¡s saturaciÃ³n */
     --accent-color-primary: #007AFF;           /* Azul Apple: profesional y vibrante */
     --accent-color-secondary: #E53935;
     --accent-color-tertiary: #34C759;          /* Verde Apple */
-    --accent-color-quaternary: #5856D6;          /* Púrpura Apple */
+    --accent-color-quaternary: #5856D6;          /* PÃºrpura Apple */
     --accent-color-quinary: #FF9500;           /* Naranja Apple */
 
     --footer-bg: rgba(255, 255, 255, 0.7);
@@ -83,7 +83,7 @@ body.light-theme {
     --input-border: #D1D1D6;
     --input-focus-border: var(--accent-color-primary);
     --main-button-text: #FFFFFF;
-    --main-button-hover-bg: #0056b3;           /* Azul más oscuro para hover */
+    --main-button-hover-bg: #0056b3;           /* Azul mÃ¡s oscuro para hover */
     
     --icon-placeholder-bg: rgba(0, 0, 0, 0.06);
     --icon-placeholder-color: var(--accent-color-primary);
@@ -103,36 +103,36 @@ body.light-theme {
     position: fixed; /* Se mantiene fijo en la pantalla al hacer scroll */
     top: 15px;
     left: 15px;
-    z-index: 1002; /* Para asegurar que esté por encima de la mayoría del contenido, similar al botón de tema */
+    z-index: 1002; /* Para asegurar que estÃ© por encima de la mayorÃ­a del contenido, similar al botÃ³n de tema */
 }
 
 .app-logo {
-    height: 70px; /* Ajusta esta altura según el tamaño deseado para tu logo */
-    width: auto;  /* Mantiene la proporción */
+    height: 70px; /* Ajusta esta altura segÃºn el tamaÃ±o deseado para tu logo */
+    width: auto;  /* Mantiene la proporciÃ³n */
     display: block; /* Evita espacio extra debajo de la imagen si es inline */
     transition: transform 0.2s ease-in-out, height 0.3s ease; /* Added height transition */
 }
 .app-logo:hover {
-    transform: scale(1.05); /* Un ligero zoom al pasar el ratón */
+    transform: scale(1.05); /* Un ligero zoom al pasar el ratÃ³n */
 }
 
-/* --- INICIO: Corrección para el halo del logo --- */
+/* --- INICIO: CorrecciÃ³n para el halo del logo --- */
 
-/* Con esto apuntamos específicamente al enlace que rodea el logo */
+/* Con esto apuntamos especÃ­ficamente al enlace que rodea el logo */
 .app-logo-container a {
-    -webkit-tap-highlight-color: transparent; /* Elimina el halo al pulsar en móviles */
+    -webkit-tap-highlight-color: transparent; /* Elimina el halo al pulsar en mÃ³viles */
     outline: none; /* Quita el contorno que aparece en algunos navegadores */
 }
 
-/* Y le añadimos un estilo de foco visible solo para accesibilidad (navegación con teclado) */
+/* Y le aÃ±adimos un estilo de foco visible solo para accesibilidad (navegaciÃ³n con teclado) */
 .app-logo-container a:focus-visible {
     border-radius: 8px;
     box-shadow: 0 0 0 3px var(--accent-color-primary);
 }
 
-/* --- FIN: Corrección para el halo del logo --- */
+/* --- FIN: CorrecciÃ³n para el halo del logo --- */
 
-/* Ya no se necesita una segunda definición de :root */
+/* Ya no se necesita una segunda definiciÃ³n de :root */
 
 /* Decorative corner blobs (Simplified with CSS)
 body::before, body::after {
@@ -178,7 +178,7 @@ body::after {
 body {
     font-family: 'Poppins', sans-serif;
     color: var(--text-color);
-    background-color: var(--primary-bg); /* ¡Aquí está la magia! Usamos un color sólido */
+    background-color: var(--primary-bg); /* Â¡AquÃ­ estÃ¡ la magia! Usamos un color sÃ³lido */
     background-attachment: fixed; /* Se mantiene para evitar repeticiones raras */
     margin: 0;
     padding: 20px 20px calc(var(--footer-height) + 20px) 20px;
@@ -194,7 +194,7 @@ body {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* --- Título Principal "Listopic" --- */
+/* --- TÃ­tulo Principal "Listopic" --- */
 h1.brand-title { 
     font-family: var(--brand-font);
     font-weight: 700; 
@@ -211,7 +211,7 @@ h1.brand-title {
     justify-content: center;
 }
 
-/* Estilos para los pétalos del logo */
+/* Estilos para los pÃ©talos del logo */
 .logo-petal {
     display: inline-block;
     width: 30px;
@@ -259,7 +259,7 @@ h1:not(.brand-title), .container h2 {
 main { width: 100%; display: flex; flex-direction: column; align-items: center; padding-top: 10px; flex-grow: 1; } /* Reducido padding-top */
 
 .container { 
-    /* El .container ahora es solo un limitador de ancho invisible y un agrupador lógico */
+    /* El .container ahora es solo un limitador de ancho invisible y un agrupador lÃ³gico */
     /* Todas las propiedades visuales de "marco" deben estar comentadas o eliminadas */
     /* background-color: var(--container-bg); */ 
     /* padding: clamp(25px, 4vw, 40px) clamp(20px, 5vw, 50px); */
@@ -280,7 +280,7 @@ main { width: 100%; display: flex; flex-direction: column; align-items: center; 
 }
 
 
-/* === ESTILOS PARA LA PÁGINA PRINCIPAL (index.html) === */
+/* === ESTILOS PARA LA PÃGINA PRINCIPAL (index.html) === */
 .list-collection-container { margin-top: 20px; }
 .list-collection-container h2 { font-size: clamp(1.8em, 5vw, 2.5em); margin-bottom: 20px; }
 #list-circles-ul { list-style: none; padding: 0; margin: 0 0 30px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
@@ -343,13 +343,13 @@ main > .table-container {
     display: inline-block; 
     text-align: center; 
     transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease; 
-    -webkit-tap-highlight-color: transparent; /* <- CAMBIO 1: Evita el flash/rectángulo en móviles */
+    -webkit-tap-highlight-color: transparent; /* <- CAMBIO 1: Evita el flash/rectÃ¡ngulo en mÃ³viles */
 }
 
-/* CAMBIO 2: Estilo de foco personalizado para accesibilidad, eliminando el rectángulo por defecto del navegador */
+/* CAMBIO 2: Estilo de foco personalizado para accesibilidad, eliminando el rectÃ¡ngulo por defecto del navegador */
 .button:focus, button:focus, input[type="submit"]:focus, a.button:focus, a.header-action-button:focus {
     outline: none; /* Elimina el outline por defecto */
-    box-shadow: 0 0 0 3px rgba(var(--accent-color-primary-rgb), 0.5); /* Añade un "glow" de foco */
+    box-shadow: 0 0 0 3px rgba(var(--accent-color-primary-rgb), 0.5); /* AÃ±ade un "glow" de foco */
 }
 
 /* CAMBIO 3: Efecto de "pulsado" al hacer clic */
@@ -404,7 +404,7 @@ main > .table-container {
     padding: 15px;
     border: 1px solid var(--border-color-light);
     border-radius: var(--border-radius-medium);
-    margin-bottom: 20px; /* Más espacio entre criterios */
+    margin-bottom: 20px; /* MÃ¡s espacio entre criterios */
 }
 
 .criterion-main-input {
@@ -413,7 +413,7 @@ main > .table-container {
 }
 .criterion-main-input label {
     margin-bottom: 5px;
-    font-weight: 500; /* Hacer el nombre del criterio un poco más destacado */
+    font-weight: 500; /* Hacer el nombre del criterio un poco mÃ¡s destacado */
 }
 .criterion-main-input input.criterion-input { /* El input para el nombre/label del criterio */
     width: 100%; /* Ocupar todo el ancho */
@@ -438,7 +438,7 @@ main > .table-container {
 }
 .criterion-input-small, .criterion-input-xtra-small {
     width: 100%; /* Que ocupen el ancho de su celda en el grid */
-    font-size: 0.9em; /* Un poco más pequeños */
+    font-size: 0.9em; /* Un poco mÃ¡s pequeÃ±os */
 }
 
 .criterion-options {
@@ -460,13 +460,13 @@ main > .table-container {
     align-items: center;
     gap: 8px;
 }
-.criterion-weighted-label input[type="checkbox"] { /* Estilos del checkbox de ponderación */
+.criterion-weighted-label input[type="checkbox"] { /* Estilos del checkbox de ponderaciÃ³n */
     width: 16px;
     height: 16px;
     accent-color: var(--accent-color-primary);
 }
 
-/* En style.css (puedes añadirlo en la sección de formularios o etiquetas) */
+/* En style.css (puedes aÃ±adirlo en la secciÃ³n de formularios o etiquetas) */
 
 .fixed-tags-group {
     display: flex;
@@ -498,7 +498,7 @@ main > .table-container {
 .tag-checkbox span i {
     opacity: 0.7;
 }
-/* Estilo cuando el checkbox está seleccionado */
+/* Estilo cuando el checkbox estÃ¡ seleccionado */
 .tag-checkbox input[type="checkbox"]:checked + span {
     background-color: var(--accent-color-primary);
     color: #0A1931; /* Un color oscuro para el texto */
@@ -540,7 +540,7 @@ body.light-theme .criterion-slider-config {
 .tag-checkbox:hover { background-color: rgba(255,255,255,0.2); }
 .tag-checkbox input[type="checkbox"] { appearance: none; -webkit-appearance: none; -moz-appearance: none; margin-right: 8px; width: 16px; height: 16px; border: 1px solid var(--input-border); border-radius: 3px; background-color: var(--input-bg); cursor: pointer; position: relative; vertical-align: middle; outline: none; flex-shrink: 0; transition: background-color 0.2s, border-color 0.2s; }
 .tag-checkbox input[type="checkbox"]:checked { background-color: var(--accent-color-primary); border-color: var(--accent-color-primary); }
-.tag-checkbox input[type="checkbox"]:checked::before { content: '✔'; font-size: 12px; font-weight: bold; color: var(--primary-bg); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
+.tag-checkbox input[type="checkbox"]:checked::before { content: 'â'; font-size: 12px; font-weight: bold; color: var(--primary-bg); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
 .tag-checkbox.selected { background-color: var(--accent-color-primary); color: var(--primary-bg); border-color: var(--accent-color-primary); font-weight: 500; }
 .tag-checkbox.selected input[type="checkbox"] { border-color: var(--primary-bg); }
 
@@ -552,9 +552,9 @@ body.light-theme .criterion-slider-config {
 .suggestions-box li:hover { background-color: var(--input-bg); }
 .suggestions-box p { padding: 10px 15px; font-style: italic; opacity: 0.7; }
 
-/* REVIEW-FORM: Botón Obtener Dirección Actual y contenedor de campos manuales */
+/* REVIEW-FORM: BotÃ³n Obtener DirecciÃ³n Actual y contenedor de campos manuales */
 #get-current-address-btn {
-    padding: 8px 12px !important; /* Usar !important con precaución, solo si es necesario para sobrescribir .button */
+    padding: 8px 12px !important; /* Usar !important con precauciÃ³n, solo si es necesario para sobrescribir .button */
     font-size: 0.9em !important;
     flex-shrink: 0;
     line-height: 1.2; /* Ajustar para el icono */
@@ -568,7 +568,7 @@ body.light-theme .criterion-slider-config {
 .input-with-button-beside .form-input {
     flex-grow: 1;
 }
-.input-with-button-beside .button { /* El botón al lado */
+.input-with-button-beside .button { /* El botÃ³n al lado */
     flex-shrink: 0;
 }
 
@@ -690,7 +690,7 @@ body.light-theme .tag-filter-button:hover {
     overflow: hidden; /* Importante para que el border-radius afecte a la tabla interna */
     /* Sombra y borde para tema oscuro se manejan por defecto, tema claro tiene su propio borde */
     box-shadow: 0 8px 20px rgba(0,0,0,0.15); /* Sombra sutil para ambos temas */
-    /* margin-bottom ya está en main > .table-container */
+    /* margin-bottom ya estÃ¡ en main > .table-container */
 } 
 
 .ranking-table { 
@@ -706,7 +706,7 @@ body.light-theme .tag-filter-button:hover {
     padding: 12px 15px; 
     text-align: left; 
     border-bottom: 1px solid rgba(255,255,255,0.1); 
-    vertical-align: middle; /* Asegurar alineación vertical */
+    vertical-align: middle; /* Asegurar alineaciÃ³n vertical */
 }
 .ranking-table th { 
     background-color: rgba(0,0,0,0.2); 
@@ -722,44 +722,44 @@ body.light-theme .tag-filter-button:hover {
 
 .ranking-table th.sortable { cursor: pointer; }
 .ranking-table th.sortable:hover { background-color: rgba(0,0,0,0.3); }
-.ranking-table th.sorted-asc::after { content: " ▲"; font-size: 0.8em; }
-.ranking-table th.sorted-desc::after { content: " ▼"; font-size: 0.8em; }
+.ranking-table th.sorted-asc::after { content: " â²"; font-size: 0.8em; }
+.ranking-table th.sorted-desc::after { content: " â¼"; font-size: 0.8em; }
 
 .ranking-row { cursor: pointer; transition: background-color 0.2s ease; }
 .ranking-row:hover { background-color: rgba(255,255,255,0.07); } /* Ligero aumento en hover */
 
-/* Redondeo de esquinas de la tabla (solo para la primera y última cabecera) */
+/* Redondeo de esquinas de la tabla (solo para la primera y Ãºltima cabecera) */
 /* El redondeo inferior se maneja mejor con el contenedor y overflow:hidden */
 .ranking-table th:first-child { border-top-left-radius: 12px; } /* Coincide con .table-container */
 .ranking-table th:last-child { border-top-right-radius: 12px; } /* Coincide con .table-container */
 .ranking-table tr:last-child td { 
-    border-bottom: none; /* No borde inferior para la última fila de datos */
+    border-bottom: none; /* No borde inferior para la Ãºltima fila de datos */
 }
 
-/* Definición de anchos y estilos para columnas específicas */
+/* DefiniciÃ³n de anchos y estilos para columnas especÃ­ficas */
 .ranking-row { cursor: pointer; transition: background-color 0.2s ease; }
 .ranking-row:hover { background-color: rgba(255,255,255,0.05); }
 .ranking-row td { vertical-align: middle; }
 
-/* --- INICIO: Correcciones para tamaño de imagen e icono placeholder --- */
+/* --- INICIO: Correcciones para tamaÃ±o de imagen e icono placeholder --- */
 .ranking-table .col-image { /* Clase para la celda <td> */
     width: 60px;  /* Ancho fijo para la celda que contiene la imagen/icono */
     min-width: 60px; /* Evitar que se encoja demasiado */
     height: 60px; /* Alto fijo */
     padding: 5px;   /* Padding alrededor de la imagen/icono */
     text-align: center;
-    vertical-align: middle; /* Asegurar que el contenido esté centrado verticalmente */
+    vertical-align: middle; /* Asegurar que el contenido estÃ© centrado verticalmente */
 }
 .ranking-table th.col-image { /* Para la cabecera, si es necesario ajustar */
-    width: 70px; /* Un poco más para compensar paddings si los tuviera el th */
+    width: 70px; /* Un poco mÃ¡s para compensar paddings si los tuviera el th */
     min-width: 70px;
 }
 
-.ranking-item-image { /* Para las imágenes reales */
+.ranking-item-image { /* Para las imÃ¡genes reales */
     width: 50px;   /* (60px celda - 2*5px padding) */
     height: 50px;  /* (60px celda - 2*5px padding) */
-    object-fit: cover; /* Cubre el espacio, puede recortar pero mantiene proporción */
-    border-radius: 5px; /* Mismo borde que tenías */
+    object-fit: cover; /* Cubre el espacio, puede recortar pero mantiene proporciÃ³n */
+    border-radius: 5px; /* Mismo borde que tenÃ­as */
     display: inline-block; /* Ajustado para respetar el padding de la celda */
     border: none; /* Quitar el borde si el contenedor .col-image ya lo simula o no se quiere */
     margin: auto; /* Centrar si es inline-block y la celda es flex */
@@ -772,22 +772,22 @@ body.light-theme .tag-filter-button:hover {
     align-items: center;
     justify-content: center;
     background-color: var(--icon-placeholder-bg, rgba(0,0,0,0.25)); /* Fondo para el icono */
-    border-radius: 5px; /* Mismo borde que las imágenes */
+    border-radius: 5px; /* Mismo borde que las imÃ¡genes */
     box-sizing: border-box;
     margin: auto;
 }
-.ranking-item-icon-placeholder i { /* El icono Font Awesome en sí */
-    font-size: 1.8em; /* Ajusta el tamaño del icono (ej. 1.5em, 2em) */
+.ranking-item-icon-placeholder i { /* El icono Font Awesome en sÃ­ */
+    font-size: 1.8em; /* Ajusta el tamaÃ±o del icono (ej. 1.5em, 2em) */
     color: var(--icon-placeholder-color, var(--accent-color-primary)); /* Color del icono */
 }
 
-/* Limpieza de duplicados que estaban al final de la sección de imagen */
+/* Limpieza de duplicados que estaban al final de la secciÃ³n de imagen */
 /* .ranking-table .col-image { ... } */ /* Ya definido arriba */
 /* .ranking-table td { ... } */ /* Estilos base ya definidos */
 /* .ranking-table th { ... } */ /* Estilos base ya definidos */
-/* --- FIN: Correcciones para tamaño de imagen e icono placeholder --- */
+/* --- FIN: Correcciones para tamaÃ±o de imagen e icono placeholder --- */
 
-/* Estilos para columnas específicas */
+/* Estilos para columnas especÃ­ficas */
 .ranking-table td {
   vertical-align: middle; /* Alinear el contenido de la celda verticalmente */
   padding: 10px; /* Agregar un poco de espacio entre el contenido y los bordes */
@@ -799,7 +799,7 @@ body.light-theme .tag-filter-button:hover {
 }
 
 .ranking-table th.col-element, .ranking-table td.col-element {
-    min-width: 180px; /* Un mínimo para que no se comprima demasiado */
+    min-width: 180px; /* Un mÃ­nimo para que no se comprima demasiado */
     /* width: 30%; /* Opcional, si se prefiere porcentaje */
 }
 .ranking-table .col-element .restaurant-name,
@@ -827,7 +827,7 @@ small.non-weighted-header { /* Para (NP) en cabeceras */
     font-weight: normal;
     opacity: 0.7;
 }
-/* Para la columna de puntuación general */
+/* Para la columna de puntuaciÃ³n general */
 .ranking-table th.col-general, .ranking-table td.col-general { 
     width: 100px; text-align: center; 
 }
@@ -852,7 +852,7 @@ small.non-weighted-header { /* Para (NP) en cabeceras */
     border: 1px solid var(--input-border);
 }
 .detail-image-icon-placeholder i {
-    font-size: 5em; /* Icono más grande para detail-view */
+    font-size: 5em; /* Icono mÃ¡s grande para detail-view */
     color: var(--icon-placeholder-color, var(--accent-color-primary));
 }
 
@@ -1047,25 +1047,25 @@ body.light-theme .modal-content {
 }
 
 
-/* --- Estilos para el botón de cambio de tema --- */
+/* --- Estilos para el botÃ³n de cambio de tema --- */
 .theme-toggle-button {
   /*position: fixed;
   top: 15px;
   right: 15px;
   background-color: var(--container-bg); /* Usa el color de fondo de los contenedores del tema actual */
-  /* position: fixed, top, right, y z-index se eliminan para permitir que este botón
+  /* position: fixed, top, right, y z-index se eliminan para permitir que este botÃ³n
      sea un elemento flex dentro de .header-actions-container.
-     Su estilo visual principal debería provenir de .header-action-button si se usan juntos. */
-    background-color: var(--container-bg); /* Estas propiedades podrían ser redundantes si .header-action-button siempre está aplicado */
+     Su estilo visual principal deberÃ­a provenir de .header-action-button si se usan juntos. */
+    background-color: var(--container-bg); /* Estas propiedades podrÃ­an ser redundantes si .header-action-button siempre estÃ¡ aplicado */
   color: var(--text-color); /* Usa el color de texto del tema actual */
   border: 1px solid var(--input-border); /* Usa el color de borde de input del tema actual */
   border-radius: 50%;
   width: 45px;
   height: 45px;
-  display: flex; /* Asegura que flexbox esté aplicado */
+  display: flex; /* Asegura que flexbox estÃ© aplicado */
   align-items: center; /* Centra verticalmente el icono */
   justify-content: center; /* Centra horizontalmente el icono */
-  font-size: 1.2em; /* Ajusta el tamaño base para el icono si es necesario */
+  font-size: 1.2em; /* Ajusta el tamaÃ±o base para el icono si es necesario */
   padding: 0; /* Elimina padding si interfiere con el centrado del icono */
   /*z-index: 1001;*/
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
@@ -1074,7 +1074,7 @@ body.light-theme .modal-content {
 
 .theme-toggle-button:hover {
   background-color: var(--accent-color-primary); /* Usa el color de acento primario del tema actual */
-  color: var(--main-button-text); /* Usa el color de texto de botón principal del tema actual */
+  color: var(--main-button-text); /* Usa el color de texto de botÃ³n principal del tema actual */
   border-color: var(--accent-color-primary); /* Usa el color de acento primario del tema actual */
   transform: translateY(-1px);
 }
@@ -1109,13 +1109,13 @@ body.light-theme .modal-content {
 
 @media (max-width: 600px) {
     .ranking-table th.col-location, .ranking-table td.col-location {
-        display: none; /* Ocultar columna de ubicación en pantallas muy pequeñas */
+        display: none; /* Ocultar columna de ubicaciÃ³n en pantallas muy pequeÃ±as */
     }
     .ranking-table {
-        font-size: 0.85em; /* Reducir aún más la fuente */
+        font-size: 0.85em; /* Reducir aÃºn mÃ¡s la fuente */
     }
      .ranking-table th, .ranking-table td {
-        padding: 8px 6px; /* Reducir más padding */
+        padding: 8px 6px; /* Reducir mÃ¡s padding */
     }
 }
 
@@ -1226,7 +1226,7 @@ body.light-theme footer {
   /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
   /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
   /* right: 70px;      <-- Eliminado */
-  /* position: relative; Para el posicionamiento absoluto del menú hijo */
+  /* position: relative; Para el posicionamiento absoluto del menÃº hijo */
   background-color: var(--container-bg);
   color: var(--text-color);
   border: 1px solid var(--input-border);
@@ -1246,7 +1246,7 @@ body.light-theme footer {
 
   .search-button:hover {
     background-color: var(--accent-color-primary); /* Usa el color de acento primario del tema actual */
-    color: var(--main-button-text); /* Usa el color de texto de botón principal del tema actual */
+    color: var(--main-button-text); /* Usa el color de texto de botÃ³n principal del tema actual */
     border-color: var(--accent-color-primary); /* Usa el color de acento primario del tema actual */
     transform: translateY(-1px);
   }
@@ -1258,14 +1258,14 @@ body.light-theme footer {
     justify-content: center;
   }
 
-/* NUEVO: Contenedor para el menú de perfil */
+/* NUEVO: Contenedor para el menÃº de perfil */
 .user-profile-menu-container {
     /* position: fixed;
     top: 15px; */
     /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
     /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
     /* right: 70px; */
-    /* z-index: 1002; /* Por encima del botón de tema, pero debajo del menú desplegable */
+    /* z-index: 1002; /* Por encima del botÃ³n de tema, pero debajo del menÃº desplegable */
     position: relative;
   }
 
@@ -1277,7 +1277,7 @@ body.light-theme footer {
   /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
   /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
   /* right: 70px;      <-- Eliminado */
-  position: relative; /* Para el posicionamiento absoluto del menú hijo */
+  position: relative; /* Para el posicionamiento absoluto del menÃº hijo */
   background-color: var(--container-bg);
   color: var(--text-color);
   border: 1px solid var(--input-border);
@@ -1313,7 +1313,7 @@ body.light-theme footer {
   position: absolute;
   top: calc(100% + 8px); /* Below the button with a small gap */
   right: 0;
-  background-color: var(--container-bg); /* Consistente con el botón y otros contenedores */
+  background-color: var(--container-bg); /* Consistente con el botÃ³n y otros contenedores */
   border: 1px solid var(--input-border);
   border-radius: 8px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.25);
@@ -1383,7 +1383,7 @@ body.light-theme .user-menu button:hover {
 body.light-theme .user-menu-divider {
   background-color: #E5E7EB; /* Lighter divider for light theme */
 }
-/* La llave de cierre extra que estaba aquí ha sido eliminada. */
+/* La llave de cierre extra que estaba aquÃ­ ha sido eliminada. */
 
 
 /* --- Header Action Buttons (Search, User Profile, Theme Toggle) --- */
@@ -1393,16 +1393,16 @@ body.light-theme .user-menu-divider {
     left: 0;
     width: 100%;
     padding: 0 20px; 
-    /* background-color: rgba(var(--primary-bg-rgb, 10, 25, 49), 0.3); Fondo translúcido    z-index: 1005; Ya lo tienes alto */
+    /* background-color: rgba(var(--primary-bg-rgb, 10, 25, 49), 0.3); Fondo translÃºcido    z-index: 1005; Ya lo tienes alto */
     display: flex;
     justify-content: space-between; /* CLAVE: para separar izquierda y derecha */
     align-items: center;
     height: 80px; /* O la altura que definiste */
     box-sizing: border-box;
-    z-index: 1005; /* Asegúrate de que sea suficientemente alto */
+    z-index: 1005; /* AsegÃºrate de que sea suficientemente alto */
 
     /* Capa base: Gradiente de transparencia progresiva */
-    /* Va desde más opaco abajo (usando el color de fondo primario del tema) 
+    /* Va desde mÃ¡s opaco abajo (usando el color de fondo primario del tema) 
        hasta casi transparente arriba. */
        background-image: linear-gradient(
         to top, /* De abajo hacia arriba */
@@ -1418,7 +1418,7 @@ body.light-theme .user-menu-divider {
     
     /* Necesario para posicionar correctamente el pseudo-elemento del granulado */
     
-    pointer-events: none; /* Dejamos que los clics pasen a través del fondo */
+    pointer-events: none; /* Dejamos que los clics pasen a travÃ©s del fondo */
 }
 
 .header-actions-container a,
@@ -1435,72 +1435,72 @@ body.light-theme .user-menu-divider {
     width: 100%;
     height: 100%;
     
-    /* Técnica para el granulado: Usaremos un SVG como data URI.
-       Este SVG genera un patrón de ruido fractal.
-       Puedes ajustar 'baseFrequency' para cambiar la "densidad/tamaño" del grano.
-       Valores más altos (ej. 0.75, 0.95) = grano más fino.
-       Valores más bajos (ej. 0.1, 0.25) = grano más grueso.
-       'numOctaves' añade detalle al ruido. */
+    /* TÃ©cnica para el granulado: Usaremos un SVG como data URI.
+       Este SVG genera un patrÃ³n de ruido fractal.
+       Puedes ajustar 'baseFrequency' para cambiar la "densidad/tamaÃ±o" del grano.
+       Valores mÃ¡s altos (ej. 0.75, 0.95) = grano mÃ¡s fino.
+       Valores mÃ¡s bajos (ej. 0.1, 0.25) = grano mÃ¡s grueso.
+       'numOctaves' aÃ±ade detalle al ruido. */
        background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVQYV2NkYGD4z4AGsH4A8A4B6R9Z9gAAAABJRU5ErkJggg==');
-       /* Opcionalmente, puedes controlar el tamaño de cada "tile" del ruido. 
-       Si no pones background-size, se ajustará al tamaño del SVG. */
+       /* Opcionalmente, puedes controlar el tamaÃ±o de cada "tile" del ruido. 
+       Si no pones background-size, se ajustarÃ¡ al tamaÃ±o del SVG. */
     background-size: 200px 200px; /* Ajusta esto para cambiar la escala del grano */
-    background-repeat: repeat; /* Para que la imagen se repita y cubra el área */
-    opacity: var(--header-noise-opacity); /* Controla cuán visible es el granulado */
+    background-repeat: repeat; /* Para que la imagen se repita y cubra el Ã¡rea */
+    opacity: var(--header-noise-opacity); /* Controla cuÃ¡n visible es el granulado */
     pointer-events: none; /* Para que no interfiera con los clics en el header */
     
-    /* No se necesita z-index aquí si el ::before está en el mismo elemento
-       que tiene el gradiente como background-image. El ::before se renderizará
+    /* No se necesita z-index aquÃ­ si el ::before estÃ¡ en el mismo elemento
+       que tiene el gradiente como background-image. El ::before se renderizarÃ¡
        encima del background del elemento padre por defecto. */
 }
 
 .header-left-content {
     display: flex;
     align-items: center;
-    gap: 12px; /* Espacio entre el logo y el texto dinámico */
+    gap: 12px; /* Espacio entre el logo y el texto dinÃ¡mico */
     overflow: hidden; /* Para ayudar a contener el texto si se vuelve muy largo */
 }
 
 .header-dynamic-page-info {
-    display: flex; /* Para alinear los spans si es necesario, aunque con white-space: nowrap es menos crítico */
+    display: flex; /* Para alinear los spans si es necesario, aunque con white-space: nowrap es menos crÃ­tico */
     align-items: baseline; /* Alinea el texto por la base */
     color: var(--title-color); /* Color base del texto */
     font-family: 'Poppins', serif; /* La fuente que te gusta */
     font-weight: 600; /* El grosor que te gusta */
-    font-size: 2em; /* Ajusta este tamaño. Un h2 suele ser más grande (2.2em+), 
-                         pero para el header quizás quieras algo más comedido. 
+    font-size: 2em; /* Ajusta este tamaÃ±o. Un h2 suele ser mÃ¡s grande (2.2em+), 
+                         pero para el header quizÃ¡s quieras algo mÃ¡s comedido. 
                          Prueba con valores entre 1.2em y 1.8em. */
     letter-spacing: 0.5px; /* Un poco de espaciado si quieres */
-    text-shadow: 1px 1px 3px rgba(0,0,0,0.15); /* Sombra más sutil para header */
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.15); /* Sombra mÃ¡s sutil para header */
 
-    white-space: nowrap; /* Para que no se parta en varias líneas */
+    white-space: nowrap; /* Para que no se parta en varias lÃ­neas */
     overflow: hidden;    /* Oculta el texto que no quepa */
     text-overflow: ellipsis; /* Muestra "..." si el texto es muy largo */
     flex-shrink: 1; /* Permitir que se encoja si es necesario */
     min-width: 0;   /* Ayuda a flex-shrink con overflow */
-    /* max-width: calc(100vw - 300px);  Un max-width puede ser útil para evitar que 
+    /* max-width: calc(100vw - 300px);  Un max-width puede ser Ãºtil para evitar que 
                                       empuje a los iconos de la derecha. 
-                                      Este valor es un ejemplo, ajústalo. */                                
+                                      Este valor es un ejemplo, ajÃºstalo. */                                
 }
 
 #page-category-name {
-    color: var(--accent-color-primary); /* La categoría en color de acento */
-    /* Puedes añadir un margin-right si quieres más espacio antes del separador */
+    color: var(--accent-color-primary); /* La categorÃ­a en color de acento */
+    /* Puedes aÃ±adir un margin-right si quieres mÃ¡s espacio antes del separador */
 }
 
 #page-list-name-separator {
     margin: 5px;
-    font-size: 0.25em; /* Pequeño espacio alrededor del guion */
+    font-size: 0.25em; /* PequeÃ±o espacio alrededor del guion */
 }
 
 #page-list-name {
-    color: var(--title-color); /* El nombre de la lista con el color de título normal */
+    color: var(--title-color); /* El nombre de la lista con el color de tÃ­tulo normal */
 }
 
 .header-right-actions {
     display: flex;
     align-items: center;
-    gap: 9px; /* Espacio entre los botones de acción */
+    gap: 9px; /* Espacio entre los botones de acciÃ³n */
 }
 
 .header-action-button.notifications-button,
@@ -1525,9 +1525,9 @@ body.light-theme .user-menu-divider {
 
 /* En style.css */
 
-/* Estilo general para los botones de acción del header, incluyendo los que son enlaces */
+/* Estilo general para los botones de acciÃ³n del header, incluyendo los que son enlaces */
 .header-action-button,
-a.header-action-button { /* Importante añadir 'a.header-action-button' */
+a.header-action-button { /* Importante aÃ±adir 'a.header-action-button' */
     background-color: var(--container-bg);
     color: var(--text-color); /* Para el color del icono */
     border: 1px solid var(--input-border);
@@ -1537,7 +1537,7 @@ a.header-action-button { /* Importante añadir 'a.header-action-button' */
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2em; /* Tamaño del icono */
+    font-size: 1.2em; /* TamaÃ±o del icono */
     padding: 0;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     cursor: pointer;
@@ -1773,8 +1773,8 @@ a.header-action-button:hover {
 }
 
 
-/* --- Estilos para la página de perfil (profile.html) --- */
-/* Estilos para el encabezado fijo de la página de perfil */
+/* --- Estilos para la pÃ¡gina de perfil (profile.html) --- */
+/* Estilos para el encabezado fijo de la pÃ¡gina de perfil */
 .page-header {
     position: fixed;
     top: 0;
@@ -1828,7 +1828,7 @@ a.header-action-button:hover {
     box-shadow: 0 0 15px rgba(var(--accent-color-primary-rgb), 0.5);
 }
 
-#profile-display-name { /* Ya existía, se mantiene y ajusta si es necesario */
+#profile-display-name { /* Ya existÃ­a, se mantiene y ajusta si es necesario */
     margin: 3px 0 2px;
     color: var(--title-color);
     font-size: 1.8em;
@@ -1845,18 +1845,18 @@ a.header-action-button:hover {
 #profile-bio-display {
     color: var(--secondary-text-color);
     margin-bottom: 3px;
-    white-space: pre-wrap; /* Para respetar saltos de línea en la bio */
+    white-space: pre-wrap; /* Para respetar saltos de lÃ­nea en la bio */
     font-size: 0.95em;
     line-height: 1.5;
 }
 
-#profile-email-display { /* Ya existía, se mantiene */
+#profile-email-display { /* Ya existÃ­a, se mantiene */
     font-size: 0.9em;
     color: var(--secondary-text-color);
     margin-bottom: 3px;
 }
 
-.edit-profile-button { /* Para el botón "Editar Perfil" */
+.edit-profile-button { /* Para el botÃ³n "Editar Perfil" */
     margin-top: 15px;
 }
 
@@ -1916,15 +1916,15 @@ a.header-action-button:hover {
     color: var(--secondary-text-color);
 }
 
-/* Profile Sections (Mis Listas, Mis Reseñas) */
-.profile-section { /* Ya existía, se adapta */
+/* Profile Sections (Mis Listas, Mis ReseÃ±as) */
+.profile-section { /* Ya existÃ­a, se adapta */
     background: var(--container-bg-secondary);
     border-radius: var(--border-radius-medium);
     padding: 20px;
     margin-bottom: 30px;
     box-shadow: var(--shadow-elevation-low);
 }
-.profile-section h3 { /* Ya existía, se adapta */
+.profile-section h3 { /* Ya existÃ­a, se adapta */
     color: var(--accent-color-secondary); /* Cambiado de primary a secondary para variedad */
     font-size: 1.4em;
     margin-top: 0;
@@ -2142,15 +2142,15 @@ body.dark-theme .notifications-item {
 
 @media (max-width: 768px) {
     .profile-stats {
-        flex-wrap: wrap; /* ¡La clave! Permite que los elementos salten a la siguiente línea */
-        gap: 15px;       /* Añade un espacio consistente entre los elementos */
+        flex-wrap: wrap; /* Â¡La clave! Permite que los elementos salten a la siguiente lÃ­nea */
+        gap: 15px;       /* AÃ±ade un espacio consistente entre los elementos */
         justify-content: center; /* Centra los elementos para un mejor aspecto visual */
     }
     .stat-item {
         gap: 4px}
 
     .profile-header-container {
-        flex-direction: column; /* Apila la foto y la info en pantallas más pequeñas */
+        flex-direction: column; /* Apila la foto y la info en pantallas mÃ¡s pequeÃ±as */
         align-items: center;
         text-align: center;
     }
@@ -2291,7 +2291,7 @@ body.light-theme #photo-edit-controls {
     background-color: rgba(0,0,0,0.05);
 }
 
-/* Estilos para listas y reseñas en el perfil */
+/* Estilos para listas y reseÃ±as en el perfil */
 .profile-list-item, .profile-review-item {
     background-color: var(--container-bg); /* Un fondo sutil */
     padding: 10px;
@@ -2352,7 +2352,7 @@ body.light-theme #photo-edit-controls {
     font-size: 0.9em;
 }
 
-/* Placeholder y errores en listas/reseñas del perfil */
+/* Placeholder y errores en listas/reseÃ±as del perfil */
 .loading-placeholder, .error-placeholder {
     color: var(--secondary-text-color);
     font-style: italic;
@@ -2364,7 +2364,7 @@ body.light-theme #photo-edit-controls {
 
 .review-author-info {
     text-align: center;
-    margin-top: -15px; /* Para acercarlo un poco al título del plato si quieres */
+    margin-top: -15px; /* Para acercarlo un poco al tÃ­tulo del plato si quieres */
     margin-bottom: 20px;
     font-size: 0.9em;
     color: var(--secondary-text-color); /* O el color que prefieras */
@@ -2418,7 +2418,7 @@ body.light-theme #photo-edit-controls {
 }
 
 .search-page-container h1.brand-title {
-    font-size: clamp(2.5em, 7vw, 3.5em); /* Un poco más pequeño que el de index */
+    font-size: clamp(2.5em, 7vw, 3.5em); /* Un poco mÃ¡s pequeÃ±o que el de index */
     margin-bottom: 10px;
 }
 
@@ -2429,13 +2429,13 @@ body.light-theme #photo-edit-controls {
 }
 
 .large-search-input {
-    padding: 15px 20px; /* Más grande */
+    padding: 15px 20px; /* MÃ¡s grande */
     font-size: 1.1em;
     flex-grow: 1;
 }
 
 .search-input-area .submit-button {
-    flex-shrink: 0; /* Para que el botón no se encoja */
+    flex-shrink: 0; /* Para que el botÃ³n no se encoja */
     padding: 15px 25px;
 }
 
@@ -2446,7 +2446,7 @@ body.light-theme #photo-edit-controls {
     }
 
     .search-input-area .submit-button {
-        margin-top: 0px; /* Espacio entre la barra y el botón */
+        margin-top: 0px; /* Espacio entre la barra y el botÃ³n */
     }
 }
 
@@ -2485,7 +2485,7 @@ body.light-theme .entity-type-btn.active { /* O usa .selected si reutilizas esa 
 
 .search-results-container {
     margin-top: 1px;
-    /* Aquí irán los estilos para las tarjetas de resultados */
+    /* AquÃ­ irÃ¡n los estilos para las tarjetas de resultados */
 }
 .search-placeholder {
     color: var(--secondary-text-color);
@@ -2894,7 +2894,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
     font-size: 0.95em;
 }
 #advanced-filters-content .form-input, 
-#advanced-filters-content select { /* Si usas select para categorías o insignias */
+#advanced-filters-content select { /* Si usas select para categorÃ­as o insignias */
     font-size: 0.95em;
 }
 
@@ -2916,7 +2916,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
 }
 
 
-/* --- Estilos para Tarjetas de Resultado de Búsqueda --- */
+/* --- Estilos para Tarjetas de Resultado de BÃºsqueda --- */
 
 .search-results-container {
     text-align: left; /* Para que las tarjetas se alineen a la izquierda */
@@ -2990,7 +2990,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
     gap: 6px;
     background-color: var(--input-bg, rgba(0, 0, 0, 0.35));
     padding: 4px 10px;
-    border-radius: 20px; /* Estilo "píldora" */
+    border-radius: 20px; /* Estilo "pÃ­ldora" */
     font-size: 0.8em;
     font-weight: 500;
     line-height: 1.4;
@@ -3022,10 +3022,10 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
     color: var(--accent-color-quinary);
 }
 
-/* --- Estilos para la Página de Perfil y Modales (NUEVO) --- */
+/* --- Estilos para la PÃ¡gina de Perfil y Modales (NUEVO) --- */
 
 .profile-page-container .brand-title {
-    display: none; /* Ocultamos el título genérico para dar paso a la cabecera */
+    display: none; /* Ocultamos el tÃ­tulo genÃ©rico para dar paso a la cabecera */
 }
 
 /* Nueva cabecera de perfil */
@@ -3172,7 +3172,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
     }
 }
 
-/* Añadir estos estilos para las cards de búsqueda mejoradas */
+/* AÃ±adir estos estilos para las cards de bÃºsqueda mejoradas */
 
 .search-card {
     display: flex;
@@ -3260,7 +3260,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
     font-size: 0.7rem;
 }
 
-/* Colores específicos para diferentes tipos de tags */
+/* Colores especÃ­ficos para diferentes tipos de tags */
 .info-tag--list {
     background: #e3f2fd;
     color: #1976d2;
@@ -3405,14 +3405,14 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
 }
 
 
-/* Añadir/actualizar estos estilos */
+/* AÃ±adir/actualizar estos estilos */
 
 .tag-filter-button.active i,
 .tag-filter-button.selected i {
     transform: scale(1.05);
 }
 
-/* Estilos específicos para botones de categoría de etiquetas */
+/* Estilos especÃ­ficos para botones de categorÃ­a de etiquetas */
 .category-tag-button {
     display: inline-block;
     padding: 0.4rem 0.8rem;
@@ -3443,7 +3443,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
     box-shadow: 0 2px 8px rgba(var(--accent-color-secondary-rgb), 0.3);
 }
 
-/* Mejoras para las cards de búsqueda */
+/* Mejoras para las cards de bÃºsqueda */
 .search-card {
     display: flex;
     padding: 1.25rem;
@@ -3540,7 +3540,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
     font-size: 0.75rem;
 }
 
-/* Colores específicos para diferentes tipos de tags con mejor contraste */
+/* Colores especÃ­ficos para diferentes tipos de tags con mejor contraste */
 .info-tag--list {
     background: linear-gradient(135deg, #e3f2fd, #bbdefb);
     color: #0d47a1;
@@ -3719,7 +3719,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
 }
 
 /* ===============================================
-   ESTILOS PARA ETIQUETAS DINÁMICAS
+   ESTILOS PARA ETIQUETAS DINÃMICAS
    =============================================== */
 
 /* Estilos para estados de carga y error en etiquetas */
@@ -3740,7 +3740,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
    ESTILOS PARA TARJETAS DE ELEMENTOS MEJORADAS
    =============================================== */
 
-/* Tarjeta de elemento específica */
+/* Tarjeta de elemento especÃ­fica */
 .search-card--item {
     min-height: auto;
 }
@@ -3856,7 +3856,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
     margin-bottom: 0.2rem;
 }
 
-/* Meta información compacta */
+/* Meta informaciÃ³n compacta */
 .search-card__meta {
     display: flex;
     flex-direction: column;
@@ -4674,7 +4674,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
 }
 
 /* Modal Styles 
-    // +++++Vamos a incluir un pequeño foro para la lista actual++++++ */
+    // +++++Vamos a incluir un pequeÃ±o foro para la lista actual++++++ */
 .modal {
     display: none;
     position: fixed;
@@ -4752,7 +4752,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
     height: 42px;
 }
 
-/* Añadir estos estilos para asegurar visibilidad */
+/* AÃ±adir estos estilos para asegurar visibilidad */
 .message-header {
     display: flex;
     align-items: center;
@@ -4781,11 +4781,11 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
 }
 
 #follow-unfollow-btn.secondary-button:hover {
-    background-color: #05a984; /* Un verde más oscuro */
+    background-color: #05a984; /* Un verde mÃ¡s oscuro */
 }
 
 /* ============================================= */
-/* === Componente: Tarjeta de Reseña Perfil === */
+/* === Componente: Tarjeta de ReseÃ±a Perfil === */
 /* ============================================= */
 .profile-review-card {
     background-color: var(--container-bg-secondary);
@@ -4883,7 +4883,7 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
 }
 
 /* ============================================= */
-/* === Componente: Tarjeta de Reseña Perfil === */
+/* === Componente: Tarjeta de ReseÃ±a Perfil === */
 /* ============================================= */
 #my-reviews-container {
     display: flex;
@@ -5000,7 +5000,7 @@ body.light-theme .info-tag:hover {
 }
 
 /* =========================================== */
-/* === Componente: Super Tarjeta Reseña v3.4 === */
+/* === Componente: Super Tarjeta ReseÃ±a v3.4 === */
 /* =========================================== */
 
 .review-super-card {
@@ -5031,8 +5031,8 @@ body.light-theme .info-tag:hover {
 }
 .header-main-info { /* Contenedor para autor y lista */
     display: flex;
-    align-items: center; /* Alinear en la misma línea */
-    flex-wrap: wrap; /* Por si no cabe en pantallas muy pequeñas */
+    align-items: center; /* Alinear en la misma lÃ­nea */
+    flex-wrap: wrap; /* Por si no cabe en pantallas muy pequeÃ±as */
     gap: 8px;
 }
 .author-link {
@@ -5083,7 +5083,7 @@ body.light-theme .info-tag:hover {
 .review-super-card__subtitle a { color: inherit; text-decoration: none; }
 .review-super-card__subtitle a:hover { color: var(--accent-color-primary); }
 
-/* --- Barras de Criterios (Más juntas) --- */
+/* --- Barras de Criterios (MÃ¡s juntas) --- */
 .criteria-bars-list {
     margin: 12px 0;
     display: flex;
@@ -5103,7 +5103,7 @@ body.light-theme .info-tag:hover {
     font-size: 0.9em;
     font-style: italic; /* Letra cursiva para diferenciar */
     color: var(--secondary-text-color);
-    margin: 0px 0; /* Más espacio para separar de las barras */
+    margin: 0px 0; /* MÃ¡s espacio para separar de las barras */
     line-height: 1.4;
     border-left: 3px solid var(--border-color);
     padding-left: 10px;
@@ -5123,10 +5123,10 @@ body.light-theme .info-tag:hover {
 
 
 /* =========================================== */
-/* ===         MEDIA QUERY PARA MÓVILES      === */
+/* ===         MEDIA QUERY PARA MÃVILES      === */
 /* =========================================== */
 @media (max-width: 768px) {
-    /* Reducimos el tamaño de fuente base para que todo en REM se haga más pequeño */
+    /* Reducimos el tamaÃ±o de fuente base para que todo en REM se haga mÃ¡s pequeÃ±o */
     :root {
         font-size: 14px;
     }
@@ -5137,8 +5137,8 @@ body.light-theme .info-tag:hover {
 
     .review-super-card__image-container {
         width: 100%; /* La imagen ocupa todo el ancho */
-        height: auto; /* La altura se ajusta automáticamente */
-        aspect-ratio: 16 / 9; /* Mantiene una proporción panorámica */
+        height: auto; /* La altura se ajusta automÃ¡ticamente */
+        aspect-ratio: 16 / 9; /* Mantiene una proporciÃ³n panorÃ¡mica */
         flex-basis: auto; /* Reseteamos la base flex */
     }
 
@@ -5179,7 +5179,19 @@ body.light-theme .info-tag:hover {
 .map-modal-content #map-modal-title {
     margin-top: 0;
     margin-bottom: 2px;
-    flex-shrink: 0; /* Evita que el título se encoja */
+.map-modal-toolbar {
+    display: flex;
+    gap: 10px;
+    margin: 6px 0 10px;
+    flex-wrap: wrap;
+}
+
+.map-modal-toolbar .button {
+    flex: 1 1 auto;
+    min-width: 140px;
+}
+
+    flex-shrink: 0; /* Evita que el tÃ­tulo se encoja */
 }
 
 #list-map-container {
@@ -5201,10 +5213,10 @@ body.light-theme .info-tag:hover {
     width: 100%;
 }
 
-/* En public/style.css - Estilos para los marcadores del mapa por puntuación */
+/* En public/style.css - Estilos para los marcadores del mapa por puntuaciÃ³n */
 
 .map-marker-icon {
-    font-size: 28px; /* Tamaño del icono */
+    font-size: 28px; /* TamaÃ±o del icono */
     text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
     transition: transform 0.2s ease-in-out;
 }
@@ -5240,7 +5252,7 @@ body.light-theme .info-tag:hover {
     flex: 1 1 320px; /* Base de 320px, pero flexible */
     max-width: 450px; /* Evita que las tarjetas se hagan enormes en filas de 1 o 2 */
     
-    height: 200px; /* ¡NUEVA LÍNEA! Altura fija para todas las tarjetas */
+    height: 200px; /* Â¡NUEVA LÃNEA! Altura fija para todas las tarjetas */
 
     background-color: var(--container-bg);
     border: 1px solid var(--border-color-light);
@@ -5333,11 +5345,11 @@ body.light-theme .info-tag:hover {
 
 
 /* =========================================== */
-/* ===         AJUSTES PARA MÓVILES          === */
+/* ===         AJUSTES PARA MÃVILES          === */
 /* =========================================== */
 @media (max-width: 480px) {
     /* Con Flexbox, ya no necesitamos tocar el contenedor.
-       Las tarjetas se adaptarán solas. Podemos ajustar detalles de las tarjetas si queremos. */
+       Las tarjetas se adaptarÃ¡n solas. Podemos ajustar detalles de las tarjetas si queremos. */
 
     .review-list-card {
         font-size: 0.9rem;
@@ -5370,7 +5382,7 @@ body:not(.light-theme) .leaflet-popup-content-wrapper {
 }
 
 body:not(.light-theme) .popup-title {
-    color: var(--title-color); /* Título blanco */
+    color: var(--title-color); /* TÃ­tulo blanco */
 }
 
 body:not(.light-theme) .leaflet-popup-tip {
@@ -5379,7 +5391,7 @@ body:not(.light-theme) .leaflet-popup-tip {
 
 
 /* --- ESTILOS PARA EL TEMA CLARO --- */
-/* Se aplican cuando el body SÍ tiene la clase .light-theme */
+/* Se aplican cuando el body SÃ tiene la clase .light-theme */
 body.light-theme .leaflet-popup-content-wrapper {
     background: #FFFFFF; /* Fondo blanco */
     color: #333333; /* Texto oscuro */
@@ -5388,7 +5400,7 @@ body.light-theme .leaflet-popup-content-wrapper {
 }
 
 body.light-theme .popup-title {
-    color: #111111; /* Título negro */
+    color: #111111; /* TÃ­tulo negro */
 }
 
 body.light-theme .leaflet-popup-tip {
@@ -5420,7 +5432,7 @@ body.light-theme .leaflet-popup-tip {
     border-bottom: 2px solid var(--accent-color-primary);
 }
 
-/* El contenido de texto y botón */
+/* El contenido de texto y botÃ³n */
 .popup-content {
     padding: 12px;
     display: flex;
@@ -5475,17 +5487,17 @@ body.light-theme .leaflet-popup-tip {
 
 
 /* =========================================== */
-/* ===  MEJORA TARJETA: BOTÓN DE MAPA GRANDE === */
+/* ===  MEJORA TARJETA: BOTÃN DE MAPA GRANDE === */
 /* =========================================== */
 
 /* Hacemos que el contenedor de la derecha sea una columna flexible */
 .review-list-card__score-container {
     display: flex;
     flex-direction: column;
-    justify-content: space-between; /* Separa la puntuación del botón */
+    justify-content: space-between; /* Separa la puntuaciÃ³n del botÃ³n */
 }
 
-/* Contenedor para la parte superior (puntuación y número de reseñas) */
+/* Contenedor para la parte superior (puntuaciÃ³n y nÃºmero de reseÃ±as) */
 .score-container__main {
     display: flex;
     flex-direction: column;
@@ -5495,7 +5507,7 @@ body.light-theme .leaflet-popup-tip {
     padding: 10px 5px;
 }
 
-/* El nuevo enlace/botón del mapa */
+/* El nuevo enlace/botÃ³n del mapa */
 .score-container__map-link {
     display: flex;
     justify-content: center;
@@ -5513,7 +5525,7 @@ body.light-theme .leaflet-popup-tip {
 }
 
 .score-container__map-link:hover {
-    background-color: var(--accent-color-primary); /* Se ilumina al pasar el ratón */
+    background-color: var(--accent-color-primary); /* Se ilumina al pasar el ratÃ³n */
     color: var(--main-button-text);
 }
 
@@ -5538,7 +5550,7 @@ body.light-theme .leaflet-popup-tip {
     flex-direction: column;
     justify-content: space-between;
     flex-grow: 1;
-    min-height: 220px; /* Para alinear el botón abajo */
+    min-height: 220px; /* Para alinear el botÃ³n abajo */
 }
 
 .profile-main-info h2 { /* username */
@@ -5602,10 +5614,10 @@ body.light-theme .leaflet-popup-tip {
     color: var(--secondary-text-color);
 }
 
-/* === RESPONSIVE: LA MAGIA PARA MÓVILES === */
+/* === RESPONSIVE: LA MAGIA PARA MÃVILES === */
 @media (max-width: 768px) {
     .profile-header {
-        flex-direction: column-reverse; /* ¡Boom! La columna derecha pasa arriba */
+        flex-direction: column-reverse; /* Â¡Boom! La columna derecha pasa arriba */
         align-items: center;
         gap: 10px;
     }
@@ -5629,7 +5641,7 @@ body.light-theme .leaflet-popup-tip {
 
 @media (max-width: 480px) {
     .profile-right-column {
-        flex-direction: column; /* En móvil, volvemos a apilar foto y stats */
+        flex-direction: column; /* En mÃ³vil, volvemos a apilar foto y stats */
     }
 
     .profile-picture {
@@ -5643,7 +5655,7 @@ body.light-theme .leaflet-popup-tip {
     }
 }
 
-/* --- PESTAÑAS (Sin cambios) --- */
+/* --- PESTAÃAS (Sin cambios) --- */
 .profile-tabs {
     display: flex;
     justify-content: center;
@@ -5696,7 +5708,7 @@ body.light-theme .leaflet-popup-tip {
 /* --- ESTILOS PARA EL MODAL DE LA FOTO --- */
 #photo-modal {
     position: fixed;
-    z-index: 1002; /* Por encima del modal de edición */
+    z-index: 1002; /* Por encima del modal de ediciÃ³n */
     left: 0;
     top: 0;
     width: 100%;
@@ -5742,7 +5754,7 @@ body.light-theme .leaflet-popup-tip {
 }
 
 
-/* Media Queries para la nueva cabecera (MÁS COMPACTA) */
+/* Media Queries para la nueva cabecera (MÃS COMPACTA) */
 @media (max-width: 768px) {
     .profile-header {
         /* Se mantiene el flex en row pero se ajusta el contenido */
@@ -5751,7 +5763,7 @@ body.light-theme .leaflet-popup-tip {
     }
 
     .profile-header .profile-picture {
-        width: 100px; /* Foto más pequeña */
+        width: 100px; /* Foto mÃ¡s pequeÃ±a */
         height: 100px;
     }
     
@@ -5765,7 +5777,7 @@ body.light-theme .leaflet-popup-tip {
     }
     
     .profile-info {
-        /* La biografía se coloca debajo, así que no hace falta centrarla */
+        /* La biografÃ­a se coloca debajo, asÃ­ que no hace falta centrarla */
         padding: 0 15px;
         text-align: left;
     }
@@ -5784,7 +5796,7 @@ body.light-theme .leaflet-popup-tip {
     }
     
     .profile-header .profile-picture {
-        width: 80px; /* Aún más pequeña en móviles */
+        width: 80px; /* AÃºn mÃ¡s pequeÃ±a en mÃ³viles */
         height: 80px;
     }
 
@@ -5830,7 +5842,7 @@ body.light-theme .leaflet-popup-tip {
         margin-bottom: 0;
     }
 
-    /* Ocultamos texto en botones de pestañas en móvil */
+    /* Ocultamos texto en botones de pestaÃ±as en mÃ³vil */
     .profile-tab-button .tab-text {
         display: none;
     }
@@ -5838,7 +5850,7 @@ body.light-theme .leaflet-popup-tip {
 }
 
 /* ======================================= */
-/* === ESTILOS PÁGINA DE DETALLE DE LUGAR === */
+/* === ESTILOS PÃGINA DE DETALLE DE LUGAR === */
 /* ======================================= */
 
 .place-detail-page-container {
@@ -5879,8 +5891,8 @@ body.light-theme .leaflet-popup-tip {
 }
 .place-actions {
     margin-top: 15px;
-    display: flex; /* Añadido para alinear botones */
-    flex-wrap: wrap; /* Para que se ajusten en pantallas pequeñas */
+    display: flex; /* AÃ±adido para alinear botones */
+    flex-wrap: wrap; /* Para que se ajusten en pantallas pequeÃ±as */
     gap: 10px; /* Espacio entre botones */
 }
 
@@ -5907,7 +5919,7 @@ body.light-theme .leaflet-popup-tip {
     display: block;
 }
 
-/* Adaptación para escritorio */
+/* AdaptaciÃ³n para escritorio */
 @media (min-width: 768px) {
     .place-header-container {
         flex-direction: row;
@@ -5916,7 +5928,7 @@ body.light-theme .leaflet-popup-tip {
     }
 
     .place-photo-container {
-        flex: 0 0 200px; /* Tamaño fijo para la foto */
+        flex: 0 0 200px; /* TamaÃ±o fijo para la foto */
         height: 200px;
         border-radius: 50%; /* Foto redonda en escritorio */
     }
@@ -5965,7 +5977,7 @@ body.light-theme .leaflet-popup-tip {
 }
 
 /* ======================================= */
-/* === ESTILOS GENÉRICOS PARA ETIQUETAS === */
+/* === ESTILOS GENÃRICOS PARA ETIQUETAS === */
 /* ======================================= */
 
 .tag {
@@ -5979,7 +5991,7 @@ body.light-theme .leaflet-popup-tip {
     line-height: 1.2;
     text-transform: lowercase;
     white-space: nowrap;
-    margin: 2px; /* Pequeño margen para separación */
+    margin: 2px; /* PequeÃ±o margen para separaciÃ³n */
 }
 
 /* Contenedor para las etiquetas en la tarjeta de grupo */
@@ -5990,7 +6002,7 @@ body.light-theme .leaflet-popup-tip {
     gap: 4px;
 }
 
-/* Tarjeta de elemento/grupo en la página de lugar */
+/* Tarjeta de elemento/grupo en la pÃ¡gina de lugar */
 .group-card-item {
     display: flex;
     align-items: center;
@@ -6064,7 +6076,7 @@ body.light-theme .leaflet-popup-tip {
     font-weight: 700;
 }
 
-/* Contenedor para las etiquetas en la tarjeta de reseña */
+/* Contenedor para las etiquetas en la tarjeta de reseÃ±a */
 .review-tags-container {
     margin-top: 10px;
     display: flex;
@@ -6159,7 +6171,7 @@ body.light-theme .leaflet-popup-tip {
 }
 
 /* =================================================== */
-/* ===     ESTILOS PARA EL LIGHTBOX DE IMÁGENES     === */
+/* ===     ESTILOS PARA EL LIGHTBOX DE IMÃGENES     === */
 /* =================================================== */
 
 .lightbox-modal {
@@ -6297,7 +6309,7 @@ body.light-theme .leaflet-popup-tip {
     align-items: center;
 }
 
-/* Nuevo contenedor para los botones de ubicación */
+/* Nuevo contenedor para los botones de ubicaciÃ³n */
 .detail-location-actions {
     display: flex;
     justify-content: center;
@@ -6306,14 +6318,14 @@ body.light-theme .leaflet-popup-tip {
 }
 
 .place-action-button {
-    /* Herencia de .button o estilos específicos */
+    /* Herencia de .button o estilos especÃ­ficos */
     padding: 10px 20px;
     font-size: 1em;
     display: inline-flex;
     align-items: center;
     gap: 8px;
 }
-/* Estilos para los botones de reacción y comentarios */
+/* Estilos para los botones de reacciÃ³n y comentarios */
 .review-stats-bar {
     display: flex;
     justify-content: space-around;
@@ -6366,7 +6378,7 @@ body.light-theme .leaflet-popup-tip {
 }
 
 
-/* Nuevo contenedor para los botones de ubicación */
+/* Nuevo contenedor para los botones de ubicaciÃ³n */
 .detail-location-actions {
     display: flex;
     justify-content: center;
@@ -6375,14 +6387,14 @@ body.light-theme .leaflet-popup-tip {
 }
 
 .place-action-button {
-    /* Herencia de .button o estilos específicos */
+    /* Herencia de .button o estilos especÃ­ficos */
     padding: 10px 20px;
     font-size: 1em;
     display: inline-flex;
     align-items: center;
     gap: 8px;
 }
-/* Estilos para los botones de reacción y comentarios */
+/* Estilos para los botones de reacciÃ³n y comentarios */
 .review-stats-bar {
     display: flex;
     justify-content: space-around;
@@ -6434,7 +6446,7 @@ body.light-theme .leaflet-popup-tip {
     color: var(--title-color);
 }
 
-/* Estilos para pestañas del index */
+/* Estilos para pestaÃ±as del index */
 .tabs {
     display: flex;
     justify-content: center;
@@ -7898,7 +7910,7 @@ body.chat-list-modal-open {
 }
 
 .chat-selected-users.is-empty::after {
-    content: 'Todavia no has a�adido participantes.';
+    content: 'Todavia no has añadido participantes.';
     font-size: 0.85rem;
     color: var(--muted-text-color, #6c757d);
 }
