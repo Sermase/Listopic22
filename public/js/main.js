@@ -1,4 +1,4 @@
-window.ListopicApp = window.ListopicApp || {};
+﻿window.ListopicApp = window.ListopicApp || {};
 
 // Initialize shared state container
 ListopicApp.state = {
@@ -16,11 +16,597 @@ ListopicApp.state = {
     currentGroupDetailCriteriaDefinition: {}, // Usar el mapa de criterios
     lightboxImageUrls: [],
     currentLightboxImageIndex: 0,
-    // Firebase services no deberían estar en state, se acceden desde ListopicApp.services
+    // Firebase services no deberÃƒÂ­an estar en state, se acceden desde ListopicApp.services
     globalRealtimeInitialized: false,
     globalRealtimeCleanup: [],
     notificationsCache: []
 };
+ListopicApp.reviewActions = (() => {
+    let initialized = false;
+
+    const closeAllMenus = (exceptionElement) => {
+        const dropdowns = document.querySelectorAll('.review-menu__dropdown');
+        dropdowns.forEach(dropdown => {
+            if (dropdown === exceptionElement) {
+                return;
+            }
+            dropdown.classList.remove('open');
+            const btn = dropdown.parentElement?.querySelector('.review-menu__btn');
+            if (btn) {
+                btn.setAttribute('aria-expanded', 'false');
+            }
+        });
+        if (!exceptionElement) {
+            document.querySelectorAll('.review-menu__btn[aria-expanded="true"]').forEach(btn => {
+                btn.setAttribute('aria-expanded', 'false');
+            });
+        }
+    };
+
+    const getReviewData = (card) => {
+        if (!card) {
+            return null;
+        }
+        const dataset = card.dataset || {};
+        return {
+            reviewId: dataset.reviewId || '',
+            listId: dataset.listId || '',
+            authorId: dataset.authorId || '',
+            authorName: dataset.authorName || '',
+            listName: dataset.listName || '',
+            itemName: dataset.itemName || '',
+            placeId: dataset.placeId || '',
+            detailUrl: dataset.detailUrl || '',
+            overallRating: dataset.overallRating || '',
+            isOwner: dataset.isOwner === '1',
+            element: card
+        };
+    };
+
+    const handleShareFallback = async (detailUrl) => {
+        try {
+            const absoluteUrl = detailUrl ? new URL(detailUrl, window.location.href).href : window.location.href;
+            if (navigator.share) {
+                await navigator.share({ title: 'Listopic', url: absoluteUrl });
+                return true;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(absoluteUrl);
+                return true;
+            }
+            window.prompt('Copia el enlace de la rese\u00f1a:', absoluteUrl);
+            return true;
+        } catch (error) {
+            console.error('[reviewActions] Error en compartir fallback:', error);
+            return false;
+        }
+    };
+
+    const handleActionClick = async (action, card) => {
+        const data = getReviewData(card);
+        if (!data) {
+            return;
+        }
+        const services = window.ListopicApp?.services || {};
+        const notify = services.showNotification || (() => {});
+
+        if (action === 'share') {
+            if (window.ListopicApp?.reviewShare?.open) {
+                window.ListopicApp.reviewShare.open(data);
+            } else {
+                const success = await handleShareFallback(data.detailUrl);
+                if (success) {
+                    notify('Enlace preparado para compartir.', 'success');
+                } else {
+                    notify('No se pudo compartir la rese\u00f1a.', 'error');
+                }
+            }
+            return;
+        }
+
+        if (action === 'edit') {
+            if (!data.isOwner) {
+                notify('Solo puedes editar tus rese\u00f1as.', 'warning');
+                return;
+            }
+            if (!data.listId || !data.reviewId) {
+                notify('No se pudo abrir el editor.', 'error');
+                return;
+            }
+            const url = `review-form.html?listId=${encodeURIComponent(data.listId)}&editId=${encodeURIComponent(data.reviewId)}`;
+            window.location.href = url;
+            return;
+        }
+
+        if (action === 'delete') {
+            if (!data.isOwner) {
+                notify('Solo puedes eliminar tus rese\u00f1as.', 'warning');
+                return;
+            }
+            if (!data.listId || !data.reviewId) {
+                notify('No se pudo eliminar la rese\u00f1a.', 'error');
+                return;
+            }
+            const confirmed = window.confirm('Eliminar esta rese\u00f1a? Esta accion no se puede deshacer.');
+            if (!confirmed) {
+                return;
+            }
+            try {
+                if (!services.db) {
+                    throw new Error('Servicio de base de datos no disponible.');
+                }
+                await services.db.collection('lists').doc(data.listId).collection('reviews').doc(data.reviewId).delete();
+                data.element?.remove();
+                notify('rese\u00f1a eliminada.', 'success');
+            } catch (error) {
+                console.error('[reviewActions] Error eliminando rese\u00f1a:', error);
+                notify(error.message || 'No se pudo eliminar la rese\u00f1a.', 'error');
+            }
+        }
+    };
+
+    const onDocumentClick = (event) => {
+        const toggleBtn = event.target.closest('.review-menu__btn');
+        const actionBtn = event.target.closest('.review-action');
+
+        if (toggleBtn) {
+            event.preventDefault();
+            event.stopPropagation();
+            const menu = toggleBtn.closest('.review-menu');
+            const dropdown = menu?.querySelector('.review-menu__dropdown');
+            if (!dropdown) {
+                return;
+            }
+            const isOpen = dropdown.classList.contains('open');
+            closeAllMenus(dropdown);
+            if (!isOpen) {
+                dropdown.classList.add('open');
+                toggleBtn.setAttribute('aria-expanded', 'true');
+            } else {
+                dropdown.classList.remove('open');
+                toggleBtn.setAttribute('aria-expanded', 'false');
+            }
+            return;
+        }
+
+        if (actionBtn) {
+            event.preventDefault();
+            event.stopPropagation();
+            const dropdown = actionBtn.closest('.review-menu__dropdown');
+            if (dropdown) {
+                const btn = dropdown.parentElement?.querySelector('.review-menu__btn');
+                btn?.setAttribute('aria-expanded', 'false');
+            }
+            closeAllMenus();
+            const card = actionBtn.closest('.review-super-card');
+            const action = actionBtn.dataset.action;
+            if (action && card) {
+                handleActionClick(action, card);
+            }
+            return;
+        }
+
+        if (!event.target.closest('.review-menu')) {
+            closeAllMenus();
+        }
+    };
+
+    const onDocumentKeydown = (event) => {
+        if (event.key === 'Escape') {
+            closeAllMenus();
+        }
+    };
+
+    const init = () => {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+        document.addEventListener('click', onDocumentClick, true);
+        document.addEventListener('keydown', onDocumentKeydown);
+    };
+
+    return {
+        init,
+        closeMenus: closeAllMenus,
+        getReviewData
+    };
+})();
+ListopicApp.reviewShare = (() => {
+    let modal;
+    let closeButton;
+    let linkInput;
+    let copyButton;
+    let nativeShareButton;
+    let subtitleElement;
+    let feedbackElement;
+    let chatFeedbackElement;
+    let chatsContainer;
+    let chatsListElement;
+    let chatsLoadingElement;
+    let chatsEmptyElement;
+    let isInitialized = false;
+    let currentData = null;
+    let currentLink = '';
+    let chatsCache = null;
+    let chatsCacheFetchedAt = 0;
+    const CHATS_CACHE_TTL = 60 * 1000;
+
+    const ensureModal = () => {
+        if (isInitialized) {
+            return;
+        }
+        createModal();
+        isInitialized = true;
+    };
+
+    const createModal = () => {
+        modal = document.createElement('div');
+        modal.id = 'review-share-modal';
+        modal.className = 'modal review-share-modal';
+        modal.innerHTML = `
+            <div class="modal-content review-share-modal__content" role="dialog" aria-modal="true" aria-labelledby="review-share-title">
+                <button type="button" class="close-button review-share-modal__close" aria-label="Cerrar">&times;</button>
+                <h2 id="review-share-title" class="review-share-modal__title">Compartir rese&#241;a</h2>
+                <p class="review-share-modal__subtitle"></p>
+                <section class="review-share-modal__section">
+                    <h3 class="review-share-modal__section-title">Compartir enlace</h3>
+                    <div class="review-share-modal__link-row">
+                        <input type="text" class="review-share-modal__link-input" readonly>
+                        <button type="button" class="button primary-button review-share-copy-btn">Copiar</button>
+                        <button type="button" class="button secondary-button review-share-native-btn">Compartir</button>
+                    </div>
+                    <p class="review-share-modal__feedback" hidden></p>
+                </section>
+                <section class="review-share-modal__section">
+                    <h3 class="review-share-modal__section-title">Enviar a un chat</h3>
+                    <div class="review-share-modal__chats">
+                        <p class="review-share-modal__chats-loading">Cargando chats...</p>
+                        <p class="review-share-modal__chats-empty" hidden>No hay chats activos todav&iacute;a.</p>
+                        <div class="review-share-modal__chats-list"></div>
+                    </div>
+                    <p class="review-share-modal__chat-feedback" hidden></p>
+                </section>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        closeButton = modal.querySelector('.review-share-modal__close');
+        linkInput = modal.querySelector('.review-share-modal__link-input');
+        copyButton = modal.querySelector('.review-share-copy-btn');
+        nativeShareButton = modal.querySelector('.review-share-native-btn');
+        subtitleElement = modal.querySelector('.review-share-modal__subtitle');
+        feedbackElement = modal.querySelector('.review-share-modal__feedback');
+        chatFeedbackElement = modal.querySelector('.review-share-modal__chat-feedback');
+        chatsContainer = modal.querySelector('.review-share-modal__chats');
+        chatsListElement = modal.querySelector('.review-share-modal__chats-list');
+        chatsLoadingElement = modal.querySelector('.review-share-modal__chats-loading');
+        chatsEmptyElement = modal.querySelector('.review-share-modal__chats-empty');
+
+        closeButton.addEventListener('click', close);
+        copyButton.addEventListener('click', handleCopyLink);
+        nativeShareButton.addEventListener('click', handleNativeShare);
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', handleKeydown, true);
+    };
+
+    const handleKeydown = (event) => {
+        if (event.key === 'Escape' && modal?.classList.contains('active')) {
+            close();
+        }
+    };
+
+    const setFeedbackMessage = (element, message, type = 'info') => {
+        if (!element) {
+            return;
+        }
+        if (!message) {
+            element.hidden = true;
+            return;
+        }
+        element.textContent = message;
+        element.dataset.type = type;
+        element.hidden = false;
+    };
+
+    const computeShareLink = (detailUrl) => {
+        try {
+            const basePath = window.location.pathname.replace(/[^/]*$/, '');
+            const base = window.location.origin + basePath;
+            return new URL(detailUrl || '', base).href;
+        } catch (error) {
+            console.warn('[reviewShare] No se pudo construir el enlace absoluto:', error);
+            return window.location.href;
+        }
+    };
+
+    const open = (reviewData) => {
+        ensureModal();
+        if (!modal) {
+            return;
+        }
+        currentData = reviewData || null;
+        currentLink = computeShareLink(reviewData?.detailUrl || '');
+        if (linkInput) {
+            linkInput.value = currentLink;
+            try {
+                linkInput.setSelectionRange(0, currentLink.length);
+            } catch (error) {
+                /* noop */
+            }
+        }
+        setFeedbackMessage(feedbackElement, '');
+        setFeedbackMessage(chatFeedbackElement, '');
+        if (subtitleElement) {
+            const itemName = reviewData?.itemName || 'Elemento';
+            const listName = reviewData?.listName || 'Lista';
+            subtitleElement.textContent = `${itemName} \u00b7 ${listName}`;
+        }
+        if (nativeShareButton) {
+            const supported = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+            nativeShareButton.hidden = !supported;
+            nativeShareButton.disabled = !supported;
+        }
+        modal.classList.add('active');
+        document.body.classList.add('modal-open');
+        loadChats();
+    };
+
+    const close = () => {
+        if (!modal) {
+            return;
+        }
+        modal.classList.remove('active');
+        document.body.classList.remove('modal-open');
+    };
+
+    const handleCopyLink = async () => {
+        if (!linkInput) {
+            return;
+        }
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(currentLink);
+            } else {
+                linkInput.focus();
+                linkInput.select();
+                document.execCommand('copy');
+            }
+            setFeedbackMessage(feedbackElement, 'Enlace copiado al portapapeles.', 'success');
+        } catch (error) {
+            console.error('[reviewShare] Error copiando enlace:', error);
+            setFeedbackMessage(feedbackElement, 'No se pudo copiar el enlace.', 'error');
+        }
+    };
+
+    const handleNativeShare = async () => {
+        if (!currentLink || !navigator.share) {
+            setFeedbackMessage(feedbackElement, 'Tu dispositivo no permite compartir directamente.', 'warning');
+            return;
+        }
+        try {
+            await navigator.share({
+                title: currentData?.itemName || 'Listopic',
+                text: currentData?.listName ? `rese\u00f1a de ${currentData.listName}` : 'rese\u00f1a en Listopic',
+                url: currentLink
+            });
+            setFeedbackMessage(feedbackElement, 'rese\u00f1a compartida.', 'success');
+        } catch (error) {
+            if (error && error.name === 'AbortError') {
+                setFeedbackMessage(feedbackElement, 'Compartir cancelado.', 'info');
+            } else {
+                console.error('[reviewShare] Error en compartir nativo:', error);
+                setFeedbackMessage(feedbackElement, 'No se pudo completar el compartido.', 'error');
+            }
+        }
+    };
+
+    const loadChats = async () => {
+        if (!chatsContainer || !chatsListElement) {
+            return;
+        }
+        const services = window.ListopicApp?.services || {};
+        const authUser = services.auth?.currentUser;
+
+        chatsListElement.innerHTML = '';
+        if (chatsLoadingElement) {
+            chatsLoadingElement.hidden = false;
+        }
+        if (chatsEmptyElement) {
+            chatsEmptyElement.hidden = true;
+        }
+
+        if (!authUser) {
+            if (chatsLoadingElement) {
+                chatsLoadingElement.hidden = true;
+            }
+            if (chatsEmptyElement) {
+                chatsEmptyElement.hidden = false;
+                chatsEmptyElement.textContent = 'Inicia sesion para compartir en un chat.';
+            }
+            return;
+        }
+
+        const reuseCache = chatsCache && (Date.now() - chatsCacheFetchedAt) < CHATS_CACHE_TTL;
+        if (reuseCache) {
+            if (chatsLoadingElement) {
+                chatsLoadingElement.hidden = true;
+            }
+            renderChats(chatsCache, authUser.uid);
+            return;
+        }
+
+        if (!services.db) {
+            if (chatsLoadingElement) {
+                chatsLoadingElement.hidden = true;
+            }
+            if (chatsEmptyElement) {
+                chatsEmptyElement.hidden = false;
+                chatsEmptyElement.textContent = 'Servicio de chats no disponible.';
+            }
+            return;
+        }
+
+        try {
+            const snapshot = await services.db
+                .collection('chats')
+                .where('participants', 'array-contains', authUser.uid)
+                .orderBy('updatedAt', 'desc')
+                .get();
+            const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            chatsCache = chats;
+            chatsCacheFetchedAt = Date.now();
+            if (chatsLoadingElement) {
+                chatsLoadingElement.hidden = true;
+            }
+            renderChats(chats, authUser.uid);
+        } catch (error) {
+            console.error('[reviewShare] Error cargando chats:', error);
+            if (chatsLoadingElement) {
+                chatsLoadingElement.hidden = true;
+            }
+            if (chatsEmptyElement) {
+                chatsEmptyElement.hidden = false;
+                chatsEmptyElement.textContent = 'No se pudieron cargar tus chats.';
+            }
+        }
+    };
+
+    const getChatDisplayName = (chat, currentUserId) => {
+        if (!chat) {
+            return 'Chat';
+        }
+        if (chat.isGroup && chat.groupName) {
+            return chat.groupName;
+        }
+        const participants = Array.isArray(chat.participants) ? chat.participants : [];
+        const others = participants.filter(id => id !== currentUserId);
+        if (!others.length) {
+            return chat.groupName || 'Chat privado';
+        }
+        const profiles = chat.participantProfiles || {};
+        const names = others.map(uid => {
+            const profile = profiles[uid] || {};
+            return profile.displayName || profile.username || profile.email || 'Usuario';
+        });
+        return names.join(', ');
+    };
+
+    const getChatMetaText = (chat, currentUserId) => {
+        if (!chat) {
+            return '';
+        }
+        if (chat.isGroup) {
+            const total = Array.isArray(chat.participants) ? chat.participants.length : 0;
+            return total > 0 ? `${total} participantes` : 'Grupo';
+        }
+        const participants = Array.isArray(chat.participants) ? chat.participants : [];
+        const others = participants.filter(id => id !== currentUserId);
+        if (!others.length) {
+            return '';
+        }
+        const profiles = chat.participantProfiles || {};
+        const profile = profiles[others[0]] || {};
+        if (profile.username) {
+            return `@${profile.username}`;
+        }
+        if (profile.email) {
+            return profile.email;
+        }
+        return '';
+    };
+
+    const renderChats = (chats, currentUserId) => {
+        chatsListElement.innerHTML = '';
+        if (!Array.isArray(chats) || chats.length === 0) {
+            if (chatsEmptyElement) {
+                chatsEmptyElement.hidden = false;
+                chatsEmptyElement.textContent = 'Crea un chat para compartir esta rese\u00f1a.';
+            }
+            return;
+        }
+        if (chatsEmptyElement) {
+            chatsEmptyElement.hidden = true;
+        }
+        chats.forEach(chat => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'review-share-chat-btn';
+
+            const title = document.createElement('span');
+            title.className = 'review-share-chat-btn__title';
+            title.textContent = getChatDisplayName(chat, currentUserId);
+            button.appendChild(title);
+
+            const metaText = getChatMetaText(chat, currentUserId);
+            if (metaText) {
+                const meta = document.createElement('span');
+                meta.className = 'review-share-chat-btn__meta';
+                meta.textContent = metaText;
+                button.appendChild(meta);
+            }
+
+            button.addEventListener('click', () => handleChatShare(chat, button, currentUserId));
+            chatsListElement.appendChild(button);
+        });
+    };
+
+    const composeChatMessage = (data, link) => {
+        const parts = [];
+        if (data?.itemName && data?.listName) {
+            parts.push(`Te comparto la rese\u00f1a "${data.itemName}" de la lista "${data.listName}".`);
+        } else if (data?.itemName) {
+            parts.push(`Te comparto la rese\u00f1a "${data.itemName}".`);
+        }
+        if (data?.overallRating) {
+            parts.push(`Puntuacion: ${data.overallRating}/10.`);
+        }
+        parts.push(link);
+        return parts.join(' ');
+    };
+
+    const handleChatShare = async (chat, button, currentUserId) => {
+        const services = window.ListopicApp?.services || {};
+        const authUser = services.auth?.currentUser;
+        if (!chat || !button || !currentData) {
+            return;
+        }
+        if (!authUser || authUser.uid !== currentUserId) {
+            setFeedbackMessage(chatFeedbackElement, 'Tu sesion no esta disponible.', 'error');
+            return;
+        }
+        if (typeof services.sendChatMessage !== 'function') {
+            setFeedbackMessage(chatFeedbackElement, 'El servicio de chat no esta disponible.', 'error');
+            return;
+        }
+        button.disabled = true;
+        button.classList.add('is-loading');
+        try {
+            const message = composeChatMessage(currentData, currentLink);
+            await services.sendChatMessage(chat.id, currentUserId, message);
+            setFeedbackMessage(chatFeedbackElement, 'rese\u00f1a compartida en el chat.', 'success');
+        } catch (error) {
+            console.error('[reviewShare] Error compartiendo en chat:', error);
+            setFeedbackMessage(chatFeedbackElement, 'No se pudo compartir en el chat.', 'error');
+        } finally {
+            button.classList.remove('is-loading');
+            button.disabled = false;
+        }
+    };
+
+    const init = () => {
+        ensureModal();
+    };
+
+    return {
+        init,
+        open
+    };
+})();
 
 const setBadgeVisibility = (badgeElement, visible) => {
     if (!badgeElement) return;
@@ -132,7 +718,7 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
             const authUser = auth && auth.currentUser;
             if (authUser) {
                 ListopicApp.services.markNotificationsAsRead(authUser.uid, [notification.id]).catch(error => {
-                    console.error('[main] Error marcando notificación como leída:', error);
+                    console.error('[main] Error marcando notificaciÃƒÂ³n como leÃƒÂ­da:', error);
                 });
             }
         };
@@ -375,7 +961,7 @@ function setupNotificationsUI(currentUser) {
 
             const messageElement = document.createElement('p');
             messageElement.className = 'notification-message';
-            messageElement.textContent = notification.message || notification.text || 'Tienes una nueva notificación.';
+            messageElement.textContent = notification.message || notification.text || 'Tienes una nueva notificaciÃƒÂ³n.';
             mainWrapper.appendChild(messageElement);
 
             if (notification.url) {
@@ -430,7 +1016,7 @@ function setupNotificationsUI(currentUser) {
         if (!currentUser) {
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'Inicia sesión para ver tus notificaciones.';
+            emptyElement.textContent = 'Inicia sesiÃƒÂ³n para ver tus notificaciones.';
             notificationsButton.disabled = false;
             return;
         }
@@ -438,7 +1024,7 @@ function setupNotificationsUI(currentUser) {
         if (!ListopicApp.services || typeof ListopicApp.services.getUserNotifications !== 'function') {
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'El servicio de notificaciones no está disponible en este momento.';
+            emptyElement.textContent = 'El servicio de notificaciones no estÃƒÂ¡ disponible en este momento.';
             notificationsButton.disabled = false;
             return;
         }
@@ -457,7 +1043,7 @@ function setupNotificationsUI(currentUser) {
             console.error('main.js: No se pudieron cargar las notificaciones:', error);
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'No pudimos cargar tus notificaciones. Intenta nuevamente más tarde.';
+            emptyElement.textContent = 'No pudimos cargar tus notificaciones. Intenta nuevamente mÃƒÂ¡s tarde.';
         } finally {
             notificationsButton.disabled = false;
             delete notificationsButton.dataset.loading;
@@ -471,6 +1057,14 @@ function setupNotificationsUI(currentUser) {
 document.addEventListener('DOMContentLoaded', () => {
     console.log("MAIN.JS: DOMContentLoaded disparado."); // <--- LOG 1
 
+    if (ListopicApp.reviewActions && typeof ListopicApp.reviewActions.init === 'function') {
+        ListopicApp.reviewActions.init();
+    }
+
+    if (ListopicApp.reviewShare && typeof ListopicApp.reviewShare.init === 'function') {
+        ListopicApp.reviewShare.init();
+    }
+
 // 1. Cargar elementos comunes PRIMERO
 // if (ListopicApp.commonUI && ListopicApp.commonUI.loadCommonElements) {
 //     console.log("MAIN.JS: Cargando elementos comunes (header/footer)...");
@@ -480,8 +1074,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // }
 
     if (!ListopicApp.services || !ListopicApp.services.auth || !ListopicApp.services.storage || !ListopicApp.services.db) {
-        console.error("MAIN.JS: Firebase services (auth, storage, db) no disponibles."); // <--- LOG 2 (si entra aquí)
-        // Podrías mostrar un error al usuario aquí si la app no puede funcionar.
+        console.error("MAIN.JS: Firebase services (auth, storage, db) no disponibles."); // <--- LOG 2 (si entra aquÃƒÂ­)
+        // PodrÃƒÂ­as mostrar un error al usuario aquÃƒÂ­ si la app no puede funcionar.
         const body = document.querySelector('body');
         if (body) {
             body.innerHTML = '<p style="color:red; text-align:center; margin-top: 50px;">Error critico: La aplicacion no pudo inicializar los servicios base. Por favor, recarga o contacta soporte.</p>';
@@ -494,18 +1088,18 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("MAIN.JS: Inicializando ThemeManager..."); // <--- LOG 4
         ListopicApp.themeManager.init();
     } else {
-        console.error("MAIN.JS: ThemeManager no disponible."); // <--- LOG 5 (si entra aquí)
+        console.error("MAIN.JS: ThemeManager no disponible."); // <--- LOG 5 (si entra aquÃƒÂ­)
     }
 
     if (ListopicApp.authService && ListopicApp.authService.init) {
         console.log("MAIN.JS: Inicializando AuthService..."); // <--- LOG 6
         ListopicApp.authService.init();
     } else {
-        console.error("MAIN.JS: AuthService no disponible."); // <--- LOG 7 (si entra aquí)
+        console.error("MAIN.JS: AuthService no disponible."); // <--- LOG 7 (si entra aquÃƒÂ­)
     }
 
     const pagePath = window.location.pathname;
-    const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1).toLowerCase(); // Convertido a minúsculas para consistencia
+    const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1).toLowerCase(); // Convertido a minÃƒÂºsculas para consistencia
     console.log("MAIN.JS: pagePath detectado:", pagePath); // <--- LOG 8
     console.log("MAIN.JS: pageName calculado:", pageName); // <--- LOG 9
     const isIndexPage = pageName === '' || pageName === 'index.html';
@@ -524,16 +1118,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pageName === 'auth.html') {
             console.log("MAIN.JS: Es auth.html, intentando inicializar pageAuth..."); // <--- LOG 12
             if (ListopicApp.pageAuth && ListopicApp.pageAuth.init) {
-                ListopicApp.pageAuth.init(); // pageAuth puede tener lógica incluso si el usuario ya está logueado (para redirigir)
+                ListopicApp.pageAuth.init(); // pageAuth puede tener lÃƒÂ³gica incluso si el usuario ya estÃƒÂ¡ logueado (para redirigir)
             }
         } else if (!user) {
-            // Si no es la pagina de autenticacion y no hay usuario, authService ya debería haber redirigido.
-            // No se inicializa ninguna otra lógica de pagina.
-            console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService debería redirigir."); // <--- LOG 13
+            // Si no es la pagina de autenticacion y no hay usuario, authService ya deberÃƒÂ­a haber redirigido.
+            // No se inicializa ninguna otra lÃƒÂ³gica de pagina.
+            console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService deberÃƒÂ­a redirigir."); // <--- LOG 13
             return;
         } else {
-            // Usuario autenticado, o pagina pública que no requiere autenticacion (como index, si se decide)
-            console.log("MAIN.JS: Usuario autenticado o pagina pública. Procediendo a inicializar lógica de pagina específica."); // <--- LOG 14
+            // Usuario autenticado, o pagina pÃƒÂºblica que no requiere autenticacion (como index, si se decide)
+            console.log("MAIN.JS: Usuario autenticado o pagina pÃƒÂºblica. Procediendo a inicializar lÃƒÂ³gica de pagina especÃƒÂ­fica."); // <--- LOG 14
             initializeGlobalRealtimeFeatures(user);
             if (isIndexPage) {
                 console.log("MAIN.JS: Es Index page, intentando inicializar pageIndex..."); // <--- LOG 15
@@ -543,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (pageName === 'review-form.html') {
                 console.log("MAIN.JS: Es review-form.html, intentando inicializar pageReviewForm..."); // <--- LOG 16
                 if (ListopicApp.pageReviewForm && ListopicApp.pageReviewForm.init) {
-                    ListopicApp.pageReviewForm.init(); // Aquí es donde se llamaría a tu init
+                    ListopicApp.pageReviewForm.init(); // AquÃƒÂ­ es donde se llamarÃƒÂ­a a tu init
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageReviewForm.init no encontrado!"); // <--- LOG 17 (si falta)
                 }
@@ -566,7 +1160,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (pageName === 'profile.html') {
                 console.log("MAIN.JS: Coincide 'profile.html', comprobando si pageProfile existe...");
                 if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
-                    console.log("MAIN.JS: Coincide 'profile.html', ejecutando pageProfile.init()..."); // Log de confirmación
+                    console.log("MAIN.JS: Coincide 'profile.html', ejecutando pageProfile.init()..."); // Log de confirmaciÃƒÂ³n
                     ListopicApp.pageProfile.init();
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageProfile.init no encontrado!"); // Log de error
@@ -575,15 +1169,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (ListopicApp.pageChats && ListopicApp.pageChats.init) {
                     ListopicApp.pageChats.init();
                 }
-            } else if (pageName === 'search.html') { // NUEVA CONDICIÓN
+            } else if (pageName === 'search.html') { // NUEVA CONDICIÃƒâ€œN
                 if (ListopicApp.pageSearch && ListopicApp.pageSearch.init) {
                     ListopicApp.pageSearch.init();
                 }
-            } else if (pageName === 'place-detail.html') { // PÁGINA DE LUGAR
+            } else if (pageName === 'place-detail.html') { // PÃƒÂGINA DE LUGAR
                 if (ListopicApp.pagePlace && ListopicApp.pagePlace.init) {
                     ListopicApp.pagePlace.init();
                 }
-            } else if (pageName === 'developer.html') { // PÁGINA DE LUGAR
+            } else if (pageName === 'developer.html') { // PÃƒÂGINA DE LUGAR
             if (ListopicApp.pagePlace && ListopicApp.pageDeveloper.init) {
                 ListopicApp.pagePlace.init();
                 }
@@ -592,20 +1186,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     ListopicApp.pageChats.init();
                 }
             } else {
-                // Esta es la línea 95 en la estructura original del if/else if
-                console.warn("MAIN.JS: No se detectó una pagina conocida. pageName:", pageName); // <--- LOG si ninguna coincide
+                // Esta es la lÃƒÂ­nea 95 en la estructura original del if/else if
+                console.warn("MAIN.JS: No se detectÃƒÂ³ una pagina conocida. pageName:", pageName); // <--- LOG si ninguna coincide
             }
         }
     }).catch(error => {
         console.error("MAIN.JS: Error en onAuthStateChangedPromise:", error); // <--- LOG 18 (si la promesa falla)
-        // Manejar error crítico si la autenticacion no se puede verificar
+        // Manejar error crÃƒÂ­tico si la autenticacion no se puede verificar
     });
 
-    console.log("MAIN.JS: Fin del script de inicialización de main.js."); // <--- LOG 19
+    console.log("MAIN.JS: Fin del script de inicializaciÃƒÂ³n de main.js."); // <--- LOG 19
 
 
 
-    // --- Lógica para la Instalación de la PWA (desde el Menú de Usuario) ---
+    // --- LÃƒÂ³gica para la InstalaciÃƒÂ³n de la PWA (desde el MenÃƒÂº de Usuario) ---
 let deferredPrompt;
 const installMenuItem = document.getElementById('installPwaBtn');
 
@@ -613,30 +1207,30 @@ const installMenuItem = document.getElementById('installPwaBtn');
 window.addEventListener('beforeinstallprompt', (e) => {
     // Prevenir que se muestre el mini-infobar por defecto
     e.preventDefault();
-    // Guardar el evento para usarlo después
+    // Guardar el evento para usarlo despuÃƒÂ©s
     deferredPrompt = e;
     
-    // Mostrar la opción en el menú solo si no está ya instalada
+    // Mostrar la opciÃƒÂ³n en el menÃƒÂº solo si no estÃƒÂ¡ ya instalada
     // y el navegador lo permite.
     if (installMenuItem && !isAppInstalled()) {
-        console.log("Evento 'beforeinstallprompt' capturado. Mostrando opción de instalar en el menú.");
+        console.log("Evento 'beforeinstallprompt' capturado. Mostrando opciÃƒÂ³n de instalar en el menÃƒÂº.");
         installMenuItem.style.display = 'block';
     }
 });
 
-// Criterio 2: El usuario hace clic en nuestro botón del menú
+// Criterio 2: El usuario hace clic en nuestro botÃƒÂ³n del menÃƒÂº
 if (installMenuItem) {
     installMenuItem.addEventListener('click', async () => {
-        // Asegurarnos de que aún tenemos el evento
+        // Asegurarnos de que aÃƒÂºn tenemos el evento
         if (deferredPrompt) {
-            // Mostrar el diálogo de instalación del navegador
+            // Mostrar el diÃƒÂ¡logo de instalaciÃƒÂ³n del navegador
             deferredPrompt.prompt();
             
             // Esperar la respuesta del usuario
             const { outcome } = await deferredPrompt.userChoice;
-            console.log(`Respuesta del usuario al prompt de instalación: ${outcome}`);
+            console.log(`Respuesta del usuario al prompt de instalaciÃƒÂ³n: ${outcome}`);
 
-            // Si el usuario acepta, ya no necesitamos mostrar el botón
+            // Si el usuario acepta, ya no necesitamos mostrar el botÃƒÂ³n
             if (outcome === 'accepted') {
                 installMenuItem.style.display = 'none';
             }
@@ -649,57 +1243,53 @@ if (installMenuItem) {
 
 // Criterio 3: La app se ha instalado correctamente
 window.addEventListener('appinstalled', () => {
-    // Ocultar la opción del menú y limpiar todo
+    // Ocultar la opciÃƒÂ³n del menÃƒÂº y limpiar todo
     if (installMenuItem) {
         installMenuItem.style.display = 'none';
     }
     deferredPrompt = null;
-    console.log('PWA fue instalada con éxito.');
+    console.log('PWA fue instalada con ÃƒÂ©xito.');
     if(ListopicApp.services && ListopicApp.services.showNotification) {
-        ListopicApp.services.showNotification('¡Listopic instalado! Búscalo en tu pantalla de inicio.', 'success');
+        ListopicApp.services.showNotification('Ã‚Â¡Listopic instalado! BÃƒÂºscalo en tu pantalla de inicio.', 'success');
     }
 });
 
-// Función de ayuda para saber si la app ya se está ejecutando como PWA
+// FunciÃƒÂ³n de ayuda para saber si la app ya se estÃƒÂ¡ ejecutando como PWA
 function isAppInstalled() {
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Al cargar la pagina, si ya está en modo standalone, nos aseguramos
-// de que el botón no aparezca por si acaso.
+// Al cargar la pagina, si ya estÃƒÂ¡ en modo standalone, nos aseguramos
+// de que el botÃƒÂ³n no aparezca por si acaso.
 if (isAppInstalled() && installMenuItem) {
-    console.log("La app ya se está ejecutando en modo standalone. La opción de instalar no se mostrará.");
+    console.log("La app ya se estÃƒÂ¡ ejecutando en modo standalone. La opciÃƒÂ³n de instalar no se mostrarÃƒÂ¡.");
     installMenuItem.style.display = 'none';
 }
-// --- Fin de la Lógica de Instalación de la PWA ---
+// --- Fin de la LÃƒÂ³gica de InstalaciÃƒÂ³n de la PWA ---
 
 
     
 });
 
 
-// Función global para limpiar cache de etiquetas (útil para desarrollo)
+// FunciÃƒÂ³n global para limpiar cache de etiquetas (ÃƒÂºtil para desarrollo)
 window.clearCategoryTagsCache = function() {
     if (ListopicApp.pageSearch && ListopicApp.pageSearch.clearTagsCache) {
         ListopicApp.pageSearch.clearTagsCache();
         console.log('Cache de etiquetas limpiado');
     } else {
-        console.warn('Función de limpiar cache no disponible');
+        console.warn('FunciÃƒÂ³n de limpiar cache no disponible');
     }
 };
 
-// Registro del Service Worker para gestionar el caché
+// Registro del Service Worker para gestionar el cachÃƒÂ©
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then((registration) => {
-      console.log('Service Worker registrado con éxito:', registration);
+      console.log('Service Worker registrado con ÃƒÂ©xito:', registration);
     }).catch((err) => {
       console.log('Fallo en el registro del Service Worker:', err);
     });
   });
 }
-
-
-
-
 

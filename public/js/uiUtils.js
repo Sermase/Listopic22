@@ -180,23 +180,37 @@ ListopicApp.uiUtils = {
 
     renderReviewSuperCard: function(review) {
         const uiUtils = this;
+        const services = window.ListopicApp?.services || {};
+        const currentUserId = services.auth?.currentUser?.uid || null;
 
-        // --- 1. Preparación de Datos (Ahora mucho más seguro) ---
         const author = review.author || {};
-        const authorId = author.id || review.userId;
-        const authorName = uiUtils.escapeHtml(author.name || 'Usuario Anónimo');
+        const authorId = author.id || review.userId || '';
+        const authorNameRaw = author.name || 'Usuario Anonimo';
+        const authorName = uiUtils.escapeHtml(authorNameRaw);
         const authorPhoto = uiUtils.escapeHtml(author.photoUrl || 'img/placeholder-avatar.png');
 
         const place = review.place || {};
-        const placeId = place.id || review.placeId;
-        const placeName = uiUtils.escapeHtml(place.name || review.establishmentName || 'Lugar Desconocido');
-        const placeUrl = uiUtils.escapeHtml(place.googleMapsUrl || '#');
+        const placeId = place.id || review.placeId || '';
+        const placeNameRaw = place.name || review.establishmentName || 'Lugar Desconocido';
+        const placeName = uiUtils.escapeHtml(placeNameRaw);
+        const placeUrlRaw = place.googleMapsUrl || '#';
+        const placeUrl = uiUtils.escapeHtml(placeUrlRaw);
 
-        const list = { id: review.listId, name: uiUtils.escapeHtml(review.listName || 'Lista Desconocida') };
-        const overallRating = (review.overallRating || 0).toFixed(1);
-        const detailUrl = `detail-view.html?id=${review.id}&listId=${review.listId}`;
+        const listId = review.listId || '';
+        const listNameRaw = review.listName || 'Lista Desconocida';
+        const listName = uiUtils.escapeHtml(listNameRaw);
 
-        // --- 2. Construcción de Bloques de HTML ---
+        const itemNameRaw = review.itemName || 'Elemento sin nombre';
+        const itemName = uiUtils.escapeHtml(itemNameRaw);
+
+        const overallRatingValue = parseFloat(review.overallRating);
+        const overallRating = Number.isFinite(overallRatingValue) ? overallRatingValue.toFixed(1) : '0.0';
+        const ratingColor = this.getRatingColor(overallRating);
+
+        const detailUrl = `detail-view.html?id=${review.id || ''}&listId=${listId}`;
+        const dataDetailUrl = uiUtils.escapeHtml(detailUrl);
+        const isOwner = Boolean(currentUserId && authorId && currentUserId === authorId);
+
         const placeLinkHtml = placeId && placeId !== '#'
             ? `<a href="place-detail.html?placeId=${placeId}" class="place-name-link" onclick="event.stopPropagation()">${placeName}</a>`
             : `<span class="place-name-link--no-link">${placeName}</span>`;
@@ -222,17 +236,27 @@ ListopicApp.uiUtils = {
         }
 
         const commentHtml = review.comment ? `<p class="review-super-card__comment">${uiUtils.escapeHtml(review.comment)}</p>` : '';
-        const tagsHtml = (review.userTags && review.userTags.length > 0) 
-            ? `<div class="review-super-card__tags">${review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>` 
+        const tagsHtml = (review.userTags && review.userTags.length > 0)
+            ? `<div class="review-super-card__tags">${review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>`
             : '';
 
         const imageHtml = review.photoUrl
-            ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(review.itemName)}" class="review-super-card__image">`
+            ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${itemName}" class="review-super-card__image">`
             : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
-        
-        // --- 3. Ensamblado Final ---
+
+        const menuHtml = `
+            <div class="review-menu" data-review-menu>
+                <button class="review-menu__btn" type="button" aria-haspopup="true" aria-expanded="false" title="Opciones">
+                    <i class="fas fa-ellipsis-h"></i>
+                </button>
+                <div class="review-menu__dropdown" role="menu">
+                    <button class="review-action" type="button" data-action="share">Compartir</button>
+                    ${isOwner ? '<button class="review-action" type="button" data-action="edit">Editar rese\u00f1a</button><button class="review-action danger" type="button" data-action="delete">Eliminar</button>' : ''}
+                </div>
+            </div>`;
+
         return `
-            <article class="review-super-card" onclick="window.location.href='${detailUrl}';">
+            <article class="review-super-card" onclick="window.location.href='${detailUrl}';" data-review-id="${uiUtils.escapeHtml(review.id || '')}" data-list-id="${uiUtils.escapeHtml(listId)}" data-author-id="${uiUtils.escapeHtml(authorId)}" data-author-name="${uiUtils.escapeHtml(authorNameRaw)}" data-list-name="${uiUtils.escapeHtml(listNameRaw)}" data-item-name="${uiUtils.escapeHtml(itemNameRaw)}" data-place-id="${uiUtils.escapeHtml(placeId)}" data-detail-url="${dataDetailUrl}" data-overall-rating="${overallRating}" data-is-owner="${isOwner ? '1' : '0'}">
                 <header class="review-super-card__header">
                     <div class="header-main-info">
                         <a href="profile.html?viewUserId=${authorId}" class="author-link" onclick="event.stopPropagation()">
@@ -240,11 +264,12 @@ ListopicApp.uiUtils = {
                             <span class="author-name">${authorName}</span>
                         </a>
                         <div class="list-highlight">
-                            <span class="meta-separator">•</span> en <a href="list-view.html?listId=${list.id}" onclick="event.stopPropagation()">${list.name}</a>
+                            <span class="meta-separator">&middot;</span> en <a href="list-view.html?listId=${listId}" onclick="event.stopPropagation()">${listName}</a>
                         </div>
                     </div>
                     <div class="review-super-card__score">
-                        <span class="score-value" style="color: ${this.getRatingColor(overallRating)};">${overallRating}</span>
+                        <span class="score-value" style="color: ${ratingColor};">${overallRating}</span>
+                        ${menuHtml}
                     </div>
                 </header>
                 <div class="review-super-card__body">
@@ -253,7 +278,7 @@ ListopicApp.uiUtils = {
                     </div>
                     <div class="review-super-card__main-content">
                         <div class="review-super-card__title-group">
-                            <h4 class="review-super-card__title">${uiUtils.escapeHtml(review.itemName)}</h4>
+                            <h4 class="review-super-card__title">${itemName}</h4>
                             <p class="review-super-card__subtitle">
                                 <a href="${placeUrl}" target="_blank" class="place-icon-link" onclick="event.stopPropagation()" title="Ver en Google Maps">
                                     <i class="fas fa-map-marker-alt"></i>
@@ -269,7 +294,6 @@ ListopicApp.uiUtils = {
             </article>
         `;
     },
-
    
 
     // AÑADE ESTA FUNCIÓN AUXILIAR DENTRO DE ListopicApp.uiUtils
@@ -546,7 +570,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
                     <div class="search-card__tags">
                         <span class="info-tag info-tag--list"><i class="fas fa-stream"></i> Lista</span>
                         <span class="info-tag"><i class="fas fa-user"></i> ${creatorName}</span>
-                        <span class="info-tag"><i class="fas fa-pencil-alt"></i> ${listData.reviewCount || 0} resenas</span>
+                        <span class="info-tag"><i class="fas fa-pencil-alt"></i> ${listData.reviewCount || 0} rese\u00f1as</span>
                     </div>
                 </div>
             </a>
@@ -702,3 +726,4 @@ createListViewGroupCard: function(group, listData, listIcon) {
         });
     }
 };
+
