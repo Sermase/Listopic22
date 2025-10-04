@@ -631,6 +631,7 @@ ListopicApp.pageProfile = {
                     menu.innerHTML = `
                         <button class="review-menu__btn" title="Opciones"><i class="fas fa-ellipsis-h"></i></button>
                         <div class="review-menu__dropdown">
+                            <button class="review-action" data-action="view">Ver rese�a</button>
                             <button class="review-action" data-action="edit">Editar rese�a</button>
                             <button class="review-action" data-action="share">Compartir</button>
                             <button class="review-action danger" data-action="delete">Eliminar</button>
@@ -644,7 +645,9 @@ ListopicApp.pageProfile = {
                         actBtn.addEventListener('click', async (e) => {
                             e.stopPropagation();
                             const action = actBtn.dataset.action;
-                            if (action === 'edit') {
+                            if (action === 'view') {
+                                window.location.href = `detail-view.html?id=${r.id}&listId=${r.listId}`;
+                            } else if (action === 'edit') {
                                 window.location.href = `review-form.html?listId=${r.listId}&editId=${r.id}`;
                             } else if (action === 'share') {
                                 const url = `${location.origin}${location.pathname.replace(/[^/]+$/, '')}detail-view.html?id=${r.id}&listId=${r.listId}`;
