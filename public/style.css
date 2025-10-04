@@ -881,6 +881,51 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
 #detail-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag-detail { background-color: var(--accent-color-secondary); color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.85em; }
 .detail-actions { margin-top: 30px; display: flex; justify-content: flex-end; gap: 15px; }
+.share-story-button {
+    background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af, #515bd4);
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 6px 16px rgba(221, 42, 123, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+}
+.share-story-button:hover:not([disabled]) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(221, 42, 123, 0.32);
+}
+.share-story-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+.share-story-button[data-loading="true"] i {
+    animation: spin 1s linear infinite;
+}
+.share-helper-text {
+    margin-top: 12px;
+    font-size: 0.85em;
+    text-align: right;
+    opacity: 0.75;
+}
+.share-status-message {
+    margin-top: 6px;
+    font-size: 0.9em;
+    text-align: right;
+}
+.share-status-message.success { color: var(--accent-color-tertiary, #06d6a0); }
+.share-status-message.error { color: var(--danger-color, #ff6b6b); }
+.share-status-message.info { color: rgba(255,255,255,0.75); }
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 
 /* Media Queries for smaller screens */
 @media (max-width: 768px) {

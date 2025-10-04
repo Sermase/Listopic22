@@ -152,9 +152,18 @@
             </div>
             
             <div class="detail-actions">
+                <button type="button" class="share-story-button" id="share-instagram-button" disabled>
+                    <i class="fas fa-paper-plane"></i>
+                    Compartir historia
+                </button>
                 <a href="review-form.html" role="button" class="edit-button"><i class="fas fa-edit"></i> Editar Reseña</a>
                 <button type="button" class="delete-button danger"><i class="fas fa-trash-alt"></i> Eliminar Reseña</button>
             </div>
+            <p class="share-helper-text" id="share-instagram-helper" hidden>
+                Generaremos una tarjeta con tu reseña para compartirla en Instagram Stories. Si tu navegador no abre Instagram automáticamente, descargaremos la imagen para que la subas manualmente.
+            </p>
+            <p class="share-status-message" id="share-instagram-status" hidden aria-live="polite"></p>
+            <a id="share-instagram-download-link" download style="display: none;">Descargar tarjeta</a>
         </div>
     </main>
     <footer> Listopic... Tu rincón personal de valoraciones. </footer>
