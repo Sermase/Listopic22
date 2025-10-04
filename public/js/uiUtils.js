@@ -256,7 +256,20 @@ ListopicApp.uiUtils = {
             </div>`;
 
         return `
-            <article class="review-super-card" onclick="window.location.href='${detailUrl}';" data-review-id="${uiUtils.escapeHtml(review.id || '')}" data-list-id="${uiUtils.escapeHtml(listId)}" data-author-id="${uiUtils.escapeHtml(authorId)}" data-author-name="${uiUtils.escapeHtml(authorNameRaw)}" data-list-name="${uiUtils.escapeHtml(listNameRaw)}" data-item-name="${uiUtils.escapeHtml(itemNameRaw)}" data-place-id="${uiUtils.escapeHtml(placeId)}" data-detail-url="${dataDetailUrl}" data-overall-rating="${overallRating}" data-is-owner="${isOwner ? '1' : '0'}">
+            <article class="review-super-card" onclick="window.location.href='${detailUrl}';"
+                data-review-id="${uiUtils.escapeHtml(review.id || '')}"
+                data-list-id="${uiUtils.escapeHtml(listId)}"
+                data-author-id="${uiUtils.escapeHtml(authorId)}"
+                data-author-name="${uiUtils.escapeHtml(authorNameRaw)}"
+                data-list-name="${uiUtils.escapeHtml(listNameRaw)}"
+                data-item-name="${uiUtils.escapeHtml(itemNameRaw)}"
+                data-place-id="${uiUtils.escapeHtml(placeId)}"
+                data-place-name="${uiUtils.escapeHtml(placeNameRaw)}"
+                data-detail-url="${dataDetailUrl}"
+                data-overall-rating="${overallRating}"
+                data-photo-url="${uiUtils.escapeHtml(review.photoUrl || '')}"
+                data-comment="${uiUtils.escapeHtml(review.comment || '')}"
+                data-is-owner="${isOwner ? '1' : '0'}">
                 <header class="review-super-card__header">
                     <div class="header-main-info">
                         <a href="profile.html?viewUserId=${authorId}" class="author-link" onclick="event.stopPropagation()">
@@ -726,4 +739,5 @@ createListViewGroupCard: function(group, listData, listIcon) {
         });
     }
 };
+
 

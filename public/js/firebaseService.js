@@ -701,13 +701,15 @@ ListopicApp.services = (() => {
         return updatedSummary;
     };
 
-    const sendChatMessage = async (chatId, senderId, text) => {
-        if (!chatId || !senderId || !text) {
+    const sendChatMessage = async (chatId, senderId, text, payload = null) => {
+        if (!chatId || !senderId) {
             throw new Error('Datos incompletos para enviar el mensaje.');
         }
 
-        const trimmed = text.trim();
-        if (!trimmed) {
+        const trimmed = typeof text === 'string' ? text.trim() : '';
+        const hasPayload = payload && typeof payload === 'object' && Object.keys(payload).length > 0;
+
+        if (!trimmed && !hasPayload) {
             throw new Error('El mensaje está vacío.');
         }
 
@@ -730,7 +732,7 @@ ListopicApp.services = (() => {
             const messageRef = chatRef.collection('messages').doc();
             const timestamp = FieldValue.serverTimestamp();
 
-            transaction.set(messageRef, {
+            const messageData = {
                 text: trimmed,
                 senderId,
                 createdAt: timestamp,
@@ -739,12 +741,51 @@ ListopicApp.services = (() => {
                     username: senderProfile.username || senderProfile.displayName || senderProfile.email || (currentAuthUser ? (currentAuthUser.displayName || currentAuthUser.email || '') : ''),
                     displayName: senderProfile.displayName || senderProfile.username || (currentAuthUser ? (currentAuthUser.displayName || '') : ''),
                     photoUrl: senderProfile.photoUrl || (currentAuthUser ? currentAuthUser.photoURL || '' : '')
+                },
+                messageType: 'text'
+            };
+
+            if (hasPayload) {
+                const payloadType = typeof payload.type === 'string' ? payload.type : 'custom';
+                messageData.messageType = payloadType;
+                const sanitizePayload = (value) => {
+                    const clean = {};
+                    Object.entries(value).forEach(([key, val]) => {
+                        if (val === undefined || val === null) {
+                            return;
+                        }
+                        if (typeof val === 'string') {
+                            const trimmed = val.trim();
+                            if (trimmed) {
+                                clean[key] = trimmed;
+                            }
+                            return;
+                        }
+                        if (typeof val === 'number' || typeof val === 'boolean') {
+                            clean[key] = val;
+                        }
+                    });
+                    return clean;
+                };
+                const sanitizedPayload = sanitizePayload(payload);
+                const hasSanitized = Object.keys(sanitizedPayload).length > 0;
+                if (hasSanitized) {
+                    if (payloadType === 'review-share') {
+                        messageData.sharePayload = sanitizedPayload;
+                    } else {
+                        messageData.payload = sanitizedPayload;
+                    }
+                } else {
+                    messageData.messageType = 'text';
                 }
-            });
+            }
+
+            transaction.set(messageRef, messageData);
 
             const updatePayload = {
-                lastMessage: trimmed,
+                lastMessage: trimmed || (messageData.messageType === 'review-share' ? 'Reseña compartida' : ''),
                 lastMessageSenderId: senderId,
+                lastMessageType: messageData.messageType,
                 updatedAt: timestamp
             };
 

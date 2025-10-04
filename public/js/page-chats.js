@@ -63,6 +63,97 @@ ListopicApp.pageChats = (() => {
 
     const isMobileLayout = () => window.matchMedia('(max-width: 900px)').matches;
 
+    const sanitizeText = (value) => (typeof value === 'string' ? value : '');
+
+    const createSharedReviewCard = (payload, isOwnMessage) => {
+        if (!payload || typeof payload !== 'object') {
+            return null;
+        }
+
+        const detailUrl = sanitizeText(payload.detailUrl);
+        const cardElement = detailUrl ? document.createElement('a') : document.createElement('div');
+        cardElement.className = 'shared-review-card';
+        if (detailUrl) {
+            cardElement.href = detailUrl;
+            cardElement.target = '_blank';
+            cardElement.rel = 'noopener noreferrer';
+        }
+
+        if (isOwnMessage) {
+            cardElement.classList.add('shared-review-card--sent');
+        }
+
+        const media = document.createElement('div');
+        media.className = 'shared-review-card__media';
+        const photoUrl = sanitizeText(payload.photoUrl);
+        if (photoUrl) {
+            const image = document.createElement('img');
+            image.src = photoUrl;
+            image.alt = payload.itemName ? `Foto de ${sanitizeText(payload.itemName)}` : 'Foto de la reseña';
+            image.className = 'shared-review-card__image';
+            media.appendChild(image);
+        } else {
+            media.classList.add('shared-review-card__media--placeholder');
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-camera';
+            media.appendChild(icon);
+        }
+
+        const body = document.createElement('div');
+        body.className = 'shared-review-card__body';
+
+        const titleRow = document.createElement('div');
+        titleRow.className = 'shared-review-card__title-row';
+
+        const title = document.createElement('span');
+        title.className = 'shared-review-card__title';
+        title.textContent = sanitizeText(payload.itemName) || 'Reseña compartida';
+        titleRow.appendChild(title);
+
+        const ratingValue = sanitizeText(payload.rating);
+        if (ratingValue) {
+            const rating = document.createElement('span');
+            rating.className = 'shared-review-card__rating';
+            const numericRating = Number.parseFloat(ratingValue);
+            rating.textContent = Number.isFinite(numericRating) ? numericRating.toFixed(1) : ratingValue;
+            const ratingColor = window.ListopicApp?.uiUtils?.getRatingColor;
+            if (typeof ratingColor === 'function') {
+                const computedColor = ratingColor(Number.isFinite(numericRating) ? numericRating : ratingValue);
+                if (computedColor) {
+                    rating.style.backgroundColor = computedColor;
+                }
+            }
+            titleRow.appendChild(rating);
+        }
+
+        body.appendChild(titleRow);
+
+        const subtitleParts = [];
+        const listName = sanitizeText(payload.listName);
+        const placeName = sanitizeText(payload.placeName);
+        if (listName) subtitleParts.push(listName);
+        if (placeName) subtitleParts.push(placeName);
+        if (subtitleParts.length) {
+            const subtitle = document.createElement('span');
+            subtitle.className = 'shared-review-card__subtitle';
+            subtitle.textContent = subtitleParts.join(' · ');
+            body.appendChild(subtitle);
+        }
+
+        const commentText = sanitizeText(payload.comment);
+        if (commentText) {
+            const comment = document.createElement('p');
+            comment.className = 'shared-review-card__comment';
+            comment.textContent = commentText;
+            body.appendChild(comment);
+        }
+
+        cardElement.appendChild(media);
+        cardElement.appendChild(body);
+
+        return cardElement;
+    };
+
     const openChatListModal = () => {
         if (!chatListPanel || !isMobileLayout()) return;
         chatListPanel.classList.add('is-open');
@@ -644,7 +735,8 @@ ListopicApp.pageChats = (() => {
                 bottomRow.className = 'chat-list-row';
                 const lastMessage = document.createElement('span');
                 lastMessage.className = 'chat-last-message';
-                lastMessage.textContent = chat.lastMessage || 'Sin mensajes todavia.';
+                const previewText = chat.lastMessage || (chat.lastMessageType === 'review-share' ? 'Reseña compartida' : 'Sin mensajes todavia.');
+                lastMessage.textContent = previewText;
                 bottomRow.appendChild(lastMessage);
 
                 const actionsContainer = document.createElement('div');
@@ -694,16 +786,44 @@ ListopicApp.pageChats = (() => {
         messages.forEach(msg => {
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
-            if (msg.senderId === currentUser.uid) {
+            const isOwnMessage = msg.senderId === currentUser.uid;
+            if (isOwnMessage) {
                 bubble.classList.add('sent');
             } else {
                 bubble.classList.add('received');
             }
-            bubble.textContent = msg.text;
+
+            if (msg.messageType) {
+                bubble.dataset.messageType = msg.messageType;
+            }
+
+            const content = document.createElement('div');
+            content.className = 'message-content';
+
+            const rawText = typeof msg.text === 'string' ? msg.text : '';
+            const textValue = rawText.trim();
+            if (textValue) {
+                const textParagraph = document.createElement('p');
+                textParagraph.className = 'message-text';
+                textParagraph.textContent = rawText;
+                content.appendChild(textParagraph);
+            }
+
+            const sharePayload = msg.sharePayload || (msg.messageType === 'review-share' ? msg.payload : null);
+            if (msg.messageType === 'review-share' && sharePayload) {
+                const shareCard = createSharedReviewCard(sharePayload, isOwnMessage);
+                if (shareCard) {
+                    content.appendChild(shareCard);
+                    bubble.classList.add('has-shared-card');
+                }
+            }
+
+            if (content.children.length) {
+                bubble.appendChild(content);
+            }
 
             const meta = document.createElement('span');
             meta.className = 'message-meta';
-            const isOwnMessage = msg.senderId === currentUser.uid;
             const senderLabel = isOwnMessage ? 'Tu' : (msg.senderProfile?.displayName || msg.senderProfile?.username || 'Usuario');
             const timeLabel = msg.createdAt ? formatRelativeTime(msg.createdAt) : '';
             meta.textContent = timeLabel ? `${senderLabel} - ${timeLabel}` : senderLabel;
