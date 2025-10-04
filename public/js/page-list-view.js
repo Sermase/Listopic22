@@ -10,9 +10,14 @@ ListopicApp.pageListView = (() => {
     let listTitleElement, reviewsGridContainer, searchInput, tagFilterContainer,
     addReviewButton, editListLink, deleteListButton, showMapModalBtn,
     followListBtn,
-    mapModal, closeMapModalBtn, mapContainer, listMapInstance;
+    mapModal, closeMapModalBtn, mapContainer, mapFiltersBtn, mapCenterUserBtn, listMapInstance;
 
     let markersMap = new Map();
+    let basePlacesForMap = [];
+    let filteredPlaceIdsForMap = new Set();
+    let filteredGroupsForMap = [];
+    let shouldShowAllPlacesOnMap = true;
+    let userLocationMarker = null;
     let forumModal, closeModalForumBtn, forumListNameSpan, forumMessagesContainer,
         newForumMessageInput, sendForumMessageBtn, messagesCollectionRef;
 
@@ -221,7 +226,9 @@ ListopicApp.pageListView = (() => {
                 return valA < valB ? 1 : -1;
             }
         });
+        updateFilteredPlacesForMap(filteredItems);
         renderReviewCards(filteredItems);
+        refreshMapMarkers();
     }
     
     function toggleTagFilter_ListView_Grouped(event) {
@@ -280,15 +287,8 @@ ListopicApp.pageListView = (() => {
         }).addTo(listMapInstance);
 
         // El resto de la función se mantiene igual (geolocalización, etc.)
-        navigator.geolocation.getCurrentPosition(pos => {
-            const userLatLng = [pos.coords.latitude, pos.coords.longitude];
-            const userIcon = L.divIcon({ html: userLocationIconSvg, className: '', iconSize: [48, 48], iconAnchor: [24, 24] });
-            L.marker(userLatLng, { icon: userIcon }).addTo(listMapInstance).bindPopup('¡Estás aquí!');
-            listMapInstance.setView(userLatLng, 13);
-        }, () => {
-            ListopicApp.services.showNotification("No se pudo obtener tu ubicación.", "warn");
-        });
-        
+        recenterMapToUser({ silent: true });
+
         fetchPlacesForCurrentList();
 
         document.addEventListener('themeChanged', handleThemeChangeOnMap);
@@ -307,9 +307,38 @@ ListopicApp.pageListView = (() => {
     function handleThemeChangeOnMap(event) {
         if (!listMapInstance || !currentTileLayer) return;
         const newTheme = event.detail.theme; // 'light' o 'dark'
-        
+
         // Cambiamos la URL de la capa del mapa actual. Es más eficiente que quitar y poner.
         currentTileLayer.setUrl(tileLayers[newTheme]);
+    }
+
+    function setUserLocationMarker(lat, lng, options = {}) {
+        if (!listMapInstance || typeof lat !== 'number' || typeof lng !== 'number') return;
+        const { recenter = false } = options;
+        const userLatLng = [lat, lng];
+        if (!userLocationMarker) {
+            const userIcon = L.divIcon({ html: userLocationIconSvg, className: '', iconSize: [48, 48], iconAnchor: [24, 24] });
+            userLocationMarker = L.marker(userLatLng, { icon: userIcon }).addTo(listMapInstance).bindPopup('¡Estás aquí!');
+        } else {
+            userLocationMarker.setLatLng(userLatLng);
+        }
+        if (recenter) {
+            const currentZoom = listMapInstance.getZoom();
+            const targetZoom = currentZoom < 13 ? 13 : currentZoom;
+            listMapInstance.setView(userLatLng, targetZoom);
+        }
+    }
+
+    function recenterMapToUser({ silent = false } = {}) {
+        if (!navigator.geolocation) {
+            if (!silent) ListopicApp.services?.showNotification?.("Tu navegador no permite obtener tu ubicación automáticamente.", "warn");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(pos => {
+            setUserLocationMarker(pos.coords.latitude, pos.coords.longitude, { recenter: true });
+        }, () => {
+            if (!silent) ListopicApp.services?.showNotification?.("No se pudo obtener tu ubicación.", "warn");
+        });
     }
     async function fetchPlacesForCurrentList() {
         const listId = ListopicApp.state.currentListId;
@@ -325,19 +354,72 @@ ListopicApp.pageListView = (() => {
     }
 
     // Devuelve top 3 elementos por lugar desde el estado si no vienen desde backend
-    function topItemsFromState(placeId) {
+    function topItemsFromState(placeId, options = {}) {
+        const { limit = 3 } = options;
         try {
-            const groups = (ListopicApp.state?._allGroupedItemsBase || []).filter(g => g.placeId === placeId);
-            if (!groups.length) return [];
-            return groups
-                .map(g => ({ name: g.itemName || 'General', avg: g.avgGeneralScore || 0, count: g.itemCount }))
-                .sort((a,b) => (b.avg || 0) - (a.avg || 0))
-                .slice(0, 3);
-        } catch(e) { return []; }
+            const sources = [];
+            if (Array.isArray(filteredGroupsForMap) && filteredGroupsForMap.length) {
+                sources.push(filteredGroupsForMap);
+            }
+            sources.push(ListopicApp.state?._allGroupedItemsBase || []);
+
+            for (const source of sources) {
+                if (!Array.isArray(source) || source.length === 0) continue;
+                const groups = source.filter(g => g.placeId === placeId);
+                if (!groups.length) continue;
+                return groups
+                    .map(g => ({
+                        name: g.itemName || 'General',
+                        avg: typeof g.avgGeneralScore === 'number' ? g.avgGeneralScore : 0,
+                        count: g.itemCount || 0
+                    }))
+                    .sort((a, b) => {
+                        if ((b.avg || 0) === (a.avg || 0)) {
+                            return (b.count || 0) - (a.count || 0);
+                        }
+                        return (b.avg || 0) - (a.avg || 0);
+                    })
+                    .slice(0, limit);
+            }
+        } catch(e) { /* noop */ }
+        return [];
     }
 
-    function addPlacesToMap(places) {
-        if (!listMapInstance || !places) return;
+    function updateFilteredPlacesForMap(filteredGroups) {
+        filteredGroupsForMap = Array.isArray(filteredGroups) ? filteredGroups : [];
+        const ids = filteredGroupsForMap
+            .map(group => group.placeId)
+            .filter(placeId => typeof placeId === 'string' && placeId);
+        filteredPlaceIdsForMap = new Set(ids);
+        const baseGroups = ListopicApp.state?._allGroupedItemsBase || [];
+        shouldShowAllPlacesOnMap = filteredGroupsForMap.length === baseGroups.length;
+        ListopicApp.state.currentFilteredGroupsForMap = filteredGroupsForMap;
+    }
+
+    function resolveItemsForPlace(place) {
+        const fromState = topItemsFromState(place.id, { limit: 3 });
+        if (fromState.length) return fromState;
+        if (Array.isArray(place.topItems) && place.topItems.length) {
+            return place.topItems
+                .map(item => ({
+                    name: item.name || 'General',
+                    avg: typeof item.avgGeneralScore === 'number' ? item.avgGeneralScore : 0,
+                    count: item.itemCount || 0
+                }))
+                .sort((a, b) => {
+                    if ((b.avg || 0) === (a.avg || 0)) {
+                        return (b.count || 0) - (a.count || 0);
+                    }
+                    return (b.avg || 0) - (a.avg || 0);
+                })
+                .slice(0, 3);
+        }
+        return [];
+    }
+
+    function renderPlacesOnMap(places) {
+        if (!listMapInstance || !Array.isArray(places)) return;
+
         markersMap.forEach(marker => marker.remove());
         markersMap.clear();
 
@@ -346,10 +428,13 @@ ListopicApp.pageListView = (() => {
         const markers = [];
         places.forEach(place => {
             if (place.location?.latitude && place.location?.longitude) {
-                const customIcon = getIconByScore(place.avgGeneralScore);
+                const items = resolveItemsForPlace(place);
+                const highestScore = items.length > 0
+                    ? (items[0].avg || 0)
+                    : (typeof place.bestItemScore === 'number' ? place.bestItemScore : (place.avgGeneralScore || 0));
+                const customIcon = getIconByScore(highestScore);
                 const marker = L.marker([place.location.latitude, place.location.longitude], { icon: customIcon });
-                
-                const items = Array.isArray(place.items) && place.items.length ? place.items.slice(0, 3) : topItemsFromState(place.id);
+
                 const itemsHtml = items.length ? `
                     <div class="popup-items">
                         ${items.map(it => `
@@ -370,7 +455,6 @@ ListopicApp.pageListView = (() => {
                 </div>
                 `;
                 marker.bindPopup(popupContent);
-                // Clic: abrir popup y reflejar en la URL que el mapa está abierto
                 marker.on('click', () => {
                     try {
                         const center = listMapInstance.getCenter();
@@ -378,10 +462,9 @@ ListopicApp.pageListView = (() => {
                         setMapParamsInUrl(true, center, zoom);
                     } catch(e) {}
                 });
-                // Doble clic en el pin abre directamente la página del lugar
                 marker.on('dblclick', () => { window.location.href = `place-detail.html?placeId=${place.id}`; });
                 markers.push(marker);
-                markersMap.set(place.id, marker); 
+                markersMap.set(place.id, marker);
             }
         });
 
@@ -391,6 +474,19 @@ ListopicApp.pageListView = (() => {
                  listMapInstance.fitBounds(featureGroup.getBounds()).pad(0.1);
             }
         }
+    }
+
+    function refreshMapMarkers() {
+        if (!listMapInstance) return;
+        const places = shouldShowAllPlacesOnMap
+            ? basePlacesForMap.slice()
+            : basePlacesForMap.filter(place => filteredPlaceIdsForMap.has(place.id));
+        renderPlacesOnMap(places);
+    }
+
+    function addPlacesToMap(places) {
+        basePlacesForMap = Array.isArray(places) ? places : [];
+        refreshMapMarkers();
     }
 
     // En public/js/page-list-view.js
@@ -603,6 +699,8 @@ showMapModalBtn = document.getElementById('show-map-modal-btn');
 mapModal = document.getElementById('list-map-modal');
 closeMapModalBtn = document.getElementById('close-map-modal-btn');
 mapContainer = document.getElementById('list-map-container');
+mapFiltersBtn = document.getElementById('map-filters-btn');
+mapCenterUserBtn = document.getElementById('map-center-user-btn');
 
 // Reinicio de estado de la página (se mantiene igual)
 state.allGroupedItems = []; 
@@ -718,6 +816,14 @@ function openFiltersModal(){ if(extraFiltersModal) extraFiltersModal.style.displ
 function closeFiltersModal(){ if(extraFiltersModal) extraFiltersModal.style.display='none'; }
 
 showFiltersBtn && showFiltersBtn.addEventListener('click', openFiltersModal);
+mapFiltersBtn && mapFiltersBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    openFiltersModal();
+});
+mapCenterUserBtn && mapCenterUserBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    recenterMapToUser();
+});
 btnFiltersCancel && btnFiltersCancel.addEventListener('click', (e)=>{ e.preventDefault(); closeFiltersModal(); });
 btnFiltersClear && btnFiltersClear.addEventListener('click', (e)=>{
     e.preventDefault();

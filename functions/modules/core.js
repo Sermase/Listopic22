@@ -1104,17 +1104,29 @@ const getPlacesForList = onCall({cors: true}, async (request) => {
 
         reviewsSnapshot.forEach(doc => {
             const review = doc.data();
-            if (review.placeId) {
-                if (!placesAggregates[review.placeId]) {
-                    placesAggregates[review.placeId] = {
-                        totalScore: 0,
-                        count: 0,
-                        placeId: review.placeId
-                    };
-                }
-                placesAggregates[review.placeId].totalScore += review.overallRating || 0;
-                placesAggregates[review.placeId].count++;
+            const placeId = review.placeId;
+            if (!placeId) return;
+
+            if (!placesAggregates[placeId]) {
+                placesAggregates[placeId] = {
+                    totalScore: 0,
+                    count: 0,
+                    placeId,
+                    items: new Map()
+                };
             }
+
+            const aggregate = placesAggregates[placeId];
+            const overallRating = typeof review.overallRating === 'number' ? review.overallRating : 0;
+            aggregate.totalScore += overallRating;
+            aggregate.count++;
+
+            const rawItemName = typeof review.itemName === 'string' ? review.itemName.trim() : '';
+            const itemName = rawItemName || 'General';
+            const itemAggregate = aggregate.items.get(itemName) || { total: 0, count: 0, name: itemName };
+            itemAggregate.total += overallRating;
+            itemAggregate.count += 1;
+            aggregate.items.set(itemName, itemAggregate);
         });
 
         const placeIds = Object.keys(placesAggregates);
@@ -1130,13 +1142,34 @@ const getPlacesForList = onCall({cors: true}, async (request) => {
             const aggregate = placesAggregates[doc.id];
             
             if (place.location && place.location.latitude && place.location.longitude) {
+                const itemAverages = Array.from(aggregate.items.values()).map(itemAgg => {
+                    const avg = itemAgg.count > 0 ? Number((itemAgg.total / itemAgg.count).toFixed(1)) : 0;
+                    return {
+                        name: itemAgg.name,
+                        avgGeneralScore: avg,
+                        itemCount: itemAgg.count
+                    };
+                }).sort((a, b) => {
+                    if ((b.avgGeneralScore || 0) === (a.avgGeneralScore || 0)) {
+                        return (b.itemCount || 0) - (a.itemCount || 0);
+                    }
+                    return (b.avgGeneralScore || 0) - (a.avgGeneralScore || 0);
+                });
+
+                const topItems = itemAverages.slice(0, 3);
+                const bestItemScore = topItems.length > 0 ? topItems[0].avgGeneralScore : 0;
+                const avgGeneralScore = aggregate.count > 0
+                    ? Number((aggregate.totalScore / aggregate.count).toFixed(1))
+                    : 0;
+
                 placesForMap.push({
                     id: doc.id,
                     name: place.name,
                     location: place.location,
                     mainImageUrl: place.mainImageUrl || null,
-                    // Â¡AÃ‘ADIMOS LA PUNTUACIÃ“N MEDIA!
-                    avgGeneralScore: (aggregate.totalScore / aggregate.count)
+                    avgGeneralScore,
+                    bestItemScore,
+                    topItems
                 });
             }
         });
