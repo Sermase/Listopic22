@@ -8,6 +8,78 @@ window.ListopicApp.state.categoryCache = window.ListopicApp.state.categoryCache 
 
 
 ListopicApp.uiUtils = {
+    createAutomationSlug: function(value) {
+        if (value === undefined || value === null) {
+            return '';
+        }
+        return String(value)
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    },
+
+    generateAutomationId: function(prefix, ...parts) {
+        const slugParts = parts
+            .map(part => this.createAutomationSlug(part))
+            .filter(Boolean);
+        const base = this.createAutomationSlug(prefix) || 'id';
+        return [base, ...slugParts].join('-');
+    },
+
+    buildInteractiveTag: function({
+        text = '',
+        iconClass = '',
+        tagType = 'meta',
+        value = '',
+        entityType = '',
+        entityId = '',
+        extraClasses = '',
+        testIdPrefix = 'tag'
+    } = {}) {
+        const textString = text === undefined || text === null ? '' : String(text);
+        const rawValue = value === undefined || value === null ? (textString || tagType) : String(value);
+        const safeText = this.escapeHtml(textString);
+        const slugEntity = entityType || 'generic';
+        const dataTestId = this.generateAutomationId(
+            testIdPrefix,
+            slugEntity,
+            tagType || 'meta',
+            rawValue || 'value'
+        );
+        const classNames = ['info-tag'];
+        if (extraClasses) {
+            classNames.push(extraClasses);
+        }
+
+        const iconHtml = iconClass
+            ? `<i class="${this.escapeHtml(iconClass)}" aria-hidden="true"></i>`
+            : '';
+        const entityTypeAttr = entityType
+            ? ` data-entity-type="${this.escapeHtml(String(entityType))}"`
+            : '';
+        const entityIdAttr = entityId !== undefined && entityId !== null && entityId !== ''
+            ? ` data-entity-id="${this.escapeHtml(String(entityId))}"`
+            : '';
+
+        return `
+            <span
+                class="${classNames.join(' ').trim()}"
+                role="button"
+                tabindex="0"
+                data-interactive="true"
+                data-selected="false"
+                data-tag-type="${this.escapeHtml(String(tagType))}"
+                data-tag-value="${this.escapeHtml(rawValue)}"
+                data-testid="${dataTestId}"
+                aria-pressed="false"${entityTypeAttr}${entityIdAttr}
+            >
+                ${iconHtml}<span class="info-tag__label">${safeText}</span>
+            </span>
+        `.trim();
+    },
+
     // NUEVA FUNCIÓN PARA OBTENER ICONOS DE FORMA EFICIENTE
     getListIcon: async function(list) {
         const defaultIcon = 'fa-solid fa-list';
@@ -384,7 +456,17 @@ createListViewGroupCard: function(group, listData, listIcon) {
     let tagsHtml = '';
     // CORRECCIÓN: Usamos group.groupTags que es el campo correcto que viene del backend
     if (group.groupTags && group.groupTags.length > 0) {
-        tagsHtml = `<div class="review-list-card__tags">${group.groupTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>`;
+        const tags = group.groupTags.map(tag => uiUtils.buildInteractiveTag({
+            text: tag,
+            iconClass: 'fas fa-tag',
+            tagType: 'group-tag',
+            value: tag,
+            entityType: 'grouped-item',
+            entityId: group.groupId || `${group.listId || 'list'}-${group.placeId || 'place'}-${group.itemName || tag}`,
+            extraClasses: 'info-tag--category',
+            testIdPrefix: 'group-tag'
+        })).join('');
+        tagsHtml = `<div class="review-list-card__tags">${tags}</div>`;
     }
 
     // Imagen (tu lógica se mantiene)
@@ -393,22 +475,26 @@ createListViewGroupCard: function(group, listData, listIcon) {
         : `<div class="review-list-card__icon-placeholder"><i class="${listIcon || 'fas fa-camera'}"></i></div>`;
 
     // --- ¡MEJORA! Creamos el nuevo botón del mapa ---
-    const mapLinkHtml = group.googleMapsUrl 
-        ? `<a href="${uiUtils.escapeHtml(group.googleMapsUrl)}" class="score-container__map-link" target="_blank" onclick="event.stopPropagation()">
-               <i class="fas fa-map-marked-alt"></i>
+    const mapLinkTestId = uiUtils.generateAutomationId('map-link', group.placeId || group.establishmentName || group.itemName || 'map');
+    const mapLinkHtml = group.googleMapsUrl
+        ? `<a href="${uiUtils.escapeHtml(group.googleMapsUrl)}" class="score-container__map-link" target="_blank" rel="noopener" data-testid="${mapLinkTestId}" data-entity-type="place" data-entity-id="${uiUtils.escapeHtml(String(group.placeId || ''))}" onclick="event.stopPropagation()">
+               <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
                <span>Mapa</span>
            </a>`
         : '';
 
     // --- HTML FINAL DE LA TARJETA ---
+    const cardAutomationId = uiUtils.generateAutomationId('list-view-card', group.listId || 'list', group.placeId || 'place', group.itemName || group.establishmentName || 'item');
+    const safeGroupId = uiUtils.escapeHtml(String(group.groupId || `${group.listId || 'list'}-${group.placeId || 'place'}-${group.itemName || 'item'}`));
+
     return `
-        <div class="review-list-card" onclick="window.location.href='${detailUrl}'">
+        <article class="review-list-card" role="button" tabindex="0" data-testid="${cardAutomationId}" data-entity-type="grouped-item" data-entity-id="${safeGroupId}" data-list-id="${uiUtils.escapeHtml(String(group.listId || ''))}" data-place-id="${uiUtils.escapeHtml(String(group.placeId || ''))}" data-item-name="${uiUtils.escapeHtml(String(group.itemName || group.establishmentName || ''))}" onclick="window.location.href='${detailUrl}'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='${detailUrl}';}">
             <div class="review-list-card__image-container">${imageHtml}</div>
             <div class="review-list-card__main-content">
                 <h4 class="review-list-card__title">${uiUtils.escapeHtml(group.itemName || group.establishmentName)}</h4>
                 <div class="review-list-card__subtitle">
                     <span>${group.itemName ? uiUtils.escapeHtml(group.establishmentName) : ''}</span>
-                    
+
                     </div>
                 <div class="review-list-card__criteria-section">
                     ${criteriaHtml}
@@ -425,7 +511,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
                 ${mapLinkHtml}
 
             </div>
-        </div>
+        </article>
     `;
 },
     
@@ -572,18 +658,48 @@ createListViewGroupCard: function(group, listData, listIcon) {
     // ==========================================================
 
     createListCard: function(listData, id) {
-        const creatorName = this.escapeHtml(listData.authorName || listData.ownerName || 'Anonimo');
+        const creatorName = listData.authorName || listData.ownerName || 'Anonimo';
+        const rawId = id ?? listData.objectID ?? '';
+        const safeId = this.escapeHtml(String(rawId));
+        const cardTestId = this.generateAutomationId('search-card', 'list', rawId || listData.slug || listData.name);
+        const typeTag = this.buildInteractiveTag({
+            text: 'Lista',
+            iconClass: 'fas fa-stream',
+            tagType: 'type',
+            value: 'list',
+            entityType: 'list',
+            entityId: id,
+            extraClasses: 'info-tag--list'
+        });
+        const ownerTag = this.buildInteractiveTag({
+            text: creatorName,
+            iconClass: 'fas fa-user',
+            tagType: 'owner',
+            value: listData.authorId || listData.ownerId || creatorName,
+            entityType: 'list',
+            entityId: id
+        });
+        const reviewsTag = this.buildInteractiveTag({
+            text: `${listData.reviewCount || 0} reseñas`,
+            iconClass: 'fas fa-pencil-alt',
+            tagType: 'reviews',
+            value: listData.reviewCount || 0,
+            entityType: 'list',
+            entityId: id,
+            extraClasses: 'info-tag--reviews'
+        });
+
         return `
-            <a href="list-view.html?listId=${id}" class="search-card">
+            <a href="list-view.html?listId=${safeId}" class="search-card" data-testid="${cardTestId}" data-entity-type="list" data-entity-id="${safeId}">
                 <div class="search-card__icon-container">
-                    <i class="fas fa-list-alt"></i>
+                    <i class="fas fa-list-alt" aria-hidden="true"></i>
                 </div>
                 <div class="search-card__content">
                     <h4 class="search-card__title">${this.escapeHtml(listData.name)}</h4>
                     <div class="search-card__tags">
-                        <span class="info-tag info-tag--list"><i class="fas fa-stream"></i> Lista</span>
-                        <span class="info-tag"><i class="fas fa-user"></i> ${creatorName}</span>
-                        <span class="info-tag"><i class="fas fa-pencil-alt"></i> ${listData.reviewCount || 0} rese\u00f1as</span>
+                        ${typeTag}
+                        ${ownerTag}
+                        ${reviewsTag}
                     </div>
                 </div>
             </a>
@@ -593,19 +709,49 @@ createListViewGroupCard: function(group, listData, listIcon) {
     createUserCard: function(userData, id) {
         const photoHtml = userData.photoUrl
             ? `<img src="${this.escapeHtml(userData.photoUrl)}" alt="Avatar de ${this.escapeHtml(userData.username)}">`
-            : '<i class="fas fa-user"></i>';
+            : '<i class="fas fa-user" aria-hidden="true"></i>';
+        const rawId = id ?? userData.id ?? '';
+        const safeId = this.escapeHtml(String(rawId));
+        const cardTestId = this.generateAutomationId('search-card', 'user', rawId || userData.username || userData.displayName);
+        const typeTag = this.buildInteractiveTag({
+            text: 'Usuario',
+            iconClass: 'fas fa-user',
+            tagType: 'type',
+            value: 'user',
+            entityType: 'user',
+            entityId: id,
+            extraClasses: 'info-tag--user'
+        });
+        const listsTag = this.buildInteractiveTag({
+            text: `${userData.publicListsCount || 0} listas`,
+            iconClass: 'fas fa-list-alt',
+            tagType: 'lists',
+            value: userData.publicListsCount || 0,
+            entityType: 'user',
+            entityId: id,
+            extraClasses: 'info-tag--lists'
+        });
+        const reviewsTag = this.buildInteractiveTag({
+            text: `${userData.reviewsCount || 0} reseñas`,
+            iconClass: 'fas fa-star',
+            tagType: 'reviews',
+            value: userData.reviewsCount || 0,
+            entityType: 'user',
+            entityId: id,
+            extraClasses: 'info-tag--reviews'
+        });
 
         return `
-            <a href="profile.html?viewUserId=${id}" class="search-card">
+            <a href="profile.html?viewUserId=${safeId}" class="search-card" data-testid="${cardTestId}" data-entity-type="user" data-entity-id="${safeId}">
                 <div class="search-card__icon-container">
                     ${photoHtml}
                 </div>
                 <div class="search-card__content">
                     <h4 class="search-card__title">${this.escapeHtml(userData.displayName || userData.username)}</h4>
                     <div class="search-card__tags">
-                        <span class="info-tag info-tag--user"><i class="fas fa-user"></i> Usuario</span>
-                        <span class="info-tag"><i class="fas fa-list-alt"></i> ${userData.publicListsCount || 0} listas</span>
-                        <span class="info-tag"><i class="fas fa-star"></i> ${userData.reviewsCount || 0} reseñas</span>
+                        ${typeTag}
+                        ${listsTag}
+                        ${reviewsTag}
                     </div>
                 </div>
             </a>
@@ -613,16 +759,40 @@ createListViewGroupCard: function(group, listData, listIcon) {
     },
 
     createPlaceCard: function(placeData, id) {
+        const rawId = id ?? placeData.id ?? '';
+        const safeId = this.escapeHtml(String(rawId));
+        const cardTestId = this.generateAutomationId('search-card', 'place', rawId || placeData.name);
+        const typeTag = this.buildInteractiveTag({
+            text: 'Lugar',
+            iconClass: 'fas fa-map-pin',
+            tagType: 'type',
+            value: 'place',
+            entityType: 'place',
+            entityId: id,
+            extraClasses: 'info-tag--place'
+        });
+        const addressTag = placeData.address
+            ? this.buildInteractiveTag({
+                  text: placeData.address,
+                  iconClass: 'fas fa-location-arrow',
+                  tagType: 'address',
+                  value: placeData.address,
+                  entityType: 'place',
+                  entityId: id,
+                  extraClasses: 'info-tag--location'
+              })
+            : '';
+
         return `
-            <a href="place-detail.html?placeId=${id}" class="search-card">
+            <a href="place-detail.html?placeId=${safeId}" class="search-card" data-testid="${cardTestId}" data-entity-type="place" data-entity-id="${safeId}">
                 <div class="search-card__icon-container">
-                    <i class="fas fa-map-marker-alt"></i>
+                    <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
                 </div>
                 <div class="search-card__content">
                     <h4 class="search-card__title">${this.escapeHtml(placeData.name)}</h4>
                     <div class="search-card__tags">
-                        <span class="info-tag info-tag--place"><i class="fas fa-map-pin"></i> Lugar</span>
-                         ${placeData.address ? `<span class="info-tag">${this.escapeHtml(placeData.address)}</span>` : ''}
+                        ${typeTag}
+                        ${addressTag}
                     </div>
                 </div>
             </a>
@@ -634,14 +804,52 @@ createListViewGroupCard: function(group, listData, listIcon) {
         const ratingValue = typeof itemData.avgGeneralScore === 'number'
             ? itemData.avgGeneralScore
             : (typeof itemData.averageRating === 'number' ? itemData.averageRating : null);
+        const safeListId = itemData.listId || itemData.listSlug || '';
+        const safePlaceId = itemData.placeId || '';
+        const entityAutomationId = itemData.objectID || `${safeListId}-${safePlaceId}` || itemData.itemName || 'item';
+        const safeEntityId = uiUtils.escapeHtml(String(entityAutomationId));
+        const typeTag = uiUtils.buildInteractiveTag({
+            text: 'Elemento',
+            iconClass: 'fas fa-box-open',
+            tagType: 'type',
+            value: 'item',
+            entityType: 'item',
+            entityId: entityAutomationId,
+            extraClasses: 'info-tag--item',
+            testIdPrefix: 'tag'
+        });
         const ratingTag = ratingValue !== null
-            ? `<span class="info-tag info-tag--rating"><i class="fas fa-star"></i> ${ratingValue.toFixed(1)}/10</span>`
+            ? uiUtils.buildInteractiveTag({
+                  text: `${ratingValue.toFixed(1)}/10`,
+                  iconClass: 'fas fa-star',
+                  tagType: 'rating',
+                  value: ratingValue,
+                  entityType: 'item',
+                  entityId: entityAutomationId,
+                  extraClasses: 'info-tag--rating'
+              })
             : '';
         const listTag = itemData.listName
-            ? `<span class="info-tag"><i class="fas fa-list"></i> ${uiUtils.escapeHtml(itemData.listName)}</span>`
+            ? uiUtils.buildInteractiveTag({
+                  text: itemData.listName,
+                  iconClass: 'fas fa-list',
+                  tagType: 'list',
+                  value: safeListId || itemData.listName,
+                  entityType: 'item',
+                  entityId: entityAutomationId,
+                  extraClasses: 'info-tag--list'
+              })
             : '';
         const cityTag = itemData.placeCity
-            ? `<span class="info-tag"><i class="fas fa-city"></i> ${uiUtils.escapeHtml(itemData.placeCity)}</span>`
+            ? uiUtils.buildInteractiveTag({
+                  text: itemData.placeCity,
+                  iconClass: 'fas fa-city',
+                  tagType: 'city',
+                  value: itemData.placeCity,
+                  entityType: 'item',
+                  entityId: entityAutomationId,
+                  extraClasses: 'info-tag--location'
+              })
             : '';
 
         const params = [];
@@ -656,16 +864,18 @@ createListViewGroupCard: function(group, listData, listIcon) {
         }
         const detailHref = `grouped-detail-view.html${params.length ? `?${params.join('&')}` : ''}`;
 
+        const cardTestId = uiUtils.generateAutomationId('search-card', 'item', entityAutomationId || itemData.itemName || safeListId);
+
         return `
-            <a href="${detailHref}" class="search-card search-card--item">
+            <a href="${detailHref}" class="search-card search-card--item" data-testid="${cardTestId}" data-entity-type="item" data-entity-id="${safeEntityId}">
                 <div class="search-card__icon-container">
-                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star" aria-hidden="true"></i>
                 </div>
                 <div class="search-card__content">
                     <h4 class="search-card__title">${uiUtils.escapeHtml(itemData.itemName || 'Elemento sin nombre')}</h4>
                     <p class="search-card__subtitle">${uiUtils.escapeHtml(itemData.establishmentName || '')}</p>
                     <div class="search-card__tags">
-                        <span class="info-tag info-tag--item"><i class="fas fa-box-open"></i> Elemento</span>
+                        ${typeTag}
                         ${listTag}
                         ${cityTag}
                         ${ratingTag}
@@ -739,5 +949,39 @@ createListViewGroupCard: function(group, listData, listIcon) {
         });
     }
 };
+
+
+(function registerInteractiveTagHandlers() {
+    if (window.__ListopicInteractiveTagsInitialized) {
+        return;
+    }
+    window.__ListopicInteractiveTagsInitialized = true;
+
+    function toggleTagSelection(tagEl) {
+        const currentState = tagEl.getAttribute('aria-pressed') === 'true';
+        const nextState = !currentState;
+        tagEl.setAttribute('aria-pressed', String(nextState));
+        tagEl.dataset.selected = String(nextState);
+    }
+
+    document.addEventListener('click', (event) => {
+        const tagEl = event.target.closest('.info-tag[data-interactive="true"]');
+        if (!tagEl) {
+            return;
+        }
+        toggleTagSelection(tagEl);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        const tagEl = event.target.closest('.info-tag[data-interactive="true"]');
+        if (!tagEl) {
+            return;
+        }
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleTagSelection(tagEl);
+        }
+    });
+})();
 
 

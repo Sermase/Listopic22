@@ -3040,6 +3040,32 @@ body.light-theme .filters-clear-btn:not(:disabled):hover {
     font-weight: 500;
     line-height: 1.4;
     color: var(--secondary-text-color, rgba(224, 224, 224, 0.7));
+    border: 1px solid transparent;
+    cursor: default;
+}
+
+.info-tag__label {
+    display: inline;
+}
+
+.info-tag[data-interactive="true"] {
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.info-tag[data-interactive="true"]:hover,
+.info-tag[data-interactive="true"]:focus-visible {
+    border-color: rgba(var(--accent-color-primary-rgb), 0.4);
+    box-shadow: 0 0 0 2px rgba(var(--accent-color-primary-rgb), 0.2);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.info-tag[data-selected="true"],
+.info-tag[aria-pressed="true"] {
+    border-color: rgba(var(--accent-color-primary-rgb), 0.7);
+    background-color: rgba(var(--accent-color-primary-rgb), 0.15);
+    color: var(--accent-color-primary, #118ab2);
 }
 
 .info-tag i {
