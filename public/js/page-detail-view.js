@@ -736,15 +736,6 @@ ListopicApp.pageDetailView = (() => {
             ? ListopicApp.storyShare.getDefaultCustomization()
             : { ...STORY_DEFAULT_CUSTOMIZATION };
 
-            colorScheme: (shareColorSchemeSelect && shareColorSchemeSelect.value) || defaultStoryCustomization.colorScheme,
-            graphicStyle: (shareGraphicStyleSelect && shareGraphicStyleSelect.value) || defaultStoryCustomization.graphicStyle
-        if (shareColorSchemeSelect && !shareColorSchemeSelect.value) {
-            shareColorSchemeSelect.value = shareCustomization.colorScheme;
-        }
-        if (shareGraphicStyleSelect && !shareGraphicStyleSelect.value) {
-            shareGraphicStyleSelect.value = shareCustomization.graphicStyle;
-        }
-
         const detailScoreValueEl = document.getElementById('detail-score-value');
         const detailRatingsListEl = document.getElementById('detail-ratings');
         const detailLocationLinkEl = document.getElementById('detail-location-link');
@@ -756,6 +747,8 @@ ListopicApp.pageDetailView = (() => {
         const detailTagsContainerEl = document.getElementById('detail-tags-container');
         const detailTagsDivEl = document.getElementById('detail-tags');
         const detailListNameEl = document.getElementById('detail-list-name');
+        const reviewAuthorNameEl = document.getElementById('review-author-name');
+        const detailImageEl = document.getElementById('detail-image');
 
         const backButton = document.querySelector('.container a.back-button');
         const editButton = document.querySelector('.edit-button');
@@ -770,10 +763,43 @@ ListopicApp.pageDetailView = (() => {
         const shareButtonOriginalHTML = shareButton ? shareButton.innerHTML : '';
         const showNotification = ListopicApp.services?.showNotification;
 
-        const shareCustomization = {
-            colorScheme: (shareColorSchemeSelect && shareColorSchemeSelect.value) || 'midnight',
-            graphicStyle: (shareGraphicStyleSelect && shareGraphicStyleSelect.value) || 'bars'
-        };
+        const shareCustomization = { ...defaultStoryCustomization };
+
+        function populateCustomizationOptions() {
+            if (shareColorSchemeSelect && ListopicApp.storyShare?.getColorSchemeOptions) {
+                const previousValue = shareColorSchemeSelect.value;
+                shareColorSchemeSelect.innerHTML = '';
+                ListopicApp.storyShare.getColorSchemeOptions().forEach(({ value, label }) => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = label;
+                    shareColorSchemeSelect.appendChild(option);
+                });
+                shareColorSchemeSelect.value = previousValue || shareCustomization.colorScheme;
+            }
+            if (shareGraphicStyleSelect && ListopicApp.storyShare?.getGraphicStyleOptions) {
+                const previousValue = shareGraphicStyleSelect.value;
+                shareGraphicStyleSelect.innerHTML = '';
+                ListopicApp.storyShare.getGraphicStyleOptions().forEach(({ value, label }) => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = label;
+                    shareGraphicStyleSelect.appendChild(option);
+                });
+                shareGraphicStyleSelect.value = previousValue || shareCustomization.graphicStyle;
+            }
+        }
+
+        populateCustomizationOptions();
+
+        if (shareColorSchemeSelect) {
+            shareColorSchemeSelect.value = shareColorSchemeSelect.value || shareCustomization.colorScheme;
+            shareCustomization.colorScheme = shareColorSchemeSelect.value;
+        }
+        if (shareGraphicStyleSelect) {
+            shareGraphicStyleSelect.value = shareGraphicStyleSelect.value || shareCustomization.graphicStyle;
+            shareCustomization.graphicStyle = shareGraphicStyleSelect.value;
+        }
 
         if (shareCustomizationContainer) {
             shareCustomizationContainer.hidden = true;
@@ -782,6 +808,19 @@ ListopicApp.pageDetailView = (() => {
 
         let shareAssetsReady = false;
         const shareContext = { review: null, list: null, place: null, author: null };
+        let shareCriteriaDefinitions = {};
+        let currentDownloadUrl = null;
+
+        function cleanupDownloadUrl() {
+            if (currentDownloadUrl) {
+                URL.revokeObjectURL(currentDownloadUrl);
+                currentDownloadUrl = null;
+            }
+            if (shareDownloadLink) {
+                shareDownloadLink.removeAttribute('href');
+                shareDownloadLink.style.display = 'none';
+            }
+        }
 
         function setShareStatus(message, type = 'info') {
             if (!shareStatusEl) return;
@@ -814,7 +853,7 @@ ListopicApp.pageDetailView = (() => {
             }
             const currentClass = shareStatusEl.className || '';
             if (shareStatusEl.hidden || (!currentClass.includes('success') && !currentClass.includes('error'))) {
-                setShareStatus('Aplicaremos los nuevos ajustes en la proxima tarjeta.', 'info');
+                setShareStatus('Aplicaremos los nuevos ajustes en la próxima tarjeta.', 'info');
             }
         }
 
@@ -842,6 +881,7 @@ ListopicApp.pageDetailView = (() => {
             shareButton.removeAttribute('aria-busy');
             if (shareHelperEl) shareHelperEl.hidden = false;
             if (shareCustomizationContainer) shareCustomizationContainer.hidden = false;
+            cleanupDownloadUrl();
             setCustomizationControlsDisabled(false);
             setShareStatus('Personaliza la tarjeta y compártela en Instagram Stories.', 'info');
         }
@@ -854,30 +894,55 @@ ListopicApp.pageDetailView = (() => {
             }
 
             toggleShareLoading(true);
-                const fileName = `listopic-story-${shareContext.review?.id || 'reseña'}.png`;
-                const shareTitle = `Mi reseña en ${shareContext.place?.name || shareContext.review?.establishmentName || 'Listopic'}`;
-                    ? `${shareContext.review?.itemName || 'Mi reseña'} - ${ratingLabel} en Listopic`
-                    : `${shareContext.review?.itemName || 'Mi reseña'} en Listopic`;
-                        setShareStatus('¡Listo! Si Instagram no se abre automáticamente, revisa tu galería para encontrar la tarjeta.', 'success');
-                            console.warn('El uso de la API de compartir falló, se ofrecerá descarga manual.', shareError);
-                            setShareStatus('No pudimos abrir Instagram automáticamente. Descarga la tarjeta y súbela manualmente.', 'info');
-                    setShareStatus('Descargamos la tarjeta. Súbela como historia desde tu galería.', 'info');
-                    showNotification('Tarjeta preparada. Completa la publicación en Instagram.', 'success');
-                setShareStatus('No pudimos generar la tarjeta. Inténtalo nuevamente.', 'error');
-                return `${rating.toFixed(1)} ⭐`;
 
-            setShareStatus('Preparando datos de tu reseña para compartir…', 'info');
-            const errorMsg = "Error: Falta ID de reseña o ID de lista en la URL.";
-        // 1. Obtener la reseña
-                if (!reviewDoc.exists) throw new Error(`Reseña no encontrada.`);
-                // Mostrar datos básicos de la reseña
-                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'reseña')}`;
+            try {
+                setShareStatus('Generando tu tarjeta para Instagram…', 'info');
+
+                const activeCriteriaDefinitions = (shareCriteriaDefinitions && Object.keys(shareCriteriaDefinitions).length > 0)
+                    ? shareCriteriaDefinitions
+                    : (shareContext.list?.criteriaDefinitions || shareContext.list?.defaultCriteriaDefinitions || {});
+
+                const { blob } = await ListopicApp.storyShare.createInstagramStoryCard(
+                    { ...shareContext },
+                    activeCriteriaDefinitions,
+                    { ...shareCustomization }
+                );
+
+                if (!blob) {
+                    throw new Error('No se pudo generar la imagen para compartir.');
+                }
+
+                cleanupDownloadUrl();
+
+                const fileName = `listopic-story-${shareContext.review?.id || 'resena'}.png`;
+                const ratingLabel = overallRatingLabel(shareContext.review);
+                const shareTitle = `Mi reseña en ${shareContext.place?.name || shareContext.review?.establishmentName || 'Listopic'}`;
+                const shareTextParts = [
+                    shareContext.review?.itemName || shareContext.place?.name,
+                    ratingLabel,
+                    shareContext.list?.name ? `Lista: ${shareContext.list.name}` : null
+                ].filter(Boolean);
+                const shareText = shareTextParts.join(' · ');
+
+                let file = null;
+                try {
+                    file = new File([blob], fileName, { type: 'image/png' });
+                } catch (fileCreationError) {
+                    console.warn('No pudimos crear un archivo compatible con la API de compartir.', fileCreationError);
+                }
+
+                let canUseWebShare = false;
+                if (file && navigator?.canShare) {
+                    try {
+                        canUseWebShare = navigator.canShare({ files: [file] });
+                    } catch (shareCapabilityError) {
                         console.warn('El navegador no permite compartir archivos directamente.', shareCapabilityError);
                         canUseWebShare = false;
                     }
                 }
 
-                if (canUseWebShare) {
+                let shared = false;
+                if (file && canUseWebShare && navigator?.share) {
                     try {
                         await navigator.share({
                             files: [file],
@@ -885,13 +950,13 @@ ListopicApp.pageDetailView = (() => {
                             text: shareText
                         });
                         shared = true;
-                        setShareStatus('Listo! Si Instagram no se abre automaticamente, revisa tu galeria para encontrar la tarjeta.', 'success');
+                        setShareStatus('¡Listo! Si Instagram no se abre automáticamente, revisa tu galería para encontrar la tarjeta.', 'success');
                     } catch (shareError) {
                         if (shareError?.name === 'AbortError') {
                             setShareStatus('Compartir cancelado. Guardamos la tarjeta en tus descargas para que la compartas cuando quieras.', 'info');
                         } else {
-                            console.warn('El uso de la API de compartir fallo, se ofrecera descarga manual.', shareError);
-                            setShareStatus('No pudimos abrir Instagram automaticamente. Descarga la tarjeta y subela manualmente.', 'info');
+                            console.warn('El uso de la API de compartir falló, se ofrecerá descarga manual.', shareError);
+                            setShareStatus('No pudimos abrir Instagram automáticamente. Descarga la tarjeta y súbela manualmente.', 'info');
                         }
                         shared = false;
                     }
@@ -899,22 +964,33 @@ ListopicApp.pageDetailView = (() => {
 
                 if (!shared) {
                     const blobUrl = URL.createObjectURL(blob);
+                    currentDownloadUrl = blobUrl;
                     if (shareDownloadLink) {
                         shareDownloadLink.href = blobUrl;
                         shareDownloadLink.download = fileName;
-                        shareDownloadLink.click();
+                        shareDownloadLink.style.display = 'inline-flex';
+                        shareDownloadLink.textContent = 'Descargar tarjeta';
+                        try {
+                            shareDownloadLink.click();
+                        } catch (downloadError) {
+                            console.warn('La descarga automática fue bloqueada por el navegador.', downloadError);
+                        }
                     }
                     if (shareHelperEl) shareHelperEl.hidden = false;
-                    setShareStatus('Descargamos la tarjeta. Subela como historia desde tu galeria.', 'info');
-                    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                    setShareStatus('Descargamos la tarjeta. Súbela como historia desde tu galería.', 'info');
+                } else {
+                    cleanupDownloadUrl();
                 }
 
                 if (shared && showNotification) {
-                    showNotification('Tarjeta preparada. Completa la publicacion en Instagram.', 'success');
+                    showNotification('Tarjeta preparada. Completa la publicación en Instagram.', 'success');
+                } else if (!shared && showNotification) {
+                    showNotification('Tarjeta lista. Revisa tus descargas para compartirla en Instagram.', 'info');
                 }
             } catch (error) {
                 console.error('Error generando la tarjeta de Instagram:', error);
-                setShareStatus('No pudimos generar la tarjeta. Intentalo nuevamente.', 'error');
+                setShareStatus('No pudimos generar la tarjeta. Inténtalo nuevamente.', 'error');
+                cleanupDownloadUrl();
                 if (showNotification) {
                     showNotification(error.message || 'No se pudo crear la tarjeta para compartir.', 'error');
                 }
@@ -927,7 +1003,7 @@ ListopicApp.pageDetailView = (() => {
             if (!review) return '';
             const rating = Number.parseFloat(review.overallRating ?? review.overallScore);
             if (Number.isFinite(rating)) {
-                return `${rating.toFixed(1)} â­ï¸`;
+                return `${rating.toFixed(1)} ⭐`;
             }
             return '';
         }
@@ -949,7 +1025,7 @@ ListopicApp.pageDetailView = (() => {
             shareButton.disabled = true;
             shareButton.setAttribute('aria-busy', 'true');
             shareButton.addEventListener('click', handleShareClick);
-            setShareStatus('Preparando datos de tu resena para compartirâ€¦', 'info');
+            setShareStatus('Preparando datos de tu reseña para compartir…', 'info');
         }
 
         // Configurar boton de Volver
@@ -1047,19 +1123,20 @@ ListopicApp.pageDetailView = (() => {
                 if (!listDoc.exists) throw new Error("Lista asociada no encontrada.");
                 listDataGlobal = listDoc.data(); // Guardar en el scope mas amplio
                 shareContext.list = { id: listIdFromURL, ...listDataGlobal };
-                state.currentListCriteriaDefinitions = listDataGlobal.criteriaDefinition || {};
+                state.currentListCriteriaDefinitions = listDataGlobal.criteriaDefinitions || listDataGlobal.defaultCriteriaDefinitions || {};
+                shareCriteriaDefinitions = state.currentListCriteriaDefinitions;
 
-                if(detailListNameEl && listDataGlobal.name) {
+                if (detailListNameEl && listDataGlobal.name) {
                     detailListNameEl.innerHTML = `Estas viendo en Listopic: <a href="list-view.html?listId=${listIdFromURL}">${uiUtils.escapeHtml(listDataGlobal.name)}</a>`;
                     if (uiUtils.updatePageHeaderInfo) { // Actualizar header comun
                         const currentCategory = listDataGlobal.categoryId || "Hmm...";
                         uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal.name);
                     }
                 } else if (detailListNameEl) {
-                     detailListNameEl.textContent = "Estas viendo en Listopic: Lista Desconocida";
-                     if (uiUtils.updatePageHeaderInfo) uiUtils.updatePageHeaderInfo();
+                    detailListNameEl.textContent = "Estas viendo en Listopic: Lista Desconocida";
+                    if (uiUtils.updatePageHeaderInfo) uiUtils.updatePageHeaderInfo();
                 }
-                
+
                 // Renderizar valoraciones detalladas
                 if (detailRatingsListEl && reviewDataGlobal && reviewDataGlobal.scores) {
                     detailRatingsListEl.innerHTML = '';
