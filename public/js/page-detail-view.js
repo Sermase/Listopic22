@@ -36,11 +36,24 @@ ListopicApp.pageDetailView = (() => {
         const shareHelperEl = document.getElementById('share-instagram-helper');
         const shareStatusEl = document.getElementById('share-instagram-status');
         const shareDownloadLink = document.getElementById('share-instagram-download-link');
+        const shareCustomizationContainer = document.getElementById('share-instagram-customization');
+        const shareColorSchemeSelect = document.getElementById('share-color-scheme');
+        const shareGraphicStyleSelect = document.getElementById('share-graphic-style');
         const shareButtonOriginalHTML = shareButton ? shareButton.innerHTML : '';
         const showNotification = ListopicApp.services?.showNotification;
 
+        const shareCustomization = {
+            colorScheme: (shareColorSchemeSelect && shareColorSchemeSelect.value) || 'midnight',
+            graphicStyle: (shareGraphicStyleSelect && shareGraphicStyleSelect.value) || 'bars'
+        };
+
+        if (shareCustomizationContainer) {
+            shareCustomizationContainer.hidden = true;
+        }
+        setCustomizationControlsDisabled(true);
+
         let shareAssetsReady = false;
-        const shareContext = { review: null, list: null, place: null };
+        const shareContext = { review: null, list: null, place: null, author: null };
 
         function setShareStatus(message, type = 'info') {
             if (!shareStatusEl) return;
@@ -55,20 +68,44 @@ ListopicApp.pageDetailView = (() => {
             shareStatusEl.className = `share-status-message ${type}`;
         }
 
+        function setCustomizationControlsDisabled(isDisabled) {
+            if (shareColorSchemeSelect) {
+                shareColorSchemeSelect.disabled = !!isDisabled;
+            }
+            if (shareGraphicStyleSelect) {
+                shareGraphicStyleSelect.disabled = !!isDisabled;
+            }
+        }
+
+        function announceCustomizationChange() {
+            if (!shareStatusEl) {
+                return;
+            }
+            if (!shareAssetsReady) {
+                return;
+            }
+            const currentClass = shareStatusEl.className || '';
+            if (shareStatusEl.hidden || (!currentClass.includes('success') && !currentClass.includes('error'))) {
+                setShareStatus('Aplicaremos los nuevos ajustes en la proxima tarjeta.', 'info');
+            }
+        }
+
         function toggleShareLoading(isLoading) {
             if (!shareButton) return;
             if (isLoading) {
                 shareButton.setAttribute('data-loading', 'true');
                 shareButton.setAttribute('aria-busy', 'true');
                 shareButton.disabled = true;
-                shareButton.innerHTML = '<i class="fas fa-spinner"></i> Generando…';
+                shareButton.innerHTML = '<i class="fas fa-spinner"></i> Generando...';
             } else {
                 shareButton.removeAttribute('data-loading');
                 shareButton.removeAttribute('aria-busy');
                 shareButton.disabled = !shareAssetsReady;
                 shareButton.innerHTML = shareButtonOriginalHTML;
             }
+            setCustomizationControlsDisabled(isLoading || !shareAssetsReady);
         }
+
 
         function enableShareFeature() {
             if (!shareButton || shareAssetsReady === true) return;
@@ -76,7 +113,9 @@ ListopicApp.pageDetailView = (() => {
             shareButton.disabled = false;
             shareButton.removeAttribute('aria-busy');
             if (shareHelperEl) shareHelperEl.hidden = false;
-            setShareStatus('Genera una tarjeta lista para publicar en Instagram Stories.', 'info');
+            if (shareCustomizationContainer) shareCustomizationContainer.hidden = false;
+            setCustomizationControlsDisabled(false);
+            setShareStatus('Personaliza la tarjeta y compartela en Instagram Stories.', 'info');
         }
 
         function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
@@ -135,9 +174,150 @@ ListopicApp.pageDetailView = (() => {
                 img.src = url;
             });
         }
+        const COLOR_SCHEMES = {
+            midnight: {
+                background: ['#0f172a', '#1f2937'],
+                overlayShape: 'rgba(255,255,255,0.08)',
+                accentPrimary: '#f97316',
+                accentSecondary: '#facc15',
+                accentTertiary: '#06b6d4',
+                barTrack: 'rgba(255,255,255,0.14)',
+                metricFill: 'rgba(255,255,255,0.12)',
+                metricStroke: 'rgba(255,255,255,0.35)',
+                panelTint: 'rgba(15,23,42,0.55)',
+                textMuted: 'rgba(255,255,255,0.75)',
+                fallbackGradient: ['#f97316', '#fb7185'],
+                radarGrid: 'rgba(255,255,255,0.18)',
+                radarAxis: 'rgba(255,255,255,0.24)'
+            },
+            sunset: {
+                background: ['#37102d', '#ea5f6c'],
+                overlayShape: 'rgba(255,255,255,0.12)',
+                accentPrimary: '#ff8a5b',
+                accentSecondary: '#ffd166',
+                accentTertiary: '#ff6f91',
+                barTrack: 'rgba(255,255,255,0.18)',
+                metricFill: 'rgba(255,255,255,0.14)',
+                metricStroke: 'rgba(255,255,255,0.32)',
+                panelTint: 'rgba(58,18,41,0.55)',
+                textMuted: 'rgba(255,255,255,0.82)',
+                fallbackGradient: ['#ff9a8b', '#ff6a88'],
+                radarGrid: 'rgba(255,255,255,0.22)',
+                radarAxis: 'rgba(255,255,255,0.3)'
+            },
+            ocean: {
+                background: ['#02203a', '#065a82'],
+                overlayShape: 'rgba(255,255,255,0.1)',
+                accentPrimary: '#3cd5ff',
+                accentSecondary: '#f4a259',
+                accentTertiary: '#00bcd4',
+                barTrack: 'rgba(255,255,255,0.16)',
+                metricFill: 'rgba(255,255,255,0.14)',
+                metricStroke: 'rgba(255,255,255,0.3)',
+                panelTint: 'rgba(3,24,45,0.6)',
+                textMuted: 'rgba(225,245,255,0.76)',
+                fallbackGradient: ['#00b4d8', '#0077b6'],
+                radarGrid: 'rgba(255,255,255,0.2)',
+                radarAxis: 'rgba(255,255,255,0.28)'
+            },
+            forest: {
+                background: ['#0b1f1a', '#164b2f'],
+                overlayShape: 'rgba(255,255,255,0.1)',
+                accentPrimary: '#4ade80',
+                accentSecondary: '#facc15',
+                accentTertiary: '#34d399',
+                barTrack: 'rgba(255,255,255,0.14)',
+                metricFill: 'rgba(255,255,255,0.12)',
+                metricStroke: 'rgba(255,255,255,0.3)',
+                panelTint: 'rgba(9,34,23,0.6)',
+                textMuted: 'rgba(226,255,234,0.78)',
+                fallbackGradient: ['#10b981', '#22c55e'],
+                radarGrid: 'rgba(255,255,255,0.2)',
+                radarAxis: 'rgba(255,255,255,0.3)'
+            }
+        };
 
-        async function createInstagramStoryCard(context, criteriaDefinitions = {}) {
-            const { review, list, place } = context;
+        function getColorScheme(name) {
+            return COLOR_SCHEMES[name] || COLOR_SCHEMES.midnight;
+        }
+
+        function hexToRgba(hex, alpha) {
+            if (!hex) {
+                return `rgba(255,255,255,${alpha ?? 1})`;
+            }
+            let normalized = String(hex).trim().replace('#', '');
+            if (normalized.length == 3) {
+                normalized = normalized.split('').map(char => char + char).join('');
+            }
+            if (normalized.length != 6) {
+                return `rgba(255,255,255,${alpha ?? 1})`;
+            }
+            const intValue = Number.parseInt(normalized, 16);
+            if (Number.isNaN(intValue)) {
+                return `rgba(255,255,255,${alpha ?? 1})`;
+            }
+            const r = (intValue >> 16) & 255;
+            const g = (intValue >> 8) & 255;
+            const b = intValue & 255;
+            return `rgba(${r}, ${g}, ${b}, ${alpha ?? 1})`;
+        }
+
+        let cachedListopicLogoImage = null;
+        let cachedDefaultAvatarImage = null;
+
+        async function loadListopicLogoImage() {
+            if (cachedListopicLogoImage) {
+                return cachedListopicLogoImage;
+            }
+            try {
+                cachedListopicLogoImage = await loadImageSafely('img/logo-listopic400.png');
+            } catch (error) {
+                console.warn('No se pudo cargar el logo de Listopic para la tarjeta.', error);
+                cachedListopicLogoImage = null;
+            }
+            return cachedListopicLogoImage;
+        }
+
+        async function loadDefaultAvatarImage() {
+            if (cachedDefaultAvatarImage) {
+                return cachedDefaultAvatarImage;
+            }
+            try {
+                cachedDefaultAvatarImage = await loadImageSafely('img/default-avatar.png');
+            } catch (error) {
+                console.warn('No se pudo cargar el avatar por defecto para la tarjeta.', error);
+                cachedDefaultAvatarImage = null;
+            }
+            return cachedDefaultAvatarImage;
+        }
+
+        async function resolveAuthorPhoto(author) {
+            if (author && author.photoUrl) {
+                try {
+                    return await loadImageSafely(author.photoUrl);
+                } catch (error) {
+                    console.warn('No se pudo cargar la foto del autor para la tarjeta.', error);
+                }
+            }
+            return await loadDefaultAvatarImage();
+        }
+
+        function getAuthorInitials(name) {
+            if (!name) {
+                return '';
+            }
+            const parts = String(name).trim().split(/\s+/).filter(Boolean).slice(0, 2);
+            if (parts.length === 0) {
+                return '';
+            }
+            return parts.map(part => part.charAt(0).toUpperCase()).join('');
+        }
+
+
+        async function createInstagramStoryCard(context, criteriaDefinitions = {}, customization = {}) {
+            const { review, list, place, author } = context || {};
+            const { colorScheme = 'midnight', graphicStyle = 'bars' } = customization || {};
+            const scheme = getColorScheme(colorScheme);
             const canvas = document.createElement('canvas');
             const width = 1080;
             const height = 1920;
@@ -146,17 +326,16 @@ ListopicApp.pageDetailView = (() => {
             const ctx = canvas.getContext('2d');
 
             const gradient = ctx.createLinearGradient(0, 0, width, height);
-            gradient.addColorStop(0, '#0f172a');
-            gradient.addColorStop(1, '#1f2937');
+            gradient.addColorStop(0, scheme.background[0]);
+            gradient.addColorStop(1, scheme.background[1]);
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, width, height);
 
             ctx.save();
-            ctx.globalAlpha = 0.08;
+            ctx.fillStyle = scheme.overlayShape;
             for (let i = -width; i < width * 2; i += 180) {
                 ctx.beginPath();
                 ctx.ellipse(i, height * 0.3, 220, 80, Math.PI / 6, 0, Math.PI * 2);
-                ctx.fillStyle = '#ffffff';
                 ctx.fill();
             }
             ctx.restore();
@@ -164,7 +343,7 @@ ListopicApp.pageDetailView = (() => {
             const margin = 96;
             const availableWidth = width - margin * 2;
 
-            const dishName = (review?.itemName || 'Mi reseña favorita').toString();
+            const dishName = (review?.itemName || 'Mi resena favorita').toString();
             const placeName = (place?.name || review?.establishmentName || 'Lugar especial').toString();
             const listName = (list?.name || 'Mi ranking personal').toString();
             const overallRating = Number.parseFloat(review?.overallRating ?? review?.overallScore ?? 0) || 0;
@@ -198,7 +377,7 @@ ListopicApp.pageDetailView = (() => {
                     drawRoundedImage(ctx, img, offsetX, offsetY, drawWidth, drawHeight, 42);
                     imageDrawn = true;
                 } catch (error) {
-                    console.warn('No se pudo cargar la imagen de la reseña para la tarjeta.', error);
+                    console.warn('No se pudo cargar la imagen de la resena para la tarjeta.', error);
                 }
             }
 
@@ -207,8 +386,8 @@ ListopicApp.pageDetailView = (() => {
                 drawRoundedRectPath(ctx, margin, imageY, imageWidth, imageHeight, 42);
                 ctx.clip();
                 const fallbackGradient = ctx.createLinearGradient(margin, imageY, margin + imageWidth, imageY + imageHeight);
-                fallbackGradient.addColorStop(0, '#dd2a7b');
-                fallbackGradient.addColorStop(1, '#515bd4');
+                fallbackGradient.addColorStop(0, scheme.fallbackGradient[0]);
+                fallbackGradient.addColorStop(1, scheme.fallbackGradient[1]);
                 ctx.fillStyle = fallbackGradient;
                 ctx.fillRect(margin, imageY, imageWidth, imageHeight);
                 ctx.restore();
@@ -233,6 +412,112 @@ ListopicApp.pageDetailView = (() => {
             ctx.fillRect(margin, imageY, imageWidth, imageHeight);
             ctx.restore();
 
+            const badgeRadius = 72;
+            const badgeCenterX = margin + badgeRadius + 24;
+            const badgeCenterY = imageY + imageHeight - badgeRadius - 32;
+
+            const drawAuthorBadge = () => {
+                if (!authorPhoto && !authorInitials) {
+                    return;
+                }
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(badgeCenterX, badgeCenterY, badgeRadius + 10, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.45)';
+                ctx.fill();
+                ctx.restore();
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(badgeCenterX, badgeCenterY, badgeRadius, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.clip();
+                if (authorPhoto) {
+                    const scale = Math.max((badgeRadius * 2) / authorPhoto.width, (badgeRadius * 2) / authorPhoto.height);
+                    const drawWidth = authorPhoto.width * scale;
+                    const drawHeight = authorPhoto.height * scale;
+                    ctx.drawImage(authorPhoto, badgeCenterX - drawWidth / 2, badgeCenterY - drawHeight / 2, drawWidth, drawHeight);
+                } else {
+                    const avatarGradient = ctx.createLinearGradient(badgeCenterX - badgeRadius, badgeCenterY - badgeRadius, badgeCenterX + badgeRadius, badgeCenterY + badgeRadius);
+                    avatarGradient.addColorStop(0, scheme.accentPrimary);
+                    avatarGradient.addColorStop(1, scheme.accentTertiary);
+                    ctx.fillStyle = avatarGradient;
+                    ctx.fillRect(badgeCenterX - badgeRadius, badgeCenterY - badgeRadius, badgeRadius * 2, badgeRadius * 2);
+                }
+                ctx.restore();
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(badgeCenterX, badgeCenterY, badgeRadius, 0, Math.PI * 2);
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = scheme.accentSecondary;
+                ctx.stroke();
+                ctx.restore();
+
+                if (!authorPhoto && authorInitials) {
+                    ctx.save();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '600 42px "Poppins", "Helvetica Neue", Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(authorInitials, badgeCenterX, badgeCenterY);
+                    ctx.restore();
+                }
+
+                const boxHeight = 72;
+                const textWidth = ctx.measureText(authorName).width;
+                let boxWidth = Math.min(420, Math.max(220, textWidth + 60));
+                let boxX = badgeCenterX + badgeRadius + 28;
+                const maxBoxX = margin + imageWidth - boxWidth - 24;
+                if (boxX > maxBoxX) {
+                    boxX = maxBoxX;
+                }
+                if (boxX < margin + badgeRadius * 2 + 32) {
+                    boxX = margin + badgeRadius * 2 + 32;
+                }
+                if (boxX + boxWidth > margin + imageWidth - 24) {
+                    boxWidth = margin + imageWidth - 24 - boxX;
+                }
+                const boxY = badgeCenterY - boxHeight / 2;
+
+                ctx.save();
+                drawRoundedRectPath(ctx, boxX, boxY, boxWidth, boxHeight, 28);
+                ctx.fillStyle = scheme.panelTint;
+                ctx.fill();
+                ctx.restore();
+
+                ctx.save();
+                ctx.textAlign = 'left';
+                ctx.fillStyle = scheme.textMuted;
+                ctx.font = '600 20px "Poppins", "Helvetica Neue", Arial';
+                ctx.fillText('Autor', boxX + 22, boxY + 20);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '500 30px "Poppins", "Helvetica Neue", Arial';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(authorName, boxX + 22, boxY + boxHeight - 16);
+                ctx.restore();
+            };
+
+            drawAuthorBadge();
+
+            if (logoImage) {
+                const logoSize = 140;
+                const logoPadding = 28;
+                const logoX = margin + imageWidth - logoSize - logoPadding;
+                const logoY = imageY + logoPadding;
+                ctx.save();
+                drawRoundedRectPath(ctx, logoX - 18, logoY - 18, logoSize + 36, logoSize + 36, 24);
+                ctx.fillStyle = hexToRgba(scheme.accentSecondary, 0.18);
+                ctx.fill();
+                ctx.restore();
+
+                ctx.save();
+                ctx.globalAlpha = 0.9;
+                ctx.drawImage(logoImage, logoX, logoY, logoSize, logoSize);
+                ctx.restore();
+            }
+
             currentY = imageY + imageHeight + 60;
 
             const circleRadius = 150;
@@ -242,10 +527,10 @@ ListopicApp.pageDetailView = (() => {
             ctx.beginPath();
             ctx.arc(circleCenterX, circleCenterY, circleRadius, 0, Math.PI * 2);
             ctx.closePath();
-            ctx.fillStyle = 'rgba(255,255,255,0.12)';
+            ctx.fillStyle = scheme.metricFill;
             ctx.fill();
             ctx.lineWidth = 6;
-            ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+            ctx.strokeStyle = scheme.metricStroke;
             ctx.stroke();
             ctx.restore();
 
@@ -257,47 +542,181 @@ ListopicApp.pageDetailView = (() => {
             ctx.fillText(overallRating.toFixed(1), circleCenterX, circleCenterY - 10);
             ctx.font = '500 36px "Poppins", "Helvetica Neue", Arial';
             ctx.fillStyle = 'rgba(255,255,255,0.75)';
-            ctx.fillText('Valoración', circleCenterX, circleCenterY + 140);
+            ctx.fillText('Valoracion', circleCenterX, circleCenterY + 140);
             ctx.restore();
+
+            const availableCriteria = [];
+            if (criteriaDefinitions && typeof criteriaDefinitions === 'object' && Object.keys(criteriaDefinitions).length > 0) {
+                for (const [key, definition] of Object.entries(criteriaDefinitions)) {
+                    if (review?.scores?.[key] === undefined) {
+                        continue;
+                    }
+                    const value = Number.parseFloat(review.scores[key]);
+                    if (!Number.isFinite(value)) {
+                        continue;
+                    }
+                    availableCriteria.push([key, definition]);
+                }
+            } else if (review?.scores) {
+                for (const key of Object.keys(review.scores)) {
+                    const value = Number.parseFloat(review.scores[key]);
+                    if (!Number.isFinite(value)) {
+                        continue;
+                    }
+                    availableCriteria.push([key, { label: key, min: 0, max: 10 }]);
+                }
+            }
 
             const barsStartX = circleCenterX + circleRadius + 70;
             const barsMaxWidth = width - barsStartX - margin;
             const barHeight = 44;
             const barGap = 88;
-            let barIndex = 0;
-            const criteriaEntries = Object.entries(criteriaDefinitions || {}).slice(0, 4);
-            for (const [key, definition] of criteriaEntries) {
-                if (review?.scores?.[key] === undefined) continue;
-                const rawScore = Number.parseFloat(review.scores[key]);
-                const min = Number.parseFloat(definition?.min ?? 0);
-                const max = Number.parseFloat(definition?.max ?? 10);
-                const normalized = max > min ? (rawScore - min) / (max - min) : rawScore / 10;
-                const clamped = Math.max(0, Math.min(1, normalized));
-                const barX = barsStartX;
-                const barY = circleCenterY - circleRadius + barIndex * barGap;
-                ctx.fillStyle = 'rgba(255,255,255,0.12)';
-                drawRoundedRectPath(ctx, barX, barY, barsMaxWidth, barHeight, 20);
-                ctx.fill();
-                ctx.fillStyle = '#f58529';
-                drawRoundedRectPath(ctx, barX, barY, Math.max(0, barsMaxWidth * clamped), barHeight, 20);
-                ctx.fill();
 
-                ctx.fillStyle = '#ffffff';
-                ctx.font = '500 34px "Poppins", "Helvetica Neue", Arial';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                ctx.fillText((definition?.label || key).toString(), barX + 16, barY + barHeight / 2);
-                ctx.textAlign = 'right';
-                ctx.fillStyle = 'rgba(255,255,255,0.8)';
-                ctx.fillText(rawScore.toFixed(1), barX + barsMaxWidth - 16, barY + barHeight / 2);
+            const drawBarsGraphic = (entries) => {
+                if (!entries.length) {
+                    return circleCenterY + circleRadius;
+                }
+                let index = 0;
+                let lastBottom = circleCenterY - circleRadius;
+                for (const [key, definition] of entries) {
+                    const raw = Number.parseFloat(review.scores[key]);
+                    const min = Number.parseFloat(definition?.min ?? 0);
+                    const max = Number.parseFloat(definition?.max ?? 10);
+                    const normalized = max > min ? (raw - min) / (max - min) : raw / 10;
+                    const clamped = Math.max(0, Math.min(1, normalized));
+                    const barY = circleCenterY - circleRadius + index * barGap;
+                    ctx.fillStyle = scheme.barTrack;
+                    drawRoundedRectPath(ctx, barsStartX, barY, barsMaxWidth, barHeight, 20);
+                    ctx.fill();
+                    ctx.fillStyle = scheme.accentPrimary;
+                    drawRoundedRectPath(ctx, barsStartX, barY, Math.max(0, barsMaxWidth * clamped), barHeight, 20);
+                    ctx.fill();
 
-                barIndex += 1;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '500 34px "Poppins", "Helvetica Neue", Arial';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    const label = (definition?.label || key).toString();
+                    ctx.fillText(label, barsStartX + 16, barY + barHeight / 2);
+
+                    ctx.textAlign = 'right';
+                    ctx.fillStyle = scheme.textMuted;
+                    ctx.fillText(raw.toFixed(1), barsStartX + barsMaxWidth - 16, barY + barHeight / 2);
+
+                    index += 1;
+                    lastBottom = barY + barHeight;
+                }
+                return lastBottom + 40;
+            };
+
+            const drawRadarGraphic = (entries) => {
+                const metricsAreaX = circleCenterX + circleRadius + 70;
+                const metricsAreaWidth = width - metricsAreaX - margin;
+                const centerX = metricsAreaX + metricsAreaWidth / 2;
+                const centerY = circleCenterY;
+                const radius = Math.min(metricsAreaWidth / 2, circleRadius * 1.7, 260);
+                const levels = 5;
+
+                ctx.save();
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = scheme.radarGrid;
+                for (let step = 1; step <= levels; step += 1) {
+                    const ratio = step / levels;
+                    ctx.beginPath();
+                    entries.forEach(([key, definition], index) => {
+                        const angle = (Math.PI * 2 * index) / entries.length - Math.PI / 2;
+                        const x = centerX + Math.cos(angle) * radius * ratio;
+                        const y = centerY + Math.sin(angle) * radius * ratio;
+                        if (index === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+
+                ctx.strokeStyle = scheme.radarAxis;
+                entries.forEach((entry, index) => {
+                    const angle = (Math.PI * 2 * index) / entries.length - Math.PI / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, centerY);
+                    ctx.lineTo(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
+                    ctx.stroke();
+                });
+
+                ctx.beginPath();
+                entries.forEach(([key, definition], index) => {
+                    const raw = Number.parseFloat(review.scores[key]);
+                    const min = Number.parseFloat(definition?.min ?? 0);
+                    const max = Number.parseFloat(definition?.max ?? 10);
+                    const normalized = max > min ? (raw - min) / (max - min) : raw / 10;
+                    const clamped = Math.max(0, Math.min(1, normalized));
+                    const angle = (Math.PI * 2 * index) / entries.length - Math.PI / 2;
+                    const x = centerX + Math.cos(angle) * radius * clamped;
+                    const y = centerY + Math.sin(angle) * radius * clamped;
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                ctx.closePath();
+                ctx.fillStyle = hexToRgba(scheme.accentPrimary, 0.32);
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = scheme.accentPrimary;
+                ctx.stroke();
+
+                entries.forEach(([key, definition], index) => {
+                    const raw = Number.parseFloat(review.scores[key]);
+                    const min = Number.parseFloat(definition?.min ?? 0);
+                    const max = Number.parseFloat(definition?.max ?? 10);
+                    const normalized = max > min ? (raw - min) / (max - min) : raw / 10;
+                    const clamped = Math.max(0, Math.min(1, normalized));
+                    const angle = (Math.PI * 2 * index) / entries.length - Math.PI / 2;
+                    const x = centerX + Math.cos(angle) * radius * clamped;
+                    const y = centerY + Math.sin(angle) * radius * clamped;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                });
+
+                entries.forEach(([key, definition], index) => {
+                    const raw = Number.parseFloat(review.scores[key]);
+                    const label = (definition?.label || key).toString();
+                    const angle = (Math.PI * 2 * index) / entries.length - Math.PI / 2;
+                    let textAlign = 'center';
+                    if (Math.cos(angle) > 0.2) {
+                        textAlign = 'left';
+                    } else if (Math.cos(angle) < -0.2) {
+                        textAlign = 'right';
+                    }
+                    const labelX = centerX + Math.cos(angle) * (radius + 36);
+                    const labelY = centerY + Math.sin(angle) * (radius + 36);
+                    ctx.textAlign = textAlign;
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '500 30px "Poppins", "Helvetica Neue", Arial';
+                    ctx.fillText(label, labelX, labelY);
+                    ctx.fillStyle = scheme.textMuted;
+                    ctx.font = '400 24px "Poppins", "Helvetica Neue", Arial';
+                    ctx.fillText(raw.toFixed(1), labelX, labelY + 26);
+                });
+
+                ctx.restore();
+                return centerY + radius + 40;
+            };
+
+            let metricsBottom = circleCenterY + circleRadius;
+            if (graphicStyle === 'radar' && availableCriteria.length >= 3) {
+                metricsBottom = Math.max(metricsBottom, drawRadarGraphic(availableCriteria.slice(0, 6)));
+            } else {
+                metricsBottom = Math.max(metricsBottom, drawBarsGraphic(availableCriteria.slice(0, 4)));
             }
 
-            const metricsBottom = Math.max(
-                circleCenterY + circleRadius,
-                circleCenterY - circleRadius + barIndex * barGap + 40
-            );
             currentY = metricsBottom + 60;
 
             let comment = (review?.comment || '').toString().trim();
@@ -307,12 +726,12 @@ ListopicApp.pageDetailView = (() => {
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'top';
                 ctx.font = '600 42px "Poppins", "Helvetica Neue", Arial';
-                ctx.fillText('Notas rápidas', margin, currentY);
+                ctx.fillText('Notas rapidas', margin, currentY);
                 ctx.font = '400 34px "Poppins", "Helvetica Neue", Arial';
                 currentY = wrapText(ctx, `“${comment}”`, margin, currentY + 56, availableWidth, 48);
             }
 
-            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            ctx.fillStyle = scheme.textMuted;
             ctx.font = '500 30px "Poppins", "Helvetica Neue", Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -334,7 +753,7 @@ ListopicApp.pageDetailView = (() => {
         async function handleShareClick() {
             if (!shareButton) return;
             if (!shareAssetsReady) {
-                setShareStatus('Estamos preparando los datos de tu reseña…', 'info');
+                setShareStatus('Estamos preparando los datos de tu resena…', 'info');
                 return;
             }
 
@@ -342,14 +761,14 @@ ListopicApp.pageDetailView = (() => {
             setShareStatus('Generando tu tarjeta para Instagram…', 'info');
 
             try {
-                const { blob } = await createInstagramStoryCard(shareContext, state.currentListCriteriaDefinitions || {});
-                const fileName = `listopic-story-${shareContext.review?.id || 'reseña'}.png`;
+                const { blob } = await createInstagramStoryCard(shareContext, state.currentListCriteriaDefinitions || {}, shareCustomization);
+                const fileName = `listopic-story-${shareContext.review?.id || 'resena'}.png`;
                 const file = new File([blob], fileName, { type: 'image/png' });
-                const shareTitle = `Mi reseña en ${shareContext.place?.name || shareContext.review?.establishmentName || 'Listopic'}`;
+                const shareTitle = `Mi resena en ${shareContext.place?.name || shareContext.review?.establishmentName || 'Listopic'}`;
                 const ratingLabel = overallRatingLabel(shareContext.review);
                 const shareText = ratingLabel
-                    ? `${shareContext.review?.itemName || 'Mi reseña'} • ${ratingLabel} en Listopic`
-                    : `${shareContext.review?.itemName || 'Mi reseña'} en Listopic`;
+                    ? `${shareContext.review?.itemName || 'Mi resena'} - ${ratingLabel} en Listopic`
+                    : `${shareContext.review?.itemName || 'Mi resena'} en Listopic`;
 
                 let shared = false;
                 let canUseWebShare = false;
@@ -370,13 +789,13 @@ ListopicApp.pageDetailView = (() => {
                             text: shareText
                         });
                         shared = true;
-                        setShareStatus('¡Listo! Si Instagram no se abre automáticamente, revisa tu galería para encontrar la tarjeta.', 'success');
+                        setShareStatus('Listo! Si Instagram no se abre automaticamente, revisa tu galeria para encontrar la tarjeta.', 'success');
                     } catch (shareError) {
                         if (shareError?.name === 'AbortError') {
                             setShareStatus('Compartir cancelado. Guardamos la tarjeta en tus descargas para que la compartas cuando quieras.', 'info');
                         } else {
-                            console.warn('El uso de la API de compartir falló, se ofrecerá descarga manual.', shareError);
-                            setShareStatus('No pudimos abrir Instagram automáticamente. Descarga la tarjeta y súbela manualmente.', 'info');
+                            console.warn('El uso de la API de compartir fallo, se ofrecera descarga manual.', shareError);
+                            setShareStatus('No pudimos abrir Instagram automaticamente. Descarga la tarjeta y subela manualmente.', 'info');
                         }
                         shared = false;
                     }
@@ -390,16 +809,16 @@ ListopicApp.pageDetailView = (() => {
                         shareDownloadLink.click();
                     }
                     if (shareHelperEl) shareHelperEl.hidden = false;
-                    setShareStatus('Descargamos la tarjeta. Súbela como historia desde tu galería.', 'info');
+                    setShareStatus('Descargamos la tarjeta. Subela como historia desde tu galeria.', 'info');
                     setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
                 }
 
                 if (shared && showNotification) {
-                    showNotification('Tarjeta preparada. Completa la publicación en Instagram.', 'success');
+                    showNotification('Tarjeta preparada. Completa la publicacion en Instagram.', 'success');
                 }
             } catch (error) {
                 console.error('Error generando la tarjeta de Instagram:', error);
-                setShareStatus('No pudimos generar la tarjeta. Inténtalo nuevamente.', 'error');
+                setShareStatus('No pudimos generar la tarjeta. Intentalo nuevamente.', 'error');
                 if (showNotification) {
                     showNotification(error.message || 'No se pudo crear la tarjeta para compartir.', 'error');
                 }
@@ -417,14 +836,27 @@ ListopicApp.pageDetailView = (() => {
             return '';
         }
 
+        if (shareColorSchemeSelect) {
+            shareColorSchemeSelect.addEventListener('change', (event) => {
+                shareCustomization.colorScheme = event.target.value || 'midnight';
+                announceCustomizationChange();
+            });
+        }
+        if (shareGraphicStyleSelect) {
+            shareGraphicStyleSelect.addEventListener('change', (event) => {
+                shareCustomization.graphicStyle = event.target.value || 'bars';
+                announceCustomizationChange();
+            });
+        }
+
         if (shareButton) {
             shareButton.disabled = true;
             shareButton.setAttribute('aria-busy', 'true');
             shareButton.addEventListener('click', handleShareClick);
-            setShareStatus('Preparando datos de tu reseña para compartir…', 'info');
+            setShareStatus('Preparando datos de tu resena para compartir…', 'info');
         }
 
-        // Configurar botón de Volver
+        // Configurar boton de Volver
         if (backButton && listIdFromURL) {
             const fromPlaceIdParam = params.get('fromPlaceId'); // Usar fromPlaceId
             const fromItemParam = params.get('fromItem');
@@ -436,7 +868,7 @@ ListopicApp.pageDetailView = (() => {
         }
 
         if (!reviewId || !listIdFromURL) {
-            const errorMsg = "Error: Falta ID de reseña o ID de lista en la URL.";
+            const errorMsg = "Error: Falta ID de resena o ID de lista en la URL.";
             console.error("DETAIL-VIEW:", errorMsg);
             if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = errorMsg;
             if (ListopicApp.services && ListopicApp.services.showNotification) {
@@ -446,23 +878,28 @@ ListopicApp.pageDetailView = (() => {
         }
 
         let reviewDataGlobal;
-        let listDataGlobal; // Lo hacemos accesible en un scope más amplio
+        let listDataGlobal; // Lo hacemos accesible en un scope mas amplio
 
-        // 1. Obtener la reseña
+        // 1. Obtener la resena
         db.collection('lists').doc(listIdFromURL).collection('reviews').doc(reviewId).get()
             .then(reviewDoc => {
-                if (!reviewDoc.exists) throw new Error(`Reseña no encontrada.`);
+                if (!reviewDoc.exists) throw new Error(`Resena no encontrada.`);
                 reviewDataGlobal = { id: reviewDoc.id, ...reviewDoc.data() };
                 shareContext.review = reviewDataGlobal;
+                shareContext.author = {
+                    id: reviewDataGlobal.userId || null,
+                    name: reviewDataGlobal.authorName || reviewDataGlobal.userDisplayName || reviewDataGlobal.username || '',
+                    photoUrl: reviewDataGlobal.authorPhotoUrl || ''
+                };
 
-                // Mostrar datos básicos de la reseña
+                // Mostrar datos basicos de la resena
                 if (detailItemNameEl) detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
                 if (detailScoreValueEl) detailScoreValueEl.textContent = reviewDataGlobal.overallRating !== undefined ? reviewDataGlobal.overallRating.toFixed(1) : 'N/A';
                 
                 if (detailImageEl && detailImageEl.parentNode) {
                     if (reviewDataGlobal.photoUrl) {
                         detailImageEl.src = reviewDataGlobal.photoUrl;
-                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'reseña')}`;
+                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'resena')}`;
                         detailImageEl.style.display = 'block';
                         const placeholderIcon = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
                         if(placeholderIcon) placeholderIcon.style.display = 'none';
@@ -507,23 +944,23 @@ ListopicApp.pageDetailView = (() => {
                     editButton.href = editHref;
                 }
 
-                // 2. Obtener la definición de la lista
+                // 2. Obtener la definicion de la lista
                 return db.collection('lists').doc(listIdFromURL).get();
             })
             .then(listDoc => {
                 if (!listDoc.exists) throw new Error("Lista asociada no encontrada.");
-                listDataGlobal = listDoc.data(); // Guardar en el scope más amplio
+                listDataGlobal = listDoc.data(); // Guardar en el scope mas amplio
                 shareContext.list = { id: listIdFromURL, ...listDataGlobal };
                 state.currentListCriteriaDefinitions = listDataGlobal.criteriaDefinition || {};
 
                 if(detailListNameEl && listDataGlobal.name) {
-                    detailListNameEl.innerHTML = `Estás viendo en Listopic: <a href="list-view.html?listId=${listIdFromURL}">${uiUtils.escapeHtml(listDataGlobal.name)}</a>`;
-                    if (uiUtils.updatePageHeaderInfo) { // Actualizar header común
+                    detailListNameEl.innerHTML = `Estas viendo en Listopic: <a href="list-view.html?listId=${listIdFromURL}">${uiUtils.escapeHtml(listDataGlobal.name)}</a>`;
+                    if (uiUtils.updatePageHeaderInfo) { // Actualizar header comun
                         const currentCategory = listDataGlobal.categoryId || "Hmm...";
                         uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal.name);
                     }
                 } else if (detailListNameEl) {
-                     detailListNameEl.textContent = "Estás viendo en Listopic: Lista Desconocida";
+                     detailListNameEl.textContent = "Estas viendo en Listopic: Lista Desconocida";
                      if (uiUtils.updatePageHeaderInfo) uiUtils.updatePageHeaderInfo();
                 }
                 
@@ -546,7 +983,7 @@ ListopicApp.pageDetailView = (() => {
                      detailRatingsListEl.innerHTML = '<li>No hay valoraciones detalladas disponibles.</li>';
                 }
 
-                // 3. Obtener datos del autor de la reseña
+                // 3. Obtener datos del autor de la resena
                 if (reviewDataGlobal.userId && reviewAuthorNameEl) {
                     return db.collection('users').doc(reviewDataGlobal.userId).get(); // Esto devuelve una promesa
                 } else {
@@ -557,7 +994,7 @@ ListopicApp.pageDetailView = (() => {
             .then(userDocOrNull => { // userDocOrNull es el resultado de la promesa del autor
                 if (userDocOrNull && userDocOrNull.exists) {
                     const userData = userDocOrNull.data();
-                    const authorName = uiUtils.escapeHtml(userData.username || userData.displayName || 'Usuario Anónimo');
+                    const authorName = uiUtils.escapeHtml(userData.username || userData.displayName || 'Usuario Anonimo');
                     
                     const authorLink = document.createElement('a');
                     authorLink.href = `profile.html?viewUserId=${reviewDataGlobal.userId}`;
@@ -569,10 +1006,10 @@ ListopicApp.pageDetailView = (() => {
                     }
                 } else if (reviewDataGlobal.userId && reviewAuthorNameEl) { 
                     reviewAuthorNameEl.textContent = 'Usuario Desconocido';
-                    console.warn(`Autor de reseña con ID ${reviewDataGlobal.userId} no encontrado.`);
+                    console.warn(`Autor de resena con ID ${reviewDataGlobal.userId} no encontrado.`);
                 }
                 
-                // 4. Si la reseña tiene placeId, obtener datos del lugar
+                // 4. Si la resena tiene placeId, obtener datos del lugar
                 if (reviewDataGlobal && reviewDataGlobal.placeId) {
                     return db.collection('places').doc(reviewDataGlobal.placeId).get(); // Esto devuelve una promesa
                 } else {
@@ -591,7 +1028,7 @@ ListopicApp.pageDetailView = (() => {
                     placeData = placeDocOrNull.data();
                     if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = placeData.name || "Nombre de lugar desconocido";
                     
-                    if (detailImageEl && detailImageEl.alt === `Foto de reseña`) {
+                    if (detailImageEl && detailImageEl.alt === `Foto de resena`) {
                          detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || placeData.name)}`;
                     }
 
@@ -619,13 +1056,13 @@ ListopicApp.pageDetailView = (() => {
                     }
                 } else if (reviewDataGlobal && reviewDataGlobal.placeId) {
                     if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = "Lugar no encontrado en BD";
-                    console.warn(`Lugar con ID ${reviewDataGlobal.placeId} no encontrado para la reseña ${reviewId}`);
+                    console.warn(`Lugar con ID ${reviewDataGlobal.placeId} no encontrado para la resena ${reviewId}`);
                     if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
                     if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
                 }
                 shareContext.place = placeData;
                 enableShareFeature();
-                // Si placeDocOrNull es null, ya se manejó el caso sin placeId antes
+                // Si placeDocOrNull es null, ya se manejo el caso sin placeId antes
             })
             .catch(error => {
                 console.error("Error fetching details for detail view:", error);
@@ -642,17 +1079,17 @@ ListopicApp.pageDetailView = (() => {
                 }
             });
 
-        // Listener para el botón de eliminar
+        // Listener para el boton de eliminar
         if (deleteButton) {
             deleteButton.addEventListener('click', async () => {
                 if (!reviewId || !listIdFromURL) {
-                    ListopicApp.services.showNotification("No se puede eliminar: falta información.", "error");
+                    ListopicApp.services.showNotification("No se puede eliminar: falta informacion.", "error");
                     return;
                 }
-                if (confirm('¿Estás seguro de que quieres eliminar esta reseña?')) {
+                if (confirm('�?Estas seguro de que quieres eliminar esta resena?')) {
                     try {
                         await db.collection('lists').doc(listIdFromURL).collection('reviews').doc(reviewId).delete();
-                        ListopicApp.services.showNotification('Reseña eliminada.', 'success');
+                        ListopicApp.services.showNotification('Resena eliminada.', 'success');
                         
                         // Redirigir
                         const fromPlaceIdParam = params.get('fromPlaceId');

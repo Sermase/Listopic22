@@ -156,11 +156,30 @@
                     <i class="fas fa-paper-plane"></i>
                     Compartir historia
                 </button>
-                <a href="review-form.html" role="button" class="edit-button"><i class="fas fa-edit"></i> Editar Reseña</a>
-                <button type="button" class="delete-button danger"><i class="fas fa-trash-alt"></i> Eliminar Reseña</button>
+                <a href="review-form.html" role="button" class="edit-button"><i class="fas fa-edit"></i> Editar Resena</a>
+                <button type="button" class="delete-button danger"><i class="fas fa-trash-alt"></i> Eliminar Resena</button>
+            </div>
+            <div class="share-customization" id="share-instagram-customization" hidden>
+                <h4>Personaliza la tarjeta</h4>
+                <div class="share-customization__row">
+                    <label for="share-color-scheme">Colores</label>
+                    <select id="share-color-scheme">
+                        <option value="midnight" selected>Aurora nocturna</option>
+                        <option value="sunset">Atardecer brillante</option>
+                        <option value="ocean">Olas frias</option>
+                        <option value="forest">Bosque vivo</option>
+                    </select>
+                </div>
+                <div class="share-customization__row">
+                    <label for="share-graphic-style">Grafico</label>
+                    <select id="share-graphic-style">
+                        <option value="bars" selected>Barras</option>
+                        <option value="radar">Tela de arana</option>
+                    </select>
+                </div>
             </div>
             <p class="share-helper-text" id="share-instagram-helper" hidden>
-                Generaremos una tarjeta con tu reseña para compartirla en Instagram Stories. Si tu navegador no abre Instagram automáticamente, descargaremos la imagen para que la subas manualmente.
+                Generaremos una tarjeta con tu resena para compartirla en Instagram Stories. Si tu navegador no abre Instagram automaticamente, descargaremos la imagen para que la subas manualmente.
             </p>
             <p class="share-status-message" id="share-instagram-status" hidden aria-live="polite"></p>
             <a id="share-instagram-download-link" download style="display: none;">Descargar tarjeta</a>
