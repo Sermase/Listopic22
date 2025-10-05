@@ -186,6 +186,8 @@ ListopicApp.uiUtils = {
         const authorId = author.id || review.userId;
         const authorName = uiUtils.escapeHtml(author.name || 'Usuario Anónimo');
         const authorPhoto = uiUtils.escapeHtml(author.photoUrl || 'img/placeholder-avatar.png');
+        const rawAuthorUsername = author.username || review.authorUsername || review.username || '';
+        const authorUsername = rawAuthorUsername ? uiUtils.escapeHtml(rawAuthorUsername.replace(/^@+/, '')) : '';
 
         const place = review.place || {};
         const placeId = place.id || review.placeId;
@@ -229,16 +231,28 @@ ListopicApp.uiUtils = {
         const imageHtml = review.photoUrl
             ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${uiUtils.escapeHtml(review.itemName)}" class="review-super-card__image">`
             : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
+
+        const authorMetaHtml = authorUsername
+            ? `<div class="author-meta"><span class="author-meta__label">Autor</span><span class="meta-separator">•</span><span class="author-meta__username">@${authorUsername}</span></div>`
+            : `<div class="author-meta"><span class="author-meta__label">Autor</span></div>`;
+
+        const imageLinkHtml = `
+            <a href="${detailUrl}" class="review-super-card__image-link" onclick="event.stopPropagation()">
+                ${imageHtml}
+            </a>`;
         
         // --- 3. Ensamblado Final ---
         return `
             <article class="review-super-card" onclick="window.location.href='${detailUrl}';">
                 <header class="review-super-card__header">
                     <div class="header-main-info">
-                        <a href="profile.html?viewUserId=${authorId}" class="author-link" onclick="event.stopPropagation()">
-                            <img src="${authorPhoto}" alt="Avatar de ${authorName}" class="author-avatar">
-                            <span class="author-name">${authorName}</span>
-                        </a>
+                        <div class="author-stack">
+                            <a href="profile.html?viewUserId=${authorId}" class="author-link" onclick="event.stopPropagation()">
+                                <img src="${authorPhoto}" alt="Avatar de ${authorName}" class="author-avatar">
+                                <span class="author-name">${authorName}</span>
+                            </a>
+                            ${authorMetaHtml}
+                        </div>
                         <div class="list-highlight">
                             <span class="meta-separator">•</span> en <a href="list-view.html?listId=${list.id}" onclick="event.stopPropagation()">${list.name}</a>
                         </div>
@@ -249,7 +263,7 @@ ListopicApp.uiUtils = {
                 </header>
                 <div class="review-super-card__body">
                     <div class="review-super-card__image-container">
-                        ${imageHtml}
+                        ${imageLinkHtml}
                     </div>
                     <div class="review-super-card__main-content">
                         <div class="review-super-card__title-group">
@@ -459,7 +473,8 @@ createListViewGroupCard: function(group, listData, listIcon) {
                     author: {
                         id: review.userId,
                         name: authorData?.displayName || authorData?.username || 'Usuario Anónimo',
-                        photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png'
+                        photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png',
+                        username: authorData?.username || ''
                     },
                     place: {
                         id: review.placeId,

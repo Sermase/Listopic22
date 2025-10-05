@@ -5031,9 +5031,15 @@ body.light-theme .info-tag:hover {
 }
 .header-main-info { /* Contenedor para autor y lista */
     display: flex;
-    align-items: center; /* Alinear en la misma línea */
+    align-items: flex-start; /* Alinear en columna cuando sea necesario */
     flex-wrap: wrap; /* Por si no cabe en pantallas muy pequeñas */
-    gap: 8px;
+    gap: 12px;
+}
+.author-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
 }
 .author-link {
     display: inline-flex;
@@ -5044,6 +5050,24 @@ body.light-theme .info-tag:hover {
     font-weight: 600;
 }
 .author-link:hover { color: var(--accent-color-primary); }
+.author-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    color: var(--secondary-text-color);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.author-meta__label {
+    font-weight: 600;
+}
+.author-meta__username {
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 600;
+    color: var(--accent-color-secondary);
+}
 .author-avatar {
     width: 28px;
     height: 28px;
@@ -5074,7 +5098,24 @@ body.light-theme .info-tag:hover {
 /* --- Cuerpo --- */
 .review-super-card__body { display: flex; gap: 20px; padding: 12px; }
 .review-super-card__image-container { flex: 0 0 150px; width: 150px; height: 150px; }
-.review-super-card__image, .review-super-card__icon-placeholder { width: 100%; height: 100%; object-fit: cover; border-radius: var(--border-radius-medium); }
+.review-super-card__image-link {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--border-radius-medium);
+    overflow: hidden;
+}
+.review-super-card__image-link:focus-visible {
+    outline: 2px solid var(--accent-color-primary);
+    outline-offset: 2px;
+}
+.review-super-card__image,
+.review-super-card__icon-placeholder {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--border-radius-medium);
+}
 .review-super-card__icon-placeholder { display: flex; align-items: center; justify-content: center; background-color: var(--icon-placeholder-bg); font-size: 3rem; color: var(--icon-placeholder-color); }
 .review-super-card__main-content { flex: 1 1 auto; min-width: 0; }
 .review-super-card__title-group { margin-bottom: 8px; /* Reducimos el espacio inferior */ }

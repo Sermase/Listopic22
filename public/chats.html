@@ -94,16 +94,18 @@
             <section class="chats-page" aria-label="Mensajes directos">
                 <aside class="chat-panel chat-list-panel" id="chat-list-panel">
                     <header class="chat-list-header">
-                        <div class="chat-list-header-main">
+                        <div class="chat-list-header-text">
                             <h3>Conversaciones</h3>
-                            <button type="button" class="chat-create-group" id="open-group-modal">
-                                <i class="fas fa-users"></i>
-                                <span>Nuevo grupo</span>
+                        </div>
+                        <div class="chat-list-header-actions">
+                            <button type="button" class="chat-action-button" id="open-group-modal">
+                                <i class="fas fa-user-group" aria-hidden="true"></i>
+                                <span>Crear grupo</span>
+                            </button>
+                            <button type="button" class="chat-list-close" id="chat-list-close" aria-label="Cerrar listado de chats">
+                                <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        <button type="button" class="chat-list-close" id="chat-list-close" aria-label="Cerrar listado de chats">
-                            <i class="fas fa-times"></i>
-                        </button>
                     </header>
                     <p id="chat-list-status" class="chat-list-status">Cargando conversaciones...</p>
                     <div class="chat-list" id="chat-list"></div>
@@ -123,9 +125,12 @@
                                 <p id="chat-detail-subtitle">Elige una conversacion para empezar.</p>
                             </div>
                         </div>
-                        <button type="button" class="chat-info-button" id="chat-info-button" aria-label="Ver informacion del chat" disabled>
-                            <i class="fas fa-circle-info"></i>
-                        </button>
+                        <div class="chat-header-actions">
+                            <button type="button" class="chat-info-button" id="chat-info-button" aria-label="Ver informacion del chat" disabled>
+                                <i class="fas fa-circle-info" aria-hidden="true"></i>
+                                <span>Info</span>
+                            </button>
+                        </div>
                     </header>
                     <div class="chat-messages" id="chat-messages">
                         <div class="chat-empty-state" id="chat-empty-state">
@@ -133,9 +138,10 @@
                         </div>
                     </div>
                     <form id="message-form" class="message-composer" autocomplete="off" hidden>
-                        <textarea id="message-input" name="message" placeholder="Escribe un mensaje" required maxlength="2000" rows="1"></textarea>
-                        <button type="submit" class="chat-send-button" aria-label="Enviar mensaje">
-                            <i class="fas fa-paper-plane"></i>
+                        <textarea id="message-input" name="message" placeholder="Escribe un mensaje" required maxlength="2000"></textarea>
+                        <button type="submit" class="button primary message-send-button" aria-label="Enviar mensaje">
+                            <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                            <span>Enviar</span>
                         </button>
                     </form>
                 </section>
@@ -183,6 +189,55 @@
             </div>
         </div>
     </main>
+
+    <div class="chat-modal" id="chat-group-modal" role="dialog" aria-hidden="true" aria-labelledby="chat-group-modal-title">
+        <div class="chat-modal-dialog">
+            <button type="button" class="chat-modal-close" id="chat-group-modal-close" aria-label="Cerrar">
+                <i class="fas fa-times"></i>
+            </button>
+            <form id="chat-group-form" class="chat-group-form">
+                <header class="chat-modal-header">
+                    <h2 id="chat-group-modal-title">Crear grupo</h2>
+                    <p id="chat-group-modal-subtitle">Selecciona usuarios de entre las personas a las que sigues.</p>
+                </header>
+                <div class="chat-modal-body">
+                    <div class="chat-group-field" id="group-name-field">
+                        <label for="group-name-input">Nombre del grupo</label>
+                        <input type="text" id="group-name-input" name="group-name" placeholder="Viaje a Barcelona" maxlength="80" required>
+                    </div>
+                    <div class="chat-group-field">
+                        <label for="group-search-input">Añadir participantes</label>
+                        <input type="text" id="group-search-input" name="group-search" placeholder="Busca entre tus seguidos" autocomplete="off">
+                        <p class="chat-modal-empty-state" id="group-modal-empty-state">Empieza a escribir para buscar entre tus seguidos.</p>
+                        <div class="chat-search-results" id="group-search-results" role="listbox"></div>
+                    </div>
+                    <div class="chat-selected-users" id="group-selected-users" aria-live="polite"></div>
+                </div>
+                <footer class="chat-modal-footer">
+                    <button type="button" class="button ghost" id="chat-group-cancel">Cancelar</button>
+                    <button type="submit" class="button primary" id="chat-group-submit" disabled>Crear grupo</button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <div class="chat-modal" id="chat-info-modal" role="dialog" aria-hidden="true" aria-labelledby="chat-info-title">
+        <div class="chat-modal-dialog">
+            <button type="button" class="chat-modal-close" id="chat-info-modal-close" aria-label="Cerrar">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="chat-modal-header">
+                <h2 id="chat-info-title">Informacion del chat</h2>
+                <p id="chat-info-subtitle"></p>
+            </div>
+            <div class="chat-modal-body">
+                <div class="chat-info-participants" id="chat-info-participants"></div>
+            </div>
+            <footer class="chat-modal-footer">
+                <button type="button" class="button secondary" id="chat-info-add">Añadir participantes</button>
+            </footer>
+        </div>
+    </div>
 </body>
 </html>
 
