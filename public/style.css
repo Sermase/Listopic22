@@ -922,6 +922,44 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
 .share-status-message.error { color: var(--danger-color, #ff6b6b); }
 .share-status-message.info { color: rgba(255,255,255,0.75); }
 
+.share-customization {
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.05);
+    display: grid;
+    gap: 12px;
+}
+.share-customization__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.share-customization__row label {
+    flex: 0 0 160px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+}
+.share-customization__row select {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background-color: rgba(15, 23, 42, 0.6);
+    color: #fff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.share-customization__row select:focus {
+    outline: none;
+    border-color: var(--accent-color-secondary, #f58529);
+    box-shadow: 0 0 0 2px rgba(245, 133, 41, 0.25);
+}
+.share-customization__row select:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -943,6 +981,17 @@ small.non-weighted-detail { font-size: 0.85em; opacity: 0.7; font-style: italic;
     }
     .app-logo {
         height: 60px; /* Further reduced from 70px */
+    }
+    .share-customization__row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .share-customization__row label {
+        flex: none;
+    }
+    .share-customization__row select {
+        width: 100%;
     }
 }
 
