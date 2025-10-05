@@ -242,6 +242,15 @@ ListopicApp.reviewShare = (() => {
     let chatsListElement;
     let chatsLoadingElement;
     let chatsEmptyElement;
+    let storySection;
+    let storyButton;
+    let storyButtonDefaultHTML = '';
+    let storyDownloadLink;
+    let storyFeedbackElement;
+    let storyColorSelect;
+    let storyStyleSelect;
+    let storyCustomization = null;
+    let storyContextCache = null;
     let isInitialized = false;
     let currentData = null;
     let currentLink = '';
@@ -257,6 +266,193 @@ ListopicApp.reviewShare = (() => {
         isInitialized = true;
     };
 
+    const getStoryModule = () => window.ListopicApp?.storyShare || null;
+
+    const getStoryDefaults = () => getStoryModule()?.getDefaultCustomization?.() || { colorScheme: 'midnight', graphicStyle: 'bars' };
+
+    const populateStoryOptions = () => {
+        if (!storyColorSelect || !storyStyleSelect) {
+            return;
+        }
+        const module = getStoryModule();
+        const colorOptions = module?.getColorSchemeOptions?.() || [
+            { value: 'midnight', label: 'Aurora nocturna' },
+            { value: 'sunset', label: 'Atardecer brillante' },
+            { value: 'ocean', label: 'Olas frías' },
+            { value: 'forest', label: 'Bosque vivo' }
+        ];
+        storyColorSelect.innerHTML = colorOptions
+            .map(option => `<option value="${option.value}">${option.label}</option>`)
+            .join('');
+        const styleOptions = module?.getGraphicStyleOptions?.() || [
+            { value: 'bars', label: 'Barras' },
+            { value: 'radar', label: 'Gráfico radar' }
+        ];
+        storyStyleSelect.innerHTML = styleOptions
+            .map(option => `<option value="${option.value}">${option.label}</option>`)
+            .join('');
+    };
+
+    const setStoryFeedback = (message, type = 'info') => {
+        if (!storyFeedbackElement) {
+            return;
+        }
+        if (!message) {
+            storyFeedbackElement.hidden = true;
+            storyFeedbackElement.textContent = '';
+            storyFeedbackElement.dataset.type = '';
+            return;
+        }
+        storyFeedbackElement.textContent = message;
+        storyFeedbackElement.dataset.type = type;
+        storyFeedbackElement.hidden = false;
+    };
+
+    const setStoryButtonLoading = (isLoading) => {
+        if (!storyButton) {
+            return;
+        }
+        if (isLoading) {
+            storyButton.dataset.loading = 'true';
+            storyButton.disabled = true;
+            storyButton.innerHTML = '<i class="fas fa-spinner"></i> Generando...';
+        } else {
+            storyButton.dataset.loading = 'false';
+            const defaultLabel = storyButtonDefaultHTML || '<i class="fab fa-instagram"></i> Generar tarjeta';
+            storyButton.disabled = false;
+            storyButton.innerHTML = defaultLabel;
+        }
+    };
+
+    const resetStorySection = () => {
+        populateStoryOptions();
+        const defaults = getStoryDefaults();
+        storyCustomization = { ...defaults };
+        if (storyColorSelect) {
+            storyColorSelect.value = defaults.colorScheme;
+        }
+        if (storyStyleSelect) {
+            storyStyleSelect.value = defaults.graphicStyle;
+        }
+        if (storyDownloadLink) {
+            storyDownloadLink.hidden = true;
+            storyDownloadLink.removeAttribute('href');
+        }
+        const module = getStoryModule();
+        if (!module) {
+            setStoryFeedback('La generación de tarjetas no está disponible por ahora.', 'warning');
+            if (storyButton) {
+                storyButton.disabled = true;
+            }
+        } else {
+            setStoryFeedback('', 'info');
+            if (storyButton) {
+                storyButton.disabled = false;
+                storyButton.innerHTML = storyButtonDefaultHTML || '<i class="fab fa-instagram"></i> Generar tarjeta';
+            }
+        }
+        storyContextCache = null;
+    };
+
+    const handleStoryOptionChange = () => {
+        if (!storyCustomization) {
+            storyCustomization = { ...getStoryDefaults() };
+        }
+        if (storyColorSelect?.value) {
+            storyCustomization.colorScheme = storyColorSelect.value;
+        }
+        if (storyStyleSelect?.value) {
+            storyCustomization.graphicStyle = storyStyleSelect.value;
+        }
+        if (storyFeedbackElement && !storyFeedbackElement.hidden && storyFeedbackElement.dataset.type !== 'error') {
+            setStoryFeedback('Aplicaremos el nuevo estilo en la próxima tarjeta.', 'info');
+        }
+    };
+
+    const prepareStoryContext = async () => {
+        const module = getStoryModule();
+        if (!module) {
+            throw new Error('Servicio de tarjetas no disponible.');
+        }
+        if (!currentData?.listId || !currentData?.reviewId) {
+            throw new Error('Faltan datos para generar la tarjeta.');
+        }
+        if (storyContextCache && storyContextCache.key === `${currentData.listId}/${currentData.reviewId}`) {
+            return storyContextCache;
+        }
+        const result = await module.loadShareContext(currentData.listId, currentData.reviewId);
+        storyContextCache = { key: `${currentData.listId}/${currentData.reviewId}`, ...result };
+        return storyContextCache;
+    };
+
+    const handleStoryShareClick = async () => {
+        const module = getStoryModule();
+        if (!module) {
+            setStoryFeedback('No podemos generar la tarjeta en este momento.', 'error');
+            return;
+        }
+        if (storyButton?.dataset.loading === 'true') {
+            return;
+        }
+        if (!storyCustomization) {
+            storyCustomization = { ...getStoryDefaults() };
+        }
+        if (storyColorSelect?.value) {
+            storyCustomization.colorScheme = storyColorSelect.value;
+        }
+        if (storyStyleSelect?.value) {
+            storyCustomization.graphicStyle = storyStyleSelect.value;
+        }
+        setStoryButtonLoading(true);
+        setStoryFeedback('Generando la tarjeta...', 'info');
+        let blobUrl = null;
+        try {
+            const { context, criteriaDefinitions } = await prepareStoryContext();
+            const { blob } = await module.createInstagramStoryCard(context, criteriaDefinitions, storyCustomization);
+            const fileName = `listopic-story-${context.review?.id || 'reseña'}.png`;
+            const file = new File([blob], fileName, { type: 'image/png' });
+            let shared = false;
+            if (navigator.canShare) {
+                try {
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: `Mi reseña en ${context.place?.name || context.review?.establishmentName || 'Listopic'}`,
+                            text: context.review?.itemName ? `${context.review.itemName} en Listopic` : 'Mi reseña en Listopic'
+                        });
+                        shared = true;
+                        setStoryFeedback('¡Tarjeta lista! Completa la publicación en Instagram.', 'success');
+                    }
+                } catch (error) {
+                    if (error?.name === 'AbortError') {
+                        setStoryFeedback('Compartir cancelado. Puedes descargar la tarjeta para subirla manualmente.', 'info');
+                    } else {
+                        console.warn('[reviewShare] Error compartiendo tarjeta:', error);
+                        setStoryFeedback('No pudimos compartir automáticamente. Descarga la tarjeta para subirla tú.', 'info');
+                    }
+                }
+            }
+            if (!shared) {
+                blobUrl = URL.createObjectURL(blob);
+                if (storyDownloadLink) {
+                    storyDownloadLink.href = blobUrl;
+                    storyDownloadLink.download = fileName;
+                    storyDownloadLink.hidden = false;
+                    storyDownloadLink.click();
+                }
+                setStoryFeedback('Descargamos la tarjeta. Busca la imagen en tu galería.', 'info');
+            }
+        } catch (error) {
+            console.error('[reviewShare] Error generando la tarjeta:', error);
+            setStoryFeedback('No pudimos generar la tarjeta. Inténtalo nuevamente.', 'error');
+        } finally {
+            setStoryButtonLoading(false);
+            if (blobUrl) {
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+            }
+        }
+    };
+
     const createModal = () => {
         modal = document.createElement('div');
         modal.id = 'review-share-modal';
@@ -264,7 +460,7 @@ ListopicApp.reviewShare = (() => {
         modal.innerHTML = `
             <div class="modal-content review-share-modal__content" role="dialog" aria-modal="true" aria-labelledby="review-share-title">
                 <button type="button" class="close-button review-share-modal__close" aria-label="Cerrar">&times;</button>
-                <h2 id="review-share-title" class="review-share-modal__title">Compartir rese&#241;a</h2>
+                <h2 id="review-share-title" class="review-share-modal__title">Compartir reseña</h2>
                 <p class="review-share-modal__subtitle"></p>
                 <section class="review-share-modal__section">
                     <h3 class="review-share-modal__section-title">Compartir enlace</h3>
@@ -279,10 +475,27 @@ ListopicApp.reviewShare = (() => {
                     <h3 class="review-share-modal__section-title">Enviar a un chat</h3>
                     <div class="review-share-modal__chats">
                         <p class="review-share-modal__chats-loading">Cargando chats...</p>
-                        <p class="review-share-modal__chats-empty" hidden>No hay chats activos todav&iacute;a.</p>
+                        <p class="review-share-modal__chats-empty" hidden>No hay chats activos todavía.</p>
                         <div class="review-share-modal__chats-list"></div>
                     </div>
                     <p class="review-share-modal__chat-feedback" hidden></p>
+                </section>
+                <section class="review-share-modal__section review-share-modal__section--story">
+                    <h3 class="review-share-modal__section-title">Tarjeta para Instagram</h3>
+                    <p class="review-share-modal__story-description">Genera una tarjeta lista para compartirla en tus historias con el estilo que prefieras.</p>
+                    <div class="review-share-modal__story-grid">
+                        <label class="review-share-modal__story-label" for="review-share-story-color">Colores</label>
+                        <select id="review-share-story-color" class="review-share-modal__story-select"></select>
+                        <label class="review-share-modal__story-label" for="review-share-story-style">Gráfico</label>
+                        <select id="review-share-story-style" class="review-share-modal__story-select"></select>
+                    </div>
+                    <div class="review-share-modal__story-actions">
+                        <button type="button" class="button tertiary-button review-share-story-btn">
+                            <i class="fab fa-instagram"></i> Generar tarjeta
+                        </button>
+                        <a class="button secondary-button review-share-story-download" hidden download>Descargar</a>
+                    </div>
+                    <p class="review-share-modal__story-feedback" hidden></p>
                 </section>
             </div>
         `;
@@ -299,6 +512,23 @@ ListopicApp.reviewShare = (() => {
         chatsListElement = modal.querySelector('.review-share-modal__chats-list');
         chatsLoadingElement = modal.querySelector('.review-share-modal__chats-loading');
         chatsEmptyElement = modal.querySelector('.review-share-modal__chats-empty');
+        storySection = modal.querySelector('.review-share-modal__section--story');
+        storyButton = modal.querySelector('.review-share-story-btn');
+        storyDownloadLink = modal.querySelector('.review-share-story-download');
+        storyFeedbackElement = modal.querySelector('.review-share-modal__story-feedback');
+        storyColorSelect = modal.querySelector('#review-share-story-color');
+        storyStyleSelect = modal.querySelector('#review-share-story-style');
+        if (storyButton) {
+            storyButtonDefaultHTML = storyButton.innerHTML;
+            storyButton.addEventListener('click', handleStoryShareClick);
+        }
+        if (storyColorSelect) {
+            storyColorSelect.addEventListener('change', handleStoryOptionChange);
+        }
+        if (storyStyleSelect) {
+            storyStyleSelect.addEventListener('change', handleStoryOptionChange);
+        }
+        resetStorySection();
 
         closeButton.addEventListener('click', close);
         copyButton.addEventListener('click', handleCopyLink);
@@ -368,6 +598,7 @@ ListopicApp.reviewShare = (() => {
             nativeShareButton.hidden = !supported;
             nativeShareButton.disabled = !supported;
         }
+        resetStorySection();
         modal.classList.add('active');
         document.body.classList.add('modal-open');
         loadChats();
