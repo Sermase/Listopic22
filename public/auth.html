@@ -217,12 +217,13 @@
 
         <div id="message-area" style="display:none;"></div>
 
-       <!-- <div class="or-divider">o</div>
+        <div class="or-divider">o</div>
 
-        <button id="google-login-btn" class="google-btn">
+        <button id="google-login-btn" type="button" class="google-btn">
             <i class="fab fa-google"></i> Continuar con Google
         </button>
-    </div> -->
+
+    </div>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -316,7 +317,7 @@
                     // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
                     console.log("Login exitoso, authService.js manejará la redirección.");
                     setTimeout(() => {
-                        window.location.href = 'Index.html'; // O la página a la que quieras ir post-registro
+                        window.location.href = 'index.html'; // O la página a la que quieras ir post-registro
                     }, 500); // Espera 1.5 segundos
                 } catch (error) {
                     console.error('Error en login:', error);
@@ -370,7 +371,7 @@
                 // Podrías añadir un pequeño delay para que el usuario vea el mensaje.
                 //+++++++++++++++++++++++++++++++++++++++++++++
                 setTimeout(() => {
-                    window.location.href = 'Index.html'; // O la página a la que quieras ir post-registro
+                    window.location.href = 'index.html'; // O la página a la que quieras ir post-registro
                 }, 1500); // Espera 1.5 segundos
             
             } catch (error) {
@@ -381,64 +382,60 @@
                 }
             });
 
-            googleLoginBtn.addEventListener('click', () => {
-                const provider = new firebase.auth.GoogleAuthProvider();
-                messageArea.style.display = 'none';
-                authInstance.signInWithPopup(provider)
-                    .then((result) => {
+            if (googleLoginBtn) {
+                googleLoginBtn.addEventListener('click', async () => {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    messageArea.style.display = 'none';
+
+                    const notify = (message, type = 'info') => {
+                        if (window.ListopicApp && window.ListopicApp.services && typeof ListopicApp.services.showNotification === 'function') {
+                            ListopicApp.services.showNotification(message, type);
+                        } else {
+                            displayMessage(message, type === 'error');
+                        }
+                    };
+
+                    googleLoginBtn.disabled = true;
+                    googleLoginBtn.classList.add('loading');
+
+                    try {
+                        const result = await authInstance.signInWithPopup(provider);
                         console.log('Usuario logueado con Google:', result.user);
-                        // Aquí también podrías querer asegurar que el usuario de Google tenga un documento en Firestore
-                        // similar a como lo haces en el registro normal, si es la primera vez que inicia sesión.
-                        // Esto se podría manejar en el onAuthStateChanged global de authService.js
-                        ListopicApp.services.showNotification('Inicio de sesión con Google exitoso.', 'success');
-                        // Redirection is handled by onAuthStateChanged in authService.js or this page's own listener
+                        notify('Inicio de sesión con Google exitoso.', 'success');
                         console.log("Login con Google exitoso, authService.js manejará la redirección.");
                         setTimeout(() => {
-                            window.location.href = 'Index.html'; // O la página a la que quieras ir post-registro
+                            window.location.href = 'index.html'; // O la página a la que quieras ir post-registro
                         }, 500); // Espera 1.5 segundos
-                    }).catch((error) => {
-                        // --- INICIO DE LA LÓGICA DE VINCULACIÓN ---
-
-                        // 1. Comprobar si el error es porque la cuenta ya existe con otro método
+                    } catch (error) {
                         if (error.code === 'auth/account-exists-with-different-credential') {
-                            // 2. Guardar la credencial de Google que se intentó usar.
-                            // Esta credencial contiene la información necesaria para vincular la cuenta más tarde.
                             const pendingCred = error.credential;
                             const email = error.email;
-
-                            // 3. Pedir al usuario su contraseña para verificar que es el dueño de la cuenta.
-                            // NOTA: Un prompt no es ideal en producción. Se recomienda un pequeño modal o formulario.
                             const password = prompt(`Ya existe una cuenta con el email ${email}. Por favor, introduce tu contraseña para vincular tu cuenta de Google.`);
-                
+
                             if (password) {
-                                // 4. Iniciar sesión con el método original (email y contraseña)
-                                authInstance.signInWithEmailAndPassword(email, password)
-                                    .then((userCredential) => {
-                                        // 5. Si el inicio de sesión es exitoso, vincular la credencial de Google
-                                        return userCredential.user.linkWithCredential(pendingCred);
-                                    })
-                                    .then(() => {
-                                        // 6. ¡Éxito! La cuenta de Google ha sido vinculada.
-                                        ListopicApp.services.showNotification('¡Tu cuenta de Google ha sido vinculada exitosamente!', 'success');
-                                        // La redirección la maneja onAuthStateChanged, que te llevará al Index.
-                                    })
-                                    .catch((linkError) => {
-                                        // Manejar errores del proceso de vinculación (ej. contraseña incorrecta)
-                                        console.error('Error al vincular la cuenta:', linkError);
-                                        displayMessage(getFirebaseErrorMessage(linkError), true);
-                                    });
+                                try {
+                                    const userCredential = await authInstance.signInWithEmailAndPassword(email, password);
+                                    await userCredential.user.linkWithCredential(pendingCred);
+                                    notify('¡Tu cuenta de Google ha sido vinculada exitosamente!', 'success');
+                                } catch (linkError) {
+                                    console.error('Error al vincular la cuenta:', linkError);
+                                    displayMessage(getFirebaseErrorMessage(linkError), true);
+                                }
                             } else {
-                                // El usuario canceló el prompt
                                 displayMessage('Proceso de vinculación cancelado.', true);
                             }
                         } else {
-                            // --- FIN DE LA LÓGICA DE VINCULACIÓN ---
                             console.error('Error con Google Sign-In:', error);
-                            ListopicApp.services.showNotification(getFirebaseErrorMessage(error) || error.message, 'error');
-                            // displayMessage(getFirebaseErrorMessage(error), true); // Opcional
+                            notify(getFirebaseErrorMessage(error) || error.message, 'error');
                         }
-                    });
-            });
+                    } finally {
+                        googleLoginBtn.disabled = false;
+                        googleLoginBtn.classList.remove('loading');
+                    }
+                });
+            } else {
+                console.warn('Botón de Google Sign-In no encontrado en auth.html.');
+            }
             
             function getFirebaseErrorMessage(error) {
                 switch (error.code) {
