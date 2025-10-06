@@ -209,6 +209,117 @@ ListopicApp.pageDetailView = (() => {
         return `rgba(${r}, ${g}, ${b}, ${alpha ?? 1})`;
     }
 
+    function getPreferredPhotoUrl(review = {}, place = {}) {
+        const reviewCandidates = [
+            review?.photoUrl,
+            review?.imageUrl,
+            review?.coverImageUrl,
+            review?.coverPhotoUrl
+        ].filter(candidate => typeof candidate === 'string' && candidate.trim().length);
+        if (reviewCandidates.length > 0) {
+            return reviewCandidates[0];
+        }
+
+        const placeCandidates = [
+            place?.mainImageUrl,
+            place?.photoUrl,
+            place?.coverImageUrl,
+            place?.featuredImageUrl,
+            place?.imageUrl
+        ];
+
+        if (Array.isArray(place?.photos)) {
+            for (const photo of place.photos) {
+                if (!photo) {
+                    continue;
+                }
+                if (typeof photo === 'string' && photo.trim().length) {
+                    placeCandidates.push(photo);
+                } else if (typeof photo === 'object' && typeof photo.url === 'string' && photo.url.trim().length) {
+                    placeCandidates.push(photo.url);
+                }
+            }
+        }
+
+        return placeCandidates.find(candidate => typeof candidate === 'string' && candidate.trim().length) || '';
+    }
+
+    function getCriterionLabel(definition, fallbackKey) {
+        if (!definition) {
+            return fallbackKey;
+        }
+        const candidates = [
+            definition.label,
+            definition.name,
+            definition.title,
+            definition.displayName,
+            definition.originalLabel,
+            definition.labelOriginal
+        ];
+        const label = candidates.find(candidate => typeof candidate === 'string' && candidate.trim().length);
+        return label || fallbackKey;
+    }
+
+    function coerceToDate(value) {
+        if (!value) {
+            return null;
+        }
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            return value;
+        }
+        if (typeof value.toDate === 'function') {
+            try {
+                const result = value.toDate();
+                if (result instanceof Date && !Number.isNaN(result.getTime())) {
+                    return result;
+                }
+            } catch (error) {
+                console.warn('[detailView] No se pudo convertir timestamp con toDate.', error);
+            }
+        }
+        if (typeof value.toMillis === 'function') {
+            const millis = Number(value.toMillis());
+            if (Number.isFinite(millis)) {
+                const date = new Date(millis);
+                if (!Number.isNaN(date.getTime())) {
+                    return date;
+                }
+            }
+        }
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            const fromNumber = new Date(value);
+            if (!Number.isNaN(fromNumber.getTime())) {
+                return fromNumber;
+            }
+        }
+        if (typeof value === 'string') {
+            const fromString = new Date(value);
+            if (!Number.isNaN(fromString.getTime())) {
+                return fromString;
+            }
+        }
+        if (typeof value === 'object' && typeof value.seconds === 'number') {
+            const millis = value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
+            const fromComponents = new Date(millis);
+            if (!Number.isNaN(fromComponents.getTime())) {
+                return fromComponents;
+            }
+        }
+        return null;
+    }
+
+    function formatDateForDisplay(date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return '';
+        }
+        try {
+            return new Intl.DateTimeFormat('es-ES', { dateStyle: 'long' }).format(date);
+        } catch (error) {
+            console.warn('[detailView] No se pudo formatear la fecha con Intl.DateTimeFormat.', error);
+            return date.toLocaleDateString('es-ES');
+        }
+    }
+
     async function createInstagramStoryCard(context, criteriaDefinitions = {}, customization = {}) {
         const { review, list, place, author } = context || {};
         const { colorScheme = STORY_DEFAULT_CUSTOMIZATION.colorScheme, graphicStyle = STORY_DEFAULT_CUSTOMIZATION.graphicStyle } = customization || {};
@@ -266,9 +377,10 @@ ListopicApp.pageDetailView = (() => {
         const imageWidth = availableWidth;
         const imageY = currentY + 20;
         let imageDrawn = false;
-        if (review?.photoUrl) {
+        const preferredPhotoUrl = getPreferredPhotoUrl(review, place);
+        if (preferredPhotoUrl) {
             try {
-                const img = await loadImageSafely(review.photoUrl);
+                const img = await loadImageSafely(preferredPhotoUrl);
                 const scale = Math.min(imageWidth / img.width, imageHeight / img.height);
                 const drawWidth = img.width * scale;
                 const drawHeight = img.height * scale;
@@ -496,7 +608,7 @@ ListopicApp.pageDetailView = (() => {
                 ctx.font = '500 34px "Poppins", "Helvetica Neue", Arial';
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
-                const label = (definition?.label || key).toString();
+                const label = getCriterionLabel(definition, key).toString();
                 ctx.fillText(label, barsStartX + 16, barY + barHeight / 2);
 
                 ctx.textAlign = 'right';
@@ -586,7 +698,7 @@ ListopicApp.pageDetailView = (() => {
 
             entries.forEach(([key, definition], index) => {
                 const raw = Number.parseFloat(review.scores[key]);
-                const label = (definition?.label || key).toString();
+                const label = getCriterionLabel(definition, key).toString();
                 const angle = (Math.PI * 2 * index) / entries.length - Math.PI / 2;
                 let textAlign = 'center';
                 if (Math.cos(angle) > 0.2) {
@@ -746,6 +858,8 @@ ListopicApp.pageDetailView = (() => {
         const detailListNameEl = document.getElementById('detail-list-name');
         const reviewAuthorNameEl = document.getElementById('review-author-name');
         const detailImageEl = document.getElementById('detail-image');
+        const reviewCreatedDateEl = document.getElementById('review-created-date');
+        const reviewDateContainerEl = document.getElementById('review-date-container');
 
         const backButton = document.querySelector('.container a.back-button');
         const editButton = document.querySelector('.edit-button');
@@ -755,6 +869,71 @@ ListopicApp.pageDetailView = (() => {
         const currentUserId = auth?.currentUser?.uid || null;
 
         let shareModalData = null;
+        let displayPhotoUrl = '';
+        let awaitingFallbackImage = false;
+
+        const setNoLocationVisible = (visible) => {
+            if (!detailNoLocationDivEl) {
+                return;
+            }
+            detailNoLocationDivEl.style.display = visible ? 'flex' : 'none';
+            if (visible) {
+                detailNoLocationDivEl.removeAttribute('hidden');
+            } else {
+                detailNoLocationDivEl.setAttribute('hidden', 'true');
+            }
+        };
+        setNoLocationVisible(false);
+
+        const showDetailImage = (url, altText) => {
+            if (!detailImageEl) {
+                return;
+            }
+            if (url) {
+                detailImageEl.src = url;
+                if (altText) {
+                    detailImageEl.alt = altText;
+                }
+                detailImageEl.style.display = 'block';
+                const placeholderIcon = detailImageEl.parentNode?.querySelector('.detail-image-icon-placeholder');
+                if (placeholderIcon) {
+                    placeholderIcon.style.display = 'none';
+                }
+            }
+        };
+
+        const showImagePlaceholder = () => {
+            if (!detailImageEl || !detailImageEl.parentNode) {
+                return;
+            }
+            detailImageEl.style.display = 'none';
+            let placeholderIconDiv = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
+            if (!placeholderIconDiv) {
+                placeholderIconDiv = document.createElement('div');
+                placeholderIconDiv.className = 'detail-image-icon-placeholder';
+                detailImageEl.parentNode.insertBefore(placeholderIconDiv, detailImageEl.nextSibling);
+            }
+            placeholderIconDiv.innerHTML = '<i class="fa-solid fa-image"></i>';
+            placeholderIconDiv.style.display = 'flex';
+        };
+
+        const updateReviewDate = (rawDateValue) => {
+            if (!reviewCreatedDateEl || !reviewDateContainerEl) {
+                return;
+            }
+            const date = coerceToDate(rawDateValue);
+            if (!date) {
+                reviewDateContainerEl.hidden = true;
+                return;
+            }
+            const formatted = formatDateForDisplay(date);
+            if (!formatted) {
+                reviewDateContainerEl.hidden = true;
+                return;
+            }
+            reviewCreatedDateEl.textContent = `Creada el ${formatted}`;
+            reviewDateContainerEl.hidden = false;
+        };
 
         const ensureShareData = () => {
             const baseData = {
@@ -857,6 +1036,19 @@ ListopicApp.pageDetailView = (() => {
                 if (!reviewDoc.exists) throw new Error(`Resena no encontrada.`);
                 reviewDataGlobal = { id: reviewDoc.id, ...reviewDoc.data() };
                 const authorNameRaw = reviewDataGlobal.authorName || reviewDataGlobal.userDisplayName || reviewDataGlobal.username || 'Usuario Anonimo';
+                displayPhotoUrl = reviewDataGlobal.photoUrl || reviewDataGlobal.imageUrl || '';
+                awaitingFallbackImage = !displayPhotoUrl;
+
+                updateReviewDate(
+                    reviewDataGlobal.createdAt ||
+                    reviewDataGlobal.creationDate ||
+                    reviewDataGlobal.created_at ||
+                    reviewDataGlobal.createdOn ||
+                    reviewDataGlobal.updatedAt ||
+                    reviewDataGlobal.updated_at ||
+                    reviewDataGlobal.lastUpdated
+                );
+
                 updateShareData({
                     reviewId: reviewDataGlobal.id || reviewId,
                     listId: listIdFromURL,
@@ -864,7 +1056,7 @@ ListopicApp.pageDetailView = (() => {
                     overallRating: Number.isFinite(Number(reviewDataGlobal.overallRating))
                         ? Number(reviewDataGlobal.overallRating).toFixed(1)
                         : '',
-                    photoUrl: reviewDataGlobal.photoUrl || '',
+                    photoUrl: displayPhotoUrl,
                     comment: reviewDataGlobal.comment || '',
                     placeId: reviewDataGlobal.placeId || '',
                     placeName: reviewDataGlobal.establishmentName || '',
@@ -872,8 +1064,30 @@ ListopicApp.pageDetailView = (() => {
                     authorName: authorNameRaw,
                     detailUrl: shareDetailUrl
                 });
-                if (currentUserId && (reviewDataGlobal.userId === currentUserId || reviewDataGlobal.authorId === currentUserId)) {
+                const isOwner = Boolean(currentUserId && (reviewDataGlobal.userId === currentUserId || reviewDataGlobal.authorId === currentUserId));
+                if (isOwner) {
                     updateShareData({ isOwner: true });
+                }
+
+                if (editButton) {
+                    editButton.style.display = isOwner ? '' : 'none';
+                    if (isOwner) {
+                        editButton.removeAttribute('aria-hidden');
+                        editButton.removeAttribute('tabindex');
+                    } else {
+                        editButton.setAttribute('aria-hidden', 'true');
+                        editButton.setAttribute('tabindex', '-1');
+                    }
+                }
+                if (deleteButton) {
+                    deleteButton.style.display = isOwner ? '' : 'none';
+                    if (isOwner) {
+                        deleteButton.removeAttribute('aria-hidden');
+                        deleteButton.removeAttribute('tabindex');
+                    } else {
+                        deleteButton.setAttribute('aria-hidden', 'true');
+                        deleteButton.setAttribute('tabindex', '-1');
+                    }
                 }
 
                 // Mostrar datos basicos de la resena
@@ -881,22 +1095,10 @@ ListopicApp.pageDetailView = (() => {
                 if (detailScoreValueEl) detailScoreValueEl.textContent = reviewDataGlobal.overallRating !== undefined ? reviewDataGlobal.overallRating.toFixed(1) : 'N/A';
                 
                 if (detailImageEl && detailImageEl.parentNode) {
-                    if (reviewDataGlobal.photoUrl) {
-                        detailImageEl.src = reviewDataGlobal.photoUrl;
-                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'resena')}`;
-                        detailImageEl.style.display = 'block';
-                        const placeholderIcon = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
-                        if(placeholderIcon) placeholderIcon.style.display = 'none';
+                    if (displayPhotoUrl) {
+                        showDetailImage(displayPhotoUrl, `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'reseña')}`);
                     } else {
-                        detailImageEl.style.display = 'none';
-                        let placeholderIconDiv = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
-                        if (!placeholderIconDiv) {
-                            placeholderIconDiv = document.createElement('div');
-                            placeholderIconDiv.className = 'detail-image-icon-placeholder';
-                            detailImageEl.parentNode.insertBefore(placeholderIconDiv, detailImageEl.nextSibling);
-                        }
-                        placeholderIconDiv.innerHTML = `<i class="fa-solid fa-image"></i>`;
-                        placeholderIconDiv.style.display = 'flex';
+                        showImagePlaceholder();
                     }
                 }
 
@@ -959,7 +1161,8 @@ ListopicApp.pageDetailView = (() => {
                             if (reviewDataGlobal.scores[critKey] !== undefined) {
                                 const li = document.createElement('li');
                                 const weightedText = critDef.ponderable === false ? ' <small class="non-weighted-detail">(No pondera)</small>' : '';
-                                li.innerHTML = `<span class="rating-label">${uiUtils.escapeHtml(critDef.label)}${weightedText}</span> <span class="rating-value">${parseFloat(reviewDataGlobal.scores[critKey]).toFixed(1)}</span>`;
+                                const labelText = getCriterionLabel(critDef, critKey);
+                                li.innerHTML = `<span class="rating-label">${uiUtils.escapeHtml(labelText)}${weightedText}</span> <span class="rating-value">${parseFloat(reviewDataGlobal.scores[critKey]).toFixed(1)}</span>`;
                                 detailRatingsListEl.appendChild(li);
                             }
                         }
@@ -1009,7 +1212,11 @@ ListopicApp.pageDetailView = (() => {
                     detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || "Establecimiento no especificado";
                 }
                 if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
-                if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+                if (detailLocationLinkEl) {
+                    detailLocationLinkEl.removeAttribute('href');
+                    detailLocationLinkEl.style.pointerEvents = 'none';
+                }
+                setNoLocationVisible(true);
                 updateShareData({ placeId: '', placeName: reviewDataGlobal.establishmentName || '' });
                 return Promise.resolve(null); // Devolver promesa resuelta
             })
@@ -1018,12 +1225,18 @@ ListopicApp.pageDetailView = (() => {
                 if (placeDocOrNull && placeDocOrNull.exists) {
                     placeData = placeDocOrNull.data();
                     if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = placeData.name || "Nombre de lugar desconocido";
-                    
-                    if (detailImageEl && detailImageEl.alt === `Foto de reseña`) {
-                         detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || placeData.name)}`;
+
+                    if (!displayPhotoUrl && awaitingFallbackImage) {
+                        const placePhotoFallback = getPreferredPhotoUrl(reviewDataGlobal, placeData);
+                        if (placePhotoFallback) {
+                            displayPhotoUrl = placePhotoFallback;
+                            awaitingFallbackImage = false;
+                            showDetailImage(displayPhotoUrl, `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || placeData.name || 'reseña')}`);
+                            updateShareData({ photoUrl: displayPhotoUrl });
+                        }
                     }
 
-                    if (detailLocationContainerEl && detailLocationTextEl && detailNoLocationDivEl && (placeData.address || placeData.name || placeData.googleMapsUrl || placeData.googlePlaceId)) {
+                    if (detailLocationContainerEl && detailLocationTextEl && (placeData.address || placeData.name || placeData.googleMapsUrl || placeData.googlePlaceId)) {
                         let mapsUrl = "#";
                         if (placeData.googleMapsUrl) mapsUrl = placeData.googleMapsUrl;
                         else if (placeData.googlePlaceId) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.googlePlaceId}`;
@@ -1039,17 +1252,25 @@ ListopicApp.pageDetailView = (() => {
                             }
                         }
                         detailLocationTextEl.textContent = placeData.address || placeData.name;
-                        detailNoLocationDivEl.style.display = 'none';
-                        detailLocationContainerEl.style.display = 'block';
+                        setNoLocationVisible(false);
+                        if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'block';
                     } else {
                         if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
-                        if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+                        if (detailLocationLinkEl) {
+                            detailLocationLinkEl.removeAttribute('href');
+                            detailLocationLinkEl.style.pointerEvents = 'none';
+                        }
+                        setNoLocationVisible(true);
                     }
                 } else if (reviewDataGlobal && reviewDataGlobal.placeId) {
                     if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = "Lugar no encontrado en BD";
                     console.warn(`Lugar con ID ${reviewDataGlobal.placeId} no encontrado para la reseña ${reviewId}`);
                     if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
-                    if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+                    if (detailLocationLinkEl) {
+                        detailLocationLinkEl.removeAttribute('href');
+                        detailLocationLinkEl.style.pointerEvents = 'none';
+                    }
+                    setNoLocationVisible(true);
                 }
                 const placeNameForShare = placeData?.name || reviewDataGlobal.establishmentName || '';
                 updateShareData({
