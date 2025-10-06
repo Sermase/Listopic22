@@ -41,22 +41,22 @@
     <div class="header-actions-container">
         <div class="header-left-content">
             <div class="app-logo-container">
-                <a href="Index.html" title="Ir a la página de inicio">
+                <a href="index.html" title="Ir a la página de inicio">
                     <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
                 </a>
             </div>
         </div>
         <div class="header-right-actions">
-            <a href="search.html" id="search-link-button" class="header-action-button icon-with-badge" aria-label="Buscar">
-                <i class="fas fa-search"></i>
+            <a href="search.html" id="search-link-button" class="search-button header-action-button icon-with-badge" aria-label="Buscar">
+                <i class="fas fa-search" aria-hidden="true"></i>
             </a>
             <a href="chats.html" id="chats-link-button" class="header-action-button icon-with-badge" aria-label="Chats" aria-current="page">
-                <i class="fas fa-comments"></i>
+                <i class="fas fa-comments" aria-hidden="true"></i>
                 <span class="badge-indicator" id="chats-badge" hidden></span>
             </a>
             <div class="header-icon-group">
                 <button id="notifications-button" class="header-action-button icon-with-badge" aria-label="Notificaciones" aria-expanded="false" aria-haspopup="true">
-                    <i class="fas fa-bell"></i>
+                    <i class="fas fa-bell" aria-hidden="true"></i>
                     <span class="badge-indicator" id="notifications-badge" hidden></span>
                 </button>
                 <div id="notifications-dropdown" class="notifications-dropdown" role="menu" aria-hidden="true">
@@ -68,14 +68,14 @@
 
             <div class="user-profile-menu-container">
                 <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
-                    <i class="fas fa-user-circle"></i>
+                    <i class="fas fa-user-circle" aria-hidden="true"></i>
                 </button>
                 <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
                     <a href="profile.html" role="menuitem">Perfil</a>
-                    <a href="profile.html#profile-email" role="menuitem">Datos</a>
-                    <a href="profile.html#profile-my-lists" role="menuitem">Listas</a>
-                    <a href="profile.html#profile-my-reviews" role="menuitem">Reviews</a>
+                    <a href="chats.html" role="menuitem">Chats</a>
+                    <a href="profile.html#guardado" role="menuitem">Guardado</a>
                     <hr class="user-menu-divider">
+
                     <button type="button" role="menuitem" id="installPwaBtn" style="display: none;">
                         <i class="fas fa-download"></i> Instalar Aplicación
                     </button>
@@ -84,9 +84,10 @@
                 </div>
             </div>
             <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
-                <i class="fas fa-moon"></i>
+                <i class="fas fa-moon" aria-hidden="true"></i>
             </button>
         </div>
+
     </div>
 
     <main>
