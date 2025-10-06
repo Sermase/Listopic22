@@ -116,9 +116,16 @@
             <h2 id="detail-restaurant-name">[Cargando nombre del elemento...]</h2>
             <p class="detail-dish-name" id="detail-dish-name"></p>
             
-            <p class="review-author-info" style="text-align: center; margin-bottom: 15px; font-size: 0.9em;">
-                Reseña de: <a href="profile.html" id="review-author-name">[Cargando autor...]</a>
-            </p>
+            <div class="review-meta" id="review-meta">
+                <div class="review-meta__author">
+                    <i class="fas fa-user-circle" aria-hidden="true"></i>
+                    <a href="profile.html" id="review-author-name" class="review-meta__author-link">[Cargando autor...]</a>
+                </div>
+                <div class="review-meta__date" id="review-date-container" hidden>
+                    <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+                    <span id="review-created-date">[Cargando fecha...]</span>
+                </div>
+            </div>
 
             <div class="detail-content">
                 <div class="detail-image-area">
