@@ -1951,7 +1951,7 @@ a.header-action-button { /* Importante añadir 'a.header-action-button' */
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
     box-sizing: border-box;
     flex-shrink: 0;
-    
+
     text-decoration: none; /* CLAVE: Quita el subrayado de los enlaces */
 }
 

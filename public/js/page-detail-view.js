@@ -1490,6 +1490,14 @@ ListopicApp.pageDetailView = (() => {
 
                 refreshCriteriaVisuals();
 
+                if (reviewAuthorBioEl && listDataGlobal?.name) {
+                    reviewAuthorBioEl.textContent = `Reseña de la lista “${uiUtils.escapeHtml(listDataGlobal.name)}”`;
+                }
+
+                refreshCriteriaVisuals();
+
+                refreshCriteriaVisuals();
+
                 // 3. Obtener datos del autor de la reseña
                 if (reviewDataGlobal.userId) {
                     return db.collection('users').doc(reviewDataGlobal.userId).get(); // Esto devuelve una promesa
