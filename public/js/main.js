@@ -268,7 +268,7 @@ ListopicApp.reviewShare = (() => {
 
     const getStoryModule = () => window.ListopicApp?.storyShare || null;
 
-    const getStoryDefaults = () => getStoryModule()?.getDefaultCustomization?.() || { colorScheme: 'midnight', graphicStyle: 'bars' };
+    const getStoryDefaults = () => getStoryModule()?.getDefaultCustomization?.() || { colorScheme: 'midnight', graphicStyle: 'radar' };
 
     const populateStoryOptions = () => {
         if (!storyColorSelect || !storyStyleSelect) {
