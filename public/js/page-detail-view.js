@@ -732,9 +732,6 @@ ListopicApp.pageDetailView = (() => {
         // Elementos del DOM
         const detailEstablishmentNameEl = document.getElementById('detail-restaurant-name');
         const detailItemNameEl = document.getElementById('detail-dish-name');
-        const defaultStoryCustomization = ListopicApp.storyShare?.getDefaultCustomization
-            ? ListopicApp.storyShare.getDefaultCustomization()
-            : { ...STORY_DEFAULT_CUSTOMIZATION };
 
         const detailScoreValueEl = document.getElementById('detail-score-value');
         const detailRatingsListEl = document.getElementById('detail-ratings');
@@ -753,279 +750,73 @@ ListopicApp.pageDetailView = (() => {
         const backButton = document.querySelector('.container a.back-button');
         const editButton = document.querySelector('.edit-button');
         const deleteButton = document.querySelector('.delete-button.danger');
-        const shareButton = document.getElementById('share-instagram-button');
-        const shareHelperEl = document.getElementById('share-instagram-helper');
-        const shareStatusEl = document.getElementById('share-instagram-status');
-        const shareDownloadLink = document.getElementById('share-instagram-download-link');
-        const shareCustomizationContainer = document.getElementById('share-instagram-customization');
-        const shareColorSchemeSelect = document.getElementById('share-color-scheme');
-        const shareGraphicStyleSelect = document.getElementById('share-graphic-style');
-        const shareButtonOriginalHTML = shareButton ? shareButton.innerHTML : '';
+        const shareButton = document.getElementById('detail-share-button');
         const showNotification = ListopicApp.services?.showNotification;
+        const currentUserId = auth?.currentUser?.uid || null;
 
-        const shareCustomization = { ...defaultStoryCustomization };
+        let shareModalData = null;
 
-        function populateCustomizationOptions() {
-            if (shareColorSchemeSelect && ListopicApp.storyShare?.getColorSchemeOptions) {
-                const previousValue = shareColorSchemeSelect.value;
-                shareColorSchemeSelect.innerHTML = '';
-                ListopicApp.storyShare.getColorSchemeOptions().forEach(({ value, label }) => {
-                    const option = document.createElement('option');
-                    option.value = value;
-                    option.textContent = label;
-                    shareColorSchemeSelect.appendChild(option);
-                });
-                shareColorSchemeSelect.value = previousValue || shareCustomization.colorScheme;
-            }
-            if (shareGraphicStyleSelect && ListopicApp.storyShare?.getGraphicStyleOptions) {
-                const previousValue = shareGraphicStyleSelect.value;
-                shareGraphicStyleSelect.innerHTML = '';
-                ListopicApp.storyShare.getGraphicStyleOptions().forEach(({ value, label }) => {
-                    const option = document.createElement('option');
-                    option.value = value;
-                    option.textContent = label;
-                    shareGraphicStyleSelect.appendChild(option);
-                });
-                shareGraphicStyleSelect.value = previousValue || shareCustomization.graphicStyle;
-            }
-        }
-
-        populateCustomizationOptions();
-
-        if (shareColorSchemeSelect) {
-            shareColorSchemeSelect.value = shareColorSchemeSelect.value || shareCustomization.colorScheme;
-            shareCustomization.colorScheme = shareColorSchemeSelect.value;
-        }
-        if (shareGraphicStyleSelect) {
-            shareGraphicStyleSelect.value = shareGraphicStyleSelect.value || shareCustomization.graphicStyle;
-            shareCustomization.graphicStyle = shareGraphicStyleSelect.value;
-        }
-
-        if (shareCustomizationContainer) {
-            shareCustomizationContainer.hidden = true;
-        }
-        setCustomizationControlsDisabled(true);
-
-        let shareAssetsReady = false;
-        const shareContext = { review: null, list: null, place: null, author: null };
-        let shareCriteriaDefinitions = {};
-        let currentDownloadUrl = null;
-
-        function cleanupDownloadUrl() {
-            if (currentDownloadUrl) {
-                URL.revokeObjectURL(currentDownloadUrl);
-                currentDownloadUrl = null;
-            }
-            if (shareDownloadLink) {
-                shareDownloadLink.removeAttribute('href');
-                shareDownloadLink.style.display = 'none';
-            }
-        }
-
-        function setShareStatus(message, type = 'info') {
-            if (!shareStatusEl) return;
-            if (!message) {
-                shareStatusEl.hidden = true;
-                shareStatusEl.textContent = '';
-                shareStatusEl.className = 'share-status-message';
-                return;
-            }
-            shareStatusEl.hidden = false;
-            shareStatusEl.textContent = message;
-            shareStatusEl.className = `share-status-message ${type}`;
-        }
-
-        function setCustomizationControlsDisabled(isDisabled) {
-            if (shareColorSchemeSelect) {
-                shareColorSchemeSelect.disabled = !!isDisabled;
-            }
-            if (shareGraphicStyleSelect) {
-                shareGraphicStyleSelect.disabled = !!isDisabled;
-            }
-        }
-
-        function announceCustomizationChange() {
-            if (!shareStatusEl) {
-                return;
-            }
-            if (!shareAssetsReady) {
-                return;
-            }
-            const currentClass = shareStatusEl.className || '';
-            if (shareStatusEl.hidden || (!currentClass.includes('success') && !currentClass.includes('error'))) {
-                setShareStatus('Aplicaremos los nuevos ajustes en la próxima tarjeta.', 'info');
-            }
-        }
-
-        function toggleShareLoading(isLoading) {
-            if (!shareButton) return;
-            if (isLoading) {
-                shareButton.setAttribute('data-loading', 'true');
-                shareButton.setAttribute('aria-busy', 'true');
-                shareButton.disabled = true;
-                shareButton.innerHTML = '<i class="fas fa-spinner"></i> Generando...';
+        const ensureShareData = () => {
+            const baseData = {
+                listId: listIdFromURL || '',
+                reviewId: reviewId || '',
+                detailUrl: shareDetailUrl
+            };
+            if (!shareModalData) {
+                shareModalData = baseData;
             } else {
-                shareButton.removeAttribute('data-loading');
-                shareButton.removeAttribute('aria-busy');
-                shareButton.disabled = !shareAssetsReady;
-                shareButton.innerHTML = shareButtonOriginalHTML;
+                shareModalData = { ...baseData, ...shareModalData };
             }
-            setCustomizationControlsDisabled(isLoading || !shareAssetsReady);
-        }
+            if (shareButton) {
+                const hasCoreData = Boolean(shareModalData.listId && shareModalData.reviewId);
+                shareButton.disabled = !hasCoreData;
+            }
+        };
 
+        const updateShareData = (partial = {}) => {
+            shareModalData = { ...(shareModalData || {}), ...partial };
+            ensureShareData();
+        };
 
-        function enableShareFeature() {
-            if (!shareButton || shareAssetsReady === true) return;
-            shareAssetsReady = true;
-            shareButton.disabled = false;
-            shareButton.removeAttribute('aria-busy');
-            if (shareHelperEl) shareHelperEl.hidden = false;
-            if (shareCustomizationContainer) shareCustomizationContainer.hidden = false;
-            cleanupDownloadUrl();
-            setCustomizationControlsDisabled(false);
-            setShareStatus('Personaliza la tarjeta y compártela en Instagram Stories.', 'info');
-        }
+        const shareLinkFallback = async (detailUrl) => {
+            try {
+                const absoluteUrl = detailUrl ? new URL(detailUrl, window.location.href).href : window.location.href;
+                if (navigator.share) {
+                    await navigator.share({ title: 'Listopic', url: absoluteUrl });
+                    return true;
+                }
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(absoluteUrl);
+                    return true;
+                }
+                window.prompt('Copia el enlace de la reseña:', absoluteUrl);
+                return true;
+            } catch (error) {
+                console.error('[detailView] Error en compartir fallback:', error);
+                return false;
+            }
+        };
 
-        async function handleShareClick() {
-            if (!shareButton) return;
-            if (!shareAssetsReady) {
-                setShareStatus('Estamos preparando los datos de tu reseña…', 'info');
+        const handleShareButtonClick = async () => {
+            ensureShareData();
+            if (!shareModalData || !shareModalData.listId || !shareModalData.reviewId) {
                 return;
             }
-
-            toggleShareLoading(true);
-
-            try {
-                setShareStatus('Generando tu tarjeta para Instagram…', 'info');
-
-                const activeCriteriaDefinitions = (shareCriteriaDefinitions && Object.keys(shareCriteriaDefinitions).length > 0)
-                    ? shareCriteriaDefinitions
-                    : (shareContext.list?.criteriaDefinitions || shareContext.list?.defaultCriteriaDefinitions || {});
-
-                const { blob } = await ListopicApp.storyShare.createInstagramStoryCard(
-                    { ...shareContext },
-                    activeCriteriaDefinitions,
-                    { ...shareCustomization }
-                );
-
-                if (!blob) {
-                    throw new Error('No se pudo generar la imagen para compartir.');
-                }
-
-                cleanupDownloadUrl();
-
-                const fileName = `listopic-story-${shareContext.review?.id || 'resena'}.png`;
-                const ratingLabel = overallRatingLabel(shareContext.review);
-                const shareTitle = `Mi reseña en ${shareContext.place?.name || shareContext.review?.establishmentName || 'Listopic'}`;
-                const shareTextParts = [
-                    shareContext.review?.itemName || shareContext.place?.name,
-                    ratingLabel,
-                    shareContext.list?.name ? `Lista: ${shareContext.list.name}` : null
-                ].filter(Boolean);
-                const shareText = shareTextParts.join(' · ');
-
-                let file = null;
-                try {
-                    file = new File([blob], fileName, { type: 'image/png' });
-                } catch (fileCreationError) {
-                    console.warn('No pudimos crear un archivo compatible con la API de compartir.', fileCreationError);
-                }
-
-                let canUseWebShare = false;
-                if (file && navigator?.canShare) {
-                    try {
-                        canUseWebShare = navigator.canShare({ files: [file] });
-                    } catch (shareCapabilityError) {
-                        console.warn('El navegador no permite compartir archivos directamente.', shareCapabilityError);
-                        canUseWebShare = false;
-                    }
-                }
-
-                let shared = false;
-                if (file && canUseWebShare && navigator?.share) {
-                    try {
-                        await navigator.share({
-                            files: [file],
-                            title: shareTitle,
-                            text: shareText
-                        });
-                        shared = true;
-                        setShareStatus('¡Listo! Si Instagram no se abre automáticamente, revisa tu galería para encontrar la tarjeta.', 'success');
-                    } catch (shareError) {
-                        if (shareError?.name === 'AbortError') {
-                            setShareStatus('Compartir cancelado. Guardamos la tarjeta en tus descargas para que la compartas cuando quieras.', 'info');
-                        } else {
-                            console.warn('El uso de la API de compartir falló, se ofrecerá descarga manual.', shareError);
-                            setShareStatus('No pudimos abrir Instagram automáticamente. Descarga la tarjeta y súbela manualmente.', 'info');
-                        }
-                        shared = false;
-                    }
-                }
-
-                if (!shared) {
-                    const blobUrl = URL.createObjectURL(blob);
-                    currentDownloadUrl = blobUrl;
-                    if (shareDownloadLink) {
-                        shareDownloadLink.href = blobUrl;
-                        shareDownloadLink.download = fileName;
-                        shareDownloadLink.style.display = 'inline-flex';
-                        shareDownloadLink.textContent = 'Descargar tarjeta';
-                        try {
-                            shareDownloadLink.click();
-                        } catch (downloadError) {
-                            console.warn('La descarga automática fue bloqueada por el navegador.', downloadError);
-                        }
-                    }
-                    if (shareHelperEl) shareHelperEl.hidden = false;
-                    setShareStatus('Descargamos la tarjeta. Súbela como historia desde tu galería.', 'info');
-                } else {
-                    cleanupDownloadUrl();
-                }
-
-                if (shared && showNotification) {
-                    showNotification('Tarjeta preparada. Completa la publicación en Instagram.', 'success');
-                } else if (!shared && showNotification) {
-                    showNotification('Tarjeta lista. Revisa tus descargas para compartirla en Instagram.', 'info');
-                }
-            } catch (error) {
-                console.error('Error generando la tarjeta de Instagram:', error);
-                setShareStatus('No pudimos generar la tarjeta. Inténtalo nuevamente.', 'error');
-                cleanupDownloadUrl();
-                if (showNotification) {
-                    showNotification(error.message || 'No se pudo crear la tarjeta para compartir.', 'error');
-                }
-            } finally {
-                toggleShareLoading(false);
+            if (window.ListopicApp?.reviewShare?.open) {
+                window.ListopicApp.reviewShare.open(shareModalData);
+                return;
             }
-        }
-
-        function overallRatingLabel(review) {
-            if (!review) return '';
-            const rating = Number.parseFloat(review.overallRating ?? review.overallScore);
-            if (Number.isFinite(rating)) {
-                return `${rating.toFixed(1)} ⭐`;
+            const success = await shareLinkFallback(shareModalData.detailUrl);
+            if (success && typeof showNotification === 'function') {
+                showNotification('Enlace preparado para compartir.', 'success');
+            } else if (!success && typeof showNotification === 'function') {
+                showNotification('No se pudo compartir la reseña.', 'error');
             }
-            return '';
-        }
-
-        if (shareColorSchemeSelect) {
-            shareColorSchemeSelect.addEventListener('change', (event) => {
-                shareCustomization.colorScheme = event.target.value || 'midnight';
-                announceCustomizationChange();
-            });
-        }
-        if (shareGraphicStyleSelect) {
-            shareGraphicStyleSelect.addEventListener('change', (event) => {
-                shareCustomization.graphicStyle = event.target.value || 'bars';
-                announceCustomizationChange();
-            });
-        }
+        };
 
         if (shareButton) {
             shareButton.disabled = true;
-            shareButton.setAttribute('aria-busy', 'true');
-            shareButton.addEventListener('click', handleShareClick);
-            setShareStatus('Preparando datos de tu reseña para compartir…', 'info');
+            shareButton.addEventListener('click', handleShareButtonClick);
         }
 
         // Configurar boton de Volver
@@ -1046,8 +837,16 @@ ListopicApp.pageDetailView = (() => {
             if (ListopicApp.services && ListopicApp.services.showNotification) {
                 ListopicApp.services.showNotification(errorMsg, "error");
             }
-            return; 
+            return;
         }
+
+        const shareDetailUrl = (() => {
+            const query = new URLSearchParams();
+            if (reviewId) query.set('id', reviewId);
+            if (listIdFromURL) query.set('listId', listIdFromURL);
+            const queryString = query.toString();
+            return queryString ? `detail-view.html?${queryString}` : 'detail-view.html';
+        })();
 
         let reviewDataGlobal;
         let listDataGlobal; // Lo hacemos accesible en un scope mas amplio
@@ -1057,12 +856,25 @@ ListopicApp.pageDetailView = (() => {
             .then(reviewDoc => {
                 if (!reviewDoc.exists) throw new Error(`Resena no encontrada.`);
                 reviewDataGlobal = { id: reviewDoc.id, ...reviewDoc.data() };
-                shareContext.review = reviewDataGlobal;
-                shareContext.author = {
-                    id: reviewDataGlobal.userId || null,
-                    name: reviewDataGlobal.authorName || reviewDataGlobal.userDisplayName || reviewDataGlobal.username || '',
-                    photoUrl: reviewDataGlobal.authorPhotoUrl || ''
-                };
+                const authorNameRaw = reviewDataGlobal.authorName || reviewDataGlobal.userDisplayName || reviewDataGlobal.username || 'Usuario Anonimo';
+                updateShareData({
+                    reviewId: reviewDataGlobal.id || reviewId,
+                    listId: listIdFromURL,
+                    itemName: reviewDataGlobal.itemName || '',
+                    overallRating: Number.isFinite(Number(reviewDataGlobal.overallRating))
+                        ? Number(reviewDataGlobal.overallRating).toFixed(1)
+                        : '',
+                    photoUrl: reviewDataGlobal.photoUrl || '',
+                    comment: reviewDataGlobal.comment || '',
+                    placeId: reviewDataGlobal.placeId || '',
+                    placeName: reviewDataGlobal.establishmentName || '',
+                    authorId: reviewDataGlobal.userId || null,
+                    authorName: authorNameRaw,
+                    detailUrl: shareDetailUrl
+                });
+                if (currentUserId && (reviewDataGlobal.userId === currentUserId || reviewDataGlobal.authorId === currentUserId)) {
+                    updateShareData({ isOwner: true });
+                }
 
                 // Mostrar datos basicos de la resena
                 if (detailItemNameEl) detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
@@ -1122,9 +934,11 @@ ListopicApp.pageDetailView = (() => {
             .then(listDoc => {
                 if (!listDoc.exists) throw new Error("Lista asociada no encontrada.");
                 listDataGlobal = listDoc.data(); // Guardar en el scope mas amplio
-                shareContext.list = { id: listIdFromURL, ...listDataGlobal };
                 state.currentListCriteriaDefinitions = listDataGlobal.criteriaDefinitions || listDataGlobal.defaultCriteriaDefinitions || {};
-                shareCriteriaDefinitions = state.currentListCriteriaDefinitions;
+                updateShareData({
+                    listName: listDataGlobal.name || '',
+                    detailUrl: shareDetailUrl
+                });
 
                 if (detailListNameEl && listDataGlobal.name) {
                     detailListNameEl.innerHTML = `Estas viendo en Listopic: <a href="list-view.html?listId=${listIdFromURL}">${uiUtils.escapeHtml(listDataGlobal.name)}</a>`;
@@ -1167,17 +981,20 @@ ListopicApp.pageDetailView = (() => {
             .then(userDocOrNull => { // userDocOrNull es el resultado de la promesa del autor
                 if (userDocOrNull && userDocOrNull.exists) {
                     const userData = userDocOrNull.data();
-                    const authorName = uiUtils.escapeHtml(userData.username || userData.displayName || 'Usuario Anonimo');
-                    
+                    const authorRaw = userData.username || userData.displayName || 'Usuario Anonimo';
+                    const authorName = uiUtils.escapeHtml(authorRaw);
+
+                    updateShareData({ authorName: authorRaw });
+
                     const authorLink = document.createElement('a');
                     authorLink.href = `profile.html?viewUserId=${reviewDataGlobal.userId}`;
                     authorLink.textContent = authorName;
-                    
+
                     if (reviewAuthorNameEl) {
-                        reviewAuthorNameEl.innerHTML = ''; 
+                        reviewAuthorNameEl.innerHTML = '';
                         reviewAuthorNameEl.appendChild(authorLink);
                     }
-                } else if (reviewDataGlobal.userId && reviewAuthorNameEl) { 
+                } else if (reviewDataGlobal.userId && reviewAuthorNameEl) {
                     reviewAuthorNameEl.textContent = 'Usuario Desconocido';
                     console.warn(`Autor de reseña con ID ${reviewDataGlobal.userId} no encontrado.`);
                 }
@@ -1185,15 +1002,16 @@ ListopicApp.pageDetailView = (() => {
                 // 4. Si la reseña tiene placeId, obtener datos del lugar
                 if (reviewDataGlobal && reviewDataGlobal.placeId) {
                     return db.collection('places').doc(reviewDataGlobal.placeId).get(); // Esto devuelve una promesa
-                } else {
-                    // No hay placeId, mostrar N/A y resolver para finalizar cadena si es necesario
-                    if(detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || "Establecimiento no especificado";
-                    if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
-                    if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
-                    shareContext.place = null;
-                    enableShareFeature();
-                    return Promise.resolve(null); // Devolver promesa resuelta
                 }
+
+                // No hay placeId, mostrar N/A y resolver para finalizar cadena si es necesario
+                if (detailEstablishmentNameEl) {
+                    detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || "Establecimiento no especificado";
+                }
+                if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+                updateShareData({ placeId: '', placeName: reviewDataGlobal.establishmentName || '' });
+                return Promise.resolve(null); // Devolver promesa resuelta
             })
             .then(placeDocOrNull => { // placeDocOrNull es el resultado de la promesa del lugar
                 let placeData = null;
@@ -1233,8 +1051,11 @@ ListopicApp.pageDetailView = (() => {
                     if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
                     if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
                 }
-                shareContext.place = placeData;
-                enableShareFeature();
+                const placeNameForShare = placeData?.name || reviewDataGlobal.establishmentName || '';
+                updateShareData({
+                    placeId: reviewDataGlobal?.placeId || placeData?.id || '',
+                    placeName: placeNameForShare
+                });
                 // Si placeDocOrNull es null, ya se manejo el caso sin placeId antes
             })
             .catch(error => {
@@ -1243,12 +1064,8 @@ ListopicApp.pageDetailView = (() => {
                 if (ListopicApp.services && ListopicApp.services.showNotification) {
                      ListopicApp.services.showNotification(error.message || "Error al cargar los detalles.", "error");
                 }
-                setShareStatus('No se pudo preparar la tarjeta para compartir.', 'error');
                 if (shareButton) {
-                    shareAssetsReady = false;
                     shareButton.disabled = true;
-                    shareButton.removeAttribute('data-loading');
-                    shareButton.removeAttribute('aria-busy');
                 }
             });
 
