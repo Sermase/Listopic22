@@ -209,6 +209,117 @@ ListopicApp.pageDetailView = (() => {
         return `rgba(${r}, ${g}, ${b}, ${alpha ?? 1})`;
     }
 
+    function getPreferredPhotoUrl(review = {}, place = {}) {
+        const reviewCandidates = [
+            review?.photoUrl,
+            review?.imageUrl,
+            review?.coverImageUrl,
+            review?.coverPhotoUrl
+        ].filter(candidate => typeof candidate === 'string' && candidate.trim().length);
+        if (reviewCandidates.length > 0) {
+            return reviewCandidates[0];
+        }
+
+        const placeCandidates = [
+            place?.mainImageUrl,
+            place?.photoUrl,
+            place?.coverImageUrl,
+            place?.featuredImageUrl,
+            place?.imageUrl
+        ];
+
+        if (Array.isArray(place?.photos)) {
+            for (const photo of place.photos) {
+                if (!photo) {
+                    continue;
+                }
+                if (typeof photo === 'string' && photo.trim().length) {
+                    placeCandidates.push(photo);
+                } else if (typeof photo === 'object' && typeof photo.url === 'string' && photo.url.trim().length) {
+                    placeCandidates.push(photo.url);
+                }
+            }
+        }
+
+        return placeCandidates.find(candidate => typeof candidate === 'string' && candidate.trim().length) || '';
+    }
+
+    function getCriterionLabel(definition, fallbackKey) {
+        if (!definition) {
+            return fallbackKey;
+        }
+        const candidates = [
+            definition.label,
+            definition.name,
+            definition.title,
+            definition.displayName,
+            definition.originalLabel,
+            definition.labelOriginal
+        ];
+        const label = candidates.find(candidate => typeof candidate === 'string' && candidate.trim().length);
+        return label || fallbackKey;
+    }
+
+    function coerceToDate(value) {
+        if (!value) {
+            return null;
+        }
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            return value;
+        }
+        if (typeof value.toDate === 'function') {
+            try {
+                const result = value.toDate();
+                if (result instanceof Date && !Number.isNaN(result.getTime())) {
+                    return result;
+                }
+            } catch (error) {
+                console.warn('[detailView] No se pudo convertir timestamp con toDate.', error);
+            }
+        }
+        if (typeof value.toMillis === 'function') {
+            const millis = Number(value.toMillis());
+            if (Number.isFinite(millis)) {
+                const date = new Date(millis);
+                if (!Number.isNaN(date.getTime())) {
+                    return date;
+                }
+            }
+        }
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            const fromNumber = new Date(value);
+            if (!Number.isNaN(fromNumber.getTime())) {
+                return fromNumber;
+            }
+        }
+        if (typeof value === 'string') {
+            const fromString = new Date(value);
+            if (!Number.isNaN(fromString.getTime())) {
+                return fromString;
+            }
+        }
+        if (typeof value === 'object' && typeof value.seconds === 'number') {
+            const millis = value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
+            const fromComponents = new Date(millis);
+            if (!Number.isNaN(fromComponents.getTime())) {
+                return fromComponents;
+            }
+        }
+        return null;
+    }
+
+    function formatDateForDisplay(date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return '';
+        }
+        try {
+            return new Intl.DateTimeFormat('es-ES', { dateStyle: 'long' }).format(date);
+        } catch (error) {
+            console.warn('[detailView] No se pudo formatear la fecha con Intl.DateTimeFormat.', error);
+            return date.toLocaleDateString('es-ES');
+        }
+    }
+
     async function createInstagramStoryCard(context, criteriaDefinitions = {}, customization = {}) {
         const { review, list, place, author } = context || {};
         const { colorScheme = STORY_DEFAULT_CUSTOMIZATION.colorScheme, graphicStyle = STORY_DEFAULT_CUSTOMIZATION.graphicStyle } = customization || {};
@@ -266,9 +377,10 @@ ListopicApp.pageDetailView = (() => {
         const imageWidth = availableWidth;
         const imageY = currentY + 20;
         let imageDrawn = false;
-        if (review?.photoUrl) {
+        const preferredPhotoUrl = getPreferredPhotoUrl(review, place);
+        if (preferredPhotoUrl) {
             try {
-                const img = await loadImageSafely(review.photoUrl);
+                const img = await loadImageSafely(preferredPhotoUrl);
                 const scale = Math.min(imageWidth / img.width, imageHeight / img.height);
                 const drawWidth = img.width * scale;
                 const drawHeight = img.height * scale;
@@ -496,7 +608,7 @@ ListopicApp.pageDetailView = (() => {
                 ctx.font = '500 34px "Poppins", "Helvetica Neue", Arial';
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
-                const label = (definition?.label || key).toString();
+                const label = getCriterionLabel(definition, key).toString();
                 ctx.fillText(label, barsStartX + 16, barY + barHeight / 2);
 
                 ctx.textAlign = 'right';
@@ -586,7 +698,7 @@ ListopicApp.pageDetailView = (() => {
 
             entries.forEach(([key, definition], index) => {
                 const raw = Number.parseFloat(review.scores[key]);
-                const label = (definition?.label || key).toString();
+                const label = getCriterionLabel(definition, key).toString();
                 const angle = (Math.PI * 2 * index) / entries.length - Math.PI / 2;
                 let textAlign = 'center';
                 if (Math.cos(angle) > 0.2) {
@@ -756,7 +868,8 @@ ListopicApp.pageDetailView = (() => {
         const detailAuthorAvatarEl = document.getElementById('detail-author-avatar');
         const detailAuthorNameEl = document.getElementById('detail-author-name');
         const detailImageEl = document.getElementById('detail-image');
-        const detailImagePlaceholderEl = document.querySelector('.detail-image-icon-placeholder');
+        const reviewCreatedDateEl = document.getElementById('review-created-date');
+        const reviewDateContainerEl = document.getElementById('review-date-container');
 
         const backButton = document.querySelector('.container a.back-button');
         const editButton = document.querySelector('.edit-button[data-owner-action]');
@@ -773,6 +886,71 @@ ListopicApp.pageDetailView = (() => {
         const chartToggleButtons = Array.from(document.querySelectorAll('.chart-mode-toggle__button'));
 
         let shareModalData = null;
+        let displayPhotoUrl = '';
+        let awaitingFallbackImage = false;
+
+        const setNoLocationVisible = (visible) => {
+            if (!detailNoLocationDivEl) {
+                return;
+            }
+            detailNoLocationDivEl.style.display = visible ? 'flex' : 'none';
+            if (visible) {
+                detailNoLocationDivEl.removeAttribute('hidden');
+            } else {
+                detailNoLocationDivEl.setAttribute('hidden', 'true');
+            }
+        };
+        setNoLocationVisible(false);
+
+        const showDetailImage = (url, altText) => {
+            if (!detailImageEl) {
+                return;
+            }
+            if (url) {
+                detailImageEl.src = url;
+                if (altText) {
+                    detailImageEl.alt = altText;
+                }
+                detailImageEl.style.display = 'block';
+                const placeholderIcon = detailImageEl.parentNode?.querySelector('.detail-image-icon-placeholder');
+                if (placeholderIcon) {
+                    placeholderIcon.style.display = 'none';
+                }
+            }
+        };
+
+        const showImagePlaceholder = () => {
+            if (!detailImageEl || !detailImageEl.parentNode) {
+                return;
+            }
+            detailImageEl.style.display = 'none';
+            let placeholderIconDiv = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
+            if (!placeholderIconDiv) {
+                placeholderIconDiv = document.createElement('div');
+                placeholderIconDiv.className = 'detail-image-icon-placeholder';
+                detailImageEl.parentNode.insertBefore(placeholderIconDiv, detailImageEl.nextSibling);
+            }
+            placeholderIconDiv.innerHTML = '<i class="fa-solid fa-image"></i>';
+            placeholderIconDiv.style.display = 'flex';
+        };
+
+        const updateReviewDate = (rawDateValue) => {
+            if (!reviewCreatedDateEl || !reviewDateContainerEl) {
+                return;
+            }
+            const date = coerceToDate(rawDateValue);
+            if (!date) {
+                reviewDateContainerEl.hidden = true;
+                return;
+            }
+            const formatted = formatDateForDisplay(date);
+            if (!formatted) {
+                reviewDateContainerEl.hidden = true;
+                return;
+            }
+            reviewCreatedDateEl.textContent = `Creada el ${formatted}`;
+            reviewDateContainerEl.hidden = false;
+        };
 
         const chartState = {
             mode: 'bars',
@@ -1292,7 +1470,20 @@ ListopicApp.pageDetailView = (() => {
             .then(reviewDoc => {
                 if (!reviewDoc.exists) throw new Error(`Resena no encontrada.`);
                 reviewDataGlobal = { id: reviewDoc.id, ...reviewDoc.data() };
-                authorNameRaw = reviewDataGlobal.authorName || reviewDataGlobal.userDisplayName || reviewDataGlobal.username || 'Usuario Anonimo';
+                const authorNameRaw = reviewDataGlobal.authorName || reviewDataGlobal.userDisplayName || reviewDataGlobal.username || 'Usuario Anonimo';
+                displayPhotoUrl = reviewDataGlobal.photoUrl || reviewDataGlobal.imageUrl || '';
+                awaitingFallbackImage = !displayPhotoUrl;
+
+                updateReviewDate(
+                    reviewDataGlobal.createdAt ||
+                    reviewDataGlobal.creationDate ||
+                    reviewDataGlobal.created_at ||
+                    reviewDataGlobal.createdOn ||
+                    reviewDataGlobal.updatedAt ||
+                    reviewDataGlobal.updated_at ||
+                    reviewDataGlobal.lastUpdated
+                );
+
                 updateShareData({
                     reviewId: reviewDataGlobal.id || reviewId,
                     listId: listIdFromURL,
@@ -1300,7 +1491,7 @@ ListopicApp.pageDetailView = (() => {
                     overallRating: Number.isFinite(Number(reviewDataGlobal.overallRating))
                         ? Number(reviewDataGlobal.overallRating).toFixed(1)
                         : '',
-                    photoUrl: reviewDataGlobal.photoUrl || '',
+                    photoUrl: displayPhotoUrl,
                     comment: reviewDataGlobal.comment || '',
                     placeId: reviewDataGlobal.placeId || '',
                     placeName: reviewDataGlobal.establishmentName || '',
@@ -1308,44 +1499,44 @@ ListopicApp.pageDetailView = (() => {
                     authorName: authorNameRaw,
                     detailUrl: shareDetailUrl
                 });
-                if (currentUserId && (reviewDataGlobal.userId === currentUserId || reviewDataGlobal.authorId === currentUserId)) {
+                const isOwner = Boolean(currentUserId && (reviewDataGlobal.userId === currentUserId || reviewDataGlobal.authorId === currentUserId));
+                if (isOwner) {
                     updateShareData({ isOwner: true });
                     updateOwnerActionsVisibility(true);
                 } else {
                     updateOwnerActionsVisibility(false);
                 }
 
+                if (editButton) {
+                    editButton.style.display = isOwner ? '' : 'none';
+                    if (isOwner) {
+                        editButton.removeAttribute('aria-hidden');
+                        editButton.removeAttribute('tabindex');
+                    } else {
+                        editButton.setAttribute('aria-hidden', 'true');
+                        editButton.setAttribute('tabindex', '-1');
+                    }
+                }
+                if (deleteButton) {
+                    deleteButton.style.display = isOwner ? '' : 'none';
+                    if (isOwner) {
+                        deleteButton.removeAttribute('aria-hidden');
+                        deleteButton.removeAttribute('tabindex');
+                    } else {
+                        deleteButton.setAttribute('aria-hidden', 'true');
+                        deleteButton.setAttribute('tabindex', '-1');
+                    }
+                }
+
                 // Mostrar datos basicos de la resena
                 if (detailItemNameEl) detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
                 if (detailScoreValueEl) detailScoreValueEl.textContent = reviewDataGlobal.overallRating !== undefined ? reviewDataGlobal.overallRating.toFixed(1) : 'N/A';
                 
-                if (detailEstablishmentNameEl) {
-                    detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || reviewDataGlobal.placeName || 'Lugar no especificado';
-                }
-
-                if (detailItemNameEl) {
-                    detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
-                }
-
-                if (detailImageEl) {
-                    if (reviewDataGlobal.photoUrl) {
-                        detailImageEl.src = reviewDataGlobal.photoUrl;
-                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || reviewDataGlobal.establishmentName || 'la reseña')}`;
-                        detailImageEl.hidden = false;
-                        if (detailImagePlaceholderEl) detailImagePlaceholderEl.hidden = true;
-                        if (detailMediaLinkEl) {
-                            detailMediaLinkEl.href = reviewDataGlobal.photoUrl;
-                            detailMediaLinkEl.hidden = false;
-                            detailMediaLinkEl.setAttribute('aria-label', 'Abrir la foto de la reseña en una pestaña nueva');
-                            detailMediaLinkEl.target = '_blank';
-                        }
+                if (detailImageEl && detailImageEl.parentNode) {
+                    if (displayPhotoUrl) {
+                        showDetailImage(displayPhotoUrl, `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'reseña')}`);
                     } else {
-                        detailImageEl.hidden = true;
-                        if (detailImagePlaceholderEl) detailImagePlaceholderEl.hidden = false;
-                        if (detailMediaLinkEl) {
-                            detailMediaLinkEl.hidden = true;
-                            detailMediaLinkEl.removeAttribute('href');
-                        }
+                        showImagePlaceholder();
                     }
                 }
 
@@ -1416,10 +1607,20 @@ ListopicApp.pageDetailView = (() => {
                         detailListNameEl.textContent = 'Estás viendo en Listopic: Lista desconocida';
                     }
                 }
-                if (detailListLinkEl) {
-                    if (listDataGlobal.name) {
-                        detailListLinkEl.href = `list-view.html?listId=${listIdFromURL}`;
-                        detailListLinkEl.textContent = listDataGlobal.name;
+
+                // Renderizar valoraciones detalladas
+                if (detailRatingsListEl && reviewDataGlobal && reviewDataGlobal.scores) {
+                    detailRatingsListEl.innerHTML = '';
+                    if (typeof state.currentListCriteriaDefinitions === 'object' && Object.keys(state.currentListCriteriaDefinitions).length > 0) {
+                        for (const [critKey, critDef] of Object.entries(state.currentListCriteriaDefinitions)) {
+                            if (reviewDataGlobal.scores[critKey] !== undefined) {
+                                const li = document.createElement('li');
+                                const weightedText = critDef.ponderable === false ? ' <small class="non-weighted-detail">(No pondera)</small>' : '';
+                                const labelText = getCriterionLabel(critDef, critKey);
+                                li.innerHTML = `<span class="rating-label">${uiUtils.escapeHtml(labelText)}${weightedText}</span> <span class="rating-value">${parseFloat(reviewDataGlobal.scores[critKey]).toFixed(1)}</span>`;
+                                detailRatingsListEl.appendChild(li);
+                            }
+                        }
                     } else {
                         detailListLinkEl.removeAttribute('href');
                         detailListLinkEl.textContent = 'Lista no disponible';
@@ -1470,57 +1671,44 @@ ListopicApp.pageDetailView = (() => {
                 if (detailEstablishmentNameEl) {
                     detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || "Establecimiento no especificado";
                 }
-                if (detailLocationContainerEl) detailLocationContainerEl.hidden = true;
-                if (detailNoLocationEl) detailNoLocationEl.hidden = false;
+                if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                if (detailLocationLinkEl) {
+                    detailLocationLinkEl.removeAttribute('href');
+                    detailLocationLinkEl.style.pointerEvents = 'none';
+                }
+                setNoLocationVisible(true);
                 updateShareData({ placeId: '', placeName: reviewDataGlobal.establishmentName || '' });
                 return Promise.resolve(null); // Devolver promesa resuelta
             })
             .then(placeDocOrNull => { // placeDocOrNull es el resultado de la promesa del lugar
                 let placeData = null;
                 if (placeDocOrNull && placeDocOrNull.exists) {
-                    placeData = { id: placeDocOrNull.id, ...placeDocOrNull.data() };
-                    placeDataGlobal = placeData;
-                    if (detailEstablishmentNameEl) {
-                        detailEstablishmentNameEl.textContent = placeData.name || 'Nombre de lugar desconocido';
-                    }
-                    if (detailImageEl) {
-                        const fallbackAltName = reviewDataGlobal.itemName || placeData.name || 'la reseña';
-                        detailImageEl.alt = `Foto de ${fallbackAltName}`;
+                    placeData = placeDocOrNull.data();
+                    if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = placeData.name || "Nombre de lugar desconocido";
+
+                    if (!displayPhotoUrl && awaitingFallbackImage) {
+                        const placePhotoFallback = getPreferredPhotoUrl(reviewDataGlobal, placeData);
+                        if (placePhotoFallback) {
+                            displayPhotoUrl = placePhotoFallback;
+                            awaitingFallbackImage = false;
+                            showDetailImage(displayPhotoUrl, `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || placeData.name || 'reseña')}`);
+                            updateShareData({ photoUrl: displayPhotoUrl });
+                        }
                     }
 
-                    if (detailImageEl && detailImageEl.hidden && !reviewDataGlobal.photoUrl) {
-                        const photosArray = Array.isArray(placeData.photos)
-                            ? placeData.photos
-                            : (placeData.photos ? [placeData.photos] : []);
-                        const primaryPhotoFromArray = photosArray
-                            .map(photoEntry => {
-                                if (!photoEntry) return '';
-                                if (typeof photoEntry === 'string') return photoEntry;
-                                if (typeof photoEntry === 'object') {
-                                    return photoEntry.url || photoEntry.photoUrl || photoEntry.src || '';
-                                }
-                                return '';
-                            })
-                            .find(Boolean);
-                        const fallbackPlacePhoto = primaryPhotoFromArray
-                            || placeData.mainImageUrl
-                            || placeData.mainPhotoUrl
-                            || placeData.photoUrl
-                            || placeData.primaryPhotoUrl
-                            || placeData.coverPhotoUrl
-                            || placeData.coverImageUrl
-                            || placeData.heroImageUrl
-                            || placeData.imageUrl
-                            || '';
-                        if (fallbackPlacePhoto) {
-                            detailImageEl.src = fallbackPlacePhoto;
-                            detailImageEl.hidden = false;
-                            if (detailImagePlaceholderEl) detailImagePlaceholderEl.hidden = true;
-                            if (detailMediaLinkEl && !groupLinkUrl) {
-                                detailMediaLinkEl.href = fallbackPlacePhoto;
-                                detailMediaLinkEl.hidden = false;
-                                detailMediaLinkEl.setAttribute('aria-label', 'Abrir la foto del lugar en una pestaña nueva');
-                                detailMediaLinkEl.target = '_blank';
+                    if (detailLocationContainerEl && detailLocationTextEl && (placeData.address || placeData.name || placeData.googleMapsUrl || placeData.googlePlaceId)) {
+                        let mapsUrl = "#";
+                        if (placeData.googleMapsUrl) mapsUrl = placeData.googleMapsUrl;
+                        else if (placeData.googlePlaceId) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.googlePlaceId}`;
+                        else if (placeData.location?.latitude && placeData.location?.longitude) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.location.latitude},${placeData.location.longitude}`;
+
+                        if (detailLocationLinkEl) {
+                            if (mapsUrl !== "#") {
+                                detailLocationLinkEl.href = mapsUrl;
+                                detailLocationLinkEl.style.pointerEvents = "auto";
+                            } else {
+                                detailLocationLinkEl.removeAttribute('href');
+                                detailLocationLinkEl.style.pointerEvents = "none";
                             }
                         }
                     }
@@ -1541,44 +1729,25 @@ ListopicApp.pageDetailView = (() => {
                             detailLocationLinkEl.removeAttribute('target');
                         }
                         detailLocationTextEl.textContent = placeData.address || placeData.name;
-                        detailLocationContainerEl.hidden = false;
-                        if (detailNoLocationEl) detailNoLocationEl.hidden = true;
-                    } else if (detailLocationContainerEl) {
-                        detailLocationContainerEl.hidden = true;
-                        if (detailNoLocationEl) detailNoLocationEl.hidden = false;
-                    }
-
-                    if (detailPlaceLinkEl) {
-                        detailPlaceLinkEl.textContent = placeData.name || 'Lugar sin nombre';
-                        if (mapsUrl !== '#') {
-                            detailPlaceLinkEl.href = mapsUrl;
-                            detailPlaceLinkEl.target = '_blank';
-                        } else {
-                            detailPlaceLinkEl.removeAttribute('href');
-                            detailPlaceLinkEl.removeAttribute('target');
+                        setNoLocationVisible(false);
+                        if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'block';
+                    } else {
+                        if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                        if (detailLocationLinkEl) {
+                            detailLocationLinkEl.removeAttribute('href');
+                            detailLocationLinkEl.style.pointerEvents = 'none';
                         }
+                        setNoLocationVisible(true);
                     }
-                    if (detailPlaceLinkWrapperEl) {
-                        detailPlaceLinkWrapperEl.hidden = false;
+                } else if (reviewDataGlobal && reviewDataGlobal.placeId) {
+                    if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = "Lugar no encontrado en BD";
+                    console.warn(`Lugar con ID ${reviewDataGlobal.placeId} no encontrado para la reseña ${reviewId}`);
+                    if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
+                    if (detailLocationLinkEl) {
+                        detailLocationLinkEl.removeAttribute('href');
+                        detailLocationLinkEl.style.pointerEvents = 'none';
                     }
-                } else {
-                    placeDataGlobal = null;
-                    if (reviewDataGlobal && reviewDataGlobal.placeId) {
-                        console.warn(`Lugar con ID ${reviewDataGlobal.placeId} no encontrado para la reseña ${reviewId}`);
-                    }
-                    if (detailEstablishmentNameEl) {
-                        detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || 'Establecimiento no especificado';
-                    }
-                    if (detailLocationContainerEl) detailLocationContainerEl.hidden = true;
-                    if (detailNoLocationEl) detailNoLocationEl.hidden = false;
-                    if (detailPlaceLinkEl) {
-                        detailPlaceLinkEl.textContent = reviewDataGlobal.establishmentName || 'Ubicación no disponible';
-                        detailPlaceLinkEl.removeAttribute('href');
-                        detailPlaceLinkEl.removeAttribute('target');
-                    }
-                    if (detailPlaceLinkWrapperEl) {
-                        detailPlaceLinkWrapperEl.hidden = false;
-                    }
+                    setNoLocationVisible(true);
                 }
                 const placeIdForShare = placeData?.id || reviewDataGlobal?.placeId || fromPlaceIdParam || '';
                 const placeNameForShare = placeData?.name || reviewDataGlobal.establishmentName || '';

@@ -107,18 +107,29 @@
 
 </head>
 <body>
-    <main class="detail-page">
-        <div class="container detail-page__container">
-            <a href="list-view.html" class="back-button">← Volver al ranking</a>
-            <p class="detail-list-name" id="detail-list-name">Estás viendo en Listopic: <span class="detail-list-name__loading">[Cargando...]</span></p>
+    <main>
+        <div class="container">
+            <!-- Removed theme-toggle-button from here -->
+            <a href="list-view.html" class="back-button">← Volver al Ranking</a> <!-- JS will update href -->
+            <p class="detail-list-name" id="detail-list-name">Estás viendo en Listopic: [Cargando...]</p>
+            
+            <h2 id="detail-restaurant-name">[Cargando nombre del elemento...]</h2>
+            <p class="detail-dish-name" id="detail-dish-name"></p>
+            
+            <div class="review-meta" id="review-meta">
+                <div class="review-meta__author">
+                    <i class="fas fa-user-circle" aria-hidden="true"></i>
+                    <a href="profile.html" id="review-author-name" class="review-meta__author-link">[Cargando autor...]</a>
+                </div>
+                <div class="review-meta__date" id="review-date-container" hidden>
+                    <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+                    <span id="review-created-date">[Cargando fecha...]</span>
+                </div>
+            </div>
 
-            <section class="detail-hero">
-                <div class="detail-hero__media">
-                    <img src="https://via.placeholder.com/900x600.png?text=Cargando+imagen..." alt="Foto del elemento" id="detail-image">
-                    <div class="detail-image-icon-placeholder" hidden>
-                        <i class="fa-solid fa-image"></i>
-                    </div>
-                    <a href="#" class="detail-hero__media-link" id="detail-media-link" hidden target="_blank" rel="noopener"></a>
+            <div class="detail-content">
+                <div class="detail-image-area">
+                    <img src="https://via.placeholder.com/600x400.png?text=Cargando+imagen..." alt="Foto del elemento" id="detail-image">
                 </div>
                 <div class="detail-hero__info">
                     <h1 id="detail-restaurant-name">[Cargando nombre del elemento...]</h1>
