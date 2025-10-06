@@ -1429,6 +1429,16 @@ ListopicApp.pageDetailView = (() => {
                     const currentCategory = listDataGlobal?.categoryId || undefined;
                     uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal?.name);
                 }
+                if (uiUtils.updatePageHeaderInfo) {
+                    const currentCategory = listDataGlobal?.categoryId || undefined;
+                    uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal?.name);
+                }
+
+                if (reviewAuthorBioEl && listDataGlobal?.name) {
+                    reviewAuthorBioEl.textContent = `Reseña de la lista “${uiUtils.escapeHtml(listDataGlobal.name)}”`;
+                }
+
+                refreshCriteriaVisuals();
 
                 refreshCriteriaVisuals();
 
