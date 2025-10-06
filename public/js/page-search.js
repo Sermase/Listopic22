@@ -322,6 +322,128 @@ ListopicApp.pageSearch = (() => {
             }
             return;
         }
+        const categories = Array.from(categorySet);
+        const hasCachedLists = categories.some((categoryId) => Array.isArray(state.listsCacheByCategory[categoryId]));
+        if (!hasCachedLists) {
+            return;
+        }
+        const allowed = new Set();
+        categories.forEach((categoryId) => {
+            const cached = state.listsCacheByCategory[categoryId];
+            if (Array.isArray(cached)) {
+                cached.forEach((list) => {
+                    if (list && list.id) {
+                        allowed.add(list.id);
+                    }
+                });
+            }
+        });
+        if (allowed.size === 0) {
+            return;
+        }
+        Array.from(listSet).forEach((listId) => {
+            if (!allowed.has(listId)) {
+                listSet.delete(listId);
+            }
+        });
+    }
+
+
+    function getSelectedItemCategoryIds() {
+        const categorySet = state.filters?.items?.categories;
+        if (!(categorySet instanceof Set) || categorySet.size === 0) {
+            return [];
+        }
+        return Array.from(categorySet);
+    }
+
+    function isLoadingListsForCategories(categoryIds) {
+        if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
+            return false;
+        }
+        return categoryIds.some((categoryId) => Boolean(state.listsLoadingByCategory[categoryId]));
+    }
+
+    async function ensureListsForCategories(categoryIds) {
+        if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
+            return;
+        }
+        const db = ListopicApp.services?.db;
+        if (!db) {
+            console.warn("page-search: Firestore no disponible para cargar listas por categoría.");
+            return;
+        }
+        const pendingPromises = categoryIds.map((categoryId) => {
+            if (Array.isArray(state.listsCacheByCategory[categoryId])) {
+                return null;
+            }
+            if (state.listsLoadingByCategory[categoryId]) {
+                return state.listsLoadingByCategory[categoryId];
+            }
+            const query = db
+                .collection("lists")
+                .where("categoryId", "==", categoryId)
+                .where("isPublic", "==", true)
+                .orderBy("followersCount", "desc")
+                .limit(50)
+                .get()
+                .then((snapshot) => {
+                    const lists = [];
+                    snapshot.forEach((doc) => {
+                        const data = doc.data() || {};
+                        const entry = {
+                            id: doc.id,
+                            name: data.name || "Lista sin nombre",
+                            followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
+                            reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
+                            categoryId
+                        };
+                        state.listNameById[doc.id] = entry.name;
+                        lists.push(entry);
+                    });
+                    state.listsCacheByCategory[categoryId] = lists;
+                })
+                .catch((error) => {
+                    console.warn(`page-search: no se pudieron cargar las listas para la categoría ${categoryId}.`, error);
+                    state.listsCacheByCategory[categoryId] = [];
+                })
+                .finally(() => {
+                    delete state.listsLoadingByCategory[categoryId];
+                });
+            state.listsLoadingByCategory[categoryId] = query;
+            return query;
+        }).filter(Boolean);
+        if (pendingPromises.length === 0) {
+            return;
+        }
+        await Promise.allSettled(pendingPromises);
+    }
+
+    function getListsForSelectedCategories() {
+        const categories = getSelectedItemCategoryIds();
+        if (categories.length === 0) {
+            return [];
+        }
+        const listMap = new Map();
+        categories.forEach((categoryId) => {
+            const cached = state.listsCacheByCategory[categoryId];
+            if (!Array.isArray(cached)) {
+                return;
+            }
+            cached.forEach((list) => {
+                if (list && list.id && !listMap.has(list.id)) {
+                    listMap.set(list.id, list);
+                }
+            });
+        });
+        return Array.from(listMap.values()).sort((a, b) => {
+            const followersA = typeof a.followersCount === "number" ? a.followersCount : 0;
+            const followersB = typeof b.followersCount === "number" ? b.followersCount : 0;
+            if (followersA === followersB) {
+                return (b.reviewCount || 0) - (a.reviewCount || 0);
+            }
+            return followersB - followersA;
+        });
     }
 
 
@@ -540,7 +662,7 @@ ListopicApp.pageSearch = (() => {
         const definitions = FILTER_DEFINITIONS[type] || [];
         const facetFilters = [];
         definitions.forEach((definition) => {
-            if (definition.type !== "facet" && definition.type !== "categoryTags") {
+            if (definition.type !== "facet" && definition.type !== "categoryTags" && definition.type !== "listSelector") {
                 return;
             }
             const selected = state.filters[type][definition.stateKey];
@@ -609,7 +731,7 @@ ListopicApp.pageSearch = (() => {
         let total = 0;
         definitions.forEach((definition) => {
             const value = state.filters[type][definition.stateKey];
-            if ((definition.type === "facet" || definition.type === "categoryTags") && value instanceof Set) {
+            if ((definition.type === "facet" || definition.type === "categoryTags" || definition.type === "listSelector") && value instanceof Set) {
                 total += value.size;
             } else if (definition.type === "numeric" && value !== null && value !== undefined) {
                 total += 1;
@@ -671,6 +793,15 @@ ListopicApp.pageSearch = (() => {
         if (currentType === "items") {
             sanitizeItemBaseTags();
             sanitizeItemLists();
+            const selectedCategories = getSelectedItemCategoryIds();
+            if (selectedCategories.length > 0) {
+                try {
+                    await ensureListsForCategories(selectedCategories);
+                    sanitizeItemLists();
+                } catch (error) {
+                    console.warn("page-search: no se pudieron preparar las listas para los filtros.", error);
+                }
+            }
         }
 
         const hasActiveFilters = currentType !== "all" && countActiveFilters(currentType) > 0;
@@ -821,6 +952,8 @@ ListopicApp.pageSearch = (() => {
                 fragment.appendChild(createNumericSection(type, definition));
             } else if (definition.type === "categoryTags") {
                 fragment.appendChild(createCategoryTagsSection(type, definition));
+            } else if (definition.type === "listSelector") {
+                fragment.appendChild(createListSelectorSection(type, definition));
             } else if (definition.type === "range") {
                 fragment.appendChild(createRangeSection(type, definition));
             }
@@ -891,7 +1024,7 @@ ListopicApp.pageSearch = (() => {
             checkbox.type = "checkbox";
             checkbox.value = value;
             checkbox.checked = selectedSet.has(value);
-            checkbox.addEventListener("change", () => {
+            checkbox.addEventListener("change", async () => {
                 if (checkbox.checked) {
                     selectedSet.add(value);
                 } else {
@@ -900,6 +1033,14 @@ ListopicApp.pageSearch = (() => {
                 if (type === "items") {
                     if (definition.attribute === "listCategoryId") {
                         sanitizeItemBaseTags();
+                        try {
+                            const categoriesToLoad = getSelectedItemCategoryIds();
+                            if (categoriesToLoad.length > 0) {
+                                await ensureListsForCategories(categoriesToLoad);
+                            }
+                        } catch (error) {
+                            console.warn("page-search: no se pudieron actualizar las listas para las categorías seleccionadas.", error);
+                        }
                         sanitizeItemLists();
                     } else if (definition.attribute === "listName") {
                         sanitizeItemLists();
@@ -999,6 +1140,101 @@ ListopicApp.pageSearch = (() => {
 
             option.appendChild(checkbox);
             option.appendChild(labelSpan);
+            optionsWrapper.appendChild(option);
+        });
+
+        return container;
+    }
+
+    function createListSelectorSection(type, definition) {
+        const container = document.createElement("div");
+        container.className = "filter-block";
+
+        const title = document.createElement("h3");
+        title.className = "filter-block__title";
+        title.textContent = definition.label;
+        container.appendChild(title);
+
+        const categories = getSelectedItemCategoryIds();
+        if (categories.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "filter-block__empty";
+            empty.textContent = "Selecciona una categoría para elegir sus listas destacadas.";
+            container.appendChild(empty);
+            return container;
+        }
+
+        const pending = categories.filter((categoryId) => !Array.isArray(state.listsCacheByCategory[categoryId]));
+        if (pending.length > 0) {
+            ensureListsForCategories(pending)
+                .then(() => {
+                    if (state.currentEntityType === type) {
+                        renderFiltersPanel(type);
+                    }
+                })
+                .catch((error) => {
+                    console.warn("page-search: error al cargar las listas para los filtros de items.", error);
+                });
+        }
+
+        if (pending.length > 0 && isLoadingListsForCategories(pending)) {
+            const loading = document.createElement("p");
+            loading.className = "filter-block__empty";
+            loading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando listas disponibles...';
+            container.appendChild(loading);
+            return container;
+        }
+
+        const availableLists = getListsForSelectedCategories();
+        if (availableLists.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "filter-block__empty";
+            empty.textContent = "Todavía no hay listas públicas en las categorías seleccionadas.";
+            container.appendChild(empty);
+            return container;
+        }
+
+        let selectedSet = state.filters[type][definition.stateKey];
+        if (!(selectedSet instanceof Set)) {
+            selectedSet = new Set();
+            state.filters[type][definition.stateKey] = selectedSet;
+        }
+
+        const optionsWrapper = document.createElement("div");
+        optionsWrapper.className = "filter-block__options";
+        container.appendChild(optionsWrapper);
+
+        availableLists.slice(0, 40).forEach((list) => {
+            const option = document.createElement("label");
+            option.className = "filter-option";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = list.id;
+            checkbox.checked = selectedSet.has(list.id);
+            checkbox.addEventListener("change", () => {
+                if (checkbox.checked) {
+                    selectedSet.add(list.id);
+                } else {
+                    selectedSet.delete(list.id);
+                }
+                performSearch();
+            });
+
+            const labelSpan = document.createElement("span");
+            labelSpan.className = "filter-option__label";
+            const listName = list.name || state.listNameById[list.id] || "Lista sin nombre";
+            labelSpan.textContent = listName;
+            labelSpan.title = listName;
+
+            const countSpan = document.createElement("span");
+            countSpan.className = "filter-option__count";
+            const followers = typeof list.followersCount === "number" ? list.followersCount : 0;
+            countSpan.textContent = followers > 0 ? followers.toLocaleString("es-ES") : "—";
+
+            option.appendChild(checkbox);
+            option.appendChild(labelSpan);
+            option.appendChild(countSpan);
             optionsWrapper.appendChild(option);
         });
 

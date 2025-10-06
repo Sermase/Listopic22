@@ -728,311 +728,535 @@ ListopicApp.pageDetailView = (() => {
         const params = new URLSearchParams(window.location.search);
         const reviewId = params.get('id');
         const listIdFromURL = params.get('listId');
+        const fromPlaceIdParam = params.get('fromPlaceId');
+        const fromItemParam = params.get('fromItem');
+        const fromGroupedParam = params.get('fromGrouped') === 'true';
 
         // Elementos del DOM
         const detailEstablishmentNameEl = document.getElementById('detail-restaurant-name');
         const detailItemNameEl = document.getElementById('detail-dish-name');
-        const defaultStoryCustomization = ListopicApp.storyShare?.getDefaultCustomization
-            ? ListopicApp.storyShare.getDefaultCustomization()
-            : { ...STORY_DEFAULT_CUSTOMIZATION };
-
         const detailScoreValueEl = document.getElementById('detail-score-value');
-        const detailRatingsListEl = document.getElementById('detail-ratings');
         const detailLocationLinkEl = document.getElementById('detail-location-link');
         const detailLocationTextEl = document.getElementById('detail-location-text');
-        const detailNoLocationDivEl = document.querySelector('.detail-no-location');
         const detailLocationContainerEl = document.getElementById('detail-location-container');
+        const detailNoLocationEl = document.getElementById('detail-no-location');
         const detailCommentContainerEl = document.getElementById('detail-comment-container');
         const detailCommentTextEl = document.getElementById('detail-comment-text');
         const detailTagsContainerEl = document.getElementById('detail-tags-container');
         const detailTagsDivEl = document.getElementById('detail-tags');
         const detailListNameEl = document.getElementById('detail-list-name');
-        const reviewAuthorNameEl = document.getElementById('review-author-name');
+        const detailListLinkEl = document.getElementById('detail-list-link');
+        const detailPlaceLinkWrapperEl = document.getElementById('detail-place-link-wrapper');
+        const detailPlaceLinkEl = document.getElementById('detail-place-link');
+        const detailGroupLinkEl = document.getElementById('detail-group-link');
+        const detailMediaLinkEl = document.getElementById('detail-media-link');
+        const detailReviewDateContainerEl = document.getElementById('detail-review-date');
+        const detailReviewDateTextEl = document.getElementById('detail-review-date-text');
+        const detailAuthorChipEl = document.getElementById('detail-author-chip');
+        const detailAuthorAvatarEl = document.getElementById('detail-author-avatar');
+        const detailAuthorNameEl = document.getElementById('detail-author-name');
         const detailImageEl = document.getElementById('detail-image');
+        const detailImagePlaceholderEl = document.querySelector('.detail-image-icon-placeholder');
 
         const backButton = document.querySelector('.container a.back-button');
-        const editButton = document.querySelector('.edit-button');
-        const deleteButton = document.querySelector('.delete-button.danger');
-        const shareButton = document.getElementById('share-instagram-button');
-        const shareHelperEl = document.getElementById('share-instagram-helper');
-        const shareStatusEl = document.getElementById('share-instagram-status');
-        const shareDownloadLink = document.getElementById('share-instagram-download-link');
-        const shareCustomizationContainer = document.getElementById('share-instagram-customization');
-        const shareColorSchemeSelect = document.getElementById('share-color-scheme');
-        const shareGraphicStyleSelect = document.getElementById('share-graphic-style');
-        const shareButtonOriginalHTML = shareButton ? shareButton.innerHTML : '';
+        const editButton = document.querySelector('.edit-button[data-owner-action]');
+        const deleteButton = document.querySelector('.delete-button.danger[data-owner-action]');
+        const ownerActionEls = Array.from(document.querySelectorAll('[data-owner-action]'));
+        const sharePrimaryButton = document.getElementById('detail-share-button');
+        const shareSecondaryButton = document.getElementById('detail-share-button-secondary');
+        const shareButtons = [sharePrimaryButton, shareSecondaryButton].filter(Boolean);
         const showNotification = ListopicApp.services?.showNotification;
+        const currentUserId = auth?.currentUser?.uid || null;
 
-        const shareCustomization = { ...defaultStoryCustomization };
+        const chartCanvas = document.getElementById('detail-criteria-canvas');
+        const chartEmptyStateEl = document.getElementById('detail-criteria-empty');
+        const chartToggleButtons = Array.from(document.querySelectorAll('.chart-mode-toggle__button'));
 
-        function populateCustomizationOptions() {
-            if (shareColorSchemeSelect && ListopicApp.storyShare?.getColorSchemeOptions) {
-                const previousValue = shareColorSchemeSelect.value;
-                shareColorSchemeSelect.innerHTML = '';
-                ListopicApp.storyShare.getColorSchemeOptions().forEach(({ value, label }) => {
-                    const option = document.createElement('option');
-                    option.value = value;
-                    option.textContent = label;
-                    shareColorSchemeSelect.appendChild(option);
-                });
-                shareColorSchemeSelect.value = previousValue || shareCustomization.colorScheme;
+        let shareModalData = null;
+
+        const chartState = {
+            mode: 'bars',
+            entries: [],
+            resizeTimeout: null
+        };
+
+        const getCssColor = (variableName, fallback) => {
+            if (typeof window === 'undefined' || !window.getComputedStyle) {
+                return fallback;
             }
-            if (shareGraphicStyleSelect && ListopicApp.storyShare?.getGraphicStyleOptions) {
-                const previousValue = shareGraphicStyleSelect.value;
-                shareGraphicStyleSelect.innerHTML = '';
-                ListopicApp.storyShare.getGraphicStyleOptions().forEach(({ value, label }) => {
-                    const option = document.createElement('option');
-                    option.value = value;
-                    option.textContent = label;
-                    shareGraphicStyleSelect.appendChild(option);
-                });
-                shareGraphicStyleSelect.value = previousValue || shareCustomization.graphicStyle;
-            }
-        }
+            const styles = window.getComputedStyle(document.documentElement);
+            const value = styles.getPropertyValue(variableName);
+            return value ? value.trim() || fallback : fallback;
+        };
 
-        populateCustomizationOptions();
+        const chartColors = {
+            accent: getCssColor('--accent-color-primary', '#f97316'),
+            accentSecondary: getCssColor('--accent-color-secondary', '#facc15'),
+            accentTertiary: getCssColor('--accent-color-tertiary', '#06d6a0'),
+            track: 'rgba(255,255,255,0.14)',
+            panel: 'rgba(15,23,42,0.55)',
+            text: '#ffffff',
+            muted: 'rgba(255,255,255,0.7)'
+        };
 
-        if (shareColorSchemeSelect) {
-            shareColorSchemeSelect.value = shareColorSchemeSelect.value || shareCustomization.colorScheme;
-            shareCustomization.colorScheme = shareColorSchemeSelect.value;
-        }
-        if (shareGraphicStyleSelect) {
-            shareGraphicStyleSelect.value = shareGraphicStyleSelect.value || shareCustomization.graphicStyle;
-            shareCustomization.graphicStyle = shareGraphicStyleSelect.value;
-        }
+        const setShareButtonsEnabled = (enabled) => {
+            shareButtons.forEach(button => {
+                if (!button) return;
+                button.disabled = !enabled;
+                if (!enabled) {
+                    button.removeAttribute('data-loading');
+                    button.removeAttribute('aria-busy');
+                }
+            });
+        };
 
-        if (shareCustomizationContainer) {
-            shareCustomizationContainer.hidden = true;
-        }
-        setCustomizationControlsDisabled(true);
+        const updateOwnerActionsVisibility = (isOwner) => {
+            ownerActionEls.forEach(element => {
+                if (!element) {
+                    return;
+                }
+                element.hidden = !isOwner;
+            });
+        };
 
-        let shareAssetsReady = false;
-        const shareContext = { review: null, list: null, place: null, author: null };
-        let shareCriteriaDefinitions = {};
-        let currentDownloadUrl = null;
+        updateOwnerActionsVisibility(false);
 
-        function cleanupDownloadUrl() {
-            if (currentDownloadUrl) {
-                URL.revokeObjectURL(currentDownloadUrl);
-                currentDownloadUrl = null;
-            }
-            if (shareDownloadLink) {
-                shareDownloadLink.removeAttribute('href');
-                shareDownloadLink.style.display = 'none';
-            }
-        }
-
-        function setShareStatus(message, type = 'info') {
-            if (!shareStatusEl) return;
-            if (!message) {
-                shareStatusEl.hidden = true;
-                shareStatusEl.textContent = '';
-                shareStatusEl.className = 'share-status-message';
+        const updateAuthorChip = (name, photoUrl, profileUrl) => {
+            if (!detailAuthorChipEl || !detailAuthorAvatarEl || !detailAuthorNameEl) {
                 return;
             }
-            shareStatusEl.hidden = false;
-            shareStatusEl.textContent = message;
-            shareStatusEl.className = `share-status-message ${type}`;
-        }
-
-        function setCustomizationControlsDisabled(isDisabled) {
-            if (shareColorSchemeSelect) {
-                shareColorSchemeSelect.disabled = !!isDisabled;
-            }
-            if (shareGraphicStyleSelect) {
-                shareGraphicStyleSelect.disabled = !!isDisabled;
-            }
-        }
-
-        function announceCustomizationChange() {
-            if (!shareStatusEl) {
-                return;
-            }
-            if (!shareAssetsReady) {
-                return;
-            }
-            const currentClass = shareStatusEl.className || '';
-            if (shareStatusEl.hidden || (!currentClass.includes('success') && !currentClass.includes('error'))) {
-                setShareStatus('Aplicaremos los nuevos ajustes en la próxima tarjeta.', 'info');
-            }
-        }
-
-        function toggleShareLoading(isLoading) {
-            if (!shareButton) return;
-            if (isLoading) {
-                shareButton.setAttribute('data-loading', 'true');
-                shareButton.setAttribute('aria-busy', 'true');
-                shareButton.disabled = true;
-                shareButton.innerHTML = '<i class="fas fa-spinner"></i> Generando...';
+            const displayName = name || 'Autor no especificado';
+            detailAuthorNameEl.textContent = displayName;
+            if (profileUrl) {
+                detailAuthorNameEl.href = profileUrl;
             } else {
-                shareButton.removeAttribute('data-loading');
-                shareButton.removeAttribute('aria-busy');
-                shareButton.disabled = !shareAssetsReady;
-                shareButton.innerHTML = shareButtonOriginalHTML;
+                detailAuthorNameEl.removeAttribute('href');
             }
-            setCustomizationControlsDisabled(isLoading || !shareAssetsReady);
-        }
 
+            detailAuthorAvatarEl.innerHTML = '';
+            if (photoUrl) {
+                const img = document.createElement('img');
+                img.src = photoUrl;
+                img.alt = name ? `Foto de ${name}` : 'Foto del autor';
+                detailAuthorAvatarEl.appendChild(img);
+            } else {
+                const initials = getAuthorInitials(displayName);
+                detailAuthorAvatarEl.textContent = initials || '??';
+            }
 
-        function enableShareFeature() {
-            if (!shareButton || shareAssetsReady === true) return;
-            shareAssetsReady = true;
-            shareButton.disabled = false;
-            shareButton.removeAttribute('aria-busy');
-            if (shareHelperEl) shareHelperEl.hidden = false;
-            if (shareCustomizationContainer) shareCustomizationContainer.hidden = false;
-            cleanupDownloadUrl();
-            setCustomizationControlsDisabled(false);
-            setShareStatus('Personaliza la tarjeta y compártela en Instagram Stories.', 'info');
-        }
+            detailAuthorChipEl.hidden = false;
+        };
 
-        async function handleShareClick() {
-            if (!shareButton) return;
-            if (!shareAssetsReady) {
-                setShareStatus('Estamos preparando los datos de tu reseña…', 'info');
+        const formatReviewDate = (rawDate) => {
+            if (!rawDate) {
+                return '';
+            }
+            let value = rawDate;
+            if (typeof rawDate.toDate === 'function') {
+                value = rawDate.toDate();
+            }
+            if (!(value instanceof Date)) {
+                return '';
+            }
+            try {
+                return new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium' }).format(value);
+            } catch (error) {
+                console.warn('[detailView] No se pudo formatear la fecha de la reseña.', error);
+                return value.toLocaleDateString?.() || '';
+            }
+        };
+
+        const prepareCanvasContext = (canvas, width, height) => {
+            if (!canvas) {
+                return null;
+            }
+            const ratio = window.devicePixelRatio || 1;
+            canvas.width = width * ratio;
+            canvas.height = height * ratio;
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                return null;
+            }
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            ctx.clearRect(0, 0, width, height);
+            return ctx;
+        };
+
+        const drawBarsChart = (entries) => {
+            if (!chartCanvas || !entries.length) {
+                return;
+            }
+            const containerWidth = chartCanvas.parentElement?.clientWidth || 600;
+            const barHeight = 34;
+            const barSpacing = 20;
+            const chartHeight = Math.max(200, entries.length * (barHeight + barSpacing) + 40);
+            const ctx = prepareCanvasContext(chartCanvas, containerWidth, chartHeight);
+            if (!ctx) {
                 return;
             }
 
-            toggleShareLoading(true);
+            ctx.font = '16px "Poppins", "Helvetica Neue", Arial';
+            ctx.textBaseline = 'middle';
 
-            try {
-                setShareStatus('Generando tu tarjeta para Instagram…', 'info');
+            const paddingX = 24;
+            const barMaxWidth = containerWidth - paddingX * 2;
 
-                const activeCriteriaDefinitions = (shareCriteriaDefinitions && Object.keys(shareCriteriaDefinitions).length > 0)
-                    ? shareCriteriaDefinitions
-                    : (shareContext.list?.criteriaDefinitions || shareContext.list?.defaultCriteriaDefinitions || {});
+            entries.forEach((entry, index) => {
+                const top = 30 + index * (barHeight + barSpacing);
+                const normalized = entry.max > entry.min
+                    ? (entry.value - entry.min) / (entry.max - entry.min)
+                    : entry.value / 10;
+                const clamped = Math.max(0, Math.min(1, normalized));
+                const barWidth = Math.max(4, barMaxWidth * clamped);
 
-                const { blob } = await ListopicApp.storyShare.createInstagramStoryCard(
-                    { ...shareContext },
-                    activeCriteriaDefinitions,
-                    { ...shareCustomization }
-                );
+                ctx.fillStyle = chartColors.track;
+                drawRoundedRectPath(ctx, paddingX, top, barMaxWidth, barHeight, 14);
+                ctx.fill();
 
-                if (!blob) {
-                    throw new Error('No se pudo generar la imagen para compartir.');
-                }
+                const gradient = ctx.createLinearGradient(paddingX, top, paddingX + barWidth, top + barHeight);
+                gradient.addColorStop(0, chartColors.accent);
+                gradient.addColorStop(1, chartColors.accentSecondary);
+                ctx.fillStyle = gradient;
+                drawRoundedRectPath(ctx, paddingX, top, barWidth, barHeight, 14);
+                ctx.fill();
 
-                cleanupDownloadUrl();
+                ctx.fillStyle = chartColors.text;
+                ctx.textAlign = 'left';
+                ctx.fillText(entry.label, paddingX + 12, top + barHeight / 2);
 
-                const fileName = `listopic-story-${shareContext.review?.id || 'resena'}.png`;
-                const ratingLabel = overallRatingLabel(shareContext.review);
-                const shareTitle = `Mi reseña en ${shareContext.place?.name || shareContext.review?.establishmentName || 'Listopic'}`;
-                const shareTextParts = [
-                    shareContext.review?.itemName || shareContext.place?.name,
-                    ratingLabel,
-                    shareContext.list?.name ? `Lista: ${shareContext.list.name}` : null
-                ].filter(Boolean);
-                const shareText = shareTextParts.join(' · ');
+                ctx.fillStyle = chartColors.muted;
+                ctx.textAlign = 'right';
+                ctx.fillText(entry.value.toFixed(1), paddingX + barMaxWidth - 8, top + barHeight / 2);
+            });
+        };
 
-                let file = null;
-                try {
-                    file = new File([blob], fileName, { type: 'image/png' });
-                } catch (fileCreationError) {
-                    console.warn('No pudimos crear un archivo compatible con la API de compartir.', fileCreationError);
-                }
+        const drawRadarChart = (entries) => {
+            if (!chartCanvas || !entries.length) {
+                return;
+            }
+            const containerWidth = chartCanvas.parentElement?.clientWidth || 520;
+            const size = Math.min(520, Math.max(320, containerWidth));
+            const ctx = prepareCanvasContext(chartCanvas, size, size);
+            if (!ctx) {
+                return;
+            }
 
-                let canUseWebShare = false;
-                if (file && navigator?.canShare) {
-                    try {
-                        canUseWebShare = navigator.canShare({ files: [file] });
-                    } catch (shareCapabilityError) {
-                        console.warn('El navegador no permite compartir archivos directamente.', shareCapabilityError);
-                        canUseWebShare = false;
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const radius = Math.min(size / 2 - 50, 220);
+            const levels = 5;
+            const angleStep = (Math.PI * 2) / entries.length;
+
+            ctx.strokeStyle = hexToRgba(chartColors.accentSecondary, 0.25);
+            ctx.lineWidth = 1.5;
+            for (let level = 1; level <= levels; level += 1) {
+                const ratio = level / levels;
+                ctx.beginPath();
+                entries.forEach((entry, index) => {
+                    const angle = angleStep * index - Math.PI / 2;
+                    const x = centerX + Math.cos(angle) * radius * ratio;
+                    const y = centerY + Math.sin(angle) * radius * ratio;
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
                     }
-                }
+                });
+                ctx.closePath();
+                ctx.stroke();
+            }
 
-                let shared = false;
-                if (file && canUseWebShare && navigator?.share) {
-                    try {
-                        await navigator.share({
-                            files: [file],
-                            title: shareTitle,
-                            text: shareText
-                        });
-                        shared = true;
-                        setShareStatus('¡Listo! Si Instagram no se abre automáticamente, revisa tu galería para encontrar la tarjeta.', 'success');
-                    } catch (shareError) {
-                        if (shareError?.name === 'AbortError') {
-                            setShareStatus('Compartir cancelado. Guardamos la tarjeta en tus descargas para que la compartas cuando quieras.', 'info');
-                        } else {
-                            console.warn('El uso de la API de compartir falló, se ofrecerá descarga manual.', shareError);
-                            setShareStatus('No pudimos abrir Instagram automáticamente. Descarga la tarjeta y súbela manualmente.', 'info');
-                        }
-                        shared = false;
-                    }
-                }
+            ctx.strokeStyle = hexToRgba(chartColors.accentTertiary, 0.5);
+            entries.forEach((entry, index) => {
+                const angle = angleStep * index - Math.PI / 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
+                ctx.stroke();
+            });
 
-                if (!shared) {
-                    const blobUrl = URL.createObjectURL(blob);
-                    currentDownloadUrl = blobUrl;
-                    if (shareDownloadLink) {
-                        shareDownloadLink.href = blobUrl;
-                        shareDownloadLink.download = fileName;
-                        shareDownloadLink.style.display = 'inline-flex';
-                        shareDownloadLink.textContent = 'Descargar tarjeta';
-                        try {
-                            shareDownloadLink.click();
-                        } catch (downloadError) {
-                            console.warn('La descarga automática fue bloqueada por el navegador.', downloadError);
-                        }
-                    }
-                    if (shareHelperEl) shareHelperEl.hidden = false;
-                    setShareStatus('Descargamos la tarjeta. Súbela como historia desde tu galería.', 'info');
+            ctx.beginPath();
+            entries.forEach((entry, index) => {
+                const normalized = entry.max > entry.min
+                    ? (entry.value - entry.min) / (entry.max - entry.min)
+                    : entry.value / 10;
+                const clamped = Math.max(0, Math.min(1, normalized));
+                const angle = angleStep * index - Math.PI / 2;
+                const x = centerX + Math.cos(angle) * radius * clamped;
+                const y = centerY + Math.sin(angle) * radius * clamped;
+                if (index === 0) {
+                    ctx.moveTo(x, y);
                 } else {
-                    cleanupDownloadUrl();
+                    ctx.lineTo(x, y);
                 }
+            });
+            ctx.closePath();
+            ctx.fillStyle = hexToRgba(chartColors.accent, 0.32);
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = chartColors.accent;
+            ctx.stroke();
 
-                if (shared && showNotification) {
-                    showNotification('Tarjeta preparada. Completa la publicación en Instagram.', 'success');
-                } else if (!shared && showNotification) {
-                    showNotification('Tarjeta lista. Revisa tus descargas para compartirla en Instagram.', 'info');
+            entries.forEach((entry, index) => {
+                const normalized = entry.max > entry.min
+                    ? (entry.value - entry.min) / (entry.max - entry.min)
+                    : entry.value / 10;
+                const clamped = Math.max(0, Math.min(1, normalized));
+                const angle = angleStep * index - Math.PI / 2;
+                const x = centerX + Math.cos(angle) * radius * clamped;
+                const y = centerY + Math.sin(angle) * radius * clamped;
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = chartColors.text;
+                ctx.fill();
+            });
+
+            ctx.font = '14px "Poppins", "Helvetica Neue", Arial';
+            entries.forEach((entry, index) => {
+                const angle = angleStep * index - Math.PI / 2;
+                const labelRadius = radius + 28;
+                const x = centerX + Math.cos(angle) * labelRadius;
+                const y = centerY + Math.sin(angle) * labelRadius;
+
+                const align = Math.cos(angle) > 0.2 ? 'left' : Math.cos(angle) < -0.2 ? 'right' : 'center';
+                ctx.textAlign = align;
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = chartColors.text;
+                ctx.fillText(entry.label, x, y);
+                ctx.fillStyle = chartColors.muted;
+                ctx.fillText(entry.value.toFixed(1), x, y + 18);
+            });
+        };
+
+        const updateChartModeButtons = () => {
+            chartToggleButtons.forEach(button => {
+                const mode = button?.dataset?.chartMode || 'bars';
+                const isActive = chartState.mode === mode;
+                if (chartState.entries.length < 3 && mode === 'radar') {
+                    button.disabled = true;
+                    button.classList.remove('is-active');
+                    button.setAttribute('aria-pressed', 'false');
+                    return;
                 }
+                button.disabled = false;
+                button.classList.toggle('is-active', isActive);
+                button.setAttribute('aria-pressed', String(isActive));
+            });
+        };
+
+        const renderCriteriaChart = () => {
+            if (!chartCanvas) {
+                return;
+            }
+            if (!chartState.entries.length) {
+                chartCanvas.style.display = 'none';
+                if (chartEmptyStateEl) chartEmptyStateEl.hidden = false;
+                return;
+            }
+            chartCanvas.style.display = 'block';
+            if (chartEmptyStateEl) chartEmptyStateEl.hidden = true;
+            const usableEntries = chartState.mode === 'radar'
+                ? chartState.entries.slice(0, 6)
+                : chartState.entries;
+            if (chartState.mode === 'radar' && usableEntries.length < 3) {
+                chartState.mode = 'bars';
+                updateChartModeButtons();
+                drawBarsChart(chartState.entries);
+                return;
+            }
+            if (chartState.mode === 'radar') {
+                drawRadarChart(usableEntries);
+            } else {
+                drawBarsChart(usableEntries);
+            }
+        };
+
+        const updateChartEntries = (entries) => {
+            chartState.entries = entries.slice();
+            updateChartModeButtons();
+            renderCriteriaChart();
+        };
+
+        const setChartMode = (mode) => {
+            if (mode === 'radar' && chartState.entries.length < 3) {
+                return;
+            }
+            chartState.mode = mode === 'radar' ? 'radar' : 'bars';
+            updateChartModeButtons();
+            renderCriteriaChart();
+        };
+
+        chartToggleButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const mode = button?.dataset?.chartMode || 'bars';
+                setChartMode(mode);
+            });
+        });
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('resize', () => {
+                if (chartState.resizeTimeout) {
+                    window.clearTimeout(chartState.resizeTimeout);
+                }
+                chartState.resizeTimeout = window.setTimeout(() => {
+                    renderCriteriaChart();
+                }, 150);
+            });
+        }
+
+        const computeCriteriaEntries = () => {
+            if (!reviewDataGlobal?.scores || typeof reviewDataGlobal.scores !== 'object') {
+                return [];
+            }
+            const entries = [];
+            const definitions = state.currentListCriteriaDefinitions;
+            if (definitions && Object.keys(definitions).length > 0) {
+                for (const [key, definition] of Object.entries(definitions)) {
+                    if (reviewDataGlobal.scores[key] === undefined) {
+                        continue;
+                    }
+                    const value = Number.parseFloat(reviewDataGlobal.scores[key]);
+                    if (!Number.isFinite(value)) {
+                        continue;
+                    }
+                    entries.push({
+                        key,
+                        label: definition?.label || key,
+                        value,
+                        min: Number.isFinite(Number.parseFloat(definition?.min)) ? Number.parseFloat(definition.min) : 0,
+                        max: Number.isFinite(Number.parseFloat(definition?.max)) ? Number.parseFloat(definition.max) : 10,
+                        ponderable: definition?.ponderable !== false
+                    });
+                }
+            } else {
+                for (const [key, rawValue] of Object.entries(reviewDataGlobal.scores)) {
+                    const value = Number.parseFloat(rawValue);
+                    if (!Number.isFinite(value)) {
+                        continue;
+                    }
+                    entries.push({
+                        key,
+                        label: key,
+                        value,
+                        min: 0,
+                        max: 10,
+                        ponderable: true
+                    });
+                }
+            }
+            return entries;
+        };
+
+        const refreshCriteriaVisuals = () => {
+            const entries = computeCriteriaEntries();
+            updateChartEntries(entries);
+        };
+
+        const buildGroupLinkUrl = (placeId, itemName) => {
+            if (!listIdFromURL || !placeId) {
+                return null;
+            }
+            const query = new URLSearchParams({ listId: listIdFromURL, placeId });
+            if (itemName) {
+                query.set('item', itemName);
+            }
+            return `grouped-detail-view.html?${query.toString()}`;
+        };
+
+        const applyGroupLink = () => {
+            if (!detailGroupLinkEl || !detailMediaLinkEl) {
+                return;
+            }
+            if (groupLinkUrl) {
+                detailGroupLinkEl.href = groupLinkUrl;
+                detailGroupLinkEl.hidden = false;
+                detailGroupLinkEl.setAttribute('aria-label', 'Ver grupo del plato');
+                detailMediaLinkEl.href = groupLinkUrl;
+                detailMediaLinkEl.hidden = false;
+                detailMediaLinkEl.target = '_self';
+                detailMediaLinkEl.setAttribute('aria-label', 'Abrir el grupo del plato');
+            } else {
+                detailGroupLinkEl.hidden = true;
+                detailGroupLinkEl.removeAttribute('href');
+                detailGroupLinkEl.removeAttribute('target');
+                if (reviewDataGlobal?.photoUrl) {
+                    detailMediaLinkEl.href = reviewDataGlobal.photoUrl;
+                    detailMediaLinkEl.hidden = false;
+                    detailMediaLinkEl.target = '_blank';
+                    detailMediaLinkEl.setAttribute('aria-label', 'Abrir la foto de la reseña en una pestaña nueva');
+                } else {
+                    detailMediaLinkEl.hidden = true;
+                    detailMediaLinkEl.removeAttribute('href');
+                }
+            }
+        };
+
+        const ensureShareData = () => {
+            const baseData = {
+                listId: listIdFromURL || '',
+                reviewId: reviewId || '',
+                detailUrl: shareDetailUrl
+            };
+            if (!shareModalData) {
+                shareModalData = baseData;
+            } else {
+                shareModalData = { ...baseData, ...shareModalData };
+            }
+            const hasCoreData = Boolean(shareModalData.listId && shareModalData.reviewId);
+            setShareButtonsEnabled(hasCoreData);
+        };
+
+        const updateShareData = (partial = {}) => {
+            shareModalData = { ...(shareModalData || {}), ...partial };
+            ensureShareData();
+        };
+
+        const shareLinkFallback = async (detailUrl) => {
+            try {
+                const absoluteUrl = detailUrl ? new URL(detailUrl, window.location.href).href : window.location.href;
+                if (navigator.share) {
+                    await navigator.share({ title: 'Listopic', url: absoluteUrl });
+                    return true;
+                }
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(absoluteUrl);
+                    return true;
+                }
+                window.prompt('Copia el enlace de la reseña:', absoluteUrl);
+                return true;
             } catch (error) {
-                console.error('Error generando la tarjeta de Instagram:', error);
-                setShareStatus('No pudimos generar la tarjeta. Inténtalo nuevamente.', 'error');
-                cleanupDownloadUrl();
-                if (showNotification) {
-                    showNotification(error.message || 'No se pudo crear la tarjeta para compartir.', 'error');
-                }
-            } finally {
-                toggleShareLoading(false);
+                console.error('[detailView] Error en compartir fallback:', error);
+                return false;
             }
-        }
+        };
 
-        function overallRatingLabel(review) {
-            if (!review) return '';
-            const rating = Number.parseFloat(review.overallRating ?? review.overallScore);
-            if (Number.isFinite(rating)) {
-                return `${rating.toFixed(1)} ⭐`;
+        const handleShareButtonClick = async () => {
+            ensureShareData();
+            if (!shareModalData || !shareModalData.listId || !shareModalData.reviewId) {
+                return;
             }
-            return '';
-        }
+            if (window.ListopicApp?.reviewShare?.open) {
+                window.ListopicApp.reviewShare.open(shareModalData);
+                return;
+            }
+            const success = await shareLinkFallback(shareModalData.detailUrl);
+            if (success && typeof showNotification === 'function') {
+                showNotification('Enlace preparado para compartir.', 'success');
+            } else if (!success && typeof showNotification === 'function') {
+                showNotification('No se pudo compartir la reseña.', 'error');
+            }
+        };
 
-        if (shareColorSchemeSelect) {
-            shareColorSchemeSelect.addEventListener('change', (event) => {
-                shareCustomization.colorScheme = event.target.value || 'midnight';
-                announceCustomizationChange();
-            });
-        }
-        if (shareGraphicStyleSelect) {
-            shareGraphicStyleSelect.addEventListener('change', (event) => {
-                shareCustomization.graphicStyle = event.target.value || 'bars';
-                announceCustomizationChange();
-            });
-        }
-
-        if (shareButton) {
-            shareButton.disabled = true;
-            shareButton.setAttribute('aria-busy', 'true');
-            shareButton.addEventListener('click', handleShareClick);
-            setShareStatus('Preparando datos de tu reseña para compartir…', 'info');
-        }
+        shareButtons.forEach(button => {
+            button.disabled = true;
+            button.addEventListener('click', handleShareButtonClick);
+        });
 
         // Configurar boton de Volver
         if (backButton && listIdFromURL) {
-            const fromPlaceIdParam = params.get('fromPlaceId'); // Usar fromPlaceId
-            const fromItemParam = params.get('fromItem');
-            if (params.get('fromGrouped') === 'true' && fromPlaceIdParam) {
+            if (fromGroupedParam && fromPlaceIdParam) {
                 backButton.href = `grouped-detail-view.html?listId=${listIdFromURL}&placeId=${fromPlaceIdParam}&item=${encodeURIComponent(fromItemParam || '')}`;
             } else {
                 backButton.href = `list-view.html?listId=${listIdFromURL}`;
@@ -1046,75 +1270,132 @@ ListopicApp.pageDetailView = (() => {
             if (ListopicApp.services && ListopicApp.services.showNotification) {
                 ListopicApp.services.showNotification(errorMsg, "error");
             }
-            return; 
+            return;
         }
+
+        const shareDetailUrl = (() => {
+            const query = new URLSearchParams();
+            if (reviewId) query.set('id', reviewId);
+            if (listIdFromURL) query.set('listId', listIdFromURL);
+            const queryString = query.toString();
+            return queryString ? `detail-view.html?${queryString}` : 'detail-view.html';
+        })();
 
         let reviewDataGlobal;
         let listDataGlobal; // Lo hacemos accesible en un scope mas amplio
+        let placeDataGlobal;
+        let groupLinkUrl = null;
+        let authorNameRaw = 'Autor no especificado';
 
         // 1. Obtener la resena
         db.collection('lists').doc(listIdFromURL).collection('reviews').doc(reviewId).get()
             .then(reviewDoc => {
                 if (!reviewDoc.exists) throw new Error(`Resena no encontrada.`);
                 reviewDataGlobal = { id: reviewDoc.id, ...reviewDoc.data() };
-                shareContext.review = reviewDataGlobal;
-                shareContext.author = {
-                    id: reviewDataGlobal.userId || null,
-                    name: reviewDataGlobal.authorName || reviewDataGlobal.userDisplayName || reviewDataGlobal.username || '',
-                    photoUrl: reviewDataGlobal.authorPhotoUrl || ''
-                };
+                authorNameRaw = reviewDataGlobal.authorName || reviewDataGlobal.userDisplayName || reviewDataGlobal.username || 'Usuario Anonimo';
+                updateShareData({
+                    reviewId: reviewDataGlobal.id || reviewId,
+                    listId: listIdFromURL,
+                    itemName: reviewDataGlobal.itemName || '',
+                    overallRating: Number.isFinite(Number(reviewDataGlobal.overallRating))
+                        ? Number(reviewDataGlobal.overallRating).toFixed(1)
+                        : '',
+                    photoUrl: reviewDataGlobal.photoUrl || '',
+                    comment: reviewDataGlobal.comment || '',
+                    placeId: reviewDataGlobal.placeId || '',
+                    placeName: reviewDataGlobal.establishmentName || '',
+                    authorId: reviewDataGlobal.userId || null,
+                    authorName: authorNameRaw,
+                    detailUrl: shareDetailUrl
+                });
+                if (currentUserId && (reviewDataGlobal.userId === currentUserId || reviewDataGlobal.authorId === currentUserId)) {
+                    updateShareData({ isOwner: true });
+                    updateOwnerActionsVisibility(true);
+                } else {
+                    updateOwnerActionsVisibility(false);
+                }
 
                 // Mostrar datos basicos de la resena
                 if (detailItemNameEl) detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
                 if (detailScoreValueEl) detailScoreValueEl.textContent = reviewDataGlobal.overallRating !== undefined ? reviewDataGlobal.overallRating.toFixed(1) : 'N/A';
                 
-                if (detailImageEl && detailImageEl.parentNode) {
+                if (detailEstablishmentNameEl) {
+                    detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || reviewDataGlobal.placeName || 'Lugar no especificado';
+                }
+
+                if (detailItemNameEl) {
+                    detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
+                }
+
+                if (detailImageEl) {
                     if (reviewDataGlobal.photoUrl) {
                         detailImageEl.src = reviewDataGlobal.photoUrl;
-                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'resena')}`;
-                        detailImageEl.style.display = 'block';
-                        const placeholderIcon = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
-                        if(placeholderIcon) placeholderIcon.style.display = 'none';
-                    } else {
-                        detailImageEl.style.display = 'none';
-                        let placeholderIconDiv = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
-                        if (!placeholderIconDiv) {
-                            placeholderIconDiv = document.createElement('div');
-                            placeholderIconDiv.className = 'detail-image-icon-placeholder';
-                            detailImageEl.parentNode.insertBefore(placeholderIconDiv, detailImageEl.nextSibling);
+                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || reviewDataGlobal.establishmentName || 'la reseña')}`;
+                        detailImageEl.hidden = false;
+                        if (detailImagePlaceholderEl) detailImagePlaceholderEl.hidden = true;
+                        if (detailMediaLinkEl) {
+                            detailMediaLinkEl.href = reviewDataGlobal.photoUrl;
+                            detailMediaLinkEl.hidden = false;
+                            detailMediaLinkEl.setAttribute('aria-label', 'Abrir la foto de la reseña en una pestaña nueva');
+                            detailMediaLinkEl.target = '_blank';
                         }
-                        placeholderIconDiv.innerHTML = `<i class="fa-solid fa-image"></i>`;
-                        placeholderIconDiv.style.display = 'flex';
+                    } else {
+                        detailImageEl.hidden = true;
+                        if (detailImagePlaceholderEl) detailImagePlaceholderEl.hidden = false;
+                        if (detailMediaLinkEl) {
+                            detailMediaLinkEl.hidden = true;
+                            detailMediaLinkEl.removeAttribute('href');
+                        }
                     }
                 }
 
                 if (detailCommentContainerEl && detailCommentTextEl) {
                     if (reviewDataGlobal.comment) {
                         detailCommentTextEl.innerHTML = uiUtils.escapeHtml(reviewDataGlobal.comment).replace(/\n/g, '<br>');
-                        detailCommentContainerEl.style.display = 'block';
+                        detailCommentContainerEl.hidden = false;
                     } else {
-                        detailCommentContainerEl.style.display = 'none';
+                        detailCommentContainerEl.hidden = true;
                     }
                 }
 
                 if (detailTagsContainerEl && detailTagsDivEl) {
-                    if (reviewDataGlobal.userTags && reviewDataGlobal.userTags.length > 0) {
+                    if (Array.isArray(reviewDataGlobal.userTags) && reviewDataGlobal.userTags.length > 0) {
                         detailTagsDivEl.innerHTML = reviewDataGlobal.userTags.map(tag => `<span class="tag-detail">${uiUtils.escapeHtml(tag)}</span>`).join('');
-                        detailTagsContainerEl.style.display = 'block';
+                        detailTagsContainerEl.hidden = false;
                     } else {
-                        detailTagsContainerEl.style.display = 'none';
+                        detailTagsContainerEl.hidden = true;
+                        detailTagsDivEl.innerHTML = '';
+                    }
+                }
+
+                const reviewTimestamp = reviewDataGlobal.createdAt
+                    || reviewDataGlobal.created_at
+                    || (typeof reviewDoc?.createTime?.toDate === 'function' ? reviewDoc.createTime.toDate() : null);
+                const reviewDateText = formatReviewDate(reviewTimestamp);
+                if (detailReviewDateContainerEl && detailReviewDateTextEl) {
+                    if (reviewDateText) {
+                        detailReviewDateTextEl.textContent = reviewDateText;
+                        detailReviewDateContainerEl.hidden = false;
+                    } else {
+                        detailReviewDateContainerEl.hidden = true;
                     }
                 }
 
                 if (editButton) {
                     let editHref = `review-form.html?listId=${listIdFromURL}&editId=${reviewId}`;
-                    const fromPlaceIdParam = params.get('fromPlaceId'); // Usar fromPlaceId
-                    const fromItemParam = params.get('fromItem');
-                    if (params.get('fromGrouped') === 'true' && fromPlaceIdParam) {
+                    if (fromGroupedParam && fromPlaceIdParam) {
                         editHref += `&fromGrouped=true&fromPlaceId=${fromPlaceIdParam}&fromItem=${encodeURIComponent(fromItemParam || '')}`;
                     }
                     editButton.href = editHref;
                 }
+
+                const authorLinkHref = reviewDataGlobal.userId ? `profile.html?viewUserId=${reviewDataGlobal.userId}` : '';
+                updateAuthorChip(authorNameRaw, reviewDataGlobal.authorPhotoUrl || reviewDataGlobal.userPhotoUrl || '', authorLinkHref);
+
+                refreshCriteriaVisuals();
+
+                groupLinkUrl = buildGroupLinkUrl(reviewDataGlobal.placeId || fromPlaceIdParam || null, reviewDataGlobal.itemName || fromItemParam || '');
+                applyGroupLink();
 
                 // 2. Obtener la definicion de la lista
                 return db.collection('lists').doc(listIdFromURL).get();
@@ -1122,119 +1403,191 @@ ListopicApp.pageDetailView = (() => {
             .then(listDoc => {
                 if (!listDoc.exists) throw new Error("Lista asociada no encontrada.");
                 listDataGlobal = listDoc.data(); // Guardar en el scope mas amplio
-                shareContext.list = { id: listIdFromURL, ...listDataGlobal };
                 state.currentListCriteriaDefinitions = listDataGlobal.criteriaDefinitions || listDataGlobal.defaultCriteriaDefinitions || {};
-                shareCriteriaDefinitions = state.currentListCriteriaDefinitions;
+                updateShareData({
+                    listName: listDataGlobal.name || '',
+                    detailUrl: shareDetailUrl
+                });
 
-                if (detailListNameEl && listDataGlobal.name) {
-                    detailListNameEl.innerHTML = `Estas viendo en Listopic: <a href="list-view.html?listId=${listIdFromURL}">${uiUtils.escapeHtml(listDataGlobal.name)}</a>`;
-                    if (uiUtils.updatePageHeaderInfo) { // Actualizar header comun
-                        const currentCategory = listDataGlobal.categoryId || "Hmm...";
-                        uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal.name);
-                    }
-                } else if (detailListNameEl) {
-                    detailListNameEl.textContent = "Estas viendo en Listopic: Lista Desconocida";
-                    if (uiUtils.updatePageHeaderInfo) uiUtils.updatePageHeaderInfo();
-                }
-
-                // Renderizar valoraciones detalladas
-                if (detailRatingsListEl && reviewDataGlobal && reviewDataGlobal.scores) {
-                    detailRatingsListEl.innerHTML = '';
-                    if (typeof state.currentListCriteriaDefinitions === 'object' && Object.keys(state.currentListCriteriaDefinitions).length > 0) {
-                        for (const [critKey, critDef] of Object.entries(state.currentListCriteriaDefinitions)) {
-                            if (reviewDataGlobal.scores[critKey] !== undefined) {
-                                const li = document.createElement('li');
-                                const weightedText = critDef.ponderable === false ? ' <small class="non-weighted-detail">(No pondera)</small>' : '';
-                                li.innerHTML = `<span class="rating-label">${uiUtils.escapeHtml(critDef.label)}${weightedText}</span> <span class="rating-value">${parseFloat(reviewDataGlobal.scores[critKey]).toFixed(1)}</span>`;
-                                detailRatingsListEl.appendChild(li);
-                            }
-                        }
+                if (detailListNameEl) {
+                    if (listDataGlobal.name) {
+                        detailListNameEl.innerHTML = `Estás viendo en Listopic: <a href="list-view.html?listId=${listIdFromURL}">${uiUtils.escapeHtml(listDataGlobal.name)}</a>`;
                     } else {
-                        detailRatingsListEl.innerHTML = '<li>No hay criterios definidos para mostrar valoraciones.</li>';
+                        detailListNameEl.textContent = 'Estás viendo en Listopic: Lista desconocida';
                     }
-                } else if (detailRatingsListEl) {
-                     detailRatingsListEl.innerHTML = '<li>No hay valoraciones detalladas disponibles.</li>';
                 }
+                if (detailListLinkEl) {
+                    if (listDataGlobal.name) {
+                        detailListLinkEl.href = `list-view.html?listId=${listIdFromURL}`;
+                        detailListLinkEl.textContent = listDataGlobal.name;
+                    } else {
+                        detailListLinkEl.removeAttribute('href');
+                        detailListLinkEl.textContent = 'Lista no disponible';
+                    }
+                }
+                if (uiUtils.updatePageHeaderInfo) {
+                    const currentCategory = listDataGlobal?.categoryId || undefined;
+                    uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal?.name);
+                }
+                if (uiUtils.updatePageHeaderInfo) {
+                    const currentCategory = listDataGlobal?.categoryId || undefined;
+                    uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal?.name);
+                }
+
+                if (reviewAuthorBioEl && listDataGlobal?.name) {
+                    reviewAuthorBioEl.textContent = `Reseña de la lista “${uiUtils.escapeHtml(listDataGlobal.name)}”`;
+                }
+
+                refreshCriteriaVisuals();
+
+                refreshCriteriaVisuals();
 
                 // 3. Obtener datos del autor de la reseña
-                if (reviewDataGlobal.userId && reviewAuthorNameEl) {
+                if (reviewDataGlobal.userId) {
                     return db.collection('users').doc(reviewDataGlobal.userId).get(); // Esto devuelve una promesa
-                } else {
-                    if(reviewAuthorNameEl) reviewAuthorNameEl.textContent = 'Autor no especificado';
-                    return Promise.resolve(null); // Devolver promesa resuelta para el siguiente .then()
                 }
+                return Promise.resolve(null); // Devolver promesa resuelta para el siguiente .then()
             })
             .then(userDocOrNull => { // userDocOrNull es el resultado de la promesa del autor
                 if (userDocOrNull && userDocOrNull.exists) {
                     const userData = userDocOrNull.data();
-                    const authorName = uiUtils.escapeHtml(userData.username || userData.displayName || 'Usuario Anonimo');
-                    
-                    const authorLink = document.createElement('a');
-                    authorLink.href = `profile.html?viewUserId=${reviewDataGlobal.userId}`;
-                    authorLink.textContent = authorName;
-                    
-                    if (reviewAuthorNameEl) {
-                        reviewAuthorNameEl.innerHTML = ''; 
-                        reviewAuthorNameEl.appendChild(authorLink);
-                    }
-                } else if (reviewDataGlobal.userId && reviewAuthorNameEl) { 
-                    reviewAuthorNameEl.textContent = 'Usuario Desconocido';
+                    const authorRaw = userData.displayName || userData.username || authorNameRaw || 'Usuario Anónimo';
+                    updateShareData({ authorName: authorRaw });
+
+                    const authorHref = reviewDataGlobal.userId ? `profile.html?viewUserId=${reviewDataGlobal.userId}` : '';
+                    updateAuthorChip(authorRaw, userData.photoUrl || reviewDataGlobal.authorPhotoUrl || '', authorHref);
+                } else if (reviewDataGlobal.userId) {
+                    updateAuthorChip('Usuario desconocido', reviewDataGlobal.authorPhotoUrl || '', `profile.html?viewUserId=${reviewDataGlobal.userId}`);
                     console.warn(`Autor de reseña con ID ${reviewDataGlobal.userId} no encontrado.`);
                 }
-                
+
                 // 4. Si la reseña tiene placeId, obtener datos del lugar
                 if (reviewDataGlobal && reviewDataGlobal.placeId) {
                     return db.collection('places').doc(reviewDataGlobal.placeId).get(); // Esto devuelve una promesa
-                } else {
-                    // No hay placeId, mostrar N/A y resolver para finalizar cadena si es necesario
-                    if(detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || "Establecimiento no especificado";
-                    if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
-                    if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
-                    shareContext.place = null;
-                    enableShareFeature();
-                    return Promise.resolve(null); // Devolver promesa resuelta
                 }
+
+                // No hay placeId, mostrar N/A y resolver para finalizar cadena si es necesario
+                if (detailEstablishmentNameEl) {
+                    detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || "Establecimiento no especificado";
+                }
+                if (detailLocationContainerEl) detailLocationContainerEl.hidden = true;
+                if (detailNoLocationEl) detailNoLocationEl.hidden = false;
+                updateShareData({ placeId: '', placeName: reviewDataGlobal.establishmentName || '' });
+                return Promise.resolve(null); // Devolver promesa resuelta
             })
             .then(placeDocOrNull => { // placeDocOrNull es el resultado de la promesa del lugar
                 let placeData = null;
                 if (placeDocOrNull && placeDocOrNull.exists) {
-                    placeData = placeDocOrNull.data();
-                    if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = placeData.name || "Nombre de lugar desconocido";
-                    
-                    if (detailImageEl && detailImageEl.alt === `Foto de reseña`) {
-                         detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || placeData.name)}`;
+                    placeData = { id: placeDocOrNull.id, ...placeDocOrNull.data() };
+                    placeDataGlobal = placeData;
+                    if (detailEstablishmentNameEl) {
+                        detailEstablishmentNameEl.textContent = placeData.name || 'Nombre de lugar desconocido';
+                    }
+                    if (detailImageEl) {
+                        const fallbackAltName = reviewDataGlobal.itemName || placeData.name || 'la reseña';
+                        detailImageEl.alt = `Foto de ${fallbackAltName}`;
                     }
 
-                    if (detailLocationContainerEl && detailLocationTextEl && detailNoLocationDivEl && (placeData.address || placeData.name || placeData.googleMapsUrl || placeData.googlePlaceId)) {
-                        let mapsUrl = "#";
-                        if (placeData.googleMapsUrl) mapsUrl = placeData.googleMapsUrl;
-                        else if (placeData.googlePlaceId) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.googlePlaceId}`;
-                        else if (placeData.location?.latitude && placeData.location?.longitude) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.location.latitude},${placeData.location.longitude}`;
-
-                        if (detailLocationLinkEl) {
-                            if (mapsUrl !== "#") {
-                                detailLocationLinkEl.href = mapsUrl;
-                                detailLocationLinkEl.style.pointerEvents = "auto";
-                            } else {
-                                detailLocationLinkEl.removeAttribute('href');
-                                detailLocationLinkEl.style.pointerEvents = "none";
+                    if (detailImageEl && detailImageEl.hidden && !reviewDataGlobal.photoUrl) {
+                        const photosArray = Array.isArray(placeData.photos)
+                            ? placeData.photos
+                            : (placeData.photos ? [placeData.photos] : []);
+                        const primaryPhotoFromArray = photosArray
+                            .map(photoEntry => {
+                                if (!photoEntry) return '';
+                                if (typeof photoEntry === 'string') return photoEntry;
+                                if (typeof photoEntry === 'object') {
+                                    return photoEntry.url || photoEntry.photoUrl || photoEntry.src || '';
+                                }
+                                return '';
+                            })
+                            .find(Boolean);
+                        const fallbackPlacePhoto = primaryPhotoFromArray
+                            || placeData.mainImageUrl
+                            || placeData.mainPhotoUrl
+                            || placeData.photoUrl
+                            || placeData.primaryPhotoUrl
+                            || placeData.coverPhotoUrl
+                            || placeData.coverImageUrl
+                            || placeData.heroImageUrl
+                            || placeData.imageUrl
+                            || '';
+                        if (fallbackPlacePhoto) {
+                            detailImageEl.src = fallbackPlacePhoto;
+                            detailImageEl.hidden = false;
+                            if (detailImagePlaceholderEl) detailImagePlaceholderEl.hidden = true;
+                            if (detailMediaLinkEl && !groupLinkUrl) {
+                                detailMediaLinkEl.href = fallbackPlacePhoto;
+                                detailMediaLinkEl.hidden = false;
+                                detailMediaLinkEl.setAttribute('aria-label', 'Abrir la foto del lugar en una pestaña nueva');
+                                detailMediaLinkEl.target = '_blank';
                             }
                         }
-                        detailLocationTextEl.textContent = placeData.address || placeData.name;
-                        detailNoLocationDivEl.style.display = 'none';
-                        detailLocationContainerEl.style.display = 'block';
-                    } else {
-                        if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
-                        if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
                     }
-                } else if (reviewDataGlobal && reviewDataGlobal.placeId) {
-                    if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = "Lugar no encontrado en BD";
-                    console.warn(`Lugar con ID ${reviewDataGlobal.placeId} no encontrado para la reseña ${reviewId}`);
-                    if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
-                    if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+
+                    let mapsUrl = '#';
+                    if (placeData.googleMapsUrl) mapsUrl = placeData.googleMapsUrl;
+                    else if (placeData.googlePlaceId) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.googlePlaceId}`;
+                    else if (placeData.location?.latitude && placeData.location?.longitude) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.location.latitude},${placeData.location.longitude}`;
+
+                    if (detailLocationContainerEl && detailLocationTextEl && detailLocationLinkEl) {
+                        if (mapsUrl !== '#') {
+                            detailLocationLinkEl.href = mapsUrl;
+                            detailLocationLinkEl.style.pointerEvents = 'auto';
+                            detailLocationLinkEl.target = '_blank';
+                        } else {
+                            detailLocationLinkEl.removeAttribute('href');
+                            detailLocationLinkEl.style.pointerEvents = 'none';
+                            detailLocationLinkEl.removeAttribute('target');
+                        }
+                        detailLocationTextEl.textContent = placeData.address || placeData.name;
+                        detailLocationContainerEl.hidden = false;
+                        if (detailNoLocationEl) detailNoLocationEl.hidden = true;
+                    } else if (detailLocationContainerEl) {
+                        detailLocationContainerEl.hidden = true;
+                        if (detailNoLocationEl) detailNoLocationEl.hidden = false;
+                    }
+
+                    if (detailPlaceLinkEl) {
+                        detailPlaceLinkEl.textContent = placeData.name || 'Lugar sin nombre';
+                        if (mapsUrl !== '#') {
+                            detailPlaceLinkEl.href = mapsUrl;
+                            detailPlaceLinkEl.target = '_blank';
+                        } else {
+                            detailPlaceLinkEl.removeAttribute('href');
+                            detailPlaceLinkEl.removeAttribute('target');
+                        }
+                    }
+                    if (detailPlaceLinkWrapperEl) {
+                        detailPlaceLinkWrapperEl.hidden = false;
+                    }
+                } else {
+                    placeDataGlobal = null;
+                    if (reviewDataGlobal && reviewDataGlobal.placeId) {
+                        console.warn(`Lugar con ID ${reviewDataGlobal.placeId} no encontrado para la reseña ${reviewId}`);
+                    }
+                    if (detailEstablishmentNameEl) {
+                        detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || 'Establecimiento no especificado';
+                    }
+                    if (detailLocationContainerEl) detailLocationContainerEl.hidden = true;
+                    if (detailNoLocationEl) detailNoLocationEl.hidden = false;
+                    if (detailPlaceLinkEl) {
+                        detailPlaceLinkEl.textContent = reviewDataGlobal.establishmentName || 'Ubicación no disponible';
+                        detailPlaceLinkEl.removeAttribute('href');
+                        detailPlaceLinkEl.removeAttribute('target');
+                    }
+                    if (detailPlaceLinkWrapperEl) {
+                        detailPlaceLinkWrapperEl.hidden = false;
+                    }
                 }
-                shareContext.place = placeData;
-                enableShareFeature();
+                const placeIdForShare = placeData?.id || reviewDataGlobal?.placeId || fromPlaceIdParam || '';
+                const placeNameForShare = placeData?.name || reviewDataGlobal.establishmentName || '';
+                updateShareData({
+                    placeId: placeIdForShare,
+                    placeName: placeNameForShare
+                });
+                groupLinkUrl = buildGroupLinkUrl(placeIdForShare || null, reviewDataGlobal?.itemName || fromItemParam || '');
+                applyGroupLink();
                 // Si placeDocOrNull es null, ya se manejo el caso sin placeId antes
             })
             .catch(error => {
@@ -1243,13 +1596,7 @@ ListopicApp.pageDetailView = (() => {
                 if (ListopicApp.services && ListopicApp.services.showNotification) {
                      ListopicApp.services.showNotification(error.message || "Error al cargar los detalles.", "error");
                 }
-                setShareStatus('No se pudo preparar la tarjeta para compartir.', 'error');
-                if (shareButton) {
-                    shareAssetsReady = false;
-                    shareButton.disabled = true;
-                    shareButton.removeAttribute('data-loading');
-                    shareButton.removeAttribute('aria-busy');
-                }
+                setShareButtonsEnabled(false);
             });
 
         // Listener para el boton de eliminar

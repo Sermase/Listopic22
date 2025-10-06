@@ -65,6 +65,12 @@ ListopicApp.pageChats = (() => {
 
     const sanitizeText = (value) => (typeof value === 'string' ? value : '');
 
+    const notifyChatUnreadCleared = () => {
+        if (typeof document !== 'undefined') {
+            document.dispatchEvent(new CustomEvent('listopic:chatUnreadCleared'));
+        }
+    };
+
     const createSharedReviewCard = (payload, isOwnMessage) => {
         if (!payload || typeof payload !== 'object') {
             return null;
@@ -879,6 +885,7 @@ ListopicApp.pageChats = (() => {
                 const updatedCounts = { ...chat.unreadCounts, [currentUser.uid]: 0 };
                 updateLocalChatData(chat.id, { unreadCounts: updatedCounts });
                 renderChatList(chatsCache);
+                notifyChatUnreadCleared();
             }
         }
 
@@ -915,6 +922,9 @@ ListopicApp.pageChats = (() => {
             if (ListopicApp.services.markChatMessagesAsRead) {
                 try {
                     await ListopicApp.services.markChatMessagesAsRead(chatId, currentUser.uid, unreadMessageIds);
+                    if (unreadMessageIds.length > 0) {
+                        notifyChatUnreadCleared();
+                    }
                 } catch (error) {
                     console.error('[page-chats] Error marcando mensajes como leidos:', error);
                 }

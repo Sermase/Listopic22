@@ -24,7 +24,12 @@ ListopicApp.authService = (() => {
 
         const pagePath = window.location.pathname;
         const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1);
-        isAuthPage = pageName.toLowerCase() === 'auth.html';
+        const normalizedPageName = pageName.toLowerCase();
+        const normalizedPath = pagePath.toLowerCase();
+        isAuthPage = normalizedPageName === 'auth.html'
+            || normalizedPageName === 'auth'
+            || normalizedPath.endsWith('/auth')
+            || normalizedPath.endsWith('/auth/');
         console.log(`authService.init: isAuthPage se ha establecido a: ${isAuthPage} (Página actual: ${pageName})`);
 
         // --- Lógica del Menú de Usuario ---
@@ -90,9 +95,9 @@ ListopicApp.authService = (() => {
                     console.log("authService.onAuthStateChanged: Perfil de Firestore asegurado/creado.");
 
                     if (isAuthPage) {
-                        console.log("authService.onAuthStateChanged: Usuario autenticado y en auth.html. Redirigiendo a Index.html.");
+                        console.log("authService.onAuthStateChanged: Usuario autenticado y en auth.html. Redirigiendo a index.html.");
                         setTimeout(() => {
-                            window.location.href = 'Index.html';
+                            window.location.href = 'index.html';
                         }, 500);
                     } else {
                         console.log("authService.onAuthStateChanged: Usuario autenticado y NO en auth.html. Permaneciendo en la página actual.");
