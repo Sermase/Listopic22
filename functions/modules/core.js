@@ -11,6 +11,71 @@ const { buildGroupedItemsForList } = require("./grouped-aggregator");
 
 const db = getFirestore();
 
+const VALID_HTTPS_ERROR_CODES = new Set([
+  'ok',
+  'cancelled',
+  'unknown',
+  'invalid-argument',
+  'deadline-exceeded',
+  'not-found',
+  'already-exists',
+  'permission-denied',
+  'resource-exhausted',
+  'failed-precondition',
+  'aborted',
+  'out-of-range',
+  'unimplemented',
+  'internal',
+  'unavailable',
+  'data-loss',
+  'unauthenticated'
+]);
+
+const FRIENDLY_ERROR_MESSAGES = Object.freeze({
+  'permission-denied': 'No tienes permisos para realizar esta acción.',
+  'already-exists': 'Ya existe un recurso con estos datos.',
+  'not-found': 'El recurso solicitado no está disponible.',
+  'resource-exhausted': 'Has alcanzado el límite de esta operación. Inténtalo más tarde.',
+  'deadline-exceeded': 'La operación tardó demasiado en completarse. Inténtalo de nuevo.',
+  'unavailable': 'El servicio no está disponible temporalmente. Inténtalo nuevamente en unos minutos.'
+});
+
+function normalizeHttpsErrorCode(code, fallback = 'internal') {
+  if (!code || typeof code !== 'string') {
+      return fallback;
+  }
+  const normalized = code.toLowerCase();
+  return VALID_HTTPS_ERROR_CODES.has(normalized) ? normalized : fallback;
+}
+
+function buildHttpsErrorFrom(error, fallbackMessage, fallbackCode = 'internal') {
+  if (!error) {
+      return new HttpsError(fallbackCode, fallbackMessage);
+  }
+  if (error instanceof HttpsError) {
+      return error;
+  }
+
+  const normalizedCode = normalizeHttpsErrorCode(error.code, fallbackCode);
+  const message = FRIENDLY_ERROR_MESSAGES[normalizedCode] || fallbackMessage;
+
+  const details = {};
+  if (error.message) {
+      details.originalMessage = error.message;
+  }
+  if (error.status) {
+      details.httpStatus = error.status;
+  }
+  if (error.response?.status) {
+      details.httpStatus = error.response.status;
+  }
+  if (error.response?.data) {
+      details.responseData = error.response.data;
+  }
+
+  return new HttpsError(normalizedCode, message, Object.keys(details).length ? details : undefined);
+}
+
 // Helper: fetch place docs by IDs in chunks of 10 (Firestore 'in' limit)
 async function getPlaceDocsByIds(ids) {
   if (!ids || ids.length === 0) return [];
@@ -442,10 +507,10 @@ const deleteOrOrphanList = onCall({cors: true}, async (request) => {
 
   } catch (error) {
       logger.error(`Error en deleteOrOrphanList para lista ${listId} y usuario ${callerUserId}:`, error);
-      if (error.code) { // Si ya es un HttpsError, lo relanzamos.
-          throw error;
-      }
-      throw new HttpsError('internal', 'OcurriÃƒÂ³ un error inesperado.');
+      throw buildHttpsErrorFrom(
+          error,
+          'No pudimos completar la acción solicitada en este momento. Inténtalo de nuevo más tarde.'
+      );
   }
 });
 
@@ -499,10 +564,10 @@ const createList = onCall(async (data, context) => {
 
     } catch (error) {
         logger.error(`Error en createList para el usuario ${userId} al intentar crear lista "${listName}":`, error, {structuredData: true});
-        if (error.code && typeof error.code === 'string' && error.message) { // Re-lanzar HttpsError
-            throw error;
-        }
-        throw new HttpsError('internal', 'OcurriÃƒÂ³ un error al crear la lista.', error.message);
+        throw buildHttpsErrorFrom(
+            error,
+            'No pudimos crear la lista en este momento. Inténtalo de nuevo más tarde.'
+        );
     }
 });
 
@@ -555,10 +620,10 @@ const createListWithValidation = onCall(async (request) => {
 
   } catch (error) {
       logger.error(`Error en createListWithValidation para usuario ${userId}, lista "${listName}":`, error);
-      if (error.code) {
-           throw error;
-      }
-      throw new HttpsError('internal', 'OcurriÃƒÂ³ un error al crear la lista.');
+      throw buildHttpsErrorFrom(
+          error,
+          'No pudimos crear la lista en este momento. Inténtalo de nuevo más tarde.'
+      );
   }
 });
 
@@ -613,11 +678,10 @@ const updateListWithValidation = onCall(async (request) => {
 
   } catch (error) {
       logger.error(`Error en updateListWithValidation para lista ${listId} por usuario ${userId}:`, error);
-      // Si el error ya es un HttpsError, lo relanzamos. Si no, devolvemos uno genÃƒÂ©rico.
-      if (error.code) {
-          throw error;
-      }
-      throw new HttpsError('internal', 'OcurriÃƒÂ³ un error al actualizar la lista.');
+      throw buildHttpsErrorFrom(
+          error,
+          'No pudimos actualizar la lista en este momento. Inténtalo nuevamente más tarde.'
+      );
   }
 });
 

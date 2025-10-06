@@ -76,8 +76,8 @@ service cloud.firestore {
 
       match /reviews/{reviewId} {
         allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // El autor de la reseña O un jefe pueden editar o borrarla.
-        allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid)); // <-- CAMBIO: Añadido permiso para jefe.
+        // Solo el autor de la reseña puede modificarla o eliminarla.
+        allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
       }
 
       match /comments/{commentId} {
