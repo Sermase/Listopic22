@@ -1020,6 +1020,16 @@ const initializeGlobalRealtimeFeatures = (user) => {
 
     const cleanupFunctions = [];
 
+    if (chatsBadge) {
+        const handleChatUnreadCleared = () => {
+            setBadgeVisibility(chatsBadge, false);
+        };
+        document.addEventListener('listopic:chatUnreadCleared', handleChatUnreadCleared);
+        cleanupFunctions.push(() => {
+            document.removeEventListener('listopic:chatUnreadCleared', handleChatUnreadCleared);
+        });
+    }
+
     if (ListopicApp.services.listenToUserChats && chatsBadge) {
         const unsubscribeChats = ListopicApp.services.listenToUserChats(user.uid, chats => {
             const hasUnread = Array.isArray(chats) && chats.some(chat => (chat.unreadCounts && chat.unreadCounts[user.uid] > 0));
