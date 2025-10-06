@@ -2,7 +2,7 @@ window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageDetailView = (() => {
     const STORY_DEFAULT_CUSTOMIZATION = {
         colorScheme: 'midnight',
-        graphicStyle: 'bars'
+        graphicStyle: 'radar'
     };
 
     const STORY_GRAPHIC_STYLES = [
@@ -842,7 +842,8 @@ ListopicApp.pageDetailView = (() => {
         const listIdFromURL = params.get('listId');
 
         // Elementos del DOM
-        const detailEstablishmentNameEl = document.getElementById('detail-restaurant-name');
+        const detailPlaceLinkEl = document.getElementById('detail-place-link');
+        const detailEstablishmentNameEl = detailPlaceLinkEl;
         const detailItemNameEl = document.getElementById('detail-dish-name');
 
         const detailScoreValueEl = document.getElementById('detail-score-value');
@@ -857,9 +858,21 @@ ListopicApp.pageDetailView = (() => {
         const detailTagsDivEl = document.getElementById('detail-tags');
         const detailListNameEl = document.getElementById('detail-list-name');
         const reviewAuthorNameEl = document.getElementById('review-author-name');
-        const detailImageEl = document.getElementById('detail-image');
+        const reviewAuthorAvatarEl = document.getElementById('review-author-avatar');
+        const detailHeroImageEl = document.getElementById('detail-hero-image');
+        const detailPhotoTriggerEl = document.getElementById('detail-photo-trigger');
+        const detailPhotoHelperEl = document.getElementById('detail-photo-helper');
+        const detailPhotoModalEl = document.getElementById('detail-photo-modal');
+        const detailPhotoModalImageEl = document.getElementById('detail-photo-modal-image');
+        const detailPhotoCloseEl = document.getElementById('detail-photo-close');
         const reviewCreatedDateEl = document.getElementById('review-created-date');
         const reviewDateContainerEl = document.getElementById('review-date-container');
+        const detailChartSectionEl = document.getElementById('detail-chart-section');
+        const detailChartCanvasEl = document.getElementById('detail-chart-canvas');
+        const detailChartStyleSelectEl = document.getElementById('detail-chart-style');
+        const detailChartMessageEl = document.getElementById('detail-chart-message');
+        const detailMiniChartContainerEl = document.getElementById('detail-mini-chart');
+        const detailMiniChartCanvasEl = document.getElementById('detail-score-mini-canvas');
 
         const backButton = document.querySelector('.container a.back-button');
         const editButton = document.querySelector('.edit-button');
@@ -871,6 +884,11 @@ ListopicApp.pageDetailView = (() => {
         let shareModalData = null;
         let displayPhotoUrl = '';
         let awaitingFallbackImage = false;
+        let chartInstance = null;
+        let miniChartInstance = null;
+        let chartSourceData = null;
+        const detailHeroImagePlaceholderSrc = detailHeroImageEl?.getAttribute('src') || '';
+        let currentPhotoAltText = detailHeroImageEl?.alt || 'Foto del elemento';
 
         const setNoLocationVisible = (visible) => {
             if (!detailNoLocationDivEl) {
@@ -885,37 +903,477 @@ ListopicApp.pageDetailView = (() => {
         };
         setNoLocationVisible(false);
 
-        const showDetailImage = (url, altText) => {
-            if (!detailImageEl) {
-                return;
+        if (detailChartStyleSelectEl) {
+            detailChartStyleSelectEl.value = 'radar';
+        }
+
+        const destroyDetailChart = () => {
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
             }
-            if (url) {
-                detailImageEl.src = url;
-                if (altText) {
-                    detailImageEl.alt = altText;
-                }
-                detailImageEl.style.display = 'block';
-                const placeholderIcon = detailImageEl.parentNode?.querySelector('.detail-image-icon-placeholder');
-                if (placeholderIcon) {
-                    placeholderIcon.style.display = 'none';
+            if (detailChartCanvasEl) {
+                const context = detailChartCanvasEl.getContext('2d');
+                if (context) {
+                    context.clearRect(0, 0, detailChartCanvasEl.width || 0, detailChartCanvasEl.height || 0);
                 }
             }
         };
 
-        const showImagePlaceholder = () => {
-            if (!detailImageEl || !detailImageEl.parentNode) {
+        const setChartMessage = (message = '') => {
+            if (!detailChartMessageEl) {
                 return;
             }
-            detailImageEl.style.display = 'none';
-            let placeholderIconDiv = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
-            if (!placeholderIconDiv) {
-                placeholderIconDiv = document.createElement('div');
-                placeholderIconDiv.className = 'detail-image-icon-placeholder';
-                detailImageEl.parentNode.insertBefore(placeholderIconDiv, detailImageEl.nextSibling);
+            if (!message) {
+                detailChartMessageEl.hidden = true;
+                detailChartMessageEl.textContent = '';
+            } else {
+                detailChartMessageEl.textContent = message;
+                detailChartMessageEl.hidden = false;
             }
-            placeholderIconDiv.innerHTML = '<i class="fa-solid fa-image"></i>';
-            placeholderIconDiv.style.display = 'flex';
         };
+
+        const prepareChartSourceData = (reviewData, entries) => {
+            const empty = { labels: [], values: [], maxima: [], min: 0, max: 0 };
+            if (!reviewData || !reviewData.scores || !Array.isArray(entries) || entries.length === 0) {
+                return empty;
+            }
+            const labels = [];
+            const values = [];
+            const maxima = [];
+            let globalMin = 0;
+            let globalMax = 0;
+            for (const [key, definition] of entries) {
+                if (reviewData.scores[key] === undefined) {
+                    continue;
+                }
+                const rawValue = Number.parseFloat(reviewData.scores[key]);
+                if (!Number.isFinite(rawValue)) {
+                    continue;
+                }
+                const minValue = Number.isFinite(Number(definition?.min)) ? Number(definition.min) : 0;
+                const maxValue = Number.isFinite(Number(definition?.max)) ? Number(definition.max) : Math.max(10, rawValue);
+                const clampedValue = Math.min(Math.max(rawValue, minValue), maxValue);
+                const labelText = getCriterionLabel(definition, key).toString();
+                labels.push(labelText);
+                values.push(Number.parseFloat(clampedValue.toFixed(2)));
+                maxima.push(maxValue);
+                globalMin = Math.min(globalMin, minValue, 0);
+                globalMax = Math.max(globalMax, maxValue, clampedValue);
+            }
+            if (!labels.length) {
+                return empty;
+            }
+            return { labels, values, maxima, min: globalMin, max: globalMax };
+        };
+
+        const computeSuggestedMax = () => {
+            if (!chartSourceData || !Array.isArray(chartSourceData.values) || !chartSourceData.values.length) {
+                return 5;
+            }
+            const maxValue = Math.max(...chartSourceData.values, 0);
+            const chartMax = Math.max(chartSourceData.max || 0, maxValue, 0);
+            return chartMax > 0 ? chartMax + chartMax * 0.1 : 5;
+        };
+
+        const destroyMiniChart = (hide = false) => {
+            if (miniChartInstance) {
+                miniChartInstance.destroy();
+                miniChartInstance = null;
+            }
+            if (detailMiniChartCanvasEl) {
+                const miniCtx = detailMiniChartCanvasEl.getContext('2d');
+                if (miniCtx) {
+                    miniCtx.clearRect(0, 0, detailMiniChartCanvasEl.width || 0, detailMiniChartCanvasEl.height || 0);
+                }
+            }
+            if (hide && detailMiniChartContainerEl) {
+                detailMiniChartContainerEl.hidden = true;
+            }
+        };
+
+        const renderMiniChart = (suggestedMaxOverride) => {
+            if (!detailMiniChartContainerEl) {
+                return;
+            }
+            if (!chartSourceData || !chartSourceData.labels?.length || typeof window.Chart === 'undefined' || !detailMiniChartCanvasEl) {
+                destroyMiniChart(true);
+                return;
+            }
+            const ctx = detailMiniChartCanvasEl.getContext('2d');
+            if (!ctx) {
+                destroyMiniChart(true);
+                return;
+            }
+            destroyMiniChart(false);
+            const suggestedMax = Number.isFinite(suggestedMaxOverride) ? suggestedMaxOverride : computeSuggestedMax();
+            miniChartInstance = new window.Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: chartSourceData.labels,
+                    datasets: [{
+                        data: chartSourceData.values,
+                        fill: true,
+                        backgroundColor: 'rgba(244, 63, 94, 0.25)',
+                        borderColor: 'rgba(194, 65, 12, 0.85)',
+                        pointBackgroundColor: '#fef3c7',
+                        pointBorderColor: 'rgba(194, 65, 12, 0.9)',
+                        pointRadius: 2,
+                        pointHoverRadius: 3,
+                        borderWidth: 1.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            suggestedMax,
+                            grid: {
+                                color: 'rgba(15, 23, 42, 0.18)'
+                            },
+                            angleLines: {
+                                color: 'rgba(15, 23, 42, 0.2)'
+                            },
+                            ticks: {
+                                display: false
+                            },
+                            pointLabels: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        duration: 450,
+                        easing: 'easeOutQuad'
+                    }
+                }
+            });
+            detailMiniChartContainerEl.hidden = false;
+        };
+
+        const renderDetailChart = (style = 'radar') => {
+            if (!detailChartSectionEl) {
+                return;
+            }
+            if (!chartSourceData || !chartSourceData.labels.length) {
+                destroyDetailChart();
+                destroyMiniChart(true);
+                detailChartSectionEl.hidden = true;
+                setChartMessage('');
+                if (detailChartStyleSelectEl) {
+                    detailChartStyleSelectEl.disabled = false;
+                }
+                return;
+            }
+            if (typeof window.Chart === 'undefined' || !detailChartCanvasEl) {
+                destroyDetailChart();
+                destroyMiniChart(true);
+                detailChartSectionEl.hidden = false;
+                setChartMessage('No se pudo inicializar el módulo de gráficas en este navegador.');
+                if (detailChartStyleSelectEl) {
+                    detailChartStyleSelectEl.disabled = true;
+                }
+                return;
+            }
+            detailChartSectionEl.hidden = false;
+            setChartMessage('');
+            if (detailChartStyleSelectEl) {
+                detailChartStyleSelectEl.disabled = false;
+            }
+            const ctx = detailChartCanvasEl.getContext('2d');
+            if (!ctx) {
+                destroyMiniChart(true);
+                return;
+            }
+            destroyDetailChart();
+            const suggestedMax = computeSuggestedMax();
+            renderMiniChart(suggestedMax);
+            const resolvedStyle = style === 'bars' ? 'bar' : 'radar';
+            const tooltipLabelFormatter = (context) => {
+                const value = Number.parseFloat(context.raw ?? 0);
+                const label = context.label || chartSourceData.labels?.[context.dataIndex] || '';
+                const maxForEntry = chartSourceData.maxima?.[context.dataIndex];
+                const formattedValue = Number.isFinite(value) ? value.toFixed(1) : value;
+                if (Number.isFinite(maxForEntry)) {
+                    return `${label}: ${formattedValue} / ${Number(maxForEntry).toFixed(1)}`;
+                }
+                return `${label}: ${formattedValue}`;
+            };
+
+            if (resolvedStyle === 'bar') {
+                const gradient = ctx.createLinearGradient(0, 0, detailChartCanvasEl.width || 400, 0);
+                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.95)');
+                gradient.addColorStop(1, 'rgba(129, 140, 248, 0.65)');
+                chartInstance = new window.Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartSourceData.labels,
+                        datasets: [{
+                            data: chartSourceData.values,
+                            backgroundColor: gradient,
+                            borderRadius: 14,
+                            borderSkipped: false,
+                            hoverBackgroundColor: 'rgba(59, 130, 246, 0.98)',
+                            maxBarThickness: 46
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                suggestedMax,
+                                grid: {
+                                    color: 'rgba(148, 163, 184, 0.2)'
+                                },
+                                ticks: {
+                                    color: 'rgba(226, 232, 240, 0.9)',
+                                    font: { family: 'Poppins, Arial, sans-serif' }
+                                }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: '#f8fafc',
+                                    font: { family: 'Poppins, Arial, sans-serif', weight: '500' }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                                borderColor: 'rgba(96, 165, 250, 0.75)',
+                                borderWidth: 1,
+                                displayColors: false,
+                                titleColor: '#e2e8f0',
+                                bodyColor: '#f8fafc',
+                                callbacks: {
+                                    label: tooltipLabelFormatter
+                                }
+                            }
+                        },
+                        animation: {
+                            duration: 600,
+                            easing: 'easeOutQuart'
+                        }
+                    }
+                });
+                return;
+            }
+
+            chartInstance = new window.Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: chartSourceData.labels,
+                    datasets: [{
+                        data: chartSourceData.values,
+                        fill: true,
+                        backgroundColor: 'rgba(129, 140, 248, 0.28)',
+                        borderColor: 'rgba(59, 130, 246, 0.95)',
+                        pointBackgroundColor: '#f8fafc',
+                        pointBorderColor: 'rgba(59, 130, 246, 1)',
+                        pointHoverBackgroundColor: '#ffffff',
+                        pointHoverBorderColor: 'rgba(37, 99, 235, 1)',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            suggestedMax,
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.18)'
+                            },
+                            angleLines: {
+                                color: 'rgba(148, 163, 184, 0.25)'
+                            },
+                            ticks: {
+                                showLabelBackdrop: true,
+                                backdropColor: 'rgba(15, 23, 42, 0.6)',
+                                color: 'rgba(226, 232, 240, 0.85)',
+                                font: { family: 'Poppins, Arial, sans-serif' }
+                            },
+                            pointLabels: {
+                                color: '#f8fafc',
+                                font: { family: 'Poppins, Arial, sans-serif', size: 12 }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            borderColor: 'rgba(96, 165, 250, 0.75)',
+                            borderWidth: 1,
+                            displayColors: false,
+                            titleColor: '#e2e8f0',
+                            bodyColor: '#f8fafc',
+                            callbacks: {
+                                label: tooltipLabelFormatter
+                            }
+                        }
+                    }
+                }
+            });
+        };
+
+        const updateDetailChart = (reviewData, entries) => {
+            if (!detailChartSectionEl) {
+                return;
+            }
+            if (!reviewData || !Array.isArray(entries) || !entries.length) {
+                chartSourceData = null;
+                destroyDetailChart();
+                destroyMiniChart(true);
+                if (detailChartSectionEl) {
+                    detailChartSectionEl.hidden = true;
+                }
+                setChartMessage('');
+                if (detailChartStyleSelectEl) {
+                    detailChartStyleSelectEl.disabled = false;
+                }
+                return;
+            }
+            chartSourceData = prepareChartSourceData(reviewData, entries);
+            if (!chartSourceData.labels.length) {
+                chartSourceData = null;
+                destroyDetailChart();
+                destroyMiniChart(true);
+                detailChartSectionEl.hidden = false;
+                setChartMessage('No hay puntuaciones suficientes para dibujar la gráfica.');
+                if (detailChartStyleSelectEl) {
+                    detailChartStyleSelectEl.disabled = true;
+                }
+                return;
+            }
+            setChartMessage('');
+            renderDetailChart(detailChartStyleSelectEl?.value || 'radar');
+        };
+
+        if (detailChartStyleSelectEl) {
+            detailChartStyleSelectEl.addEventListener('change', () => {
+                const selectedStyle = detailChartStyleSelectEl.value;
+                renderDetailChart(selectedStyle);
+            });
+        }
+
+        const setPhotoAvailability = (hasPhoto) => {
+            if (detailPhotoTriggerEl) {
+                detailPhotoTriggerEl.disabled = !hasPhoto;
+                detailPhotoTriggerEl.classList.toggle('detail-photo-thumb--empty', !hasPhoto);
+                if (hasPhoto) {
+                    detailPhotoTriggerEl.removeAttribute('aria-disabled');
+                } else {
+                    detailPhotoTriggerEl.setAttribute('aria-disabled', 'true');
+                }
+            }
+            if (detailPhotoHelperEl) {
+                detailPhotoHelperEl.hidden = !hasPhoto;
+            }
+        };
+
+        const showDetailImage = (url, altText) => {
+            if (!detailHeroImageEl || !url) {
+                return;
+            }
+            currentPhotoAltText = altText || 'Foto del elemento';
+            detailHeroImageEl.src = url;
+            detailHeroImageEl.alt = currentPhotoAltText;
+            if (detailPhotoModalImageEl) {
+                detailPhotoModalImageEl.src = url;
+                detailPhotoModalImageEl.alt = currentPhotoAltText;
+            }
+            displayPhotoUrl = url;
+            setPhotoAvailability(true);
+        };
+
+        const showImagePlaceholder = () => {
+            if (!detailHeroImageEl) {
+                return;
+            }
+            currentPhotoAltText = 'Imagen no disponible';
+            if (detailHeroImagePlaceholderSrc) {
+                detailHeroImageEl.src = detailHeroImagePlaceholderSrc;
+            } else {
+                detailHeroImageEl.removeAttribute('src');
+            }
+            detailHeroImageEl.alt = currentPhotoAltText;
+            if (detailPhotoModalImageEl) {
+                detailPhotoModalImageEl.src = '';
+                detailPhotoModalImageEl.alt = currentPhotoAltText;
+            }
+            displayPhotoUrl = '';
+            setPhotoAvailability(false);
+            closePhotoModal();
+        };
+
+        function openPhotoModal() {
+            if (!detailPhotoModalEl || !detailPhotoModalImageEl || !displayPhotoUrl) {
+                return;
+            }
+            detailPhotoModalImageEl.src = displayPhotoUrl;
+            detailPhotoModalImageEl.alt = currentPhotoAltText || 'Imagen ampliada del lugar';
+            detailPhotoModalEl.classList.add('is-open');
+            detailPhotoModalEl.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('detail-photo-modal-open');
+            if (detailPhotoCloseEl) {
+                detailPhotoCloseEl.focus({ preventScroll: true });
+            }
+        }
+
+        function closePhotoModal() {
+            if (!detailPhotoModalEl) {
+                return;
+            }
+            detailPhotoModalEl.classList.remove('is-open');
+            detailPhotoModalEl.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('detail-photo-modal-open');
+        }
+
+        setPhotoAvailability(false);
+
+        if (detailPhotoTriggerEl) {
+            detailPhotoTriggerEl.addEventListener('click', () => {
+                if (detailPhotoTriggerEl.disabled || !displayPhotoUrl) {
+                    return;
+                }
+                openPhotoModal();
+            });
+        }
+
+        if (detailPhotoCloseEl) {
+            detailPhotoCloseEl.addEventListener('click', () => {
+                closePhotoModal();
+            });
+        }
+
+        if (detailPhotoModalEl) {
+            detailPhotoModalEl.addEventListener('click', (event) => {
+                if (event.target === detailPhotoModalEl) {
+                    closePhotoModal();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && detailPhotoModalEl?.classList.contains('is-open')) {
+                closePhotoModal();
+            }
+        });
 
         const updateReviewDate = (rawDateValue) => {
             if (!reviewCreatedDateEl || !reviewDateContainerEl) {
@@ -1094,7 +1552,7 @@ ListopicApp.pageDetailView = (() => {
                 if (detailItemNameEl) detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
                 if (detailScoreValueEl) detailScoreValueEl.textContent = reviewDataGlobal.overallRating !== undefined ? reviewDataGlobal.overallRating.toFixed(1) : 'N/A';
                 
-                if (detailImageEl && detailImageEl.parentNode) {
+                if (detailHeroImageEl) {
                     if (displayPhotoUrl) {
                         showDetailImage(displayPhotoUrl, `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'reseña')}`);
                     } else {
@@ -1117,6 +1575,26 @@ ListopicApp.pageDetailView = (() => {
                         detailTagsContainerEl.style.display = 'block';
                     } else {
                         detailTagsContainerEl.style.display = 'none';
+                    }
+                }
+
+                if (reviewAuthorAvatarEl) {
+                    const avatarFallback = reviewDataGlobal.authorPhotoUrl || reviewDataGlobal.userPhotoUrl || '';
+                    reviewAuthorAvatarEl.src = avatarFallback || reviewAuthorAvatarEl.src || 'img/default-avatar.png';
+                    reviewAuthorAvatarEl.alt = reviewAuthorAvatarEl.alt || 'Avatar del autor';
+                }
+
+                if (detailPlaceLinkEl) {
+                    const fallbackPlaceName = reviewDataGlobal.establishmentName || 'Lugar sin especificar';
+                    detailPlaceLinkEl.textContent = fallbackPlaceName;
+                    if (reviewDataGlobal.placeId) {
+                        detailPlaceLinkEl.href = `place-detail.html?placeId=${encodeURIComponent(reviewDataGlobal.placeId)}`;
+                        detailPlaceLinkEl.setAttribute('aria-label', `Abrir la ficha de ${fallbackPlaceName}`);
+                        detailPlaceLinkEl.removeAttribute('aria-disabled');
+                    } else {
+                        detailPlaceLinkEl.removeAttribute('href');
+                        detailPlaceLinkEl.setAttribute('aria-disabled', 'true');
+                        detailPlaceLinkEl.removeAttribute('aria-label');
                     }
                 }
 
@@ -1154,24 +1632,48 @@ ListopicApp.pageDetailView = (() => {
                 }
 
                 // Renderizar valoraciones detalladas
+                let chartCriteriaEntries = [];
                 if (detailRatingsListEl && reviewDataGlobal && reviewDataGlobal.scores) {
                     detailRatingsListEl.innerHTML = '';
+                    let hasAnyRating = false;
                     if (typeof state.currentListCriteriaDefinitions === 'object' && Object.keys(state.currentListCriteriaDefinitions).length > 0) {
                         for (const [critKey, critDef] of Object.entries(state.currentListCriteriaDefinitions)) {
-                            if (reviewDataGlobal.scores[critKey] !== undefined) {
-                                const li = document.createElement('li');
-                                const weightedText = critDef.ponderable === false ? ' <small class="non-weighted-detail">(No pondera)</small>' : '';
-                                const labelText = getCriterionLabel(critDef, critKey);
-                                li.innerHTML = `<span class="rating-label">${uiUtils.escapeHtml(labelText)}${weightedText}</span> <span class="rating-value">${parseFloat(reviewDataGlobal.scores[critKey]).toFixed(1)}</span>`;
-                                detailRatingsListEl.appendChild(li);
+                            if (reviewDataGlobal.scores[critKey] === undefined) {
+                                continue;
                             }
+                            const numericScore = Number.parseFloat(reviewDataGlobal.scores[critKey]);
+                            if (!Number.isFinite(numericScore)) {
+                                continue;
+                            }
+                            const li = document.createElement('li');
+                            const weightedText = critDef.ponderable === false ? ' <small class="non-weighted-detail">(No pondera)</small>' : '';
+                            const labelText = getCriterionLabel(critDef, critKey);
+                            li.innerHTML = `<span class="rating-label">${uiUtils.escapeHtml(labelText)}${weightedText}</span> <span class="rating-value">${numericScore.toFixed(1)}</span>`;
+                            detailRatingsListEl.appendChild(li);
+                            chartCriteriaEntries.push([critKey, critDef]);
+                            hasAnyRating = true;
                         }
                     } else {
-                        detailRatingsListEl.innerHTML = '<li>No hay criterios definidos para mostrar valoraciones.</li>';
+                        const fallbackEntries = Object.entries(reviewDataGlobal.scores || {});
+                        for (const [critKey, rawScore] of fallbackEntries) {
+                            const numericScore = Number.parseFloat(rawScore);
+                            if (!Number.isFinite(numericScore)) {
+                                continue;
+                            }
+                            const li = document.createElement('li');
+                            li.innerHTML = `<span class="rating-label">${uiUtils.escapeHtml(critKey)}</span> <span class="rating-value">${numericScore.toFixed(1)}</span>`;
+                            detailRatingsListEl.appendChild(li);
+                            chartCriteriaEntries.push([critKey, { label: critKey, min: 0, max: 10 }]);
+                            hasAnyRating = true;
+                        }
+                    }
+                    if (!hasAnyRating) {
+                        detailRatingsListEl.innerHTML = '<li>No hay valoraciones detalladas disponibles.</li>';
                     }
                 } else if (detailRatingsListEl) {
-                     detailRatingsListEl.innerHTML = '<li>No hay valoraciones detalladas disponibles.</li>';
+                    detailRatingsListEl.innerHTML = '<li>No hay valoraciones detalladas disponibles.</li>';
                 }
+                updateDetailChart(reviewDataGlobal, chartCriteriaEntries);
 
                 // 3. Obtener datos del autor de la reseña
                 if (reviewDataGlobal.userId && reviewAuthorNameEl) {
@@ -1197,9 +1699,24 @@ ListopicApp.pageDetailView = (() => {
                         reviewAuthorNameEl.innerHTML = '';
                         reviewAuthorNameEl.appendChild(authorLink);
                     }
+                    if (reviewAuthorAvatarEl) {
+                        const avatarSource = userData.photoUrl || reviewDataGlobal.authorPhotoUrl || reviewDataGlobal.userPhotoUrl || '';
+                        if (avatarSource) {
+                            reviewAuthorAvatarEl.src = avatarSource;
+                        } else {
+                            reviewAuthorAvatarEl.src = 'img/default-avatar.png';
+                        }
+                        const safeAuthorAlt = String(authorRaw || 'autor de la reseña').replace(/[<>"']/g, '');
+                        reviewAuthorAvatarEl.alt = `Avatar de ${safeAuthorAlt}`;
+                    }
                 } else if (reviewDataGlobal.userId && reviewAuthorNameEl) {
                     reviewAuthorNameEl.textContent = 'Usuario Desconocido';
                     console.warn(`Autor de reseña con ID ${reviewDataGlobal.userId} no encontrado.`);
+                    if (reviewAuthorAvatarEl) {
+                        const avatarFallback = reviewDataGlobal.authorPhotoUrl || reviewDataGlobal.userPhotoUrl || '';
+                        reviewAuthorAvatarEl.src = avatarFallback || 'img/default-avatar.png';
+                        reviewAuthorAvatarEl.alt = 'Avatar del autor';
+                    }
                 }
                 
                 // 4. Si la reseña tiene placeId, obtener datos del lugar
@@ -1225,6 +1742,21 @@ ListopicApp.pageDetailView = (() => {
                 if (placeDocOrNull && placeDocOrNull.exists) {
                     placeData = placeDocOrNull.data();
                     if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = placeData.name || "Nombre de lugar desconocido";
+
+                    if (detailPlaceLinkEl) {
+                        const resolvedPlaceName = placeData.name || reviewDataGlobal.establishmentName || 'Lugar sin especificar';
+                        detailPlaceLinkEl.textContent = resolvedPlaceName;
+                        const resolvedPlaceId = placeDocOrNull.id || reviewDataGlobal.placeId || placeData.id;
+                        if (resolvedPlaceId) {
+                            detailPlaceLinkEl.href = `place-detail.html?placeId=${encodeURIComponent(resolvedPlaceId)}`;
+                            detailPlaceLinkEl.setAttribute('aria-label', `Abrir la ficha de ${resolvedPlaceName}`);
+                            detailPlaceLinkEl.removeAttribute('aria-disabled');
+                        } else {
+                            detailPlaceLinkEl.removeAttribute('href');
+                            detailPlaceLinkEl.setAttribute('aria-disabled', 'true');
+                            detailPlaceLinkEl.removeAttribute('aria-label');
+                        }
+                    }
 
                     if (!displayPhotoUrl && awaitingFallbackImage) {
                         const placePhotoFallback = getPreferredPhotoUrl(reviewDataGlobal, placeData);
@@ -1271,6 +1803,11 @@ ListopicApp.pageDetailView = (() => {
                         detailLocationLinkEl.style.pointerEvents = 'none';
                     }
                     setNoLocationVisible(true);
+                    if (detailPlaceLinkEl) {
+                        detailPlaceLinkEl.removeAttribute('href');
+                        detailPlaceLinkEl.setAttribute('aria-disabled', 'true');
+                        detailPlaceLinkEl.removeAttribute('aria-label');
+                    }
                 }
                 const placeNameForShare = placeData?.name || reviewDataGlobal.establishmentName || '';
                 updateShareData({
