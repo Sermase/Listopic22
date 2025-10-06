@@ -123,6 +123,10 @@
                 <div class="detail-hero__info">
                     <h1 id="detail-restaurant-name">[Cargando nombre del elemento...]</h1>
                     <p class="detail-dish-name" id="detail-dish-name"></p>
+                    <div class="detail-hero__author" id="detail-author-chip" hidden>
+                        <span class="detail-hero__author-avatar" id="detail-author-avatar" aria-hidden="true"></span>
+                        <a href="#" id="detail-author-name" class="detail-hero__author-name">Autor no especificado</a>
+                    </div>
                     <div class="detail-hero__meta">
                         <div class="detail-score-badge" aria-live="polite">
                             <span class="detail-score-badge__label">Valoración general</span>
@@ -137,12 +141,8 @@
                                 <dt>Lugar</dt>
                                 <dd id="detail-place-link-wrapper"><a href="#" id="detail-place-link" target="_blank" rel="noopener">Ubicación</a></dd>
                             </div>
-                            <div class="detail-meta-grid__item">
-                                <dt>Autor</dt>
-                                <dd><a href="profile.html" id="review-author-name">[Cargando autor...]</a></dd>
-                            </div>
                             <div class="detail-meta-grid__item" id="detail-review-date" hidden>
-                                <dt>Actualizado</dt>
+                                <dt>Creada</dt>
                                 <dd id="detail-review-date-text"></dd>
                             </div>
                         </dl>
@@ -172,55 +172,27 @@
             <div class="detail-layout">
                 <section class="detail-primary">
                     <article class="detail-card detail-card--metrics">
-                        <div class="detail-card__header">
-                            <h2>Valoraciones por criterio</h2>
-                            <div class="chart-mode-toggle" role="radiogroup" aria-label="Tipo de gráfico">
-                                <button type="button" class="chart-mode-toggle__button is-active" data-chart-mode="bars" aria-pressed="true">Barras</button>
-                                <button type="button" class="chart-mode-toggle__button" data-chart-mode="radar" aria-pressed="false">Tela de araña</button>
-                            </div>
+                        <div class="chart-mode-toggle" role="radiogroup" aria-label="Tipo de gráfico">
+                            <button type="button" class="chart-mode-toggle__button is-active" data-chart-mode="bars" aria-pressed="true">Barras</button>
+                            <button type="button" class="chart-mode-toggle__button" data-chart-mode="radar" aria-pressed="false">Tela de araña</button>
                         </div>
                         <div class="detail-chart">
                             <canvas id="detail-criteria-canvas" role="img" aria-label="Gráfico de criterios"></canvas>
                             <p class="detail-chart__empty" id="detail-criteria-empty" hidden>No hay valoraciones de criterios suficientes para mostrar un gráfico.</p>
                         </div>
-                        <ul class="detail-ratings-list" id="detail-ratings">
-                            <li>Cargando valoraciones detalladas...</li>
-                        </ul>
                     </article>
 
                     <article class="detail-card detail-card--comment" id="detail-comment-container" hidden>
-                        <div class="detail-card__header">
-                            <h2>Notas rápidas del autor</h2>
-                        </div>
                         <p id="detail-comment-text"></p>
                     </article>
 
                     <article class="detail-card detail-card--tags" id="detail-tags-container" hidden>
-                        <div class="detail-card__header">
-                            <h2>Etiquetas destacadas</h2>
-                        </div>
                         <div id="detail-tags" class="detail-tags"></div>
                     </article>
                 </section>
 
                 <aside class="detail-secondary">
-                    <article class="detail-card detail-card--author">
-                        <div class="detail-card__header">
-                            <h2>Autor de la reseña</h2>
-                        </div>
-                        <div class="detail-author">
-                            <div class="detail-author__avatar" id="review-author-avatar" aria-hidden="true"></div>
-                            <div class="detail-author__info">
-                                <a href="profile.html" id="review-author-link" class="detail-author__name">[Cargando autor...]</a>
-                                <p class="detail-author__meta" id="review-author-bio"></p>
-                            </div>
-                        </div>
-                    </article>
-
                     <article class="detail-card detail-card--location">
-                        <div class="detail-card__header">
-                            <h2>Ubicación del lugar</h2>
-                        </div>
                         <div id="detail-location-container" hidden>
                             <a href="#" target="_blank" rel="noopener" class="detail-location-link" id="detail-location-link">
                                 <i class="fa-solid fa-map-marker-alt"></i>
@@ -234,9 +206,6 @@
                     </article>
 
                     <article class="detail-card detail-card--share">
-                        <div class="detail-card__header">
-                            <h2>Comparte la reseña</h2>
-                        </div>
                         <p>Haz clic en “Compartir reseña” para abrir el panel con opciones de enlace, chats y tarjeta para Instagram.</p>
                         <button type="button" class="share-story-button share-story-button--secondary" id="detail-share-button-secondary" disabled>
                             <i class="fas fa-share-alt"></i>

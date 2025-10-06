@@ -736,7 +736,6 @@ ListopicApp.pageDetailView = (() => {
         const detailEstablishmentNameEl = document.getElementById('detail-restaurant-name');
         const detailItemNameEl = document.getElementById('detail-dish-name');
         const detailScoreValueEl = document.getElementById('detail-score-value');
-        const detailRatingsListEl = document.getElementById('detail-ratings');
         const detailLocationLinkEl = document.getElementById('detail-location-link');
         const detailLocationTextEl = document.getElementById('detail-location-text');
         const detailLocationContainerEl = document.getElementById('detail-location-container');
@@ -753,10 +752,9 @@ ListopicApp.pageDetailView = (() => {
         const detailMediaLinkEl = document.getElementById('detail-media-link');
         const detailReviewDateContainerEl = document.getElementById('detail-review-date');
         const detailReviewDateTextEl = document.getElementById('detail-review-date-text');
-        const reviewAuthorNameEl = document.getElementById('review-author-name');
-        const reviewAuthorLinkEl = document.getElementById('review-author-link');
-        const reviewAuthorAvatarEl = document.getElementById('review-author-avatar');
-        const reviewAuthorBioEl = document.getElementById('review-author-bio');
+        const detailAuthorChipEl = document.getElementById('detail-author-chip');
+        const detailAuthorAvatarEl = document.getElementById('detail-author-avatar');
+        const detailAuthorNameEl = document.getElementById('detail-author-name');
         const detailImageEl = document.getElementById('detail-image');
         const detailImagePlaceholderEl = document.querySelector('.detail-image-icon-placeholder');
 
@@ -823,20 +821,30 @@ ListopicApp.pageDetailView = (() => {
 
         updateOwnerActionsVisibility(false);
 
-        const renderAuthorAvatar = (photoUrl, name) => {
-            if (!reviewAuthorAvatarEl) {
+        const updateAuthorChip = (name, photoUrl, profileUrl) => {
+            if (!detailAuthorChipEl || !detailAuthorAvatarEl || !detailAuthorNameEl) {
                 return;
             }
-            reviewAuthorAvatarEl.innerHTML = '';
+            const displayName = name || 'Autor no especificado';
+            detailAuthorNameEl.textContent = displayName;
+            if (profileUrl) {
+                detailAuthorNameEl.href = profileUrl;
+            } else {
+                detailAuthorNameEl.removeAttribute('href');
+            }
+
+            detailAuthorAvatarEl.innerHTML = '';
             if (photoUrl) {
                 const img = document.createElement('img');
                 img.src = photoUrl;
                 img.alt = name ? `Foto de ${name}` : 'Foto del autor';
-                reviewAuthorAvatarEl.appendChild(img);
-                return;
+                detailAuthorAvatarEl.appendChild(img);
+            } else {
+                const initials = getAuthorInitials(displayName);
+                detailAuthorAvatarEl.textContent = initials || '??';
             }
-            const initials = getAuthorInitials(name || '');
-            reviewAuthorAvatarEl.textContent = initials || '??';
+
+            detailAuthorChipEl.hidden = false;
         };
 
         const formatReviewDate = (rawDate) => {
@@ -916,8 +924,7 @@ ListopicApp.pageDetailView = (() => {
 
                 ctx.fillStyle = chartColors.text;
                 ctx.textAlign = 'left';
-                const label = entry.ponderable === false ? `${entry.label} (no pondera)` : entry.label;
-                ctx.fillText(label, paddingX + 12, top + barHeight / 2);
+                ctx.fillText(entry.label, paddingX + 12, top + barHeight / 2);
 
                 ctx.fillStyle = chartColors.muted;
                 ctx.textAlign = 'right';
@@ -1142,40 +1149,8 @@ ListopicApp.pageDetailView = (() => {
             return entries;
         };
 
-        const renderRatingsList = (entries) => {
-            if (!detailRatingsListEl) {
-                return;
-            }
-            detailRatingsListEl.innerHTML = '';
-            if (!entries.length) {
-                const emptyItem = document.createElement('li');
-                emptyItem.textContent = 'No hay valoraciones detalladas disponibles.';
-                detailRatingsListEl.appendChild(emptyItem);
-                return;
-            }
-            entries.forEach(entry => {
-                const li = document.createElement('li');
-                const labelSpan = document.createElement('span');
-                labelSpan.className = 'rating-label';
-                labelSpan.textContent = entry.label;
-                if (entry.ponderable === false) {
-                    const info = document.createElement('small');
-                    info.className = 'non-weighted-detail';
-                    info.textContent = ' (no pondera)';
-                    labelSpan.appendChild(info);
-                }
-                const valueSpan = document.createElement('span');
-                valueSpan.className = 'rating-value';
-                valueSpan.textContent = entry.value.toFixed(1);
-                li.appendChild(labelSpan);
-                li.appendChild(valueSpan);
-                detailRatingsListEl.appendChild(li);
-            });
-        };
-
         const refreshCriteriaVisuals = () => {
             const entries = computeCriteriaEntries();
-            renderRatingsList(entries);
             updateChartEntries(entries);
         };
 
@@ -1310,13 +1285,14 @@ ListopicApp.pageDetailView = (() => {
         let listDataGlobal; // Lo hacemos accesible en un scope mas amplio
         let placeDataGlobal;
         let groupLinkUrl = null;
+        let authorNameRaw = 'Autor no especificado';
 
         // 1. Obtener la resena
         db.collection('lists').doc(listIdFromURL).collection('reviews').doc(reviewId).get()
             .then(reviewDoc => {
                 if (!reviewDoc.exists) throw new Error(`Resena no encontrada.`);
                 reviewDataGlobal = { id: reviewDoc.id, ...reviewDoc.data() };
-                const authorNameRaw = reviewDataGlobal.authorName || reviewDataGlobal.userDisplayName || reviewDataGlobal.username || 'Usuario Anonimo';
+                authorNameRaw = reviewDataGlobal.authorName || reviewDataGlobal.userDisplayName || reviewDataGlobal.username || 'Usuario Anonimo';
                 updateShareData({
                     reviewId: reviewDataGlobal.id || reviewId,
                     listId: listIdFromURL,
@@ -1392,7 +1368,9 @@ ListopicApp.pageDetailView = (() => {
                     }
                 }
 
-                const reviewTimestamp = reviewDataGlobal.updatedAt || reviewDataGlobal.updated_at || reviewDataGlobal.createdAt || reviewDataGlobal.created_at || null;
+                const reviewTimestamp = reviewDataGlobal.createdAt
+                    || reviewDataGlobal.created_at
+                    || (typeof reviewDoc?.createTime?.toDate === 'function' ? reviewDoc.createTime.toDate() : null);
                 const reviewDateText = formatReviewDate(reviewTimestamp);
                 if (detailReviewDateContainerEl && detailReviewDateTextEl) {
                     if (reviewDateText) {
@@ -1412,26 +1390,7 @@ ListopicApp.pageDetailView = (() => {
                 }
 
                 const authorLinkHref = reviewDataGlobal.userId ? `profile.html?viewUserId=${reviewDataGlobal.userId}` : '';
-                if (reviewAuthorNameEl) {
-                    reviewAuthorNameEl.textContent = authorNameRaw;
-                    if (authorLinkHref) {
-                        reviewAuthorNameEl.href = authorLinkHref;
-                    } else {
-                        reviewAuthorNameEl.removeAttribute('href');
-                    }
-                }
-                if (reviewAuthorLinkEl) {
-                    reviewAuthorLinkEl.textContent = authorNameRaw;
-                    if (authorLinkHref) {
-                        reviewAuthorLinkEl.href = authorLinkHref;
-                    } else {
-                        reviewAuthorLinkEl.removeAttribute('href');
-                    }
-                }
-                if (reviewAuthorBioEl) {
-                    reviewAuthorBioEl.textContent = 'Miembro de la comunidad Listopic';
-                }
-                renderAuthorAvatar(reviewDataGlobal.authorPhotoUrl || reviewDataGlobal.userPhotoUrl || '', authorNameRaw);
+                updateAuthorChip(authorNameRaw, reviewDataGlobal.authorPhotoUrl || reviewDataGlobal.userPhotoUrl || '', authorLinkHref);
 
                 refreshCriteriaVisuals();
 
@@ -1470,6 +1429,10 @@ ListopicApp.pageDetailView = (() => {
                     const currentCategory = listDataGlobal?.categoryId || undefined;
                     uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal?.name);
                 }
+                if (uiUtils.updatePageHeaderInfo) {
+                    const currentCategory = listDataGlobal?.categoryId || undefined;
+                    uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal?.name);
+                }
 
                 if (reviewAuthorBioEl && listDataGlobal?.name) {
                     reviewAuthorBioEl.textContent = `Reseña de la lista “${uiUtils.escapeHtml(listDataGlobal.name)}”`;
@@ -1477,20 +1440,13 @@ ListopicApp.pageDetailView = (() => {
 
                 refreshCriteriaVisuals();
 
+                refreshCriteriaVisuals();
+
                 // 3. Obtener datos del autor de la reseña
-                if (reviewDataGlobal.userId && reviewAuthorNameEl) {
+                if (reviewDataGlobal.userId) {
                     return db.collection('users').doc(reviewDataGlobal.userId).get(); // Esto devuelve una promesa
-                } else {
-                    if (reviewAuthorNameEl) {
-                        reviewAuthorNameEl.textContent = 'Autor no especificado';
-                        reviewAuthorNameEl.removeAttribute('href');
-                    }
-                    if (reviewAuthorLinkEl) {
-                        reviewAuthorLinkEl.textContent = 'Autor no especificado';
-                        reviewAuthorLinkEl.removeAttribute('href');
-                    }
-                    return Promise.resolve(null); // Devolver promesa resuelta para el siguiente .then()
                 }
+                return Promise.resolve(null); // Devolver promesa resuelta para el siguiente .then()
             })
             .then(userDocOrNull => { // userDocOrNull es el resultado de la promesa del autor
                 if (userDocOrNull && userDocOrNull.exists) {
@@ -1499,34 +1455,12 @@ ListopicApp.pageDetailView = (() => {
                     updateShareData({ authorName: authorRaw });
 
                     const authorHref = reviewDataGlobal.userId ? `profile.html?viewUserId=${reviewDataGlobal.userId}` : '';
-                    if (reviewAuthorNameEl) {
-                        reviewAuthorNameEl.textContent = authorRaw;
-                        if (authorHref) {
-                            reviewAuthorNameEl.href = authorHref;
-                        }
-                    }
-                    if (reviewAuthorLinkEl) {
-                        reviewAuthorLinkEl.textContent = authorRaw;
-                        if (authorHref) {
-                            reviewAuthorLinkEl.href = authorHref;
-                        }
-                    }
-                    if (reviewAuthorBioEl) {
-                        reviewAuthorBioEl.textContent = userData.bio || userData.location || reviewAuthorBioEl.textContent || '';
-                    }
-                    renderAuthorAvatar(userData.photoUrl || reviewDataGlobal.authorPhotoUrl || '', authorRaw);
+                    updateAuthorChip(authorRaw, userData.photoUrl || reviewDataGlobal.authorPhotoUrl || '', authorHref);
                 } else if (reviewDataGlobal.userId) {
-                    if (reviewAuthorNameEl) {
-                        reviewAuthorNameEl.textContent = 'Usuario desconocido';
-                        reviewAuthorNameEl.removeAttribute('href');
-                    }
-                    if (reviewAuthorLinkEl) {
-                        reviewAuthorLinkEl.textContent = 'Usuario desconocido';
-                        reviewAuthorLinkEl.removeAttribute('href');
-                    }
+                    updateAuthorChip('Usuario desconocido', reviewDataGlobal.authorPhotoUrl || '', `profile.html?viewUserId=${reviewDataGlobal.userId}`);
                     console.warn(`Autor de reseña con ID ${reviewDataGlobal.userId} no encontrado.`);
                 }
-                
+
                 // 4. Si la reseña tiene placeId, obtener datos del lugar
                 if (reviewDataGlobal && reviewDataGlobal.placeId) {
                     return db.collection('places').doc(reviewDataGlobal.placeId).get(); // Esto devuelve una promesa
@@ -1549,8 +1483,46 @@ ListopicApp.pageDetailView = (() => {
                     if (detailEstablishmentNameEl) {
                         detailEstablishmentNameEl.textContent = placeData.name || 'Nombre de lugar desconocido';
                     }
-                    if (detailImageEl && detailImageEl.alt === `Foto de reseña`) {
-                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || placeData.name)}`;
+                    if (detailImageEl) {
+                        const fallbackAltName = reviewDataGlobal.itemName || placeData.name || 'la reseña';
+                        detailImageEl.alt = `Foto de ${fallbackAltName}`;
+                    }
+
+                    if (detailImageEl && detailImageEl.hidden && !reviewDataGlobal.photoUrl) {
+                        const photosArray = Array.isArray(placeData.photos)
+                            ? placeData.photos
+                            : (placeData.photos ? [placeData.photos] : []);
+                        const primaryPhotoFromArray = photosArray
+                            .map(photoEntry => {
+                                if (!photoEntry) return '';
+                                if (typeof photoEntry === 'string') return photoEntry;
+                                if (typeof photoEntry === 'object') {
+                                    return photoEntry.url || photoEntry.photoUrl || photoEntry.src || '';
+                                }
+                                return '';
+                            })
+                            .find(Boolean);
+                        const fallbackPlacePhoto = primaryPhotoFromArray
+                            || placeData.mainImageUrl
+                            || placeData.mainPhotoUrl
+                            || placeData.photoUrl
+                            || placeData.primaryPhotoUrl
+                            || placeData.coverPhotoUrl
+                            || placeData.coverImageUrl
+                            || placeData.heroImageUrl
+                            || placeData.imageUrl
+                            || '';
+                        if (fallbackPlacePhoto) {
+                            detailImageEl.src = fallbackPlacePhoto;
+                            detailImageEl.hidden = false;
+                            if (detailImagePlaceholderEl) detailImagePlaceholderEl.hidden = true;
+                            if (detailMediaLinkEl && !groupLinkUrl) {
+                                detailMediaLinkEl.href = fallbackPlacePhoto;
+                                detailMediaLinkEl.hidden = false;
+                                detailMediaLinkEl.setAttribute('aria-label', 'Abrir la foto del lugar en una pestaña nueva');
+                                detailMediaLinkEl.target = '_blank';
+                            }
+                        }
                     }
 
                     let mapsUrl = '#';
