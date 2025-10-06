@@ -879,6 +879,10 @@ small.non-weighted-header { /* Para (NP) en cabeceras */
     filter: saturate(1.05);
 }
 
+.detail-hero__media img[hidden] {
+    display: none;
+}
+
 .detail-image-icon-placeholder {
     position: absolute;
     inset: 0;
@@ -888,6 +892,10 @@ small.non-weighted-header { /* Para (NP) en cabeceras */
     color: rgba(255,255,255,0.65);
     background: rgba(15,23,42,0.65);
     font-size: 4rem;
+}
+
+.detail-image-icon-placeholder[hidden] {
+    display: none !important;
 }
 
 .detail-hero__media-link {
