@@ -437,6 +437,34 @@ ListopicApp.pageChats = (() => {
         document.body.classList.add('chat-modal-open');
         groupSearchInput?.focus();
     };
+    const toggleChatsBadge = (visible) => {
+        const badge = document.getElementById('chats-badge');
+        if (!badge) {
+            return;
+        }
+        if (visible) {
+            badge.hidden = false;
+            badge.setAttribute('data-visible', 'true');
+        } else {
+            badge.hidden = true;
+            badge.setAttribute('data-visible', 'false');
+        }
+    };
+
+    const updateChatsBadgeVisibility = () => {
+        if (!currentUser) {
+            return;
+        }
+        const hasUnreadChats = chatsCache.some(chat => {
+            if (!chat || !chat.unreadCounts) {
+                return false;
+            }
+            const unread = chat.unreadCounts[currentUser.uid];
+            return typeof unread === 'number' && unread > 0;
+        });
+        toggleChatsBadge(hasUnreadChats);
+    };
+
     const updateLocalChatData = (chatId, partialData) => {
         const index = chatsCache.findIndex(chat => chat.id === chatId);
         if (index !== -1) {
@@ -451,6 +479,7 @@ ListopicApp.pageChats = (() => {
                 ...partialData
             };
         }
+        updateChatsBadgeVisibility();
     };
 
     const handleGroupModalSubmit = async (event) => {
@@ -771,6 +800,7 @@ ListopicApp.pageChats = (() => {
 
                 chatListElement.appendChild(item);
             });
+        updateChatsBadgeVisibility();
     };
 
     const renderMessages = (messages) => {
