@@ -107,62 +107,143 @@
 
 </head>
 <body>
-    <main>
-        <div class="container">
-            <!-- Removed theme-toggle-button from here -->
-            <a href="list-view.html" class="back-button">← Volver al Ranking</a> <!-- JS will update href -->
-            <p class="detail-list-name" id="detail-list-name">Estás viendo en Listopic: [Cargando...]</p>
-            
-            <h2 id="detail-restaurant-name">[Cargando nombre del elemento...]</h2>
-            <p class="detail-dish-name" id="detail-dish-name"></p>
-            
-            <p class="review-author-info" style="text-align: center; margin-bottom: 15px; font-size: 0.9em;">
-                Reseña de: <a href="profile.html" id="review-author-name">[Cargando autor...]</a>
-            </p>
+    <main class="detail-page">
+        <div class="container detail-page__container">
+            <a href="list-view.html" class="back-button">← Volver al ranking</a>
+            <p class="detail-list-name" id="detail-list-name">Estás viendo en Listopic: <span class="detail-list-name__loading">[Cargando...]</span></p>
 
-            <div class="detail-content">
-                <div class="detail-image-area">
-                    <img src="https://via.placeholder.com/600x400.png?text=Cargando+imagen..." alt="Foto del elemento" id="detail-image">
-                </div>
-                <div class="detail-info-area">
-                    <div class="detail-overall-score-container">
-                        <span>Valoración General</span>
-                        <strong class="detail-overall-score" id="detail-score-value">?.?</strong>
+            <section class="detail-hero">
+                <div class="detail-hero__media">
+                    <img src="https://via.placeholder.com/900x600.png?text=Cargando+imagen..." alt="Foto del elemento" id="detail-image">
+                    <div class="detail-image-icon-placeholder" hidden>
+                        <i class="fa-solid fa-image"></i>
                     </div>
-                    <ul class="detail-ratings-list" id="detail-ratings">
-                        <li>Cargando valoraciones detalladas...</li>
-                    </ul>
-                    <div id="detail-location-container" style="display: none;"> <!-- Hidden by default, shown by JS if data exists -->
-                        <div class="detail-location">
-                            <a href="#" target="_blank" title="Ver en Google Maps" id="detail-location-link">
+                    <a href="#" class="detail-hero__media-link" id="detail-media-link" hidden target="_blank" rel="noopener"></a>
+                </div>
+                <div class="detail-hero__info">
+                    <h1 id="detail-restaurant-name">[Cargando nombre del elemento...]</h1>
+                    <p class="detail-dish-name" id="detail-dish-name"></p>
+                    <div class="detail-hero__meta">
+                        <div class="detail-score-badge" aria-live="polite">
+                            <span class="detail-score-badge__label">Valoración general</span>
+                            <span class="detail-score-badge__value" id="detail-score-value">?.?</span>
+                        </div>
+                        <dl class="detail-meta-grid">
+                            <div class="detail-meta-grid__item">
+                                <dt>Lista</dt>
+                                <dd><a href="list-view.html" id="detail-list-link">Ver lista</a></dd>
+                            </div>
+                            <div class="detail-meta-grid__item">
+                                <dt>Lugar</dt>
+                                <dd id="detail-place-link-wrapper"><a href="#" id="detail-place-link" target="_blank" rel="noopener">Ubicación</a></dd>
+                            </div>
+                            <div class="detail-meta-grid__item">
+                                <dt>Autor</dt>
+                                <dd><a href="profile.html" id="review-author-name">[Cargando autor...]</a></dd>
+                            </div>
+                            <div class="detail-meta-grid__item" id="detail-review-date" hidden>
+                                <dt>Actualizado</dt>
+                                <dd id="detail-review-date-text"></dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div class="detail-hero__actions">
+                        <button type="button" class="share-story-button" id="detail-share-button" disabled>
+                            <i class="fas fa-share-alt"></i>
+                            Compartir reseña
+                        </button>
+                        <a href="#" role="button" class="edit-button" data-owner-action hidden>
+                            <i class="fas fa-edit"></i>
+                            Editar reseña
+                        </a>
+                        <button type="button" class="delete-button danger" data-owner-action hidden>
+                            <i class="fas fa-trash-alt"></i>
+                            Eliminar reseña
+                        </button>
+                        <a href="#" class="button tertiary-button detail-group-link" id="detail-group-link" hidden>
+                            <i class="fas fa-layer-group"></i>
+                            Ver grupo del plato
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <div class="detail-layout">
+                <section class="detail-primary">
+                    <article class="detail-card detail-card--metrics">
+                        <div class="detail-card__header">
+                            <h2>Valoraciones por criterio</h2>
+                            <div class="chart-mode-toggle" role="radiogroup" aria-label="Tipo de gráfico">
+                                <button type="button" class="chart-mode-toggle__button is-active" data-chart-mode="bars" aria-pressed="true">Barras</button>
+                                <button type="button" class="chart-mode-toggle__button" data-chart-mode="radar" aria-pressed="false">Tela de araña</button>
+                            </div>
+                        </div>
+                        <div class="detail-chart">
+                            <canvas id="detail-criteria-canvas" role="img" aria-label="Gráfico de criterios"></canvas>
+                            <p class="detail-chart__empty" id="detail-criteria-empty" hidden>No hay valoraciones de criterios suficientes para mostrar un gráfico.</p>
+                        </div>
+                        <ul class="detail-ratings-list" id="detail-ratings">
+                            <li>Cargando valoraciones detalladas...</li>
+                        </ul>
+                    </article>
+
+                    <article class="detail-card detail-card--comment" id="detail-comment-container" hidden>
+                        <div class="detail-card__header">
+                            <h2>Notas rápidas del autor</h2>
+                        </div>
+                        <p id="detail-comment-text"></p>
+                    </article>
+
+                    <article class="detail-card detail-card--tags" id="detail-tags-container" hidden>
+                        <div class="detail-card__header">
+                            <h2>Etiquetas destacadas</h2>
+                        </div>
+                        <div id="detail-tags" class="detail-tags"></div>
+                    </article>
+                </section>
+
+                <aside class="detail-secondary">
+                    <article class="detail-card detail-card--author">
+                        <div class="detail-card__header">
+                            <h2>Autor de la reseña</h2>
+                        </div>
+                        <div class="detail-author">
+                            <div class="detail-author__avatar" id="review-author-avatar" aria-hidden="true"></div>
+                            <div class="detail-author__info">
+                                <a href="profile.html" id="review-author-link" class="detail-author__name">[Cargando autor...]</a>
+                                <p class="detail-author__meta" id="review-author-bio"></p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="detail-card detail-card--location">
+                        <div class="detail-card__header">
+                            <h2>Ubicación del lugar</h2>
+                        </div>
+                        <div id="detail-location-container" hidden>
+                            <a href="#" target="_blank" rel="noopener" class="detail-location-link" id="detail-location-link">
                                 <i class="fa-solid fa-map-marker-alt"></i>
-                                <span id="detail-location-text"></span> <!-- ID AÑADIDO AQUÍ -->
+                                <span id="detail-location-text"></span>
                             </a>
                         </div>
-                    </div>
-                     <div class="detail-no-location" style="display: none;"> <!-- Shown by JS if no location -->
-                        <i class="fa-solid fa-ban"></i>
-                        <span>Ubicación no disponible</span>
-                    </div>
+                        <div class="detail-no-location" id="detail-no-location" hidden>
+                            <i class="fa-solid fa-ban"></i>
+                            <span>Ubicación no disponible</span>
+                        </div>
+                    </article>
 
-                    <div class="detail-comment" id="detail-comment-container" style="display: none;">
-                        <h4>Comentario:</h4>
-                        <p id="detail-comment-text"></p>
-                    </div>
-                    <div class="detail-tags-area" id="detail-tags-container" style="display: none;">
-                        <h4>Etiquetas:</h4>
-                        <div id="detail-tags"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="detail-actions">
-                <button type="button" class="share-story-button" id="detail-share-button" disabled>
-                    <i class="fas fa-share-alt"></i>
-                    Compartir reseña
-                </button>
-                <a href="review-form.html" role="button" class="edit-button"><i class="fas fa-edit"></i> Editar Resena</a>
-                <button type="button" class="delete-button danger"><i class="fas fa-trash-alt"></i> Eliminar Resena</button>
+                    <article class="detail-card detail-card--share">
+                        <div class="detail-card__header">
+                            <h2>Comparte la reseña</h2>
+                        </div>
+                        <p>Haz clic en “Compartir reseña” para abrir el panel con opciones de enlace, chats y tarjeta para Instagram.</p>
+                        <button type="button" class="share-story-button share-story-button--secondary" id="detail-share-button-secondary" disabled>
+                            <i class="fas fa-share-alt"></i>
+                            Compartir reseña
+                        </button>
+                    </article>
+                </aside>
             </div>
         </div>
     </main>

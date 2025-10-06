@@ -728,33 +728,495 @@ ListopicApp.pageDetailView = (() => {
         const params = new URLSearchParams(window.location.search);
         const reviewId = params.get('id');
         const listIdFromURL = params.get('listId');
+        const fromPlaceIdParam = params.get('fromPlaceId');
+        const fromItemParam = params.get('fromItem');
+        const fromGroupedParam = params.get('fromGrouped') === 'true';
 
         // Elementos del DOM
         const detailEstablishmentNameEl = document.getElementById('detail-restaurant-name');
         const detailItemNameEl = document.getElementById('detail-dish-name');
-
         const detailScoreValueEl = document.getElementById('detail-score-value');
         const detailRatingsListEl = document.getElementById('detail-ratings');
         const detailLocationLinkEl = document.getElementById('detail-location-link');
         const detailLocationTextEl = document.getElementById('detail-location-text');
-        const detailNoLocationDivEl = document.querySelector('.detail-no-location');
         const detailLocationContainerEl = document.getElementById('detail-location-container');
+        const detailNoLocationEl = document.getElementById('detail-no-location');
         const detailCommentContainerEl = document.getElementById('detail-comment-container');
         const detailCommentTextEl = document.getElementById('detail-comment-text');
         const detailTagsContainerEl = document.getElementById('detail-tags-container');
         const detailTagsDivEl = document.getElementById('detail-tags');
         const detailListNameEl = document.getElementById('detail-list-name');
+        const detailListLinkEl = document.getElementById('detail-list-link');
+        const detailPlaceLinkWrapperEl = document.getElementById('detail-place-link-wrapper');
+        const detailPlaceLinkEl = document.getElementById('detail-place-link');
+        const detailGroupLinkEl = document.getElementById('detail-group-link');
+        const detailMediaLinkEl = document.getElementById('detail-media-link');
+        const detailReviewDateContainerEl = document.getElementById('detail-review-date');
+        const detailReviewDateTextEl = document.getElementById('detail-review-date-text');
         const reviewAuthorNameEl = document.getElementById('review-author-name');
+        const reviewAuthorLinkEl = document.getElementById('review-author-link');
+        const reviewAuthorAvatarEl = document.getElementById('review-author-avatar');
+        const reviewAuthorBioEl = document.getElementById('review-author-bio');
         const detailImageEl = document.getElementById('detail-image');
+        const detailImagePlaceholderEl = document.querySelector('.detail-image-icon-placeholder');
 
         const backButton = document.querySelector('.container a.back-button');
-        const editButton = document.querySelector('.edit-button');
-        const deleteButton = document.querySelector('.delete-button.danger');
-        const shareButton = document.getElementById('detail-share-button');
+        const editButton = document.querySelector('.edit-button[data-owner-action]');
+        const deleteButton = document.querySelector('.delete-button.danger[data-owner-action]');
+        const ownerActionEls = Array.from(document.querySelectorAll('[data-owner-action]'));
+        const sharePrimaryButton = document.getElementById('detail-share-button');
+        const shareSecondaryButton = document.getElementById('detail-share-button-secondary');
+        const shareButtons = [sharePrimaryButton, shareSecondaryButton].filter(Boolean);
         const showNotification = ListopicApp.services?.showNotification;
         const currentUserId = auth?.currentUser?.uid || null;
 
+        const chartCanvas = document.getElementById('detail-criteria-canvas');
+        const chartEmptyStateEl = document.getElementById('detail-criteria-empty');
+        const chartToggleButtons = Array.from(document.querySelectorAll('.chart-mode-toggle__button'));
+
         let shareModalData = null;
+
+        const chartState = {
+            mode: 'bars',
+            entries: [],
+            resizeTimeout: null
+        };
+
+        const getCssColor = (variableName, fallback) => {
+            if (typeof window === 'undefined' || !window.getComputedStyle) {
+                return fallback;
+            }
+            const styles = window.getComputedStyle(document.documentElement);
+            const value = styles.getPropertyValue(variableName);
+            return value ? value.trim() || fallback : fallback;
+        };
+
+        const chartColors = {
+            accent: getCssColor('--accent-color-primary', '#f97316'),
+            accentSecondary: getCssColor('--accent-color-secondary', '#facc15'),
+            accentTertiary: getCssColor('--accent-color-tertiary', '#06d6a0'),
+            track: 'rgba(255,255,255,0.14)',
+            panel: 'rgba(15,23,42,0.55)',
+            text: '#ffffff',
+            muted: 'rgba(255,255,255,0.7)'
+        };
+
+        const setShareButtonsEnabled = (enabled) => {
+            shareButtons.forEach(button => {
+                if (!button) return;
+                button.disabled = !enabled;
+                if (!enabled) {
+                    button.removeAttribute('data-loading');
+                    button.removeAttribute('aria-busy');
+                }
+            });
+        };
+
+        const updateOwnerActionsVisibility = (isOwner) => {
+            ownerActionEls.forEach(element => {
+                if (!element) {
+                    return;
+                }
+                element.hidden = !isOwner;
+            });
+        };
+
+        updateOwnerActionsVisibility(false);
+
+        const renderAuthorAvatar = (photoUrl, name) => {
+            if (!reviewAuthorAvatarEl) {
+                return;
+            }
+            reviewAuthorAvatarEl.innerHTML = '';
+            if (photoUrl) {
+                const img = document.createElement('img');
+                img.src = photoUrl;
+                img.alt = name ? `Foto de ${name}` : 'Foto del autor';
+                reviewAuthorAvatarEl.appendChild(img);
+                return;
+            }
+            const initials = getAuthorInitials(name || '');
+            reviewAuthorAvatarEl.textContent = initials || '??';
+        };
+
+        const formatReviewDate = (rawDate) => {
+            if (!rawDate) {
+                return '';
+            }
+            let value = rawDate;
+            if (typeof rawDate.toDate === 'function') {
+                value = rawDate.toDate();
+            }
+            if (!(value instanceof Date)) {
+                return '';
+            }
+            try {
+                return new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium' }).format(value);
+            } catch (error) {
+                console.warn('[detailView] No se pudo formatear la fecha de la reseña.', error);
+                return value.toLocaleDateString?.() || '';
+            }
+        };
+
+        const prepareCanvasContext = (canvas, width, height) => {
+            if (!canvas) {
+                return null;
+            }
+            const ratio = window.devicePixelRatio || 1;
+            canvas.width = width * ratio;
+            canvas.height = height * ratio;
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                return null;
+            }
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            ctx.clearRect(0, 0, width, height);
+            return ctx;
+        };
+
+        const drawBarsChart = (entries) => {
+            if (!chartCanvas || !entries.length) {
+                return;
+            }
+            const containerWidth = chartCanvas.parentElement?.clientWidth || 600;
+            const barHeight = 34;
+            const barSpacing = 20;
+            const chartHeight = Math.max(200, entries.length * (barHeight + barSpacing) + 40);
+            const ctx = prepareCanvasContext(chartCanvas, containerWidth, chartHeight);
+            if (!ctx) {
+                return;
+            }
+
+            ctx.font = '16px "Poppins", "Helvetica Neue", Arial';
+            ctx.textBaseline = 'middle';
+
+            const paddingX = 24;
+            const barMaxWidth = containerWidth - paddingX * 2;
+
+            entries.forEach((entry, index) => {
+                const top = 30 + index * (barHeight + barSpacing);
+                const normalized = entry.max > entry.min
+                    ? (entry.value - entry.min) / (entry.max - entry.min)
+                    : entry.value / 10;
+                const clamped = Math.max(0, Math.min(1, normalized));
+                const barWidth = Math.max(4, barMaxWidth * clamped);
+
+                ctx.fillStyle = chartColors.track;
+                drawRoundedRectPath(ctx, paddingX, top, barMaxWidth, barHeight, 14);
+                ctx.fill();
+
+                const gradient = ctx.createLinearGradient(paddingX, top, paddingX + barWidth, top + barHeight);
+                gradient.addColorStop(0, chartColors.accent);
+                gradient.addColorStop(1, chartColors.accentSecondary);
+                ctx.fillStyle = gradient;
+                drawRoundedRectPath(ctx, paddingX, top, barWidth, barHeight, 14);
+                ctx.fill();
+
+                ctx.fillStyle = chartColors.text;
+                ctx.textAlign = 'left';
+                const label = entry.ponderable === false ? `${entry.label} (no pondera)` : entry.label;
+                ctx.fillText(label, paddingX + 12, top + barHeight / 2);
+
+                ctx.fillStyle = chartColors.muted;
+                ctx.textAlign = 'right';
+                ctx.fillText(entry.value.toFixed(1), paddingX + barMaxWidth - 8, top + barHeight / 2);
+            });
+        };
+
+        const drawRadarChart = (entries) => {
+            if (!chartCanvas || !entries.length) {
+                return;
+            }
+            const containerWidth = chartCanvas.parentElement?.clientWidth || 520;
+            const size = Math.min(520, Math.max(320, containerWidth));
+            const ctx = prepareCanvasContext(chartCanvas, size, size);
+            if (!ctx) {
+                return;
+            }
+
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const radius = Math.min(size / 2 - 50, 220);
+            const levels = 5;
+            const angleStep = (Math.PI * 2) / entries.length;
+
+            ctx.strokeStyle = hexToRgba(chartColors.accentSecondary, 0.25);
+            ctx.lineWidth = 1.5;
+            for (let level = 1; level <= levels; level += 1) {
+                const ratio = level / levels;
+                ctx.beginPath();
+                entries.forEach((entry, index) => {
+                    const angle = angleStep * index - Math.PI / 2;
+                    const x = centerX + Math.cos(angle) * radius * ratio;
+                    const y = centerY + Math.sin(angle) * radius * ratio;
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                ctx.closePath();
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = hexToRgba(chartColors.accentTertiary, 0.5);
+            entries.forEach((entry, index) => {
+                const angle = angleStep * index - Math.PI / 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
+                ctx.stroke();
+            });
+
+            ctx.beginPath();
+            entries.forEach((entry, index) => {
+                const normalized = entry.max > entry.min
+                    ? (entry.value - entry.min) / (entry.max - entry.min)
+                    : entry.value / 10;
+                const clamped = Math.max(0, Math.min(1, normalized));
+                const angle = angleStep * index - Math.PI / 2;
+                const x = centerX + Math.cos(angle) * radius * clamped;
+                const y = centerY + Math.sin(angle) * radius * clamped;
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.closePath();
+            ctx.fillStyle = hexToRgba(chartColors.accent, 0.32);
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = chartColors.accent;
+            ctx.stroke();
+
+            entries.forEach((entry, index) => {
+                const normalized = entry.max > entry.min
+                    ? (entry.value - entry.min) / (entry.max - entry.min)
+                    : entry.value / 10;
+                const clamped = Math.max(0, Math.min(1, normalized));
+                const angle = angleStep * index - Math.PI / 2;
+                const x = centerX + Math.cos(angle) * radius * clamped;
+                const y = centerY + Math.sin(angle) * radius * clamped;
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = chartColors.text;
+                ctx.fill();
+            });
+
+            ctx.font = '14px "Poppins", "Helvetica Neue", Arial';
+            entries.forEach((entry, index) => {
+                const angle = angleStep * index - Math.PI / 2;
+                const labelRadius = radius + 28;
+                const x = centerX + Math.cos(angle) * labelRadius;
+                const y = centerY + Math.sin(angle) * labelRadius;
+
+                const align = Math.cos(angle) > 0.2 ? 'left' : Math.cos(angle) < -0.2 ? 'right' : 'center';
+                ctx.textAlign = align;
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = chartColors.text;
+                ctx.fillText(entry.label, x, y);
+                ctx.fillStyle = chartColors.muted;
+                ctx.fillText(entry.value.toFixed(1), x, y + 18);
+            });
+        };
+
+        const updateChartModeButtons = () => {
+            chartToggleButtons.forEach(button => {
+                const mode = button?.dataset?.chartMode || 'bars';
+                const isActive = chartState.mode === mode;
+                if (chartState.entries.length < 3 && mode === 'radar') {
+                    button.disabled = true;
+                    button.classList.remove('is-active');
+                    button.setAttribute('aria-pressed', 'false');
+                    return;
+                }
+                button.disabled = false;
+                button.classList.toggle('is-active', isActive);
+                button.setAttribute('aria-pressed', String(isActive));
+            });
+        };
+
+        const renderCriteriaChart = () => {
+            if (!chartCanvas) {
+                return;
+            }
+            if (!chartState.entries.length) {
+                chartCanvas.style.display = 'none';
+                if (chartEmptyStateEl) chartEmptyStateEl.hidden = false;
+                return;
+            }
+            chartCanvas.style.display = 'block';
+            if (chartEmptyStateEl) chartEmptyStateEl.hidden = true;
+            const usableEntries = chartState.mode === 'radar'
+                ? chartState.entries.slice(0, 6)
+                : chartState.entries;
+            if (chartState.mode === 'radar' && usableEntries.length < 3) {
+                chartState.mode = 'bars';
+                updateChartModeButtons();
+                drawBarsChart(chartState.entries);
+                return;
+            }
+            if (chartState.mode === 'radar') {
+                drawRadarChart(usableEntries);
+            } else {
+                drawBarsChart(usableEntries);
+            }
+        };
+
+        const updateChartEntries = (entries) => {
+            chartState.entries = entries.slice();
+            updateChartModeButtons();
+            renderCriteriaChart();
+        };
+
+        const setChartMode = (mode) => {
+            if (mode === 'radar' && chartState.entries.length < 3) {
+                return;
+            }
+            chartState.mode = mode === 'radar' ? 'radar' : 'bars';
+            updateChartModeButtons();
+            renderCriteriaChart();
+        };
+
+        chartToggleButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const mode = button?.dataset?.chartMode || 'bars';
+                setChartMode(mode);
+            });
+        });
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('resize', () => {
+                if (chartState.resizeTimeout) {
+                    window.clearTimeout(chartState.resizeTimeout);
+                }
+                chartState.resizeTimeout = window.setTimeout(() => {
+                    renderCriteriaChart();
+                }, 150);
+            });
+        }
+
+        const computeCriteriaEntries = () => {
+            if (!reviewDataGlobal?.scores || typeof reviewDataGlobal.scores !== 'object') {
+                return [];
+            }
+            const entries = [];
+            const definitions = state.currentListCriteriaDefinitions;
+            if (definitions && Object.keys(definitions).length > 0) {
+                for (const [key, definition] of Object.entries(definitions)) {
+                    if (reviewDataGlobal.scores[key] === undefined) {
+                        continue;
+                    }
+                    const value = Number.parseFloat(reviewDataGlobal.scores[key]);
+                    if (!Number.isFinite(value)) {
+                        continue;
+                    }
+                    entries.push({
+                        key,
+                        label: definition?.label || key,
+                        value,
+                        min: Number.isFinite(Number.parseFloat(definition?.min)) ? Number.parseFloat(definition.min) : 0,
+                        max: Number.isFinite(Number.parseFloat(definition?.max)) ? Number.parseFloat(definition.max) : 10,
+                        ponderable: definition?.ponderable !== false
+                    });
+                }
+            } else {
+                for (const [key, rawValue] of Object.entries(reviewDataGlobal.scores)) {
+                    const value = Number.parseFloat(rawValue);
+                    if (!Number.isFinite(value)) {
+                        continue;
+                    }
+                    entries.push({
+                        key,
+                        label: key,
+                        value,
+                        min: 0,
+                        max: 10,
+                        ponderable: true
+                    });
+                }
+            }
+            return entries;
+        };
+
+        const renderRatingsList = (entries) => {
+            if (!detailRatingsListEl) {
+                return;
+            }
+            detailRatingsListEl.innerHTML = '';
+            if (!entries.length) {
+                const emptyItem = document.createElement('li');
+                emptyItem.textContent = 'No hay valoraciones detalladas disponibles.';
+                detailRatingsListEl.appendChild(emptyItem);
+                return;
+            }
+            entries.forEach(entry => {
+                const li = document.createElement('li');
+                const labelSpan = document.createElement('span');
+                labelSpan.className = 'rating-label';
+                labelSpan.textContent = entry.label;
+                if (entry.ponderable === false) {
+                    const info = document.createElement('small');
+                    info.className = 'non-weighted-detail';
+                    info.textContent = ' (no pondera)';
+                    labelSpan.appendChild(info);
+                }
+                const valueSpan = document.createElement('span');
+                valueSpan.className = 'rating-value';
+                valueSpan.textContent = entry.value.toFixed(1);
+                li.appendChild(labelSpan);
+                li.appendChild(valueSpan);
+                detailRatingsListEl.appendChild(li);
+            });
+        };
+
+        const refreshCriteriaVisuals = () => {
+            const entries = computeCriteriaEntries();
+            renderRatingsList(entries);
+            updateChartEntries(entries);
+        };
+
+        const buildGroupLinkUrl = (placeId, itemName) => {
+            if (!listIdFromURL || !placeId) {
+                return null;
+            }
+            const query = new URLSearchParams({ listId: listIdFromURL, placeId });
+            if (itemName) {
+                query.set('item', itemName);
+            }
+            return `grouped-detail-view.html?${query.toString()}`;
+        };
+
+        const applyGroupLink = () => {
+            if (!detailGroupLinkEl || !detailMediaLinkEl) {
+                return;
+            }
+            if (groupLinkUrl) {
+                detailGroupLinkEl.href = groupLinkUrl;
+                detailGroupLinkEl.hidden = false;
+                detailGroupLinkEl.setAttribute('aria-label', 'Ver grupo del plato');
+                detailMediaLinkEl.href = groupLinkUrl;
+                detailMediaLinkEl.hidden = false;
+                detailMediaLinkEl.target = '_self';
+                detailMediaLinkEl.setAttribute('aria-label', 'Abrir el grupo del plato');
+            } else {
+                detailGroupLinkEl.hidden = true;
+                detailGroupLinkEl.removeAttribute('href');
+                detailGroupLinkEl.removeAttribute('target');
+                if (reviewDataGlobal?.photoUrl) {
+                    detailMediaLinkEl.href = reviewDataGlobal.photoUrl;
+                    detailMediaLinkEl.hidden = false;
+                    detailMediaLinkEl.target = '_blank';
+                    detailMediaLinkEl.setAttribute('aria-label', 'Abrir la foto de la reseña en una pestaña nueva');
+                } else {
+                    detailMediaLinkEl.hidden = true;
+                    detailMediaLinkEl.removeAttribute('href');
+                }
+            }
+        };
 
         const ensureShareData = () => {
             const baseData = {
@@ -767,10 +1229,8 @@ ListopicApp.pageDetailView = (() => {
             } else {
                 shareModalData = { ...baseData, ...shareModalData };
             }
-            if (shareButton) {
-                const hasCoreData = Boolean(shareModalData.listId && shareModalData.reviewId);
-                shareButton.disabled = !hasCoreData;
-            }
+            const hasCoreData = Boolean(shareModalData.listId && shareModalData.reviewId);
+            setShareButtonsEnabled(hasCoreData);
         };
 
         const updateShareData = (partial = {}) => {
@@ -814,16 +1274,14 @@ ListopicApp.pageDetailView = (() => {
             }
         };
 
-        if (shareButton) {
-            shareButton.disabled = true;
-            shareButton.addEventListener('click', handleShareButtonClick);
-        }
+        shareButtons.forEach(button => {
+            button.disabled = true;
+            button.addEventListener('click', handleShareButtonClick);
+        });
 
         // Configurar boton de Volver
         if (backButton && listIdFromURL) {
-            const fromPlaceIdParam = params.get('fromPlaceId'); // Usar fromPlaceId
-            const fromItemParam = params.get('fromItem');
-            if (params.get('fromGrouped') === 'true' && fromPlaceIdParam) {
+            if (fromGroupedParam && fromPlaceIdParam) {
                 backButton.href = `grouped-detail-view.html?listId=${listIdFromURL}&placeId=${fromPlaceIdParam}&item=${encodeURIComponent(fromItemParam || '')}`;
             } else {
                 backButton.href = `list-view.html?listId=${listIdFromURL}`;
@@ -850,6 +1308,8 @@ ListopicApp.pageDetailView = (() => {
 
         let reviewDataGlobal;
         let listDataGlobal; // Lo hacemos accesible en un scope mas amplio
+        let placeDataGlobal;
+        let groupLinkUrl = null;
 
         // 1. Obtener la resena
         db.collection('lists').doc(listIdFromURL).collection('reviews').doc(reviewId).get()
@@ -874,59 +1334,109 @@ ListopicApp.pageDetailView = (() => {
                 });
                 if (currentUserId && (reviewDataGlobal.userId === currentUserId || reviewDataGlobal.authorId === currentUserId)) {
                     updateShareData({ isOwner: true });
+                    updateOwnerActionsVisibility(true);
+                } else {
+                    updateOwnerActionsVisibility(false);
                 }
 
                 // Mostrar datos basicos de la resena
                 if (detailItemNameEl) detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
                 if (detailScoreValueEl) detailScoreValueEl.textContent = reviewDataGlobal.overallRating !== undefined ? reviewDataGlobal.overallRating.toFixed(1) : 'N/A';
                 
-                if (detailImageEl && detailImageEl.parentNode) {
+                if (detailEstablishmentNameEl) {
+                    detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || reviewDataGlobal.placeName || 'Lugar no especificado';
+                }
+
+                if (detailItemNameEl) {
+                    detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
+                }
+
+                if (detailImageEl) {
                     if (reviewDataGlobal.photoUrl) {
                         detailImageEl.src = reviewDataGlobal.photoUrl;
-                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'resena')}`;
-                        detailImageEl.style.display = 'block';
-                        const placeholderIcon = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
-                        if(placeholderIcon) placeholderIcon.style.display = 'none';
-                    } else {
-                        detailImageEl.style.display = 'none';
-                        let placeholderIconDiv = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
-                        if (!placeholderIconDiv) {
-                            placeholderIconDiv = document.createElement('div');
-                            placeholderIconDiv.className = 'detail-image-icon-placeholder';
-                            detailImageEl.parentNode.insertBefore(placeholderIconDiv, detailImageEl.nextSibling);
+                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || reviewDataGlobal.establishmentName || 'la reseña')}`;
+                        detailImageEl.hidden = false;
+                        if (detailImagePlaceholderEl) detailImagePlaceholderEl.hidden = true;
+                        if (detailMediaLinkEl) {
+                            detailMediaLinkEl.href = reviewDataGlobal.photoUrl;
+                            detailMediaLinkEl.hidden = false;
+                            detailMediaLinkEl.setAttribute('aria-label', 'Abrir la foto de la reseña en una pestaña nueva');
+                            detailMediaLinkEl.target = '_blank';
                         }
-                        placeholderIconDiv.innerHTML = `<i class="fa-solid fa-image"></i>`;
-                        placeholderIconDiv.style.display = 'flex';
+                    } else {
+                        detailImageEl.hidden = true;
+                        if (detailImagePlaceholderEl) detailImagePlaceholderEl.hidden = false;
+                        if (detailMediaLinkEl) {
+                            detailMediaLinkEl.hidden = true;
+                            detailMediaLinkEl.removeAttribute('href');
+                        }
                     }
                 }
 
                 if (detailCommentContainerEl && detailCommentTextEl) {
                     if (reviewDataGlobal.comment) {
                         detailCommentTextEl.innerHTML = uiUtils.escapeHtml(reviewDataGlobal.comment).replace(/\n/g, '<br>');
-                        detailCommentContainerEl.style.display = 'block';
+                        detailCommentContainerEl.hidden = false;
                     } else {
-                        detailCommentContainerEl.style.display = 'none';
+                        detailCommentContainerEl.hidden = true;
                     }
                 }
 
                 if (detailTagsContainerEl && detailTagsDivEl) {
-                    if (reviewDataGlobal.userTags && reviewDataGlobal.userTags.length > 0) {
+                    if (Array.isArray(reviewDataGlobal.userTags) && reviewDataGlobal.userTags.length > 0) {
                         detailTagsDivEl.innerHTML = reviewDataGlobal.userTags.map(tag => `<span class="tag-detail">${uiUtils.escapeHtml(tag)}</span>`).join('');
-                        detailTagsContainerEl.style.display = 'block';
+                        detailTagsContainerEl.hidden = false;
                     } else {
-                        detailTagsContainerEl.style.display = 'none';
+                        detailTagsContainerEl.hidden = true;
+                        detailTagsDivEl.innerHTML = '';
+                    }
+                }
+
+                const reviewTimestamp = reviewDataGlobal.updatedAt || reviewDataGlobal.updated_at || reviewDataGlobal.createdAt || reviewDataGlobal.created_at || null;
+                const reviewDateText = formatReviewDate(reviewTimestamp);
+                if (detailReviewDateContainerEl && detailReviewDateTextEl) {
+                    if (reviewDateText) {
+                        detailReviewDateTextEl.textContent = reviewDateText;
+                        detailReviewDateContainerEl.hidden = false;
+                    } else {
+                        detailReviewDateContainerEl.hidden = true;
                     }
                 }
 
                 if (editButton) {
                     let editHref = `review-form.html?listId=${listIdFromURL}&editId=${reviewId}`;
-                    const fromPlaceIdParam = params.get('fromPlaceId'); // Usar fromPlaceId
-                    const fromItemParam = params.get('fromItem');
-                    if (params.get('fromGrouped') === 'true' && fromPlaceIdParam) {
+                    if (fromGroupedParam && fromPlaceIdParam) {
                         editHref += `&fromGrouped=true&fromPlaceId=${fromPlaceIdParam}&fromItem=${encodeURIComponent(fromItemParam || '')}`;
                     }
                     editButton.href = editHref;
                 }
+
+                const authorLinkHref = reviewDataGlobal.userId ? `profile.html?viewUserId=${reviewDataGlobal.userId}` : '';
+                if (reviewAuthorNameEl) {
+                    reviewAuthorNameEl.textContent = authorNameRaw;
+                    if (authorLinkHref) {
+                        reviewAuthorNameEl.href = authorLinkHref;
+                    } else {
+                        reviewAuthorNameEl.removeAttribute('href');
+                    }
+                }
+                if (reviewAuthorLinkEl) {
+                    reviewAuthorLinkEl.textContent = authorNameRaw;
+                    if (authorLinkHref) {
+                        reviewAuthorLinkEl.href = authorLinkHref;
+                    } else {
+                        reviewAuthorLinkEl.removeAttribute('href');
+                    }
+                }
+                if (reviewAuthorBioEl) {
+                    reviewAuthorBioEl.textContent = 'Miembro de la comunidad Listopic';
+                }
+                renderAuthorAvatar(reviewDataGlobal.authorPhotoUrl || reviewDataGlobal.userPhotoUrl || '', authorNameRaw);
+
+                refreshCriteriaVisuals();
+
+                groupLinkUrl = buildGroupLinkUrl(reviewDataGlobal.placeId || fromPlaceIdParam || null, reviewDataGlobal.itemName || fromItemParam || '');
+                applyGroupLink();
 
                 // 2. Obtener la definicion de la lista
                 return db.collection('lists').doc(listIdFromURL).get();
@@ -940,62 +1450,80 @@ ListopicApp.pageDetailView = (() => {
                     detailUrl: shareDetailUrl
                 });
 
-                if (detailListNameEl && listDataGlobal.name) {
-                    detailListNameEl.innerHTML = `Estas viendo en Listopic: <a href="list-view.html?listId=${listIdFromURL}">${uiUtils.escapeHtml(listDataGlobal.name)}</a>`;
-                    if (uiUtils.updatePageHeaderInfo) { // Actualizar header comun
-                        const currentCategory = listDataGlobal.categoryId || "Hmm...";
-                        uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal.name);
+                if (detailListNameEl) {
+                    if (listDataGlobal.name) {
+                        detailListNameEl.innerHTML = `Estás viendo en Listopic: <a href="list-view.html?listId=${listIdFromURL}">${uiUtils.escapeHtml(listDataGlobal.name)}</a>`;
+                    } else {
+                        detailListNameEl.textContent = 'Estás viendo en Listopic: Lista desconocida';
                     }
-                } else if (detailListNameEl) {
-                    detailListNameEl.textContent = "Estas viendo en Listopic: Lista Desconocida";
-                    if (uiUtils.updatePageHeaderInfo) uiUtils.updatePageHeaderInfo();
+                }
+                if (detailListLinkEl) {
+                    if (listDataGlobal.name) {
+                        detailListLinkEl.href = `list-view.html?listId=${listIdFromURL}`;
+                        detailListLinkEl.textContent = listDataGlobal.name;
+                    } else {
+                        detailListLinkEl.removeAttribute('href');
+                        detailListLinkEl.textContent = 'Lista no disponible';
+                    }
+                }
+                if (uiUtils.updatePageHeaderInfo) {
+                    const currentCategory = listDataGlobal?.categoryId || undefined;
+                    uiUtils.updatePageHeaderInfo(currentCategory, listDataGlobal?.name);
                 }
 
-                // Renderizar valoraciones detalladas
-                if (detailRatingsListEl && reviewDataGlobal && reviewDataGlobal.scores) {
-                    detailRatingsListEl.innerHTML = '';
-                    if (typeof state.currentListCriteriaDefinitions === 'object' && Object.keys(state.currentListCriteriaDefinitions).length > 0) {
-                        for (const [critKey, critDef] of Object.entries(state.currentListCriteriaDefinitions)) {
-                            if (reviewDataGlobal.scores[critKey] !== undefined) {
-                                const li = document.createElement('li');
-                                const weightedText = critDef.ponderable === false ? ' <small class="non-weighted-detail">(No pondera)</small>' : '';
-                                li.innerHTML = `<span class="rating-label">${uiUtils.escapeHtml(critDef.label)}${weightedText}</span> <span class="rating-value">${parseFloat(reviewDataGlobal.scores[critKey]).toFixed(1)}</span>`;
-                                detailRatingsListEl.appendChild(li);
-                            }
-                        }
-                    } else {
-                        detailRatingsListEl.innerHTML = '<li>No hay criterios definidos para mostrar valoraciones.</li>';
-                    }
-                } else if (detailRatingsListEl) {
-                     detailRatingsListEl.innerHTML = '<li>No hay valoraciones detalladas disponibles.</li>';
+                if (reviewAuthorBioEl && listDataGlobal?.name) {
+                    reviewAuthorBioEl.textContent = `Reseña de la lista “${uiUtils.escapeHtml(listDataGlobal.name)}”`;
                 }
+
+                refreshCriteriaVisuals();
 
                 // 3. Obtener datos del autor de la reseña
                 if (reviewDataGlobal.userId && reviewAuthorNameEl) {
                     return db.collection('users').doc(reviewDataGlobal.userId).get(); // Esto devuelve una promesa
                 } else {
-                    if(reviewAuthorNameEl) reviewAuthorNameEl.textContent = 'Autor no especificado';
+                    if (reviewAuthorNameEl) {
+                        reviewAuthorNameEl.textContent = 'Autor no especificado';
+                        reviewAuthorNameEl.removeAttribute('href');
+                    }
+                    if (reviewAuthorLinkEl) {
+                        reviewAuthorLinkEl.textContent = 'Autor no especificado';
+                        reviewAuthorLinkEl.removeAttribute('href');
+                    }
                     return Promise.resolve(null); // Devolver promesa resuelta para el siguiente .then()
                 }
             })
             .then(userDocOrNull => { // userDocOrNull es el resultado de la promesa del autor
                 if (userDocOrNull && userDocOrNull.exists) {
                     const userData = userDocOrNull.data();
-                    const authorRaw = userData.username || userData.displayName || 'Usuario Anonimo';
-                    const authorName = uiUtils.escapeHtml(authorRaw);
-
+                    const authorRaw = userData.displayName || userData.username || authorNameRaw || 'Usuario Anónimo';
                     updateShareData({ authorName: authorRaw });
 
-                    const authorLink = document.createElement('a');
-                    authorLink.href = `profile.html?viewUserId=${reviewDataGlobal.userId}`;
-                    authorLink.textContent = authorName;
-
+                    const authorHref = reviewDataGlobal.userId ? `profile.html?viewUserId=${reviewDataGlobal.userId}` : '';
                     if (reviewAuthorNameEl) {
-                        reviewAuthorNameEl.innerHTML = '';
-                        reviewAuthorNameEl.appendChild(authorLink);
+                        reviewAuthorNameEl.textContent = authorRaw;
+                        if (authorHref) {
+                            reviewAuthorNameEl.href = authorHref;
+                        }
                     }
-                } else if (reviewDataGlobal.userId && reviewAuthorNameEl) {
-                    reviewAuthorNameEl.textContent = 'Usuario Desconocido';
+                    if (reviewAuthorLinkEl) {
+                        reviewAuthorLinkEl.textContent = authorRaw;
+                        if (authorHref) {
+                            reviewAuthorLinkEl.href = authorHref;
+                        }
+                    }
+                    if (reviewAuthorBioEl) {
+                        reviewAuthorBioEl.textContent = userData.bio || userData.location || reviewAuthorBioEl.textContent || '';
+                    }
+                    renderAuthorAvatar(userData.photoUrl || reviewDataGlobal.authorPhotoUrl || '', authorRaw);
+                } else if (reviewDataGlobal.userId) {
+                    if (reviewAuthorNameEl) {
+                        reviewAuthorNameEl.textContent = 'Usuario desconocido';
+                        reviewAuthorNameEl.removeAttribute('href');
+                    }
+                    if (reviewAuthorLinkEl) {
+                        reviewAuthorLinkEl.textContent = 'Usuario desconocido';
+                        reviewAuthorLinkEl.removeAttribute('href');
+                    }
                     console.warn(`Autor de reseña con ID ${reviewDataGlobal.userId} no encontrado.`);
                 }
                 
@@ -1008,54 +1536,86 @@ ListopicApp.pageDetailView = (() => {
                 if (detailEstablishmentNameEl) {
                     detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || "Establecimiento no especificado";
                 }
-                if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
-                if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+                if (detailLocationContainerEl) detailLocationContainerEl.hidden = true;
+                if (detailNoLocationEl) detailNoLocationEl.hidden = false;
                 updateShareData({ placeId: '', placeName: reviewDataGlobal.establishmentName || '' });
                 return Promise.resolve(null); // Devolver promesa resuelta
             })
             .then(placeDocOrNull => { // placeDocOrNull es el resultado de la promesa del lugar
                 let placeData = null;
                 if (placeDocOrNull && placeDocOrNull.exists) {
-                    placeData = placeDocOrNull.data();
-                    if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = placeData.name || "Nombre de lugar desconocido";
-                    
+                    placeData = { id: placeDocOrNull.id, ...placeDocOrNull.data() };
+                    placeDataGlobal = placeData;
+                    if (detailEstablishmentNameEl) {
+                        detailEstablishmentNameEl.textContent = placeData.name || 'Nombre de lugar desconocido';
+                    }
                     if (detailImageEl && detailImageEl.alt === `Foto de reseña`) {
-                         detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || placeData.name)}`;
+                        detailImageEl.alt = `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || placeData.name)}`;
                     }
 
-                    if (detailLocationContainerEl && detailLocationTextEl && detailNoLocationDivEl && (placeData.address || placeData.name || placeData.googleMapsUrl || placeData.googlePlaceId)) {
-                        let mapsUrl = "#";
-                        if (placeData.googleMapsUrl) mapsUrl = placeData.googleMapsUrl;
-                        else if (placeData.googlePlaceId) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.googlePlaceId}`;
-                        else if (placeData.location?.latitude && placeData.location?.longitude) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.location.latitude},${placeData.location.longitude}`;
+                    let mapsUrl = '#';
+                    if (placeData.googleMapsUrl) mapsUrl = placeData.googleMapsUrl;
+                    else if (placeData.googlePlaceId) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.googlePlaceId}`;
+                    else if (placeData.location?.latitude && placeData.location?.longitude) mapsUrl = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${placeData.location.latitude},${placeData.location.longitude}`;
 
-                        if (detailLocationLinkEl) {
-                            if (mapsUrl !== "#") {
-                                detailLocationLinkEl.href = mapsUrl;
-                                detailLocationLinkEl.style.pointerEvents = "auto";
-                            } else {
-                                detailLocationLinkEl.removeAttribute('href');
-                                detailLocationLinkEl.style.pointerEvents = "none";
-                            }
+                    if (detailLocationContainerEl && detailLocationTextEl && detailLocationLinkEl) {
+                        if (mapsUrl !== '#') {
+                            detailLocationLinkEl.href = mapsUrl;
+                            detailLocationLinkEl.style.pointerEvents = 'auto';
+                            detailLocationLinkEl.target = '_blank';
+                        } else {
+                            detailLocationLinkEl.removeAttribute('href');
+                            detailLocationLinkEl.style.pointerEvents = 'none';
+                            detailLocationLinkEl.removeAttribute('target');
                         }
                         detailLocationTextEl.textContent = placeData.address || placeData.name;
-                        detailNoLocationDivEl.style.display = 'none';
-                        detailLocationContainerEl.style.display = 'block';
-                    } else {
-                        if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
-                        if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+                        detailLocationContainerEl.hidden = false;
+                        if (detailNoLocationEl) detailNoLocationEl.hidden = true;
+                    } else if (detailLocationContainerEl) {
+                        detailLocationContainerEl.hidden = true;
+                        if (detailNoLocationEl) detailNoLocationEl.hidden = false;
                     }
-                } else if (reviewDataGlobal && reviewDataGlobal.placeId) {
-                    if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = "Lugar no encontrado en BD";
-                    console.warn(`Lugar con ID ${reviewDataGlobal.placeId} no encontrado para la reseña ${reviewId}`);
-                    if (detailLocationContainerEl) detailLocationContainerEl.style.display = 'none';
-                    if (detailNoLocationDivEl) detailNoLocationDivEl.style.display = 'flex';
+
+                    if (detailPlaceLinkEl) {
+                        detailPlaceLinkEl.textContent = placeData.name || 'Lugar sin nombre';
+                        if (mapsUrl !== '#') {
+                            detailPlaceLinkEl.href = mapsUrl;
+                            detailPlaceLinkEl.target = '_blank';
+                        } else {
+                            detailPlaceLinkEl.removeAttribute('href');
+                            detailPlaceLinkEl.removeAttribute('target');
+                        }
+                    }
+                    if (detailPlaceLinkWrapperEl) {
+                        detailPlaceLinkWrapperEl.hidden = false;
+                    }
+                } else {
+                    placeDataGlobal = null;
+                    if (reviewDataGlobal && reviewDataGlobal.placeId) {
+                        console.warn(`Lugar con ID ${reviewDataGlobal.placeId} no encontrado para la reseña ${reviewId}`);
+                    }
+                    if (detailEstablishmentNameEl) {
+                        detailEstablishmentNameEl.textContent = reviewDataGlobal.establishmentName || 'Establecimiento no especificado';
+                    }
+                    if (detailLocationContainerEl) detailLocationContainerEl.hidden = true;
+                    if (detailNoLocationEl) detailNoLocationEl.hidden = false;
+                    if (detailPlaceLinkEl) {
+                        detailPlaceLinkEl.textContent = reviewDataGlobal.establishmentName || 'Ubicación no disponible';
+                        detailPlaceLinkEl.removeAttribute('href');
+                        detailPlaceLinkEl.removeAttribute('target');
+                    }
+                    if (detailPlaceLinkWrapperEl) {
+                        detailPlaceLinkWrapperEl.hidden = false;
+                    }
                 }
+                const placeIdForShare = placeData?.id || reviewDataGlobal?.placeId || fromPlaceIdParam || '';
                 const placeNameForShare = placeData?.name || reviewDataGlobal.establishmentName || '';
                 updateShareData({
-                    placeId: reviewDataGlobal?.placeId || placeData?.id || '',
+                    placeId: placeIdForShare,
                     placeName: placeNameForShare
                 });
+                groupLinkUrl = buildGroupLinkUrl(placeIdForShare || null, reviewDataGlobal?.itemName || fromItemParam || '');
+                applyGroupLink();
                 // Si placeDocOrNull es null, ya se manejo el caso sin placeId antes
             })
             .catch(error => {
@@ -1064,9 +1624,7 @@ ListopicApp.pageDetailView = (() => {
                 if (ListopicApp.services && ListopicApp.services.showNotification) {
                      ListopicApp.services.showNotification(error.message || "Error al cargar los detalles.", "error");
                 }
-                if (shareButton) {
-                    shareButton.disabled = true;
-                }
+                setShareButtonsEnabled(false);
             });
 
         // Listener para el boton de eliminar
