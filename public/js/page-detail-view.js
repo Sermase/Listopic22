@@ -842,7 +842,8 @@ ListopicApp.pageDetailView = (() => {
         const listIdFromURL = params.get('listId');
 
         // Elementos del DOM
-        const detailEstablishmentNameEl = document.getElementById('detail-restaurant-name');
+        const detailPlaceLinkEl = document.getElementById('detail-place-link');
+        const detailEstablishmentNameEl = detailPlaceLinkEl;
         const detailItemNameEl = document.getElementById('detail-dish-name');
 
         const detailScoreValueEl = document.getElementById('detail-score-value');
@@ -858,14 +859,20 @@ ListopicApp.pageDetailView = (() => {
         const detailListNameEl = document.getElementById('detail-list-name');
         const reviewAuthorNameEl = document.getElementById('review-author-name');
         const reviewAuthorAvatarEl = document.getElementById('review-author-avatar');
-        const detailPlaceLinkEl = document.getElementById('detail-place-link');
-        const detailImageEl = document.getElementById('detail-image');
+        const detailHeroImageEl = document.getElementById('detail-hero-image');
+        const detailPhotoTriggerEl = document.getElementById('detail-photo-trigger');
+        const detailPhotoHelperEl = document.getElementById('detail-photo-helper');
+        const detailPhotoModalEl = document.getElementById('detail-photo-modal');
+        const detailPhotoModalImageEl = document.getElementById('detail-photo-modal-image');
+        const detailPhotoCloseEl = document.getElementById('detail-photo-close');
         const reviewCreatedDateEl = document.getElementById('review-created-date');
         const reviewDateContainerEl = document.getElementById('review-date-container');
         const detailChartSectionEl = document.getElementById('detail-chart-section');
         const detailChartCanvasEl = document.getElementById('detail-chart-canvas');
         const detailChartStyleSelectEl = document.getElementById('detail-chart-style');
         const detailChartMessageEl = document.getElementById('detail-chart-message');
+        const detailMiniChartContainerEl = document.getElementById('detail-mini-chart');
+        const detailMiniChartCanvasEl = document.getElementById('detail-score-mini-canvas');
 
         const backButton = document.querySelector('.container a.back-button');
         const editButton = document.querySelector('.edit-button');
@@ -878,7 +885,10 @@ ListopicApp.pageDetailView = (() => {
         let displayPhotoUrl = '';
         let awaitingFallbackImage = false;
         let chartInstance = null;
+        let miniChartInstance = null;
         let chartSourceData = null;
+        const detailHeroImagePlaceholderSrc = detailHeroImageEl?.getAttribute('src') || '';
+        let currentPhotoAltText = detailHeroImageEl?.alt || 'Foto del elemento';
 
         const setNoLocationVisible = (visible) => {
             if (!detailNoLocationDivEl) {
@@ -957,12 +967,103 @@ ListopicApp.pageDetailView = (() => {
             return { labels, values, maxima, min: globalMin, max: globalMax };
         };
 
+        const computeSuggestedMax = () => {
+            if (!chartSourceData || !Array.isArray(chartSourceData.values) || !chartSourceData.values.length) {
+                return 5;
+            }
+            const maxValue = Math.max(...chartSourceData.values, 0);
+            const chartMax = Math.max(chartSourceData.max || 0, maxValue, 0);
+            return chartMax > 0 ? chartMax + chartMax * 0.1 : 5;
+        };
+
+        const destroyMiniChart = (hide = false) => {
+            if (miniChartInstance) {
+                miniChartInstance.destroy();
+                miniChartInstance = null;
+            }
+            if (detailMiniChartCanvasEl) {
+                const miniCtx = detailMiniChartCanvasEl.getContext('2d');
+                if (miniCtx) {
+                    miniCtx.clearRect(0, 0, detailMiniChartCanvasEl.width || 0, detailMiniChartCanvasEl.height || 0);
+                }
+            }
+            if (hide && detailMiniChartContainerEl) {
+                detailMiniChartContainerEl.hidden = true;
+            }
+        };
+
+        const renderMiniChart = (suggestedMaxOverride) => {
+            if (!detailMiniChartContainerEl) {
+                return;
+            }
+            if (!chartSourceData || !chartSourceData.labels?.length || typeof window.Chart === 'undefined' || !detailMiniChartCanvasEl) {
+                destroyMiniChart(true);
+                return;
+            }
+            const ctx = detailMiniChartCanvasEl.getContext('2d');
+            if (!ctx) {
+                destroyMiniChart(true);
+                return;
+            }
+            destroyMiniChart(false);
+            const suggestedMax = Number.isFinite(suggestedMaxOverride) ? suggestedMaxOverride : computeSuggestedMax();
+            miniChartInstance = new window.Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: chartSourceData.labels,
+                    datasets: [{
+                        data: chartSourceData.values,
+                        fill: true,
+                        backgroundColor: 'rgba(244, 63, 94, 0.25)',
+                        borderColor: 'rgba(194, 65, 12, 0.85)',
+                        pointBackgroundColor: '#fef3c7',
+                        pointBorderColor: 'rgba(194, 65, 12, 0.9)',
+                        pointRadius: 2,
+                        pointHoverRadius: 3,
+                        borderWidth: 1.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            suggestedMax,
+                            grid: {
+                                color: 'rgba(15, 23, 42, 0.18)'
+                            },
+                            angleLines: {
+                                color: 'rgba(15, 23, 42, 0.2)'
+                            },
+                            ticks: {
+                                display: false
+                            },
+                            pointLabels: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        duration: 450,
+                        easing: 'easeOutQuad'
+                    }
+                }
+            });
+            detailMiniChartContainerEl.hidden = false;
+        };
+
         const renderDetailChart = (style = 'radar') => {
             if (!detailChartSectionEl) {
                 return;
             }
             if (!chartSourceData || !chartSourceData.labels.length) {
                 destroyDetailChart();
+                destroyMiniChart(true);
                 detailChartSectionEl.hidden = true;
                 setChartMessage('');
                 if (detailChartStyleSelectEl) {
@@ -972,6 +1073,7 @@ ListopicApp.pageDetailView = (() => {
             }
             if (typeof window.Chart === 'undefined' || !detailChartCanvasEl) {
                 destroyDetailChart();
+                destroyMiniChart(true);
                 detailChartSectionEl.hidden = false;
                 setChartMessage('No se pudo inicializar el módulo de gráficas en este navegador.');
                 if (detailChartStyleSelectEl) {
@@ -986,12 +1088,12 @@ ListopicApp.pageDetailView = (() => {
             }
             const ctx = detailChartCanvasEl.getContext('2d');
             if (!ctx) {
+                destroyMiniChart(true);
                 return;
             }
             destroyDetailChart();
-            const maxValue = chartSourceData.values.length ? Math.max(...chartSourceData.values) : 0;
-            const chartMax = Math.max(chartSourceData.max || 0, maxValue, 0);
-            const suggestedMax = chartMax > 0 ? chartMax + chartMax * 0.1 : 5;
+            const suggestedMax = computeSuggestedMax();
+            renderMiniChart(suggestedMax);
             const resolvedStyle = style === 'bars' ? 'bar' : 'radar';
             const tooltipLabelFormatter = (context) => {
                 const value = Number.parseFloat(context.raw ?? 0);
@@ -1136,6 +1238,7 @@ ListopicApp.pageDetailView = (() => {
             if (!reviewData || !Array.isArray(entries) || !entries.length) {
                 chartSourceData = null;
                 destroyDetailChart();
+                destroyMiniChart(true);
                 if (detailChartSectionEl) {
                     detailChartSectionEl.hidden = true;
                 }
@@ -1149,6 +1252,7 @@ ListopicApp.pageDetailView = (() => {
             if (!chartSourceData.labels.length) {
                 chartSourceData = null;
                 destroyDetailChart();
+                destroyMiniChart(true);
                 detailChartSectionEl.hidden = false;
                 setChartMessage('No hay puntuaciones suficientes para dibujar la gráfica.');
                 if (detailChartStyleSelectEl) {
@@ -1167,37 +1271,109 @@ ListopicApp.pageDetailView = (() => {
             });
         }
 
-        const showDetailImage = (url, altText) => {
-            if (!detailImageEl) {
-                return;
+        const setPhotoAvailability = (hasPhoto) => {
+            if (detailPhotoTriggerEl) {
+                detailPhotoTriggerEl.disabled = !hasPhoto;
+                detailPhotoTriggerEl.classList.toggle('detail-photo-thumb--empty', !hasPhoto);
+                if (hasPhoto) {
+                    detailPhotoTriggerEl.removeAttribute('aria-disabled');
+                } else {
+                    detailPhotoTriggerEl.setAttribute('aria-disabled', 'true');
+                }
             }
-            if (url) {
-                detailImageEl.src = url;
-                if (altText) {
-                    detailImageEl.alt = altText;
-                }
-                detailImageEl.style.display = 'block';
-                const placeholderIcon = detailImageEl.parentNode?.querySelector('.detail-image-icon-placeholder');
-                if (placeholderIcon) {
-                    placeholderIcon.style.display = 'none';
-                }
+            if (detailPhotoHelperEl) {
+                detailPhotoHelperEl.hidden = !hasPhoto;
             }
         };
 
-        const showImagePlaceholder = () => {
-            if (!detailImageEl || !detailImageEl.parentNode) {
+        const showDetailImage = (url, altText) => {
+            if (!detailHeroImageEl || !url) {
                 return;
             }
-            detailImageEl.style.display = 'none';
-            let placeholderIconDiv = detailImageEl.parentNode.querySelector('.detail-image-icon-placeholder');
-            if (!placeholderIconDiv) {
-                placeholderIconDiv = document.createElement('div');
-                placeholderIconDiv.className = 'detail-image-icon-placeholder';
-                detailImageEl.parentNode.insertBefore(placeholderIconDiv, detailImageEl.nextSibling);
+            currentPhotoAltText = altText || 'Foto del elemento';
+            detailHeroImageEl.src = url;
+            detailHeroImageEl.alt = currentPhotoAltText;
+            if (detailPhotoModalImageEl) {
+                detailPhotoModalImageEl.src = url;
+                detailPhotoModalImageEl.alt = currentPhotoAltText;
             }
-            placeholderIconDiv.innerHTML = '<i class="fa-solid fa-image"></i>';
-            placeholderIconDiv.style.display = 'flex';
+            displayPhotoUrl = url;
+            setPhotoAvailability(true);
         };
+
+        const showImagePlaceholder = () => {
+            if (!detailHeroImageEl) {
+                return;
+            }
+            currentPhotoAltText = 'Imagen no disponible';
+            if (detailHeroImagePlaceholderSrc) {
+                detailHeroImageEl.src = detailHeroImagePlaceholderSrc;
+            } else {
+                detailHeroImageEl.removeAttribute('src');
+            }
+            detailHeroImageEl.alt = currentPhotoAltText;
+            if (detailPhotoModalImageEl) {
+                detailPhotoModalImageEl.src = '';
+                detailPhotoModalImageEl.alt = currentPhotoAltText;
+            }
+            displayPhotoUrl = '';
+            setPhotoAvailability(false);
+            closePhotoModal();
+        };
+
+        function openPhotoModal() {
+            if (!detailPhotoModalEl || !detailPhotoModalImageEl || !displayPhotoUrl) {
+                return;
+            }
+            detailPhotoModalImageEl.src = displayPhotoUrl;
+            detailPhotoModalImageEl.alt = currentPhotoAltText || 'Imagen ampliada del lugar';
+            detailPhotoModalEl.classList.add('is-open');
+            detailPhotoModalEl.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('detail-photo-modal-open');
+            if (detailPhotoCloseEl) {
+                detailPhotoCloseEl.focus({ preventScroll: true });
+            }
+        }
+
+        function closePhotoModal() {
+            if (!detailPhotoModalEl) {
+                return;
+            }
+            detailPhotoModalEl.classList.remove('is-open');
+            detailPhotoModalEl.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('detail-photo-modal-open');
+        }
+
+        setPhotoAvailability(false);
+
+        if (detailPhotoTriggerEl) {
+            detailPhotoTriggerEl.addEventListener('click', () => {
+                if (detailPhotoTriggerEl.disabled || !displayPhotoUrl) {
+                    return;
+                }
+                openPhotoModal();
+            });
+        }
+
+        if (detailPhotoCloseEl) {
+            detailPhotoCloseEl.addEventListener('click', () => {
+                closePhotoModal();
+            });
+        }
+
+        if (detailPhotoModalEl) {
+            detailPhotoModalEl.addEventListener('click', (event) => {
+                if (event.target === detailPhotoModalEl) {
+                    closePhotoModal();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && detailPhotoModalEl?.classList.contains('is-open')) {
+                closePhotoModal();
+            }
+        });
 
         const updateReviewDate = (rawDateValue) => {
             if (!reviewCreatedDateEl || !reviewDateContainerEl) {
@@ -1376,7 +1552,7 @@ ListopicApp.pageDetailView = (() => {
                 if (detailItemNameEl) detailItemNameEl.textContent = reviewDataGlobal.itemName || '';
                 if (detailScoreValueEl) detailScoreValueEl.textContent = reviewDataGlobal.overallRating !== undefined ? reviewDataGlobal.overallRating.toFixed(1) : 'N/A';
                 
-                if (detailImageEl && detailImageEl.parentNode) {
+                if (detailHeroImageEl) {
                     if (displayPhotoUrl) {
                         showDetailImage(displayPhotoUrl, `Foto de ${uiUtils.escapeHtml(reviewDataGlobal.itemName || 'reseña')}`);
                     } else {
@@ -1409,21 +1585,16 @@ ListopicApp.pageDetailView = (() => {
                 }
 
                 if (detailPlaceLinkEl) {
-                    const placeTextNode = detailPlaceLinkEl.querySelector('#detail-place-text');
                     const fallbackPlaceName = reviewDataGlobal.establishmentName || 'Lugar sin especificar';
-                    if (placeTextNode) {
-                        placeTextNode.textContent = fallbackPlaceName;
-                    } else {
-                        detailPlaceLinkEl.textContent = fallbackPlaceName;
-                    }
+                    detailPlaceLinkEl.textContent = fallbackPlaceName;
                     if (reviewDataGlobal.placeId) {
                         detailPlaceLinkEl.href = `place-detail.html?placeId=${encodeURIComponent(reviewDataGlobal.placeId)}`;
-                        detailPlaceLinkEl.classList.remove('detail-place__link--disabled');
+                        detailPlaceLinkEl.setAttribute('aria-label', `Abrir la ficha de ${fallbackPlaceName}`);
                         detailPlaceLinkEl.removeAttribute('aria-disabled');
                     } else {
                         detailPlaceLinkEl.removeAttribute('href');
-                        detailPlaceLinkEl.classList.add('detail-place__link--disabled');
                         detailPlaceLinkEl.setAttribute('aria-disabled', 'true');
+                        detailPlaceLinkEl.removeAttribute('aria-label');
                     }
                 }
 
@@ -1573,22 +1744,17 @@ ListopicApp.pageDetailView = (() => {
                     if (detailEstablishmentNameEl) detailEstablishmentNameEl.textContent = placeData.name || "Nombre de lugar desconocido";
 
                     if (detailPlaceLinkEl) {
-                        const placeTextNode = detailPlaceLinkEl.querySelector('#detail-place-text');
                         const resolvedPlaceName = placeData.name || reviewDataGlobal.establishmentName || 'Lugar sin especificar';
-                        if (placeTextNode) {
-                            placeTextNode.textContent = resolvedPlaceName;
-                        } else {
-                            detailPlaceLinkEl.textContent = resolvedPlaceName;
-                        }
+                        detailPlaceLinkEl.textContent = resolvedPlaceName;
                         const resolvedPlaceId = placeDocOrNull.id || reviewDataGlobal.placeId || placeData.id;
                         if (resolvedPlaceId) {
                             detailPlaceLinkEl.href = `place-detail.html?placeId=${encodeURIComponent(resolvedPlaceId)}`;
-                            detailPlaceLinkEl.classList.remove('detail-place__link--disabled');
+                            detailPlaceLinkEl.setAttribute('aria-label', `Abrir la ficha de ${resolvedPlaceName}`);
                             detailPlaceLinkEl.removeAttribute('aria-disabled');
                         } else {
                             detailPlaceLinkEl.removeAttribute('href');
-                            detailPlaceLinkEl.classList.add('detail-place__link--disabled');
                             detailPlaceLinkEl.setAttribute('aria-disabled', 'true');
+                            detailPlaceLinkEl.removeAttribute('aria-label');
                         }
                     }
 
@@ -1638,8 +1804,9 @@ ListopicApp.pageDetailView = (() => {
                     }
                     setNoLocationVisible(true);
                     if (detailPlaceLinkEl) {
-                        detailPlaceLinkEl.classList.add('detail-place__link--disabled');
+                        detailPlaceLinkEl.removeAttribute('href');
                         detailPlaceLinkEl.setAttribute('aria-disabled', 'true');
+                        detailPlaceLinkEl.removeAttribute('aria-label');
                     }
                 }
                 const placeNameForShare = placeData?.name || reviewDataGlobal.establishmentName || '';
