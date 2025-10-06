@@ -885,7 +885,7 @@ if (deleteListButton) {
                 const deleteOrOrphanList = firebase.app().functions('europe-west1').httpsCallable('deleteOrOrphanList');
                 const result = await deleteOrOrphanList({ listId: state.currentListId });
                 ListopicApp.services.showNotification(result.data.message, 'success');
-                window.location.href = 'Index.html';
+                window.location.href = 'index.html';
             } catch (error) {
                 ListopicApp.services.showNotification(`Error: ${error.message}`, 'error');
             }

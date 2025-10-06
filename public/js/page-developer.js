@@ -48,7 +48,7 @@ ListopicApp.pageDeveloper = (() => {
                     <i class="fas fa-user-lock" style="font-size: 4rem; color: var(--danger-color);"></i>
                     <h1 style="margin-top: 20px;">Acceso Denegado</h1>
                     <p style="font-size: 1.2rem; color: var(--secondary-text-color);">${message}</p>
-                    <a href="Index.html" class="button-primary" style="margin-top: 20px;">Volver al inicio</a>
+                    <a href="index.html" class="button-primary" style="margin-top: 20px;">Volver al inicio</a>
                 </div>
             `;
         }
