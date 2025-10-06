@@ -54,6 +54,7 @@
     --header-gradient-opacity-top: 0.05;
     --header-noise-opacity: 0.02;
     --header-height: 50px;
+    --header-action-size: 40px;
 }
 
 /* --- TEMA CLARO REFINADO --- */
@@ -1315,42 +1316,26 @@ body.light-theme footer {
 
 
 .search-button {
-      /* position: fixed;  <-- Eliminado para que dependa del contenedor */
-  /* top: 15px;        <-- Eliminado */
-  /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
-  /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
-  /* right: 70px;      <-- Eliminado */
-  /* position: relative; Para el posicionamiento absoluto del menÃº hijo */
-  background-color: var(--container-bg);
-  color: var(--text-color);
-  border: 1px solid var(--input-border);
-  border-radius: 50%;
-  width: 45px;
-  height: 45px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3em; /* Icon size */
-  padding: 0;
-  /* z-index: 1001;  <-- Manejado por .user-profile-menu-container y .user-menu */
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  cursor: pointer;
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+    width: var(--header-action-size, 40px);
+    height: var(--header-action-size, 40px);
+    border-radius: 50%;
+    font-size: 1.2em;
 }
 
-  .search-button:hover {
+.search-button:hover {
     background-color: var(--accent-color-primary); /* Usa el color de acento primario del tema actual */
-    color: var(--main-button-text); /* Usa el color de texto de botÃ³n principal del tema actual */
+    color: var(--main-button-text); /* Usa el color de texto de botón principal del tema actual */
     border-color: var(--accent-color-primary); /* Usa el color de acento primario del tema actual */
     transform: translateY(-1px);
-  }
-  
-  .search-button i {
+}
+
+.header-action-button i,
+.search-button i {
     line-height: 1; /* Ayuda a centrar verticalmente el icono de FontAwesome */
     display: flex; /* Para asegurar que el icono se comporte como un bloque flexible */
     align-items: center;
     justify-content: center;
-  }
+}
 
 /* NUEVO: Contenedor para el menÃº de perfil */
 .user-profile-menu-container {
@@ -1621,24 +1606,24 @@ body.light-theme .user-menu-divider {
 
 /* Estilo general para los botones de acciÃ³n del header, incluyendo los que son enlaces */
 .header-action-button,
-a.header-action-button { /* Importante aÃ±adir 'a.header-action-button' */
+a.header-action-button { /* Importante añadir 'a.header-action-button' */
     background-color: var(--container-bg);
     color: var(--text-color); /* Para el color del icono */
     border: 1px solid var(--input-border);
-    border-radius: 45%;
-    width: 40px;
-    height: 40px;
+    border-radius: 50%;
+    width: var(--header-action-size, 40px);
+    height: var(--header-action-size, 40px);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2em; /* TamaÃ±o del icono */
+    font-size: 1.2em; /* Tamaño del icono */
     padding: 0;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     cursor: pointer;
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
     box-sizing: border-box;
     flex-shrink: 0;
-    
+
     text-decoration: none; /* CLAVE: Quita el subrayado de los enlaces */
 }
 
