@@ -54,6 +54,8 @@
     --header-gradient-opacity-top: 0.05;
     --header-noise-opacity: 0.02;
     --header-height: 50px;
+    --header-action-button-size: 44px;
+    --header-action-icon-size: 1.2em;
 }
 
 /* --- TEMA CLARO REFINADO --- */
@@ -1099,7 +1101,7 @@ body.light-theme .user-menu {
   border-color: #D1D5DB;
   box-shadow: 0 8px 20px rgba(0,0,0,0.1);
 }
-body.light-theme .user-menu a, 
+body.light-theme .user-menu a,
 body.light-theme .user-menu button {
   color: var(--text-color);
 }
@@ -1143,27 +1145,7 @@ body.light-theme .modal-content {
 
 /* --- Estilos para el botÃ³n de cambio de tema --- */
 .theme-toggle-button {
-  /*position: fixed;
-  top: 15px;
-  right: 15px;
-  background-color: var(--container-bg); /* Usa el color de fondo de los contenedores del tema actual */
-  /* position: fixed, top, right, y z-index se eliminan para permitir que este botÃ³n
-     sea un elemento flex dentro de .header-actions-container.
-     Su estilo visual principal deberÃ­a provenir de .header-action-button si se usan juntos. */
-    background-color: var(--container-bg); /* Estas propiedades podrÃ­an ser redundantes si .header-action-button siempre estÃ¡ aplicado */
-  color: var(--text-color); /* Usa el color de texto del tema actual */
-  border: 1px solid var(--input-border); /* Usa el color de borde de input del tema actual */
-  border-radius: 50%;
-  width: 45px;
-  height: 45px;
-  display: flex; /* Asegura que flexbox estÃ© aplicado */
-  align-items: center; /* Centra verticalmente el icono */
-  justify-content: center; /* Centra horizontalmente el icono */
-  font-size: 1.2em; /* Ajusta el tamaÃ±o base para el icono si es necesario */
-  padding: 0; /* Elimina padding si interfiere con el centrado del icono */
-  /*z-index: 1001;*/
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+  font-size: var(--header-action-icon-size);
 }
 
 .theme-toggle-button:hover {
@@ -1315,42 +1297,19 @@ body.light-theme footer {
 
 
 .search-button {
-      /* position: fixed;  <-- Eliminado para que dependa del contenedor */
-  /* top: 15px;        <-- Eliminado */
-  /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
-  /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
-  /* right: 70px;      <-- Eliminado */
-  /* position: relative; Para el posicionamiento absoluto del menÃº hijo */
-  background-color: var(--container-bg);
-  color: var(--text-color);
-  border: 1px solid var(--input-border);
-  border-radius: 50%;
-  width: 45px;
-  height: 45px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3em; /* Icon size */
-  padding: 0;
-  /* z-index: 1001;  <-- Manejado por .user-profile-menu-container y .user-menu */
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  cursor: pointer;
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+  font-size: var(--header-action-icon-size); /* Alinea el tamaño del icono con el resto del header */
 }
 
-  .search-button:hover {
+.search-button:hover {
     background-color: var(--accent-color-primary); /* Usa el color de acento primario del tema actual */
-    color: var(--main-button-text); /* Usa el color de texto de botÃ³n principal del tema actual */
+    color: var(--main-button-text); /* Usa el color de texto de botón principal del tema actual */
     border-color: var(--accent-color-primary); /* Usa el color de acento primario del tema actual */
     transform: translateY(-1px);
-  }
-  
-  .search-button i {
+}
+
+.search-button i {
     line-height: 1; /* Ayuda a centrar verticalmente el icono de FontAwesome */
-    display: flex; /* Para asegurar que el icono se comporte como un bloque flexible */
-    align-items: center;
-    justify-content: center;
-  }
+}
 
 /* NUEVO: Contenedor para el menÃº de perfil */
 .user-profile-menu-container {
@@ -1366,27 +1325,7 @@ body.light-theme footer {
 
 /* --- User Profile Menu --- */
 .user-profile-button {
-  /* position: fixed;  <-- Eliminado para que dependa del contenedor */
-  /* top: 15px;        <-- Eliminado */
-  /* Theme toggle button is at right: 15px, width: 45px. Add 10px gap. */
-  /* 15px (theme-toggle offset) + 45px (theme-toggle width) + 10px (gap) = 70px */
-  /* right: 70px;      <-- Eliminado */
-  position: relative; /* Para el posicionamiento absoluto del menÃº hijo */
-  background-color: var(--container-bg);
-  color: var(--text-color);
-  border: 1px solid var(--input-border);
-  border-radius: 50%;
-  width: 45px;
-  height: 45px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3em; /* Icon size */
-  padding: 0;
-  /* z-index: 1001;  <-- Manejado por .user-profile-menu-container y .user-menu */
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  cursor: pointer;
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+  font-size: var(--header-action-icon-size);
 }
 
 .user-profile-button:hover {
@@ -1597,6 +1536,13 @@ body.light-theme .user-menu-divider {
     gap: 9px; /* Espacio entre los botones de acciÃ³n */
 }
 
+.anchor-offset-target {
+    display: block;
+    height: 0;
+    width: 100%;
+    scroll-margin-top: 120px;
+}
+
 .header-action-button.notifications-button,
 .header-action-button.chat-button {
     position: relative;
@@ -1621,17 +1567,17 @@ body.light-theme .user-menu-divider {
 
 /* Estilo general para los botones de acciÃ³n del header, incluyendo los que son enlaces */
 .header-action-button,
-a.header-action-button { /* Importante aÃ±adir 'a.header-action-button' */
+a.header-action-button { /* Importante añadir 'a.header-action-button' */
     background-color: var(--container-bg);
     color: var(--text-color); /* Para el color del icono */
     border: 1px solid var(--input-border);
-    border-radius: 45%;
-    width: 40px;
-    height: 40px;
+    border-radius: 50%;
+    width: var(--header-action-button-size);
+    height: var(--header-action-button-size);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2em; /* TamaÃ±o del icono */
+    font-size: var(--header-action-icon-size); /* Tamaño del icono */
     padding: 0;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     cursor: pointer;
@@ -1771,7 +1717,7 @@ a.header-action-button:hover {
     text-decoration: none; /* Mantener sin subrayado en hover */
 }
 
-.header-action-button, a.header-action-button i {
+.header-action-button, .header-action-button i {
     line-height: 1;
     display: flex;
     align-items: center;
