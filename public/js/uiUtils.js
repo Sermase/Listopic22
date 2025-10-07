@@ -194,12 +194,44 @@ ListopicApp.uiUtils = {
     },
     
     renderCriteriaSliders: function(containerElement, existingRatings = {}, criteriaDefinitionMap = {}) {
-        if (!containerElement) return;
+        if (!containerElement) {
+            console.warn('No se encontró el contenedor de criterios dinámicos.');
+            return;
+        }
         containerElement.innerHTML = '';
-        if (typeof criteriaDefinitionMap !== 'object' || Object.keys(criteriaDefinitionMap).length === 0) {
+        if (!criteriaDefinitionMap || Object.keys(criteriaDefinitionMap).length === 0) {
             containerElement.innerHTML = '<p>No hay criterios de valoración definidos para esta lista.</p>';
             return;
         }
+
+        const getFeedbackTone = (percent) => {
+            if (percent >= 70) {
+                return {
+                    background: 'rgba(16, 185, 129, 0.16)',
+                    border: '#10b981',
+                    accent: '#047857',
+                    pillBg: 'rgba(16, 185, 129, 0.25)',
+                    pillColor: '#065f46'
+                };
+            }
+            if (percent >= 40) {
+                return {
+                    background: 'rgba(245, 158, 11, 0.18)',
+                    border: '#f59e0b',
+                    accent: '#92400e',
+                    pillBg: 'rgba(245, 158, 11, 0.22)',
+                    pillColor: '#78350f'
+                };
+            }
+            return {
+                background: 'rgba(239, 68, 68, 0.2)',
+                border: '#ef4444',
+                accent: '#991b1b',
+                pillBg: 'rgba(239, 68, 68, 0.24)',
+                pillColor: '#7f1d1d'
+            };
+        };
+
         for (const [criterionKey, criterion] of Object.entries(criteriaDefinitionMap)) {
             const currentValue = existingRatings[criterionKey] !== undefined ? parseFloat(existingRatings[criterionKey]) : 5;
             const sliderGroup = document.createElement('div');
@@ -219,8 +251,57 @@ ListopicApp.uiUtils = {
             sliderInput.className = 'form-input rating-slider';
             const valueDisplay = document.createElement('span');
             valueDisplay.className = 'slider-value-display';
-            valueDisplay.textContent = parseFloat(sliderInput.value).toFixed(1);
-            sliderInput.addEventListener('input', () => { valueDisplay.textContent = parseFloat(sliderInput.value).toFixed(1); });
+
+            const feedbackCard = document.createElement('div');
+            feedbackCard.className = 'slider-feedback-card';
+            const primaryRow = document.createElement('div');
+            primaryRow.className = 'slider-feedback-card__row';
+            const primaryValueText = document.createElement('span');
+            primaryValueText.className = 'slider-feedback-card__accent';
+            const tendencyText = document.createElement('span');
+            tendencyText.className = 'slider-feedback-card__trend';
+            primaryRow.appendChild(primaryValueText);
+            primaryRow.appendChild(tendencyText);
+            const distributionRow = document.createElement('div');
+            distributionRow.className = 'slider-feedback-card__row';
+            const distributionLeft = document.createElement('span');
+            const distributionRight = document.createElement('span');
+            distributionRow.appendChild(distributionLeft);
+            distributionRow.appendChild(distributionRight);
+            feedbackCard.appendChild(primaryRow);
+            feedbackCard.appendChild(distributionRow);
+
+            const refreshSliderVisual = () => {
+                const minVal = parseFloat(sliderInput.min);
+                const maxVal = parseFloat(sliderInput.max);
+                const numericValue = parseFloat(sliderInput.value);
+                const percentRaw = maxVal > minVal ? ((numericValue - minVal) / (maxVal - minVal)) * 100 : 0;
+                const percent = Math.min(100, Math.max(0, percentRaw));
+                sliderInput.style.setProperty('--percent', `${percent}%`);
+                valueDisplay.textContent = numericValue.toFixed(1);
+                const tone = getFeedbackTone(percent);
+                valueDisplay.style.backgroundColor = tone.pillBg;
+                valueDisplay.style.color = tone.pillColor;
+                feedbackCard.style.backgroundColor = tone.background;
+                feedbackCard.style.borderLeftColor = tone.border;
+                primaryValueText.style.color = tone.accent;
+                const leftLabel = criterion.labelMin || String(sliderInput.min);
+                const rightLabel = criterion.labelMax || String(sliderInput.max);
+                distributionLeft.textContent = `${leftLabel}: ${(100 - percent).toFixed(0)}%`;
+                distributionRight.textContent = `${rightLabel}: ${percent.toFixed(0)}%`;
+                if (percent <= 45) {
+                    tendencyText.textContent = `Tendencia: ${leftLabel}`;
+                } else if (percent >= 55) {
+                    tendencyText.textContent = `Tendencia: ${rightLabel}`;
+                } else {
+                    tendencyText.textContent = 'Tendencia: equilibrado';
+                }
+                primaryValueText.textContent = `Puntuación: ${numericValue.toFixed(1)}`;
+            };
+
+            refreshSliderVisual();
+            sliderInput.addEventListener('input', refreshSliderVisual);
+            sliderInput.addEventListener('change', refreshSliderVisual);
             label.appendChild(valueDisplay);
             sliderGroup.appendChild(label);
             sliderGroup.appendChild(sliderInput);
@@ -235,10 +316,61 @@ ListopicApp.uiUtils = {
                 rangeLabels.appendChild(rightLabelSpan);
                 sliderGroup.appendChild(rangeLabels);
             }
+            sliderGroup.appendChild(feedbackCard);
             containerElement.appendChild(sliderGroup);
+            refreshSliderVisual();
         }
     },
 
+    setPlaceSelectionStatus: function(type, message, options = {}) {
+        const statusEl = document.getElementById('place-selection-status');
+        if (!statusEl) return;
+
+        const normalizedType = ['loading', 'success', 'error', 'info'].includes(type) ? type : 'info';
+        const iconByType = {
+            loading: 'fa-spinner fa-spin',
+            success: 'fa-circle-check',
+            error: 'fa-circle-exclamation',
+            info: 'fa-circle-info'
+        };
+
+        const highlight = typeof options.highlight === 'string' ? this.escapeHtml(options.highlight) : '';
+        const safeMessage = typeof message === 'string' ? this.escapeHtml(message) : '';
+        const searchInput = document.getElementById('restaurant-name-search-input');
+        const searchGroup = searchInput ? searchInput.closest('.form-group') : null;
+        const statusClasses = ['place-status-loading', 'place-status-success', 'place-status-error', 'place-status-info'];
+        if (searchGroup) {
+            statusClasses.forEach(cls => searchGroup.classList.remove(cls));
+            if (normalizedType !== 'success') {
+                searchGroup.classList.remove('place-found');
+            }
+        }
+
+        if (!highlight && !safeMessage) {
+            statusEl.className = 'place-selection-status';
+            statusEl.textContent = '';
+            if (searchGroup) {
+                searchGroup.classList.remove('place-found');
+            }
+            return;
+        }
+
+        statusEl.className = `place-selection-status place-selection-status--${normalizedType} place-selection-status--visible`;
+        const messageHtml = highlight
+            ? `${highlight ? `<strong>${highlight}</strong>` : ''}${safeMessage ? ` ${safeMessage}` : ''}`
+            : safeMessage;
+        statusEl.innerHTML = `
+            <span class="status-icon" aria-hidden="true"><i class="fas ${iconByType[normalizedType] || iconByType.info}"></i></span>
+            <span>${messageHtml}</span>
+        `;
+        if (searchGroup) {
+            if (normalizedType === 'success') {
+                searchGroup.classList.add('place-status-success', 'place-found');
+            } else {
+                searchGroup.classList.add(`place-status-${normalizedType}`);
+            }
+        }
+    },
     escapeHtml: function(unsafe) {
         if (typeof unsafe !== 'string') return '';
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
@@ -624,32 +756,51 @@ createListViewGroupCard: function(group, listData, listIcon) {
     // Añade esta función dentro del objeto ListopicApp.uiUtils en tu archivo public/js/uiUtils.js
 
     updateReviewFormWithPlace: function(placeData) {
-    const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
-    const establishmentNameHidden = document.getElementById('establishment-name');
-    const locationDisplayNameInput = document.getElementById('location-display-name');
-    const locationAddressManualInput = document.getElementById('location-address-manual');
-    const locationRegionManualInput = document.getElementById('location-region-manual');
-    const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
-    const locationLatInput = document.getElementById('location-latitude');
-    const locationLonInput = document.getElementById('location-longitude');
-    const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
-    const locationCityGInput = document.getElementById('location-city-g');
-    const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
-    const locationCountryGInput = document.getElementById('location-country-g');
+        const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
+        const establishmentNameHidden = document.getElementById('establishment-name');
+        const locationDisplayNameInput = document.getElementById('location-display-name');
+        const locationAddressManualInput = document.getElementById('location-address-manual');
+        const locationRegionManualInput = document.getElementById('location-region-manual');
+        const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
+        const locationLatInput = document.getElementById('location-latitude');
+        const locationLonInput = document.getElementById('location-longitude');
+        const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
+        const locationCityGInput = document.getElementById('location-city-g');
+        const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
+        const locationCountryGInput = document.getElementById('location-country-g');
 
-    if (establishmentNameSearchInput) establishmentNameSearchInput.value = placeData.name || '';
-    if (establishmentNameHidden) establishmentNameHidden.value = placeData.name || '';
-    if (locationDisplayNameInput) locationDisplayNameInput.value = placeData.name || '';
-    if (locationAddressManualInput) locationAddressManualInput.value = placeData.addressFormatted || placeData.streetAddress || '';
-    if (locationRegionManualInput) locationRegionManualInput.value = placeData.region || '';
-    if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeData.mapsUrl || '';
-    if (locationLatInput) locationLatInput.value = placeData.latitude || "";
-    if (locationLonInput) locationLonInput.value = placeData.longitude || "";
-    if (locationPlaceIdInput) locationPlaceIdInput.value = placeData.id || placeData.placeId || "";
-    if (locationCityGInput) locationCityGInput.value = placeData.city || "";
-    if (locationPostalCodeGInput) locationPostalCodeGInput.value = placeData.postalCode || "";
-    if (locationCountryGInput) locationCountryGInput.value = placeData.country || "";
-},
+        if (establishmentNameSearchInput) {
+            establishmentNameSearchInput.value = placeData.name || '';
+            establishmentNameSearchInput.dataset.placeSelected = 'true';
+            const searchGroup = establishmentNameSearchInput.closest('.form-group');
+            if (searchGroup) {
+                searchGroup.classList.remove('place-status-loading', 'place-status-error', 'place-status-info');
+                searchGroup.classList.add('place-status-success', 'place-found');
+            }
+        }
+        if (establishmentNameHidden) establishmentNameHidden.value = placeData.name || '';
+        if (locationDisplayNameInput) locationDisplayNameInput.value = placeData.name || '';
+        if (locationAddressManualInput) locationAddressManualInput.value = placeData.addressFormatted || placeData.streetAddress || '';
+        if (locationRegionManualInput) locationRegionManualInput.value = placeData.region || '';
+        if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeData.mapsUrl || '';
+        if (locationLatInput) locationLatInput.value = placeData.latitude || "";
+        if (locationLonInput) locationLonInput.value = placeData.longitude || "";
+        if (locationPlaceIdInput) locationPlaceIdInput.value = placeData.id || placeData.placeId || "";
+        if (locationCityGInput) locationCityGInput.value = placeData.city || "";
+        if (locationPostalCodeGInput) locationPostalCodeGInput.value = placeData.postalCode || "";
+        if (locationCountryGInput) locationCountryGInput.value = placeData.country || "";
+
+        const suggestionsBox = document.getElementById('restaurant-suggestions');
+        if (suggestionsBox) {
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.classList.remove('is-visible');
+        }
+
+        const placeName = placeData.name || '';
+        if (this.setPlaceSelectionStatus) {
+            this.setPlaceSelectionStatus('success', 'añadido correctamente.', { highlight: placeName });
+        }
+    },
 
 
 

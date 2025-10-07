@@ -132,9 +132,187 @@ ListopicApp.pageReviewForm = (() => {
         });
     }
 
+    function setupHelpModal() {
+        const modal = document.getElementById('tips-modal');
+        const openButton = document.getElementById('open-help-modal');
+        if (!modal || !openButton) return;
+
+        const closeButton = document.getElementById('close-help-modal');
+        const overlay = modal.querySelector('[data-modal-dismiss]');
+        let previouslyFocused = null;
+
+        openButton.setAttribute('aria-expanded', 'false');
+
+        const getFocusableElements = () => {
+            return Array.from(modal.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])'))
+                .filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
+        };
+
+        const closeModal = () => {
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+            openButton.setAttribute('aria-expanded', 'false');
+            document.removeEventListener('keydown', handleKeydown);
+            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                previouslyFocused.focus({ preventScroll: true });
+            }
+        };
+
+        const handleKeydown = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeModal();
+                return;
+            }
+            if (event.key === 'Tab') {
+                const focusable = getFocusableElements();
+                if (!focusable.length) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey) {
+                    if (document.activeElement === first || !modal.contains(document.activeElement)) {
+                        event.preventDefault();
+                        last.focus();
+                    }
+                } else {
+                    if (document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                }
+            }
+        };
+
+        const openModal = () => {
+            previouslyFocused = document.activeElement;
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            openButton.setAttribute('aria-expanded', 'true');
+            document.addEventListener('keydown', handleKeydown);
+            const focusable = getFocusableElements();
+            const target = focusable[0] || closeButton || modal;
+            setTimeout(() => target.focus({ preventScroll: true }), 0);
+        };
+
+        openButton.addEventListener('click', () => {
+            if (modal.classList.contains('is-open')) {
+                closeModal();
+            } else {
+                openModal();
+            }
+        });
+
+        if (closeButton) {
+            closeButton.addEventListener('click', closeModal);
+        }
+        if (overlay) {
+            overlay.addEventListener('click', closeModal);
+        }
+    }
+
+    function setupMissingItemNameConfirmation() {
+        const modal = document.getElementById('missing-item-modal');
+        if (!modal) {
+            return { confirm: async () => true };
+        }
+
+        const overlay = modal.querySelector('.confirm-modal__overlay');
+        const cancelBtn = document.getElementById('missing-item-cancel');
+        const confirmBtn = document.getElementById('missing-item-confirm');
+        let resolver = null;
+        let previouslyFocused = null;
+
+        const getFocusableElements = () => {
+            return Array.from(modal.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')).filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
+        };
+
+        const closeModal = () => {
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+            document.removeEventListener('keydown', handleKeydown);
+            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                previouslyFocused.focus({ preventScroll: true });
+            }
+        };
+
+        const resolveAndClose = (value) => {
+            if (resolver) {
+                const currentResolver = resolver;
+                resolver = null;
+                currentResolver(!!value);
+            }
+            closeModal();
+        };
+
+        const handleKeydown = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                resolveAndClose(false);
+                return;
+            }
+            if (event.key === 'Tab') {
+                const focusable = getFocusableElements();
+                if (!focusable.length) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey) {
+                    if (document.activeElement === first || !modal.contains(document.activeElement)) {
+                        event.preventDefault();
+                        last.focus();
+                    }
+                } else {
+                    if (document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                }
+            }
+        };
+
+        const openModal = () => {
+            return new Promise(resolve => {
+                resolver = resolve;
+                previouslyFocused = document.activeElement;
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
+                document.addEventListener('keydown', handleKeydown);
+                const focusable = getFocusableElements();
+                const target = confirmBtn || focusable[0] || cancelBtn || modal;
+                if (target && typeof target.focus === 'function') {
+                    setTimeout(() => target.focus({ preventScroll: true }), 0);
+                }
+            });
+        };
+
+        if (overlay) {
+            overlay.addEventListener('click', () => resolveAndClose(false));
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+                resolveAndClose(false);
+            });
+        }
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+                resolveAndClose(true);
+            });
+        }
+
+        return {
+            confirm: () => {
+                if (resolver) {
+                    return Promise.resolve(false);
+                }
+                return openModal();
+            }
+        };
+    }
+
     function init() {
         console.log('Initializing Review Form page logic - FINAL CORRECTED VERSION');
-        
+
         const db = ListopicApp.services.db;
         const auth = ListopicApp.services.auth;
         const storage = ListopicApp.services.storage;
@@ -157,6 +335,7 @@ ListopicApp.pageReviewForm = (() => {
         const reviewForm = document.getElementById('review-form');
         
         if (reviewForm) {
+            const missingItemConfirm = setupMissingItemNameConfirmation();
             const formTitle = reviewForm.parentElement.querySelector('h2');
             const criteriaContainer = document.getElementById('dynamic-rating-criteria');
             const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
@@ -230,9 +409,24 @@ ListopicApp.pageReviewForm = (() => {
                         ps.searchRestaurantsByName(establishmentNameSearchInput.value);
                     }
                 });
+                establishmentNameSearchInput.addEventListener('input', () => {
+                    delete establishmentNameSearchInput.dataset.placeSelected;
+                    const searchGroup = establishmentNameSearchInput.closest('.form-group');
+                    if (searchGroup) {
+                        searchGroup.classList.remove('place-found', 'place-status-loading', 'place-status-success', 'place-status-error', 'place-status-info');
+                    }
+                    const uiUtils = window.ListopicApp?.uiUtils;
+                    if (uiUtils && typeof uiUtils.setPlaceSelectionStatus === 'function') {
+                        uiUtils.setPlaceSelectionStatus('info', '');
+                    }
+                });
             }
 
             setupPhotoHandling();
+            setupHelpModal();
+            if (window.ListopicApp?.uiUtils && typeof window.ListopicApp.uiUtils.setPlaceSelectionStatus === 'function') {
+                window.ListopicApp.uiUtils.setPlaceSelectionStatus('info', '');
+            }
 
             db.collection('lists').doc(listId).get().then(doc => {
                 if (!doc.exists) throw new Error("Datos de la lista no encontrados.");
@@ -276,13 +470,31 @@ ListopicApp.pageReviewForm = (() => {
             reviewForm.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 const submitButton = reviewForm.querySelector('.submit-button');
-                if (submitButton) submitButton.disabled = true;
-                
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.classList.add('is-loading');
+                }
+
                 const currentUser = auth.currentUser;
                 if (!currentUser) {
                     ListopicApp.services.showNotification("Debes estar autenticado.", 'error');
-                    if (submitButton) submitButton.disabled = false;
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.classList.remove('is-loading');
+                    }
                     return;
+                }
+
+                const itemNameValue = itemNameInput ? itemNameInput.value.trim() : '';
+                if (!itemNameValue) {
+                    const proceedWithoutName = await missingItemConfirm.confirm();
+                    if (!proceedWithoutName) {
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.classList.remove('is-loading');
+                        }
+                        return;
+                    }
                 }
 
                 try {
@@ -291,7 +503,10 @@ ListopicApp.pageReviewForm = (() => {
 
                     if (!placeIdToSave) {
                         ListopicApp.services.showNotification("Error: Debes buscar y seleccionar un lugar válido.", 'error');
-                        if (submitButton) submitButton.disabled = false;
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.classList.remove('is-loading');
+                        }
                         return;
                     }
 
@@ -354,7 +569,10 @@ ListopicApp.pageReviewForm = (() => {
                 } catch (error) {
                     console.error('Error al guardar la reseña:', error);
                     ListopicApp.services.showNotification(`No se pudo guardar: ${error.message}`, 'error');
-                    if (submitButton) submitButton.disabled = false;
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.classList.remove('is-loading');
+                    }
                 }
             });
         }
