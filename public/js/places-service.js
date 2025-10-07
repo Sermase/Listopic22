@@ -42,7 +42,33 @@ ListopicApp.placesService = (() => {
             throw error;
         }
     }
-    
+
+    function escapeHtml(text) {
+        const uiUtils = window.ListopicApp?.uiUtils;
+        if (uiUtils && typeof uiUtils.escapeHtml === 'function') {
+            return uiUtils.escapeHtml(String(text ?? ''));
+        }
+        return String(text ?? '');
+    }
+
+    function setStatus(type, message, options) {
+        const uiUtils = window.ListopicApp?.uiUtils;
+        if (uiUtils && typeof uiUtils.setPlaceSelectionStatus === 'function') {
+            uiUtils.setPlaceSelectionStatus(type, message, options);
+        }
+    }
+
+    function resetPlaceIndicator() {
+        const input = document.getElementById('restaurant-name-search-input');
+        if (input) {
+            delete input.dataset.placeSelected;
+            const group = input.closest('.form-group');
+            if (group) {
+                group.classList.remove('place-found');
+            }
+        }
+    }
+
     // Obtener detalles completos del lugar
     async function fetchPlaceDetails(placeId) {
         return await callPlaceFunction('getPlaceDetailsFromGoogle', { placeid: placeId });
@@ -51,8 +77,10 @@ ListopicApp.placesService = (() => {
     // Pintar sugerencias
     async function displayPlaceSuggestions(places, suggestionsBox) {
         suggestionsBox.innerHTML = '';
+        suggestionsBox.classList.add('is-visible');
         if (!places || places.length === 0) {
-            suggestionsBox.innerHTML = '<p>No se encontraron lugares que coincidan.</p>';
+            suggestionsBox.innerHTML = '<p><i class="fas fa-circle-info"></i> No se encontraron lugares que coincidan.</p>';
+            setStatus('info', 'No encontramos resultados con esos datos.');
             return;
         }
 
@@ -60,9 +88,17 @@ ListopicApp.placesService = (() => {
         ul.className = 'suggestions-list';
         places.forEach(place => {
             const li = document.createElement('li');
+            li.className = 'suggestion-item';
             const addressInfo = place.vicinity || place.formatted_address || 'Dirección no disponible';
-            li.textContent = `${place.name} (${addressInfo})`;
-            li.style.cursor = 'pointer';
+            const safeName = escapeHtml(place.name || 'Lugar sin nombre');
+            const safeAddress = escapeHtml(addressInfo);
+            li.innerHTML = `
+                <div class="suggestion-item__text">
+                    <span class="suggestion-item__title">${safeName}</span>
+                    <span class="suggestion-item__subtitle">${safeAddress}</span>
+                </div>
+                <span class="suggestion-item__icon"><i class="fas fa-circle-plus" aria-hidden="true"></i></span>
+            `;
 
             li.onclick = async () => {
                 const currentUser = ListopicApp.services.auth.currentUser;
@@ -72,8 +108,11 @@ ListopicApp.placesService = (() => {
                     return;
                 }
 
-                suggestionsBox.innerHTML = `<p>Obteniendo detalles de "${place.name}"...</p>`;
-                
+                const loadingName = escapeHtml(place.name || 'Lugar');
+                suggestionsBox.innerHTML = `<p><span class="loading-pill"><i class="fas fa-spinner fa-spin"></i> Obteniendo detalles de "${loadingName}"...</span></p>`;
+                suggestionsBox.classList.add('is-visible');
+                setStatus('loading', 'Cargando detalles del lugar...', { highlight: place.name || '' });
+
                 try {
                     const detailedPlace = await fetchPlaceDetails(place.place_id);
 
@@ -82,17 +121,23 @@ ListopicApp.placesService = (() => {
                     } else {
                         console.error("No se pudieron obtener detalles o la función uiUtils.updateReviewFormWithPlace no está definida.");
                         suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">No se pudieron obtener los detalles completos.</p>`;
+                        setStatus('error', 'No se pudieron obtener los detalles del lugar.');
                     }
                 } catch (error) {
                     console.error("Error final al obtener detalles del lugar:", error);
-                    suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${error.message}</p>`;
+                    suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${escapeHtml(error.message)}</p>`;
+                    setStatus('error', error.message);
                 } finally {
-                   setTimeout(() => { suggestionsBox.innerHTML = ''; }, 2000);
+                   setTimeout(() => {
+                       suggestionsBox.innerHTML = '';
+                       suggestionsBox.classList.remove('is-visible');
+                   }, 2000);
                 }
             };
             ul.appendChild(li);
         });
         suggestionsBox.appendChild(ul);
+        setStatus('info', 'Selecciona un resultado para completar los datos.');
     }
 
     // Buscar cercanos con geolocalización del usuario y categoría de la lista
@@ -100,8 +145,12 @@ ListopicApp.placesService = (() => {
         const suggestionsBox = document.getElementById('restaurant-suggestions');
         if (!suggestionsBox) return;
 
+        resetPlaceIndicator();
+
         const state = window.ListopicApp.state || {};
-        suggestionsBox.innerHTML = '<p>Obteniendo tu ubicación...</p>';
+        suggestionsBox.innerHTML = '<p><span class="loading-pill"><i class="fas fa-location-crosshairs"></i> Obteniendo tu ubicación...</span></p>';
+        suggestionsBox.classList.add('is-visible');
+        setStatus('loading', 'Obteniendo tu ubicación actual...');
 
         try {
             const position = await new Promise((resolve, reject) => {
@@ -114,14 +163,17 @@ ListopicApp.placesService = (() => {
             state.userLongitude = position.coords.longitude;
         } catch (error) {
             console.error("Error obteniendo ubicación:", error);
-            suggestionsBox.innerHTML = `<p style=\"color:var(--danger-color);\">No se pudo obtener la ubicación: ${error.message}.</p>`;
+            suggestionsBox.innerHTML = `<p style=\"color:var(--danger-color);\">No se pudo obtener la ubicación: ${escapeHtml(error.message)}.</p>`;
+            setStatus('error', `No se pudo obtener la ubicación: ${error.message}`);
             return;
         }
 
-        suggestionsBox.innerHTML = `<p>Buscando lugares cercanos...</p>`;
+        suggestionsBox.innerHTML = `<p><span class="loading-pill"><i class="fas fa-spinner fa-spin"></i> Buscando lugares cercanos...</span></p>`;
+        setStatus('loading', 'Buscando lugares cercanos a ti...');
         const listId = state.currentListId;
         if (!listId) {
             suggestionsBox.innerHTML = '<p style="color:var(--danger-color);">Error: No se pudo identificar la lista actual.</p>';
+            setStatus('error', 'No se pudo identificar la lista actual.');
             return;
         }
 
@@ -131,11 +183,13 @@ ListopicApp.placesService = (() => {
             categoryId = listDoc.exists ? listDoc.data().categoryId : null;
         } catch (error) {
             suggestionsBox.innerHTML = '<p style="color:var(--danger-color);">Error al cargar datos de la lista.</p>';
+            setStatus('error', 'Error al cargar datos de la lista.');
             return;
         }
 
         if (!categoryId) {
             suggestionsBox.innerHTML = '<p style="color:var(--warning-color);">Esta lista no tiene una categoría para la búsqueda.</p>';
+            setStatus('info', 'Esta lista no tiene categoría para buscar lugares cercanos.');
             return;
         }
 
@@ -147,7 +201,8 @@ ListopicApp.placesService = (() => {
             });
             displayPlaceSuggestions(places, suggestionsBox);
         } catch (error) {
-            suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${error.message}</p>`;
+            suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${escapeHtml(error.message)}</p>`;
+            setStatus('error', error.message);
         }
     }
 
@@ -155,12 +210,19 @@ ListopicApp.placesService = (() => {
     async function searchRestaurantsByName(query) {
         const suggestionsBox = document.getElementById('restaurant-suggestions');
         if (!suggestionsBox) return;
+        resetPlaceIndicator();
+        const trimmedQuery = query ? query.trim() : '';
         if (!query || query.trim() === "") {
-            suggestionsBox.innerHTML = '<p>Introduce tu búsqueda.</p>';
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.classList.remove('is-visible');
+            setStatus('info', 'Introduce un nombre para buscar.');
             return;
         }
-        suggestionsBox.innerHTML = `<p>Buscando "${query}"...</p>`;
-        
+        const safeQuery = escapeHtml(trimmedQuery);
+        suggestionsBox.innerHTML = `<p><span class="loading-pill"><i class="fas fa-spinner fa-spin"></i> Buscando "${safeQuery}"...</span></p>`;
+        suggestionsBox.classList.add('is-visible');
+        setStatus('loading', `Buscando lugares llamados ${trimmedQuery}...`, { highlight: trimmedQuery });
+
         const state = window.ListopicApp.state || {};
         const params = { query: query };
 
@@ -188,7 +250,8 @@ ListopicApp.placesService = (() => {
             const places = await callPlaceFunction('placesTextSearch', params);
             displayPlaceSuggestions(places, suggestionsBox);
         } catch (error) {
-            suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${error.message}</p>`;
+            suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${escapeHtml(error.message)}</p>`;
+            setStatus('error', error.message);
         }
     }
 
