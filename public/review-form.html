@@ -76,38 +76,25 @@
     </header>
 
     <main class="review-form-page">
-        <section class="review-form-hero">
-            <div class="hero-content">
-                <p class="hero-kicker">Crea reseñas memorables</p>
-                <h1>Comparte tu experiencia con la comunidad</h1>
-                <p class="hero-subtitle">Encuentra rápidamente el lugar perfecto, añade los detalles que más importan y deja una reseña que inspire a otros Listopers.</p>
-                <ul class="form-progress" aria-label="Pasos del formulario de reseña">
-                    <li class="active"><span class="step-index">1</span> Información principal</li>
-                    <li><span class="step-index">2</span> Ubicación</li>
-                    <li><span class="step-index">3</span> Valoraciones</li>
-                    <li><span class="step-index">4</span> Extras</li>
-                </ul>
-            </div>
-        </section>
-
-        <div class="review-form-content container">
-            <aside class="review-form-sidebar" aria-label="Consejos rápidos">
-                <h2><i class="fas fa-lightbulb"></i> Consejos Listopic</h2>
-                <ul class="sidebar-tips">
-                    <li><strong>Busca antes de crear:</strong> Usa la búsqueda inteligente para reutilizar fichas existentes.</li>
-                    <li><strong>Fotos nítidas:</strong> Añade una imagen atractiva para resaltar tu recomendación.</li>
-                    <li><strong>Detalles auténticos:</strong> Los comentarios honestos y concretos ayudan a toda la comunidad.</li>
-                </ul>
-                <div class="sidebar-card">
-                    <h3><i class="fas fa-star-half-stroke"></i> ¿Sabías que...?</h3>
-                    <p>Las reseñas con etiquetas y puntuaciones completas aparecen destacadas en las listas compartidas.</p>
-                </div>
-            </aside>
-
+        <div class="review-form-shell container">
             <section class="review-form-card" aria-label="Formulario de reseña">
-                <a href="list-view.html" class="back-button" aria-label="Cancelar y volver al ranking"><i class="fas fa-arrow-left"></i> Cancelar y Volver</a>
-                <h2>Añadir Nueva Reseña</h2>
-                <p class="form-intro">Completa los campos para registrar tu experiencia. Puedes guardar la reseña en cualquier momento y seguir editándola después.</p>
+                <div class="form-card-header">
+                    <a href="list-view.html" class="back-button" aria-label="Cancelar y volver al ranking"><i class="fas fa-arrow-left"></i> Cancelar y Volver</a>
+                    <button type="button" class="help-button" id="open-help-modal" aria-haspopup="dialog" aria-controls="tips-modal">
+                        <i class="fas fa-circle-question" aria-hidden="true"></i>
+                        Ayuda y consejos
+                    </button>
+                </div>
+                <div class="form-title-block">
+                    <h1>Añadir Nueva Reseña</h1>
+                    <p class="form-intro">Encuentra rápidamente el lugar perfecto, añade los detalles clave y deja una reseña memorable para la comunidad.</p>
+                    <ul class="form-progress" aria-label="Pasos del formulario de reseña">
+                        <li class="active"><span class="step-index">1</span> Información</li>
+                        <li><span class="step-index">2</span> Ubicación</li>
+                        <li><span class="step-index">3</span> Valoraciones</li>
+                        <li><span class="step-index">4</span> Extras</li>
+                    </ul>
+                </div>
                 <form id="review-form" action="#" method="POST">
                     <input type="hidden" id="review-form-listId" name="listId">
 
@@ -115,7 +102,7 @@
                         <div class="section-header">
                             <span class="section-icon" aria-hidden="true"><i class="fas fa-clipboard-list"></i></span>
                             <div>
-                                <h3 id="section-info">Información principal</h3>
+                                <h2 id="section-info">Información principal</h2>
                                 <p class="section-subtitle">Selecciona el establecimiento y el elemento que vas a valorar.</p>
                             </div>
                         </div>
@@ -130,7 +117,8 @@
                             <button type="button" id="find-nearby-btn" class="add-button add-button--ghost">
                                 <i class="fas fa-map-marker-alt"></i> O bien, Ubicarme y Buscar Cercanos
                             </button>
-                            <div id="restaurant-suggestions" class="suggestions-box"></div>
+                            <div id="place-selection-status" class="place-selection-status" aria-live="polite"></div>
+                            <div id="restaurant-suggestions" class="suggestions-box" aria-live="polite"></div>
                             <input type="hidden" id="establishment-name" name="establishmentName" required>
                         </div>
 
@@ -144,7 +132,7 @@
                         <div class="section-header">
                             <span class="section-icon" aria-hidden="true"><i class="fas fa-location-dot"></i></span>
                             <div>
-                                <h3 id="section-location">Ubicación</h3>
+                                <h2 id="section-location">Ubicación</h2>
                                 <p class="section-subtitle">Confirma que los datos del lugar sean correctos o agrega una ubicación personalizada.</p>
                             </div>
                         </div>
@@ -189,7 +177,7 @@
                         <div class="section-header">
                             <span class="section-icon" aria-hidden="true"><i class="fas fa-gauge-high"></i></span>
                             <div>
-                                <h3 id="section-scores">Valoraciones</h3>
+                                <h2 id="section-scores">Valoraciones</h2>
                                 <p class="section-subtitle">Evalúa cada criterio para obtener una valoración equilibrada.</p>
                             </div>
                         </div>
@@ -200,7 +188,7 @@
                         <div class="section-header">
                             <span class="section-icon" aria-hidden="true"><i class="fas fa-image"></i></span>
                             <div>
-                                <h3 id="section-extras">Extras y comentario</h3>
+                                <h2 id="section-extras">Extras y comentario</h2>
                                 <p class="section-subtitle">Comparte recursos visuales y notas memorables.</p>
                             </div>
                         </div>
@@ -238,8 +226,9 @@
 
                     <div class="form-actions">
                         <button type="submit" class="submit-button">
-                            <span>Guardar Reseña</span>
+                            <span class="button-label">Guardar Reseña</span>
                             <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                            <span class="button-spinner" aria-hidden="true"></span>
                         </button>
                     </div>
                 </form>
@@ -265,6 +254,29 @@
     
     <script src="js/page-review-form.js" defer></script>
 
+    <div class="help-modal" id="tips-modal" aria-hidden="true">
+        <div class="help-modal__overlay" data-modal-dismiss></div>
+        <div class="help-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="tips-modal-title">
+            <button type="button" class="help-modal__close" id="close-help-modal" aria-label="Cerrar ventana de ayuda">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+            <div class="help-modal__content">
+                <p class="help-modal__eyebrow">Consejos Listopic</p>
+                <h2 id="tips-modal-title">¿Necesitas inspiración para completar tu reseña?</h2>
+                <p>Recuerda que cuanto más precisa y visual sea tu reseña, más útil resultará para toda la comunidad.</p>
+                <ul class="help-modal__list">
+                    <li><strong>Busca antes de crear:</strong> reutiliza fichas existentes para mantener la información unificada.</li>
+                    <li><strong>Revisa los datos:</strong> confirma dirección, ciudad y enlaces antes de guardar.</li>
+                    <li><strong>Etiqueta con intención:</strong> selecciona etiquetas que ayuden a encontrar tu reseña fácilmente.</li>
+                    <li><strong>Cuenta tu historia:</strong> comparte detalles concretos, anécdotas y recomendaciones personales.</li>
+                    <li><strong>Sube imágenes ligeras:</strong> optimiza la foto o usa la URL para que cargue rápido.</li>
+                </ul>
+                <div class="help-modal__footer">
+                    <p><i class="fas fa-circle-info" aria-hidden="true"></i> Puedes volver a abrir esta ayuda en cualquier momento desde el botón «Ayuda y consejos».</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>

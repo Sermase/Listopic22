@@ -219,8 +219,19 @@ ListopicApp.uiUtils = {
             sliderInput.className = 'form-input rating-slider';
             const valueDisplay = document.createElement('span');
             valueDisplay.className = 'slider-value-display';
-            valueDisplay.textContent = parseFloat(sliderInput.value).toFixed(1);
-            sliderInput.addEventListener('input', () => { valueDisplay.textContent = parseFloat(sliderInput.value).toFixed(1); });
+
+            const refreshSliderVisual = () => {
+                const minVal = parseFloat(sliderInput.min);
+                const maxVal = parseFloat(sliderInput.max);
+                const numericValue = parseFloat(sliderInput.value);
+                const percent = maxVal > minVal ? ((numericValue - minVal) / (maxVal - minVal)) * 100 : 0;
+                sliderInput.style.setProperty('--percent', `${Math.min(100, Math.max(0, percent))}%`);
+                valueDisplay.textContent = numericValue.toFixed(1);
+            };
+
+            refreshSliderVisual();
+            sliderInput.addEventListener('input', refreshSliderVisual);
+            sliderInput.addEventListener('change', refreshSliderVisual);
             label.appendChild(valueDisplay);
             sliderGroup.appendChild(label);
             sliderGroup.appendChild(sliderInput);
@@ -237,6 +248,37 @@ ListopicApp.uiUtils = {
             }
             containerElement.appendChild(sliderGroup);
         }
+    },
+
+    setPlaceSelectionStatus: function(type, message, options = {}) {
+        const statusEl = document.getElementById('place-selection-status');
+        if (!statusEl) return;
+
+        const normalizedType = ['loading', 'success', 'error', 'info'].includes(type) ? type : 'info';
+        const iconByType = {
+            loading: 'fa-spinner fa-spin',
+            success: 'fa-circle-check',
+            error: 'fa-circle-exclamation',
+            info: 'fa-circle-info'
+        };
+
+        const highlight = typeof options.highlight === 'string' ? this.escapeHtml(options.highlight) : '';
+        const safeMessage = typeof message === 'string' ? this.escapeHtml(message) : '';
+
+        if (!highlight && !safeMessage) {
+            statusEl.className = 'place-selection-status';
+            statusEl.textContent = '';
+            return;
+        }
+
+        statusEl.className = `place-selection-status place-selection-status--${normalizedType} place-selection-status--visible`;
+        const messageHtml = highlight
+            ? `${highlight ? `<strong>${highlight}</strong>` : ''}${safeMessage ? ` ${safeMessage}` : ''}`
+            : safeMessage;
+        statusEl.innerHTML = `
+            <span class="status-icon" aria-hidden="true"><i class="fas ${iconByType[normalizedType] || iconByType.info}"></i></span>
+            <span>${messageHtml}</span>
+        `;
     },
 
     escapeHtml: function(unsafe) {
@@ -624,32 +666,50 @@ createListViewGroupCard: function(group, listData, listIcon) {
     // Añade esta función dentro del objeto ListopicApp.uiUtils en tu archivo public/js/uiUtils.js
 
     updateReviewFormWithPlace: function(placeData) {
-    const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
-    const establishmentNameHidden = document.getElementById('establishment-name');
-    const locationDisplayNameInput = document.getElementById('location-display-name');
-    const locationAddressManualInput = document.getElementById('location-address-manual');
-    const locationRegionManualInput = document.getElementById('location-region-manual');
-    const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
-    const locationLatInput = document.getElementById('location-latitude');
-    const locationLonInput = document.getElementById('location-longitude');
-    const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
-    const locationCityGInput = document.getElementById('location-city-g');
-    const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
-    const locationCountryGInput = document.getElementById('location-country-g');
+        const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
+        const establishmentNameHidden = document.getElementById('establishment-name');
+        const locationDisplayNameInput = document.getElementById('location-display-name');
+        const locationAddressManualInput = document.getElementById('location-address-manual');
+        const locationRegionManualInput = document.getElementById('location-region-manual');
+        const locationGoogleMapsUrlManualInput = document.getElementById('location-google-maps-url-manual');
+        const locationLatInput = document.getElementById('location-latitude');
+        const locationLonInput = document.getElementById('location-longitude');
+        const locationPlaceIdInput = document.getElementById('location-googlePlaceId');
+        const locationCityGInput = document.getElementById('location-city-g');
+        const locationPostalCodeGInput = document.getElementById('location-postalCode-g');
+        const locationCountryGInput = document.getElementById('location-country-g');
 
-    if (establishmentNameSearchInput) establishmentNameSearchInput.value = placeData.name || '';
-    if (establishmentNameHidden) establishmentNameHidden.value = placeData.name || '';
-    if (locationDisplayNameInput) locationDisplayNameInput.value = placeData.name || '';
-    if (locationAddressManualInput) locationAddressManualInput.value = placeData.addressFormatted || placeData.streetAddress || '';
-    if (locationRegionManualInput) locationRegionManualInput.value = placeData.region || '';
-    if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeData.mapsUrl || '';
-    if (locationLatInput) locationLatInput.value = placeData.latitude || "";
-    if (locationLonInput) locationLonInput.value = placeData.longitude || "";
-    if (locationPlaceIdInput) locationPlaceIdInput.value = placeData.id || placeData.placeId || "";
-    if (locationCityGInput) locationCityGInput.value = placeData.city || "";
-    if (locationPostalCodeGInput) locationPostalCodeGInput.value = placeData.postalCode || "";
-    if (locationCountryGInput) locationCountryGInput.value = placeData.country || "";
-},
+        if (establishmentNameSearchInput) {
+            establishmentNameSearchInput.value = placeData.name || '';
+            establishmentNameSearchInput.dataset.placeSelected = 'true';
+            const searchGroup = establishmentNameSearchInput.closest('.form-group');
+            if (searchGroup) {
+                searchGroup.classList.add('place-found');
+            }
+        }
+        if (establishmentNameHidden) establishmentNameHidden.value = placeData.name || '';
+        if (locationDisplayNameInput) locationDisplayNameInput.value = placeData.name || '';
+        if (locationAddressManualInput) locationAddressManualInput.value = placeData.addressFormatted || placeData.streetAddress || '';
+        if (locationRegionManualInput) locationRegionManualInput.value = placeData.region || '';
+        if (locationGoogleMapsUrlManualInput) locationGoogleMapsUrlManualInput.value = placeData.mapsUrl || '';
+        if (locationLatInput) locationLatInput.value = placeData.latitude || "";
+        if (locationLonInput) locationLonInput.value = placeData.longitude || "";
+        if (locationPlaceIdInput) locationPlaceIdInput.value = placeData.id || placeData.placeId || "";
+        if (locationCityGInput) locationCityGInput.value = placeData.city || "";
+        if (locationPostalCodeGInput) locationPostalCodeGInput.value = placeData.postalCode || "";
+        if (locationCountryGInput) locationCountryGInput.value = placeData.country || "";
+
+        const suggestionsBox = document.getElementById('restaurant-suggestions');
+        if (suggestionsBox) {
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.classList.remove('is-visible');
+        }
+
+        const placeName = placeData.name || '';
+        if (this.setPlaceSelectionStatus) {
+            this.setPlaceSelectionStatus('success', 'añadido correctamente.', { highlight: placeName });
+        }
+    },
 
 
 
