@@ -207,27 +207,21 @@ ListopicApp.uiUtils = {
         const getFeedbackTone = (percent) => {
             if (percent >= 70) {
                 return {
-                    background: 'rgba(16, 185, 129, 0.16)',
                     border: '#10b981',
-                    accent: '#047857',
-                    pillBg: 'rgba(16, 185, 129, 0.25)',
+                    pillBg: 'rgba(16, 185, 129, 0.22)',
                     pillColor: '#065f46'
                 };
             }
             if (percent >= 40) {
                 return {
-                    background: 'rgba(245, 158, 11, 0.18)',
                     border: '#f59e0b',
-                    accent: '#92400e',
-                    pillBg: 'rgba(245, 158, 11, 0.22)',
-                    pillColor: '#78350f'
+                    pillBg: 'rgba(245, 158, 11, 0.2)',
+                    pillColor: '#92400e'
                 };
             }
             return {
-                background: 'rgba(255, 0, 0, 0.2)',
                 border: '#ef4444',
-                accent: '#991b1b',
-                pillBg: 'rgba(239, 68, 68, 0.24)',
+                pillBg: 'rgba(239, 68, 68, 0.18)',
                 pillColor: '#7f1d1d'
             };
         };
@@ -252,25 +246,6 @@ ListopicApp.uiUtils = {
             const valueDisplay = document.createElement('span');
             valueDisplay.className = 'slider-value-display';
 
-            const feedbackCard = document.createElement('div');
-            feedbackCard.className = 'slider-feedback-card';
-            const primaryRow = document.createElement('div');
-            primaryRow.className = 'slider-feedback-card__row';
-            const primaryValueText = document.createElement('span');
-            primaryValueText.className = 'slider-feedback-card__accent';
-            const tendencyText = document.createElement('span');
-            tendencyText.className = 'slider-feedback-card__trend';
-            primaryRow.appendChild(primaryValueText);
-            primaryRow.appendChild(tendencyText);
-            const distributionRow = document.createElement('div');
-            distributionRow.className = 'slider-feedback-card__row';
-            const distributionLeft = document.createElement('span');
-            const distributionRight = document.createElement('span');
-            distributionRow.appendChild(distributionLeft);
-            distributionRow.appendChild(distributionRight);
-            feedbackCard.appendChild(primaryRow);
-            feedbackCard.appendChild(distributionRow);
-
             const refreshSliderVisual = () => {
                 const minVal = parseFloat(sliderInput.min);
                 const maxVal = parseFloat(sliderInput.max);
@@ -282,21 +257,7 @@ ListopicApp.uiUtils = {
                 const tone = getFeedbackTone(percent);
                 valueDisplay.style.backgroundColor = tone.pillBg;
                 valueDisplay.style.color = tone.pillColor;
-                feedbackCard.style.backgroundColor = tone.background;
-                feedbackCard.style.borderLeftColor = tone.border;
-                primaryValueText.style.color = tone.accent;
-                const leftLabel = criterion.labelMin || String(sliderInput.min);
-                const rightLabel = criterion.labelMax || String(sliderInput.max);
-                distributionLeft.textContent = `${leftLabel}: ${(100 - percent).toFixed(0)}%`;
-                distributionRight.textContent = `${rightLabel}: ${percent.toFixed(0)}%`;
-                if (percent <= 45) {
-                    tendencyText.textContent = `Tendencia: ${leftLabel}`;
-                } else if (percent >= 55) {
-                    tendencyText.textContent = `Tendencia: ${rightLabel}`;
-                } else {
-                    tendencyText.textContent = 'Tendencia: equilibrado';
-                }
-                primaryValueText.textContent = `Puntuación: ${numericValue.toFixed(1)}`;
+                sliderInput.style.setProperty('--slider-fill-color', tone.border);
             };
 
             refreshSliderVisual();
@@ -316,7 +277,6 @@ ListopicApp.uiUtils = {
                 rangeLabels.appendChild(rightLabelSpan);
                 sliderGroup.appendChild(rangeLabels);
             }
-            sliderGroup.appendChild(feedbackCard);
             containerElement.appendChild(sliderGroup);
             refreshSliderVisual();
         }
