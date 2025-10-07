@@ -76,6 +76,7 @@
     </header>
 
     <main class="review-form-page">
+        <div class="review-form-shell">
             <section class="review-form-card" aria-label="Formulario de reseña">
                 <div class="form-card-header">
                     <a href="list-view.html" class="back-button" aria-label="Cancelar y volver al ranking"><i class="fas fa-arrow-left"></i> Cancelar y Volver</a>
@@ -99,46 +100,51 @@
                                 <p class="section-subtitle">Selecciona el establecimiento y el elemento que vas a valorar.</p>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="restaurant-name-search">Buscar Establecimiento/Elemento por nombre:</label>
-                            <div class="input-action-group">
-                                <input type="text" id="restaurant-name-search-input" class="form-input search-input" placeholder="Ej: La Pizzería Genial">
-                                <button type="button" id="search-by-name-btn" class="add-button">
-                                    <i class="fas fa-search"></i> Buscar
-                                </button>
+
+                        <div class="form-section__content-grid">
+                            <div class="form-section__column">
+                                <div class="form-group form-group--establishment">
+                                    <label for="restaurant-name-search">Buscar Establecimiento/Elemento por nombre:</label>
+                                    <div class="input-action-group">
+                                        <input type="text" id="restaurant-name-search-input" class="form-input search-input" placeholder="Ej: La Pizzería Genial">
+                                        <button type="button" id="search-by-name-btn" class="add-button">
+                                            <i class="fas fa-search"></i> Buscar
+                                        </button>
+                                    </div>
+                                    <div id="place-selection-status" class="place-selection-status" aria-live="polite"></div>
+                                    <div id="restaurant-suggestions" class="suggestions-box" aria-live="polite"></div>
+                                    <input type="hidden" id="establishment-name" name="establishmentName" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="item-name">Producto/Plato (puedes ser específico o dejarlo así):</label>
+                                    <input type="text" id="item-name" name="itemName" class="form-input" placeholder="Ej: Tarta de la Abuela, Café Etíope Yirgacheffe">
+                                </div>
                             </div>
-                            <button type="button" id="find-nearby-btn" class="add-button add-button--ghost">
-                                <i class="fas fa-map-marker-alt"></i> O bien, Ubicarme y Buscar Cercanos
-                            </button>
-                            <div id="place-selection-status" class="place-selection-status" aria-live="polite"></div>
-                            <div id="restaurant-suggestions" class="suggestions-box" aria-live="polite"></div>
-                            <input type="hidden" id="establishment-name" name="establishmentName" required>
+
+                            <aside class="form-section__column form-section__column--aside">
+                                <div class="section-aside-card" role="complementary">
+                                    <span class="section-aside-card__badge"><i class="fas fa-location-dot" aria-hidden="true"></i> Ubicación</span>
+                                    <h3>Refina la ubicación</h3>
+                                    <p>Usa las acciones rápidas para encontrar el lugar ideal o añade los datos manualmente.</p>
+                                    <div class="section-aside-card__actions">
+                                        <button type="button" id="find-nearby-btn" class="add-button add-button--ghost">
+                                            <i class="fas fa-map-marker-alt"></i> Buscar cercanos
+                                        </button>
+                                        <button type="button"
+                                            id="toggle-manual-location-btn"
+                                            class="button secondary-button toggle-button"
+                                            aria-expanded="false"
+                                            aria-controls="manual-location-fields">
+                                            <span class="toggle-icon"><i class="fas fa-chevron-down"></i></span>
+                                            <span>Agregar detalles manualmente</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
 
-                        <div class="form-group">
-                            <label for="item-name">Producto/Plato (puedes ser específico o dejarlo así):</label>
-                            <input type="text" id="item-name" name="itemName" class="form-input" placeholder="Ej: Tarta de la Abuela, Café Etíope Yirgacheffe">
-                        </div>
-                    </section>
-
-                    <section class="form-section" aria-labelledby="section-location">
-                        <div class="section-header">
-                            <span class="section-icon" aria-hidden="true"><i class="fas fa-location-dot"></i></span>
-                            <div>
-                                <h2 id="section-location">Ubicación</h2>
-                                <!-- <p class="section-subtitle">Confirma que los datos del lugar sean correctos o agrega una ubicación personalizada.</p> -->
-                            </div>
-                        </div>
-
-                        <p class="helper-text">
-                            Usa la búsqueda superior para encontrar lugares con Google Places. También puedes añadir manualmente los datos de la ubicación si no aparece.
-                        </p>
-                        <button type="button" id="toggle-manual-location-btn" class="button secondary-button toggle-button">
-                            <span class="toggle-icon" aria-hidden="true"><i class="fas fa-chevron-down"></i></span>
-                            <span>Añadir/Editar detalles de ubicación manualmente</span>
-                        </button>
-
-                        <div id="manual-location-fields" class="manual-location-card" style="display: none;">
+                        <div id="manual-location-fields" class="manual-location-card" hidden>
                             <p class="helper-text subtle">Rellena estos campos si no encuentras el lugar con la búsqueda o se trata de un sitio personalizado.</p>
                             <label for="location-display-name">Nombre del Lugar Personalizado (o descripción breve):</label>
                             <input type="text" id="location-display-name" name="locationDisplayName" class="form-input" placeholder="Ej: Casa de mi abuela, Puesto en el mercado local">
@@ -166,6 +172,12 @@
                         <input type="hidden" id="location-country-g" name="locationCountryG">
                     </section>
 
+                    <div class="form-section-divider" aria-hidden="true">
+                        <span class="form-section-divider__line"></span>
+                        <span class="form-section-divider__icon"><i class="fas fa-gauge-high" aria-hidden="true"></i></span>
+                        <span class="form-section-divider__line"></span>
+                    </div>
+
                     <section class="form-section" aria-labelledby="section-scores">
                         <div class="section-header">
                             <span class="section-icon" aria-hidden="true"><i class="fas fa-gauge-high"></i></span>
@@ -176,6 +188,12 @@
                         </div>
                         <div id="dynamic-rating-criteria" class="form-group"><p class="helper-text subtle">Cargando criterios...</p></div>
                     </section>
+
+                    <div class="form-section-divider" aria-hidden="true">
+                        <span class="form-section-divider__line"></span>
+                        <span class="form-section-divider__icon"><i class="fas fa-stars" aria-hidden="true"></i></span>
+                        <span class="form-section-divider__line"></span>
+                    </div>
 
                     <section class="form-section" aria-labelledby="section-extras">
                         <div class="section-header">
@@ -226,6 +244,7 @@
                     </div>
                 </form>
             </section>
+        </div>
     </main>
     <footer> Listopic... Tu rincón personal de valoraciones. </footer>
     

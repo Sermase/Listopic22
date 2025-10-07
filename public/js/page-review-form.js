@@ -1,732 +1,801 @@
 window.ListopicApp = window.ListopicApp || {};
+ListopicApp.state = ListopicApp.state || {};
+
 ListopicApp.pageReviewForm = (() => {
+    const state = ListopicApp.state;
+
+    function getServices() {
+        return window.ListopicApp?.services || {};
+    }
+
+    function notify(message, type = 'info') {
+        const services = getServices();
+        if (typeof services.showNotification === 'function') {
+            services.showNotification(message, type);
+        } else {
+            const logger = type === 'error' ? console.error : console.log;
+            logger(`[ReviewForm] ${message}`);
+        }
+    }
+
+    function setPlaceStatus(type, message, options = {}) {
+        const uiUtils = window.ListopicApp?.uiUtils;
+        if (uiUtils && typeof uiUtils.setPlaceSelectionStatus === 'function') {
+            uiUtils.setPlaceSelectionStatus(type, message, options);
+        }
+    }
+
+    function clearPlaceSelectionIndicators() {
+        const input = document.getElementById('restaurant-name-search-input');
+        if (input) {
+            delete input.dataset.placeSelected;
+            const group = input.closest('.form-group');
+            if (group) {
+                group.classList.remove(
+                    'place-found',
+                    'place-status-loading',
+                    'place-status-success',
+                    'place-status-error',
+                    'place-status-info'
+                );
+            }
+        }
+        setPlaceStatus('info', '');
+    }
 
     function renderTags(availableTags = [], selectedTags = [], fixedTags = []) {
         const container = document.getElementById('dynamic-tag-selection');
-        if (!container) return;
+        if (!container) {
+            console.warn('[ReviewForm] Contenedor de etiquetas no encontrado.');
+            return;
+        }
+
         container.innerHTML = '';
 
-        const createTagCheckbox = (tag, isFixed) => {
+        const normalize = (tags) => Array.isArray(tags) ? [...new Set(tags.map(tag => String(tag)))] : [];
+        const fixed = normalize(fixedTags);
+        const userTags = normalize(availableTags).filter(tag => !fixed.includes(tag));
+        const selected = normalize(selectedTags);
+
+        const createTagCheckbox = (tag, { disabled = false } = {}) => {
             const label = document.createElement('label');
             label.className = 'tag-checkbox';
+            if (disabled) {
+                label.classList.add('tag-checkbox--fixed');
+                label.title = 'Etiqueta fija de la categoría';
+            }
 
             const input = document.createElement('input');
             input.type = 'checkbox';
             input.name = 'tags';
             input.value = tag;
-            input.checked = isFixed || selectedTags.includes(tag);
-            input.disabled = isFixed;
+            input.checked = disabled || selected.includes(tag);
+            input.disabled = disabled;
 
             const span = document.createElement('span');
             span.textContent = tag;
 
-            if(isFixed) {
-                label.title = "Etiqueta fija de la categoría";
-            }
+            input.addEventListener('change', () => {
+                label.classList.toggle('selected', input.checked);
+            });
 
-            label.appendChild(input);
-            label.appendChild(span);
+            label.classList.toggle('selected', input.checked);
+            label.append(input, span);
             return label;
         };
 
-        if (fixedTags.length > 0) {
+        if (fixed.length > 0) {
             const fixedContainer = document.createElement('div');
             fixedContainer.className = 'fixed-tags-container';
-            fixedContainer.innerHTML = '<h5>Etiquetas Fijas:</h5>';
-            fixedTags.forEach(tag => fixedContainer.appendChild(createTagCheckbox(tag, true)));
+            fixedContainer.innerHTML = '<h5>Etiquetas fijas</h5>';
+            fixed.forEach(tag => fixedContainer.appendChild(createTagCheckbox(tag, { disabled: true })));
             container.appendChild(fixedContainer);
         }
 
-        const userTags = availableTags.filter(tag => !fixedTags.includes(tag));
         if (userTags.length > 0) {
             const userContainer = document.createElement('div');
             userContainer.className = 'user-tags-container';
-            userContainer.innerHTML = '<h5>Otras Etiquetas:</h5>';
-            userTags.forEach(tag => userContainer.appendChild(createTagCheckbox(tag, false)));
+            userContainer.innerHTML = '<h5>Elige tus etiquetas</h5>';
+            userTags.forEach(tag => userContainer.appendChild(createTagCheckbox(tag)));
             container.appendChild(userContainer);
         }
 
-        if (fixedTags.length === 0 && userTags.length === 0) {
-            container.innerHTML = '<p>No hay etiquetas disponibles para esta lista.</p>';
+        if (!fixed.length && !userTags.length) {
+            container.innerHTML = '<p class="helper-text subtle">No hay etiquetas disponibles para esta lista.</p>';
         }
-    }
-
-    function setupPhotoHandling() {
-        const reviewForm = document.getElementById('review-form');
-        if (!reviewForm) return;
-
-        const photoFileInput = document.getElementById('photo-file');
-        const imagePreviewContainer = reviewForm.querySelector('.image-preview');
-        const photoUrlInput = document.getElementById('photo-url');
-        const uploadArea = reviewForm.querySelector('.image-upload-area');
-        const galleryButton = document.getElementById('browse-gallery-btn');
-        const state = ListopicApp.state;
-        const uiUtils = ListopicApp.uiUtils;
-        const showNotification = ListopicApp.services && typeof ListopicApp.services.showNotification === 'function'
-            ? ListopicApp.services.showNotification.bind(ListopicApp.services)
-            : null;
-
-        if (!photoFileInput || !imagePreviewContainer || !photoUrlInput || !uploadArea) {
-            console.warn("Faltan elementos de la UI para la subida de fotos.");
-            return;
-        }
-
-        const resetFileInput = () => {
-            if (photoFileInput) {
-                photoFileInput.value = '';
-            }
-        };
-
-        const processSelectedFile = async (file, { fromDrop = false } = {}) => {
-            if (!file) {
-                return;
-            }
-
-        const handleImageFile = async (file) => {
-            if (!file) return;
-
-            if (!file.type || !file.type.startsWith('image/')) {
-                ListopicApp.services.showNotification('El archivo seleccionado no es una imagen válida.', 'error');
-                return;
-            }
-
-            photoUrlInput.value = '';
-
-            try {
-                console.log(`📸 Imagen original: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
-
-                imagePreviewContainer.innerHTML = '<p class="loading-placeholder">Comprimiendo imagen...</p>';
-
-                const compressedFile = await uiUtils.compressImage(file, {
-                    maxWidth: 1280,
-                    maxHeight: 1280,
-                    quality: 0.7
-                });
-
-                console.log(`✅ Imagen comprimida: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
-
-                state.selectedFileForUpload = compressedFile;
-
-                state.selectedFileForUpload = compressedFile;
-                const previewUrl = URL.createObjectURL(compressedFile);
-                uiUtils.showPreviewGlobal(previewUrl, imagePreviewContainer);
-            } catch (error) {
-                console.error("Error al comprimir la imagen:", error);
-                ListopicApp.services.showNotification("Error al procesar la imagen.", 'error');
-                if (uiUtils.clearPreviewGlobal) {
-                    uiUtils.clearPreviewGlobal(imagePreviewContainer, photoUrlInput, photoFileInput);
-                } else {
-                    imagePreviewContainer.innerHTML = '';
-                }
-                resetFileInput();
-            }
-        };
-
-        // Hacemos que el área principal de subida sea clickeable
-        uploadArea.addEventListener('click', (e) => {
-            const target = e.target;
-            if (!(target instanceof HTMLElement)) return;
-            if (target.tagName !== 'INPUT' && target.tagName !== 'BUTTON' && target.parentElement?.tagName !== 'BUTTON') {
-                photoFileInput.click();
-            }
-        };
-
-        const syncInputFiles = (file) => {
-            if (!window.DataTransfer) return;
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            photoFileInput.files = dataTransfer.files;
-        };
-
-        // Gestionamos la selección del archivo y la compresión
-        photoFileInput.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
-            await handleImageFile(file);
-        });
-
-        const preventDragDefaults = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-
-        ['dragenter', 'dragover'].forEach((eventName) => {
-            uploadArea.addEventListener(eventName, (event) => {
-                preventDragDefaults(event);
-                uploadArea.classList.add('drag-over');
-            });
-        });
-
-        ['dragleave', 'dragend'].forEach((eventName) => {
-            uploadArea.addEventListener(eventName, (event) => {
-                preventDragDefaults(event);
-                uploadArea.classList.remove('drag-over');
-            });
-        });
-
-        uploadArea.addEventListener('drop', async (event) => {
-            preventDragDefaults(event);
-            uploadArea.classList.remove('drag-over');
-
-            const files = Array.from(event.dataTransfer?.files || []);
-            const file = files.find((candidate) => candidate.type && candidate.type.startsWith('image/'));
-
-            if (!file) {
-                if (files.length) {
-                    ListopicApp.services.showNotification('Solo se admiten imágenes en este apartado.', 'error');
-                }
-                return;
-            }
-        };
-
-        const syncInputFiles = (file) => {
-            if (!window.DataTransfer) return;
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            photoFileInput.files = dataTransfer.files;
-        };
-
-        // Gestionamos la selección del archivo y la compresión
-        photoFileInput.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
-            await handleImageFile(file);
-        });
-
-        const preventDragDefaults = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-
-        ['dragenter', 'dragover'].forEach((eventName) => {
-            uploadArea.addEventListener(eventName, (event) => {
-                preventDragDefaults(event);
-                uploadArea.classList.add('drag-over');
-            });
-        });
-
-        ['dragleave', 'dragend'].forEach((eventName) => {
-            uploadArea.addEventListener(eventName, (event) => {
-                preventDragDefaults(event);
-                uploadArea.classList.remove('drag-over');
-            });
-        });
-
-        uploadArea.addEventListener('drop', async (event) => {
-            preventDragDefaults(event);
-            uploadArea.classList.remove('drag-over');
-
-            const files = Array.from(event.dataTransfer?.files || []);
-            const file = files.find((candidate) => candidate.type && candidate.type.startsWith('image/'));
-
-            if (!file) {
-                if (files.length) {
-                    ListopicApp.services.showNotification('Solo se admiten imágenes en este apartado.', 'error');
-                }
-                return;
-            }
-
-            syncInputFiles(file);
-            await handleImageFile(file);
-        });
-
-        // Gestionamos la entrada de URL
-        photoUrlInput.addEventListener('input', () => {
-            if (photoUrlInput.value.trim() !== '') {
-                state.selectedFileForUpload = null;
-                if (photoFileInput) photoFileInput.value = null;
-                uiUtils.showPreviewGlobal(photoUrlInput.value.trim(), imagePreviewContainer);
-            }
-        });
-
-        const setDragActive = (isActive) => {
-            uploadArea.classList.toggle('drag-over', Boolean(isActive));
-        };
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setDragActive(true);
-            });
-        });
-
-        ['dragleave', 'dragend'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                const related = event.relatedTarget;
-                if (!(related instanceof Node) || !uploadArea.contains(related)) {
-                    setDragActive(false);
-                }
-            });
-        });
-
-        uploadArea.addEventListener('drop', async (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setDragActive(false);
-            const files = event.dataTransfer?.files;
-            if (!files || !files.length) {
-                return;
-            }
-            const file = files[0];
-            try {
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                photoFileInput.files = dataTransfer.files;
-            } catch (assignError) {
-                console.warn('No se pudo asignar el archivo soltado al input de tipo file.', assignError);
-            }
-            await processSelectedFile(file, { fromDrop: true });
-        });
     }
 
     function setupHelpModal() {
         const modal = document.getElementById('tips-modal');
         const openButton = document.getElementById('open-help-modal');
-        if (!modal || !openButton) return;
-
         const closeButton = document.getElementById('close-help-modal');
-        const overlay = modal.querySelector('[data-modal-dismiss]');
-        let previouslyFocused = null;
+        const overlay = modal?.querySelector('[data-modal-dismiss]');
+        if (!modal || !openButton) {
+            return;
+        }
 
-        openButton.setAttribute('aria-expanded', 'false');
-
-        const getFocusableElements = () => {
-            const focusableSelector = 'button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])';
-            return Array.from(modal.querySelectorAll(focusableSelector))
-                .filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
+        const openModal = () => {
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('modal-open');
         };
 
         const closeModal = () => {
             modal.classList.remove('is-open');
             modal.setAttribute('aria-hidden', 'true');
-            openButton.setAttribute('aria-expanded', 'false');
-            document.removeEventListener('keydown', handleKeydown);
-            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-                previouslyFocused.focus({ preventScroll: true });
+            document.body.classList.remove('modal-open');
+        };
+
+        openButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            openModal();
+        });
+
+        [closeButton, overlay].forEach((element) => {
+            element?.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeModal();
+            });
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+                closeModal();
+            }
+        });
+    }
+
+    function setupManualLocationToggle() {
+        const toggleBtn = document.getElementById('toggle-manual-location-btn');
+        const manualFields = document.getElementById('manual-location-fields');
+        if (!toggleBtn || !manualFields) {
+            return;
+        }
+
+        const icon = toggleBtn.querySelector('.toggle-icon i') || toggleBtn.querySelector('i');
+
+        const setExpanded = (expanded) => {
+            if (expanded) {
+                manualFields.removeAttribute('hidden');
+            } else {
+                manualFields.setAttribute('hidden', '');
+            }
+            toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-up', expanded);
+                icon.classList.toggle('fa-chevron-down', !expanded);
             }
         };
 
-        const handleKeydown = (event) => {
-            if (event.key === 'Escape') {
+        setExpanded(false);
+
+        toggleBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            const isHidden = manualFields.hasAttribute('hidden');
+            setExpanded(isHidden);
+            if (isHidden) {
+                manualFields.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+
+        const addressBtn = document.getElementById('get-current-address-btn');
+        if (addressBtn) {
+            addressBtn.addEventListener('click', async (event) => {
                 event.preventDefault();
-                closeModal();
+                if (!navigator.geolocation) {
+                    notify('La geolocalización no está disponible en tu dispositivo.', 'warning');
+                    return;
+                }
+
+                addressBtn.disabled = true;
+                addressBtn.classList.add('is-loading');
+                setPlaceStatus('loading', 'Obteniendo tu ubicación actual...');
+
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+                    });
+                    const { latitude, longitude } = position.coords;
+                    const latInput = document.getElementById('location-latitude');
+                    const lonInput = document.getElementById('location-longitude');
+                    if (latInput) latInput.value = latitude;
+                    if (lonInput) lonInput.value = longitude;
+                    notify('Coordenadas añadidas al formulario.', 'success');
+                    setPlaceStatus('success', 'Coordenadas actuales añadidas.');
+                } catch (error) {
+                    console.error('[ReviewForm] Error obteniendo ubicación manual:', error);
+                    notify('No se pudo obtener tu ubicación.', 'error');
+                    setPlaceStatus('error', 'No se pudo obtener tu ubicación.');
+                } finally {
+                    addressBtn.disabled = false;
+                    addressBtn.classList.remove('is-loading');
+                }
+            });
+        }
+    }
+
+    function setupPlaceSearch() {
+        const input = document.getElementById('restaurant-name-search-input');
+        const searchBtn = document.getElementById('search-by-name-btn');
+        const findNearbyBtn = document.getElementById('find-nearby-btn');
+        const suggestionsBox = document.getElementById('restaurant-suggestions');
+
+        if (input) {
+            input.addEventListener('input', () => {
+                clearPlaceSelectionIndicators();
+                if (input.value.trim() === '' && suggestionsBox) {
+                    suggestionsBox.innerHTML = '';
+                    suggestionsBox.classList.remove('is-visible');
+                }
+            });
+
+            input.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    searchBtn?.click();
+                }
+            });
+
+            input.addEventListener('focus', () => {
+                if (!input.dataset.placeSelected) {
+                    setPlaceStatus('info', 'Busca un establecimiento o utiliza las acciones rápidas.');
+                }
+            });
+        }
+
+        if (searchBtn && input) {
+            searchBtn.addEventListener('click', () => {
+                const placesService = window.ListopicApp?.placesService;
+                if (!placesService || typeof placesService.searchRestaurantsByName !== 'function') {
+                    notify('El servicio de lugares no está disponible en este momento.', 'error');
+                    return;
+                }
+                placesService.searchRestaurantsByName(input.value);
+            });
+        }
+
+        if (findNearbyBtn) {
+            findNearbyBtn.addEventListener('click', () => {
+                const placesService = window.ListopicApp?.placesService;
+                if (!placesService || typeof placesService.fetchNearbyRestaurantsWithContext !== 'function') {
+                    notify('No pudimos iniciar la búsqueda de lugares cercanos.', 'error');
+                    return;
+                }
+                placesService.fetchNearbyRestaurantsWithContext();
+            });
+        }
+    }
+
+    function setupUrlPreview(previewContainer, photoUrlInput, photoFileInput) {
+        if (!photoUrlInput || !previewContainer) {
+            return;
+        }
+
+        const renderImageFromUrl = (url) => {
+            previewContainer.innerHTML = '';
+            if (!url) {
                 return;
             }
-            if (event.key === 'Tab') {
-                const focusable = getFocusableElements();
-                if (!focusable.length) return;
-                const first = focusable[0];
-                const last = focusable[focusable.length - 1];
-                if (event.shiftKey) {
-                    if (document.activeElement === first || !modal.contains(document.activeElement)) {
-                        event.preventDefault();
-                        last.focus();
-                    }
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = 'Previsualización';
+            img.onerror = () => {
+                previewContainer.innerHTML = '<p class="loading-placeholder">No se pudo cargar la imagen desde la URL proporcionada.</p>';
+            };
+            previewContainer.appendChild(img);
+        };
+
+        photoUrlInput.addEventListener('input', () => {
+            const value = photoUrlInput.value.trim();
+            state.selectedFileForUpload = null;
+            if (photoFileInput) {
+                photoFileInput.value = '';
+            }
+            if (!value) {
+                previewContainer.innerHTML = '';
+                return;
+            }
+            renderImageFromUrl(value);
+        });
+    }
+
+    function setupPhotoHandling() {
+        const reviewForm = document.getElementById('review-form');
+        if (!reviewForm) {
+            return;
+        }
+
+        const photoFileInput = document.getElementById('photo-file');
+        const imagePreviewContainer = reviewForm.querySelector('.image-preview');
+        const photoUrlInput = document.getElementById('photo-url');
+        const uploadArea = document.getElementById('image-drop-area');
+        const galleryButton = document.getElementById('browse-gallery-btn');
+        const useCameraButton = document.getElementById('use-camera-btn');
+        const uiUtils = window.ListopicApp?.uiUtils || {};
+
+        if (!photoFileInput || !imagePreviewContainer || !photoUrlInput || !uploadArea) {
+            console.warn('[ReviewForm] Elementos necesarios para la subida de imágenes no encontrados.');
+            return;
+        }
+
+        const syncInputWithFile = (file) => {
+            if (!window.DataTransfer || !file) {
+                return;
+            }
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            photoFileInput.files = dataTransfer.files;
+        };
+
+        const handleImageFile = async (file) => {
+            if (!file) {
+                return;
+            }
+
+            if (!file.type || !file.type.startsWith('image/')) {
+                notify('El archivo seleccionado no es una imagen válida.', 'error');
+                return;
+            }
+
+            try {
+                imagePreviewContainer.innerHTML = '<p class="loading-placeholder">Comprimiendo imagen...</p>';
+                const compressedFile = typeof uiUtils.compressImage === 'function'
+                    ? await uiUtils.compressImage(file, {
+                        maxWidth: 1600,
+                        maxHeight: 1600,
+                        quality: 0.72
+                    })
+                    : file;
+
+                state.selectedFileForUpload = compressedFile;
+                syncInputWithFile(compressedFile);
+                const previewUrl = URL.createObjectURL(compressedFile);
+                if (typeof uiUtils.showPreviewGlobal === 'function') {
+                    uiUtils.showPreviewGlobal(previewUrl, imagePreviewContainer);
                 } else {
-                    if (document.activeElement === last) {
-                        event.preventDefault();
-                        first.focus();
-                    }
+                    imagePreviewContainer.innerHTML = `<img src="${previewUrl}" alt="Previsualización">`;
+                }
+                if (photoUrlInput) {
+                    photoUrlInput.value = '';
+                }
+            } catch (error) {
+                console.error('[ReviewForm] Error al procesar la imagen seleccionada:', error);
+                notify('No se pudo procesar la imagen seleccionada.', 'error');
+                imagePreviewContainer.innerHTML = '';
+                state.selectedFileForUpload = null;
+                if (photoFileInput) {
+                    photoFileInput.value = '';
                 }
             }
         };
 
-        const openModal = () => {
-            previouslyFocused = document.activeElement;
-            modal.classList.add('is-open');
-            modal.setAttribute('aria-hidden', 'false');
-            openButton.setAttribute('aria-expanded', 'true');
-            document.addEventListener('keydown', handleKeydown);
-            const focusable = getFocusableElements();
-            const target = focusable[0] || closeButton || modal;
-            setTimeout(() => target.focus({ preventScroll: true }), 0);
-        };
-
-        openButton.addEventListener('click', () => {
-            if (modal.classList.contains('is-open')) {
-                closeModal();
-            } else {
-                openModal();
+        uploadArea.addEventListener('click', (event) => {
+            const target = event.target;
+            if (target instanceof HTMLElement && target.closest('button')) {
+                return;
             }
+            photoFileInput.click();
         });
 
-        if (closeButton) {
-            closeButton.addEventListener('click', closeModal);
-        }
-        if (overlay) {
-            overlay.addEventListener('click', closeModal);
-        }
+        photoFileInput.addEventListener('change', (event) => {
+            const file = event.target.files?.[0];
+            handleImageFile(file);
+        });
+
+        const preventDefaults = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        ['dragenter', 'dragover'].forEach((eventName) => {
+            uploadArea.addEventListener(eventName, (event) => {
+                preventDefaults(event);
+                uploadArea.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'dragend'].forEach((eventName) => {
+            uploadArea.addEventListener(eventName, (event) => {
+                preventDefaults(event);
+                uploadArea.classList.remove('drag-over');
+            });
+        });
+
+        uploadArea.addEventListener('drop', (event) => {
+            preventDefaults(event);
+            uploadArea.classList.remove('drag-over');
+            const files = Array.from(event.dataTransfer?.files || []);
+            const file = files.find(candidate => candidate.type && candidate.type.startsWith('image/'));
+            if (!file) {
+                if (files.length) {
+                    notify('Solo puedes arrastrar archivos de imagen en este espacio.', 'warning');
+                }
+                return;
+            }
+            handleImageFile(file);
+        });
+
+        setupUrlPreview(imagePreviewContainer, photoUrlInput, photoFileInput);
+
+        galleryButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            notify('Muy pronto podrás elegir imágenes de tu galería.', 'info');
+        });
+
+        useCameraButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            notify('Funcionalidad de cámara en preparación.', 'info');
+        });
     }
 
     function setupMissingItemNameConfirmation() {
         const modal = document.getElementById('missing-item-modal');
         if (!modal) {
-            return { confirm: async () => true };
+            return {
+                confirm: () => Promise.resolve(true)
+            };
         }
 
-        const overlay = modal.querySelector('.confirm-modal__overlay');
+        const overlay = modal.querySelector('[data-missing-item-dismiss]');
         const cancelBtn = document.getElementById('missing-item-cancel');
         const confirmBtn = document.getElementById('missing-item-confirm');
         let resolver = null;
-        let previouslyFocused = null;
-
-        const getFocusableElements = () => {
-            const focusableSelector = 'button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])';
-            return Array.from(modal.querySelectorAll(focusableSelector))
-                .filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
-        };
 
         const closeModal = () => {
             modal.classList.remove('is-open');
             modal.setAttribute('aria-hidden', 'true');
-            document.removeEventListener('keydown', handleKeydown);
-            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-                previouslyFocused.focus({ preventScroll: true });
-            }
+            document.body.classList.remove('modal-open');
+            resolver = null;
         };
 
-        const resolveAndClose = (value) => {
+        const openModal = () => {
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('modal-open');
+        };
+
+        const handleResult = (value) => {
             if (resolver) {
-                const currentResolver = resolver;
-                resolver = null;
-                currentResolver(!!value);
+                resolver(value);
             }
             closeModal();
         };
 
-        const handleKeydown = (event) => {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                resolveAndClose(false);
-                return;
-            }
-            if (event.key === 'Tab') {
-                const focusable = getFocusableElements();
-                if (!focusable.length) return;
-                const first = focusable[0];
-                const last = focusable[focusable.length - 1];
-                if (event.shiftKey) {
-                    if (document.activeElement === first || !modal.contains(document.activeElement)) {
-                        event.preventDefault();
-                        last.focus();
-                    }
-                } else {
-                    if (document.activeElement === last) {
-                        event.preventDefault();
-                        first.focus();
-                    }
-                }
-            }
-        };
+        cancelBtn?.addEventListener('click', (event) => {
+            event.preventDefault();
+            handleResult(false);
+        });
 
-        const openModal = () => {
-            return new Promise(resolve => {
-                resolver = resolve;
-                previouslyFocused = document.activeElement;
-                modal.classList.add('is-open');
-                modal.setAttribute('aria-hidden', 'false');
-                document.addEventListener('keydown', handleKeydown);
-                const focusable = getFocusableElements();
-                const target = confirmBtn || focusable[0] || cancelBtn || modal;
-                if (target && typeof target.focus === 'function') {
-                    setTimeout(() => target.focus({ preventScroll: true }), 0);
-                }
-            });
-        };
+        confirmBtn?.addEventListener('click', (event) => {
+            event.preventDefault();
+            handleResult(true);
+        });
 
-        if (overlay) {
-            overlay.addEventListener('click', () => resolveAndClose(false));
-        }
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', (event) => {
-                event.preventDefault();
-                resolveAndClose(false);
-            });
-        }
-        if (confirmBtn) {
-            confirmBtn.addEventListener('click', (event) => {
-                event.preventDefault();
-                resolveAndClose(true);
-            });
-        }
+        overlay?.addEventListener('click', (event) => {
+            event.preventDefault();
+            handleResult(false);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+                handleResult(false);
+            }
+        });
 
         return {
             confirm: () => {
                 if (resolver) {
                     return Promise.resolve(false);
                 }
-                return openModal();
+                return new Promise((resolve) => {
+                    resolver = resolve;
+                    openModal();
+                });
             }
         };
     }
 
-    function init() {
-        console.log('Initializing Review Form page logic - FINAL CORRECTED VERSION');
+    async function prefillPlaceFromId(placeId) {
+        if (!placeId) {
+            return;
+        }
+        const services = getServices();
+        const db = services.db;
+        const uiUtils = window.ListopicApp?.uiUtils;
+        if (!db || !uiUtils || typeof uiUtils.updateReviewFormWithPlace !== 'function') {
+            return;
+        }
+        try {
+            const placeDoc = await db.collection('places').doc(placeId).get();
+            if (placeDoc.exists) {
+                const placeDataWithId = { id: placeDoc.id, ...placeDoc.data() };
+                uiUtils.updateReviewFormWithPlace(placeDataWithId);
+            }
+        } catch (error) {
+            console.warn('[ReviewForm] No se pudo precargar la información del lugar:', error);
+        }
+    }
 
-        const db = ListopicApp.services.db;
-        const auth = ListopicApp.services.auth;
-        const storage = ListopicApp.services.storage;
-        const uiUtils = ListopicApp.uiUtils;
-        const placesService = ListopicApp.placesService;
-        const state = ListopicApp.state;
-        const urlParams = new URLSearchParams(window.location.search);
-        const listId = urlParams.get('listId');
-        const prefillPlaceId = urlParams.get('placeId');
-        const prefillItemName = urlParams.get('itemName');
-        const reviewIdToEdit = urlParams.get('editId');
+    async function hydrateForm({ listId, reviewId, prefillPlaceId, prefillItemName }) {
+        const services = getServices();
+        const db = services.db;
+        const uiUtils = window.ListopicApp?.uiUtils;
+        const reviewForm = document.getElementById('review-form');
+        if (!db || !reviewForm) {
+            return;
+        }
 
-        if (listId) {
-            state.currentListId = listId;
+        const formTitle = reviewForm.parentElement?.querySelector('h1');
+        const itemNameInput = document.getElementById('item-name');
+        const criteriaContainer = document.getElementById('dynamic-rating-criteria');
+
+        try {
+            const listRef = db.collection('lists').doc(listId);
+            const listPromise = listRef.get();
+            const reviewPromise = reviewId ? listRef.collection('reviews').doc(reviewId).get() : Promise.resolve(null);
+
+            const [listSnap, reviewSnap] = await Promise.all([listPromise, reviewPromise]);
+            if (!listSnap.exists) {
+                throw new Error('Datos de la lista no encontrados.');
+            }
+
+            const listData = listSnap.data() || {};
+            state.currentListNameForSearch = listData.name || '';
+            state.currentListCriteriaDefinitions = listData.criteriaDefinition || {};
+
+            if (formTitle) {
+                formTitle.textContent = reviewId
+                    ? `Editar Reseña para ${listData.name || ''}`
+                    : `Añadir Nueva Reseña a ${listData.name || ''}`;
+            }
+
+            if (prefillItemName && itemNameInput && !reviewId) {
+                itemNameInput.value = prefillItemName;
+            }
+
+            if (prefillPlaceId && !reviewId) {
+                await prefillPlaceFromId(prefillPlaceId);
+            }
+
+            const availableTags = Array.isArray(listData.availableTags)
+                ? listData.availableTags
+                : Array.isArray(listData.tagsDefinition?.userAvailable)
+                    ? listData.tagsDefinition.userAvailable
+                    : [];
+            const fixedTags = Array.isArray(listData.fixedTags)
+                ? listData.fixedTags
+                : Array.isArray(listData.tagsDefinition?.fixed)
+                    ? listData.tagsDefinition.fixed
+                    : [];
+
+            let reviewData = null;
+            if (reviewSnap && reviewSnap.exists) {
+                reviewData = reviewSnap.data();
+            } else if (reviewId) {
+                notify('No se encontró la reseña que intentas editar.', 'error');
+            }
+
+            if (criteriaContainer && uiUtils && typeof uiUtils.renderCriteriaSliders === 'function') {
+                uiUtils.renderCriteriaSliders(criteriaContainer, reviewData?.scores || {}, state.currentListCriteriaDefinitions);
+            } else if (criteriaContainer) {
+                criteriaContainer.innerHTML = '<p class="helper-text subtle">No hay criterios definidos para esta lista.</p>';
+            }
+
+            renderTags(availableTags, reviewData?.userTags || [], fixedTags);
+
+            if (reviewData) {
+                if (itemNameInput) {
+                    itemNameInput.value = reviewData.itemName || '';
+                }
+                const commentInput = document.getElementById('comment');
+                if (commentInput) {
+                    commentInput.value = reviewData.comment || '';
+                }
+                const photoUrlInput = document.getElementById('photo-url');
+                const preview = reviewForm.querySelector('.image-preview');
+                if (reviewData.photoUrl && photoUrlInput) {
+                    photoUrlInput.value = reviewData.photoUrl;
+                    if (uiUtils && typeof uiUtils.showPreviewGlobal === 'function') {
+                        uiUtils.showPreviewGlobal(reviewData.photoUrl, preview);
+                    }
+                }
+                if (reviewData.placeId) {
+                    await prefillPlaceFromId(reviewData.placeId);
+                }
+            } else {
+                setPlaceStatus('info', 'Selecciona un lugar para comenzar a valorar.');
+            }
+        } catch (error) {
+            console.error('[ReviewForm] Error cargando datos del formulario:', error);
+            notify('No se pudo cargar la información de la lista.', 'error');
+            if (formTitle) {
+                formTitle.textContent = 'Error al cargar formulario';
+            }
+        }
+    }
+
+    function setupFormSubmission({ listId, reviewId, missingItemConfirm }) {
+        const reviewForm = document.getElementById('review-form');
+        if (!reviewForm) {
+            return;
+        }
+
+        const services = getServices();
+        const db = services.db;
+        const auth = services.auth;
+        const storage = services.storage;
+        const uiUtils = window.ListopicApp?.uiUtils;
+
+        reviewForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const submitButton = reviewForm.querySelector('.submit-button');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.classList.add('is-loading');
+            }
+
+            try {
+                const currentUser = auth?.currentUser;
+                if (!currentUser) {
+                    throw new Error('Debes iniciar sesión para guardar tu reseña.');
+                }
+
+                const itemNameInput = document.getElementById('item-name');
+                const itemNameValue = itemNameInput ? itemNameInput.value.trim() : '';
+                if (!itemNameValue) {
+                    const proceed = await missingItemConfirm.confirm();
+                    if (!proceed) {
+                        throw new Error('Necesitas indicar qué estás valorando.');
+                    }
+                }
+
+                const placeIdInput = document.getElementById('location-googlePlaceId');
+                const placeIdValue = placeIdInput?.value || '';
+                if (!placeIdValue) {
+                    setPlaceStatus('error', 'Selecciona un establecimiento válido antes de guardar.');
+                    throw new Error('Debes seleccionar un lugar válido antes de guardar.');
+                }
+
+                const formData = new FormData(reviewForm);
+                const reviewPayload = {
+                    userId: currentUser.uid,
+                    listId,
+                    placeId: placeIdValue,
+                    itemName: itemNameInput?.value || '',
+                    comment: formData.get('comment') || '',
+                    scores: {},
+                    userTags: formData.getAll('tags') || []
+                };
+
+                for (const [key, value] of formData.entries()) {
+                    if (key.startsWith('ratings[')) {
+                        const ratingKey = key.substring(8, key.length - 1);
+                        reviewPayload.scores[ratingKey] = parseFloat(value);
+                    }
+                }
+
+                let totalWeightedScore = 0;
+                let ponderableCriteriaCount = 0;
+                if (uiUtils && state.currentListCriteriaDefinitions && typeof state.currentListCriteriaDefinitions === 'object') {
+                    Object.entries(reviewPayload.scores).forEach(([criteriaKey, scoreValue]) => {
+                        const definition = state.currentListCriteriaDefinitions[criteriaKey];
+                        if (!definition || definition.ponderable === false) {
+                            return;
+                        }
+                        totalWeightedScore += Number(scoreValue) || 0;
+                        ponderableCriteriaCount += 1;
+                    });
+                }
+                reviewPayload.overallRating = ponderableCriteriaCount > 0
+                    ? parseFloat((totalWeightedScore / ponderableCriteriaCount).toFixed(2))
+                    : 0;
+
+                let finalImageUrl = (document.getElementById('photo-url')?.value || '').trim();
+                if (state.selectedFileForUpload && storage?.ref) {
+                    const file = state.selectedFileForUpload;
+                    const fileName = `${Date.now()}-${file.name}`;
+                    const storagePath = `reviews/${currentUser.uid}/${listId}/${fileName}`;
+                    const storageRef = storage.ref(storagePath);
+                    const uploadSnapshot = await storageRef.put(file);
+                    finalImageUrl = await uploadSnapshot.ref.getDownloadURL();
+                }
+
+                if (finalImageUrl) {
+                    reviewPayload.photoUrl = finalImageUrl;
+                }
+
+                const listRef = db.collection('lists').doc(listId);
+                if (reviewId) {
+                    reviewPayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await listRef.collection('reviews').doc(reviewId).update(reviewPayload);
+                    notify('Reseña actualizada con éxito.', 'success');
+                } else {
+                    const timestamp = firebase.firestore.FieldValue.serverTimestamp();
+                    reviewPayload.createdAt = timestamp;
+                    reviewPayload.updatedAt = timestamp;
+                    await listRef.collection('reviews').add(reviewPayload);
+                    notify('Reseña guardada con éxito.', 'success');
+                }
+
+                window.location.href = `list-view.html?listId=${encodeURIComponent(listId)}`;
+            } catch (error) {
+                console.error('[ReviewForm] Error al guardar la reseña:', error);
+                notify(error.message || 'No se pudo guardar la reseña.', 'error');
+            } finally {
+                const submitButton = reviewForm.querySelector('.submit-button');
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.classList.remove('is-loading');
+                }
+            }
+        });
+    }
+
+    function configureBackButton(listId, urlParams) {
+        const backButton = document.querySelector('.form-card-header .back-button');
+        if (!backButton) {
+            return;
+        }
+        const fromGrouped = urlParams.get('fromGrouped');
+        const fromEstablishment = urlParams.get('fromEstablishment');
+        const fromItem = urlParams.get('fromItem');
+        if (fromGrouped === 'true' && fromEstablishment) {
+            const targetUrl = new URL('grouped-detail-view.html', window.location.origin);
+            targetUrl.searchParams.set('listId', listId);
+            targetUrl.searchParams.set('establishment', fromEstablishment);
+            if (fromItem) {
+                targetUrl.searchParams.set('item', fromItem);
+            }
+            backButton.href = `${targetUrl.pathname}${targetUrl.search}`;
         } else {
-            console.error("FATAL: listId no encontrado en la URL. El formulario no puede funcionar.");
+            backButton.href = `list-view.html?listId=${encodeURIComponent(listId)}`;
+        }
+    }
+
+    function init() {
+        console.log('[ReviewForm] Iniciando página de formulario de reseñas.');
+        const services = getServices();
+        if (!services.db || !services.auth) {
+            console.error('[ReviewForm] Servicios esenciales no disponibles.');
             return;
         }
 
         const reviewForm = document.getElementById('review-form');
-        
-        if (reviewForm) {
-            const missingItemConfirm = setupMissingItemNameConfirmation();
-            const formTitle = reviewForm.parentElement.querySelector('h2');
-            const criteriaContainer = document.getElementById('dynamic-rating-criteria');
-            const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
-            const itemNameInput = document.getElementById('item-name');
-            const backButtonReview = reviewForm.parentElement.querySelector('a.back-button');
-
-            if (backButtonReview) {
-                const fromGrouped = urlParams.get('fromGrouped');
-                const fromEstablishment = urlParams.get('fromEstablishment');
-                const fromItem = urlParams.get('fromItem');
-                if (fromGrouped === 'true' && fromEstablishment) {
-                    backButtonReview.href = `grouped-detail-view.html?listId=${listId}&establishment=${encodeURIComponent(fromEstablishment)}&item=${encodeURIComponent(fromItem || '')}`;
-                } else {
-                    backButtonReview.href = `list-view.html?listId=${listId}`;
-                }
-            }
-
-            const findNearbyBtn = document.getElementById('find-nearby-btn');
-            const searchByNameBtn = document.getElementById('search-by-name-btn');
-            const toggleManualLocationBtn = document.getElementById('toggle-manual-location-btn');
-
-            // Prefill desde URL: lugar e item
-            if (prefillItemName && itemNameInput) {
-                itemNameInput.value = prefillItemName;
-            }
-            if (prefillPlaceId && ListopicApp.services?.db) {
-                try {
-                    ListopicApp.services.db.collection('places').doc(prefillPlaceId).get()
-                        .then(placeDoc => {
-                            if (placeDoc.exists) {
-                                const placeDataWithId = { id: placeDoc.id, ...placeDoc.data() };
-                                uiUtils.updateReviewFormWithPlace(placeDataWithId);
-                            }
-                        })
-                        .catch(e => console.warn('No se pudo precargar el lugar en el formulario', e));
-                } catch (e) {
-                    console.warn('No se pudo precargar el lugar en el formulario', e);
-                }
-            }
-
-            if (toggleManualLocationBtn) {
-                toggleManualLocationBtn.addEventListener('click', () => {
-                    const manualFields = document.getElementById('manual-location-fields');
-                    if (manualFields) {
-                        const isVisible = manualFields.style.display === 'block';
-                        manualFields.style.display = isVisible ? 'none' : 'block';
-                        toggleManualLocationBtn.querySelector('i').classList.toggle('fa-chevron-down', isVisible);
-                        toggleManualLocationBtn.querySelector('i').classList.toggle('fa-chevron-up', !isVisible);
-                    }
-                });
-            }
-
-            if (findNearbyBtn) {
-                findNearbyBtn.addEventListener('click', () => {
-                    const ps = window.ListopicApp?.placesService;
-                    if (!ps) return console.error('placesService no disponible');
-                    ps.fetchNearbyRestaurantsWithContext();
-                });
-            }
-            if (searchByNameBtn && establishmentNameSearchInput) {
-                searchByNameBtn.addEventListener('click', () => {
-                    const ps = window.ListopicApp?.placesService;
-                    if (!ps) return console.error('placesService no disponible');
-                    ps.searchRestaurantsByName(establishmentNameSearchInput.value);
-                });
-                establishmentNameSearchInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const ps = window.ListopicApp?.placesService;
-                        if (!ps) return console.error('placesService no disponible');
-                        ps.searchRestaurantsByName(establishmentNameSearchInput.value);
-                    }
-                });
-                establishmentNameSearchInput.addEventListener('input', () => {
-                    delete establishmentNameSearchInput.dataset.placeSelected;
-                    const searchGroup = establishmentNameSearchInput.closest('.form-group');
-                    if (searchGroup) {
-                        searchGroup.classList.remove('place-found', 'place-status-loading', 'place-status-success', 'place-status-error', 'place-status-info');
-                    }
-                    const uiUtils = window.ListopicApp?.uiUtils;
-                    if (uiUtils && typeof uiUtils.setPlaceSelectionStatus === 'function') {
-                        uiUtils.setPlaceSelectionStatus('info', '');
-                    }
-                });
-            }
-
-            setupPhotoHandling();
-            setupHelpModal();
-            if (window.ListopicApp?.uiUtils && typeof window.ListopicApp.uiUtils.setPlaceSelectionStatus === 'function') {
-                window.ListopicApp.uiUtils.setPlaceSelectionStatus('info', '');
-            }
-
-            db.collection('lists').doc(listId).get().then(doc => {
-                if (!doc.exists) throw new Error("Datos de la lista no encontrados.");
-                const listData = doc.data();
-                state.currentListNameForSearch = listData.name || '';
-                state.currentListCriteriaDefinitions = listData.criteriaDefinition || {};
-
-                if (formTitle) formTitle.textContent = reviewIdToEdit ? `Editar Reseña para ${listData.name}` : `Añadir Nueva Reseña a ${listData.name}`;
-
-                if (reviewIdToEdit) {
-                    db.collection('lists').doc(listId).collection('reviews').doc(reviewIdToEdit).get().then(async reviewDoc => {
-                        if (!reviewDoc.exists) throw new Error("Reseña para editar no encontrada.");
-                        const reviewData = reviewDoc.data();
-                        if (reviewData.placeId) {
-                            const placeDoc = await db.collection('places').doc(reviewData.placeId).get();
-                            if (placeDoc.exists) {
-                                const placeDataWithId = { id: placeDoc.id, ...placeDoc.data() };
-                                uiUtils.updateReviewFormWithPlace(placeDataWithId);
-                            }
-                        }
-                        if (itemNameInput) itemNameInput.value = reviewData.itemName || '';
-                        if (reviewData.photoUrl) {
-                            uiUtils.showPreviewGlobal(reviewData.photoUrl, reviewForm.querySelector('.image-preview'));
-                            const photoUrlInputReview = document.getElementById('photo-url');
-                            if (photoUrlInputReview) photoUrlInputReview.value = reviewData.photoUrl;
-                        }
-                        const commentEl = document.getElementById('comment');
-                        if(commentEl) commentEl.value = reviewData.comment || '';
-                        uiUtils.renderCriteriaSliders(criteriaContainer, reviewData.scores || {}, state.currentListCriteriaDefinitions);
-                        renderTags(listData.availableTags || [], reviewData.userTags || [], listData.fixedTags || []);
-                    }).catch(error => console.error("Error al cargar la reseña para editar:", error));
-                } else {
-                    uiUtils.renderCriteriaSliders(criteriaContainer, {}, state.currentListCriteriaDefinitions);
-                    renderTags(listData.availableTags || [], [], listData.fixedTags || []);
-                }
-            }).catch(error => {
-                console.error("Error al cargar datos de la lista:", error);
-                if(formTitle) formTitle.textContent = "Error al cargar formulario";
-            });
-
-            reviewForm.addEventListener('submit', async (event) => {
-                event.preventDefault();
-                const submitButton = reviewForm.querySelector('.submit-button');
-                if (submitButton) {
-                    submitButton.disabled = true;
-                    submitButton.classList.add('is-loading');
-                }
-
-                const currentUser = auth.currentUser;
-                if (!currentUser) {
-                    ListopicApp.services.showNotification("Debes estar autenticado.", 'error');
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.classList.remove('is-loading');
-                    }
-                    return;
-                }
-
-                const itemNameValue = itemNameInput ? itemNameInput.value.trim() : '';
-                if (!itemNameValue) {
-                    const proceedWithoutName = await missingItemConfirm.confirm();
-                    if (!proceedWithoutName) {
-                        if (submitButton) {
-                            submitButton.disabled = false;
-                            submitButton.classList.remove('is-loading');
-                        }
-                        return;
-                    }
-                }
-
-                try {
-                    const placeIdToSave = document.getElementById('location-googlePlaceId').value;
-                    const reviewIdToUse = urlParams.get('editId');
-
-                    if (!placeIdToSave) {
-                        ListopicApp.services.showNotification("Error: Debes buscar y seleccionar un lugar válido.", 'error');
-                        if (submitButton) {
-                            submitButton.disabled = false;
-                            submitButton.classList.remove('is-loading');
-                        }
-                        return;
-                    }
-
-                    const formData = new FormData(reviewForm);
-                    const reviewDataPayload = {
-                        userId: currentUser.uid,
-                        listId: listId,
-                        placeId: placeIdToSave, 
-                        itemName: document.getElementById('item-name').value,
-                        comment: formData.get('comment'),
-                        scores: {},
-                        userTags: formData.getAll('tags'),
-                    };
-
-                    for (const [key, value] of formData.entries()) {
-                        if (key.startsWith('ratings[')) {
-                            reviewDataPayload.scores[key.substring(8, key.length - 1)] = parseFloat(value);
-                        }
-                    }
-                    
-                    let totalWeightedScore = 0;
-                    let ponderableCriteriaCount = 0;
-                    if (typeof state.currentListCriteriaDefinitions === 'object' && Object.keys(state.currentListCriteriaDefinitions).length > 0) {
-                        for (const scoreKey in reviewDataPayload.scores) {
-                            if (state.currentListCriteriaDefinitions[scoreKey]?.ponderable !== false) {
-                                totalWeightedScore += reviewDataPayload.scores[scoreKey];
-                                ponderableCriteriaCount++;
-                            }
-                        }
-                    }
-                    reviewDataPayload.overallRating = ponderableCriteriaCount > 0 ? parseFloat((totalWeightedScore / ponderableCriteriaCount).toFixed(2)) : 0;
-
-                    let finalImageUrl = document.getElementById('photo-url').value.trim();
-                    if (state.selectedFileForUpload && storage) {
-                        const fileName = `${Date.now()}-${state.selectedFileForUpload.name}`;
-                        const storagePath = `reviews/${currentUser.uid}/${listId}/${fileName}`;
-                        const storageRef = storage.ref(storagePath);
-                        finalImageUrl = await (await storageRef.put(state.selectedFileForUpload)).ref.getDownloadURL();
-                    }
-
-                    if (finalImageUrl) {
-                        reviewDataPayload.photoUrl = finalImageUrl;
-                    } else {
-                        delete reviewDataPayload.photoUrl;
-                    }
-
-                    const listRef = db.collection('lists').doc(listId);
-                    if (reviewIdToUse) {
-                        reviewDataPayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-                        await listRef.collection('reviews').doc(reviewIdToUse).update(reviewDataPayload);
-                    } else {
-                        reviewDataPayload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                        reviewDataPayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-                        await listRef.collection('reviews').add(reviewDataPayload);
-                    }
-
-                    ListopicApp.services.showNotification(`Reseña ${reviewIdToUse ? 'actualizada' : 'guardada'} con éxito!`, 'success');
-                    window.location.href = `list-view.html?listId=${listId}`;
-
-                } catch (error) {
-                    console.error('Error al guardar la reseña:', error);
-                    ListopicApp.services.showNotification(`No se pudo guardar: ${error.message}`, 'error');
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.classList.remove('is-loading');
-                    }
-                }
-            });
+        if (!reviewForm) {
+            console.error('[ReviewForm] Formulario principal no encontrado.');
+            return;
         }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const listId = urlParams.get('listId');
+        const prefillPlaceId = urlParams.get('placeId');
+        const prefillItemName = urlParams.get('itemName');
+        const reviewId = urlParams.get('editId');
+
+        if (!listId) {
+            notify('No se indicó la lista a la que pertenece la reseña.', 'error');
+            console.error('[ReviewForm] listId no encontrado en la URL.');
+            return;
+        }
+
+        state.currentListId = listId;
+        state.selectedFileForUpload = null;
+
+        const listIdInput = document.getElementById('review-form-listId');
+        if (listIdInput) {
+            listIdInput.value = listId;
+        }
+
+        configureBackButton(listId, urlParams);
+        setupHelpModal();
+        setupManualLocationToggle();
+        setupPlaceSearch();
+        setupPhotoHandling();
+        const missingItemConfirm = setupMissingItemNameConfirmation();
+        setPlaceStatus('info', 'Busca un establecimiento o utiliza las acciones rápidas.');
+
+        hydrateForm({ listId, reviewId, prefillPlaceId, prefillItemName });
+        setupFormSubmission({ listId, reviewId, missingItemConfirm });
     }
 
     return {
