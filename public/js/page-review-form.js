@@ -82,21 +82,21 @@ ListopicApp.pageReviewForm = (() => {
                 return;
             }
 
+        const handleImageFile = async (file) => {
+            if (!file) return;
+
             if (!file.type || !file.type.startsWith('image/')) {
-                if (showNotification) {
-                    showNotification('El archivo debe ser una imagen.', 'error');
-                }
-                if (!fromDrop) {
-                    resetFileInput();
-                }
+                ListopicApp.services.showNotification('El archivo seleccionado no es una imagen válida.', 'error');
                 return;
             }
 
             photoUrlInput.value = '';
-            imagePreviewContainer.innerHTML = '<p class="loading-placeholder">Comprimiendo imagen...</p>';
 
             try {
                 console.log(`📸 Imagen original: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+
+                imagePreviewContainer.innerHTML = '<p class="loading-placeholder">Comprimiendo imagen...</p>';
+
                 const compressedFile = await uiUtils.compressImage(file, {
                     maxWidth: 1280,
                     maxHeight: 1280,
@@ -104,14 +104,13 @@ ListopicApp.pageReviewForm = (() => {
                 });
 
                 console.log(`✅ Imagen comprimida: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
+
                 state.selectedFileForUpload = compressedFile;
                 const previewUrl = URL.createObjectURL(compressedFile);
                 uiUtils.showPreviewGlobal(previewUrl, imagePreviewContainer);
             } catch (error) {
-                console.error('Error al comprimir la imagen:', error);
-                if (showNotification) {
-                    showNotification('Error al procesar la imagen.', 'error');
-                }
+                console.error("Error al comprimir la imagen:", error);
+                ListopicApp.services.showNotification("Error al procesar la imagen.", 'error');
                 if (uiUtils.clearPreviewGlobal) {
                     uiUtils.clearPreviewGlobal(imagePreviewContainer, photoUrlInput, photoFileInput);
                 } else {
@@ -128,6 +127,56 @@ ListopicApp.pageReviewForm = (() => {
             if (target.tagName !== 'INPUT' && target.tagName !== 'BUTTON' && target.parentElement?.tagName !== 'BUTTON') {
                 photoFileInput.click();
             }
+        };
+
+        const syncInputFiles = (file) => {
+            if (!window.DataTransfer) return;
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            photoFileInput.files = dataTransfer.files;
+        };
+
+        // Gestionamos la selección del archivo y la compresión
+        photoFileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            await handleImageFile(file);
+        });
+
+        const preventDragDefaults = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        ['dragenter', 'dragover'].forEach((eventName) => {
+            uploadArea.addEventListener(eventName, (event) => {
+                preventDragDefaults(event);
+                uploadArea.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'dragend'].forEach((eventName) => {
+            uploadArea.addEventListener(eventName, (event) => {
+                preventDragDefaults(event);
+                uploadArea.classList.remove('drag-over');
+            });
+        });
+
+        uploadArea.addEventListener('drop', async (event) => {
+            preventDragDefaults(event);
+            uploadArea.classList.remove('drag-over');
+
+            const files = Array.from(event.dataTransfer?.files || []);
+            const file = files.find((candidate) => candidate.type && candidate.type.startsWith('image/'));
+
+            if (!file) {
+                if (files.length) {
+                    ListopicApp.services.showNotification('Solo se admiten imágenes en este apartado.', 'error');
+                }
+                return;
+            }
+
+            syncInputFiles(file);
+            await handleImageFile(file);
         });
 
         // Hacemos que el botón específico "Desde Galería" también funcione
