@@ -210,6 +210,106 @@ ListopicApp.pageReviewForm = (() => {
         }
     }
 
+    function setupMissingItemNameConfirmation() {
+        const modal = document.getElementById('missing-item-modal');
+        if (!modal) {
+            return { confirm: async () => true };
+        }
+
+        const overlay = modal.querySelector('.confirm-modal__overlay');
+        const cancelBtn = document.getElementById('missing-item-cancel');
+        const confirmBtn = document.getElementById('missing-item-confirm');
+        let resolver = null;
+        let previouslyFocused = null;
+
+        const getFocusableElements = () => {
+            return Array.from(modal.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')).filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
+        };
+
+        const closeModal = () => {
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+            document.removeEventListener('keydown', handleKeydown);
+            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                previouslyFocused.focus({ preventScroll: true });
+            }
+        };
+
+        const resolveAndClose = (value) => {
+            if (resolver) {
+                const currentResolver = resolver;
+                resolver = null;
+                currentResolver(!!value);
+            }
+            closeModal();
+        };
+
+        const handleKeydown = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                resolveAndClose(false);
+                return;
+            }
+            if (event.key === 'Tab') {
+                const focusable = getFocusableElements();
+                if (!focusable.length) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey) {
+                    if (document.activeElement === first || !modal.contains(document.activeElement)) {
+                        event.preventDefault();
+                        last.focus();
+                    }
+                } else {
+                    if (document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                }
+            }
+        };
+
+        const openModal = () => {
+            return new Promise(resolve => {
+                resolver = resolve;
+                previouslyFocused = document.activeElement;
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
+                document.addEventListener('keydown', handleKeydown);
+                const focusable = getFocusableElements();
+                const target = confirmBtn || focusable[0] || cancelBtn || modal;
+                if (target && typeof target.focus === 'function') {
+                    setTimeout(() => target.focus({ preventScroll: true }), 0);
+                }
+            });
+        };
+
+        if (overlay) {
+            overlay.addEventListener('click', () => resolveAndClose(false));
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+                resolveAndClose(false);
+            });
+        }
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+                resolveAndClose(true);
+            });
+        }
+
+        return {
+            confirm: () => {
+                if (resolver) {
+                    return Promise.resolve(false);
+                }
+                return openModal();
+            }
+        };
+    }
+
     function init() {
         console.log('Initializing Review Form page logic - FINAL CORRECTED VERSION');
 
@@ -235,6 +335,7 @@ ListopicApp.pageReviewForm = (() => {
         const reviewForm = document.getElementById('review-form');
         
         if (reviewForm) {
+            const missingItemConfirm = setupMissingItemNameConfirmation();
             const formTitle = reviewForm.parentElement.querySelector('h2');
             const criteriaContainer = document.getElementById('dynamic-rating-criteria');
             const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
@@ -312,7 +413,7 @@ ListopicApp.pageReviewForm = (() => {
                     delete establishmentNameSearchInput.dataset.placeSelected;
                     const searchGroup = establishmentNameSearchInput.closest('.form-group');
                     if (searchGroup) {
-                        searchGroup.classList.remove('place-found');
+                        searchGroup.classList.remove('place-found', 'place-status-loading', 'place-status-success', 'place-status-error', 'place-status-info');
                     }
                     const uiUtils = window.ListopicApp?.uiUtils;
                     if (uiUtils && typeof uiUtils.setPlaceSelectionStatus === 'function') {
@@ -382,6 +483,18 @@ ListopicApp.pageReviewForm = (() => {
                         submitButton.classList.remove('is-loading');
                     }
                     return;
+                }
+
+                const itemNameValue = itemNameInput ? itemNameInput.value.trim() : '';
+                if (!itemNameValue) {
+                    const proceedWithoutName = await missingItemConfirm.confirm();
+                    if (!proceedWithoutName) {
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.classList.remove('is-loading');
+                        }
+                        return;
+                    }
                 }
 
                 try {

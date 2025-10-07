@@ -88,12 +88,6 @@
                 <div class="form-title-block">
                     <h1>Añadir Nueva Reseña</h1>
                     <p class="form-intro">Encuentra rápidamente el lugar perfecto, añade los detalles clave y deja una reseña memorable para la comunidad.</p>
-                    <ul class="form-progress" aria-label="Pasos del formulario de reseña">
-                        <li class="active"><span class="step-index">1</span> Información</li>
-                        <li><span class="step-index">2</span> Ubicación</li>
-                        <li><span class="step-index">3</span> Valoraciones</li>
-                        <li><span class="step-index">4</span> Extras</li>
-                    </ul>
                 </div>
                 <form id="review-form" action="#" method="POST">
                     <input type="hidden" id="review-form-listId" name="listId">
@@ -109,7 +103,7 @@
                         <div class="form-group">
                             <label for="restaurant-name-search">Buscar Establecimiento/Elemento por nombre:</label>
                             <div class="input-action-group">
-                                <input type="text" id="restaurant-name-search-input" class="form-input" placeholder="Ej: La Pizzería Genial">
+                                <input type="text" id="restaurant-name-search-input" class="form-input search-input" placeholder="Ej: La Pizzería Genial">
                                 <button type="button" id="search-by-name-btn" class="add-button">
                                     <i class="fas fa-search"></i> Buscar
                                 </button>
@@ -273,6 +267,20 @@
                 </ul>
                 <div class="help-modal__footer">
                     <p><i class="fas fa-circle-info" aria-hidden="true"></i> Puedes volver a abrir esta ayuda en cualquier momento desde el botón «Ayuda y consejos».</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="confirm-modal" id="missing-item-modal" aria-hidden="true">
+        <div class="confirm-modal__overlay" data-missing-item-dismiss></div>
+        <div class="confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="missing-item-modal-title">
+            <div class="confirm-modal__content">
+                <h2 id="missing-item-modal-title">¿Guardar sin nombre del plato?</h2>
+                <p>Sin un nombre concreto, a los demás les costará identificar qué estás valorando exactamente. ¿Quieres continuar sin rellenarlo?</p>
+                <div class="confirm-modal__actions">
+                    <button type="button" class="button secondary-button" id="missing-item-cancel">Volver y completar</button>
+                    <button type="button" class="button primary-button" id="missing-item-confirm">Sí, guardar sin nombre</button>
                 </div>
             </div>
         </div>

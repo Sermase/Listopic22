@@ -194,12 +194,44 @@ ListopicApp.uiUtils = {
     },
     
     renderCriteriaSliders: function(containerElement, existingRatings = {}, criteriaDefinitionMap = {}) {
-        if (!containerElement) return;
+        if (!containerElement) {
+            console.warn('No se encontró el contenedor de criterios dinámicos.');
+            return;
+        }
         containerElement.innerHTML = '';
-        if (typeof criteriaDefinitionMap !== 'object' || Object.keys(criteriaDefinitionMap).length === 0) {
+        if (!criteriaDefinitionMap || Object.keys(criteriaDefinitionMap).length === 0) {
             containerElement.innerHTML = '<p>No hay criterios de valoración definidos para esta lista.</p>';
             return;
         }
+
+        const getFeedbackTone = (percent) => {
+            if (percent >= 70) {
+                return {
+                    background: 'rgba(16, 185, 129, 0.16)',
+                    border: '#10b981',
+                    accent: '#047857',
+                    pillBg: 'rgba(16, 185, 129, 0.25)',
+                    pillColor: '#065f46'
+                };
+            }
+            if (percent >= 40) {
+                return {
+                    background: 'rgba(245, 158, 11, 0.18)',
+                    border: '#f59e0b',
+                    accent: '#92400e',
+                    pillBg: 'rgba(245, 158, 11, 0.22)',
+                    pillColor: '#78350f'
+                };
+            }
+            return {
+                background: 'rgba(239, 68, 68, 0.2)',
+                border: '#ef4444',
+                accent: '#991b1b',
+                pillBg: 'rgba(239, 68, 68, 0.24)',
+                pillColor: '#7f1d1d'
+            };
+        };
+
         for (const [criterionKey, criterion] of Object.entries(criteriaDefinitionMap)) {
             const currentValue = existingRatings[criterionKey] !== undefined ? parseFloat(existingRatings[criterionKey]) : 5;
             const sliderGroup = document.createElement('div');
@@ -220,13 +252,51 @@ ListopicApp.uiUtils = {
             const valueDisplay = document.createElement('span');
             valueDisplay.className = 'slider-value-display';
 
+            const feedbackCard = document.createElement('div');
+            feedbackCard.className = 'slider-feedback-card';
+            const primaryRow = document.createElement('div');
+            primaryRow.className = 'slider-feedback-card__row';
+            const primaryValueText = document.createElement('span');
+            primaryValueText.className = 'slider-feedback-card__accent';
+            const tendencyText = document.createElement('span');
+            tendencyText.className = 'slider-feedback-card__trend';
+            primaryRow.appendChild(primaryValueText);
+            primaryRow.appendChild(tendencyText);
+            const distributionRow = document.createElement('div');
+            distributionRow.className = 'slider-feedback-card__row';
+            const distributionLeft = document.createElement('span');
+            const distributionRight = document.createElement('span');
+            distributionRow.appendChild(distributionLeft);
+            distributionRow.appendChild(distributionRight);
+            feedbackCard.appendChild(primaryRow);
+            feedbackCard.appendChild(distributionRow);
+
             const refreshSliderVisual = () => {
                 const minVal = parseFloat(sliderInput.min);
                 const maxVal = parseFloat(sliderInput.max);
                 const numericValue = parseFloat(sliderInput.value);
-                const percent = maxVal > minVal ? ((numericValue - minVal) / (maxVal - minVal)) * 100 : 0;
-                sliderInput.style.setProperty('--percent', `${Math.min(100, Math.max(0, percent))}%`);
+                const percentRaw = maxVal > minVal ? ((numericValue - minVal) / (maxVal - minVal)) * 100 : 0;
+                const percent = Math.min(100, Math.max(0, percentRaw));
+                sliderInput.style.setProperty('--percent', `${percent}%`);
                 valueDisplay.textContent = numericValue.toFixed(1);
+                const tone = getFeedbackTone(percent);
+                valueDisplay.style.backgroundColor = tone.pillBg;
+                valueDisplay.style.color = tone.pillColor;
+                feedbackCard.style.backgroundColor = tone.background;
+                feedbackCard.style.borderLeftColor = tone.border;
+                primaryValueText.style.color = tone.accent;
+                const leftLabel = criterion.labelMin || String(sliderInput.min);
+                const rightLabel = criterion.labelMax || String(sliderInput.max);
+                distributionLeft.textContent = `${leftLabel}: ${(100 - percent).toFixed(0)}%`;
+                distributionRight.textContent = `${rightLabel}: ${percent.toFixed(0)}%`;
+                if (percent <= 45) {
+                    tendencyText.textContent = `Tendencia: ${leftLabel}`;
+                } else if (percent >= 55) {
+                    tendencyText.textContent = `Tendencia: ${rightLabel}`;
+                } else {
+                    tendencyText.textContent = 'Tendencia: equilibrado';
+                }
+                primaryValueText.textContent = `Puntuación: ${numericValue.toFixed(1)}`;
             };
 
             refreshSliderVisual();
@@ -246,7 +316,9 @@ ListopicApp.uiUtils = {
                 rangeLabels.appendChild(rightLabelSpan);
                 sliderGroup.appendChild(rangeLabels);
             }
+            sliderGroup.appendChild(feedbackCard);
             containerElement.appendChild(sliderGroup);
+            refreshSliderVisual();
         }
     },
 
@@ -264,10 +336,22 @@ ListopicApp.uiUtils = {
 
         const highlight = typeof options.highlight === 'string' ? this.escapeHtml(options.highlight) : '';
         const safeMessage = typeof message === 'string' ? this.escapeHtml(message) : '';
+        const searchInput = document.getElementById('restaurant-name-search-input');
+        const searchGroup = searchInput ? searchInput.closest('.form-group') : null;
+        const statusClasses = ['place-status-loading', 'place-status-success', 'place-status-error', 'place-status-info'];
+        if (searchGroup) {
+            statusClasses.forEach(cls => searchGroup.classList.remove(cls));
+            if (normalizedType !== 'success') {
+                searchGroup.classList.remove('place-found');
+            }
+        }
 
         if (!highlight && !safeMessage) {
             statusEl.className = 'place-selection-status';
             statusEl.textContent = '';
+            if (searchGroup) {
+                searchGroup.classList.remove('place-found');
+            }
             return;
         }
 
@@ -279,8 +363,14 @@ ListopicApp.uiUtils = {
             <span class="status-icon" aria-hidden="true"><i class="fas ${iconByType[normalizedType] || iconByType.info}"></i></span>
             <span>${messageHtml}</span>
         `;
+        if (searchGroup) {
+            if (normalizedType === 'success') {
+                searchGroup.classList.add('place-status-success', 'place-found');
+            } else {
+                searchGroup.classList.add(`place-status-${normalizedType}`);
+            }
+        }
     },
-
     escapeHtml: function(unsafe) {
         if (typeof unsafe !== 'string') return '';
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
@@ -684,7 +774,8 @@ createListViewGroupCard: function(group, listData, listIcon) {
             establishmentNameSearchInput.dataset.placeSelected = 'true';
             const searchGroup = establishmentNameSearchInput.closest('.form-group');
             if (searchGroup) {
-                searchGroup.classList.add('place-found');
+                searchGroup.classList.remove('place-status-loading', 'place-status-error', 'place-status-info');
+                searchGroup.classList.add('place-status-success', 'place-found');
             }
         }
         if (establishmentNameHidden) establishmentNameHidden.value = placeData.name || '';

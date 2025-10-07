@@ -64,7 +64,7 @@ ListopicApp.placesService = (() => {
             delete input.dataset.placeSelected;
             const group = input.closest('.form-group');
             if (group) {
-                group.classList.remove('place-found');
+                group.classList.remove('place-found', 'place-status-loading', 'place-status-success', 'place-status-error', 'place-status-info');
             }
         }
     }
