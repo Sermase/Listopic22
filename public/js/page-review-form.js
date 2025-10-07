@@ -62,15 +62,70 @@ ListopicApp.pageReviewForm = (() => {
         const galleryButton = document.getElementById('browse-gallery-btn');
         const state = ListopicApp.state;
         const uiUtils = ListopicApp.uiUtils;
+        const showNotification = ListopicApp.services && typeof ListopicApp.services.showNotification === 'function'
+            ? ListopicApp.services.showNotification.bind(ListopicApp.services)
+            : null;
 
         if (!photoFileInput || !imagePreviewContainer || !photoUrlInput || !uploadArea) {
             console.warn("Faltan elementos de la UI para la subida de fotos.");
             return;
         }
 
+        const resetFileInput = () => {
+            if (photoFileInput) {
+                photoFileInput.value = '';
+            }
+        };
+
+        const processSelectedFile = async (file, { fromDrop = false } = {}) => {
+            if (!file) {
+                return;
+            }
+
+            if (!file.type || !file.type.startsWith('image/')) {
+                if (showNotification) {
+                    showNotification('El archivo debe ser una imagen.', 'error');
+                }
+                if (!fromDrop) {
+                    resetFileInput();
+                }
+                return;
+            }
+
+            photoUrlInput.value = '';
+            imagePreviewContainer.innerHTML = '<p class="loading-placeholder">Comprimiendo imagen...</p>';
+
+            try {
+                console.log(`📸 Imagen original: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+                const compressedFile = await uiUtils.compressImage(file, {
+                    maxWidth: 1280,
+                    maxHeight: 1280,
+                    quality: 0.7
+                });
+
+                console.log(`✅ Imagen comprimida: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
+                state.selectedFileForUpload = compressedFile;
+                const previewUrl = URL.createObjectURL(compressedFile);
+                uiUtils.showPreviewGlobal(previewUrl, imagePreviewContainer);
+            } catch (error) {
+                console.error('Error al comprimir la imagen:', error);
+                if (showNotification) {
+                    showNotification('Error al procesar la imagen.', 'error');
+                }
+                if (uiUtils.clearPreviewGlobal) {
+                    uiUtils.clearPreviewGlobal(imagePreviewContainer, photoUrlInput, photoFileInput);
+                } else {
+                    imagePreviewContainer.innerHTML = '';
+                }
+                resetFileInput();
+            }
+        };
+
         // Hacemos que el área principal de subida sea clickeable
         uploadArea.addEventListener('click', (e) => {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && e.target.parentElement.tagName !== 'BUTTON') {
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            if (target.tagName !== 'INPUT' && target.tagName !== 'BUTTON' && target.parentElement?.tagName !== 'BUTTON') {
                 photoFileInput.click();
             }
         });
@@ -83,43 +138,9 @@ ListopicApp.pageReviewForm = (() => {
         }
 
         // Gestionamos la selección del archivo y la compresión
-        photoFileInput.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            photoUrlInput.value = '';
-            
-            try {
-                // === INICIO DEL CÓDIGO AÑADIDO ===
-                console.log(`📸 Imagen original: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
-                // === FIN DEL CÓDIGO AÑADIDO ===
-                
-                imagePreviewContainer.innerHTML = '<p class="loading-placeholder">Comprimiendo imagen...</p>';
-
-                const compressedFile = await uiUtils.compressImage(file, {
-                    maxWidth: 1280,
-                    maxHeight: 1280,
-                    quality: 0.7
-                });
-
-                // === INICIO DEL CÓDIGO AÑADIDO ===
-                console.log(`✅ Imagen comprimida: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
-                // === FIN DEL CÓDIGO AÑADIDO ===
-                
-                state.selectedFileForUpload = compressedFile;
-
-                const previewUrl = URL.createObjectURL(compressedFile);
-                uiUtils.showPreviewGlobal(previewUrl, imagePreviewContainer);
-
-            } catch (error) {
-                console.error("Error al comprimir la imagen:", error);
-                ListopicApp.services.showNotification("Error al procesar la imagen.", 'error');
-                if(uiUtils.clearPreviewGlobal) {
-                    uiUtils.clearPreviewGlobal(imagePreviewContainer, photoUrlInput, photoFileInput);
-                } else {
-                    imagePreviewContainer.innerHTML = '';
-                }
-            }
+        photoFileInput.addEventListener('change', (event) => {
+            const file = event.target.files && event.target.files[0];
+            processSelectedFile(file);
         });
 
         // Gestionamos la entrada de URL
@@ -129,6 +150,48 @@ ListopicApp.pageReviewForm = (() => {
                 if (photoFileInput) photoFileInput.value = null;
                 uiUtils.showPreviewGlobal(photoUrlInput.value.trim(), imagePreviewContainer);
             }
+        });
+
+        const setDragActive = (isActive) => {
+            uploadArea.classList.toggle('drag-over', Boolean(isActive));
+        };
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setDragActive(true);
+            });
+        });
+
+        ['dragleave', 'dragend'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const related = event.relatedTarget;
+                if (!(related instanceof Node) || !uploadArea.contains(related)) {
+                    setDragActive(false);
+                }
+            });
+        });
+
+        uploadArea.addEventListener('drop', async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setDragActive(false);
+            const files = event.dataTransfer?.files;
+            if (!files || !files.length) {
+                return;
+            }
+            const file = files[0];
+            try {
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                photoFileInput.files = dataTransfer.files;
+            } catch (assignError) {
+                console.warn('No se pudo asignar el archivo soltado al input de tipo file.', assignError);
+            }
+            await processSelectedFile(file, { fromDrop: true });
         });
     }
 
