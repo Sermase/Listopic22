@@ -224,7 +224,7 @@ ListopicApp.uiUtils = {
                 };
             }
             return {
-                background: 'rgba(239, 68, 68, 0.2)',
+                background: 'rgba(255, 0, 0, 0.2)',
                 border: '#ef4444',
                 accent: '#991b1b',
                 pillBg: 'rgba(239, 68, 68, 0.24)',
