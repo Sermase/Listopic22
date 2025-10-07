@@ -106,6 +106,8 @@ ListopicApp.pageReviewForm = (() => {
                 console.log(`✅ Imagen comprimida: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
 
                 state.selectedFileForUpload = compressedFile;
+
+                state.selectedFileForUpload = compressedFile;
                 const previewUrl = URL.createObjectURL(compressedFile);
                 uiUtils.showPreviewGlobal(previewUrl, imagePreviewContainer);
             } catch (error) {
@@ -174,22 +176,56 @@ ListopicApp.pageReviewForm = (() => {
                 }
                 return;
             }
+        };
 
-            syncInputFiles(file);
+        const syncInputFiles = (file) => {
+            if (!window.DataTransfer) return;
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            photoFileInput.files = dataTransfer.files;
+        };
+
+        // Gestionamos la selección del archivo y la compresión
+        photoFileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
             await handleImageFile(file);
         });
 
-        // Hacemos que el botón específico "Desde Galería" también funcione
-        if (galleryButton) {
-            galleryButton.addEventListener('click', () => {
-                photoFileInput.click();
-            });
-        }
+        const preventDragDefaults = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
 
-        // Gestionamos la selección del archivo y la compresión
-        photoFileInput.addEventListener('change', (event) => {
-            const file = event.target.files && event.target.files[0];
-            processSelectedFile(file);
+        ['dragenter', 'dragover'].forEach((eventName) => {
+            uploadArea.addEventListener(eventName, (event) => {
+                preventDragDefaults(event);
+                uploadArea.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'dragend'].forEach((eventName) => {
+            uploadArea.addEventListener(eventName, (event) => {
+                preventDragDefaults(event);
+                uploadArea.classList.remove('drag-over');
+            });
+        });
+
+        uploadArea.addEventListener('drop', async (event) => {
+            preventDragDefaults(event);
+            uploadArea.classList.remove('drag-over');
+
+            const files = Array.from(event.dataTransfer?.files || []);
+            const file = files.find((candidate) => candidate.type && candidate.type.startsWith('image/'));
+
+            if (!file) {
+                if (files.length) {
+                    ListopicApp.services.showNotification('Solo se admiten imágenes en este apartado.', 'error');
+                }
+                return;
+            }
+
+            syncInputFiles(file);
+            await handleImageFile(file);
         });
 
         // Gestionamos la entrada de URL
@@ -256,7 +292,8 @@ ListopicApp.pageReviewForm = (() => {
         openButton.setAttribute('aria-expanded', 'false');
 
         const getFocusableElements = () => {
-            return Array.from(modal.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])'))
+            const focusableSelector = 'button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])';
+            return Array.from(modal.querySelectorAll(focusableSelector))
                 .filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
         };
 
@@ -335,7 +372,9 @@ ListopicApp.pageReviewForm = (() => {
         let previouslyFocused = null;
 
         const getFocusableElements = () => {
-            return Array.from(modal.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')).filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
+            const focusableSelector = 'button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])';
+            return Array.from(modal.querySelectorAll(focusableSelector))
+                .filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
         };
 
         const closeModal = () => {
