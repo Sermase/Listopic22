@@ -1290,15 +1290,50 @@ body.light-theme .confirm-modal__dialog {
 
     .form-section {
         background: transparent;
-        border: none;
         border-radius: 0;
-        padding: 20px 0;
+        padding: 20px 16px 24px;
         margin-bottom: 28px;
         box-shadow: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     }
 
     .form-section:first-of-type {
         padding-top: 0;
+        border-top: none;
+    }
+
+    .form-section:last-of-type {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    body.light-theme .form-section {
+        border-color: rgba(0, 0, 0, 0.08);
+    }
+
+    .form-section__content-grid {
+        gap: 16px;
+    }
+
+    .section-aside-card {
+        padding: 16px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: none;
+    }
+
+    body.light-theme .section-aside-card {
+        background: rgba(0, 0, 0, 0.03);
+        border-color: rgba(0, 0, 0, 0.08);
+    }
+
+    .manual-location-card {
+        margin-top: 12px;
+        padding: 16px;
+        gap: 12px;
     }
 
     .input-action-group {
@@ -1610,12 +1645,15 @@ body.light-theme .criterion-slider-config {
 }
 
 #manual-location-fields {
-    display: none; /* Controlado con JS */
-    border: 1px solid var(--border-color-light);
-    padding: 20px;
-    border-radius: var(--border-radius-medium);
-    margin-top: 10px;
-    background-color: rgba(var(--text-color-rgb, 224, 224, 224), 0.03);
+    border: none;
+    padding: 0;
+    border-radius: 0;
+    margin-top: 18px;
+    background-color: transparent;
+}
+
+#manual-location-fields[hidden] {
+    display: none !important;
 }
 #manual-location-fields label { margin-top: 10px; font-size: 0.9em; }
 #manual-location-fields input.form-input { margin-bottom: 5px; }
@@ -2473,8 +2511,8 @@ body.light-theme #list-circles-ul a:hover {
     border-color: #D1D1D6;
 }
 body.light-theme #manual-location-fields {
-    background-color: #F5F5F7;
-    border-color: #E5E5E5;
+    background-color: transparent;
+    border-color: rgba(0, 0, 0, 0.08);
 }
 
 

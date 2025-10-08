@@ -311,6 +311,7 @@ ListopicApp.pageReviewForm = (() => {
         const uploadArea = document.getElementById('image-drop-area');
         const galleryButton = document.getElementById('browse-gallery-btn');
         const useCameraButton = document.getElementById('use-camera-btn');
+        const cameraCaptureInput = document.getElementById('photo-camera-capture');
         const uiUtils = window.ListopicApp?.uiUtils || {};
 
         if (!photoFileInput || !imagePreviewContainer || !photoUrlInput || !uploadArea) {
@@ -382,6 +383,14 @@ ListopicApp.pageReviewForm = (() => {
             handleImageFile(file);
         });
 
+        cameraCaptureInput?.addEventListener('change', (event) => {
+            const file = event.target.files?.[0];
+            handleImageFile(file);
+            if (cameraCaptureInput) {
+                cameraCaptureInput.value = '';
+            }
+        });
+
         const preventDefaults = (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -424,7 +433,41 @@ ListopicApp.pageReviewForm = (() => {
 
         useCameraButton?.addEventListener('click', (event) => {
             event.preventDefault();
-            notify('Funcionalidad de cámara en preparación.', 'info');
+
+            const triggerStandaloneCaptureInput = () => {
+                if (!cameraCaptureInput) {
+                    return false;
+                }
+                cameraCaptureInput.value = '';
+                cameraCaptureInput.click();
+                return true;
+            };
+
+            if (triggerStandaloneCaptureInput()) {
+                return;
+            }
+
+            if (photoFileInput) {
+                const restoreCaptureAttribute = () => {
+                    photoFileInput.removeAttribute('capture');
+                    photoFileInput.removeEventListener('change', restoreCaptureAttribute);
+                };
+
+                photoFileInput.setAttribute('capture', 'environment');
+                photoFileInput.addEventListener('change', restoreCaptureAttribute, { once: true });
+                setTimeout(() => {
+                    photoFileInput.removeAttribute('capture');
+                }, 2000);
+
+                photoFileInput.click();
+                return;
+            }
+
+            if (navigator.mediaDevices?.getUserMedia) {
+                notify('No pudimos abrir directamente la cámara. Concede permisos al navegador o usa la subida de archivos.', 'warning');
+            } else {
+                notify('Este dispositivo no permite acceder a la cámara desde el navegador.', 'error');
+            }
         });
     }
 
