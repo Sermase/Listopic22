@@ -871,6 +871,7 @@ ListopicApp.pageDetailView = (() => {
         const editButton = document.querySelector('.edit-button');
         const deleteButton = document.querySelector('.delete-button.danger');
         const shareButton = document.getElementById('detail-share-button');
+        const saveButton = document.getElementById('detail-save-button');
         const showNotification = ListopicApp.services?.showNotification;
         const currentUserId = auth?.currentUser?.uid || null;
 
@@ -879,6 +880,75 @@ ListopicApp.pageDetailView = (() => {
         let awaitingFallbackImage = false;
         let chartInstance = null;
         let chartSourceData = null;
+        let archiveDescriptor = null;
+        let archiveEntityKey = null;
+        let archiveMembership = [];
+        let archiveEventHandler = null;
+
+        const applyArchiveSavedState = (saved) => {
+            if (!saveButton) {
+                return;
+            }
+            const isSaved = Boolean(saved);
+            saveButton.classList.toggle('is-archived', isSaved);
+            saveButton.innerHTML = isSaved
+                ? '<i class="fas fa-check"></i> Guardado'
+                : '<i class="fas fa-bookmark"></i> Guardar';
+        };
+
+        const syncArchiveMembership = () => {
+            const archiveService = window.ListopicApp?.archiveService;
+            if (!archiveService || !archiveDescriptor) {
+                applyArchiveSavedState(false);
+                return;
+            }
+            archiveService.getEntityArchiveIds(archiveDescriptor)
+                .then((ids) => {
+                    archiveMembership = Array.isArray(ids) ? ids : [];
+                    applyArchiveSavedState(archiveMembership.length > 0);
+                })
+                .catch(() => applyArchiveSavedState(false));
+        };
+
+        const updateSaveButton = () => {
+            if (!saveButton) {
+                return;
+            }
+            const archiveService = window.ListopicApp?.archiveService;
+            if (!archiveService || typeof archiveService.openSaveModal !== 'function' || !archiveDescriptor) {
+                saveButton.style.display = 'none';
+                saveButton.onclick = null;
+                return;
+            }
+            saveButton.style.display = 'inline-flex';
+            saveButton.disabled = false;
+            if (archiveDescriptor.listId && archiveDescriptor.reviewId) {
+                archiveEntityKey = `review:${archiveDescriptor.listId}:${archiveDescriptor.reviewId}`;
+            }
+            if (archiveEventHandler) {
+                window.removeEventListener('archive:updated', archiveEventHandler);
+            }
+            archiveEventHandler = (event) => {
+                if (!archiveEntityKey) {
+                    return;
+                }
+                if (event.detail?.entityKey === archiveEntityKey) {
+                    const ids = event.detail.archiveIds || [];
+                    archiveMembership = Array.isArray(ids) ? ids : [];
+                    applyArchiveSavedState(archiveMembership.length > 0);
+                }
+            };
+            window.addEventListener('archive:updated', archiveEventHandler);
+            applyArchiveSavedState(archiveMembership.length > 0);
+            saveButton.onclick = () => {
+                try {
+                    archiveService.openSaveModal({ ...archiveDescriptor });
+                } catch (error) {
+                    console.error('[detail-view] Error al abrir El Archivo:', error);
+                    window.ListopicApp?.services?.showNotification?.(error.message || 'No se pudo abrir El Archivo.', 'error');
+                }
+            };
+        };
 
         const setNoLocationVisible = (visible) => {
             if (!detailNoLocationDivEl) {

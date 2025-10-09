@@ -756,8 +756,27 @@ ListopicApp.pageReviewForm = (() => {
                     const timestamp = firebase.firestore.FieldValue.serverTimestamp();
                     reviewPayload.createdAt = timestamp;
                     reviewPayload.updatedAt = timestamp;
-                    await listRef.collection('reviews').add(reviewPayload);
+                    const newReviewRef = await listRef.collection('reviews').add(reviewPayload);
                     notify('Reseña guardada con éxito.', 'success');
+                    if (window.ListopicApp?.archiveService?.handleReviewSubmission) {
+                        const placeNameInputEl = document.getElementById('restaurant-name-search-input');
+                        const placeNameValue = placeNameInputEl ? placeNameInputEl.value.trim() : '';
+                        try {
+                            await window.ListopicApp.archiveService.handleReviewSubmission({
+                                userId: currentUser.uid,
+                                listId,
+                                listName: state.currentListNameForSearch || '',
+                                placeId: placeIdValue,
+                                placeName: placeNameValue,
+                                placeImageUrl: reviewPayload.photoUrl || '',
+                                itemName: reviewPayload.itemName || '',
+                                reviewId: newReviewRef.id,
+                                createdAt: Date.now()
+                            });
+                        } catch (archiveError) {
+                            console.warn('[ReviewForm] No se pudo actualizar los archivos automáticamente:', archiveError);
+                        }
+                    }
                 }
 
                 window.location.href = `list-view.html?listId=${encodeURIComponent(listId)}`;

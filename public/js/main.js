@@ -1435,6 +1435,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (ListopicApp.pageGroupedDetailView && ListopicApp.pageGroupedDetailView.init) {
                     ListopicApp.pageGroupedDetailView.init();
                 }
+            } else if (pageName === 'archive.html') {
+                if (ListopicApp.pageArchive?.init) {
+                    ListopicApp.pageArchive.init();
+                }
+
             } else if (pageName === 'profile.html') {
                 console.log("MAIN.JS: Coincide 'profile.html', comprobando si pageProfile existe...");
                 if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
