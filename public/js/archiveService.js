@@ -126,8 +126,18 @@ ListopicApp.archiveService = (() => {
 
         document.body.appendChild(modalWrapper);
 
+        modalWrapper.classList.add('help-modal');
+        const overlayEl = modalWrapper.querySelector('.archive-modal__overlay');
+        if (overlayEl) overlayEl.classList.add('help-modal__overlay');
+        const dialogEl = modalWrapper.querySelector('.archive-modal__dialog');
+        if (dialogEl) dialogEl.classList.add('help-modal__dialog');
+        const closeEl = modalWrapper.querySelector('.archive-modal__close');
+        if (closeEl) closeEl.classList.add('help-modal__close');
+        const contentEl = modalWrapper.querySelector('.archive-modal__content');
+        if (contentEl) contentEl.classList.add('help-modal__content');
+
         state.modalEl = modalWrapper;
-        state.modalDialogEl = modalWrapper.querySelector('.archive-modal__dialog');
+        state.modalDialogEl = dialogEl || modalWrapper.querySelector('.archive-modal__dialog');
         state.archivesListEl = modalWrapper.querySelector('#archive-modal-list');
         state.loadingEl = modalWrapper.querySelector('.archive-modal__loading');
         state.emptyEl = modalWrapper.querySelector('.archive-modal__empty');
