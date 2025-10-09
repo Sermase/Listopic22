@@ -6,6 +6,8 @@ ListopicApp.pageIndex = (() => {
     let currentTileLayer = null;
     let globalMapUserLocated = false;
     let initialGlobalMapParams = null; // { open, lat, lng, zoom }
+    let globalUserLocationMarker = null;
+    let lastKnownGlobalUserLatLng = null;
 
     const tileLayers = {
         light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
@@ -22,6 +24,55 @@ ListopicApp.pageIndex = (() => {
         </circle>
       </svg>
     `;
+
+    function setGlobalUserLocationMarker(lat, lng, { recenter = false } = {}) {
+        if (!globalMapInstance || !isFinite(lat) || !isFinite(lng)) {
+            return;
+        }
+        const coords = [lat, lng];
+        const userIcon = L.divIcon({
+            html: userLocationIconSvg,
+            className: '',
+            iconSize: [48, 48],
+            iconAnchor: [24, 24]
+        });
+
+        if (!globalUserLocationMarker) {
+            globalUserLocationMarker = L.marker(coords, { icon: userIcon })
+                .addTo(globalMapInstance)
+                .bindPopup('¡Estás aquí!');
+        } else {
+            globalUserLocationMarker.setLatLng(coords);
+            globalUserLocationMarker.setIcon(userIcon);
+        }
+
+        lastKnownGlobalUserLatLng = coords;
+        globalMapUserLocated = true;
+
+        if (recenter) {
+            const currentZoom = globalMapInstance.getZoom ? globalMapInstance.getZoom() : 13;
+            const targetZoom = currentZoom < 13 ? 13 : currentZoom;
+            globalMapInstance.setView(coords, targetZoom);
+        }
+    }
+
+    function recenterGlobalMapToUser({ silent = false } = {}) {
+        if (lastKnownGlobalUserLatLng) {
+            setGlobalUserLocationMarker(lastKnownGlobalUserLatLng[0], lastKnownGlobalUserLatLng[1], { recenter: true });
+            return;
+        }
+
+        if (!navigator.geolocation) {
+            if (!silent) ListopicApp.services?.showNotification?.('Tu navegador no permite obtener tu ubicación automáticamente.', 'warn');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(pos => {
+            setGlobalUserLocationMarker(pos.coords.latitude, pos.coords.longitude, { recenter: true });
+        }, () => {
+            if (!silent) ListopicApp.services?.showNotification?.('No se pudo obtener tu ubicación.', 'warn');
+        });
+    }
 
     // URL state helpers for the Global Map
     function readGlobalMapParamsFromUrl() {
@@ -277,6 +328,7 @@ ListopicApp.pageIndex = (() => {
         const mapContainer = document.getElementById('global-map-container');
         const openBtn = document.getElementById('show-global-map-modal-btn');
         const closeBtn = document.getElementById('close-global-map-modal-btn');
+        const centerBtn = document.getElementById('global-map-center-user-btn');
 
         function openGlobalMapModal() {
             if (!mapModal) return;
@@ -292,15 +344,7 @@ ListopicApp.pageIndex = (() => {
                     });
                     // Try to center on user's location with a friendly zoom
                     try {
-                        navigator.geolocation.getCurrentPosition(pos => {
-                            const userLatLng = [pos.coords.latitude, pos.coords.longitude];
-                            const userIcon = L.divIcon({ html: userLocationIconSvg, className: '', iconSize: [48, 48], iconAnchor: [24, 24] });
-                            L.marker(userLatLng, { icon: userIcon })
-                              .addTo(globalMapInstance)
-                              .bindPopup('¡Estás aquí!');
-                            globalMapInstance.setView(userLatLng, 13);
-                            globalMapUserLocated = true;
-                        }, () => { /* silent fallback */ });
+                        recenterGlobalMapToUser({ silent: true });
                     } catch(e) {}
                     // Sync moves into URL without polluting history
                     globalMapInstance.on('moveend zoomend', () => {
@@ -340,6 +384,10 @@ ListopicApp.pageIndex = (() => {
         }
         openBtn && openBtn.addEventListener('click', openGlobalMapModal);
         closeBtn && closeBtn.addEventListener('click', closeGlobalMapModal);
+        centerBtn && centerBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            recenterGlobalMapToUser();
+        });
         mapModal && mapModal.addEventListener('click', (e) => { if (e.target === mapModal) closeGlobalMapModal(); });
 
         // Restore from URL on load
