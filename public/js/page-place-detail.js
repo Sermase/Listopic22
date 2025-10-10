@@ -217,7 +217,7 @@ ListopicApp.pagePlaceDetail = {
                     const isSaved = Boolean(saved);
                     saveButton.classList.toggle('is-archived', isSaved);
                     saveButton.innerHTML = isSaved
-                        ? '<i class="fas fa-check"></i> Guardado'
+                        ? '<i class="fas fa-check"></i> Archivo'
                         : '<i class="fas fa-bookmark"></i> Guardar';
                 };
                 applySavedState(false);
