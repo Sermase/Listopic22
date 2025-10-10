@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Listopic - Detalle ReseÃ±a</title>
+    <title>Listopic - Detalle Reseña</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
@@ -14,8 +14,8 @@
     <link rel="icon" type="image/ png" sizes="16x16" href="img/favicon-16x16.png">
     <link rel="icon" type="image/ png" sizes="32x32" href="img/favicon-32x32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
-    <meta property="og:title" content="Listopic - Tu RincÃ³n Personal de Valoraciones">
-    <meta property="og:description" content="Crea, comparte y descubre listas de valoraciÃ³n personalizadas sobre cualquier tema que te apasione. Pero de momento sÃ³lo Hmm...">
+    <meta property="og:title" content="Listopic - Tu Rincón Personal de Valoraciones">
+    <meta property="og:description" content="Crea, comparte y descubre listas de valoración personalizadas sobre cualquier tema que te apasione. Pero de momento sólo Hmm...">
     <meta property="og:image" content="https://listopic.web.app/public/img/listopic-logo400.png"> 
     <meta property="og:url" content="https://listopic.web.app/index.html"> <meta property="og:type" content="website">
 
@@ -37,7 +37,7 @@
    <script src="js/page-detail-view.js" defer></script>
    <script src="js/page-grouped-detail-view.js" defer></script>
 
-    <!-- Firebase SDKs - AsegÃºrate de que app.js los utilice o inicialice Firebase -->
+    <!-- Firebase SDKs - Asegúrate de que app.js los utilice o inicialice Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
@@ -48,21 +48,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js" integrity="sha384-Sse/HDqcypGpyTDpvZOJNnG0TT3feGQUkF9H+mnRvic+LjR+K1NhTt8f51KIQ3v3" crossorigin="anonymous" defer></script>
 
-    <!-- *****New container for header action buttons -->
-    <div class="header-actions-container">
+    
+
+</head>
+<body>
+    <header class="header-actions-container">
         <div class="header-left-content">
             <div class="app-logo-container">
-                <a href="index.html" title="Ir a la pÃ¡gina de inicio">
+                <a href="index.html" title="Ir a la p&aacute;gina de inicio">
                     <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
                 </a>
             </div>
-            <!-- <div class="header-dynamic-page-info">
-                <span id="page-category-name"></span>
-                <span id="page-list-name-separator" style="display: none;"> - </span>
-                <span id="page-list-name"></span>
-            </div> -->
         </div>
-
         <div class="header-right-actions">
             <a href="search.html" id="search-link-button" class="search-button header-action-button icon-with-badge" aria-label="Buscar">
                 <i class="fas fa-search" aria-hidden="true"></i>
@@ -82,9 +79,8 @@
                     <div class="notifications-list" id="notifications-list" hidden></div>
                 </div>
             </div>
-
             <div class="user-profile-menu-container">
-                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="MenÃº de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
+                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Men&uacute; de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
                     <i class="fas fa-user-circle" aria-hidden="true"></i>
                 </button>
                 <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
@@ -92,31 +88,25 @@
                     <a href="chats.html" role="menuitem">Chats</a>
                     <a href="profile.html#guardado" role="menuitem">Guardado</a>
                     <hr class="user-menu-divider">
-
                     <button type="button" role="menuitem" id="installPwaBtn" style="display: none;">
-                        <i class="fas fa-download"></i> Instalar AplicaciÃ³n
+                        <i class="fas fa-download"></i> Instalar Aplicaci&oacute;n
                     </button>
-
-                    <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesiÃ³n</button>
+                    <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesi&oacute;n</button>
                 </div>
             </div>
             <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
                 <i class="fas fa-moon" aria-hidden="true"></i>
             </button>
         </div>
+    </header>
 
-    </div>
-    <!-- ***** -->
-
-</head>
-<body>
     <main>
         <div class="container">
             <!-- Removed theme-toggle-button from here -->
-            <a href="list-view.html" class="back-button">â† Volver al Ranking</a> <!-- JS will update href -->
+            <a href="list-view.html" class="back-button">← Volver al Ranking</a> <!-- JS will update href -->
             <div class="detail-hero">
                 <div class="detail-hero__info">
-                    <p class="detail-list-name" id="detail-list-name">EstÃ¡s viendo en Listopic: [Cargando...]</p>
+                    <p class="detail-list-name" id="detail-list-name">Estás viendo en Listopic: [Cargando...]</p>
 
                     <h2 id="detail-restaurant-name">[Cargando nombre del elemento...]</h2>
                     <p class="detail-dish-name" id="detail-dish-name"></p>
@@ -127,7 +117,7 @@
                                 <img src="img/default-avatar.png" alt="Avatar del autor" id="review-author-avatar">
                             </div>
                             <div class="detail-author-data">
-                                <span class="detail-author-label">ReseÃ±a creada por</span>
+                                <span class="detail-author-label">Reseña creada por</span>
                                 <a href="profile.html" id="review-author-name" class="detail-author-name">[Cargando autor...]</a>
                             </div>
                         </div>
@@ -151,13 +141,13 @@
                             </div>
                             <div class="detail-no-location" style="display: none;">
                                 <i class="fa-solid fa-ban"></i>
-                                <span>UbicaciÃ³n no disponible</span>
+                                <span>Ubicación no disponible</span>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="detail-hero__score-card">
-                    <span class="detail-score-label">ValoraciÃ³n General</span>
+                    <span class="detail-score-label">Valoración General</span>
                     <strong class="detail-overall-score" id="detail-score-value">?.?</strong>
                 </div>
             </div>
@@ -171,16 +161,16 @@
                         <div class="detail-visualization__header">
                             <h3>Comparativa de criterios</h3>
                             <label class="detail-visualization__control">
-                                <span>VisualizaciÃ³n:</span>
+                                <span>Visualización:</span>
                                 <select id="detail-chart-style">
-                                    <option value="radar">Tela de araÃ±a</option>
+                                    <option value="radar">Tela de araña</option>
                                     <option value="bars">Barras</option>
                                 </select>
                             </label>
                         </div>
                         <p class="detail-visualization__message" id="detail-chart-message" hidden></p>
                         <div class="detail-visualization__canvas">
-                            <canvas id="detail-chart-canvas" role="img" aria-label="GrÃ¡fico de puntuaciones"></canvas>
+                            <canvas id="detail-chart-canvas" role="img" aria-label="Gráfico de puntuaciones"></canvas>
                         </div>
                     </section>
 
@@ -215,10 +205,8 @@
             </div>
         </div>
     </main>
-    <footer> Listopic... Tu rincÃ³n personal de valoraciones. </footer>
+    <footer> Listopic... Tu rincón personal de valoraciones. </footer>
           
     
 </body>
 </html>
-
-
