@@ -144,7 +144,7 @@ ListopicApp.reviewActions = (() => {
                 return;
             }
             try {
-                archiveService.openSaveModal(descriptor);
+                await archiveService.openSaveModal(descriptor);
             } catch (error) {
                 console.error('[reviewActions] Error al abrir El Archivo desde el menú de reseña:', error);
                 notify(error.message || 'No se pudo abrir El Archivo.', 'error');
