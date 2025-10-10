@@ -1076,6 +1076,9 @@ ListopicApp.pageChats = (() => {
         window.addEventListener('beforeunload', () => {
             unsubscribeChats && unsubscribeChats();
             unsubscribeMessages && unsubscribeMessages();
+            if (typeof document !== 'undefined' && document.body) {
+                document.body.classList.remove('chat-layout');
+            }
         });
 
         const openGroupButton = document.getElementById('open-group-modal');
@@ -1153,6 +1156,9 @@ ListopicApp.pageChats = (() => {
         }
 
         cacheDomElements();
+        if (typeof document !== 'undefined' && document.body) {
+            document.body.classList.add('chat-layout');
+        }
         attachEventListeners();
 
         const params = new URLSearchParams(window.location.search);
