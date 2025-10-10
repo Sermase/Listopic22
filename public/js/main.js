@@ -923,14 +923,22 @@ ListopicApp.reviewShare = (() => {
 
 const setBadgeVisibility = (badgeElement, visible) => {
     if (!badgeElement) return;
-    if (visible) {
+    const shouldShow = Boolean(visible);
+    if (shouldShow) {
         badgeElement.hidden = false;
         badgeElement.setAttribute('data-visible', 'true');
+        badgeElement.classList.add('badge-indicator--visible');
+        badgeElement.setAttribute('aria-hidden', 'false');
     } else {
         badgeElement.hidden = true;
         badgeElement.setAttribute('data-visible', 'false');
+        badgeElement.classList.remove('badge-indicator--visible');
+        badgeElement.setAttribute('aria-hidden', 'true');
     }
 };
+
+ListopicApp.ui = ListopicApp.ui || {};
+ListopicApp.ui.setBadgeVisibility = setBadgeVisibility;
 
 const formatTimestampForUi = (timestamp) => {
     if (!timestamp) return '';

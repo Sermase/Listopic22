@@ -445,6 +445,10 @@ ListopicApp.pageChats = (() => {
         if (!badge) {
             return;
         }
+        if (ListopicApp && ListopicApp.ui && typeof ListopicApp.ui.setBadgeVisibility === 'function') {
+            ListopicApp.ui.setBadgeVisibility(badge, visible);
+            return;
+        }
         if (visible) {
             badge.hidden = false;
             badge.setAttribute('data-visible', 'true');
@@ -462,8 +466,11 @@ ListopicApp.pageChats = (() => {
             if (!chat || !chat.unreadCounts) {
                 return false;
             }
-            const unread = chat.unreadCounts[currentUser.uid];
-            return typeof unread === 'number' && unread > 0;
+            const rawUnread = chat.unreadCounts[currentUser.uid];
+            const unreadNumber = typeof rawUnread === 'number'
+                ? rawUnread
+                : Number.parseInt(rawUnread, 10);
+            return Number.isFinite(unreadNumber) && unreadNumber > 0;
         });
         toggleChatsBadge(hasUnreadChats);
     };
