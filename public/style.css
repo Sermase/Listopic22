@@ -3075,8 +3075,18 @@ a.header-action-button { /* Importante añadir 'a.header-action-button' */
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
     box-sizing: border-box;
     flex-shrink: 0;
-    
+
     text-decoration: none; /* CLAVE: Quita el subrayado de los enlaces */
+}
+
+
+.header-action-button > i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    line-height: 1;
 }
 
 
@@ -3093,6 +3103,9 @@ a.header-action-button { /* Importante añadir 'a.header-action-button' */
     border-radius: 50%;
     background-color: var(--danger-color, #e63946);
     display: none;
+    transform: translate(50%, -50%);
+    box-sizing: border-box;
+    z-index: 1;
 }
 
 .badge-indicator[data-visible="true"] {
