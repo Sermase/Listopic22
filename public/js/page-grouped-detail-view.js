@@ -10,7 +10,7 @@ ListopicApp.pageGroupedDetailView = (() => {
         currentLightboxImageIndex = index;
         lightboxImage.src = ListopicApp.state.lightboxImageUrls[currentLightboxImageIndex];
         lightboxModal.style.display = 'flex';
-        // AÃ±adimos/quitamos una clase para poder ocultar las flechas con CSS
+        // Añadimos/quitamos una clase para poder ocultar las flechas con CSS
         lightboxModal.classList.toggle('single-image', ListopicApp.state.lightboxImageUrls.length <= 1);
     }
 
@@ -59,7 +59,7 @@ ListopicApp.pageGroupedDetailView = (() => {
 
 
         if (!state.currentGroupDetailListId || !placeIdFromUrl) {
-            const errorMsg = "Error: Faltan parÃ¡metros para cargar el detalle.";
+            const errorMsg = "Error: Faltan parámetros para cargar el detalle.";
             if (groupTitleEl) groupTitleEl.textContent = errorMsg;
             if (individualReviewsListEl) individualReviewsListEl.innerHTML = `<p>${errorMsg}</p>`;
             ListopicApp.services.showNotification(errorMsg, "error");
@@ -67,7 +67,7 @@ ListopicApp.pageGroupedDetailView = (() => {
         }
 
         try {
-            // 1. Obtener datos de la lista y del lugar (en paralelo para mÃ¡s velocidad)
+            // 1. Obtener datos de la lista y del lugar (en paralelo para más velocidad)
             const listPromise = db.collection('lists').doc(state.currentGroupDetailListId).get();
             const placePromise = db.collection('places').doc(placeIdFromUrl).get();
             const [listDoc, placeDoc] = await Promise.all([listPromise, placePromise]);
@@ -112,7 +112,7 @@ ListopicApp.pageGroupedDetailView = (() => {
                             iconEl.className = isSaved ? 'fas fa-check' : 'fas fa-bookmark';
                         }
                         if (labelEl) {
-                            labelEl.textContent = isSaved ? 'Guardado' : 'Guardar';
+                            labelEl.textContent = isSaved ? 'Archivo' : 'Guardar';
                         }
                     };
                     applySavedState(false);
@@ -154,14 +154,14 @@ ListopicApp.pageGroupedDetailView = (() => {
             if (placeDetailLinkEl) {
                 placeDetailLinkEl.href = `place-detail.html?placeId=${placeData.id}`;
                 placeDetailLinkEl.style.display = 'inline-flex';
-                if(placeNameLinkTextEl) placeNameLinkTextEl.textContent = `Ver pÃ¡gina de "${uiUtils.escapeHtml(placeData.name)}"`;
+                if(placeNameLinkTextEl) placeNameLinkTextEl.textContent = `Ver página de "${uiUtils.escapeHtml(placeData.name)}"`;
             }
             if (gmapsLinkEl && placeData.googleMapsUrl) {
                 gmapsLinkEl.href = placeData.googleMapsUrl;
                 gmapsLinkEl.style.display = 'inline-flex';
             }
 
-            // 3. Obtener y enriquecer reseÃ±as (tu lÃ³gica anterior, que ya es correcta)
+            // 3. Obtener y enriquecer reseñas (tu lógica anterior, que ya es correcta)
             let reviewsQuery = db.collection('lists').doc(state.currentGroupDetailListId).collection('reviews').where('placeId', '==', placeIdFromUrl);
             if (state.currentGroupDetailItem) {
                 reviewsQuery = reviewsQuery.where('itemName', '==', state.currentGroupDetailItem);
@@ -171,7 +171,7 @@ ListopicApp.pageGroupedDetailView = (() => {
             const reviewsSnapshot = await reviewsQuery.orderBy('createdAt', 'desc').get();
             const enrichedReviews = await uiUtils.enrichReviews(reviewsSnapshot.docs);
 
-            // 4. Calcular estadÃ­sticas y medias de criterios
+            // 4. Calcular estadísticas y medias de criterios
             let totalOverallScoreSum = 0;
             const criteriaTotals = {};
             const criteriaCounts = {};
@@ -189,7 +189,7 @@ ListopicApp.pageGroupedDetailView = (() => {
             });
             state.lightboxImageUrls = [...new Set(state.lightboxImageUrls)];
             
-            // Renderizar estadÃ­sticas principales
+            // Renderizar estadísticas principales
             const groupAvgScore = enrichedReviews.length > 0 ? (totalOverallScoreSum / enrichedReviews.length) : 0;
             if (groupAverageScoreEl) groupAverageScoreEl.textContent = groupAvgScore.toFixed(1);
             if (groupReviewCountEl) groupReviewCountEl.textContent = enrichedReviews.length;
@@ -200,13 +200,13 @@ ListopicApp.pageGroupedDetailView = (() => {
                 for (const key in criteriaTotals) {
                     avgScores[key] = criteriaTotals[key] / criteriaCounts[key];
                 }
-                // Reutilizamos la lÃ³gica de renderizado de barras que ya tenemos en uiUtils
+                // Reutilizamos la lógica de renderizado de barras que ya tenemos en uiUtils
                 avgCriteriaBarsEl.innerHTML = uiUtils.renderCriteriaBars(avgScores, state.currentGroupDetailCriteriaDefinition);
             }
             
 
-            // ***** Â¡AQUÃ ESTÃ EL CÃ“DIGO QUE FALTABA! *****
-            // Renderizamos la galerÃ­a Y AÃ‘ADIMOS LOS EVENT LISTENERS
+            // ***** ¡AQUÍ ESTÁ EL CÓDIGO QUE FALTABA! *****
+            // Renderizamos la galería Y AÑADIMOS LOS EVENT LISTENERS
             if (groupImageGalleryEl) {
                 if (state.lightboxImageUrls.length > 0) {
                     // 1. Creamos el HTML para cada imagen
@@ -214,7 +214,7 @@ ListopicApp.pageGroupedDetailView = (() => {
                         `<img src="${uiUtils.escapeHtml(url)}" alt="Imagen de ${uiUtils.escapeHtml(placeData.name)}" class="gallery-thumbnail" data-lightbox-index="${index}">`
                     ).join('');
                     
-                    // 2. AÃ‘ADIMOS EL "PEGAMENTO": Buscamos cada imagen y le decimos que abra el lightbox al hacer clic
+                    // 2. AÑADIMOS EL "PEGAMENTO": Buscamos cada imagen y le decimos que abra el lightbox al hacer clic
                     groupImageGalleryEl.querySelectorAll('.gallery-thumbnail').forEach(thumb => {
                         thumb.addEventListener('click', (e) => {
                             const index = parseInt(e.target.dataset.lightboxIndex, 10);
@@ -224,7 +224,7 @@ ListopicApp.pageGroupedDetailView = (() => {
                         });
                     });
                 } else {
-                    groupImageGalleryEl.innerHTML = '<p>No hay imÃ¡genes en este grupo.</p>';
+                    groupImageGalleryEl.innerHTML = '<p>No hay imágenes en este grupo.</p>';
                 }
             }
             // ***********************************************
@@ -233,7 +233,7 @@ ListopicApp.pageGroupedDetailView = (() => {
                 if (enrichedReviews.length > 0) {
                     individualReviewsListEl.innerHTML = enrichedReviews.map(review => uiUtils.renderReviewSuperCard(review)).join('');
                 } else {
-                    individualReviewsListEl.innerHTML = '<p>No hay reseÃ±as individuales para este Ã­tem.</p>';
+                    individualReviewsListEl.innerHTML = '<p>No hay reseñas individuales para este ítem.</p>';
                 }
             }
 
