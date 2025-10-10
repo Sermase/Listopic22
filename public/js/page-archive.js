@@ -69,17 +69,12 @@ ListopicApp.pageArchive = (() => {
     };
 
     const createArchiveSection = (archive) => {
-        const section = document.createElement('section');
+        const section = document.createElement('details');
         section.className = 'archive-section';
         section.dataset.archiveId = archive.id;
 
-        const header = document.createElement('header');
-        header.className = 'archive-section__header';
-
-        const toggleButton = document.createElement('button');
-        toggleButton.type = 'button';
-        toggleButton.className = 'archive-section__toggle';
-        toggleButton.setAttribute('aria-expanded', 'false');
+        const summary = document.createElement('summary');
+        summary.className = 'archive-section__summary';
 
         const badgeHtml = archive.isSystem ? '<span class="archive-section__badge">Predeterminado</span>' : '';
         const descriptionHtml = archive.description
@@ -87,7 +82,7 @@ ListopicApp.pageArchive = (() => {
             : '';
         const countLabel = buildArchiveCountLabel(archive.items.length);
 
-        toggleButton.innerHTML = `
+        summary.innerHTML = `
             <span class="archive-section__header-content">
                 <span class="archive-section__title-group">
                     <h2>${escapeHtml(archive.name || 'Archivo')}</h2>
@@ -103,37 +98,36 @@ ListopicApp.pageArchive = (() => {
 
         const safeId = String(archive.id || '').replace(/[^a-zA-Z0-9_-]/g, '-');
         const itemsWrapperId = `archive-items-${safeId}`;
-        toggleButton.setAttribute('aria-controls', itemsWrapperId);
+        summary.setAttribute('aria-controls', itemsWrapperId);
 
-        header.appendChild(toggleButton);
+        section.appendChild(summary);
 
         const itemsWrapper = document.createElement('div');
         itemsWrapper.className = 'archive-items';
         itemsWrapper.id = itemsWrapperId;
         itemsWrapper.hidden = true;
 
-        section.appendChild(header);
         section.appendChild(itemsWrapper);
 
         const setExpanded = (expanded) => {
             const isExpanded = Boolean(expanded);
-            toggleButton.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+            section.open = isExpanded;
             section.classList.toggle('is-open', isExpanded);
+            summary.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
             itemsWrapper.hidden = !isExpanded;
         };
 
-        const toggle = () => {
-            const currentlyExpanded = toggleButton.getAttribute('aria-expanded') === 'true';
-            const next = !currentlyExpanded;
-            setExpanded(next);
-            if (next) {
+        section.addEventListener('toggle', () => {
+            const expanded = section.open;
+            section.classList.toggle('is-open', expanded);
+            summary.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            itemsWrapper.hidden = !expanded;
+            if (expanded) {
                 state.openArchiveIds.add(archive.id);
             } else {
                 state.openArchiveIds.delete(archive.id);
             }
-        };
-
-        toggleButton.addEventListener('click', toggle);
+        });
 
         return { section, itemsWrapper, setExpanded };
     };
