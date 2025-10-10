@@ -197,6 +197,10 @@ body {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+body.chat-layout {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+}
+
 /* --- Título Principal "Listopic" --- */
 h1.brand-title { 
     font-family: var(--brand-font);
@@ -3999,7 +4003,8 @@ body.light-theme #photo-edit-controls {
 
 @media (max-width: 640px) {
     .search-input-area {
-        gap: 8px;
+        gap: 6px;
+        align-items: stretch;
     }
 
     .large-search-input {
@@ -4008,11 +4013,18 @@ body.light-theme #photo-edit-controls {
     }
 
     .search-input-area .submit-button {
-        padding: 0 18px;
+        padding: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 48px;
+        min-height: 44px;
+        width: 44px;
+        min-width: 44px;
+        border-radius: 12px;
+    }
+
+    .search-input-area .submit-button i {
+        font-size: 1.05rem;
     }
 }
 
@@ -8608,6 +8620,10 @@ body.light-theme .leaflet-popup-tip {
     gap: 16px;
     padding: 16px;
     border-bottom: 1px solid var(--input-border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--container-bg);
 }
 
 .chat-mobile-toggle {
@@ -8726,6 +8742,7 @@ body.light-theme .leaflet-popup-tip {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -9443,17 +9460,11 @@ body.chat-list-modal-open {
     }
 
     .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding-bottom: 110px;
+        padding: 16px;
+        padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
     }
 
     .message-composer {
-        position: sticky;
-        bottom: 0;
-        background: var(--container-bg);
-        z-index: 5;
-        border-top: 1px solid var(--input-border);
         box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.08);
     }
 
@@ -9560,6 +9571,7 @@ body.chat-list-modal-open {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -9571,6 +9583,10 @@ body.chat-list-modal-open {
     display: flex;
     align-items: flex-end;
     gap: 12px;
+    position: sticky;
+    bottom: 0;
+    background: var(--container-bg);
+    z-index: 5;
 }
 
 .message-composer textarea {

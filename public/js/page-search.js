@@ -135,7 +135,7 @@ ListopicApp.pageSearch = (() => {
 
     const state = {
         currentSearchQuery: "",
-        currentEntityType: "lists",
+        currentEntityType: "all",
         isSearching: false,
         isFiltersPanelOpen: false,
         filters: createInitialFilters(),
