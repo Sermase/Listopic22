@@ -68,37 +68,6 @@ ListopicApp.pageArchive = (() => {
         return `${value} elemento${value === 1 ? '' : 's'}`;
     };
 
-    const buildArchiveSummary = (archive) => {
-        if (!archive || !Array.isArray(archive.items) || archive.items.length === 0) {
-            return 'Todavía no hay elementos guardados en este archivo.';
-        }
-        const titles = archive.items
-            .map((item) => (item.title || item.context?.placeName || item.context?.itemName || '').trim())
-            .filter(Boolean);
-        if (titles.length === 0) {
-            const total = archive.items.length;
-            return `Tienes ${total} elemento${total === 1 ? '' : 's'} guardado${total === 1 ? '' : 's'} en este archivo.`;
-        }
-        const preview = titles.slice(0, 3);
-        const remaining = Math.max(archive.items.length - preview.length, 0);
-        if (preview.length === 1) {
-            if (remaining <= 0) {
-                return `Incluye: ${preview[0]}`;
-            }
-            return `Incluye: ${preview[0]} y ${remaining === 1 ? '1 más' : `${remaining} más`}`;
-        }
-        if (preview.length === 2) {
-            if (remaining <= 0) {
-                return `Incluye: ${preview[0]} y ${preview[1]}`;
-            }
-            return `Incluye: ${preview[0]}, ${preview[1]} y ${remaining === 1 ? '1 más' : `${remaining} más`}`;
-        }
-        if (remaining <= 0) {
-            return `Incluye: ${preview[0]}, ${preview[1]} y ${preview[2]}`;
-        }
-        return `Incluye: ${preview[0]}, ${preview[1]}, ${preview[2]} y ${remaining === 1 ? '1 más' : `${remaining} más`}`;
-    };
-
     const createArchiveSection = (archive) => {
         const section = document.createElement('section');
         section.className = 'archive-section';
@@ -138,37 +107,17 @@ ListopicApp.pageArchive = (() => {
 
         header.appendChild(toggleButton);
 
-        const summary = document.createElement('div');
-        summary.className = 'archive-section__summary';
-        summary.setAttribute('tabindex', '0');
-        summary.setAttribute('role', 'button');
-        summary.setAttribute('aria-expanded', 'false');
-        summary.setAttribute('aria-controls', itemsWrapperId);
-        summary.title = 'Pulsa para desplegar este archivo';
-
-        const summaryLabel = document.createElement('span');
-        summaryLabel.className = 'archive-section__summary-label';
-        summaryLabel.textContent = 'Resumen';
-
-        const summaryText = document.createElement('span');
-        summaryText.className = 'archive-section__summary-text';
-        summaryText.textContent = buildArchiveSummary(archive);
-
-        summary.append(summaryLabel, summaryText);
-
         const itemsWrapper = document.createElement('div');
         itemsWrapper.className = 'archive-items';
         itemsWrapper.id = itemsWrapperId;
         itemsWrapper.hidden = true;
 
         section.appendChild(header);
-        section.appendChild(summary);
         section.appendChild(itemsWrapper);
 
         const setExpanded = (expanded) => {
             const isExpanded = Boolean(expanded);
             toggleButton.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
-            summary.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
             section.classList.toggle('is-open', isExpanded);
             itemsWrapper.hidden = !isExpanded;
         };
@@ -185,15 +134,8 @@ ListopicApp.pageArchive = (() => {
         };
 
         toggleButton.addEventListener('click', toggle);
-        summary.addEventListener('click', toggle);
-        summary.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                toggle();
-            }
-        });
 
-        return { section, itemsWrapper, setExpanded, summaryText };
+        return { section, itemsWrapper, setExpanded };
     };
 
     const renderArchives = (archives = []) => {
@@ -215,7 +157,7 @@ ListopicApp.pageArchive = (() => {
         const fragment = document.createDocumentFragment();
 
         archives.forEach((archive) => {
-            const { section, itemsWrapper, setExpanded, summaryText } = createArchiveSection(archive);
+            const { section, itemsWrapper, setExpanded } = createArchiveSection(archive);
 
             if (archive.items.length === 0) {
                 const emptyMsg = document.createElement('p');
@@ -228,7 +170,6 @@ ListopicApp.pageArchive = (() => {
                 });
             }
 
-            summaryText.textContent = buildArchiveSummary(archive);
             const shouldExpand = state.openArchiveIds.has(archive.id);
             setExpanded(shouldExpand);
 
