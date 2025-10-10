@@ -1219,6 +1219,23 @@ body.light-theme .confirm-modal__dialog {
         width: 100%;
         justify-content: center;
     }
+
+    .review-form-card .form-group--establishment .input-action-group {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .review-form-card .form-group--establishment .input-action-group .form-input {
+        flex: 1 1 220px;
+        min-width: 0;
+    }
+
+    .review-form-card .form-group--establishment .input-action-group .add-button {
+        width: auto;
+        min-width: 140px;
+    }
 }
 
 @media (max-width: 600px) {
@@ -1297,6 +1314,22 @@ body.light-theme .confirm-modal__dialog {
 
     #find-nearby-btn {
         width: 100%;
+    }
+
+    .review-form-card .form-group--establishment .input-action-group {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .review-form-card .form-group--establishment .input-action-group .form-input {
+        width: auto;
+        flex: 1 1 220px;
+    }
+
+    .review-form-card .form-group--establishment .input-action-group .add-button,
+    .review-form-card .form-group--establishment #find-nearby-btn {
+        width: auto;
+        min-width: 140px;
     }
 
     .form-input,
@@ -9400,6 +9433,28 @@ body.chat-list-modal-open {
     .message-composer textarea {
         min-height: 48px;
         padding: 10px 12px;
+    }
+
+    .chat-messages-panel {
+        min-height: calc(100vh - var(--header-height) - 24px);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding-bottom: 110px;
+    }
+
+    .message-composer {
+        position: sticky;
+        bottom: 0;
+        background: var(--container-bg);
+        z-index: 5;
+        border-top: 1px solid var(--input-border);
+        box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.08);
     }
 
     .message-send-button {
