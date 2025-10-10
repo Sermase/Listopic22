@@ -375,12 +375,14 @@ ListopicApp.archiveService = (() => {
             `;
             const checkbox = option.querySelector('input[type="checkbox"]');
             checkbox.checked = state.selectedArchiveIds.has(archive.id);
+            option.classList.toggle('is-selected', checkbox.checked);
             checkbox.addEventListener('change', () => {
                 if (checkbox.checked) {
                     state.selectedArchiveIds.add(archive.id);
                 } else {
                     state.selectedArchiveIds.delete(archive.id);
                 }
+                option.classList.toggle('is-selected', checkbox.checked);
             });
             fragment.appendChild(option);
         });
