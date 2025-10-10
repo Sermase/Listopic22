@@ -16,7 +16,7 @@ ListopicApp.state = {
     currentGroupDetailCriteriaDefinition: {}, // Usar el mapa de criterios
     lightboxImageUrls: [],
     currentLightboxImageIndex: 0,
-    // Firebase services no deberÃƒÂ­an estar en state, se acceden desde ListopicApp.services
+    // Firebase services no deberían estar en state, se acceden desde ListopicApp.services
     globalRealtimeInitialized: false,
     globalRealtimeCleanup: [],
     notificationsCache: []
@@ -1031,7 +1031,7 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
             const authUser = auth && auth.currentUser;
             if (authUser) {
                 ListopicApp.services.markNotificationsAsRead(authUser.uid, [notification.id]).catch(error => {
-                    console.error('[main] Error marcando notificaciÃƒÂ³n como leÃƒÂ­da:', error);
+                    console.error('[main] Error marcando notificación como leída:', error);
                 });
             }
         };
@@ -1284,7 +1284,7 @@ function setupNotificationsUI(currentUser) {
 
             const messageElement = document.createElement('p');
             messageElement.className = 'notification-message';
-            messageElement.textContent = notification.message || notification.text || 'Tienes una nueva notificaciÃƒÂ³n.';
+            messageElement.textContent = notification.message || notification.text || 'Tienes una nueva notificación.';
             mainWrapper.appendChild(messageElement);
 
             if (notification.url) {
@@ -1339,7 +1339,7 @@ function setupNotificationsUI(currentUser) {
         if (!currentUser) {
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'Inicia sesiÃƒÂ³n para ver tus notificaciones.';
+            emptyElement.textContent = 'Inicia sesión para ver tus notificaciones.';
             notificationsButton.disabled = false;
             return;
         }
@@ -1347,7 +1347,7 @@ function setupNotificationsUI(currentUser) {
         if (!ListopicApp.services || typeof ListopicApp.services.getUserNotifications !== 'function') {
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'El servicio de notificaciones no estÃƒÂ¡ disponible en este momento.';
+            emptyElement.textContent = 'El servicio de notificaciones no está disponible en este momento.';
             notificationsButton.disabled = false;
             return;
         }
@@ -1366,7 +1366,7 @@ function setupNotificationsUI(currentUser) {
             console.error('main.js: No se pudieron cargar las notificaciones:', error);
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'No pudimos cargar tus notificaciones. Intenta nuevamente mÃƒÂ¡s tarde.';
+            emptyElement.textContent = 'No pudimos cargar tus notificaciones. Intenta nuevamente más tarde.';
         } finally {
             notificationsButton.disabled = false;
             delete notificationsButton.dataset.loading;
@@ -1397,8 +1397,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // }
 
     if (!ListopicApp.services || !ListopicApp.services.auth || !ListopicApp.services.storage || !ListopicApp.services.db) {
-        console.error("MAIN.JS: Firebase services (auth, storage, db) no disponibles."); // <--- LOG 2 (si entra aquÃƒÂ­)
-        // PodrÃƒÂ­as mostrar un error al usuario aquÃƒÂ­ si la app no puede funcionar.
+        console.error("MAIN.JS: Firebase services (auth, storage, db) no disponibles."); // <--- LOG 2 (si entra aquí)
+        // Podrías mostrar un error al usuario aquí si la app no puede funcionar.
         const body = document.querySelector('body');
         if (body) {
             body.innerHTML = '<p style="color:red; text-align:center; margin-top: 50px;">Error critico: La aplicacion no pudo inicializar los servicios base. Por favor, recarga o contacta soporte.</p>';
@@ -1411,18 +1411,18 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("MAIN.JS: Inicializando ThemeManager..."); // <--- LOG 4
         ListopicApp.themeManager.init();
     } else {
-        console.error("MAIN.JS: ThemeManager no disponible."); // <--- LOG 5 (si entra aquÃƒÂ­)
+        console.error("MAIN.JS: ThemeManager no disponible."); // <--- LOG 5 (si entra aquí)
     }
 
     if (ListopicApp.authService && ListopicApp.authService.init) {
         console.log("MAIN.JS: Inicializando AuthService..."); // <--- LOG 6
         ListopicApp.authService.init();
     } else {
-        console.error("MAIN.JS: AuthService no disponible."); // <--- LOG 7 (si entra aquÃƒÂ­)
+        console.error("MAIN.JS: AuthService no disponible."); // <--- LOG 7 (si entra aquí)
     }
 
     const pagePath = window.location.pathname;
-    const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1).toLowerCase(); // Convertido a minÃƒÂºsculas para consistencia
+    const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1).toLowerCase(); // Convertido a minúsculas para consistencia
     console.log("MAIN.JS: pagePath detectado:", pagePath); // <--- LOG 8
     console.log("MAIN.JS: pageName calculado:", pageName); // <--- LOG 9
     const isIndexPage = pageName === '' || pageName === 'index.html';
@@ -1441,16 +1441,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pageName === 'auth.html') {
             console.log("MAIN.JS: Es auth.html, intentando inicializar pageAuth..."); // <--- LOG 12
             if (ListopicApp.pageAuth && ListopicApp.pageAuth.init) {
-                ListopicApp.pageAuth.init(); // pageAuth puede tener lÃƒÂ³gica incluso si el usuario ya estÃƒÂ¡ logueado (para redirigir)
+                ListopicApp.pageAuth.init(); // pageAuth puede tener lógica incluso si el usuario ya está logueado (para redirigir)
             }
         } else if (!user) {
-            // Si no es la pagina de autenticacion y no hay usuario, authService ya deberÃƒÂ­a haber redirigido.
-            // No se inicializa ninguna otra lÃƒÂ³gica de pagina.
-            console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService deberÃƒÂ­a redirigir."); // <--- LOG 13
+            // Si no es la pagina de autenticacion y no hay usuario, authService ya debería haber redirigido.
+            // No se inicializa ninguna otra lógica de pagina.
+            console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService debería redirigir."); // <--- LOG 13
             return;
         } else {
-            // Usuario autenticado, o pagina pÃƒÂºblica que no requiere autenticacion (como index, si se decide)
-            console.log("MAIN.JS: Usuario autenticado o pagina pÃƒÂºblica. Procediendo a inicializar lÃƒÂ³gica de pagina especÃƒÂ­fica."); // <--- LOG 14
+            // Usuario autenticado, o pagina pública que no requiere autenticacion (como index, si se decide)
+            console.log("MAIN.JS: Usuario autenticado o pagina pública. Procediendo a inicializar lógica de pagina específica."); // <--- LOG 14
             initializeGlobalRealtimeFeatures(user);
             if (isIndexPage) {
                 console.log("MAIN.JS: Es Index page, intentando inicializar pageIndex..."); // <--- LOG 15
@@ -1460,7 +1460,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (pageName === 'review-form.html') {
                 console.log("MAIN.JS: Es review-form.html, intentando inicializar pageReviewForm..."); // <--- LOG 16
                 if (ListopicApp.pageReviewForm && ListopicApp.pageReviewForm.init) {
-                    ListopicApp.pageReviewForm.init(); // AquÃƒÂ­ es donde se llamarÃƒÂ­a a tu init
+                    ListopicApp.pageReviewForm.init(); // Aquí es donde se llamaría a tu init
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageReviewForm.init no encontrado!"); // <--- LOG 17 (si falta)
                 }
@@ -1488,7 +1488,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (pageName === 'profile.html') {
                 console.log("MAIN.JS: Coincide 'profile.html', comprobando si pageProfile existe...");
                 if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
-                    console.log("MAIN.JS: Coincide 'profile.html', ejecutando pageProfile.init()..."); // Log de confirmaciÃƒÂ³n
+                    console.log("MAIN.JS: Coincide 'profile.html', ejecutando pageProfile.init()..."); // Log de confirmación
                     ListopicApp.pageProfile.init();
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageProfile.init no encontrado!"); // Log de error
@@ -1497,15 +1497,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (ListopicApp.pageChats && ListopicApp.pageChats.init) {
                     ListopicApp.pageChats.init();
                 }
-            } else if (pageName === 'search.html') { // NUEVA CONDICIÃƒâ€œN
+            } else if (pageName === 'search.html') { // NUEVA CONDICIÓN
                 if (ListopicApp.pageSearch && ListopicApp.pageSearch.init) {
                     ListopicApp.pageSearch.init();
                 }
-            } else if (pageName === 'place-detail.html') { // PÃƒÂGINA DE LUGAR
+            } else if (pageName === 'place-detail.html') { // PÁGINA DE LUGAR
                 if (ListopicApp.pagePlace && ListopicApp.pagePlace.init) {
                     ListopicApp.pagePlace.init();
                 }
-            } else if (pageName === 'developer.html') { // PÃƒÂGINA DE LUGAR
+            } else if (pageName === 'developer.html') { // PÁGINA DE LUGAR
             if (ListopicApp.pagePlace && ListopicApp.pageDeveloper.init) {
                 ListopicApp.pagePlace.init();
                 }
@@ -1514,20 +1514,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     ListopicApp.pageChats.init();
                 }
             } else {
-                // Esta es la lÃƒÂ­nea 95 en la estructura original del if/else if
-                console.warn("MAIN.JS: No se detectÃƒÂ³ una pagina conocida. pageName:", pageName); // <--- LOG si ninguna coincide
+                // Esta es la línea 95 en la estructura original del if/else if
+                console.warn("MAIN.JS: No se detectó una pagina conocida. pageName:", pageName); // <--- LOG si ninguna coincide
             }
         }
     }).catch(error => {
         console.error("MAIN.JS: Error en onAuthStateChangedPromise:", error); // <--- LOG 18 (si la promesa falla)
-        // Manejar error crÃƒÂ­tico si la autenticacion no se puede verificar
+        // Manejar error crítico si la autenticacion no se puede verificar
     });
 
-    console.log("MAIN.JS: Fin del script de inicializaciÃƒÂ³n de main.js."); // <--- LOG 19
+    console.log("MAIN.JS: Fin del script de inicialización de main.js."); // <--- LOG 19
 
 
 
-    // --- LÃƒÂ³gica para la InstalaciÃƒÂ³n de la PWA (desde el MenÃƒÂº de Usuario) ---
+    // --- Lógica para la Instalación de la PWA (desde el Menú de Usuario) ---
 let deferredPrompt;
 const installMenuItem = document.getElementById('installPwaBtn');
 
@@ -1535,30 +1535,30 @@ const installMenuItem = document.getElementById('installPwaBtn');
 window.addEventListener('beforeinstallprompt', (e) => {
     // Prevenir que se muestre el mini-infobar por defecto
     e.preventDefault();
-    // Guardar el evento para usarlo despuÃƒÂ©s
+    // Guardar el evento para usarlo después
     deferredPrompt = e;
     
-    // Mostrar la opciÃƒÂ³n en el menÃƒÂº solo si no estÃƒÂ¡ ya instalada
+    // Mostrar la opción en el menú solo si no está ya instalada
     // y el navegador lo permite.
     if (installMenuItem && !isAppInstalled()) {
-        console.log("Evento 'beforeinstallprompt' capturado. Mostrando opciÃƒÂ³n de instalar en el menÃƒÂº.");
+        console.log("Evento 'beforeinstallprompt' capturado. Mostrando opción de instalar en el menú.");
         installMenuItem.style.display = 'block';
     }
 });
 
-// Criterio 2: El usuario hace clic en nuestro botÃƒÂ³n del menÃƒÂº
+// Criterio 2: El usuario hace clic en nuestro botón del menú
 if (installMenuItem) {
     installMenuItem.addEventListener('click', async () => {
-        // Asegurarnos de que aÃƒÂºn tenemos el evento
+        // Asegurarnos de que aún tenemos el evento
         if (deferredPrompt) {
-            // Mostrar el diÃƒÂ¡logo de instalaciÃƒÂ³n del navegador
+            // Mostrar el diálogo de instalación del navegador
             deferredPrompt.prompt();
             
             // Esperar la respuesta del usuario
             const { outcome } = await deferredPrompt.userChoice;
-            console.log(`Respuesta del usuario al prompt de instalaciÃƒÂ³n: ${outcome}`);
+            console.log(`Respuesta del usuario al prompt de instalación: ${outcome}`);
 
-            // Si el usuario acepta, ya no necesitamos mostrar el botÃƒÂ³n
+            // Si el usuario acepta, ya no necesitamos mostrar el botón
             if (outcome === 'accepted') {
                 installMenuItem.style.display = 'none';
             }
@@ -1571,50 +1571,50 @@ if (installMenuItem) {
 
 // Criterio 3: La app se ha instalado correctamente
 window.addEventListener('appinstalled', () => {
-    // Ocultar la opciÃƒÂ³n del menÃƒÂº y limpiar todo
+    // Ocultar la opción del menú y limpiar todo
     if (installMenuItem) {
         installMenuItem.style.display = 'none';
     }
     deferredPrompt = null;
-    console.log('PWA fue instalada con ÃƒÂ©xito.');
+    console.log('PWA fue instalada con éxito.');
     if(ListopicApp.services && ListopicApp.services.showNotification) {
-        ListopicApp.services.showNotification('Ã‚Â¡Listopic instalado! BÃƒÂºscalo en tu pantalla de inicio.', 'success');
+        ListopicApp.services.showNotification('¡Listopic instalado! Búscalo en tu pantalla de inicio.', 'success');
     }
 });
 
-// FunciÃƒÂ³n de ayuda para saber si la app ya se estÃƒÂ¡ ejecutando como PWA
+// Función de ayuda para saber si la app ya se está ejecutando como PWA
 function isAppInstalled() {
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Al cargar la pagina, si ya estÃƒÂ¡ en modo standalone, nos aseguramos
-// de que el botÃƒÂ³n no aparezca por si acaso.
+// Al cargar la pagina, si ya está en modo standalone, nos aseguramos
+// de que el botón no aparezca por si acaso.
 if (isAppInstalled() && installMenuItem) {
-    console.log("La app ya se estÃƒÂ¡ ejecutando en modo standalone. La opciÃƒÂ³n de instalar no se mostrarÃƒÂ¡.");
+    console.log("La app ya se está ejecutando en modo standalone. La opción de instalar no se mostrará.");
     installMenuItem.style.display = 'none';
 }
-// --- Fin de la LÃƒÂ³gica de InstalaciÃƒÂ³n de la PWA ---
+// --- Fin de la Lógica de Instalación de la PWA ---
 
 
     
 });
 
 
-// FunciÃƒÂ³n global para limpiar cache de etiquetas (ÃƒÂºtil para desarrollo)
+// Función global para limpiar cache de etiquetas (útil para desarrollo)
 window.clearCategoryTagsCache = function() {
     if (ListopicApp.pageSearch && ListopicApp.pageSearch.clearTagsCache) {
         ListopicApp.pageSearch.clearTagsCache();
         console.log('Cache de etiquetas limpiado');
     } else {
-        console.warn('FunciÃƒÂ³n de limpiar cache no disponible');
+        console.warn('Función de limpiar cache no disponible');
     }
 };
 
-// Registro del Service Worker para gestionar el cachÃƒÂ©
+// Registro del Service Worker para gestionar el caché
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then((registration) => {
-      console.log('Service Worker registrado con ÃƒÂ©xito:', registration);
+      console.log('Service Worker registrado con éxito:', registration);
     }).catch((err) => {
       console.log('Fallo en el registro del Service Worker:', err);
     });

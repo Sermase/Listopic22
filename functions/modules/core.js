@@ -120,35 +120,35 @@ const groupedReviews = onRequest(
     });
 
 
-// --- FUNCIÃƒâ€œN updateListReviewCount ---
-// ESTA FUNCIÃƒâ€œN QUEDA OBSOLETA, LA NUEVA "updateAggregatesOnReviewChange" HACE ESTO Y MÃƒÂS.
+// --- FUNCIÓN updateListReviewCount ---
+// ESTA FUNCIÓN QUEDA OBSOLETA, LA NUEVA "updateAggregatesOnReviewChange" HACE ESTO Y MÁS.
 // LA DEJAMOS COMENTADA POR SI ACASO, PERO LA NUEVA ES MEJOR.
 /*
 const updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
   const listId = event.params.listId;
   const listRef = getFirestore().collection('lists').doc(listId);
   if (!event.data.before.exists && event.data.after.exists) {
-      logger.info(`Nueva reseÃƒÂ±a creada en lista ${listId}, incrementando contador.`);
+      logger.info(`Nueva reseña creada en lista ${listId}, incrementando contador.`);
       return listRef.update({
           reviewCount: FieldValue.increment(1),
           updatedAt: FieldValue.serverTimestamp()
       });
   }
   else if (event.data.before.exists && !event.data.after.exists) {
-      logger.info(`ReseÃƒÂ±a eliminada de lista ${listId}, decrementando contador.`);
+      logger.info(`Reseña eliminada de lista ${listId}, decrementando contador.`);
       return listRef.update({
           reviewCount: FieldValue.increment(-1),
           updatedAt: FieldValue.serverTimestamp()
       });
   }
   else {
-      logger.info(`ReseÃƒÂ±a actualizada en lista ${listId}, contador no afectado.`);
+      logger.info(`Reseña actualizada en lista ${listId}, contador no afectado.`);
       return null;
   }
 });
 */
 
-// --- FUNCIÃƒâ€œN placesNearbyRestaurants (MEJORADA) ---
+// --- FUNCIÓN placesNearbyRestaurants (MEJORADA) ---
 const placesNearbyRestaurants = onRequest(async (req, res) => {
   cors(req, res, async () => {
     const { latitude, longitude, categoryId } = req.query;
@@ -160,27 +160,27 @@ const placesNearbyRestaurants = onRequest(async (req, res) => {
     }
     if (!categoryId) {
         logger.warn("placesNearbyRestaurants: categoryId no fue proporcionado.");
-        return res.status(400).json({ message: "El ID de la categorÃƒÂ­a es requerido." });
+        return res.status(400).json({ message: "El ID de la categoría es requerido." });
     }
     if (!apiKey) {
-      logger.error("placesNearbyRestaurants: GOOGLE_PLACES_API_KEY no estÃƒÂ¡ disponible.");
-      return res.status(500).json({ message: "Error de configuraciÃƒÂ³n del servidor." });
+      logger.error("placesNearbyRestaurants: GOOGLE_PLACES_API_KEY no está disponible.");
+      return res.status(500).json({ message: "Error de configuración del servidor." });
     }
 
-    let type = 'point_of_interest'; // Tipo por defecto si la categorÃƒÂ­a no especifica uno
+    let type = 'point_of_interest'; // Tipo por defecto si la categoría no especifica uno
     try {
         const categoryDoc = await db.collection('categories').doc(categoryId).get();
         if (categoryDoc.exists) {
             const categoryData = categoryDoc.data();
             type = categoryData.googlePlaceType || type;
-            logger.info(`BÃƒÂºsqueda por cercanÃƒÂ­a para categorÃƒÂ­a ${categoryId} usando tipo: ${type}`);
+            logger.info(`Búsqueda por cercanía para categoría ${categoryId} usando tipo: ${type}`);
         }
     } catch (error) {
-        logger.error(`Error buscando la categorÃƒÂ­a ${categoryId}:`, error);
-        return res.status(500).json({ message: "Error interno al buscar la categorÃƒÂ­a." });
+        logger.error(`Error buscando la categoría ${categoryId}:`, error);
+        return res.status(500).json({ message: "Error interno al buscar la categoría." });
     }
 
-    // Usamos rankby=distance, que ordena por cercanÃƒÂ­a y requiere un 'type', 'keyword' o 'name'.
+    // Usamos rankby=distance, que ordena por cercanía y requiere un 'type', 'keyword' o 'name'.
     // Es incompatible con 'radius'.
     const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&key=${apiKey}&language=es&rankby=distance&type=${encodeURIComponent(type)}`;
     
@@ -202,9 +202,9 @@ const placesNearbyRestaurants = onRequest(async (req, res) => {
   });
 });
 
-// --- FUNCIÃƒâ€œN placesTextSearch (MEJORADA CON REORDENAMIENTO) ---
+// --- FUNCIÓN placesTextSearch (MEJORADA CON REORDENAMIENTO) ---
 
-// FunciÃƒÂ³n auxiliar para calcular la distancia entre dos puntos geogrÃƒÂ¡ficos
+// Función auxiliar para calcular la distancia entre dos puntos geográficos
 const getDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radio de la Tierra en km
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -222,10 +222,10 @@ const placesTextSearch = onRequest(async (req, res) => {
         const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
         if (!query) {
-            return res.status(400).json({ message: "El tÃƒÂ©rmino de bÃƒÂºsqueda (query) es requerido." });
+            return res.status(400).json({ message: "El término de búsqueda (query) es requerido." });
         }
         if (!apiKey) {
-            return res.status(500).json({ message: "Error de configuraciÃƒÂ³n del servidor." });
+            return res.status(500).json({ message: "Error de configuración del servidor." });
         }
 
         let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}&language=es&type=establishment`;
@@ -285,15 +285,15 @@ const placesTextSearch = onRequest(async (req, res) => {
 });
 
 
-// --- FUNCIÃƒâ€œN getPlaceDetailsFromGoogle ---
+// --- FUNCIÓN getPlaceDetailsFromGoogle ---
 
 const provinceMap = {
-    '01': 'ÃƒÂlava', '02': 'Albacete', '03': 'Alicante', '04': 'AlmerÃƒÂ­a', '05': 'ÃƒÂvila',
-    '06': 'Badajoz', '07': 'Baleares', '08': 'Barcelona', '09': 'Burgos', '10': 'CÃƒÂ¡ceres',
-    '11': 'CÃƒÂ¡diz', '12': 'CastellÃƒÂ³n', '13': 'Ciudad Real', '14': 'CÃƒÂ³rdoba', '15': 'La CoruÃƒÂ±a',
-    '16': 'Cuenca', '17': 'Gerona', '18': 'Granada', '19': 'Guadalajara', '20': 'GuipÃƒÂºzcoa',
-    '21': 'Huelva', '22': 'Huesca', '23': 'JaÃƒÂ©n', '24': 'LeÃƒÂ³n', '25': 'LÃƒÂ©rida',
-    '26': 'La Rioja', '27': 'Lugo', '28': 'Madrid', '29': 'MÃƒÂ¡laga', '30': 'Murcia',
+    '01': 'Álava', '02': 'Albacete', '03': 'Alicante', '04': 'Almería', '05': 'Ávila',
+    '06': 'Badajoz', '07': 'Baleares', '08': 'Barcelona', '09': 'Burgos', '10': 'Cáceres',
+    '11': 'Cádiz', '12': 'Castellón', '13': 'Ciudad Real', '14': 'Córdoba', '15': 'La Coruña',
+    '16': 'Cuenca', '17': 'Gerona', '18': 'Granada', '19': 'Guadalajara', '20': 'Guipúzcoa',
+    '21': 'Huelva', '22': 'Huesca', '23': 'Jaén', '24': 'León', '25': 'Lérida',
+    '26': 'La Rioja', '27': 'Lugo', '28': 'Madrid', '29': 'Málaga', '30': 'Murcia',
     '31': 'Navarra', '32': 'Orense', '33': 'Asturias', '34': 'Palencia', '35': 'Las Palmas',
     '36': 'Pontevedra', '37': 'Salamanca', '38': 'Santa Cruz de Tenerife', '39': 'Cantabria', '40': 'Segovia',
     '41': 'Sevilla', '42': 'Soria', '43': 'Tarragona', '44': 'Teruel', '45': 'Toledo',
@@ -303,8 +303,8 @@ const provinceMap = {
 
 const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
     cors(req, res, async () => {
-        // 1. AHORA ACEPTAMOS EL userId DESDE LA PETICIÃƒâ€œN
-        // AutenticaciÃƒÂ³n: requerir ID token en Authorization: Bearer <token>
+        // 1. AHORA ACEPTAMOS EL userId DESDE LA PETICIÓN
+        // Autenticación: requerir ID token en Authorization: Bearer <token>
         try {
             const authHeader = req.get('Authorization') || '';
             const m = authHeader.match(/^Bearer\s+(.*)$/i);
@@ -314,7 +314,7 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
             const decoded = await admin.auth().verifyIdToken(m[1]);
             req.user = { uid: decoded.uid };
         } catch (e) {
-            return res.status(401).json({ message: 'No autorizado: token invÃƒÂ¡lido.' });
+            return res.status(401).json({ message: 'No autorizado: token inválido.' });
         }
 
         const { placeid } = req.query;
@@ -324,14 +324,14 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
             return res.status(400).json({ message: "El ID del lugar (placeid) es requerido." });
         }
         if (false) {
-            return res.status(400).json({ message: "El ID del usuario (userId) es requerido para asignar la autorÃƒÂ­a." });
+            return res.status(400).json({ message: "El ID del usuario (userId) es requerido para asignar la autoría." });
         }
         if (!apiKey) {
-            logger.error("getPlaceDetailsFromGoogle: GOOGLE_PLACES_API_KEY no se encontrÃƒÂ³ en las variables de entorno.");
-            return res.status(500).json({ message: "Error de configuraciÃƒÂ³n del servidor (API Key no encontrada)." });
+            logger.error("getPlaceDetailsFromGoogle: GOOGLE_PLACES_API_KEY no se encontró en las variables de entorno.");
+            return res.status(500).json({ message: "Error de configuración del servidor (API Key no encontrada)." });
         }
 
-        // AÃƒÂ±adimos campos de accesibilidad y opciones de servicio (si el endpoint legacy los soporta, serÃƒÂ¡n devueltos)
+        // Añadimos campos de accesibilidad y opciones de servicio (si el endpoint legacy los soporta, serán devueltos)
         // Usamos solo campos soportados por el endpoint legacy de Place Details
         const fields = "name,place_id,formatted_address,geometry,url,photos,price_level,website,international_phone_number,address_components,rating,user_ratings_total,types";
         const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeid}&key=${apiKey}&fields=${fields}&language=es`;
@@ -347,7 +347,7 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                 // 2. COMPROBAMOS SI EL DOCUMENTO YA EXISTE
                 const docSnapshot = await placeRef.get();
 
-                // ... (lÃƒÂ³gica para procesar la respuesta de Google, igual que antes)
+                // ... (lógica para procesar la respuesta de Google, igual que antes)
                 let city = '', region = '', country = '', postalCode = '', province = '';
                 if (result.address_components) {
                     for (const component of result.address_components) {
@@ -383,7 +383,7 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                     types: result.types || [],
                     mainImageUrl: (result.photos && result.photos.length > 0) ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${result.photos[0].photo_reference}&key=${apiKey}`: null,
                     // Nuevos campos estructurados
-                    // Estos campos pueden rellenarse vÃƒÂ­a otras fuentes o con endpoints v1 en el futuro
+                    // Estos campos pueden rellenarse vía otras fuentes o con endpoints v1 en el futuro
                     accessibility: result.accessibilityOptions ? {
                         wheelchairAccessibleEntrance: result.accessibilityOptions.wheelchairAccessibleEntrance ?? null,
                         wheelchairAccessibleSeating: result.accessibilityOptions.wheelchairAccessibleSeating ?? null,
@@ -395,20 +395,20 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                     updatedAt: FieldValue.serverTimestamp(), lastGoogleSync: FieldValue.serverTimestamp(),
                 };
 
-                // 3. SI NO EXISTE, AÃƒâ€˜ADIMOS LOS CAMPOS DE CREACIÃƒâ€œN
+                // 3. SI NO EXISTE, AÑADIMOS LOS CAMPOS DE CREACIÓN
                 if (!docSnapshot.exists) {
                     placeDoc.createdByUserId = req.user.uid;
                     placeDoc.createdAt = FieldValue.serverTimestamp();
-                    placeDoc.followersCount = 0; // Inicializar campos especÃƒÂ­ficos de la app
+                    placeDoc.followersCount = 0; // Inicializar campos específicos de la app
                     placeDoc.reviewsCount = 0;
-                    placeDoc.averageRating = null; // null hasta que existan reseÃƒÂ±as
+                    placeDoc.averageRating = null; // null hasta que existan reseñas
                 }
                 
-                // 4. Guardamos los datos. `merge: true` sigue siendo ÃƒÂºtil para no borrar otros campos.
+                // 4. Guardamos los datos. `merge: true` sigue siendo útil para no borrar otros campos.
                 await placeRef.set(placeDoc, { merge: true });
 
                 // 5. DEVOLVEMOS EL DOCUMENTO LIMPIO Y GUARDADO, NO EL RESULTADO BRUTO DE GOOGLE
-                // AÃƒÂ±adimos el ID al documento que devolvemos, ya que .data() no lo incluye.
+                // Añadimos el ID al documento que devolvemos, ya que .data() no lo incluye.
                 const finalDoc = { id: placeRef.id, ...placeDoc };
                 res.status(200).json(finalDoc);
             } else {
@@ -422,7 +422,7 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
     });
 });
 
-// --- FUNCIÃƒâ€œN CALLABLE: deleteListAndContent ---
+// --- FUNCIÓN CALLABLE: deleteListAndContent ---
 const deleteOrOrphanList = onCall({cors: true}, async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) {
@@ -438,7 +438,7 @@ const deleteOrOrphanList = onCall({cors: true}, async (request) => {
       throw new HttpsError('invalid-argument', 'Se requiere el ID de la lista (listId).');
   }
 
-  logger.info(`deleteOrOrphanList: Usuario ${callerUserId} solicitando acciÃƒÂ³n sobre lista ${listId}.`);
+  logger.info(`deleteOrOrphanList: Usuario ${callerUserId} solicitando acción sobre lista ${listId}.`);
   const listRef = db.collection('lists').doc(listId);
   const reviewsRef = listRef.collection('reviews');
 
@@ -453,57 +453,57 @@ const deleteOrOrphanList = onCall({cors: true}, async (request) => {
           throw new HttpsError('permission-denied', 'No tienes permiso para modificar esta lista.');
       }
 
-      // --- INICIO DE LA NUEVA LÃƒâ€œGICA ---
+      // --- INICIO DE LA NUEVA LÓGICA ---
 
-      // Buscar si existen reseÃƒÂ±as de OTROS usuarios en esta lista.
+      // Buscar si existen reseñas de OTROS usuarios en esta lista.
       const otherUserReviewsSnapshot = await reviewsRef.where('userId', '!=', callerUserId).limit(1).get();
 
-      // Escenario 1: NO hay reseÃƒÂ±as de otros usuarios. Procedemos a borrar todo.
+      // Escenario 1: NO hay reseñas de otros usuarios. Procedemos a borrar todo.
       if (otherUserReviewsSnapshot.empty) {
-          logger.info(`La lista ${listId} no tiene reseÃƒÂ±as de otros usuarios. Procediendo con la eliminaciÃƒÂ³n completa.`);
+          logger.info(`La lista ${listId} no tiene reseñas de otros usuarios. Procediendo con la eliminación completa.`);
           
-          // Borrar todas las reseÃƒÂ±as (que sabemos que son solo del propietario).
+          // Borrar todas las reseñas (que sabemos que son solo del propietario).
           const allReviewsSnapshot = await reviewsRef.get();
           if (!allReviewsSnapshot.empty) {
               const deleteBatch = db.batch();
               allReviewsSnapshot.docs.forEach(doc => deleteBatch.delete(doc.ref));
               await deleteBatch.commit();
-              logger.info(`Eliminadas ${allReviewsSnapshot.size} reseÃƒÂ±as del propietario de la lista ${listId}.`);
+              logger.info(`Eliminadas ${allReviewsSnapshot.size} reseñas del propietario de la lista ${listId}.`);
           }
           
-          // Borrar la lista en sÃƒÂ­.
+          // Borrar la lista en sí.
           await listRef.delete();
           logger.info(`Lista ${listId} eliminada exitosamente por ${callerUserId}.`);
           
-          return { success: true, message: 'La lista y todas tus reseÃƒÂ±as han sido eliminadas.' };
+          return { success: true, message: 'La lista y todas tus reseñas han sido eliminadas.' };
       
-      // Escenario 2: SÃƒÂ hay reseÃƒÂ±as de otros. Procedemos a desvincular/archivar.
+      // Escenario 2: SÍ hay reseñas de otros. Procedemos a desvincular/archivar.
       } else {
-          logger.info(`La lista ${listId} tiene reseÃƒÂ±as de otros usuarios. Procediendo a desvincular al propietario ${callerUserId}.`);
+          logger.info(`La lista ${listId} tiene reseñas de otros usuarios. Procediendo a desvincular al propietario ${callerUserId}.`);
           
           const ownerReviewsSnapshot = await reviewsRef.where('userId', '==', callerUserId).get();
 
-          // Borrar solo las reseÃƒÂ±as del propietario original.
+          // Borrar solo las reseñas del propietario original.
           if (!ownerReviewsSnapshot.empty) {
               const deleteOwnerReviewsBatch = db.batch();
               ownerReviewsSnapshot.docs.forEach(doc => deleteOwnerReviewsBatch.delete(doc.ref));
               await deleteOwnerReviewsBatch.commit();
-              logger.info(`Eliminadas ${ownerReviewsSnapshot.size} reseÃƒÂ±as del propietario de la lista ${listId} para archivarla.`);
+              logger.info(`Eliminadas ${ownerReviewsSnapshot.size} reseñas del propietario de la lista ${listId} para archivarla.`);
           }
 
           // Actualizar la lista para "orfanarla".
           await listRef.update({
               userId: null, // Desvinculamos al usuario.
-              originalUserId: callerUserId, // Guardamos un registro de quiÃƒÂ©n la creÃƒÂ³.
+              originalUserId: callerUserId, // Guardamos un registro de quién la creó.
               name: `[Archivada] ${listData.name}`, // Cambiamos el nombre para que sea visible su estado.
               updatedAt: FieldValue.serverTimestamp()
           });
 
           logger.info(`Lista ${listId} desvinculada del usuario ${callerUserId} y archivada.`);
           
-          return { success: true, message: 'Te has desvinculado de la lista. Tus reseÃƒÂ±as han sido eliminadas, pero la lista permanece activa para los demÃƒÂ¡s usuarios.' };
+          return { success: true, message: 'Te has desvinculado de la lista. Tus reseñas han sido eliminadas, pero la lista permanece activa para los demás usuarios.' };
       }
-      // --- FIN DE LA NUEVA LÃƒâ€œGICA ---
+      // --- FIN DE LA NUEVA LÓGICA ---
 
   } catch (error) {
       logger.error(`Error en deleteOrOrphanList para lista ${listId} y usuario ${callerUserId}:`, error);
@@ -514,7 +514,7 @@ const deleteOrOrphanList = onCall({cors: true}, async (request) => {
   }
 });
 
-// --- FUNCIÃƒâ€œN CALLABLE: createList ---
+// --- FUNCIÓN CALLABLE: createList ---
 const createList = onCall(async (data, context) => {
     if (!context.auth) {
         logger.warn("createList: Intento de llamada no autenticado.", {structuredData: true});
@@ -525,7 +525,7 @@ const createList = onCall(async (data, context) => {
     const { listName, criteriaDefinition, availableTags, isPublic, categoryId } = data;
 
     if (!listName || typeof listName !== 'string' || listName.trim() === "") {
-        logger.warn(`createList: listName no proporcionado o invÃƒÂ¡lido por el usuario ${userId}.`, {listNameProvided: listName, structuredData: true});
+        logger.warn(`createList: listName no proporcionado o inválido por el usuario ${userId}.`, {listNameProvided: listName, structuredData: true});
         throw new HttpsError('invalid-argument', 'El nombre de la lista es obligatorio y debe ser una cadena de texto.');
     }
 
@@ -539,7 +539,7 @@ const createList = onCall(async (data, context) => {
                                     .get();
 
         if (!existingListQuery.empty) {
-            logger.warn(`createList: Usuario ${userId} intentÃƒÂ³ crear lista duplicada: "${listName.trim()}"`, {structuredData: true});
+            logger.warn(`createList: Usuario ${userId} intentó crear lista duplicada: "${listName.trim()}"`, {structuredData: true});
             throw new HttpsError('already-exists', 'Ya tienes una lista con ese nombre.');
         }
 
@@ -549,7 +549,7 @@ const createList = onCall(async (data, context) => {
             userId: userId,
             criteriaDefinition: criteriaDefinition || {},
             availableTags: Array.isArray(availableTags) ? availableTags.map(tag => String(tag).trim()).filter(tag => tag) : [],
-            isPublic: typeof isPublic === 'boolean' ? isPublic : true, // Por defecto pÃƒÂºblica
+            isPublic: typeof isPublic === 'boolean' ? isPublic : true, // Por defecto pública
             categoryId: categoryId || "defaultCategory",
             reviewCount: 0,
             reactions: {},
@@ -560,7 +560,7 @@ const createList = onCall(async (data, context) => {
 
         const newListRef = await listsRef.add(newListData);
         logger.info(`createList: Lista "${listName.trim()}" creada con ID ${newListRef.id} por el usuario ${userId}`, {structuredData: true});
-        return { listId: newListRef.id, message: 'Lista creada con ÃƒÂ©xito' };
+        return { listId: newListRef.id, message: 'Lista creada con éxito' };
 
     } catch (error) {
         logger.error(`Error en createList para el usuario ${userId} al intentar crear lista "${listName}":`, error, {structuredData: true});
@@ -572,7 +572,7 @@ const createList = onCall(async (data, context) => {
 });
 
 
-// --- NUEVA FUNCIÃƒâ€œN CALLABLE: createListWithValidation ---
+// --- NUEVA FUNCIÓN CALLABLE: createListWithValidation ---
 
 const createListWithValidation = onCall(async (request) => {
   const data = request.data;
@@ -616,7 +616,7 @@ const createListWithValidation = onCall(async (request) => {
 
       const newListRef = await listsRef.add(newListData);
       
-      return { listId: newListRef.id, message: 'Ã‚Â¡Lista creada con ÃƒÂ©xito!' };
+      return { listId: newListRef.id, message: '¡Lista creada con éxito!' };
 
   } catch (error) {
       logger.error(`Error en createListWithValidation para usuario ${userId}, lista "${listName}":`, error);
@@ -627,12 +627,12 @@ const createListWithValidation = onCall(async (request) => {
   }
 });
 
-// --- NUEVA FUNCIÃƒâ€œN CALLABLE: createListWithValidation ---
+// --- NUEVA FUNCIÓN CALLABLE: createListWithValidation ---
 const updateListWithValidation = onCall(async (request) => {
   const data = request.data;
   const contextAuth = request.auth;
 
-  // 1. Verificar autenticaciÃƒÂ³n
+  // 1. Verificar autenticación
   if (!contextAuth) {
       throw new HttpsError('unauthenticated', 'Debes estar autenticado para actualizar una lista.');
   }
@@ -643,7 +643,7 @@ const updateListWithValidation = onCall(async (request) => {
       throw new HttpsError('invalid-argument', 'El ID de la lista es obligatorio.');
   }
   if (!listData.name || typeof listData.name !== 'string' || listData.name.trim().length === 0) {
-      throw new HttpsError('invalid-argument', 'El nombre de la lista no puede estar vacÃƒÂ­o.');
+      throw new HttpsError('invalid-argument', 'El nombre de la lista no puede estar vacío.');
   }
   
   const userId = contextAuth.uid;
@@ -656,15 +656,15 @@ const updateListWithValidation = onCall(async (request) => {
           throw new HttpsError('not-found', 'La lista que intentas editar no existe.');
       }
 
-      // 2. Ã‚Â¡LA VERIFICACIÃƒâ€œN DE SEGURIDAD CLAVE!
-      // Nos aseguramos de que solo el dueÃƒÂ±o pueda editar.
+      // 2. ¡LA VERIFICACIÓN DE SEGURIDAD CLAVE!
+      // Nos aseguramos de que solo el dueño pueda editar.
       if (doc.data().userId !== userId) {
           throw new HttpsError('permission-denied', 'No tienes permiso para editar esta lista.');
       }
       
-      // 3. Preparar los datos para la actualizaciÃƒÂ³n
+      // 3. Preparar los datos para la actualización
       const updatePayload = {
-          ...listData, // Usamos los datos que nos envÃƒÂ­a el cliente
+          ...listData, // Usamos los datos que nos envía el cliente
           updatedAt: FieldValue.serverTimestamp(),
       };
 
@@ -673,7 +673,7 @@ const updateListWithValidation = onCall(async (request) => {
 
       return {
           status: 'success',
-          message: 'Ã‚Â¡Lista actualizada con ÃƒÂ©xito!',
+          message: '¡Lista actualizada con éxito!',
       };
 
   } catch (error) {
@@ -685,7 +685,7 @@ const updateListWithValidation = onCall(async (request) => {
   }
 });
 
-// NUEVA FUNCIÃƒâ€œN: reverseGeocode
+// NUEVA FUNCIÓN: reverseGeocode
 const reverseGeocode = onRequest(async (req, res) => {
   cors(req, res, async () => {
     const { lat, lon } = req.query;
@@ -696,8 +696,8 @@ const reverseGeocode = onRequest(async (req, res) => {
       return res.status(400).json({ message: "Latitud y longitud son requeridas." });
     }
     if (!apiKey) {
-      logger.error("reverseGeocode: GOOGLE_PLACES_API_KEY no estÃƒÂ¡ disponible como variable de entorno del proceso.", {structuredData: true});
-      return res.status(500).json({ message: "Error de configuraciÃƒÂ³n del servidor (API Key no encontrada)." });
+      logger.error("reverseGeocode: GOOGLE_PLACES_API_KEY no está disponible como variable de entorno del proceso.", {structuredData: true});
+      return res.status(500).json({ message: "Error de configuración del servidor (API Key no encontrada)." });
     }
 
     const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${apiKey}&language=es`;
@@ -738,15 +738,15 @@ const reverseGeocode = onRequest(async (req, res) => {
             postalCode: postalCode
         });
       } else if (geocodeData.status === "ZERO_RESULTS") {
-        logger.warn("reverseGeocode: Google Geocoding API devolviÃƒÂ³ ZERO_RESULTS para:", {lat, lon, structuredData: true} );
-        res.status(404).json({ message: "No se encontrÃƒÂ³ direcciÃƒÂ³n para las coordenadas proporcionadas." });
+        logger.warn("reverseGeocode: Google Geocoding API devolvió ZERO_RESULTS para:", {lat, lon, structuredData: true} );
+        res.status(404).json({ message: "No se encontró dirección para las coordenadas proporcionadas." });
       } else {
         logger.error("reverseGeocode: Error desde Google Geocoding API", {status: geocodeData.status, error_message: geocodeData.error_message, structuredData: true});
-        res.status(500).json({ message: `Error de la API de GeocodificaciÃƒÂ³n de Google: ${geocodeData.status}`, details: geocodeData.error_message });
+        res.status(500).json({ message: `Error de la API de Geocodificación de Google: ${geocodeData.status}`, details: geocodeData.error_message });
       }
     } catch (error) {
       logger.error("reverseGeocode: Error al contactar Google Geocoding API", error, {structuredData: true});
-      res.status(500).json({ message: "Error interno al obtener la direcciÃƒÂ³n.", error: error.message });
+      res.status(500).json({ message: "Error interno al obtener la dirección.", error: error.message });
     }
   });
 });
@@ -756,20 +756,20 @@ const reverseGeocode = onRequest(async (req, res) => {
 // ===================================================================
 
 /**
- * Trigger que se dispara cuando una reseÃƒÂ±a es creada o eliminada.
- * Actualiza los contadores de reseÃƒÂ±as en los documentos de usuario, lugar y lista.
+ * Trigger que se dispara cuando una reseña es creada o eliminada.
+ * Actualiza los contadores de reseñas en los documentos de usuario, lugar y lista.
  */
 const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
   const listId = event.params.listId;
   const reviewId = event.params.reviewId;
 
-  // Caso 1: CREACIÃƒâ€œN de reseÃƒÂ±a
+  // Caso 1: CREACIÓN de reseña
   if (!event.data.before.exists && event.data.after.exists) {
     const newData = event.data.after.data();
     const {userId, placeId} = newData;
 
     if (!userId) {
-      logger.warn(`La reseÃƒÂ±a ${reviewId} no tiene userId. No se puede actualizar contador de usuario.`);
+      logger.warn(`La reseña ${reviewId} no tiene userId. No se puede actualizar contador de usuario.`);
       return null;
     }
 
@@ -792,20 +792,20 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
 
     try {
       await batch.commit();
-      logger.info(`Contadores actualizados exitosamente para nueva reseÃƒÂ±a ${reviewId}.`);
+      logger.info(`Contadores actualizados exitosamente para nueva reseña ${reviewId}.`);
     } catch (error) {
-      logger.error("Error al actualizar contadores para nueva reseÃƒÂ±a:", error);
+      logger.error("Error al actualizar contadores para nueva reseña:", error);
     }
     return null;
   }
 
-  // Caso 2: ELIMINACIÃƒâ€œN de reseÃƒÂ±a
+  // Caso 2: ELIMINACIÓN de reseña
   if (event.data.before.exists && !event.data.after.exists) {
     const oldData = event.data.before.data();
     const {userId, placeId} = oldData;
 
     if (!userId) {
-      logger.warn(`La reseÃƒÂ±a eliminada ${reviewId} no tenÃƒÂ­a userId. No se puede actualizar contador de usuario.`);
+      logger.warn(`La reseña eliminada ${reviewId} no tenía userId. No se puede actualizar contador de usuario.`);
       return null;
     }
 
@@ -828,14 +828,14 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
 
     try {
       await batch.commit();
-      logger.info(`Contadores actualizados exitosamente para reseÃƒÂ±a eliminada ${reviewId}.`);
+      logger.info(`Contadores actualizados exitosamente para reseña eliminada ${reviewId}.`);
     } catch (error) {
-      logger.error("Error al actualizar contadores para reseÃƒÂ±a eliminada:", error);
+      logger.error("Error al actualizar contadores para reseña eliminada:", error);
     }
     return null;
   }
 
-  // Caso 3: ACTUALIZACIÃƒâ€œN de reseÃƒÂ±a
+  // Caso 3: ACTUALIZACIÓN de reseña
   if (event.data.before.exists && event.data.after.exists) {
     const oldData = event.data.before.data();
     const newData = event.data.after.data();
@@ -843,13 +843,13 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     const oldPlaceId = oldData.placeId;
     const newPlaceId = newData.placeId;
 
-    // Solo proceder si cambiÃƒÂ³ el placeId
+    // Solo proceder si cambió el placeId
     if (oldPlaceId !== newPlaceId) {
-      logger.info(`ReseÃƒÂ±a ${reviewId} cambiÃƒÂ³ de lugar: ${oldPlaceId || 'null'} -> ${newPlaceId || 'null'}`);
+      logger.info(`Reseña ${reviewId} cambió de lugar: ${oldPlaceId || 'null'} -> ${newPlaceId || 'null'}`);
 
       const batch = db.batch();
 
-      // Decrementar contador del lugar anterior (si existÃƒÂ­a)
+      // Decrementar contador del lugar anterior (si existía)
       if (oldPlaceId) {
         const oldPlaceRef = db.collection('places').doc(oldPlaceId);
         batch.update(oldPlaceRef, { reviewsCount: FieldValue.increment(-1) });
@@ -865,24 +865,24 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
 
       try {
         await batch.commit();
-        logger.info(`Contadores de lugares actualizados exitosamente para reseÃƒÂ±a ${reviewId}.`);
+        logger.info(`Contadores de lugares actualizados exitosamente para reseña ${reviewId}.`);
       } catch (error) {
         logger.error("Error al actualizar contadores de lugares:", error);
       }
     } else {
-      logger.info(`ReseÃƒÂ±a ${reviewId} actualizada sin cambio de lugar. No se modifican contadores.`);
+      logger.info(`Reseña ${reviewId} actualizada sin cambio de lugar. No se modifican contadores.`);
     }
     return null;
   }
 
-  logger.warn(`Caso no manejado en updateAggregatesOnReviewChange para reseÃƒÂ±a ${reviewId}`);
+  logger.warn(`Caso no manejado en updateAggregatesOnReviewChange para reseña ${reviewId}`);
   return null;
 });
 
 
 /**
 * Trigger que se dispara cuando una lista es creada, actualizada o eliminada.
-* Actualiza los contadores de listas pÃƒÂºblicas y privadas en el documento del usuario.
+* Actualiza los contadores de listas públicas y privadas en el documento del usuario.
 */
 const updateUserStatsOnListChange = onDocumentWritten("lists/{listId}", async (event) => {
   let userRef;
@@ -891,7 +891,7 @@ const updateUserStatsOnListChange = onDocumentWritten("lists/{listId}", async (e
   // Caso 1: Se crea una lista NUEVA
   if (!event.data.before.exists && event.data.after.exists) {
       const listData = event.data.after.data();
-      if (!listData.userId) return null; // Lista "huÃƒÂ©rfana", no hacer nada
+      if (!listData.userId) return null; // Lista "huérfana", no hacer nada
       userRef = db.collection('users').doc(listData.userId);
       const fieldToIncrement = listData.isPublic ? 'publicListsCount' : 'privateListsCount';
       updates[fieldToIncrement] = FieldValue.increment(1);
@@ -900,13 +900,13 @@ const updateUserStatsOnListChange = onDocumentWritten("lists/{listId}", async (e
   // Caso 2: Se elimina una lista
   else if (event.data.before.exists && !event.data.after.exists) {
       const listData = event.data.before.data();
-      if (!listData.userId) return null; // Lista "huÃƒÂ©rfana" eliminada, no hay usuario que actualizar
+      if (!listData.userId) return null; // Lista "huérfana" eliminada, no hay usuario que actualizar
       userRef = db.collection('users').doc(listData.userId);
       const fieldToDecrement = listData.isPublic ? 'publicListsCount' : 'privateListsCount';
       updates[fieldToDecrement] = FieldValue.increment(-1);
       logger.info(`Lista eliminada por ${listData.userId}. Decrementando ${fieldToDecrement}.`);
   }
-  // Caso 3: Se actualiza una lista (nos interesa si cambia la privacidad o el dueÃƒÂ±o)
+  // Caso 3: Se actualiza una lista (nos interesa si cambia la privacidad o el dueño)
   else if (event.data.before.exists && event.data.after.exists) {
       const beforeData = event.data.before.data();
       const afterData = event.data.after.data();
@@ -946,7 +946,7 @@ const updateUserStatsOnListChange = onDocumentWritten("lists/{listId}", async (e
 /**
 * Trigger que se dispara cuando un comentario es creado o eliminado.
 * Actualiza el contador de comentarios en el documento de la lista y del usuario.
-* (Asume que los comentarios estÃƒÂ¡n en lists/{listId}/comments/{commentId})
+* (Asume que los comentarios están en lists/{listId}/comments/{commentId})
 */
 const updateAggregatesOnCommentChange = onDocumentWritten("lists/{listId}/comments/{commentId}", async (event) => {
   if (event.data.before.exists && event.data.after.exists) {
@@ -963,13 +963,13 @@ const updateAggregatesOnCommentChange = onDocumentWritten("lists/{listId}/commen
   // Actualizar contador de la LISTA
   const listRef = db.collection('lists').doc(listId);
   batch.update(listRef, { commentsCount: FieldValue.increment(change) });
-  logger.info(`Contador 'commentsCount' en lista ${listId} se actualizarÃƒÂ¡ en ${change}.`);
+  logger.info(`Contador 'commentsCount' en lista ${listId} se actualizará en ${change}.`);
   
   // Actualizar contador del USUARIO (si tiene userId)
   if (userId) {
       const userRef = db.collection('users').doc(userId);
       batch.update(userRef, { commentsCount: FieldValue.increment(change) });
-      logger.info(`Contador 'commentsCount' en usuario ${userId} se actualizarÃƒÂ¡ en ${change}.`);
+      logger.info(`Contador 'commentsCount' en usuario ${userId} se actualizará en ${change}.`);
   }
   
   try {
@@ -1008,7 +1008,7 @@ const toggleFollowUser = onCall(async (request) => {
         const batch = db.batch();
 
         if (doc.exists) {
-            // --- LÃƒÂ³gica para DEJAR DE SEGUIR ---
+            // --- Lógica para DEJAR DE SEGUIR ---
             batch.delete(followingRef);
             batch.delete(followerRef);
             batch.update(currentUserRef, { followingCount: FieldValue.increment(-1) });
@@ -1018,7 +1018,7 @@ const toggleFollowUser = onCall(async (request) => {
             logger.info(`Usuario ${currentUserId} ha dejado de seguir a ${userIdToFollow}.`);
             return { status: 'unfollowed', message: 'Has dejado de seguir a este usuario.' };
         } else {
-            // --- LÃƒÂ³gica para SEGUIR ---
+            // --- Lógica para SEGUIR ---
             batch.set(followingRef, { followedAt: FieldValue.serverTimestamp() });
             batch.set(followerRef, { followedAt: FieldValue.serverTimestamp() });
             batch.update(currentUserRef, { followingCount: FieldValue.increment(1) });
@@ -1042,14 +1042,14 @@ const toggleFollowUser = onCall(async (request) => {
                     read: false
                 });
             } catch (notificationError) {
-                logger.error(`toggleFollowUser: Error creando notificaciÃƒÂ³n de nuevo seguidor para ${userIdToFollow}`, notificationError);
+                logger.error(`toggleFollowUser: Error creando notificación de nuevo seguidor para ${userIdToFollow}`, notificationError);
             }
 
             return { status: 'followed', message: 'Ahora sigues a este usuario.' };
         }
     } catch (error) {
         logger.error(`Error en toggleFollowUser para ${currentUserId} -> ${userIdToFollow}:`, error);
-        throw new HttpsError('internal', 'OcurriÃƒÂ³ un error al procesar la solicitud.');
+        throw new HttpsError('internal', 'Ocurrió un error al procesar la solicitud.');
     }
 });
 
@@ -1079,7 +1079,7 @@ const resolveChatParticipants = onCall(async (request) => {
         .filter(identifier => identifier.length > 0);
 
     if (!identifiers.length) {
-        throw new HttpsError('invalid-argument', 'Debes proporcionar identificadores vÃ¡lidos.');
+        throw new HttpsError('invalid-argument', 'Debes proporcionar identificadores válidos.');
     }
 
     const results = [];
@@ -1146,7 +1146,7 @@ const resolveChatParticipants = onCall(async (request) => {
     return { users: results };
 });
 
-// En functions/index.js, reemplaza la funciÃƒÂ³n getPlacesForList entera por esta:
+// En functions/index.js, reemplaza la función getPlacesForList entera por esta:
 
 const getPlacesForList = onCall({cors: true}, async (request) => {
     if (!request.auth) {
@@ -1163,7 +1163,7 @@ const getPlacesForList = onCall({cors: true}, async (request) => {
             return { places: [] };
         }
 
-        // Agrupamos reseÃƒÂ±as por placeId para calcular la media
+        // Agrupamos reseñas por placeId para calcular la media
         const placesAggregates = {};
 
         reviewsSnapshot.forEach(doc => {
@@ -1247,8 +1247,8 @@ const getPlacesForList = onCall({cors: true}, async (request) => {
 });
 
 const getPlaceDetails = onCall(async (request) => {
-  // --- Usamos 'request' como parÃƒÂ¡metro, al estilo V2 ---
-  logger.info("FunciÃƒÂ³n getPlaceDetails invocada. Payload recibido:", request.data);
+  // --- Usamos 'request' como parámetro, al estilo V2 ---
+  logger.info("Función getPlaceDetails invocada. Payload recibido:", request.data);
 
   // Obtenemos los datos de request.data
   const placeId = request.data.placeId;
@@ -1256,25 +1256,25 @@ const getPlaceDetails = onCall(async (request) => {
   if (!placeId) {
       logger.error("Error en getPlaceDetails: placeId no encontrado en el payload.", {
           payloadRecibido: request.data,
-          auth: request.auth // La autenticaciÃƒÂ³n ahora es request.auth
+          auth: request.auth // La autenticación ahora es request.auth
       });
       throw new HttpsError('invalid-argument', 'El ID del lugar es requerido.');
   }
 
   try {
-      // 1. Obtener datos bÃƒÂ¡sicos del lugar
+      // 1. Obtener datos básicos del lugar
       const placeDoc = await db.collection('places').doc(placeId).get();
       if (!placeDoc.exists) {
           throw new HttpsError('not-found', 'El lugar no fue encontrado.');
       }
       const placeData = { id: placeDoc.id, ...placeDoc.data() };
 
-      // 2. Obtener todas las reseÃƒÂ±as asociadas a este lugar
+      // 2. Obtener todas las reseñas asociadas a este lugar
       // *** CORREGIDO: Usamos 'updatedAt' para ordenar ***
       const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).orderBy('updatedAt', 'desc').get();
       const allReviews = reviewsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      // 3. Agrupar reseÃƒÂ±as por itemName para la pestaÃƒÂ±a "Grupos"
+      // 3. Agrupar reseñas por itemName para la pestaña "Grupos"
       const groupedByItem = {};
       allReviews.forEach(review => {
           const itemName = review.itemName || "General";
@@ -1283,14 +1283,14 @@ const getPlaceDetails = onCall(async (request) => {
                   itemName: itemName,
                   establishmentName: placeData.name,
                   placeId: placeId,
-                  listId: review.listId, // Ojo: esto tomarÃƒÂ¡ el listId de la ÃƒÂºltima reseÃƒÂ±a del grupo
+                  listId: review.listId, // Ojo: esto tomará el listId de la última reseña del grupo
                   itemCount: 0,
                   totalGeneralScore: 0,
                   avgScores: {},
                   criteriaTotals: {},
                   criteriaCounts: {},
                   allTags: [],
-                  thumbnailUrl: review.photoUrl // Tomamos la foto de la primera reseÃƒÂ±a que encontramos
+                  thumbnailUrl: review.photoUrl // Tomamos la foto de la primera reseña que encontramos
               };
           }
           const group = groupedByItem[itemName];
@@ -1334,16 +1334,16 @@ const getPlaceDetails = onCall(async (request) => {
 // En functions/index.js
 
 const getGroupsForPlace = onRequest(async (req, res) => {
-  // *** LA SOLUCIÃƒâ€œN CLAVE: Envolvemos todo en cors ***
+  // *** LA SOLUCIÓN CLAVE: Envolvemos todo en cors ***
   cors(req, res, async () => {
       try {
           // En funciones onRequest, los datos vienen en req.body.data
           const { placeId } = req.body.data;
 
           if (!placeId) {
-              logger.error("getGroupsForPlace: placeId no fue proporcionado en el cuerpo de la peticiÃƒÂ³n.");
+              logger.error("getGroupsForPlace: placeId no fue proporcionado en el cuerpo de la petición.");
               // Devolvemos un error usando res.status()
-              return res.status(400).json({ error: "La funciÃƒÂ³n debe ser llamada con un 'placeId'." });
+              return res.status(400).json({ error: "La función debe ser llamada con un 'placeId'." });
           }
 
           const groupsSnapshot = await db.collection("groups")
@@ -1391,18 +1391,18 @@ const getGroupsForPlace = onRequest(async (req, res) => {
 
 const updatePlaceAggregates = onDocumentWritten("reviews/{reviewId}", async (event) => {
   // Hemos usado un collectionGroup, por lo que el path es "reviews/{reviewId}"
-  // Si tus reseÃƒÂ±as estuvieran en "lists/{listId}/reviews/{reviewId}", el path serÃƒÂ­a ese.
-  // Ã‚Â¡AsegÃƒÂºrate de que el path coincide con tu estructura!
+  // Si tus reseñas estuvieran en "lists/{listId}/reviews/{reviewId}", el path sería ese.
+  // ¡Asegúrate de que el path coincide con tu estructura!
 
   let placeId = null;
   let needsRecalculation = false;
 
-  // Se crea o borra una reseÃƒÂ±a, o cambia su puntuaciÃƒÂ³n
+  // Se crea o borra una reseña, o cambia su puntuación
   if (event.data.before.exists || event.data.after.exists) {
       const beforeData = event.data.before.data() || {};
       const afterData = event.data.after.data() || {};
       
-      // Si se crea/borra o si la puntuaciÃƒÂ³n general cambia, recalculamos.
+      // Si se crea/borra o si la puntuación general cambia, recalculamos.
       if (beforeData.overallRating !== afterData.overallRating) {
           needsRecalculation = true;
       }
@@ -1410,24 +1410,24 @@ const updatePlaceAggregates = onDocumentWritten("reviews/{reviewId}", async (eve
   }
 
   if (!needsRecalculation || !placeId) {
-      logger.info(`No se requiere recÃƒÂ¡lculo para la reseÃƒÂ±a. PlaceId: ${placeId}, NeedsRecalculation: ${needsRecalculation}`);
+      logger.info(`No se requiere recálculo para la reseña. PlaceId: ${placeId}, NeedsRecalculation: ${needsRecalculation}`);
       return null;
   }
 
   logger.info(`Recalculando agregados para el lugar: ${placeId}`);
   
-  // 1. Obtenemos TODAS las reseÃƒÂ±as para ese lugar
+  // 1. Obtenemos TODAS las reseñas para ese lugar
   const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).get();
   
   const reviews = reviewsSnapshot.docs.map(doc => doc.data());
   
   if (reviews.length === 0) {
-      // Si no quedan reseÃƒÂ±as, reseteamos los contadores
+      // Si no quedan reseñas, reseteamos los contadores
       await db.collection('places').doc(placeId).update({
           reviewsCount: 0,
           averageRating: null // O 0, como prefieras
       });
-      logger.info(`No quedan reseÃƒÂ±as para ${placeId}. Contadores reseteados.`);
+      logger.info(`No quedan reseñas para ${placeId}. Contadores reseteados.`);
       return null;
   }
   
@@ -1442,13 +1442,13 @@ const updatePlaceAggregates = onDocumentWritten("reviews/{reviewId}", async (eve
       averageRating: parseFloat(averageRating.toFixed(2)) // Guardamos con 2 decimales
   });
 
-  logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseÃƒÂ±as, valoraciÃƒÂ³n media ${averageRating.toFixed(2)}.`);
+  logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseñas, valoración media ${averageRating.toFixed(2)}.`);
   return null;
 });
 
 /**
- * Trigger que se dispara cuando una reseÃƒÂ±a cambia en CUALQUIER lista,
- * para recalcular la valoraciÃƒÂ³n media y el contador de reseÃƒÂ±as del LUGAR al que pertenece.
+ * Trigger que se dispara cuando una reseña cambia en CUALQUIER lista,
+ * para recalcular la valoración media y el contador de reseñas del LUGAR al que pertenece.
  */
 const updatePlaceAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
   const beforeData = event.data.before.data();
@@ -1458,15 +1458,15 @@ const updatePlaceAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/re
   const placeIdToIncrement = afterData?.placeId;
 
   // Si el placeId no ha cambiado (solo se ha editado el texto, por ejemplo),
-  // pero la puntuaciÃƒÂ³n sÃƒÂ­, recalculamos para ese ÃƒÂºnico lugar.
+  // pero la puntuación sí, recalculamos para ese único lugar.
   if (placeIdToDecrement && placeIdToDecrement === placeIdToIncrement) {
       if (beforeData.overallRating !== afterData.overallRating) {
           await recalculateAggregatesForPlace(placeIdToIncrement);
       } else {
-           logger.info(`La reseÃƒÂ±a ${event.params.reviewId} se actualizÃƒÂ³ sin cambiar la puntuaciÃƒÂ³n. No se requiere recÃƒÂ¡lculo.`);
+           logger.info(`La reseña ${event.params.reviewId} se actualizó sin cambiar la puntuación. No se requiere recálculo.`);
       }
   } else {
-      // Si el placeId ha cambiado, se ha creado o se ha borrado una reseÃƒÂ±a,
+      // Si el placeId ha cambiado, se ha creado o se ha borrado una reseña,
       // actualizamos los contadores de los lugares implicados.
       if (placeIdToDecrement) {
           await recalculateAggregatesForPlace(placeIdToDecrement);
@@ -1478,7 +1478,7 @@ const updatePlaceAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/re
   return null;
 });
 
-// --- FunciÃƒÂ³n auxiliar para mantener el cÃƒÂ³digo limpio y reutilizable ---
+// --- Función auxiliar para mantener el código limpio y reutilizable ---
 async function recalculateAggregatesForPlace(placeId) {
   if (!placeId) {
       logger.warn("recalculateAggregatesForPlace fue llamada sin un placeId.");
@@ -1504,7 +1504,7 @@ async function recalculateAggregatesForPlace(placeId) {
           reviewsCount: reviewsCount,
           averageRating: averageRating 
       });
-      logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseÃƒÂ±as, valoraciÃƒÂ³n media ${averageRating}.`);
+      logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseñas, valoración media ${averageRating}.`);
   } catch (error) {
       logger.error(`Error al actualizar el documento del lugar ${placeId}:`, error);
   }
@@ -1520,7 +1520,7 @@ const adminUpdateAllPlaces = onCall(async (request) => {
     try {
         const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
         if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operaciÃƒÂ³n.');
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
         }
     } catch (error) {
         logger.error("adminUpdateAllPlaces: Error al verificar permisos de admin", error);
@@ -1529,8 +1529,8 @@ const adminUpdateAllPlaces = onCall(async (request) => {
 
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
-        logger.error("adminUpdateAllPlaces: GOOGLE_PLACES_API_KEY no estÃƒÂ¡ disponible.");
-        throw new HttpsError('internal', 'Error de configuraciÃƒÂ³n del servidor (Places API Key no encontrada).');
+        logger.error("adminUpdateAllPlaces: GOOGLE_PLACES_API_KEY no está disponible.");
+        throw new HttpsError('internal', 'Error de configuración del servidor (Places API Key no encontrada).');
     }
 
     const placesRef = db.collection('places');
@@ -1616,7 +1616,7 @@ const adminUpdateAllPlaces = onCall(async (request) => {
 
     } catch (error) {
         logger.error("Error masivo en adminUpdateAllPlaces:", error);
-        throw new HttpsError('internal', 'Un error ocurriÃƒÂ³ durante la actualizaciÃƒÂ³n masiva.');
+        throw new HttpsError('internal', 'Un error ocurrió durante la actualización masiva.');
     }
 });
 
@@ -1642,7 +1642,7 @@ const adminAuditStatistics = onCall(async (request) => {
     try {
         const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
         if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operaciÃ³n.');
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
         }
     } catch (error) {
         logger.error('adminAuditStatistics: Error al verificar permisos de admin', error);
@@ -1718,7 +1718,7 @@ const adminAuditStatistics = onCall(async (request) => {
                     doc.ref.collection('comments').count().get().catch(() => ({ data: () => ({ count: 0 }) })),
                 ]);
 
-                // Contadores basados en reseÃ±as y grupos
+                // Contadores basados en reseñas y grupos
                 let reviewCount = 0;
                 let groupedItemsCount = 0;
                 try {
@@ -1828,7 +1828,7 @@ const adminAuditStatistics = onCall(async (request) => {
                     const commentsSnap = await db.collectionGroup('comments').where('userId', '==', doc.id).count().get();
                     commentsCount += safeNumber(commentsSnap.data().count);
                 } catch (error) {
-                    logger.error(`adminAuditStatistics: Error contando comentarios clÃ¡sicos para usuario ${doc.id}`, error);
+                    logger.error(`adminAuditStatistics: Error contando comentarios clásicos para usuario ${doc.id}`, error);
                     summary.errors.push({ type: 'user-comments', id: doc.id, message: error.message });
                 }
                 try {
@@ -1919,7 +1919,7 @@ const adminGetCollection = onCall(async (request) => {
     try {
         const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
         if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operaciÃƒÂ³n.');
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
         }
     } catch (error) {
         logger.error("adminGetCollection: Error al verificar permisos de admin", error);
@@ -1930,7 +1930,7 @@ const adminGetCollection = onCall(async (request) => {
     const allowedCollections = ['users', 'lists', 'places', 'categories', 'listForums', 'reviews'];
 
     if (!collectionName || !allowedCollections.includes(collectionName)) {
-        throw new HttpsError('invalid-argument', 'Nombre de colecciÃƒÂ³n no vÃƒÂ¡lido o no permitido.');
+        throw new HttpsError('invalid-argument', 'Nombre de colección no válido o no permitido.');
     }
 
     try {
@@ -1938,8 +1938,8 @@ const adminGetCollection = onCall(async (request) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         return { data: data };
     } catch (error) {
-        logger.error(`Error masivo en adminGetCollection para la colecciÃƒÂ³n ${collectionName}:`, error);
-        throw new HttpsError('internal', `Un error ocurriÃƒÂ³ al obtener la colecciÃƒÂ³n ${collectionName}.`);
+        logger.error(`Error masivo en adminGetCollection para la colección ${collectionName}:`, error);
+        throw new HttpsError('internal', `Un error ocurrió al obtener la colección ${collectionName}.`);
     }
 });
 
@@ -1949,11 +1949,11 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
         throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
     }
 
-    // ComprobaciÃƒÂ³n de rol de administrador (Ã‚Â¡importante!)
+    // Comprobación de rol de administrador (¡importante!)
     try {
         const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
         if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operaciÃƒÂ³n.');
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
         }
     } catch (error) {
         logger.error("adminUpdateSinglePlace: Error al verificar permisos", error);
@@ -1967,8 +1967,8 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
 
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
-        logger.error("adminUpdateSinglePlace: GOOGLE_PLACES_API_KEY no estÃƒÂ¡ disponible.");
-        throw new HttpsError('internal', 'Error de configuraciÃƒÂ³n del servidor.');
+        logger.error("adminUpdateSinglePlace: GOOGLE_PLACES_API_KEY no está disponible.");
+        throw new HttpsError('internal', 'Error de configuración del servidor.');
     }
 
     const placeRef = db.collection('places').doc(documentId);
@@ -2013,8 +2013,8 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
             throw new HttpsError('internal', `Error de Google API: ${details.status}`);
         }
     } catch (error) {
-        logger.error(`ExcepciÃƒÂ³n actualizando el lugar ${documentId}:`, error);
-        throw new HttpsError('internal', 'OcurriÃƒÂ³ una excepciÃƒÂ³n al actualizar el lugar.');
+        logger.error(`Excepción actualizando el lugar ${documentId}:`, error);
+        throw new HttpsError('internal', 'Ocurrió una excepción al actualizar el lugar.');
     }
 });
 
@@ -2070,7 +2070,7 @@ const toggleFollowPlace = onCall({cors: true}, async (request) => {
         }
 
         await batch.commit();
-        // AÃƒÂ±adimos el estado aquÃƒÂ­.
+        // Añadimos el estado aquí.
         return { status, message };
 
     } catch (error) {
@@ -2078,11 +2078,11 @@ const toggleFollowPlace = onCall({cors: true}, async (request) => {
         if (error.code) {
             throw error;
         }
-        throw new HttpsError('internal', 'OcurriÃƒÂ³ un error inesperado al seguir/dejar de seguir el lugar.', error.message);
+        throw new HttpsError('internal', 'Ocurrió un error inesperado al seguir/dejar de seguir el lugar.', error.message);
     }
 });
 
-// --- FUNCIÃƒâ€œN CALLABLE: toggleFollowList ---
+// --- FUNCIÓN CALLABLE: toggleFollowList ---
 const toggleFollowList = onCall({cors: true}, async (request) => {
     const contextAuth = request.auth;
     const { listId } = request.data || {};
@@ -2137,11 +2137,11 @@ const toggleFollowList = onCall({cors: true}, async (request) => {
     } catch (error) {
         logger.error(`Error en toggleFollowList para usuario ${userId} y lista ${listId}:`, error);
         if (error.code) throw error;
-        throw new HttpsError('internal', 'OcurriÃƒÂ³ un error al seguir/dejar de seguir la lista.', error.message);
+        throw new HttpsError('internal', 'Ocurrió un error al seguir/dejar de seguir la lista.', error.message);
     }
 });
 
-// --- FUNCIÃƒâ€œN CALLABLE: adminUpdateSingleListAggregates ---
+// --- FUNCIÓN CALLABLE: adminUpdateSingleListAggregates ---
 const adminUpdateSingleListAggregates = onCall(async (request) => {
     const contextAuth = request.auth;
     if (!contextAuth) {
@@ -2151,7 +2151,7 @@ const adminUpdateSingleListAggregates = onCall(async (request) => {
     try {
         const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
         if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operaciÃƒÂ³n.');
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
         }
     } catch (error) {
         logger.error("adminUpdateSingleListAggregates: Error al verificar permisos", error);
@@ -2165,7 +2165,7 @@ const adminUpdateSingleListAggregates = onCall(async (request) => {
 
     const listRef = db.collection('lists').doc(listId);
     try {
-        // Contar reseÃƒÂ±as en subcolecciÃƒÂ³n de la lista
+        // Contar reseñas en subcolección de la lista
         const reviewsSnap = await listRef.collection('reviews').get();
         const reviewCount = reviewsSnap.size;
         // Contar comentarios en el foro real: listForums/{listId}/messages
@@ -2191,7 +2191,7 @@ const adminUpdateSingleListAggregates = onCall(async (request) => {
 
 // Mantener commentsCount sincronizado con los mensajes del foro
 const updateAggregatesOnForumMessageChange = onDocumentWritten("listForums/{listId}/messages/{messageId}", async (event) => {
-  // Ignorar actualizaciones que no cambian el nÃƒÂºmero de mensajes
+  // Ignorar actualizaciones que no cambian el número de mensajes
   if (event.data.before.exists && event.data.after.exists) return null;
   const listId = event.params.listId;
   try {
