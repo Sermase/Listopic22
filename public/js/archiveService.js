@@ -327,9 +327,12 @@ ListopicApp.archiveService = (() => {
 
     function toggleLoading(isLoading) {
         if (state.loadingEl) {
-            state.loadingEl.hidden = !isLoading;
+            state.loadingEl.toggleAttribute('hidden', !isLoading);
             state.loadingEl.setAttribute('aria-hidden', isLoading ? 'false' : 'true');
             state.loadingEl.classList.toggle('is-active', Boolean(isLoading));
+        }
+        if (state.emptyEl && isLoading) {
+            state.emptyEl.setAttribute('hidden', '');
         }
         if (state.saveButtonEl) {
             state.saveButtonEl.disabled = isLoading || state.isSaving;

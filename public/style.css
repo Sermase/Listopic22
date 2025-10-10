@@ -10275,9 +10275,9 @@ body.chat-list-modal-open {
 .archive-modal__actions {
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
-    margin-top: 24px;
-    padding: 16px 0 12px;
+    gap: 16px;
+    margin-top: 28px;
+    padding: 20px 0 28px;
     border-top: 1px solid var(--border-color);
     background: var(--container-bg);
     position: sticky;
@@ -10325,11 +10325,7 @@ body.chat-list-modal-open {
     box-shadow: var(--shadow-elevation-low);
 }
 
-.archive-section__header {
-    margin-bottom: 0;
-}
-
-.archive-section__toggle {
+.archive-section__summary {
     width: 100%;
     padding: 0;
     border: none;
@@ -10339,11 +10335,21 @@ body.chat-list-modal-open {
     cursor: pointer;
     display: block;
     font: inherit;
+    list-style: none;
 }
 
-.archive-section__toggle:focus-visible {
+.archive-section__summary::-webkit-details-marker {
+    display: none;
+}
+
+.archive-section__summary::marker {
+    content: '';
+}
+
+.archive-section__summary:focus-visible {
     outline: 2px solid var(--accent-color-primary);
     outline-offset: 4px;
+    border-radius: var(--border-radius-small);
 }
 
 .archive-section__header-content {
@@ -10409,7 +10415,8 @@ body.chat-list-modal-open {
     transition: transform 0.2s ease, background 0.2s ease;
 }
 
-.archive-section.is-open .archive-section__toggle-icon {
+.archive-section.is-open .archive-section__toggle-icon,
+.archive-section[open] .archive-section__toggle-icon {
     transform: rotate(180deg);
     background: rgba(255, 255, 255, 0.16);
 }
