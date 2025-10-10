@@ -92,9 +92,9 @@ ListopicApp.archiveService = (() => {
                         </p>
                     </header>
                     <div class="archive-modal__body">
-                        <div class="archive-modal__loading" hidden>
+                        <div class="archive-modal__loading" hidden aria-hidden="true">
                             <i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i>
-                            <span>Cargando archivosâ€¦</span>
+                            <span>Cargando archivos&hellip;</span>
                         </div>
                         <div class="archive-modal__empty" hidden>
                             <i class="fas fa-folder-open" aria-hidden="true"></i>
@@ -328,6 +328,8 @@ ListopicApp.archiveService = (() => {
     function toggleLoading(isLoading) {
         if (state.loadingEl) {
             state.loadingEl.hidden = !isLoading;
+            state.loadingEl.setAttribute('aria-hidden', isLoading ? 'false' : 'true');
+            state.loadingEl.classList.toggle('is-active', Boolean(isLoading));
         }
         if (state.saveButtonEl) {
             state.saveButtonEl.disabled = isLoading || state.isSaving;
@@ -338,6 +340,20 @@ ListopicApp.archiveService = (() => {
         if (state.createInputEl) {
             state.createInputEl.disabled = isLoading || state.isSaving;
         }
+        if (state.archivesListEl) {
+            state.archivesListEl.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+        }
+    }
+
+    function redirectToArchivePageIfNeeded() {
+        if (typeof window === 'undefined' || !window.location) {
+            return;
+        }
+        const currentPage = (window.location.pathname || '').split('/').pop();
+        if (currentPage === 'archive.html') {
+            return;
+        }
+        window.location.assign('archive.html');
     }
 
     function renderArchiveList() {
@@ -466,6 +482,7 @@ ListopicApp.archiveService = (() => {
         if (!state.modalEl) {
             return;
         }
+        toggleLoading(false);
         state.modalEl.classList.remove('is-open');
         state.modalEl.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('modal-open');
@@ -646,7 +663,7 @@ ListopicApp.archiveService = (() => {
             state.isSaving = true;
             if (state.saveButtonEl) {
                 state.saveButtonEl.disabled = true;
-                state.saveButtonEl.innerHTML = `<i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Guardandoâ€¦`;
+                state.saveButtonEl.innerHTML = `<i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Guardando&hellip;`;
             }
             const targetArchiveIds = Array.from(state.selectedArchiveIds);
             await updateEntityMembership(state.userId, state.currentEntity, targetArchiveIds);
@@ -654,6 +671,7 @@ ListopicApp.archiveService = (() => {
             dispatchArchiveUpdated(state.currentEntity.entityKey, targetArchiveIds);
             showNotification('Elemento actualizado en tus archivos.', 'success');
             closeModal();
+            redirectToArchivePageIfNeeded();
         } catch (error) {
             console.error('[archiveService] Error guardando selecciÃ³n', error);
             showNotification(error.message || 'No se pudo guardar en tus archivos.', 'error');

@@ -10160,6 +10160,15 @@ body.chat-list-modal-open {
     font-size: 0.95rem;
 }
 
+.archive-modal__loading[hidden],
+.archive-modal__empty[hidden] {
+    display: none !important;
+}
+
+.archive-modal__loading.is-active {
+    display: flex;
+}
+
 .archive-modal__loading i,
 .archive-modal__empty i {
     color: var(--accent-color-primary);
@@ -10268,6 +10277,12 @@ body.chat-list-modal-open {
     justify-content: flex-end;
     gap: 12px;
     margin-top: 24px;
+    padding: 16px 0 12px;
+    border-top: 1px solid var(--border-color);
+    background: var(--container-bg);
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
 }
 
 .archive-modal__actions .button {
@@ -10346,7 +10361,7 @@ body.chat-list-modal-open {
 
 .archive-section__title-group h2 {
     margin: 0;
-    font-size: clamp(1.1rem, 2.2vw, 1.35rem);
+    font-size: clamp(1rem, 2vw, 1.2rem);
 }
 
 .archive-section__description {
@@ -10404,6 +10419,10 @@ body.chat-list-modal-open {
     flex-direction: column;
     gap: 16px;
     margin-top: 18px;
+}
+
+.archive-items[hidden] {
+    display: none !important;
 }
 
 body.light-theme .archive-modal__loading,
