@@ -5,9 +5,19 @@ ListopicApp.pageArchive = (() => {
         currentUser: null,
         archiveListener: null,
         containerEl: null,
+        openArchiveIds: new Set(),
     };
 
     const getServices = () => window.ListopicApp?.services || {};
+
+    const escapeHtml = (value) => {
+        if (window.ListopicApp?.uiUtils?.escapeHtml) {
+            return window.ListopicApp.uiUtils.escapeHtml(String(value ?? ''));
+        }
+        const p = document.createElement('p');
+        p.textContent = value ?? '';
+        return p.innerHTML;
+    };
 
     const showNotification = (message, type = 'info') => {
         const notifier = getServices().showNotification;
@@ -53,34 +63,159 @@ ListopicApp.pageArchive = (() => {
         return null;
     };
 
+    const buildArchiveCountLabel = (count) => {
+        const value = Number(count) || 0;
+        return `${value} elemento${value === 1 ? '' : 's'}`;
+    };
+
+    const buildArchiveSummary = (archive) => {
+        if (!archive || !Array.isArray(archive.items) || archive.items.length === 0) {
+            return 'Todavía no hay elementos guardados en este archivo.';
+        }
+        const titles = archive.items
+            .map((item) => (item.title || item.context?.placeName || item.context?.itemName || '').trim())
+            .filter(Boolean);
+        if (titles.length === 0) {
+            const total = archive.items.length;
+            return `Tienes ${total} elemento${total === 1 ? '' : 's'} guardado${total === 1 ? '' : 's'} en este archivo.`;
+        }
+        const preview = titles.slice(0, 3);
+        const remaining = Math.max(archive.items.length - preview.length, 0);
+        if (preview.length === 1) {
+            if (remaining <= 0) {
+                return `Incluye: ${preview[0]}`;
+            }
+            return `Incluye: ${preview[0]} y ${remaining === 1 ? '1 más' : `${remaining} más`}`;
+        }
+        if (preview.length === 2) {
+            if (remaining <= 0) {
+                return `Incluye: ${preview[0]} y ${preview[1]}`;
+            }
+            return `Incluye: ${preview[0]}, ${preview[1]} y ${remaining === 1 ? '1 más' : `${remaining} más`}`;
+        }
+        if (remaining <= 0) {
+            return `Incluye: ${preview[0]}, ${preview[1]} y ${preview[2]}`;
+        }
+        return `Incluye: ${preview[0]}, ${preview[1]}, ${preview[2]} y ${remaining === 1 ? '1 más' : `${remaining} más`}`;
+    };
+
+    const createArchiveSection = (archive) => {
+        const section = document.createElement('section');
+        section.className = 'archive-section';
+        section.dataset.archiveId = archive.id;
+
+        const header = document.createElement('header');
+        header.className = 'archive-section__header';
+
+        const toggleButton = document.createElement('button');
+        toggleButton.type = 'button';
+        toggleButton.className = 'archive-section__toggle';
+        toggleButton.setAttribute('aria-expanded', 'false');
+
+        const badgeHtml = archive.isSystem ? '<span class="archive-section__badge">Predeterminado</span>' : '';
+        const descriptionHtml = archive.description
+            ? `<p class="archive-section__description">${escapeHtml(archive.description)}</p>`
+            : '';
+        const countLabel = buildArchiveCountLabel(archive.items.length);
+
+        toggleButton.innerHTML = `
+            <span class="archive-section__header-content">
+                <span class="archive-section__title-group">
+                    <h2>${escapeHtml(archive.name || 'Archivo')}</h2>
+                    ${descriptionHtml}
+                </span>
+                <span class="archive-section__meta">
+                    ${badgeHtml}
+                    <span class="archive-section__count">${escapeHtml(countLabel)}</span>
+                    <span class="archive-section__toggle-icon" aria-hidden="true"><i class="fas fa-chevron-down"></i></span>
+                </span>
+            </span>
+        `;
+
+        const safeId = String(archive.id || '').replace(/[^a-zA-Z0-9_-]/g, '-');
+        const itemsWrapperId = `archive-items-${safeId}`;
+        toggleButton.setAttribute('aria-controls', itemsWrapperId);
+
+        header.appendChild(toggleButton);
+
+        const summary = document.createElement('div');
+        summary.className = 'archive-section__summary';
+        summary.setAttribute('tabindex', '0');
+        summary.setAttribute('role', 'button');
+        summary.setAttribute('aria-expanded', 'false');
+        summary.setAttribute('aria-controls', itemsWrapperId);
+        summary.title = 'Pulsa para desplegar este archivo';
+
+        const summaryLabel = document.createElement('span');
+        summaryLabel.className = 'archive-section__summary-label';
+        summaryLabel.textContent = 'Resumen';
+
+        const summaryText = document.createElement('span');
+        summaryText.className = 'archive-section__summary-text';
+        summaryText.textContent = buildArchiveSummary(archive);
+
+        summary.append(summaryLabel, summaryText);
+
+        const itemsWrapper = document.createElement('div');
+        itemsWrapper.className = 'archive-items';
+        itemsWrapper.id = itemsWrapperId;
+        itemsWrapper.hidden = true;
+
+        section.appendChild(header);
+        section.appendChild(summary);
+        section.appendChild(itemsWrapper);
+
+        const setExpanded = (expanded) => {
+            const isExpanded = Boolean(expanded);
+            toggleButton.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+            summary.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+            section.classList.toggle('is-open', isExpanded);
+            itemsWrapper.hidden = !isExpanded;
+        };
+
+        const toggle = () => {
+            const currentlyExpanded = toggleButton.getAttribute('aria-expanded') === 'true';
+            const next = !currentlyExpanded;
+            setExpanded(next);
+            if (next) {
+                state.openArchiveIds.add(archive.id);
+            } else {
+                state.openArchiveIds.delete(archive.id);
+            }
+        };
+
+        toggleButton.addEventListener('click', toggle);
+        summary.addEventListener('click', toggle);
+        summary.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggle();
+            }
+        });
+
+        return { section, itemsWrapper, setExpanded, summaryText };
+    };
+
     const renderArchives = (archives = []) => {
         if (!state.containerEl) {
             return;
         }
         if (!Array.isArray(archives) || archives.length === 0) {
+            state.openArchiveIds.clear();
             state.containerEl.innerHTML = '<p class="empty-placeholder">Todavía no tienes archivos personales. Empieza guardando un lugar, grupo o reseña.</p>';
             return;
         }
+        const validIds = new Set(archives.map((archive) => archive.id));
+        state.openArchiveIds.forEach((id) => {
+            if (!validIds.has(id)) {
+                state.openArchiveIds.delete(id);
+            }
+        });
 
         const fragment = document.createDocumentFragment();
 
         archives.forEach((archive) => {
-            const section = document.createElement('section');
-            section.className = 'archive-section';
-
-            const header = document.createElement('header');
-            header.className = 'archive-section__header';
-            header.innerHTML = `
-                <div>
-                    <h2>${ListopicApp.uiUtils?.escapeHtml(archive.name || 'Archivo')}</h2>
-                    <p class="archive-section__description">${ListopicApp.uiUtils?.escapeHtml(archive.description || '')}</p>
-                </div>
-                <span class="archive-section__count">${archive.items.length} elemento${archive.items.length === 1 ? '' : 's'}</span>
-            `;
-            section.appendChild(header);
-
-            const itemsWrapper = document.createElement('div');
-            itemsWrapper.className = 'archive-items';
+            const { section, itemsWrapper, setExpanded, summaryText } = createArchiveSection(archive);
 
             if (archive.items.length === 0) {
                 const emptyMsg = document.createElement('p');
@@ -93,7 +228,10 @@ ListopicApp.pageArchive = (() => {
                 });
             }
 
-            section.appendChild(itemsWrapper);
+            summaryText.textContent = buildArchiveSummary(archive);
+            const shouldExpand = state.openArchiveIds.has(archive.id);
+            setExpanded(shouldExpand);
+
             fragment.appendChild(section);
         });
 

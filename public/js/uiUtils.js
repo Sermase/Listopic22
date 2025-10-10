@@ -414,6 +414,7 @@ ListopicApp.uiUtils = {
                     <i class="fas fa-ellipsis-h"></i>
                 </button>
                 <div class="review-menu__dropdown" role="menu">
+                    <button class="review-action" type="button" data-action="save">Guardar en El Archivo</button>
                     <button class="review-action" type="button" data-action="share">Compartir</button>
                     ${isOwner ? '<button class="review-action" type="button" data-action="edit">Editar rese\u00f1a</button><button class="review-action danger" type="button" data-action="delete">Eliminar</button>' : ''}
                 </div>
