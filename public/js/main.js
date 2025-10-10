@@ -99,6 +99,31 @@ ListopicApp.reviewActions = (() => {
         }
     };
 
+    const buildArchiveDescriptorFromReview = (data) => {
+        if (!data || !data.reviewId || !data.listId) {
+            return null;
+        }
+        return {
+            entityType: 'review',
+            listId: data.listId,
+            reviewId: data.reviewId,
+            title: data.itemName || 'Reseña guardada',
+            subtitle: data.listName ? `Lista: ${data.listName}` : '',
+            imageUrl: data.photoUrl || '',
+            context: {
+                listId: data.listId || null,
+                listName: data.listName || '',
+                itemName: data.itemName || '',
+                placeId: data.placeId || null,
+                placeName: data.placeName || '',
+                authorId: data.authorId || null,
+                authorName: data.authorName || '',
+                detailUrl: data.detailUrl || '',
+                overallRating: data.overallRating || ''
+            }
+        };
+    };
+
     const handleActionClick = async (action, card) => {
         const data = getReviewData(card);
         if (!data) {
@@ -106,6 +131,26 @@ ListopicApp.reviewActions = (() => {
         }
         const services = window.ListopicApp?.services || {};
         const notify = services.showNotification || (() => {});
+
+        if (action === 'save') {
+            const archiveService = window.ListopicApp?.archiveService;
+            if (!archiveService || typeof archiveService.openSaveModal !== 'function') {
+                notify('No se pudo abrir El Archivo.', 'error');
+                return;
+            }
+            const descriptor = buildArchiveDescriptorFromReview(data);
+            if (!descriptor) {
+                notify('No se pudo preparar esta reseña para guardar.', 'error');
+                return;
+            }
+            try {
+                archiveService.openSaveModal(descriptor);
+            } catch (error) {
+                console.error('[reviewActions] Error al abrir El Archivo desde el menú de reseña:', error);
+                notify(error.message || 'No se pudo abrir El Archivo.', 'error');
+            }
+            return;
+        }
 
         if (action === 'share') {
             if (window.ListopicApp?.reviewShare?.open) {
@@ -1435,6 +1480,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (ListopicApp.pageGroupedDetailView && ListopicApp.pageGroupedDetailView.init) {
                     ListopicApp.pageGroupedDetailView.init();
                 }
+            } else if (pageName === 'archive.html') {
+                if (ListopicApp.pageArchive?.init) {
+                    ListopicApp.pageArchive.init();
+                }
+
             } else if (pageName === 'profile.html') {
                 console.log("MAIN.JS: Coincide 'profile.html', comprobando si pageProfile existe...");
                 if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {

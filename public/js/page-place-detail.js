@@ -1,4 +1,4 @@
-window.ListopicApp = window.ListopicApp || {};
+﻿window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.pagePlaceDetail = {
     elements: {},
@@ -19,10 +19,10 @@ ListopicApp.pagePlaceDetail = {
         }
         
         this.cacheDOMElements();
-        this.attachEventListeners(); // Unificamos la gestión de eventos
+        this.attachEventListeners(); // Unificamos la gestiÃ³n de eventos
         this.loadPageData();
 
-        // **INTEGRACIÓN**: Comprobamos si hay un usuario para mostrar el botón de seguir
+        // **INTEGRACIÃ“N**: Comprobamos si hay un usuario para mostrar el botÃ³n de seguir
         ListopicApp.authService.onAuthStateChangedPromise().then(user => {
             this.currentUser = user;
             if (this.currentUser) {
@@ -44,7 +44,7 @@ ListopicApp.pagePlaceDetail = {
             reviewsContainer: document.getElementById('place-reviews-container'),
             groupsContainer: document.getElementById('place-groups-container'),
             addReviewGlobalBtn: document.getElementById('add-review-global-btn'),
-            googleRating: document.getElementById('place-google-rating'), // Añadido
+            googleRating: document.getElementById('place-google-rating'), // AÃ±adido
             tabButtons: document.querySelectorAll('.profile-tab-button'),
             tabContents: document.querySelectorAll('.profile-tab-content'),
             followersCount: document.getElementById('place-followers-count'),
@@ -57,16 +57,17 @@ ListopicApp.pagePlaceDetail = {
             hours: document.getElementById('place-hours'),
             priceContainer: document.getElementById('place-price-container'),
             price: document.getElementById('place-price'),
+            saveToArchiveBtn: document.getElementById('place-save-to-archive-btn'),
         };
         console.log("[page-place-detail.js] Elementos del DOM cacheados.");
     },
     
-    // **INTEGRACIÓN**: Nueva función para manejar todos los listeners
+    // **INTEGRACIÃ“N**: Nueva funciÃ³n para manejar todos los listeners
     attachEventListeners: function() {
-        // Listener para el nuevo botón de seguir
+        // Listener para el nuevo botÃ³n de seguir
         this.elements.followUnfollowBtn?.addEventListener('click', () => this.handleFollowToggle());
 
-        // Listeners para las pestañas
+        // Listeners para las pestaÃ±as
         this.elements.tabButtons.forEach(button => {
             button.addEventListener('click', () => {
                 const tab = button.dataset.tab;
@@ -101,7 +102,7 @@ ListopicApp.pagePlaceDetail = {
             this.setupGlobalAddReviewButton(this.originalGroups, this.originalReviews);
 
         } catch (error) {
-            console.error("Error CRÍTICO al cargar los datos de la página del lugar:", error);
+            console.error("Error CRÃTICO al cargar los datos de la pÃ¡gina del lugar:", error);
             this.elements.placeName.textContent = "Error al cargar el lugar";
             this.elements.reviewsContainer.innerHTML = `<p class="error-placeholder">No se pudieron cargar los datos. Revisa la consola.</p>`;
             this.elements.groupsContainer.innerHTML = `<p class="error-placeholder">No se pudieron cargar los datos. Revisa la consola.</p>`;
@@ -109,7 +110,7 @@ ListopicApp.pagePlaceDetail = {
     },
 
     renderPlaceDetails: function(placeData) {
-        // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
+        // --- Â¡AQUÃ ESTÃ EL CAMBIO! ---
         // Obtenemos 'googleRating' de los datos que recibimos
         const {
             name,
@@ -123,29 +124,29 @@ ListopicApp.pagePlaceDetail = {
             phone,
             current_opening_hours,
             priceLevel,
-            googleRating // Añadido
+            googleRating // AÃ±adido
         } = placeData;
 
         // Renderizado de datos existentes
         document.title = `${name || 'Lugar'} - Listopic`;
         this.elements.placeName.textContent = name || 'Nombre no disponible';
         if (this.elements.placeAddress?.querySelector('span')) {
-            this.elements.placeAddress.querySelector('span').textContent = formatted_address || 'Dirección no disponible';
+            this.elements.placeAddress.querySelector('span').textContent = formatted_address || 'DirecciÃ³n no disponible';
         }
-        // Foto: usar foto de Google (si llega), si no, usar mainImageUrl del doc, y por último el logo
+        // Foto: usar foto de Google (si llega), si no, usar mainImageUrl del doc, y por Ãºltimo el logo
         const fallbackPhoto = placeData.mainImageUrl || 'img/logo-listopic400.png';
         this.elements.placePhoto.src = (photos && photos[0]) || fallbackPhoto;
         this.elements.googleMapsLink.href = googleMapsUrl || '#';
         if (!googleMapsUrl) this.elements.googleMapsLink.style.display = 'none';
         
-        // --- Renderizado de estadísticas (con los cambios) ---
+        // --- Renderizado de estadÃ­sticas (con los cambios) ---
         this.elements.reviewCount.textContent = reviewsCount !== undefined ? reviewsCount : '0';
         this.elements.avgRating.textContent = averageRating ? averageRating.toFixed(1) : 'N/A';
         this.elements.followersCount.textContent = followersCount !== undefined ? followersCount : '0';
         // Mostramos la nueva nota de Google, formateada a un decimal
         this.elements.googleRating.textContent = googleRating ? googleRating.toFixed(1) : 'N/A';
         
-        // --- Renderizado de información extra (sin cambios) ---
+        // --- Renderizado de informaciÃ³n extra (sin cambios) ---
         if (website) {
             this.elements.website.href = website;
             this.elements.website.textContent = new URL(website).hostname.replace('www.','');
@@ -162,7 +163,7 @@ ListopicApp.pagePlaceDetail = {
             this.elements.hoursContainer.style.display = 'block';
         }
         if (priceLevel !== undefined && priceLevel > 0) {
-            this.elements.price.textContent = '€'.repeat(priceLevel);
+            this.elements.price.textContent = 'â‚¬'.repeat(priceLevel);
             this.elements.priceContainer.style.display = 'block';
         }
 
@@ -178,7 +179,7 @@ ListopicApp.pagePlaceDetail = {
                 if (acc.wheelchairAccessibleSeating === true) items.push('<span class="badge-attr"><i class="fas fa-chair"></i> Asientos adaptados</span>');
                 if (acc.wheelchairAccessibleParking === true) items.push('<span class="badge-attr"><i class="fas fa-square-parking"></i> Parking adaptado</span>');
                 if (acc.wheelchairAccessibleRestroom === true) items.push('<span class="badge-attr"><i class="fas fa-restroom"></i> Aseo adaptado</span>');
-                if (acc.hearingLoop === true) items.push('<span class="badge-attr"><i class="fas fa-assistive-listening-systems"></i> Bucle magnético</span>');
+                if (acc.hearingLoop === true) items.push('<span class="badge-attr"><i class="fas fa-assistive-listening-systems"></i> Bucle magnÃ©tico</span>');
                 accEl.innerHTML = items.join('');
             }
             if (srvEl) {
@@ -186,19 +187,74 @@ ListopicApp.pagePlaceDetail = {
                 const sv = placeData.serviceOptions || {};
                 const items = [];
                 if (sv.outdoorSeating === true) items.push('<span class="badge-attr"><i class="fas fa-umbrella-beach"></i> Terraza</span>');
-                if (sv.dineIn === true) items.push('<span class="badge-attr"><i class="fas fa-utensils"></i> Comer allí</span>');
+                if (sv.dineIn === true) items.push('<span class="badge-attr"><i class="fas fa-utensils"></i> Comer allÃ­</span>');
                 if (sv.delivery === true) items.push('<span class="badge-attr"><i class="fas fa-truck"></i> A domicilio</span>');
                 if (sv.takeout === true) items.push('<span class="badge-attr"><i class="fas fa-bag-shopping"></i> Para llevar</span>');
                 if (sv.curbsidePickup === true) items.push('<span class="badge-attr"><i class="fas fa-car-side"></i> Recogida en coche</span>');
                 srvEl.innerHTML = items.join('');
             }
         } catch (e) { console.warn('[place-detail] No se pudieron renderizar atributos', e); }
+
+        const saveButton = this.elements.saveToArchiveBtn;
+        if (saveButton) {
+            const archiveService = window.ListopicApp?.archiveService;
+            if (archiveService && typeof archiveService.openSaveModal === 'function') {
+                const descriptor = {
+                    entityType: 'place',
+                    placeId: this.placeId,
+                    title: name || 'Lugar guardado',
+                    subtitle: formatted_address || '',
+                    imageUrl: (photos && photos[0]) || fallbackPhoto,
+                    context: {
+                        placeName: name || '',
+                        address: formatted_address || '',
+                        googleMapsUrl: googleMapsUrl || '',
+                        placeId: this.placeId
+                    }
+                };
+                const entityKey = this.placeId ? `place:${this.placeId}` : null;
+                const applySavedState = (saved) => {
+                    const isSaved = Boolean(saved);
+                    saveButton.classList.toggle('is-archived', isSaved);
+                    saveButton.innerHTML = isSaved
+                        ? '<i class="fas fa-check"></i> Guardado'
+                        : '<i class="fas fa-bookmark"></i> Guardar';
+                };
+                applySavedState(false);
+                archiveService.isEntitySaved(descriptor).then(applySavedState).catch(() => applySavedState(false));
+                const appState = ListopicApp.state || {};
+                if (appState._placeArchiveEventHandler) {
+                    window.removeEventListener('archive:updated', appState._placeArchiveEventHandler);
+                }
+                appState._placeArchiveEventHandler = (event) => {
+                    if (!entityKey) {
+                        return;
+                    }
+                    if (event.detail?.entityKey === entityKey) {
+                        const ids = event.detail.archiveIds || [];
+                        applySavedState(Array.isArray(ids) && ids.length > 0);
+                    }
+                };
+                window.addEventListener('archive:updated', appState._placeArchiveEventHandler);
+                saveButton.style.display = 'inline-flex';
+                saveButton.onclick = () => {
+                    try {
+                        archiveService.openSaveModal({ ...descriptor });
+                    } catch (error) {
+                        console.error('[page-place-detail] Error al abrir El Archivo:', error);
+                        window.ListopicApp?.services?.showNotification?.(error.message || 'No se pudo abrir El Archivo.', 'error');
+                    }
+                };
+            } else {
+                saveButton.style.display = 'none';
+            }
+        }
     },
 
     renderReviews: async function(reviews) {
-        console.log("[page-place-detail.js] Renderizando reseñas...", reviews);
+        console.log("[page-place-detail.js] Renderizando reseÃ±as...", reviews);
         if (reviews.length === 0) {
-            this.elements.reviewsContainer.innerHTML = '<p>Este lugar todavía no tiene reseñas. ¡Sé el primero!</p>';
+            this.elements.reviewsContainer.innerHTML = '<p>Este lugar todavÃ­a no tiene reseÃ±as. Â¡SÃ© el primero!</p>';
             return;
         }
         try {
@@ -208,15 +264,15 @@ ListopicApp.pagePlaceDetail = {
                 ListopicApp.uiUtils.renderReviewSuperCard(review)
             ).join('');
         } catch (error) {
-            console.error("Error al enriquecer las reseñas:", error);
-            this.elements.reviewsContainer.innerHTML = '<p class="error-placeholder">Error al mostrar las reseñas.</p>';
+            console.error("Error al enriquecer las reseÃ±as:", error);
+            this.elements.reviewsContainer.innerHTML = '<p class="error-placeholder">Error al mostrar las reseÃ±as.</p>';
         }
     },
 
     renderGroups: function(groups) {
         console.log("[page-place-detail.js] Renderizando grupos...", groups);
         if (groups.length === 0) {
-            this.elements.groupsContainer.innerHTML = '<p>Este lugar no se ha valorado en ningún grupo todavía.</p>';
+            this.elements.groupsContainer.innerHTML = '<p>Este lugar no se ha valorado en ningÃºn grupo todavÃ­a.</p>';
             return;
         }
         this.elements.groupsContainer.innerHTML = groups.map(group => 
@@ -237,7 +293,7 @@ ListopicApp.pagePlaceDetail = {
     },
 
     // =================================================================
-    // AQUÍ ESTÁ LA MAGIA - LA FUNCIÓN CORREGIDA
+    // AQUÃ ESTÃ LA MAGIA - LA FUNCIÃ“N CORREGIDA
     // =================================================================
     renderGroupCard: function(group) {
         const groupIcon = group.icon || 'fa-users';
@@ -254,7 +310,7 @@ ListopicApp.pagePlaceDetail = {
                     tagName = tag.name || tag.tag || tag.tagName || '';
                     if (!tagName) {
                          // Si sigue sin nombre, mostramos el objeto para depurar
-                         console.warn("Se encontró un objeto de etiqueta sin una propiedad de nombre reconocible:", tag);
+                         console.warn("Se encontrÃ³ un objeto de etiqueta sin una propiedad de nombre reconocible:", tag);
                          tagName = '[Etiqueta mal formada]';
                     }
                 } else {
@@ -288,7 +344,7 @@ ListopicApp.pagePlaceDetail = {
                     </div>
                 </a>
                 <div class="group-card-actions">
-                    <div class="group-card-score" title="Valoración media">
+                    <div class="group-card-score" title="ValoraciÃ³n media">
                         <span class="score-badge">${avg}</span>
                     </div>
                     ${addReviewHref ? `<a class=\"button secondary-button\" href=\"${addReviewHref}\"><i class=\"fas fa-plus\"></i> Valorar</a>` : ''}
@@ -297,7 +353,7 @@ ListopicApp.pagePlaceDetail = {
         `;
     },
 
-    // Configura el botón global "Valorar este lugar" eligiendo una lista por defecto
+    // Configura el botÃ³n global "Valorar este lugar" eligiendo una lista por defecto
     setupGlobalAddReviewButton: function(groups, latestReviews) {
         try {
             const btn = this.elements.addReviewGlobalBtn;
@@ -326,7 +382,7 @@ ListopicApp.pagePlaceDetail = {
                 btn.style.display = 'none';
             }
         } catch (e) {
-            console.warn('[place-detail] No se pudo configurar botón global de reseña', e);
+            console.warn('[place-detail] No se pudo configurar botÃ³n global de reseÃ±a', e);
         }
     },
     // --- NUEVAS FUNCIONES PARA SEGUIMIENTO ---
@@ -362,7 +418,7 @@ updateFollowButtonUI: function() {
 
 handleFollowToggle: async function() {
     if (!this.currentUser) {
-        ListopicApp.services.showNotification("Debes iniciar sesión para seguir un lugar.", "error");
+        ListopicApp.services.showNotification("Debes iniciar sesiÃ³n para seguir un lugar.", "error");
         return;
     }
 
@@ -371,7 +427,7 @@ handleFollowToggle: async function() {
 
     try {
         const functions = firebase.app().functions('europe-west1');
-        const toggleFollow = functions.httpsCallable('toggleFollowPlace'); // Asumimos que esta función existe
+        const toggleFollow = functions.httpsCallable('toggleFollowPlace'); // Asumimos que esta funciÃ³n existe
         const result = await toggleFollow({ placeId: this.placeId });
 
         this.isFollowing = result.data.status === 'followed';
@@ -386,7 +442,7 @@ handleFollowToggle: async function() {
     } catch (error) {
         console.error("Error al seguir/dejar de seguir el lugar:", error);
         ListopicApp.services.showNotification(`Error: ${error.message}`, 'error');
-        // Revertir el estado visual si la operación falla
+        // Revertir el estado visual si la operaciÃ³n falla
         this.checkFollowStatus(); 
     } finally {
         btn.disabled = false;
@@ -401,7 +457,7 @@ handleFollowToggle: async function() {
 checkFollowStatus: async function() {
     if (!this.currentUser) return;
     const db = ListopicApp.services.db;
-    // CORRECCIÓN CLAVE: La colección de seguidores está en /places/{placeId}/followers, no en /users/{userId}/following
+    // CORRECCIÃ“N CLAVE: La colecciÃ³n de seguidores estÃ¡ en /places/{placeId}/followers, no en /users/{userId}/following
     const followDocRef = db.collection('places').doc(this.placeId).collection('followers').doc(this.currentUser.uid);
 
     try {
@@ -430,12 +486,12 @@ updateFollowButtonUI: function() {
 
 handleFollowToggle: async function() {
     if (!this.currentUser) {
-        ListopicApp.services.showNotification("Debes iniciar sesión para seguir un lugar.", "error");
+        ListopicApp.services.showNotification("Debes iniciar sesiÃ³n para seguir un lugar.", "error");
         return;
     }
 
     const btn = this.elements.followUnfollowBtn;
-    const originalContent = btn.innerHTML; // Guardar el estado original del botón
+    const originalContent = btn.innerHTML; // Guardar el estado original del botÃ³n
     btn.disabled = true;
     btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Procesando...`;
 
@@ -444,7 +500,7 @@ handleFollowToggle: async function() {
         const toggleFollow = functions.httpsCallable('toggleFollowPlace');
         const result = await toggleFollow({ placeId: this.placeId });
 
-        // AHORA USAMOS EL ESTADO DEVUELTO POR LA FUNCIÓN
+        // AHORA USAMOS EL ESTADO DEVUELTO POR LA FUNCIÃ“N
         this.isFollowing = result.data.status === 'followed';
         this.updateFollowButtonUI();
 
@@ -457,9 +513,9 @@ handleFollowToggle: async function() {
     } catch (error) {
         console.error("Error al seguir/dejar de seguir el lugar:", error);
         ListopicApp.services.showNotification(`Error: ${error.message}`, 'error');
-        // En caso de error, volvemos a poner el botón como estaba
+        // En caso de error, volvemos a poner el botÃ³n como estaba
         btn.innerHTML = originalContent;
-        // Revertir el estado visual si la operación falla
+        // Revertir el estado visual si la operaciÃ³n falla
         this.checkFollowStatus();
     } finally {
         btn.disabled = false;
@@ -477,7 +533,7 @@ handleFollowToggle: async function() {
 };
     
 
-// **CORRECCIÓN**: Volvemos a añadir el inicializador, pero con un retardo para evitar el problema de tiempo.
+// **CORRECCIÃ“N**: Volvemos a aÃ±adir el inicializador, pero con un retardo para evitar el problema de tiempo.
 document.addEventListener('DOMContentLoaded', () => {
     // Este retardo se asegura de que los servicios principales (como authService) se hayan cargado primero.
     setTimeout(() => {
