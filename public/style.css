@@ -10106,11 +10106,29 @@ body.chat-list-modal-open {
     font-size: 0.95rem;
 }
 
+.archive-modal.help-modal .help-modal__dialog {
+    width: min(520px, calc(100vw - 32px));
+    height: min(520px, calc(100vh - 48px));
+    max-height: min(600px, calc(100vh - 48px));
+    display: flex;
+    flex-direction: column;
+}
+
+.archive-modal .archive-modal__content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
 .archive-modal__body {
     display: flex;
     flex-direction: column;
     gap: 16px;
     margin-top: 16px;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding-right: 6px;
+    scrollbar-gutter: stable both-edges;
 }
 
 .archive-modal__loading,
@@ -10134,9 +10152,6 @@ body.chat-list-modal-open {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    max-height: 280px;
-    overflow-y: auto;
-    padding-right: 4px;
 }
 
 .archive-option {
@@ -10214,6 +10229,7 @@ body.chat-list-modal-open {
     gap: 8px;
     padding-top: 16px;
     border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 
 .archive-modal__create label {

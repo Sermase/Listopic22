@@ -23,8 +23,14 @@
     </style>
 </head>
 <body>
-    <div class="header-actions-container">
-        <div class="header-left-content"> <div class="app-logo-container"><a href="index.html" title="Ir a la página de inicio"><img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo"></a></div> </div>
+    <header class="header-actions-container">
+        <div class="header-left-content">
+            <div class="app-logo-container">
+                <a href="index.html" title="Ir a la p&aacute;gina de inicio">
+                    <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
+                </a>
+            </div>
+        </div>
         <div class="header-right-actions">
             <a href="search.html" id="search-link-button" class="search-button header-action-button icon-with-badge" aria-label="Buscar">
                 <i class="fas fa-search" aria-hidden="true"></i>
@@ -44,9 +50,8 @@
                     <div class="notifications-list" id="notifications-list" hidden></div>
                 </div>
             </div>
-
             <div class="user-profile-menu-container">
-                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
+                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Men&uacute; de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
                     <i class="fas fa-user-circle" aria-hidden="true"></i>
                 </button>
                 <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
@@ -54,20 +59,18 @@
                     <a href="chats.html" role="menuitem">Chats</a>
                     <a href="profile.html#guardado" role="menuitem">Guardado</a>
                     <hr class="user-menu-divider">
-
                     <button type="button" role="menuitem" id="installPwaBtn" style="display: none;">
-                        <i class="fas fa-download"></i> Instalar Aplicación
+                        <i class="fas fa-download"></i> Instalar Aplicaci&oacute;n
                     </button>
-
-                    <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesión</button>
+                    <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesi&oacute;n</button>
                 </div>
             </div>
             <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
                 <i class="fas fa-moon" aria-hidden="true"></i>
             </button>
         </div>
+    </header>
 
-    </div>
     <main class="dev-container">
         <h1><i class="fas fa-tools"></i> Panel de Desarrollador</h1>
         <div class="dev-main-tabs"> <button class="dev-main-tab-button active" data-tab="data">Data Viewer</button> <button class="dev-main-tab-button" data-tab="algolia">Algolia Sync</button> <button class="dev-main-tab-button" data-tab="categories">Categorías</button> </div>
@@ -135,6 +138,7 @@
     
     <script src="js/config.js"></script>
     <script src="js/firebaseService.js"></script>
+    <script src="js/archiveService.js" defer></script>
     <script src="js/themeManager.js"></script>
     <script src="js/authService.js"></script>
     <script src="js/page-developer.js"></script>
