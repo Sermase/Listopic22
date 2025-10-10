@@ -3075,8 +3075,18 @@ a.header-action-button { /* Importante añadir 'a.header-action-button' */
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
     box-sizing: border-box;
     flex-shrink: 0;
-    
+
     text-decoration: none; /* CLAVE: Quita el subrayado de los enlaces */
+}
+
+
+.header-action-button > i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    line-height: 1;
 }
 
 
@@ -3086,17 +3096,22 @@ a.header-action-button { /* Importante añadir 'a.header-action-button' */
 
 .badge-indicator {
     position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
+    top: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--container-bg, #fff);
+    border-radius: 999px;
     background-color: var(--danger-color, #e63946);
     display: none;
+    box-sizing: border-box;
+    z-index: 1;
+    pointer-events: none;
 }
 
+.badge-indicator--visible,
 .badge-indicator[data-visible="true"] {
-    display: block;
+    display: inline-block;
 }
 
 .header-icon-group {

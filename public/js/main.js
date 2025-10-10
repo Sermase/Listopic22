@@ -923,14 +923,22 @@ ListopicApp.reviewShare = (() => {
 
 const setBadgeVisibility = (badgeElement, visible) => {
     if (!badgeElement) return;
-    if (visible) {
+    const shouldShow = Boolean(visible);
+    if (shouldShow) {
         badgeElement.hidden = false;
         badgeElement.setAttribute('data-visible', 'true');
+        badgeElement.classList.add('badge-indicator--visible');
+        badgeElement.setAttribute('aria-hidden', 'false');
     } else {
         badgeElement.hidden = true;
         badgeElement.setAttribute('data-visible', 'false');
+        badgeElement.classList.remove('badge-indicator--visible');
+        badgeElement.setAttribute('aria-hidden', 'true');
     }
 };
+
+ListopicApp.ui = ListopicApp.ui || {};
+ListopicApp.ui.setBadgeVisibility = setBadgeVisibility;
 
 const formatTimestampForUi = (timestamp) => {
     if (!timestamp) return '';
@@ -1064,20 +1072,65 @@ const initializeGlobalRealtimeFeatures = (user) => {
     const emptyStateElement = notificationsDropdown ? notificationsDropdown.querySelector('.notifications-empty-state') : null;
 
     const cleanupFunctions = [];
+    const clearedChatIds = new Set();
+
+    const normalizeChatId = (value) => {
+        if (typeof value === 'string') {
+            return value.trim() || null;
+        }
+        if (value === 0 || value) {
+            return String(value);
+        }
+        return null;
+    };
+
+    const registerClearedChatIds = (detail) => {
+        if (!detail) {
+            return;
+        }
+        const ids = Array.isArray(detail.chatIds)
+            ? detail.chatIds
+            : (detail.chatId ? [detail.chatId] : []);
+        ids.map(normalizeChatId).forEach(id => {
+            if (id) {
+                clearedChatIds.add(id);
+            }
+        });
+    };
 
     if (chatsBadge) {
-        const handleChatUnreadCleared = () => {
+        const handleChatUnreadCleared = (event) => {
+            registerClearedChatIds(event?.detail);
             setBadgeVisibility(chatsBadge, false);
         };
         document.addEventListener('listopic:chatUnreadCleared', handleChatUnreadCleared);
         cleanupFunctions.push(() => {
             document.removeEventListener('listopic:chatUnreadCleared', handleChatUnreadCleared);
+            clearedChatIds.clear();
         });
     }
 
     if (ListopicApp.services.listenToUserChats && chatsBadge) {
         const unsubscribeChats = ListopicApp.services.listenToUserChats(user.uid, chats => {
-            const hasUnread = Array.isArray(chats) && chats.some(chat => (chat.unreadCounts && chat.unreadCounts[user.uid] > 0));
+            if (Array.isArray(chats)) {
+                chats.forEach(chat => {
+                    const chatId = normalizeChatId(chat?.id);
+                    const rawUnread = chat?.unreadCounts ? chat.unreadCounts[user.uid] : null;
+                    const unreadCount = typeof rawUnread === 'number' ? rawUnread : Number.parseInt(rawUnread, 10);
+                    if (chatId && (!Number.isFinite(unreadCount) || unreadCount <= 0)) {
+                        clearedChatIds.delete(chatId);
+                    }
+                });
+            }
+            const hasUnread = Array.isArray(chats) && chats.some(chat => {
+                const chatId = normalizeChatId(chat?.id);
+                const rawUnread = chat?.unreadCounts ? chat.unreadCounts[user.uid] : null;
+                const unreadCount = typeof rawUnread === 'number' ? rawUnread : Number.parseInt(rawUnread, 10);
+                if (!Number.isFinite(unreadCount)) {
+                    return false;
+                }
+                return unreadCount > 0 && !(chatId && clearedChatIds.has(chatId));
+            });
             setBadgeVisibility(chatsBadge, hasUnread);
         }, error => {
             console.error('[main] Error monitorizando chats para badge:', error);
