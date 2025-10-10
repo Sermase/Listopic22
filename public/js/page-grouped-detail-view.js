@@ -112,7 +112,7 @@ ListopicApp.pageGroupedDetailView = (() => {
                             iconEl.className = isSaved ? 'fas fa-check' : 'fas fa-bookmark';
                         }
                         if (labelEl) {
-                            labelEl.textContent = isSaved ? 'Guardado' : 'Guardar';
+                            labelEl.textContent = isSaved ? 'Archivo' : 'Guardar';
                         }
                     };
                     applySavedState(false);
