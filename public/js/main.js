@@ -124,7 +124,7 @@ ListopicApp.reviewActions = (() => {
         };
     };
 
-    const handleActionClick = async (action, card) => {
+    const handleActionClick = async (action, card, sourceButton) => {
         const data = getReviewData(card);
         if (!data) {
             return;
@@ -163,6 +163,30 @@ ListopicApp.reviewActions = (() => {
                     notify('No se pudo compartir la rese\u00f1a.', 'error');
                 }
             }
+            return;
+        }
+
+        if (action === 'like' || action === 'dislike') {
+            const module = window.ListopicApp?.reviewReactions;
+            if (!module || typeof module.toggle !== 'function') {
+                notify('No se pudo registrar tu reacci\u00f3n.', 'error');
+                return;
+            }
+            await module.toggle({
+                card,
+                reactionType: action,
+                trigger: sourceButton
+            });
+            return;
+        }
+
+        if (action === 'comment') {
+            const module = window.ListopicApp?.reviewComments;
+            if (!module || typeof module.open !== 'function') {
+                notify('No se pudieron cargar los comentarios.', 'error');
+                return;
+            }
+            module.open(card);
             return;
         }
 
@@ -209,7 +233,7 @@ ListopicApp.reviewActions = (() => {
 
     const onDocumentClick = (event) => {
         const toggleBtn = event.target.closest('.review-menu__btn');
-        const actionBtn = event.target.closest('.review-action');
+        const actionBtn = event.target.closest('.review-action, [data-review-action]');
 
         if (toggleBtn) {
             event.preventDefault();
@@ -241,9 +265,9 @@ ListopicApp.reviewActions = (() => {
             }
             closeAllMenus();
             const card = actionBtn.closest('.review-super-card');
-            const action = actionBtn.dataset.action;
+            const action = actionBtn.dataset.action || actionBtn.dataset.reviewAction;
             if (action && card) {
-                handleActionClick(action, card);
+                handleActionClick(action, card, actionBtn);
             }
             return;
         }
@@ -272,6 +296,574 @@ ListopicApp.reviewActions = (() => {
         init,
         closeMenus: closeAllMenus,
         getReviewData
+    };
+})();
+ListopicApp.reviewReactions = (() => {
+    const sanitizeCount = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return 0;
+        }
+        return Math.max(0, Math.round(numeric));
+    };
+
+    const getServices = () => window.ListopicApp?.services || {};
+
+    const showNotification = (message, type = 'info') => {
+        const notify = getServices().showNotification;
+        if (typeof notify === 'function' && message) {
+            notify(message, type);
+        }
+    };
+
+    const getIdentifiersFromCard = (card) => {
+        if (!card) {
+            return {};
+        }
+        const helper = window.ListopicApp?.reviewActions?.getReviewData;
+        if (typeof helper === 'function') {
+            const data = helper(card) || {};
+            return {
+                listId: data.listId || '',
+                reviewId: data.reviewId || '',
+                itemName: data.itemName || ''
+            };
+        }
+        const dataset = card.dataset || {};
+        return {
+            listId: dataset.listId || '',
+            reviewId: dataset.reviewId || ''
+        };
+    };
+
+    const updateReactionUi = (card, payload) => {
+        if (!card || !payload || typeof payload !== 'object') {
+            return;
+        }
+        const counts = Object.assign({ like: 0, dislike: 0 }, payload.counts || {});
+        const currentReaction = typeof payload.reaction === 'string' ? payload.reaction : '';
+
+        const likeCount = sanitizeCount(counts.like);
+        const dislikeCount = sanitizeCount(counts.dislike);
+
+        const likeBtn = card.querySelector('[data-review-action="like"]');
+        const dislikeBtn = card.querySelector('[data-review-action="dislike"]');
+
+        if (likeBtn) {
+            const countEl = likeBtn.querySelector('[data-action-count="like"]');
+            if (countEl) {
+                countEl.textContent = likeCount;
+            }
+            likeBtn.classList.toggle('is-active', currentReaction === 'like');
+            likeBtn.setAttribute('aria-pressed', currentReaction === 'like' ? 'true' : 'false');
+        }
+
+        if (dislikeBtn) {
+            const countEl = dislikeBtn.querySelector('[data-action-count="dislike"]');
+            if (countEl) {
+                countEl.textContent = dislikeCount;
+            }
+            dislikeBtn.classList.toggle('is-active', currentReaction === 'dislike');
+            dislikeBtn.setAttribute('aria-pressed', currentReaction === 'dislike' ? 'true' : 'false');
+        }
+
+        card.dataset.reactionLikeCount = likeCount;
+        card.dataset.reactionDislikeCount = dislikeCount;
+        card.dataset.userReaction = currentReaction;
+    };
+
+    const toggle = async ({ card, reactionType, trigger }) => {
+        if (!card || !reactionType) {
+            return;
+        }
+
+        const services = getServices();
+        const db = services.db;
+        const auth = services.auth;
+
+        if (!db || !auth) {
+            showNotification('Servicio no disponible actualmente.', 'error');
+            return;
+        }
+
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            showNotification('Necesitas iniciar sesi\u00f3n para reaccionar.', 'info');
+            return;
+        }
+
+        const identifiers = getIdentifiersFromCard(card);
+        if (!identifiers.listId || !identifiers.reviewId) {
+            showNotification('No se pudo registrar la reacci\u00f3n.', 'error');
+            return;
+        }
+
+        const FieldValue = firebase?.firestore?.FieldValue;
+        if (!FieldValue) {
+            showNotification('Servicio no disponible.', 'error');
+            return;
+        }
+
+        if (trigger) {
+            trigger.disabled = true;
+        }
+
+        try {
+            const result = await db.runTransaction(async (transaction) => {
+                const reviewRef = db.collection('lists').doc(identifiers.listId).collection('reviews').doc(identifiers.reviewId);
+                const reactionRef = reviewRef.collection('reactions').doc(currentUser.uid);
+
+                const [reviewSnap, reactionSnap] = await Promise.all([
+                    transaction.get(reviewRef),
+                    transaction.get(reactionRef)
+                ]);
+
+                if (!reviewSnap.exists) {
+                    throw new Error('missing-review');
+                }
+
+                const reviewData = reviewSnap.exists ? (reviewSnap.data() || {}) : {};
+                const counts = Object.assign({ like: 0, dislike: 0 }, reviewData.reactionCounts || {});
+                const currentReaction = reactionSnap.exists ? (reactionSnap.data()?.reaction || '') : '';
+
+                let nextReaction = reactionType;
+                if (currentReaction === reactionType) {
+                    counts[reactionType] = sanitizeCount(counts[reactionType] - 1);
+                    transaction.delete(reactionRef);
+                    nextReaction = '';
+                } else {
+                    counts[reactionType] = sanitizeCount(counts[reactionType] + 1);
+                    if (currentReaction && counts[currentReaction] !== undefined) {
+                        counts[currentReaction] = sanitizeCount(counts[currentReaction] - 1);
+                    }
+                    transaction.set(reactionRef, {
+                        reaction: reactionType,
+                        userId: currentUser.uid,
+                        updatedAt: FieldValue.serverTimestamp(),
+                        createdAt: reactionSnap.exists && reactionSnap.data()?.createdAt
+                            ? reactionSnap.data().createdAt
+                            : FieldValue.serverTimestamp()
+                    }, { merge: true });
+                }
+
+                transaction.set(reviewRef, {
+                    reactionCounts: counts
+                }, { merge: true });
+
+                return { counts, reaction: nextReaction };
+            });
+
+            updateReactionUi(card, result);
+            if (result.reaction) {
+                showNotification('Reacci\u00f3n registrada.', 'success');
+            } else {
+                showNotification('Reacci\u00f3n retirada.', 'info');
+            }
+        } catch (error) {
+            if (error && error.message === 'missing-review') {
+                showNotification('Esta rese\u00f1a ya no est\u00e1 disponible.', 'warning');
+            } else {
+                console.error('[reviewReactions] Error al actualizar reacci\u00f3n:', error);
+                showNotification('No se pudo actualizar tu reacci\u00f3n.', 'error');
+            }
+        } finally {
+            if (trigger) {
+                trigger.disabled = false;
+            }
+        }
+    };
+
+    return {
+        toggle
+    };
+})();
+ListopicApp.reviewComments = (() => {
+    const sanitizeCount = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return 0;
+        }
+        return Math.max(0, Math.round(numeric));
+    };
+
+    let modal;
+    let overlayEl;
+    let closeButton;
+    let commentsListEl;
+    let loadingEl;
+    let formEl;
+    let textareaEl;
+    let submitButton;
+    let titleEl;
+    let keydownHandlerAttached = false;
+    const userProfileCache = new Map();
+    let currentContext = null;
+
+    const getServices = () => window.ListopicApp?.services || {};
+
+    const showNotification = (message, type = 'info') => {
+        const notify = getServices().showNotification;
+        if (typeof notify === 'function' && message) {
+            notify(message, type);
+        }
+    };
+
+    const ensureModal = () => {
+        if (modal) {
+            return;
+        }
+
+        modal = document.createElement('div');
+        modal.className = 'help-modal review-comments-modal';
+        modal.setAttribute('aria-hidden', 'true');
+        modal.innerHTML = `
+            <div class="help-modal__overlay" data-modal-dismiss></div>
+            <div class="help-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="review-comments-title">
+                <button type="button" class="help-modal__close" data-modal-dismiss aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+                <div class="help-modal__content">
+                    <p class="help-modal__eyebrow">Conversaci\u00f3n</p>
+                    <h2 id="review-comments-title" data-comments-title>Comentarios</h2>
+                    <div class="review-comments-modal__loading" data-comments-loading hidden>
+                        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                        <span>Cargando comentarios...</span>
+                    </div>
+                    <div class="review-comments-modal__list" data-comments-list></div>
+                    <form class="review-comments-modal__form" data-comments-form>
+                        <label for="review-comment-input" class="form-label">A\u00f1ade tu comentario</label>
+                        <textarea id="review-comment-input" class="form-input" rows="3" maxlength="1000" placeholder="Escribe algo amable..." data-comment-input></textarea>
+                        <div class="review-comments-modal__form-actions">
+                            <button type="submit" class="button submit-button" data-submit-comment>Publicar comentario</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `.trim();
+
+        document.body.appendChild(modal);
+
+        overlayEl = modal.querySelector('[data-modal-dismiss]');
+        closeButton = modal.querySelector('.help-modal__close');
+        commentsListEl = modal.querySelector('[data-comments-list]');
+        loadingEl = modal.querySelector('[data-comments-loading]');
+        formEl = modal.querySelector('[data-comments-form]');
+        textareaEl = modal.querySelector('[data-comment-input]');
+        submitButton = modal.querySelector('[data-submit-comment]');
+        titleEl = modal.querySelector('[data-comments-title]');
+
+        const closeModal = () => close();
+
+        overlayEl?.addEventListener('click', closeModal);
+        closeButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            closeModal();
+        });
+
+        formEl?.addEventListener('submit', handleSubmit);
+    };
+
+    const attachKeydownHandler = () => {
+        if (keydownHandlerAttached) {
+            return;
+        }
+        keydownHandlerAttached = true;
+        document.addEventListener('keydown', onDocumentKeydown);
+    };
+
+    const detachKeydownHandler = () => {
+        if (!keydownHandlerAttached) {
+            return;
+        }
+        keydownHandlerAttached = false;
+        document.removeEventListener('keydown', onDocumentKeydown);
+    };
+
+    const onDocumentKeydown = (event) => {
+        if (event.key === 'Escape' && modal?.classList.contains('is-open')) {
+            close();
+        }
+    };
+
+    const toggleLoading = (isLoading) => {
+        if (!loadingEl || !commentsListEl) {
+            return;
+        }
+        loadingEl.hidden = !isLoading;
+        commentsListEl.hidden = isLoading;
+    };
+
+    const toDate = (value) => {
+        if (!value) return null;
+        if (typeof value.toDate === 'function') {
+            return value.toDate();
+        }
+        if (typeof value === 'object' && typeof value.seconds === 'number') {
+            return new Date(value.seconds * 1000);
+        }
+        if (typeof value === 'number') {
+            return new Date(value);
+        }
+        if (typeof value === 'string') {
+            const parsed = new Date(value);
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
+        return null;
+    };
+
+    const formatTimestamp = (value) => {
+        const date = toDate(value);
+        if (!date) {
+            return '';
+        }
+        try {
+            return new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+        } catch (error) {
+            return date.toLocaleString();
+        }
+    };
+
+    const renderCommentItem = (comment) => {
+        const uiUtils = window.ListopicApp?.uiUtils;
+        const escape = (value) => uiUtils && typeof uiUtils.escapeHtml === 'function'
+            ? uiUtils.escapeHtml(value || '')
+            : (value || '').replace(/[&<>"']/g, (match) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[match] || match));
+
+        const displayName = escape(comment.userDisplayName || comment.userName || 'Usuario');
+        const avatarUrl = escape(comment.userPhotoUrl || comment.userPhoto || 'img/placeholder-avatar.png');
+        const messageHtml = escape(comment.message || '').replace(/\n/g, '<br>');
+        const timestampLabel = formatTimestamp(comment.createdAt);
+        const dateObj = toDate(comment.createdAt);
+        const datetimeAttr = dateObj ? dateObj.toISOString() : '';
+
+        return `
+            <article class="review-comment">
+                <div class="review-comment__avatar">
+                    <img src="${avatarUrl}" alt="Avatar de ${displayName}" loading="lazy">
+                </div>
+                <div class="review-comment__content">
+                    <header class="review-comment__meta">
+                        <span class="review-comment__author">${displayName}</span>
+                        ${timestampLabel ? `<time class="review-comment__timestamp" datetime="${datetimeAttr}">${timestampLabel}</time>` : ''}
+                    </header>
+                    <p class="review-comment__message">${messageHtml}</p>
+                </div>
+            </article>
+        `.trim();
+    };
+
+    const renderComments = (comments) => {
+        if (!commentsListEl) {
+            return;
+        }
+        if (!Array.isArray(comments) || !comments.length) {
+            commentsListEl.innerHTML = '<p class="review-comments-modal__empty">A\u00fan no hay comentarios. \u00a1S\u00e9 el primero en participar!</p>';
+            return;
+        }
+        commentsListEl.innerHTML = comments.map(renderCommentItem).join('');
+    };
+
+    const fetchUserProfile = async (userId) => {
+        if (!userId) {
+            return {};
+        }
+        if (userProfileCache.has(userId)) {
+            return userProfileCache.get(userId);
+        }
+        const services = getServices();
+        const db = services.db;
+        if (!db) {
+            return {};
+        }
+        try {
+            const snap = await db.collection('users').doc(userId).get();
+            const data = snap.exists ? (snap.data() || {}) : {};
+            userProfileCache.set(userId, data);
+            return data;
+        } catch (error) {
+            console.warn('[reviewComments] No se pudo obtener el perfil del usuario:', error);
+            const fallback = {};
+            userProfileCache.set(userId, fallback);
+            return fallback;
+        }
+    };
+
+    const updateCardCommentCount = (card, newCount) => {
+        if (!card) {
+            return;
+        }
+        const sanitized = sanitizeCount(newCount);
+        const commentButton = card.querySelector('[data-review-action="comment"]');
+        if (commentButton) {
+            const countEl = commentButton.querySelector('[data-action-count="comments"]');
+            if (countEl) {
+                countEl.textContent = sanitized;
+            }
+        }
+        card.dataset.commentCount = sanitized;
+    };
+
+    const loadComments = async () => {
+        const activeContext = currentContext;
+        if (!activeContext) {
+            return;
+        }
+        const services = getServices();
+        const db = services.db;
+        if (!db) {
+            showNotification('No se pudieron cargar los comentarios.', 'error');
+            return;
+        }
+
+        toggleLoading(true);
+        try {
+            const reviewRef = db.collection('lists').doc(activeContext.listId).collection('reviews').doc(activeContext.reviewId);
+            const snapshot = await reviewRef.collection('comments').orderBy('createdAt', 'asc').limit(100).get();
+            if (currentContext !== activeContext) {
+                return;
+            }
+            const comments = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() || {}) }));
+            renderComments(comments);
+            updateCardCommentCount(currentContext.card, comments.length);
+        } catch (error) {
+            console.error('[reviewComments] Error cargando comentarios:', error);
+            showNotification('No se pudieron cargar los comentarios.', 'error');
+            renderComments([]);
+        } finally {
+            toggleLoading(false);
+        }
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        if (!currentContext || !textareaEl) {
+            return;
+        }
+        const rawMessage = textareaEl.value.trim();
+        if (!rawMessage) {
+            showNotification('Escribe un comentario antes de enviarlo.', 'warning');
+            return;
+        }
+
+        const services = getServices();
+        const db = services.db;
+        const auth = services.auth;
+
+        if (!db || !auth) {
+            showNotification('Servicio no disponible.', 'error');
+            return;
+        }
+
+        const user = auth.currentUser;
+        if (!user) {
+            showNotification('Necesitas iniciar sesi\u00f3n para comentar.', 'info');
+            return;
+        }
+
+        const FieldValue = firebase?.firestore?.FieldValue;
+        if (!FieldValue) {
+            showNotification('Servicio no disponible.', 'error');
+            return;
+        }
+
+        submitButton?.classList.add('is-loading');
+        submitButton?.setAttribute('disabled', 'true');
+
+        try {
+            const userProfile = await fetchUserProfile(user.uid);
+            const reviewRef = db.collection('lists').doc(currentContext.listId).collection('reviews').doc(currentContext.reviewId);
+            const payload = {
+                userId: user.uid,
+                userDisplayName: userProfile.displayName || userProfile.username || user.displayName || user.email || 'Usuario',
+                userPhotoUrl: userProfile.photoUrl || user.photoURL || 'img/placeholder-avatar.png',
+                message: rawMessage,
+                createdAt: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp()
+            };
+            await reviewRef.collection('comments').add(payload);
+            await reviewRef.update({
+                commentsCount: FieldValue.increment(1)
+            });
+            textareaEl.value = '';
+            showNotification('Comentario publicado.', 'success');
+            await loadComments();
+        } catch (error) {
+            console.error('[reviewComments] Error al publicar comentario:', error);
+            showNotification('No se pudo publicar tu comentario.', 'error');
+        } finally {
+            submitButton?.classList.remove('is-loading');
+            submitButton?.removeAttribute('disabled');
+        }
+    };
+
+    const open = (card) => {
+        if (!card) {
+            return;
+        }
+        ensureModal();
+
+        const helper = window.ListopicApp?.reviewActions?.getReviewData;
+        const baseData = typeof helper === 'function' ? (helper(card) || {}) : {};
+
+        currentContext = {
+            card,
+            listId: baseData.listId || card.dataset.listId || '',
+            reviewId: baseData.reviewId || card.dataset.reviewId || '',
+            itemName: baseData.itemName || '',
+            listName: baseData.listName || ''
+        };
+
+        if (!currentContext.listId || !currentContext.reviewId) {
+            showNotification('No se pudieron cargar los comentarios.', 'error');
+            currentContext = null;
+            return;
+        }
+
+        if (titleEl) {
+            const itemName = currentContext.itemName || 'la rese\u00f1a';
+            titleEl.textContent = `Comentarios sobre ${itemName}`;
+        }
+
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        attachKeydownHandler();
+        if (textareaEl) {
+            textareaEl.value = '';
+        }
+        if (textareaEl) {
+            window.setTimeout(() => {
+                try {
+                    textareaEl.focus();
+                } catch (error) {
+                    /* ignore focus errors */
+                }
+            }, 120);
+        }
+        loadComments();
+    };
+
+    const close = () => {
+        if (!modal) {
+            return;
+        }
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+        toggleLoading(false);
+        detachKeydownHandler();
+        currentContext = null;
+    };
+
+    return {
+        open,
+        close
     };
 })();
 ListopicApp.reviewShare = (() => {
@@ -501,52 +1093,59 @@ ListopicApp.reviewShare = (() => {
     const createModal = () => {
         modal = document.createElement('div');
         modal.id = 'review-share-modal';
-        modal.className = 'modal review-share-modal';
+        modal.className = 'review-share-modal help-modal';
+        modal.setAttribute('aria-hidden', 'true');
         modal.innerHTML = `
-            <div class="modal-content review-share-modal__content" role="dialog" aria-modal="true" aria-labelledby="review-share-title">
-                <button type="button" class="close-button review-share-modal__close" aria-label="Cerrar">&times;</button>
-                <h2 id="review-share-title" class="review-share-modal__title">Compartir reseña</h2>
-                <p class="review-share-modal__subtitle"></p>
-                <section class="review-share-modal__section">
-                    <h3 class="review-share-modal__section-title">Compartir enlace</h3>
-                    <div class="review-share-modal__link-row">
-                        <input type="text" class="review-share-modal__link-input" readonly>
-                        <button type="button" class="button primary-button review-share-copy-btn">Copiar</button>
-                        <button type="button" class="button secondary-button review-share-native-btn">Compartir</button>
-                    </div>
-                    <p class="review-share-modal__feedback" hidden></p>
-                </section>
-                <section class="review-share-modal__section">
-                    <h3 class="review-share-modal__section-title">Enviar a un chat</h3>
-                    <div class="review-share-modal__chats">
-                        <p class="review-share-modal__chats-loading">Cargando chats...</p>
-                        <p class="review-share-modal__chats-empty" hidden>No hay chats activos todavía.</p>
-                        <div class="review-share-modal__chats-list"></div>
-                    </div>
-                    <p class="review-share-modal__chat-feedback" hidden></p>
-                </section>
-                <section class="review-share-modal__section review-share-modal__section--story">
-                    <h3 class="review-share-modal__section-title">Tarjeta para Instagram</h3>
-                    <p class="review-share-modal__story-description">Genera una tarjeta lista para compartirla en tus historias con el estilo que prefieras.</p>
-                    <div class="review-share-modal__story-grid">
-                        <label class="review-share-modal__story-label" for="review-share-story-color">Colores</label>
-                        <select id="review-share-story-color" class="review-share-modal__story-select"></select>
-                        <label class="review-share-modal__story-label" for="review-share-story-style">Gráfico</label>
-                        <select id="review-share-story-style" class="review-share-modal__story-select"></select>
-                    </div>
-                    <div class="review-share-modal__story-actions">
-                        <button type="button" class="button tertiary-button review-share-story-btn">
-                            <i class="fab fa-instagram"></i> Generar tarjeta
-                        </button>
-                        <a class="button secondary-button review-share-story-download" hidden download>Descargar</a>
-                    </div>
-                    <p class="review-share-modal__story-feedback" hidden></p>
-                </section>
+            <div class="help-modal__overlay" data-review-share-dismiss></div>
+            <div class="help-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="review-share-title">
+                <button type="button" class="help-modal__close" data-review-share-dismiss aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+                <div class="help-modal__content review-share-modal__content">
+                    <h2 id="review-share-title" class="review-share-modal__title">Compartir reseña</h2>
+                    <p class="review-share-modal__subtitle"></p>
+                    <section class="review-share-modal__section">
+                        <h3 class="review-share-modal__section-title">Compartir enlace</h3>
+                        <div class="review-share-modal__link-row">
+                            <input type="text" class="review-share-modal__link-input" readonly>
+                            <button type="button" class="button primary-button review-share-copy-btn">Copiar</button>
+                            <button type="button" class="button secondary-button review-share-native-btn">Compartir</button>
+                        </div>
+                        <p class="review-share-modal__feedback" hidden></p>
+                    </section>
+                    <section class="review-share-modal__section">
+                        <h3 class="review-share-modal__section-title">Enviar a un chat</h3>
+                        <div class="review-share-modal__chats">
+                            <p class="review-share-modal__chats-loading">Cargando chats...</p>
+                            <p class="review-share-modal__chats-empty" hidden>No hay chats activos todavía.</p>
+                            <div class="review-share-modal__chats-list"></div>
+                        </div>
+                        <p class="review-share-modal__chat-feedback" hidden></p>
+                    </section>
+                    <section class="review-share-modal__section review-share-modal__section--story">
+                        <h3 class="review-share-modal__section-title">Tarjeta para Instagram</h3>
+                        <p class="review-share-modal__story-description">Genera una tarjeta lista para compartirla en tus historias con el estilo que prefieras.</p>
+                        <div class="review-share-modal__story-grid">
+                            <label class="review-share-modal__story-label" for="review-share-story-color">Colores</label>
+                            <select id="review-share-story-color" class="review-share-modal__story-select"></select>
+                            <label class="review-share-modal__story-label" for="review-share-story-style">Gráfico</label>
+                            <select id="review-share-story-style" class="review-share-modal__story-select"></select>
+                        </div>
+                        <div class="review-share-modal__story-actions">
+                            <button type="button" class="button tertiary-button review-share-story-btn">
+                                <i class="fab fa-instagram"></i> Generar tarjeta
+                            </button>
+                            <a class="button secondary-button review-share-story-download" hidden download>Descargar</a>
+                        </div>
+                        <p class="review-share-modal__story-feedback" hidden></p>
+                    </section>
+                </div>
             </div>
         `;
         document.body.appendChild(modal);
 
-        closeButton = modal.querySelector('.review-share-modal__close');
+        const dismissElements = modal.querySelectorAll('[data-review-share-dismiss]');
+        closeButton = modal.querySelector('.help-modal__close');
         linkInput = modal.querySelector('.review-share-modal__link-input');
         copyButton = modal.querySelector('.review-share-copy-btn');
         nativeShareButton = modal.querySelector('.review-share-native-btn');
@@ -563,6 +1162,14 @@ ListopicApp.reviewShare = (() => {
         storyFeedbackElement = modal.querySelector('.review-share-modal__story-feedback');
         storyColorSelect = modal.querySelector('#review-share-story-color');
         storyStyleSelect = modal.querySelector('#review-share-story-style');
+
+        dismissElements.forEach(element => {
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+                close();
+            });
+        });
+
         if (storyButton) {
             storyButtonDefaultHTML = storyButton.innerHTML;
             storyButton.addEventListener('click', handleStoryShareClick);
@@ -575,19 +1182,14 @@ ListopicApp.reviewShare = (() => {
         }
         resetStorySection();
 
-        closeButton.addEventListener('click', close);
-        copyButton.addEventListener('click', handleCopyLink);
-        nativeShareButton.addEventListener('click', handleNativeShare);
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal) {
-                close();
-            }
-        });
+        copyButton?.addEventListener('click', handleCopyLink);
+        nativeShareButton?.addEventListener('click', handleNativeShare);
+
         document.addEventListener('keydown', handleKeydown, true);
     };
 
     const handleKeydown = (event) => {
-        if (event.key === 'Escape' && modal?.classList.contains('active')) {
+        if (event.key === 'Escape' && modal?.classList.contains('is-open')) {
             close();
         }
     };
@@ -644,7 +1246,8 @@ ListopicApp.reviewShare = (() => {
             nativeShareButton.disabled = !supported;
         }
         resetStorySection();
-        modal.classList.add('active');
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
         loadChats();
     };
@@ -653,7 +1256,8 @@ ListopicApp.reviewShare = (() => {
         if (!modal) {
             return;
         }
-        modal.classList.remove('active');
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('modal-open');
     };
 

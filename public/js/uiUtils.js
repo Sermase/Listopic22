@@ -379,9 +379,13 @@ ListopicApp.uiUtils = {
             ? `<a href="place-detail.html?placeId=${placeId}" class="place-name-link" onclick="event.stopPropagation()">${placeName}</a>`
             : `<span class="place-name-link--no-link">${placeName}</span>`;
 
+        const criteriaDefinition = (review.criteriaDefinition && typeof review.criteriaDefinition === 'object')
+            ? review.criteriaDefinition
+            : {};
+
         let criteriaHtml = '';
-        if (review.scores && review.criteriaDefinition && Object.keys(review.criteriaDefinition).length > 0) {
-            const criteriaItems = Object.entries(review.criteriaDefinition)
+        if (review.scores && Object.keys(criteriaDefinition).length > 0) {
+            const criteriaItems = Object.entries(criteriaDefinition)
                 .map(([critKey, critDef]) => {
                     const score = review.scores[critKey];
                     if (score === undefined) return '';
@@ -404,6 +408,36 @@ ListopicApp.uiUtils = {
             ? `<div class="review-super-card__tags">${review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>`
             : '';
 
+        const orderedCriteria = Object.entries(criteriaDefinition)
+            .map(([key, definition]) => ({
+                key,
+                definition: definition || {},
+                order: typeof (definition || {}).order === 'number' ? definition.order : Number.POSITIVE_INFINITY
+            }))
+            .sort((a, b) => {
+                if (a.order !== b.order) return a.order - b.order;
+                return a.key.localeCompare(b.key);
+            });
+        const primaryCriterionDefinition = orderedCriteria.length ? orderedCriteria[0].definition : null;
+        const likeLabelRaw = primaryCriterionDefinition && typeof primaryCriterionDefinition.like === 'string' && primaryCriterionDefinition.like.trim()
+            ? primaryCriterionDefinition.like.trim()
+            : 'Me encanta';
+        const dislikeLabelRaw = primaryCriterionDefinition && typeof primaryCriterionDefinition.dislike === 'string' && primaryCriterionDefinition.dislike.trim()
+            ? primaryCriterionDefinition.dislike.trim()
+            : 'Meh...';
+        const likeLabel = uiUtils.escapeHtml(likeLabelRaw);
+        const dislikeLabel = uiUtils.escapeHtml(dislikeLabelRaw);
+
+        const reactionCounts = (review.reactionCounts && typeof review.reactionCounts === 'object')
+            ? review.reactionCounts
+            : {};
+        const likeCount = Number.isFinite(Number(reactionCounts.like)) ? Number(reactionCounts.like) : 0;
+        const dislikeCount = Number.isFinite(Number(reactionCounts.dislike)) ? Number(reactionCounts.dislike) : 0;
+        const commentsCountRaw = review.commentsCount ?? review.commentCount ?? 0;
+        const commentsCount = Number.isFinite(Number(commentsCountRaw)) ? Number(commentsCountRaw) : 0;
+        const viewerReactionRaw = typeof review.viewerReaction === 'string' ? review.viewerReaction.trim() : '';
+        const viewerReaction = uiUtils.escapeHtml(viewerReactionRaw);
+
         const imageHtml = review.photoUrl
             ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${itemName}" class="review-super-card__image">`
             : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
@@ -420,6 +454,55 @@ ListopicApp.uiUtils = {
                 </div>
             </div>`;
 
+        const actionsHtml = `
+            <footer class="review-super-card__footer">
+                <div class="review-super-card__actions" role="group" aria-label="Acciones r\u00e1pidas">
+                    <div class="review-action-group review-action-group--left">
+                        <button type="button"
+                            class="review-action-button reaction-button like-button"
+                            data-review-action="like"
+                            data-reaction-type="like"
+                            aria-pressed="${viewerReactionRaw === 'like' ? 'true' : 'false'}">
+                            <i class="fas fa-face-grin-stars" aria-hidden="true"></i>
+                            <span class="action-label">${likeLabel}</span>
+                            <span class="action-count" data-action-count="like">${likeCount}</span>
+                        </button>
+                        <button type="button"
+                            class="review-action-button reaction-button dislike-button"
+                            data-review-action="dislike"
+                            data-reaction-type="dislike"
+                            aria-pressed="${viewerReactionRaw === 'dislike' ? 'true' : 'false'}">
+                            <i class="fas fa-face-meh" aria-hidden="true"></i>
+                            <span class="action-label">${dislikeLabel}</span>
+                            <span class="action-count" data-action-count="dislike">${dislikeCount}</span>
+                        </button>
+                    </div>
+                    <div class="review-action-group review-action-group--center">
+                        <button type="button"
+                            class="review-action-button comments-button"
+                            data-review-action="comment">
+                            <i class="fas fa-comment-dots" aria-hidden="true"></i>
+                            <span class="action-label">Comentar</span>
+                            <span class="action-count" data-action-count="comments">${commentsCount}</span>
+                        </button>
+                    </div>
+                    <div class="review-action-group review-action-group--right">
+                        <button type="button"
+                            class="review-action-button save-button"
+                            data-review-action="save">
+                            <i class="fas fa-bookmark" aria-hidden="true"></i>
+                            <span class="action-label">Guardar</span>
+                        </button>
+                        <button type="button"
+                            class="review-action-button share-button"
+                            data-review-action="share">
+                            <i class="fas fa-share-nodes" aria-hidden="true"></i>
+                            <span class="action-label">Compartir</span>
+                        </button>
+                    </div>
+                </div>
+            </footer>`;
+
         return `
             <article class="review-super-card" onclick="window.location.href='${detailUrl}';"
                 data-review-id="${uiUtils.escapeHtml(review.id || '')}"
@@ -434,7 +517,13 @@ ListopicApp.uiUtils = {
                 data-overall-rating="${overallRating}"
                 data-photo-url="${uiUtils.escapeHtml(review.photoUrl || '')}"
                 data-comment="${uiUtils.escapeHtml(review.comment || '')}"
-                data-is-owner="${isOwner ? '1' : '0'}">
+                data-is-owner="${isOwner ? '1' : '0'}"
+                data-reaction-like-count="${likeCount}"
+                data-reaction-dislike-count="${dislikeCount}"
+                data-comment-count="${commentsCount}"
+                data-user-reaction="${viewerReaction}"
+                data-like-label="${likeLabel}"
+                data-dislike-label="${dislikeLabel}">
                 <header class="review-super-card__header">
                     <div class="header-main-info">
                         <a href="profile.html?viewUserId=${authorId}" class="author-link" onclick="event.stopPropagation()">
@@ -469,6 +558,7 @@ ListopicApp.uiUtils = {
                         ${tagsHtml}
                     </div>
                 </div>
+                ${actionsHtml}
             </article>
         `;
     },
