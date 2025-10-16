@@ -1,8 +1,8 @@
-ï»¿// Contenido completo para uiUtils.js
+// Contenido completo para uiUtils.js
 
 window.ListopicApp = window.ListopicApp || {};
 
-// AÃ±adir una cachÃ© de categorÃ­as al estado global si no existe
+// Añadir una caché de categorías al estado global si no existe
 window.ListopicApp.state = window.ListopicApp.state || {};
 window.ListopicApp.state.categoryCache = window.ListopicApp.state.categoryCache || {};
 
@@ -80,27 +80,27 @@ ListopicApp.uiUtils = {
         `.trim();
     },
 
-    // NUEVA FUNCIÃ“N PARA OBTENER ICONOS DE FORMA EFICIENTE
+    // NUEVA FUNCIÓN PARA OBTENER ICONOS DE FORMA EFICIENTE
     getListIcon: async function(list) {
         const defaultIcon = 'fa-solid fa-list';
         if (!list) return defaultIcon;
     
-        // --- LÃ“GICA HÃBRIDA ---
+        // --- LÓGICA HÍBRIDA ---
     
-        // 1. PRIORIDAD MÃXIMA: Buscar por palabras clave en el nombre de la lista
+        // 1. PRIORIDAD MÁXIMA: Buscar por palabras clave en el nombre de la lista
         if (list.name) {
             const listNameLower = list.name.toLowerCase();
             if (listNameLower.includes('tarta') || listNameLower.includes('pastel') || listNameLower.includes('torta')) return 'fa-solid fa-birthday-cake';
             if (listNameLower.includes('pizza')) return 'fa-solid fa-pizza-slice';
             if (listNameLower.includes('hamburguesa') || listNameLower.includes('burger')) return 'fa-solid fa-hamburger';
             if (listNameLower.includes('taco') || listNameLower.includes('mexican') || listNameLower.includes('nacho')) return 'fa-solid fa-pepper-hot';
-            if (listNameLower.includes('cafÃ©') || listNameLower.includes('coffee')) return 'fa-solid fa-coffee';
+            if (listNameLower.includes('café') || listNameLower.includes('coffee')) return 'fa-solid fa-coffee';
             if (listNameLower.includes('sushi') || listNameLower.includes('japo')) return 'fa-solid fa-fish';
             if (listNameLower.includes('helado') || listNameLower.includes('ice cream')) return 'fa-solid fa-ice-cream';
-            // Puedes aÃ±adir mÃ¡s palabras clave aquÃ­ en el futuro
+            // Puedes añadir más palabras clave aquí en el futuro
         }
     
-        // 2. SEGUNDA PRIORIDAD: Buscar el icono de la categorÃ­a en la base de datos
+        // 2. SEGUNDA PRIORIDAD: Buscar el icono de la categoría en la base de datos
         if (list.categoryId) {
             const categoryCache = ListopicApp.state.categoryCache || {};
     
@@ -126,7 +126,7 @@ ListopicApp.uiUtils = {
             }
         }
     
-        // 3. ÃšLTIMO RECURSO: Devolver el icono por defecto
+        // 3. ÚLTIMO RECURSO: Devolver el icono por defecto
         return defaultIcon;
     },
 
@@ -141,7 +141,7 @@ ListopicApp.uiUtils = {
         if (src) {
             const img = document.createElement('img');
             img.src = src;
-            img.alt = "PrevisualizaciÃ³n";
+            img.alt = "Previsualización";
             img.onerror = () => {
                 previewContainer.innerHTML = '<p style="color: var(--danger-color, #ff8a80);">Error al cargar imagen.</p>';
             };
@@ -195,12 +195,12 @@ ListopicApp.uiUtils = {
     
     renderCriteriaSliders: function(containerElement, existingRatings = {}, criteriaDefinitionMap = {}) {
         if (!containerElement) {
-            console.warn('No se encontrÃ³ el contenedor de criterios dinÃ¡micos.');
+            console.warn('No se encontró el contenedor de criterios dinámicos.');
             return;
         }
         containerElement.innerHTML = '';
         if (!criteriaDefinitionMap || Object.keys(criteriaDefinitionMap).length === 0) {
-            containerElement.innerHTML = '<p>No hay criterios de valoraciÃ³n definidos para esta lista.</p>';
+            containerElement.innerHTML = '<p>No hay criterios de valoración definidos para esta lista.</p>';
             return;
         }
 
@@ -337,10 +337,10 @@ ListopicApp.uiUtils = {
     },
 
     // ==========================================================
-// === FUNCIÃ“N CENTRALIZADA: SUPER TARJETA RESEÃ‘A v3.0 =====
+// === FUNCIÓN CENTRALIZADA: SUPER TARJETA RESEÑA v3.0 =====
 // ==========================================================
 
-    // En uiUtils.js, reemplaza la funciÃ³n entera por esta:
+    // En uiUtils.js, reemplaza la función entera por esta:
 
     renderReviewSuperCard: function(review) {
         const uiUtils = this;
@@ -375,9 +375,17 @@ ListopicApp.uiUtils = {
         const dataDetailUrl = uiUtils.escapeHtml(detailUrl);
         const isOwner = Boolean(currentUserId && authorId && currentUserId === authorId);
 
-        const placeLinkHtml = placeId && placeId !== '#'
-            ? `<a href="place-detail.html?placeId=${placeId}" class="place-name-link" onclick="event.stopPropagation()">${placeName}</a>`
-            : `<span class="place-name-link--no-link">${placeName}</span>`;
+        const placeDetailLinkHtml = placeId && placeId !== '#'
+            ? `<a href="place-detail.html?placeId=${placeId}" class="place-name-link place-name-link--title" onclick="event.stopPropagation()">${placeName}</a>`
+            : `<span class="place-name-link--no-link place-name-link--title">${placeName}</span>`;
+
+        const gmapsIconHtml = placeUrlRaw && placeUrlRaw !== '#'
+            ? `<a href="${placeUrl}" target="_blank" rel="noopener" class="place-icon-link" onclick="event.stopPropagation()" title="Ver en Google Maps">
+                    <i class="fas fa-map-marker-alt"></i>
+                </a>`
+            : `<span class="place-icon-link place-icon-link--disabled" title="Ubicación no disponible">
+                    <i class="fas fa-map-marker-alt"></i>
+               </span>`;
 
         const criteriaDefinition = (review.criteriaDefinition && typeof review.criteriaDefinition === 'object')
             ? review.criteriaDefinition
@@ -455,7 +463,7 @@ ListopicApp.uiUtils = {
             </div>`;
 
         const actionsHtml = `
-            <footer class="review-super-card__footer">
+            <div class="review-super-card__actions-bar">
                 <div class="review-super-card__actions" role="group" aria-label="Acciones r\u00e1pidas">
                     <div class="review-action-group review-action-group--left">
                         <button type="button"
@@ -501,7 +509,7 @@ ListopicApp.uiUtils = {
                         </button>
                     </div>
                 </div>
-            </footer>`;
+            </div>`;
 
         return `
             <article class="review-super-card" onclick="window.location.href='${detailUrl}';"
@@ -545,13 +553,11 @@ ListopicApp.uiUtils = {
                     </div>
                     <div class="review-super-card__main-content">
                         <div class="review-super-card__title-group">
-                            <h4 class="review-super-card__title">${itemName}</h4>
-                            <p class="review-super-card__subtitle">
-                                <a href="${placeUrl}" target="_blank" class="place-icon-link" onclick="event.stopPropagation()" title="Ver en Google Maps">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                </a>
-                                ${placeLinkHtml}
-                            </p>
+                            <h4 class="review-super-card__title">
+                                ${gmapsIconHtml}
+                                ${placeDetailLinkHtml}
+                            </h4>
+                            <p class="review-super-card__subtitle"><span>${itemName}</span></p>
                         </div>
                         ${criteriaHtml}
                         ${commentHtml}
@@ -564,7 +570,7 @@ ListopicApp.uiUtils = {
     },
    
 
-    // AÃ‘ADE ESTA FUNCIÃ“N AUXILIAR DENTRO DE ListopicApp.uiUtils
+    // AÑADE ESTA FUNCIÓN AUXILIAR DENTRO DE ListopicApp.uiUtils
     getRatingColor: function(rating) {
         const numericRating = parseFloat(rating);
         if (numericRating >= 8) return 'var(--accent-color-tertiary)'; // Verde
@@ -594,9 +600,9 @@ ListopicApp.uiUtils = {
     // ... al final de uiUtils.js, dentro del objeto ListopicApp.uiUtils ...
 
     /**
-     * Genera el HTML para una tarjeta de reseÃ±a en la vista de lista agrupada.
+     * Genera el HTML para una tarjeta de reseña en la vista de lista agrupada.
      * Muestra los criterios y la media de forma prominente.
-     * @param {object} group - El objeto de la reseÃ±a agrupada.
+     * @param {object} group - El objeto de la reseña agrupada.
      * @param {object} listData - Los datos de la lista (para los criterios).
      * @param {string} listIcon - La clase del icono para el placeholder.
      * @returns {string} El HTML de la tarjeta.
@@ -611,7 +617,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
     const uiUtils = this;
     const detailUrl = `grouped-detail-view.html?listId=${group.listId}&placeId=${group.placeId}&item=${encodeURIComponent(group.itemName || "")}`;
 
-    // Desglose de criterios con BARRAS DE PROGRESO (tu lÃ³gica se mantiene)
+    // Desglose de criterios con BARRAS DE PROGRESO (tu lógica se mantiene)
     let criteriaHtml = '';
     if (group.avgScores && listData.criteriaDefinition && Object.keys(listData.criteriaDefinition).length > 0) {
         const criteriaItems = Object.entries(group.avgScores)
@@ -635,9 +641,9 @@ createListViewGroupCard: function(group, listData, listIcon) {
         }
     }
     
-    // Etiquetas relevantes (tu lÃ³gica se mantiene)
+    // Etiquetas relevantes (tu lógica se mantiene)
     let tagsHtml = '';
-    // CORRECCIÃ“N: Usamos group.groupTags que es el campo correcto que viene del backend
+    // CORRECCIÓN: Usamos group.groupTags que es el campo correcto que viene del backend
     if (group.groupTags && group.groupTags.length > 0) {
         const tags = group.groupTags.map(tag => uiUtils.buildInteractiveTag({
             text: tag,
@@ -652,12 +658,12 @@ createListViewGroupCard: function(group, listData, listIcon) {
         tagsHtml = `<div class="review-list-card__tags">${tags}</div>`;
     }
 
-    // Imagen (tu lÃ³gica se mantiene)
+    // Imagen (tu lógica se mantiene)
     const imageHtml = group.thumbnailUrl
         ? `<img src="${uiUtils.escapeHtml(group.thumbnailUrl)}" alt="Foto" class="review-list-card__image">`
         : `<div class="review-list-card__icon-placeholder"><i class="${listIcon || 'fas fa-camera'}"></i></div>`;
 
-    // --- Â¡MEJORA! Creamos el nuevo botÃ³n del mapa ---
+    // --- ¡MEJORA! Creamos el nuevo botón del mapa ---
     const mapLinkTestId = uiUtils.generateAutomationId('map-link', group.placeId || group.establishmentName || group.itemName || 'map');
     const mapLinkHtml = group.googleMapsUrl
         ? `<a href="${uiUtils.escapeHtml(group.googleMapsUrl)}" class="score-container__map-link" target="_blank" rel="noopener" data-testid="${mapLinkTestId}" data-entity-type="place" data-entity-id="${uiUtils.escapeHtml(String(group.placeId || ''))}" onclick="event.stopPropagation()">
@@ -688,7 +694,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
 
                 <div class="score-container__main">
                     <span class="score-value">${(group.avgGeneralScore || 0).toFixed(1)}</span>
-                    <span class="review-count-badge">${group.itemCount} reseÃ±a${group.itemCount > 1 ? 's' : ''}</span>
+                    <span class="review-count-badge">${group.itemCount} reseña${group.itemCount > 1 ? 's' : ''}</span>
                 </div>
 
                 ${mapLinkHtml}
@@ -723,7 +729,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
             
             const reviewsData = reviewDocs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-            // 1. Recolectar todos los IDs Ãºnicos necesarios
+            // 1. Recolectar todos los IDs únicos necesarios
             const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
             const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];
             const authorIds = [...new Set(reviewsData.map(r => r.userId).filter(Boolean))];
@@ -742,7 +748,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
                 Promise.all(authorPromises),
             ]);
     
-            // 4. Crear mapas para un acceso rÃ¡pido y eficiente a los datos
+            // 4. Crear mapas para un acceso rápido y eficiente a los datos
             const listsMap = new Map(
                 listSnapshots.filter(doc => doc.exists).map(doc => [doc.id, doc.data()])
             );
@@ -753,7 +759,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
                 authorSnapshots.filter(doc => doc.exists).map(doc => [doc.id, doc.data()])
             );
     
-            // 5. Mapear sobre las reseÃ±as originales y construir los objetos enriquecidos
+            // 5. Mapear sobre las reseñas originales y construir los objetos enriquecidos
             return reviewsData.map(review => {
                 const listData = listsMap.get(review.listId);
                 const authorData = authorsMap.get(review.userId);
@@ -764,7 +770,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
                     criteriaDefinition: listData?.criteriaDefinition || {},
                     author: {
                         id: review.userId,
-                        name: authorData?.displayName || authorData?.username || 'Usuario AnÃ³nimo',
+                        name: authorData?.displayName || authorData?.username || 'Usuario Anónimo',
                         photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png'
                     },
                     place: {
@@ -775,7 +781,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
                 };
             });
         } catch (error) {
-            console.error("Error catastrÃ³fico en enrichReviews:", error);
+            console.error("Error catastrófico en enrichReviews:", error);
             return [];
         }
     },
@@ -804,7 +810,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
         return criteriaItems || '<p class="loading-placeholder">No hay criterios ponderables para mostrar.</p>';
     },
 
-    // AÃ±ade esta funciÃ³n dentro del objeto ListopicApp.uiUtils en tu archivo public/js/uiUtils.js
+    // Añade esta función dentro del objeto ListopicApp.uiUtils en tu archivo public/js/uiUtils.js
 
     updateReviewFormWithPlace: function(placeData) {
         const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
@@ -849,14 +855,14 @@ createListViewGroupCard: function(group, listData, listIcon) {
 
         const placeName = placeData.name || '';
         if (this.setPlaceSelectionStatus) {
-            this.setPlaceSelectionStatus('success', 'aÃ±adido correctamente.', { highlight: placeName });
+            this.setPlaceSelectionStatus('success', 'añadido correctamente.', { highlight: placeName });
         }
     },
 
 
 
     // ==========================================================
-    // ===       FUNCIONES PARA RENDERIZAR BÃšSQUEDA (MEJORADAS) ===
+    // ===       FUNCIONES PARA RENDERIZAR BÚSQUEDA (MEJORADAS) ===
     // ==========================================================
 
     createListCard: function(listData, id) {
@@ -882,7 +888,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
             entityId: id
         });
         const reviewsTag = this.buildInteractiveTag({
-            text: `${listData.reviewCount || 0} reseÃ±as`,
+            text: `${listData.reviewCount || 0} reseñas`,
             iconClass: 'fas fa-pencil-alt',
             tagType: 'reviews',
             value: listData.reviewCount || 0,
@@ -934,7 +940,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
             extraClasses: 'info-tag--lists'
         });
         const reviewsTag = this.buildInteractiveTag({
-            text: `${userData.reviewsCount || 0} reseÃ±as`,
+            text: `${userData.reviewsCount || 0} reseñas`,
             iconClass: 'fas fa-star',
             tagType: 'reviews',
             value: userData.reviewsCount || 0,
@@ -1088,7 +1094,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
     },
     
     // ==========================================================
-    // === FUNCIÃ“N DE COMPRESIÃ“N DE IMÃGENES (REVISADA)       ===
+    // === FUNCIÓN DE COMPRESIÓN DE IMÁGENES (REVISADA)       ===
     // ==========================================================
 
     compressImage: function(file, options = {}) {
@@ -1128,15 +1134,15 @@ createListViewGroupCard: function(group, listData, listIcon) {
                     canvas.toBlob(
                         (blob) => {
                             if (blob) {
-                                // Generamos un nombre de archivo mÃ¡s limpio y seguro
+                                // Generamos un nombre de archivo más limpio y seguro
                                 const safeFileName = `compressed_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_').toLowerCase()}`;
                                 const newFile = new File([blob], safeFileName, {
-                                    type: 'image/jpeg', // Forzamos a JPEG por la compresiÃ³n con calidad
+                                    type: 'image/jpeg', // Forzamos a JPEG por la compresión con calidad
                                     lastModified: Date.now(),
                                 });
                                 resolve(newFile);
                             } else {
-                                reject(new Error('La conversiÃ³n de Canvas a Blob fallÃ³.'));
+                                reject(new Error('La conversión de Canvas a Blob falló.'));
                             }
                         },
                         'image/jpeg',
@@ -1185,5 +1191,8 @@ createListViewGroupCard: function(group, listData, listIcon) {
         }
     });
 })();
+
+
+
 
 
