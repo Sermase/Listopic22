@@ -1,4 +1,4 @@
-﻿rules_version = '2';
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -12,6 +12,20 @@ service cloud.firestore {
     function canReadListById(listId) {
       let list = get(/databases/$(database)/documents/lists/$(listId)).data;
       return list.isPublic == true || (request.auth != null && (list.userId == request.auth.uid || isJefe(request.auth.uid)));
+    }
+
+    function isListOwner(listId) {
+      return request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid;
+    }
+
+    function hasReactionCounts(data) {
+      return data.reactionCounts is map && data.reactionCounts.keys().hasOnly(['like','dislike']);
+    }
+
+    function isReactionCountUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactionCounts']) &&
+             hasReactionCounts(request.resource.data) &&
+             (!hasReactionCounts(resource.data) || resource.data.reactionCounts.keys().hasOnly(['like','dislike']));
     }
 
     // ===============================================
@@ -90,9 +104,39 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid)); // <-- CAMBIO: Añadido permiso para jefe.
 
       match /reviews/{reviewId} {
+        allow read: if canReadListById(listId);
         allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // Solo el autor de la reseña puede modificarla o eliminarla.
-        allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+        // El autor puede editar su rese�a. Otros pueden actualizar los contadores de reacciones.
+        allow update: if request.auth != null && (
+                        resource.data.userId == request.auth.uid ||
+                        (canReadListById(listId) && isReactionCountUpdate())
+                      );
+        allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+
+        match /reactions/{reactionUserId} {
+          allow read: if canReadListById(listId);
+          allow create, update: if request.auth != null
+                                 && request.auth.uid == reactionUserId
+                                 && request.resource.data.userId == request.auth.uid
+                                 && canReadListById(listId);
+          allow delete: if request.auth != null
+                         && request.auth.uid == reactionUserId
+                         && canReadListById(listId);
+        }
+
+        match /comments/{commentId} {
+          allow read: if canReadListById(listId);
+          allow create: if request.auth != null
+                          && canReadListById(listId)
+                          && request.resource.data.userId == request.auth.uid;
+          allow update, delete: if request.auth != null
+                                 && canReadListById(listId)
+                                 && (
+                                      resource.data.userId == request.auth.uid
+                                      || isListOwner(listId)
+                                      || isJefe(request.auth.uid)
+                                    );
+        }
       }
 
       match /comments/{commentId} {
