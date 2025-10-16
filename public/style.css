@@ -7029,15 +7029,32 @@ body.light-theme .info-tag:hover {
         padding: 10px 15px;
     }
     .review-super-card__actions {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
     }
-    .review-action-group {
-        width: 100%;
+    .review-action-group--left {
         justify-content: flex-start;
+        gap: 12px;
+    }
+    .review-action-group--center {
+        flex: 1 1 auto;
+        justify-content: center;
     }
     .review-action-group--right {
         justify-content: flex-end;
+        gap: 12px;
+    }
+    .review-action-button {
+        padding: 10px 12px;
+    }
+    .review-action-button .action-label,
+    .review-action-button .action-count {
+        display: none;
+    }
+    .review-action-button i {
+        font-size: 1.2rem;
     }
 }
 
@@ -10952,6 +10969,9 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
         flex: 1 1 100%;
     }
 }
+
+
+
 
 
 
