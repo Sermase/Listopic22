@@ -161,15 +161,24 @@ ListopicApp.pageGroupedDetailView = (() => {
                 gmapsLinkEl.style.display = 'inline-flex';
             }
 
-            // 3. Obtener y enriquecer reseñas (tu lógica anterior, que ya es correcta)
-            let reviewsQuery = db.collection('lists').doc(state.currentGroupDetailListId).collection('reviews').where('placeId', '==', placeIdFromUrl);
-            if (state.currentGroupDetailItem) {
-                reviewsQuery = reviewsQuery.where('itemName', '==', state.currentGroupDetailItem);
-            } else {
-                reviewsQuery = reviewsQuery.where('itemName', 'in', ["", null]);
-            }
-            const reviewsSnapshot = await reviewsQuery.orderBy('createdAt', 'desc').get();
-            const enrichedReviews = await uiUtils.enrichReviews(reviewsSnapshot.docs);
+            // 3. Obtener y enriquecer reseñas
+            const reviewsSnapshot = await db
+                .collection('lists')
+                .doc(state.currentGroupDetailListId)
+                .collection('reviews')
+                .where('placeId', '==', placeIdFromUrl)
+                .orderBy('createdAt', 'desc')
+                .get();
+            const targetItemName = (state.currentGroupDetailItem || '').trim();
+            const normalizedTarget = targetItemName.toLowerCase();
+            let enrichedReviews = await uiUtils.enrichReviews(reviewsSnapshot.docs);
+            enrichedReviews = enrichedReviews.filter(review => {
+                const reviewItemName = (review.itemName || '').trim();
+                if (targetItemName) {
+                    return reviewItemName.toLowerCase() === normalizedTarget;
+                }
+                return reviewItemName === '';
+            });
 
             // 4. Calcular estadísticas y medias de criterios
             let totalOverallScoreSum = 0;

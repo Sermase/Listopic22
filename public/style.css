@@ -206,8 +206,8 @@ h1.brand-title {
     font-family: var(--brand-font);
     font-weight: 700; 
     color: var(--title-color);
-    margin-top: 0;
-    margin-bottom: 10px; 
+    margin-top: 10;
+    margin-bottom: 0px; 
     font-size: clamp(2.4em, 6vw, 3.2em); 
     letter-spacing: 1.5px;
     text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
@@ -252,7 +252,7 @@ h1.brand-title {
 h1:not(.brand-title), .container h2 { 
     font-family: 'Cormorant Garamond', serif; 
     color: var(--title-color); 
-    margin-top: 0; margin-bottom: 25px; 
+    margin-top: 0; margin-bottom: 5px; 
     font-size: clamp(2.2em, 6vw, 3em); 
     font-weight: 600; letter-spacing: 1px; 
     text-shadow: 1px 1px 4px rgba(0,0,0,0.2); 
@@ -2481,7 +2481,7 @@ small.non-weighted-detail {
 }
 
 @media (max-width: 480px) {
-    h1.brand-title { font-size: 2.2em; }
+    h1.brand-title { font-size: 2.2em; padding-top: 20px; }
     .container h2 { font-size: 1.8em; }
     .button, button, input[type="submit"], .add-review-button, .submit-button, .edit-button, .delete-button, .add-button { width: 100%; margin-bottom: 10px; }
     .form-actions, .detail-actions { display: flex; flex-direction: column; gap:10px; }

@@ -169,6 +169,20 @@ ListopicApp.pageListView = (() => {
         return 'fa-solid fa-list';
     }
 
+    function handleCardImageError(imgElement) {
+        if (!imgElement || imgElement.dataset.fallbackApplied === '1') return;
+        imgElement.dataset.fallbackApplied = '1';
+        const container = imgElement.closest('.review-list-card__image-container');
+        if (!container) return;
+        container.innerHTML = '';
+        const placeholder = document.createElement('div');
+        placeholder.className = 'review-list-card__icon-placeholder';
+        const icon = document.createElement('i');
+        icon.className = currentListIconClass || 'fas fa-camera';
+        placeholder.appendChild(icon);
+        container.appendChild(placeholder);
+    }
+
     function renderReviewCards(groupedItemsToRender) {
         if (!reviewsGridContainer) return;
         reviewsGridContainer.innerHTML = '';
@@ -179,7 +193,13 @@ ListopicApp.pageListView = (() => {
         groupedItemsToRender.forEach(group => {
             const listData = { criteriaDefinition: ListopicApp.state.currentListCriteriaDefinitions };
             const cardHtml = ListopicApp.uiUtils.createListViewGroupCard(group, listData, currentListIconClass);
-            reviewsGridContainer.innerHTML += cardHtml;
+            reviewsGridContainer.insertAdjacentHTML('beforeend', cardHtml);
+        });
+        reviewsGridContainer.querySelectorAll('.review-list-card__image').forEach(img => {
+            img.addEventListener('error', () => handleCardImageError(img));
+            if (img.complete && img.naturalWidth === 0) {
+                handleCardImageError(img);
+            }
         });
     }
 

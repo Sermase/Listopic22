@@ -74,7 +74,31 @@
     <main class="dev-container">
         <h1><i class="fas fa-tools"></i> Panel de Desarrollador</h1>
         <div class="dev-main-tabs"> <button class="dev-main-tab-button active" data-tab="data">Data Viewer</button> <button class="dev-main-tab-button" data-tab="algolia">Algolia Sync</button> <button class="dev-main-tab-button" data-tab="categories">Categorías</button> </div>
-        <div id="tab-content-data" class="dev-tab-content" style="display: block;"> <div id="dev-tabs-container"></div> <div class="dev-actions-container"> <button id="export-csv-btn" class="button">Exportar a CSV</button> <button id="update-all-places-btn" class="button secondary-button">Actualizar TODO (Places)</button> <button id="update-selected-lists-btn" class="button secondary-button" style="display:none;">Actualizar Selección (Listas)</button> <button id="update-selected-btn" class="button secondary-button" disabled>Actualizar Selección</button> <button id="delete-selected-btn" class="button danger-button" disabled>Eliminar Selección</button> <button id="audit-stats-btn" class="button secondary-button"><i class="fas fa-chart-line"></i> Revisar estadísticas</button> </div> <div id="stats-audit-log" class="dev-audit-log" aria-live="polite"></div> <div id="dev-content-container"></div> </div>
+        <div id="tab-content-data" class="dev-tab-content" style="display: block;">
+            <div id="dev-tabs-container"></div>
+            <div class="dev-actions-container">
+                <span class="dev-inline-label">Filas:</span>
+                <select id="dev-limit-select" class="button secondary-button">
+                    <option value="50">Ver 50</option>
+                    <option value="100" selected>Ver 100</option>
+                    <option value="250">Ver 250</option>
+                    <option value="500">Ver 500</option>
+                    <option value="1000">Ver 1000</option>
+                </select>
+                <button id="export-csv-btn" class="button">Exportar vista a CSV</button>
+                <button id="export-all-csv-btn" class="button secondary-button">Exportar colección completa</button>
+                <button id="update-all-places-btn" class="button secondary-button">Actualizar TODO (Places)</button>
+                <button id="update-selected-lists-btn" class="button secondary-button" style="display:none;">Actualizar Selección (Listas)</button>
+                <button id="update-selected-btn" class="button secondary-button" disabled>Actualizar Selección</button>
+                <button id="fix-selected-places-btn" class="button secondary-button" disabled>Reparar IDs (Places)</button>
+                <button id="delete-selected-btn" class="button danger-button" disabled>Eliminar Selección</button>
+                <button id="audit-stats-btn" class="button secondary-button"><i class="fas fa-chart-line"></i> Revisar estadísticas</button>
+                <button id="audit-place-ids-btn" class="button secondary-button"><i class="fas fa-fingerprint"></i> Auditoría IDs Places</button>
+            </div>
+            <div id="stats-audit-log" class="dev-audit-log" aria-live="polite"></div>
+            <div id="place-id-audit-log" class="dev-audit-log" aria-live="polite"></div>
+            <div id="dev-content-container"></div>
+        </div>
 
         <div id="tab-content-algolia" class="dev-tab-content" style="display: none;">
             <h3>Sincronización Manual con Algolia</h3>

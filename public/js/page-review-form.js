@@ -699,12 +699,16 @@ ListopicApp.pageReviewForm = (() => {
                     throw new Error('Debes seleccionar un lugar válido antes de guardar.');
                 }
 
+                if (itemNameInput && itemNameInput.value !== itemNameValue) {
+                    itemNameInput.value = itemNameValue;
+                }
+
                 const formData = new FormData(reviewForm);
                 const reviewPayload = {
                     userId: currentUser.uid,
                     listId,
                     placeId: placeIdValue,
-                    itemName: itemNameInput?.value || '',
+                    itemName: itemNameValue,
                     comment: formData.get('comment') || '',
                     scores: {},
                     userTags: formData.getAll('tags') || []

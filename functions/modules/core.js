@@ -2019,6 +2019,335 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
 });
 
 
+const adminFixPlaceDocument = onCall({ cors: true }, async (request) => {
+    const contextAuth = request.auth;
+    if (!contextAuth) {
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+    }
+
+    try {
+        const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
+        if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operacion.');
+        }
+    } catch (error) {
+        logger.error("adminFixPlaceDocument: Error al verificar permisos", error);
+        throw new HttpsError('internal', 'Error al verificar permisos.');
+    }
+
+    const { sourceId: rawSourceId, targetId: rawTargetId, dryRun = false } = request.data || {};
+    if (!rawSourceId || typeof rawSourceId !== 'string') {
+        throw new HttpsError('invalid-argument', 'Se requiere sourceId.');
+    }
+
+    const sourceId = rawSourceId.trim();
+    if (!sourceId) {
+        throw new HttpsError('invalid-argument', 'sourceId no puede estar vacio.');
+    }
+
+    const sourceRef = db.collection('places').doc(sourceId);
+    const sourceSnap = await sourceRef.get();
+    if (!sourceSnap.exists) {
+        throw new HttpsError('not-found', `El lugar ${sourceId} no existe.`);
+    }
+    const sourceData = sourceSnap.data() || {};
+
+    const inferredTargetId = typeof rawTargetId === 'string' && rawTargetId.trim()
+        ? rawTargetId.trim()
+        : (typeof sourceData.googlePlaceId === 'string' ? sourceData.googlePlaceId.trim() : '');
+
+    if (!inferredTargetId) {
+        throw new HttpsError('failed-precondition', 'No se pudo determinar el targetId (googlePlaceId ausente).');
+    }
+
+    const targetId = inferredTargetId;
+
+    if (targetId === sourceId) {
+        return {
+            success: true,
+            summary: {
+                sourceId,
+                targetId,
+                message: 'El documento ya coincide con su googlePlaceId.',
+                reviewsUpdated: 0,
+                followersMoved: 0,
+                followersFinalCount: sourceData.followersCount || 0,
+                dryRun: !!dryRun,
+                skipped: true
+            }
+        };
+    }
+
+    const targetRef = db.collection('places').doc(targetId);
+    const targetSnap = await targetRef.get();
+    const targetData = targetSnap.exists ? (targetSnap.data() || {}) : null;
+
+    const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', sourceId).get();
+    const reviewPaths = reviewsSnapshot.docs.map(doc => doc.ref.path);
+
+    const sourceFollowersSnap = await sourceRef.collection('followers').get();
+    const sourceFollowerIds = sourceFollowersSnap.docs.map(doc => doc.id);
+
+    let existingTargetFollowerIds = [];
+    if (targetSnap.exists) {
+        const targetFollowersSnap = await targetRef.collection('followers').get();
+        existingTargetFollowerIds = targetFollowersSnap.docs.map(doc => doc.id);
+    }
+
+    const summary = {
+        sourceId,
+        targetId,
+        reviewsToUpdate: reviewPaths.length,
+        followersToMove: sourceFollowerIds.length,
+        targetExistsBefore: targetSnap.exists,
+        dryRun: !!dryRun
+    };
+
+    if (dryRun) {
+        return {
+            success: true,
+            dryRun: true,
+            summary,
+            reviewPaths,
+            sourceFollowerIds,
+            existingTargetFollowerIds
+        };
+    }
+
+    const mergedData = targetData ? { ...targetData } : {};
+    const keysToSkip = new Set(['reviewsCount', 'averageRating', 'followersCount', 'id']);
+
+    Object.entries(sourceData).forEach(([key, value]) => {
+        if (value === undefined) {
+            return;
+        }
+        if (key === 'googlePlaceId') {
+            return;
+        }
+        if (keysToSkip.has(key)) {
+            if (!mergedData.hasOwnProperty(key) || mergedData[key] === null || typeof mergedData[key] === 'undefined') {
+                mergedData[key] = value;
+            }
+            return;
+        }
+        if (key === 'createdAt') {
+            if (!mergedData.createdAt) {
+                mergedData.createdAt = value;
+            }
+            return;
+        }
+        mergedData[key] = value;
+    });
+
+    mergedData.googlePlaceId = targetId;
+    mergedData.updatedAt = FieldValue.serverTimestamp();
+
+    await targetRef.set(mergedData, { merge: true });
+
+    const followerIdSet = new Set(existingTargetFollowerIds);
+    let followersMoved = 0;
+
+    for (const followerDoc of sourceFollowersSnap.docs) {
+        const followerId = followerDoc.id;
+        const followerData = followerDoc.data() || {};
+
+        followerIdSet.add(followerId);
+
+        const batch = db.batch();
+        batch.set(
+            targetRef.collection('followers').doc(followerId),
+            { ...followerData, migratedFrom: sourceId },
+            { merge: true }
+        );
+        batch.delete(followerDoc.ref);
+
+        const userFollowingCollection = db.collection('users').doc(followerId).collection('following');
+        const oldFollowRef = userFollowingCollection.doc(sourceId);
+        const newFollowRef = userFollowingCollection.doc(targetId);
+
+        const oldFollowSnap = await oldFollowRef.get();
+        if (oldFollowSnap.exists) {
+            const followData = oldFollowSnap.data() || {};
+            batch.set(
+                newFollowRef,
+                {
+                    ...followData,
+                    placeId: targetId,
+                    migratedFrom: sourceId,
+                    migratedAt: FieldValue.serverTimestamp()
+                },
+                { merge: true }
+            );
+            batch.delete(oldFollowRef);
+        } else {
+            batch.set(
+                newFollowRef,
+                {
+                    placeId: targetId,
+                    migratedFrom: sourceId,
+                    migratedAt: FieldValue.serverTimestamp()
+                },
+                { merge: true }
+            );
+        }
+
+        await batch.commit();
+        followersMoved += 1;
+    }
+
+    await targetRef.update({
+        followersCount: followerIdSet.size,
+        updatedAt: FieldValue.serverTimestamp()
+    });
+
+    const BATCH_LIMIT = 400;
+    let reviewsUpdated = 0;
+    for (let i = 0; i < reviewsSnapshot.docs.length; i += BATCH_LIMIT) {
+        const slice = reviewsSnapshot.docs.slice(i, i + BATCH_LIMIT);
+        const batch = db.batch();
+        slice.forEach(doc => {
+            batch.update(doc.ref, {
+                placeId: targetId,
+                migratedFromPlaceId: sourceId,
+                migratedAt: FieldValue.serverTimestamp()
+            });
+        });
+        await batch.commit();
+        reviewsUpdated += slice.length;
+    }
+
+    const subcollections = await sourceRef.listCollections();
+    const extraSubcollections = subcollections
+        .map(col => col.id)
+        .filter(id => id !== 'followers');
+
+    if (extraSubcollections.length > 0) {
+        logger.warn('adminFixPlaceDocument: Subcolecciones adicionales no migradas automaticamente.', {
+            sourceId,
+            subcollections: extraSubcollections
+        });
+    }
+
+    try {
+        await recalculateAggregatesForPlace(targetId);
+    } catch (aggError) {
+        logger.error(`adminFixPlaceDocument: Error recalculando agregados para ${targetId}`, aggError);
+    }
+
+    try {
+        await db.collection('deleted_items').add({
+            ...sourceData,
+            originalCollection: 'places',
+            migratedTo: targetId,
+            deletedAt: FieldValue.serverTimestamp()
+        });
+    } catch (archiveError) {
+        logger.warn("adminFixPlaceDocument: No se pudo archivar el documento eliminado.", archiveError);
+    }
+
+    await sourceRef.delete();
+
+    return {
+        success: true,
+        summary: {
+            ...summary,
+            reviewsUpdated,
+            followersMoved,
+            followersFinalCount: followerIdSet.size,
+            extraSubcollections
+        }
+    };
+});
+
+
+const adminAuditPlaceIdConsistency = onCall({ cors: true }, async (request) => {
+    const contextAuth = request.auth;
+    if (!contextAuth) {
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+    }
+
+    try {
+        const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
+        if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
+        }
+    } catch (error) {
+        logger.error("adminAuditPlaceIdConsistency: Error al verificar permisos", error);
+        throw new HttpsError('internal', 'Error al verificar permisos.');
+    }
+
+    try {
+        const snapshot = await db.collection('places').get();
+        const totalDocs = snapshot.size;
+
+        const missingGooglePlaceId = [];
+        const mismatchedIds = [];
+        const duplicateTracker = new Map();
+
+        snapshot.forEach(doc => {
+            const data = doc.data() || {};
+            const googlePlaceId = typeof data.googlePlaceId === 'string' ? data.googlePlaceId.trim() : '';
+
+            if (!googlePlaceId) {
+                missingGooglePlaceId.push({
+                    id: doc.id,
+                    name: data.name || null
+                });
+                return;
+            }
+
+            if (doc.id !== googlePlaceId) {
+                mismatchedIds.push({
+                    id: doc.id,
+                    googlePlaceId,
+                    name: data.name || null
+                });
+            }
+
+            const existing = duplicateTracker.get(googlePlaceId);
+            if (existing) {
+                existing.push(doc.id);
+            } else {
+                duplicateTracker.set(googlePlaceId, [doc.id]);
+            }
+        });
+
+        const duplicateGroups = [];
+        duplicateTracker.forEach((docIds, googlePlaceId) => {
+            if (docIds.length > 1) {
+                duplicateGroups.push({
+                    googlePlaceId,
+                    documentIds: docIds,
+                    count: docIds.length
+                });
+            }
+        });
+
+        const summary = {
+            totalDocs,
+            matchingCount: totalDocs - mismatchedIds.length - missingGooglePlaceId.length,
+            mismatchedCount: mismatchedIds.length,
+            missingGooglePlaceIdCount: missingGooglePlaceId.length,
+            duplicateGroupCount: duplicateGroups.length,
+            duplicateDocumentCount: duplicateGroups.reduce((acc, group) => acc + group.count, 0)
+        };
+
+        logger.info("adminAuditPlaceIdConsistency completado", summary);
+
+        return {
+            success: true,
+            summary,
+            mismatchedIds,
+            missingGooglePlaceId,
+            duplicateGroups
+        };
+    } catch (error) {
+        logger.error("Error en adminAuditPlaceIdConsistency:", error);
+        throw new HttpsError('internal', 'No se pudo completar la auditoría de IDs.');
+    }
+});
+
+
 const toggleFollowPlace = onCall({cors: true}, async (request) => {
     const contextAuth = request.auth;
     const { placeId } = request.data;
@@ -2229,6 +2558,8 @@ module.exports = {
     adminUpdateAllPlaces,
     adminGetCollection,
     adminUpdateSinglePlace,
+    adminFixPlaceDocument,
+    adminAuditPlaceIdConsistency,
     adminUpdateSingleListAggregates,
     updateAggregatesOnForumMessageChange,
     toggleFollowPlace,

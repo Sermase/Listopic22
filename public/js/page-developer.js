@@ -8,6 +8,7 @@ ListopicApp.pageDeveloper = (() => {
     let currentCollectionName = '';
     let sortState = {};
     let selectedRowIds = new Set(); // <-- Para guardar los IDs de las filas seleccionadas
+    let currentLimit = 100;
 
     async function init() {
         console.log('Initializing Developer Dashboard page logic...');
@@ -69,30 +70,48 @@ ListopicApp.pageDeveloper = (() => {
     }
     
     // --- Lógica de los Botones de Acción ---
+
     function setupActionButtons() {
-        // Botón de exportar
+        const limitSelect = document.getElementById('dev-limit-select');
+        if (limitSelect) {
+            limitSelect.value = String(currentLimit);
+            limitSelect.addEventListener('change', () => {
+                const parsed = parseInt(limitSelect.value, 10);
+                currentLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
+                const targetCollection = currentCollectionName || collectionsToFetch[0];
+                if (targetCollection) {
+                    switchTab(targetCollection);
+                }
+            });
+        }
+
         const exportBtn = document.getElementById('export-csv-btn');
         if (exportBtn) exportBtn.addEventListener('click', exportSelectedToCsv);
 
-        // Botón de actualizar todos los lugares
+        const exportAllBtn = document.getElementById('export-all-csv-btn');
+        if (exportAllBtn) exportAllBtn.addEventListener('click', exportEntireCollectionToCsv);
+
         const updateAllPlacesBtn = document.getElementById('update-all-places-btn');
         if (updateAllPlacesBtn) updateAllPlacesBtn.addEventListener('click', handleUpdateAllPlaces);
 
-        // NUEVO: Botón de actualizar seleccionados
         const updateBtn = document.getElementById('update-selected-btn');
         if (updateBtn) updateBtn.addEventListener('click', updateSelectedPlaces);
 
-        // NUEVO: Botón actualizar listas seleccionadas
         const updateListsBtn = document.getElementById('update-selected-lists-btn');
         if (updateListsBtn) updateListsBtn.addEventListener('click', updateSelectedLists);
 
-        // NUEVO: Botón de eliminar seleccionados
+        const fixPlacesBtn = document.getElementById('fix-selected-places-btn');
+        if (fixPlacesBtn) fixPlacesBtn.addEventListener('click', fixSelectedPlaces);
+
         const deleteBtn = document.getElementById('delete-selected-btn');
         if (deleteBtn) deleteBtn.addEventListener('click', deleteSelectedItems);
 
       
         const auditStatsBtn = document.getElementById('audit-stats-btn');
         if (auditStatsBtn) auditStatsBtn.addEventListener('click', runStatisticsAudit);
+
+        const auditPlaceIdsBtn = document.getElementById('audit-place-ids-btn');
+        if (auditPlaceIdsBtn) auditPlaceIdsBtn.addEventListener('click', runPlaceIdAudit);
     }
 
     function updateActionButtonsState() {
@@ -107,13 +126,24 @@ ListopicApp.pageDeveloper = (() => {
             deleteBtn.style.display = 'inline-block'; // Siempre visible pero deshabilitado
         }
         if (exportBtn) {
-            // El botón de exportar ahora exportará lo seleccionado, o todo si no hay nada seleccionado
-            exportBtn.textContent = hasSelection ? `Exportar ${selectedRowIds.size} a CSV` : 'Exportar Todo a CSV';
+            exportBtn.textContent = hasSelection
+                ? `Exportar ${selectedRowIds.size} seleccionados`
+                : 'Exportar vista a CSV';
         }
         if (updateBtn) {
             const isPlacesTab = currentCollectionName === 'places';
             updateBtn.style.display = isPlacesTab ? 'inline-block' : 'none';
             updateBtn.disabled = !hasSelection || !isPlacesTab;
+        }
+        const fixPlacesBtn = document.getElementById('fix-selected-places-btn');
+        if (fixPlacesBtn) {
+            const isPlacesTab = currentCollectionName === 'places';
+            const hasFixableSelection = isPlacesTab && Array.from(selectedRowIds).some(id => {
+                const place = currentData.find(item => item.id === id);
+                return place && typeof place.googlePlaceId === 'string' && place.googlePlaceId && place.googlePlaceId !== place.id;
+            });
+            fixPlacesBtn.style.display = isPlacesTab ? 'inline-block' : 'none';
+            fixPlacesBtn.disabled = !hasFixableSelection;
         }
         const updateListsBtn = document.getElementById('update-selected-lists-btn');
         if (updateListsBtn) {
@@ -136,6 +166,40 @@ ListopicApp.pageDeveloper = (() => {
         }
         const collectionName = currentCollectionName || 'export';
         exportToCsv(`${collectionName}_${new Date().toISOString().slice(0, 10)}.csv`, dataToExport);
+    }
+
+    async function exportEntireCollectionToCsv() {
+        if (!currentCollectionName) {
+            alert('Selecciona una colección antes de exportar.');
+            return;
+        }
+
+        const btn = document.getElementById('export-all-csv-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exportando...';
+        }
+
+        try {
+            const callable = firebase.app().functions('europe-west1').httpsCallable('adminGetCollection');
+            const response = await callable({ collectionName: currentCollectionName });
+            const collectionData = Array.isArray(response?.data?.data) ? response.data.data : [];
+
+            if (!collectionData.length) {
+                alert('La colección no tiene documentos o no se pudieron obtener.');
+                return;
+            }
+
+            exportToCsv(`${currentCollectionName}_full_${new Date().toISOString().slice(0, 10)}.csv`, collectionData);
+        } catch (error) {
+            console.error('Error al exportar la colección completa:', error);
+            alert(`No se pudo exportar la colección: ${error.message}`);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Exportar colección completa';
+            }
+        }
     }
 
     async function handleUpdateAllPlaces() {
@@ -198,6 +262,61 @@ ListopicApp.pageDeveloper = (() => {
         switchTab(currentCollectionName); // Recargar la vista
     }
 
+
+    async function fixSelectedPlaces() {
+        if (currentCollectionName !== 'places') {
+            alert('Esta acci�n solo est� disponible en la pesta�a de lugares.');
+            return;
+        }
+
+        if (selectedRowIds.size === 0) {
+            alert('Selecciona al menos un lugar para reparar.');
+            return;
+        }
+
+        const candidates = Array.from(selectedRowIds)
+            .map(id => currentData.find(item => item.id === id))
+            .filter(place => place && typeof place.googlePlaceId === 'string' && place.googlePlaceId && place.googlePlaceId !== place.id);
+
+        if (candidates.length === 0) {
+            alert('La selecci�n no contiene lugares con googlePlaceId diferente al ID del documento.');
+            return;
+        }
+
+        if (!confirm(`Se reparar�n ${candidates.length} lugar(es). Las rese�as y seguidores se reasignar�n al ID correcto.\n\n�Deseas continuar?`)) {
+            return;
+        }
+
+        const btn = document.getElementById('fix-selected-places-btn');
+        const originalLabel = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reparando...';
+        }
+
+        const callable = firebase.app().functions('europe-west1').httpsCallable('adminFixPlaceDocument');
+        let successCount = 0;
+        let errorCount = 0;
+        const skippedCount = selectedRowIds.size - candidates.length;
+
+        for (const place of candidates) {
+            try {
+                await callable({ sourceId: place.id, targetId: place.googlePlaceId });
+                successCount++;
+            } catch (error) {
+                console.error(`Error reparando el lugar ${place.id}`, error);
+                errorCount++;
+            }
+        }
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalLabel || 'Reparar IDs (Places)';
+        }
+
+        alert(`Proceso completado.\nReparados: ${successCount}\nOmitidos: ${skippedCount}\nErrores: ${errorCount}`);
+        switchTab(currentCollectionName);
+    }
 
     // NUEVA: Borrado suave de elementos seleccionados
     async function deleteSelectedItems() {
@@ -283,8 +402,17 @@ ListopicApp.pageDeveloper = (() => {
         selectedRowIds.clear(); // Limpiar selección al cambiar de pestaña
         updateActionButtonsState(); // Actualizar estado de botones
 
+        const limitSelect = document.getElementById('dev-limit-select');
+        if (limitSelect) {
+            limitSelect.value = String(currentLimit);
+        }
+
         try {
-            const snapshot = await db.collection(collectionName).limit(100).get();
+            let query = db.collection(collectionName);
+            if (Number.isFinite(currentLimit) && currentLimit > 0) {
+                query = query.limit(currentLimit);
+            }
+            const snapshot = await query.get();
             currentData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             if (currentData.length === 0) {
                 contentContainer.innerHTML = `<p>No se encontraron documentos en la colección "${collectionName}".</p>`;
@@ -593,6 +721,30 @@ ListopicApp.pageDeveloper = (() => {
     }
 
 
+    async function runPlaceIdAudit() {
+        const btn = document.getElementById('audit-place-ids-btn');
+        const logContainer = document.getElementById('place-id-audit-log');
+        if (!btn || !logContainer) return;
+
+        const originalLabel = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Auditando...';
+        logContainer.innerHTML = '<p><code>Analizando IDs de lugares...</code></p>';
+
+        try {
+            const callable = firebase.app().functions('europe-west1').httpsCallable('adminAuditPlaceIdConsistency');
+            const result = await callable();
+            renderPlaceIdAuditLog(result?.data);
+        } catch (error) {
+            console.error('Error al ejecutar adminAuditPlaceIdConsistency', error);
+            const message = error?.message || 'Error desconocido al auditar los IDs.';
+            logContainer.innerHTML = `<p style="color: var(--danger-color);"><code>${escapeHtml(message)}</code></p>`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalLabel;
+        }
+    }
+
     async function runStatisticsAudit() {
         const btn = document.getElementById('audit-stats-btn');
         const logContainer = document.getElementById('stats-audit-log');
@@ -663,6 +815,66 @@ ListopicApp.pageDeveloper = (() => {
         const groupsHtml = renderGroupedItemsSection('Elementos (grupos) actualizados', details.groupedItems || []);
 
         container.innerHTML = [summaryHtml, errorsHtml, placesHtml, usersHtml, listsHtml, groupsHtml]
+            .filter(Boolean)
+            .join('');
+    }
+
+    function renderPlaceIdAuditLog(result) {
+        const container = document.getElementById('place-id-audit-log');
+        if (!container) return;
+
+        if (!result || typeof result !== 'object') {
+            container.innerHTML = '<p><code>Respuesta vacia del servidor.</code></p>';
+            return;
+        }
+
+        const summary = result.summary || {};
+        const mismatched = Array.isArray(result.mismatchedIds) ? result.mismatchedIds : [];
+        const missing = Array.isArray(result.missingGooglePlaceId) ? result.missingGooglePlaceId : [];
+        const duplicates = Array.isArray(result.duplicateGroups) ? result.duplicateGroups : [];
+
+        const summaryHtml = `
+            <div class="audit-summary">
+                <h4>Resumen IDs Places</h4>
+                <ul>
+                    <li><strong>Total lugares:</strong> ${summary.totalDocs ?? 0}</li>
+                    <li><strong>Coinciden docId / googlePlaceId:</strong> ${summary.matchingCount ?? 0}</li>
+                    <li><strong>IDs distintos:</strong> ${summary.mismatchedCount ?? 0}</li>
+                    <li><strong>Sin googlePlaceId:</strong> ${summary.missingGooglePlaceIdCount ?? 0}</li>
+                    <li><strong>Duplicados:</strong> ${summary.duplicateGroupCount ?? 0} grupos (${summary.duplicateDocumentCount ?? 0} documentos)</li>
+                </ul>
+            </div>
+        `;
+
+        const buildListHtml = (title, entries, formatter) => {
+            if (!Array.isArray(entries) || entries.length === 0) {
+                return `<details><summary>${escapeHtml(title)}</summary><p>Sin datos.</p></details>`;
+            }
+
+            const limitedEntries = entries.slice(0, 100);
+            const extraCount = entries.length - limitedEntries.length;
+            const items = limitedEntries.map(formatter).join('');
+            const extraNote = extraCount > 0 ? `<p><small>Mostrando ${limitedEntries.length} de ${entries.length} resultados.</small></p>` : '';
+            return `<details open><summary>${escapeHtml(title)} (${entries.length})</summary><ol>${items}</ol>${extraNote}</details>`;
+        };
+
+        const mismatchedHtml = buildListHtml('Documentos con ID distinto al googlePlaceId', mismatched, entry => {
+            const name = entry.name ? `${escapeHtml(entry.name)} ` : '';
+            return `<li>${name}<code>${escapeHtml(entry.id)}</code> &ne; <code>${escapeHtml(entry.googlePlaceId)}</code></li>`;
+        });
+
+        const missingHtml = buildListHtml('Documentos sin googlePlaceId', missing, entry => {
+            const name = entry.name ? `${escapeHtml(entry.name)} ` : '';
+            return `<li>${name}<code>${escapeHtml(entry.id)}</code></li>`;
+        });
+
+        const duplicatesHtml = buildListHtml('Duplicados por googlePlaceId', duplicates, entry => {
+            const docIds = Array.isArray(entry.documentIds) ? entry.documentIds : [];
+            const docList = docIds.map(id => `<code>${escapeHtml(id)}</code>`).join(', ');
+            return `<li><strong>${escapeHtml(entry.googlePlaceId)}</strong> (${entry.count}) → ${docList}</li>`;
+        });
+
+        container.innerHTML = [summaryHtml, mismatchedHtml, missingHtml, duplicatesHtml]
             .filter(Boolean)
             .join('');
     }
