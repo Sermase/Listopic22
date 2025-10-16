@@ -471,7 +471,7 @@ ListopicApp.uiUtils = {
                             data-review-action="like"
                             data-reaction-type="like"
                             aria-pressed="${viewerReactionRaw === 'like' ? 'true' : 'false'}">
-                            <i class="fas fa-face-grin-stars" aria-hidden="true"></i>
+                            <i class="fas fa-circle-check" aria-hidden="true"></i>
                             <span class="action-label">${likeLabel}</span>
                             <span class="action-count" data-action-count="like">${likeCount}</span>
                         </button>
@@ -480,7 +480,7 @@ ListopicApp.uiUtils = {
                             data-review-action="dislike"
                             data-reaction-type="dislike"
                             aria-pressed="${viewerReactionRaw === 'dislike' ? 'true' : 'false'}">
-                            <i class="fas fa-face-meh" aria-hidden="true"></i>
+                            <i class="fas fa-circle-xmark" aria-hidden="true"></i>
                             <span class="action-label">${dislikeLabel}</span>
                             <span class="action-count" data-action-count="dislike">${dislikeCount}</span>
                         </button>
@@ -1191,6 +1191,9 @@ createListViewGroupCard: function(group, listData, listIcon) {
         }
     });
 })();
+
+
+
 
 
 

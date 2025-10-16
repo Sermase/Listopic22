@@ -1141,6 +1141,30 @@ body.light-theme .place-selection-status--success {
     color: var(--secondary-text-color);
 }
 
+.review-comment__delete {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--secondary-text-color);
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 2px 4px;
+    transition: color 0.2s ease;
+}
+
+.review-comment__delete i {
+    font-size: 0.75rem;
+}
+
+.review-comment__delete:hover,
+.review-comment__delete:focus-visible {
+    color: var(--danger-color);
+    outline: none;
+}
+
 .review-comment__message {
     margin: 0;
     font-size: 0.9rem;
@@ -2631,10 +2655,6 @@ body.light-theme #manual-location-fields {
     background-color: transparent;
     border-color: rgba(0, 0, 0, 0.08);
 }
-
-
-
-
 
 body.light-theme .tag-filter-button.selected {
     background-color: var(--accent-color-primary);
@@ -6900,34 +6920,14 @@ body.light-theme .info-tag:hover {
     gap: 12px;
 }
 
-.review-action-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.review-action-group--center {
-    flex: 1 1 auto;
-    justify-content: center;
-}
-
-.review-action-group--left,
-.review-action-group--right {
-    flex: 0 0 auto;
-}
-
-.review-action-group--right {
-    justify-content: flex-end;
-}
-
 .review-action-button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
     border-radius: 999px;
-    border: 1px solid transparent;
-    background-color: var(--container-bg-secondary);
+    border: 1px solid var(--border-color-light);
+    background-color: transparent;
     color: var(--text-color);
     font-size: 0.85rem;
     font-weight: 600;
@@ -6940,9 +6940,12 @@ body.light-theme .info-tag:hover {
     font-size: 1rem;
 }
 
-.review-action-button .action-count {
+ .review-action-button .action-count {
+    margin-left: 6px;
     font-variant-numeric: tabular-nums;
-    font-weight: 700;
+    font-weight: 600;
+    font-size: 0.85rem;
+    line-height: 1.2;
     color: var(--secondary-text-color);
 }
 
@@ -6960,35 +6963,17 @@ body.light-theme .info-tag:hover {
 }
 
 .review-action-button.is-active {
-    background-color: var(--accent-color-tertiary-transparent, rgba(17, 138, 178, 0.12));
+    background-color: rgba(17, 138, 178, 0.15);
     border-color: var(--accent-color-tertiary);
-    color: var(--accent-color-tertiary);
+    color: var(--accent-color-primary);
 }
 
-.review-action-button.like-button.is-active {
-    background-color: rgba(6, 214, 160, 0.15);
-    border-color: var(--accent-color-quinary, #06D6A0);
-    color: var(--accent-color-quinary, #06D6A0);
+.review-action-button.like-button {
+    color: var(--accent-color-primary);
 }
 
-.review-action-button.dislike-button.is-active {
-    background-color: rgba(235, 87, 87, 0.12);
-    border-color: var(--danger-color, #EF476F);
-    color: var(--danger-color, #EF476F);
-}
-
-.review-action-button.is-active .action-count {
-    color: currentColor;
-}
-
-.review-action-button.save-button {
-    background-color: transparent;
-    border-color: var(--border-color-light);
-}
-
-.review-action-button.share-button {
-    background-color: transparent;
-    border-color: var(--border-color-light);
+.review-action-button.dislike-button {
+    color: var(--danger-color);
 }
 
 /* Media Query */
@@ -7034,9 +7019,13 @@ body.light-theme .info-tag:hover {
         justify-content: space-between;
         gap: 16px;
     }
+    .review-action-group {
+        display: flex;
+        gap: 12px;
+        flex: 0 0 auto;
+    }
     .review-action-group--left {
         justify-content: flex-start;
-        gap: 12px;
     }
     .review-action-group--center {
         flex: 1 1 auto;
@@ -7044,17 +7033,31 @@ body.light-theme .info-tag:hover {
     }
     .review-action-group--right {
         justify-content: flex-end;
-        gap: 12px;
     }
     .review-action-button {
-        padding: 10px 12px;
+        position: relative;
+        width: 35px;
+        height: 35px;
+        padding: 8px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
     }
-    .review-action-button .action-label,
-    .review-action-button .action-count {
+    .review-action-button .action-label {
         display: none;
     }
+    .review-action-button .action-count {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        margin-left: 0;
+        min-width: 18px;
+        padding: 0 5px;
+        font-size: 0.65rem;
+    }
     .review-action-button i {
-        font-size: 1.2rem;
+        font-size: 1.3rem;
     }
 }
 
@@ -10969,6 +10972,11 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
         flex: 1 1 100%;
     }
 }
+
+
+
+
+
 
 
 
