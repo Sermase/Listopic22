@@ -6976,6 +6976,39 @@ body.light-theme .info-tag:hover {
     color: var(--danger-color);
 }
 
+@media (min-width: 769px) {
+    .review-super-card__actions {
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .review-action-group {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .review-action-group--left {
+        flex: 0 0 auto;
+    }
+
+    .review-action-group--center {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    .review-action-group--right {
+        flex: 0 0 auto;
+        margin-left: auto;
+    }
+
+    .review-action-group--center .review-action-button {
+        justify-content: center;
+    }
+}
+
 /* Media Query */
 @media (max-width: 768px) {
     .review-super-card__body { flex-direction: column; }
