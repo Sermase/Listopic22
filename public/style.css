@@ -3935,11 +3935,9 @@ body.light-theme .modal-content {
     border: 1px solid var(--input-border);
 }
 body.light-theme .save-button {
-    background-color: var(--accent-color-tertiary);
-    color: white; /* Text on green */
+    color: rgb(31, 31, 31); /* Text on green */
 }
 body.light-theme .save-button.has-changes {
-    background-color: var(--accent-color-primary);
     color: var(--main-button-text); /* Dark text on yellow */
 }
 body.light-theme #photo-edit-controls {
