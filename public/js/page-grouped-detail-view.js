@@ -240,7 +240,20 @@ ListopicApp.pageGroupedDetailView = (() => {
 
             if (individualReviewsListEl) {
                 if (enrichedReviews.length > 0) {
-                    individualReviewsListEl.innerHTML = enrichedReviews.map(review => uiUtils.renderReviewSuperCard(review)).join('');
+                    const reviewQueue = enrichedReviews.slice();
+                    uiUtils.setupLazyReviewList({
+                        container: individualReviewsListEl,
+                        batchSize: 5,
+                        emptyMessage: '<p>No hay reseñas individuales para este ítem.</p>',
+                        renderItem: (review) => uiUtils.renderReviewSuperCard(review),
+                        loadBatch: async ({ batchSize }) => {
+                            const chunk = reviewQueue.splice(0, batchSize);
+                            return {
+                                items: chunk,
+                                hasMore: reviewQueue.length > 0
+                            };
+                        }
+                    });
                 } else {
                     individualReviewsListEl.innerHTML = '<p>No hay reseñas individuales para este ítem.</p>';
                 }

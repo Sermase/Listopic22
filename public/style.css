@@ -10973,6 +10973,20 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     }
 }
 
+.lazy-review-sentinel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    color: var(--secondary-text-color);
+    font-size: 0.95rem;
+}
+
+.lazy-review-sentinel .loading-placeholder,
+.lazy-review-sentinel .error-placeholder {
+    margin: 0;
+}
+
 
 
 

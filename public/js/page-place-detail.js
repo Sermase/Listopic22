@@ -253,19 +253,35 @@ ListopicApp.pagePlaceDetail = {
 
     renderReviews: async function(reviews) {
         console.log("[page-place-detail.js] Renderizando reseñas...", reviews);
-        if (reviews.length === 0) {
-            this.elements.reviewsContainer.innerHTML = '<p>Este lugar todavía no tiene reseñas. ¡Sé el primero!</p>';
+        const container = this.elements.reviewsContainer;
+        if (!container) return;
+
+        if (!reviews || reviews.length === 0) {
+            container.innerHTML = '<p>Este lugar todavía no tiene reseñas. ¡Sé el primero!</p>';
             return;
         }
+
+        const reviewDocsQueue = reviews.map(r => ({ id: r.id, data: () => r, exists: true }));
         try {
-            const reviewDocs = reviews.map(r => ({ id: r.id, data: () => r, exists: true }));
-            const enrichedReviews = await ListopicApp.uiUtils.enrichReviews(reviewDocs);
-            this.elements.reviewsContainer.innerHTML = enrichedReviews.map(review => 
-                ListopicApp.uiUtils.renderReviewSuperCard(review)
-            ).join('');
+            ListopicApp.uiUtils.setupLazyReviewList({
+                container,
+                batchSize: 5,
+                emptyMessage: '<p>Este lugar todavía no tiene reseñas. ¡Sé el primero!</p>',
+                loadBatch: async ({ batchSize }) => {
+                    const slice = reviewDocsQueue.splice(0, batchSize);
+                    if (slice.length === 0) {
+                        return { items: [], hasMore: false };
+                    }
+                    const enriched = await ListopicApp.uiUtils.enrichReviews(slice);
+                    return {
+                        items: enriched,
+                        hasMore: reviewDocsQueue.length > 0
+                    };
+                }
+            });
         } catch (error) {
             console.error("Error al enriquecer las reseñas:", error);
-            this.elements.reviewsContainer.innerHTML = '<p class="error-placeholder">Error al mostrar las reseñas.</p>';
+            container.innerHTML = '<p class="error-placeholder">Error al mostrar las reseñas.</p>';
         }
     },
 
