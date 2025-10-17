@@ -5,7 +5,10 @@ service cloud.firestore {
 
     // --- Función de ayuda para roles (UNIFICADA) ---
     function isJefe(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.userType.hasAny(['jefe']);
+      let userDoc = get(/databases/$(database)/documents/users/$(userId)).data;
+      let userType = userDoc != null ? userDoc.userType : null;
+      return (userType is list && userType.hasAny(['jefe']))
+             || (userType is string && userType == 'jefe');
     }
 
     // Helper: comprobar si el usuario puede leer una lista concreta por ID
@@ -18,14 +21,26 @@ service cloud.firestore {
       return request.auth != null && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid;
     }
 
+    function isNonNegativeWholeNumber(value) {
+      return (value is int && value >= 0) ||
+             (value is float && value >= 0 && value == floor(value));
+    }
+
     function hasReactionCounts(data) {
-      return data.reactionCounts is map && data.reactionCounts.keys().hasOnly(['like','dislike']);
+      return data.reactionCounts is map &&
+             data.reactionCounts.keys().hasOnly(['like', 'dislike']) &&
+             isNonNegativeWholeNumber(data.reactionCounts.like) &&
+             isNonNegativeWholeNumber(data.reactionCounts.dislike);
     }
 
     function isReactionCountUpdate() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactionCounts']) &&
-             hasReactionCounts(request.resource.data) &&
-             (!hasReactionCounts(resource.data) || resource.data.reactionCounts.keys().hasOnly(['like','dislike']));
+      return request.writeFields.hasOnly(['reactionCounts', 'reactionCounts.like', 'reactionCounts.dislike']) &&
+             hasReactionCounts(request.resource.data);
+    }
+
+    function isCommentsCountUpdate() {
+      return request.writeFields.hasOnly(['commentsCount']) &&
+             isNonNegativeWholeNumber(request.resource.data.commentsCount);
     }
 
     // ===============================================
@@ -109,7 +124,7 @@ service cloud.firestore {
         // El autor puede editar su rese�a. Otros pueden actualizar los contadores de reacciones.
         allow update: if request.auth != null && (
                         resource.data.userId == request.auth.uid ||
-                        (canReadListById(listId) && isReactionCountUpdate())
+                        (canReadListById(listId) && (isReactionCountUpdate() || isCommentsCountUpdate()))
                       );
         allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
 
