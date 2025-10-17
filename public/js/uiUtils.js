@@ -1,6 +1,7 @@
 // Contenido completo para uiUtils.js
 
 window.ListopicApp = window.ListopicApp || {};
+window.ListopicApp.state = window.ListopicApp.state || {};
 
 window.ListopicApp.state.reviewEnrichmentCache = window.ListopicApp.state.reviewEnrichmentCache || {
     lists: new Map(),
@@ -8,7 +9,6 @@ window.ListopicApp.state.reviewEnrichmentCache = window.ListopicApp.state.review
     authors: new Map()
 };
 // Añadir una caché de categorías al estado global si no existe
-window.ListopicApp.state = window.ListopicApp.state || {};
 window.ListopicApp.state.categoryCache = window.ListopicApp.state.categoryCache || {};
 
 
