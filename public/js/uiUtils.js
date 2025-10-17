@@ -795,14 +795,30 @@ createListViewGroupCard: function(group, listData, listIcon) {
                     criteriaDefinition: listData?.criteriaDefinition || {},
                     author: {
                         id: review.userId,
+                        name: authorData?.displayName || authorData?.username || 'Usuario Anónimo',
+                        photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png'
+                    },
+                    place: {
+                        id: review.placeId,
+                        name: placeData?.name || 'Lugar Desconocido',
+                        googleMapsUrl: placeData?.googleMapsUrl || '#'
+                    }
+                };
+            });
+        } catch (error) {
+            console.error("Error catastrófico en enrichReviews:", error);
+            return [];
+        }
+    },
+
     setupLazyReviewList: function({
         container,
         batchSize = 5,
         loadBatch,
         renderItem = (review) => this.renderReviewSuperCard(review),
-        emptyMessage = '<p class="loading-placeholder">No hay reseas disponibles.</p>',
-        loadingMessage = 'Cargando reseas...',
-        moreLoadingMessage = 'Cargando ms reseas...',
+        emptyMessage = '<p class="loading-placeholder">No hay reseñas disponibles.</p>',
+        loadingMessage = 'Cargando reseñas...',
+        moreLoadingMessage = 'Cargando más reseñas...',
         sentinelClass = 'lazy-review-sentinel',
         rootMargin = '200px 0px'
     } = {}) {
@@ -921,8 +937,8 @@ createListViewGroupCard: function(group, listData, listIcon) {
                     updateSentinel(`<span class="loading-placeholder">${uiUtils.escapeHtml(moreLoadingMessage)}</span>`);
                 }
             } catch (error) {
-                console.error('setupLazyReviewList: error cargando reseas', error);
-                updateSentinel('<span class="error-placeholder">Error al cargar reseas.</span>');
+                console.error('setupLazyReviewList: error cargando reseñas', error);
+                updateSentinel('<span class="error-placeholder">Error al cargar reseñas.</span>');
                 observer.disconnect();
                 state.done = true;
             } finally {
@@ -943,21 +959,6 @@ createListViewGroupCard: function(group, listData, listIcon) {
                 loadNext();
             }
         };
-    },
-                        name: authorData?.displayName || authorData?.username || 'Usuario Anónimo',
-                        photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png'
-                    },
-                    place: {
-                        id: review.placeId,
-                        name: placeData?.name || 'Lugar Desconocido',
-                        googleMapsUrl: placeData?.googleMapsUrl || '#'
-                    }
-                };
-            });
-        } catch (error) {
-            console.error("Error catastrófico en enrichReviews:", error);
-            return [];
-        }
     },
     renderCriteriaBars: function(scores, criteriaDefinition) {
         if (!scores || !criteriaDefinition || Object.keys(criteriaDefinition).length === 0) {
