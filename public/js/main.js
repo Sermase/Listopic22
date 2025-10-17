@@ -316,6 +316,102 @@ ListopicApp.reviewReactions = (() => {
         }
     };
 
+    const createReactionNotification = async ({
+        ownerId,
+        actorId,
+        actorDisplayName,
+        actorPhotoUrl,
+        reactionType,
+        listId,
+        listName,
+        reviewId,
+        itemName,
+        detailUrl,
+        reviewPhotoUrl
+    }) => {
+        if (!ownerId || !actorId || ownerId === actorId) {
+            return;
+        }
+
+        const services = getServices();
+        const db = services.db;
+        const FieldValue = firebase?.firestore?.FieldValue;
+        if (!db || !FieldValue) {
+            return;
+        }
+
+        const notificationsRef = db.collection('users').doc(ownerId).collection('notifications');
+        const payload = {
+            type: 'review_reaction',
+            actorId,
+            actorDisplayName: actorDisplayName || '',
+            actorPhotoUrl: actorPhotoUrl || '',
+            reactionType: reactionType || '',
+            listId: listId || '',
+            listName: listName || '',
+            reviewId: reviewId || '',
+            itemName: itemName || '',
+            detailUrl: detailUrl || '',
+            reviewPhotoUrl: reviewPhotoUrl || '',
+            createdAt: FieldValue.serverTimestamp(),
+            read: false
+        };
+
+        try {
+            await notificationsRef.add(payload);
+        } catch (error) {
+            console.error('[reviewReactions] Error creando notificación de reacción:', error);
+        }
+    };
+
+    const createOwnerNotification = async ({
+        ownerId,
+        actorId,
+        actorDisplayName,
+        actorPhotoUrl,
+        commentSnippet,
+        listId,
+        listName,
+        reviewId,
+        itemName,
+        detailUrl,
+        reviewPhotoUrl
+    }) => {
+        if (!ownerId || !actorId || ownerId === actorId) {
+            return;
+        }
+
+        const services = getServices();
+        const db = services.db;
+        const FieldValue = firebase?.firestore?.FieldValue;
+        if (!db || !FieldValue) {
+            return;
+        }
+
+        const notificationsRef = db.collection('users').doc(ownerId).collection('notifications');
+        const payload = {
+            type: 'review_comment',
+            actorId,
+            actorDisplayName: actorDisplayName || '',
+            actorPhotoUrl: actorPhotoUrl || '',
+            commentSnippet: commentSnippet || '',
+            listId: listId || '',
+            listName: listName || '',
+            reviewId: reviewId || '',
+            itemName: itemName || '',
+            detailUrl: detailUrl || '',
+            reviewPhotoUrl: reviewPhotoUrl || '',
+            createdAt: FieldValue.serverTimestamp(),
+            read: false
+        };
+
+        try {
+            await notificationsRef.add(payload);
+        } catch (error) {
+            console.error('[reviewComments] Error creando notificación de comentario:', error);
+        }
+    };
+
     const getIdentifiersFromCard = (card) => {
         if (!card) {
             return {};
@@ -393,6 +489,9 @@ ListopicApp.reviewReactions = (() => {
         }
 
         const identifiers = getIdentifiersFromCard(card);
+        const cardData = typeof window.ListopicApp?.reviewActions?.getReviewData === 'function'
+            ? (window.ListopicApp.reviewActions.getReviewData(card) || {})
+            : {};
         if (!identifiers.listId || !identifiers.reviewId) {
             showNotification('No se pudo registrar la reacci\u00f3n.', 'error');
             return;
@@ -450,12 +549,50 @@ ListopicApp.reviewReactions = (() => {
                     reactionCounts: counts
                 }, { merge: true });
 
-                return { counts, reaction: nextReaction };
+                return {
+                    counts,
+                    reaction: nextReaction,
+                    ownerId: reviewData.userId || reviewData.authorId || reviewData.ownerId || cardData.authorId || '',
+                    reviewItemName: reviewData.itemName || cardData.itemName || '',
+                    reviewListName: reviewData.listName || cardData.listName || '',
+                    reviewPhotoUrl: reviewData.photoUrl || cardData.photoUrl || '',
+                    reviewDetailUrl: cardData.detailUrl || reviewData.detailUrl || '',
+                    reviewListId: reviewData.listId || identifiers.listId || cardData.listId || ''
+                };
             });
 
             updateReactionUi(card, result);
             if (result.reaction) {
                 showNotification('Reacci\u00f3n registrada.', 'success');
+                const ownerId = result.ownerId || cardData.authorId || '';
+                if (ownerId && ownerId !== currentUser.uid) {
+                    let actorDisplayName = currentUser.displayName || currentUser.email || 'Usuario';
+                    let actorPhotoUrl = currentUser.photoURL || 'img/placeholder-avatar.png';
+                    try {
+                        const userDoc = await services.db.collection('users').doc(currentUser.uid).get();
+                        if (userDoc.exists) {
+                            const userData = userDoc.data() || {};
+                            actorDisplayName = userData.displayName || userData.username || actorDisplayName;
+                            actorPhotoUrl = userData.photoUrl || userData.photoURL || actorPhotoUrl;
+                        }
+                    } catch (profileError) {
+                        console.warn('[reviewReactions] No se pudo obtener el perfil del usuario para notificaci\u00f3n:', profileError);
+                    }
+
+                    await createReactionNotification({
+                        ownerId,
+                        actorId: currentUser.uid,
+                        actorDisplayName,
+                        actorPhotoUrl,
+                        reactionType: result.reaction,
+                        listId: result.reviewListId || identifiers.listId || '',
+                        listName: result.reviewListName || cardData.listName || '',
+                        reviewId: identifiers.reviewId,
+                        itemName: result.reviewItemName || cardData.itemName || '',
+                        detailUrl: result.reviewDetailUrl || cardData.detailUrl || '',
+                        reviewPhotoUrl: result.reviewPhotoUrl || cardData.photoUrl || ''
+                    });
+                }
             } else {
                 showNotification('Reacci\u00f3n retirada.', 'info');
             }
@@ -814,6 +951,20 @@ ListopicApp.reviewComments = (() => {
             });
             textareaEl.value = '';
             showNotification('Comentario publicado.', 'success');
+            const snippet = truncateText(rawMessage, 160);
+            await createOwnerNotification({
+                ownerId: currentContext.authorId || '',
+                actorId: user.uid,
+                actorDisplayName: payload.userDisplayName,
+                actorPhotoUrl: payload.userPhotoUrl,
+                commentSnippet: snippet,
+                listId: currentContext.listId,
+                listName: currentContext.listName,
+                reviewId: currentContext.reviewId,
+                itemName: currentContext.itemName,
+                detailUrl: currentContext.detailUrl,
+                reviewPhotoUrl: currentContext.reviewPhotoUrl
+            });
             await loadComments();
         } catch (error) {
             console.error('[reviewComments] Error al publicar comentario:', error);
@@ -890,7 +1041,10 @@ ListopicApp.reviewComments = (() => {
             listId: baseData.listId || card.dataset.listId || '',
             reviewId: baseData.reviewId || card.dataset.reviewId || '',
             itemName: baseData.itemName || '',
-            listName: baseData.listName || ''
+            listName: baseData.listName || '',
+            authorId: baseData.authorId || card.dataset.authorId || '',
+            detailUrl: baseData.detailUrl || card.dataset.detailUrl || '',
+            reviewPhotoUrl: baseData.photoUrl || card.dataset.photoUrl || ''
         };
 
         if (!currentContext.listId || !currentContext.reviewId) {
@@ -1631,6 +1785,234 @@ const formatTimestampForUi = (timestamp) => {
     return date.toLocaleDateString();
 };
 
+const parseNotificationTimestamp = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    try {
+        if (typeof value.toDate === 'function') {
+            const date = value.toDate();
+            return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
+        }
+    } catch (error) {
+        console.warn('[notifications] No se pudo convertir timestamp Firestore:', error);
+    }
+
+    const candidate = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(candidate.getTime()) ? null : candidate;
+};
+
+const truncateText = (text, maxLength = 140) => {
+    if (typeof text !== 'string') {
+        return '';
+    }
+    const normalized = text.replace(/\s+/g, ' ').trim();
+    if (normalized.length <= maxLength) {
+        return normalized;
+    }
+    return `${normalized.slice(0, maxLength - 1)}…`;
+};
+
+const mapNotificationToDisplayModel = (notification = {}) => {
+    const type = notification.type || 'generic';
+    const model = {
+        id: notification.id || '',
+        type,
+        read: Boolean(notification.read),
+        title: 'Notificación',
+        segments: [],
+        iconClass: 'fas fa-bell',
+        thumbnailUrl: '',
+        thumbnailAlt: 'Notificación',
+        primaryLink: null,
+        createdAt: parseNotificationTimestamp(notification.createdAt)
+    };
+
+    const safeActorName = notification.actorDisplayName || notification.actorUsername || notification.actorEmail || '';
+    const actorName = typeof safeActorName === 'string' && safeActorName.trim().length > 0
+        ? safeActorName.trim()
+        : 'Alguien';
+    const actorId = typeof notification.actorId === 'string' ? notification.actorId : null;
+    const actorUrl = actorId ? `profile.html?viewUserId=${encodeURIComponent(actorId)}` : null;
+    const listId = typeof notification.listId === 'string' ? notification.listId : null;
+    const listNameRaw = typeof notification.listName === 'string' ? notification.listName : '';
+    const listName = listNameRaw.trim();
+    const listUrl = listId ? `list-view.html?listId=${encodeURIComponent(listId)}` : null;
+    const reviewId = typeof notification.reviewId === 'string' ? notification.reviewId : null;
+    const itemNameRaw = typeof notification.itemName === 'string' ? notification.itemName : '';
+    const itemName = itemNameRaw.trim();
+    const reviewUrl = notification.detailUrl
+        || (reviewId && listId
+            ? `detail-view.html?id=${encodeURIComponent(reviewId)}&listId=${encodeURIComponent(listId)}`
+            : null);
+
+    const segments = [];
+
+    if (type === 'new_follower') {
+        const followerNameRaw = notification.followerDisplayName || notification.followerUsername || '';
+        const followerName = typeof followerNameRaw === 'string' && followerNameRaw.trim().length > 0
+            ? followerNameRaw.trim()
+            : 'Un usuario';
+        const followerId = typeof notification.followerId === 'string' ? notification.followerId : null;
+        const followerUrl = followerId ? `profile.html?viewUserId=${encodeURIComponent(followerId)}` : null;
+
+        model.title = 'Nuevo seguidor';
+        model.iconClass = 'fas fa-user-plus';
+        model.thumbnailUrl = notification.followerPhotoUrl || '';
+        model.thumbnailAlt = `Avatar de ${followerName}`;
+        model.primaryLink = followerUrl;
+
+        if (followerUrl) {
+            segments.push({ type: 'link', text: followerName, href: followerUrl, title: `Ver perfil de ${followerName}` });
+        } else {
+            segments.push({ type: 'text', text: followerName });
+        }
+        segments.push({ type: 'text', text: ' ahora te sigue.' });
+    } else if (type === 'review_comment') {
+        const snippet = truncateText(notification.commentSnippet || notification.comment || '', 160);
+
+        model.title = 'Nuevo comentario en tu reseña';
+        model.iconClass = 'fas fa-comment-dots';
+        model.thumbnailUrl = notification.reviewPhotoUrl || notification.actorPhotoUrl || '';
+        model.thumbnailAlt = itemName ? `Imagen de ${itemName}` : `Avatar de ${actorName}`;
+        model.primaryLink = reviewUrl || actorUrl || listUrl;
+
+        if (actorUrl) {
+            segments.push({ type: 'link', text: actorName, href: actorUrl, title: `Ver perfil de ${actorName}` });
+        } else {
+            segments.push({ type: 'text', text: actorName });
+        }
+        segments.push({ type: 'text', text: ' comentó en tu reseña' });
+
+        if (reviewUrl && itemName) {
+            segments.push({ type: 'text', text: ' ' });
+            segments.push({ type: 'link', text: itemName, href: reviewUrl, title: `Ver reseña de ${itemName}` });
+        } else if (itemName) {
+            segments.push({ type: 'text', text: ` ${itemName}` });
+        }
+
+        if (listUrl && listName) {
+            segments.push({ type: 'text', text: ' en la lista ' });
+            segments.push({ type: 'link', text: listName, href: listUrl, title: `Ver lista ${listName}` });
+        } else if (listName) {
+            segments.push({ type: 'text', text: ` en la lista ${listName}` });
+        }
+
+        if (snippet) {
+            segments.push({ type: 'text', text: ': ' });
+            segments.push({ type: 'quote', text: snippet });
+        }
+    } else if (type === 'review_reaction') {
+        const reactionType = typeof notification.reactionType === 'string'
+            ? notification.reactionType.toLowerCase()
+            : '';
+        const isDislike = reactionType === 'dislike';
+        const actionText = isDislike
+            ? ' marcó tu reseña como "No me gusta"'
+            : ' le dio Me gusta a tu reseña';
+
+        model.title = 'Nueva reacción a tu reseña';
+        model.iconClass = isDislike ? 'fas fa-thumbs-down' : 'fas fa-thumbs-up';
+        model.thumbnailUrl = notification.reviewPhotoUrl || notification.actorPhotoUrl || '';
+        model.thumbnailAlt = itemName ? `Imagen de ${itemName}` : `Avatar de ${actorName}`;
+        model.primaryLink = reviewUrl || actorUrl || listUrl;
+
+        if (actorUrl) {
+            segments.push({ type: 'link', text: actorName, href: actorUrl, title: `Ver perfil de ${actorName}` });
+        } else {
+            segments.push({ type: 'text', text: actorName });
+        }
+        segments.push({ type: 'text', text: `${actionText}` });
+
+        if (reviewUrl && itemName) {
+            segments.push({ type: 'text', text: ' ' });
+            segments.push({ type: 'link', text: itemName, href: reviewUrl, title: `Ver reseña de ${itemName}` });
+        } else if (itemName) {
+            segments.push({ type: 'text', text: ` ${itemName}` });
+        }
+
+        if (listUrl && listName) {
+            segments.push({ type: 'text', text: ' en la lista ' });
+            segments.push({ type: 'link', text: listName, href: listUrl, title: `Ver lista ${listName}` });
+        } else if (listName) {
+            segments.push({ type: 'text', text: ` en la lista ${listName}` });
+        }
+    } else {
+        const message = notification.message || notification.text || notification.title || '';
+        model.title = notification.title || 'Notificación';
+        if (typeof message === 'string' && message.trim().length > 0) {
+            segments.push({ type: 'text', text: message.trim() });
+        } else {
+            segments.push({ type: 'text', text: 'Tienes una nueva notificación.' });
+        }
+
+        if (notification.url) {
+            model.primaryLink = notification.url;
+        }
+    }
+
+    model.segments = segments;
+
+    if (!model.thumbnailUrl && typeof notification.avatarUrl === 'string') {
+        model.thumbnailUrl = notification.avatarUrl;
+    }
+
+    if (!model.primaryLink && notification.url) {
+        model.primaryLink = notification.url;
+    }
+
+    return model;
+};
+
+const renderNotificationSegments = (parentElement, segments = [], options = {}) => {
+    if (!parentElement || !Array.isArray(segments)) {
+        return;
+    }
+    const { closeModalCallback } = options;
+
+    segments.forEach(segment => {
+        if (!segment || typeof segment.text !== 'string') {
+            return;
+        }
+        if (segment.type === 'link' && segment.href) {
+            const link = document.createElement('a');
+            link.href = segment.href;
+            link.textContent = segment.text;
+            link.className = 'notification-inline-link';
+            link.title = segment.title || segment.text;
+            link.addEventListener('click', () => {
+                if (typeof closeModalCallback === 'function') {
+                    closeModalCallback();
+                }
+            });
+            parentElement.appendChild(link);
+        } else if (segment.type === 'quote') {
+            const quote = document.createElement('q');
+            quote.className = 'notification-quote';
+            quote.textContent = segment.text;
+            parentElement.appendChild(quote);
+        } else {
+            parentElement.appendChild(document.createTextNode(segment.text));
+        }
+    });
+};
+
+const getNotificationPlainText = (segments = []) => {
+    if (!Array.isArray(segments)) {
+        return '';
+    }
+    return segments.map(segment => {
+        if (!segment || typeof segment.text !== 'string') {
+            return '';
+        }
+        if (segment.type === 'quote') {
+            return `"${segment.text}"`;
+        }
+        return segment.text;
+    }).join('');
+};
+
 const renderNotificationsList = (notifications, container, emptyStateElement) => {
     if (!container) return;
     container.innerHTML = '';
@@ -1650,13 +2032,13 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
     }
 
     notifications.forEach(notification => {
-        const isFollowerNotification = notification.type === 'new_follower' && notification.followerId;
-        const linkTarget = isFollowerNotification ? `profile.html?viewUserId=${notification.followerId}` : null;
+        const displayModel = mapNotificationToDisplayModel(notification);
+        const linkTarget = displayModel.primaryLink;
         const item = document.createElement(linkTarget ? 'a' : 'div');
         item.className = 'notification-item';
         if (linkTarget) {
             item.href = linkTarget;
-            item.setAttribute('aria-label', 'Ver perfil del nuevo seguidor');
+            item.setAttribute('aria-label', displayModel.title || 'Ver detalle de la notificación');
         }
         if (notification.id) {
             item.dataset.notificationId = notification.id;
@@ -1666,29 +2048,15 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
         }
 
         const avatar = document.createElement('img');
-        if (notification.type === 'new_follower') {
-            const followerLabel = notification.followerDisplayName || notification.followerUsername || 'Nuevo seguidor';
-            avatar.src = notification.followerPhotoUrl || 'img/default-avatar.png';
-            avatar.alt = `Avatar de ${followerLabel}`;
-        } else {
-            avatar.src = 'img/default-avatar.png';
-            avatar.alt = 'Avatar de notificacion';
-        }
+        avatar.src = displayModel.thumbnailUrl || 'img/default-avatar.png';
+        avatar.alt = displayModel.thumbnailAlt || 'Avatar de notificación';
 
         const content = document.createElement('div');
         content.className = 'notification-content';
 
         const title = document.createElement('span');
         title.className = 'notification-title';
-        if (notification.type === 'new_follower') {
-            const displayName = notification.followerDisplayName || notification.followerUsername || 'Un usuario';
-            const username = notification.followerUsername && notification.followerUsername.toLowerCase() !== displayName.toLowerCase()
-                ? notification.followerUsername
-                : null;
-            title.textContent = `${displayName} empezo a seguirte${username ? ` (@${username})` : ''}.`;
-        } else {
-            title.textContent = notification.title || 'Nueva notificacion';
-        }
+        title.textContent = displayModel.title || 'Nueva notificación';
 
         const meta = document.createElement('span');
         meta.className = 'notification-meta';
@@ -1696,11 +2064,12 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
 
         content.appendChild(title);
 
-        if (notification.type === 'new_follower' && notification.followerUsername && (!notification.followerDisplayName || notification.followerDisplayName.toLowerCase() !== notification.followerUsername.toLowerCase())) {
-            const usernameBadge = document.createElement('span');
-            usernameBadge.className = 'notification-subtitle';
-            usernameBadge.textContent = `@${notification.followerUsername}`;
-            content.appendChild(usernameBadge);
+        const previewText = getNotificationPlainText(displayModel.segments);
+        if (previewText) {
+            const preview = document.createElement('span');
+            preview.className = 'notification-subtitle';
+            preview.textContent = previewText;
+            content.appendChild(preview);
         }
 
         content.appendChild(meta);
@@ -1828,7 +2197,7 @@ const initializeGlobalRealtimeFeatures = (user) => {
         cleanupFunctions.push(unsubscribeNotifications);
     }
 
-    if (notificationsButton && notificationsDropdown) {
+    if (notificationsButton && notificationsDropdown && notificationsButton.dataset.skipDropdown !== 'true') {
         const toggleDropdown = (event) => {
             event.stopPropagation();
             const willOpen = !notificationsDropdown.classList.contains('active');
@@ -1947,10 +2316,21 @@ function ensureNotificationsModalElements() {
 }
 
 function setupNotificationsUI(currentUser) {
-    const notificationsButton = document.getElementById('notificationsButton');
+    const notificationsButton = document.getElementById('notifications-button');
     if (!notificationsButton || notificationsButton.dataset.notificationsSetup === 'true') {
         return;
     }
+
+    const notificationsBadge = document.getElementById('notifications-badge');
+    const dropdown = document.getElementById('notifications-dropdown');
+    if (dropdown) {
+        dropdown.classList.remove('active');
+        dropdown.setAttribute('aria-hidden', 'true');
+        dropdown.setAttribute('hidden', 'true');
+    }
+
+    notificationsButton.dataset.skipDropdown = 'true';
+    notificationsButton.setAttribute('aria-haspopup', 'dialog');
 
     const {
         modal,
@@ -1959,6 +2339,12 @@ function setupNotificationsUI(currentUser) {
         emptyElement,
         closeButton
     } = ensureNotificationsModalElements();
+
+    const hideBadge = () => {
+        if (notificationsBadge) {
+            setBadgeVisibility(notificationsBadge, false);
+        }
+    };
 
     const closeModal = () => {
         modal.classList.remove('active');
@@ -1990,58 +2376,58 @@ function setupNotificationsUI(currentUser) {
         modal.dataset.listenersAttached = 'true';
     }
 
-    const renderNotifications = (notifications) => {
+    const renderNotifications = (notifications = []) => {
         listElement.innerHTML = '';
 
+        if (!Array.isArray(notifications) || notifications.length === 0) {
+            emptyElement.hidden = false;
+            return;
+        }
+
+        emptyElement.hidden = true;
+
         notifications.forEach(notification => {
+            const model = mapNotificationToDisplayModel(notification);
             const item = document.createElement('li');
             item.className = 'notifications-item';
 
-            const iconWrapper = document.createElement('div');
-            iconWrapper.className = 'notification-icon';
-            const iconElement = document.createElement('i');
-            iconElement.className = notification.icon || 'fas fa-bell';
-            iconWrapper.appendChild(iconElement);
-
-            const mainWrapper = document.createElement('div');
-            mainWrapper.className = 'notification-main';
-
-            if (notification.title) {
-                const titleElement = document.createElement('h3');
-                titleElement.className = 'notification-title';
-                titleElement.textContent = notification.title;
-                mainWrapper.appendChild(titleElement);
+            const mediaWrapper = document.createElement('div');
+            if (model.thumbnailUrl) {
+                mediaWrapper.className = 'notification-thumbnail-wrapper';
+                const thumbnail = document.createElement('img');
+                thumbnail.src = model.thumbnailUrl;
+                thumbnail.alt = model.thumbnailAlt || 'Imagen de notificación';
+                thumbnail.loading = 'lazy';
+                mediaWrapper.appendChild(thumbnail);
+            } else {
+                mediaWrapper.className = 'notification-icon';
+                const iconElement = document.createElement('i');
+                iconElement.className = model.iconClass || 'fas fa-bell';
+                mediaWrapper.appendChild(iconElement);
             }
+
+            const mainWrapper = document.createElement(model.primaryLink ? 'a' : 'div');
+            mainWrapper.className = 'notification-main';
+            if (model.primaryLink) {
+                mainWrapper.href = model.primaryLink;
+                mainWrapper.addEventListener('click', () => closeModal());
+            }
+
+            const titleElement = document.createElement('h3');
+            titleElement.className = 'notification-title';
+            titleElement.textContent = model.title || 'Notificación';
+            mainWrapper.appendChild(titleElement);
 
             const messageElement = document.createElement('p');
             messageElement.className = 'notification-message';
-            messageElement.textContent = notification.message || notification.text || 'Tienes una nueva notificación.';
+            renderNotificationSegments(messageElement, model.segments, { closeModalCallback: closeModal });
+            if (!messageElement.textContent.trim()) {
+                messageElement.textContent = 'Tienes una nueva notificación.';
+            }
             mainWrapper.appendChild(messageElement);
 
-            if (notification.url) {
-                const linkElement = document.createElement('a');
-                linkElement.className = 'notification-link';
-                linkElement.href = notification.url;
-                linkElement.target = '_blank';
-                linkElement.rel = 'noopener noreferrer';
-                linkElement.textContent = 'Ver detalles';
-                mainWrapper.appendChild(linkElement);
-            }
-
-            const timestamp = notification.createdAt;
-            let notificationDate = null;
-            if (timestamp && typeof timestamp.toDate === 'function') {
-                notificationDate = timestamp.toDate();
-            } else if (timestamp instanceof Date) {
-                notificationDate = timestamp;
-            } else if (typeof timestamp === 'number' || typeof timestamp === 'string') {
-                const parsedDate = new Date(timestamp);
-                if (!isNaN(parsedDate)) {
-                    notificationDate = parsedDate;
-                }
-            }
-
-            if (notificationDate instanceof Date && !isNaN(notificationDate)) {
+            const notificationDate = model.createdAt || parseNotificationTimestamp(notification.createdAt);
+            if (notificationDate instanceof Date && !Number.isNaN(notificationDate.getTime())) {
                 const timeElement = document.createElement('time');
                 timeElement.className = 'notification-time';
                 timeElement.dateTime = notificationDate.toISOString();
@@ -2049,7 +2435,7 @@ function setupNotificationsUI(currentUser) {
                 mainWrapper.appendChild(timeElement);
             }
 
-            item.appendChild(iconWrapper);
+            item.appendChild(mediaWrapper);
             item.appendChild(mainWrapper);
             listElement.appendChild(item);
         });
@@ -2067,11 +2453,17 @@ function setupNotificationsUI(currentUser) {
         emptyElement.textContent = 'No tienes notificaciones nuevas.';
         loadingElement.hidden = false;
 
+        const finalize = () => {
+            notificationsButton.disabled = false;
+            delete notificationsButton.dataset.loading;
+            hideBadge();
+        };
+
         if (!currentUser) {
             loadingElement.hidden = true;
             emptyElement.hidden = false;
             emptyElement.textContent = 'Inicia sesión para ver tus notificaciones.';
-            notificationsButton.disabled = false;
+            finalize();
             return;
         }
 
@@ -2079,28 +2471,53 @@ function setupNotificationsUI(currentUser) {
             loadingElement.hidden = true;
             emptyElement.hidden = false;
             emptyElement.textContent = 'El servicio de notificaciones no está disponible en este momento.';
-            notificationsButton.disabled = false;
+            finalize();
             return;
         }
 
         try {
-            const notifications = await ListopicApp.services.getUserNotifications(currentUser.uid, { limit: 30 });
+            let notifications = Array.isArray(ListopicApp.state.notificationsCache) && ListopicApp.state.notificationsCache.length
+                ? [...ListopicApp.state.notificationsCache]
+                : null;
+
+            if (!notifications) {
+                notifications = await ListopicApp.services.getUserNotifications(currentUser.uid, { limit: 30 });
+            }
+
             loadingElement.hidden = true;
 
-            if (!notifications || notifications.length === 0) {
+            if (!Array.isArray(notifications) || notifications.length === 0) {
                 emptyElement.hidden = false;
+                hideBadge();
+                finalize();
                 return;
             }
 
             renderNotifications(notifications);
+
+            const unreadIds = notifications
+                .filter(notification => !notification.read && notification.id)
+                .map(notification => notification.id);
+
+            if (unreadIds.length > 0 && typeof ListopicApp.services.markNotificationsAsRead === 'function') {
+                try {
+                    await ListopicApp.services.markNotificationsAsRead(currentUser.uid, unreadIds);
+                    notifications = notifications.map(notification => unreadIds.includes(notification.id)
+                        ? { ...notification, read: true }
+                        : notification);
+                } catch (markError) {
+                    console.error('[main] Error marcando notificaciones como leídas desde el modal:', markError);
+                }
+            }
+
+            ListopicApp.state.notificationsCache = notifications;
         } catch (error) {
             console.error('main.js: No se pudieron cargar las notificaciones:', error);
             loadingElement.hidden = true;
             emptyElement.hidden = false;
             emptyElement.textContent = 'No pudimos cargar tus notificaciones. Intenta nuevamente más tarde.';
         } finally {
-            notificationsButton.disabled = false;
-            delete notificationsButton.dataset.loading;
+            finalize();
         }
     };
 
