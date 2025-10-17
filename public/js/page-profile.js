@@ -55,6 +55,7 @@ ListopicApp.pageProfile = {
     profileData: null, // Guardaremos los datos del perfil aquï¿½
     selectedPhotoFile: null,
     isFollowing: false, // NUEVO
+    reviewsLazyController: null,
 
     init: function() {
         this.cacheDOMElements();
@@ -544,89 +545,69 @@ ListopicApp.pageProfile = {
     fetchUserReviews: async function(userIdToLoad) {
         const container = this.elements.myReviewsContainer;
         if (!container) return;
-        container.innerHTML = `<p class="loading-placeholder">Buscando reseï¿½as...</p>`;
-        
-        try {
-            const reviewsSnapshot = await ListopicApp.services.db.collectionGroup('reviews')
-                .where('userId', '==', userIdToLoad)
-                .orderBy('updatedAt', 'desc').limit(20).get();
-    
-            if (reviewsSnapshot.empty) {
-                this.renderUserReviews([]);
-                return;
+
+        if (this.reviewsLazyController) {
+            this.reviewsLazyController.destroy();
+            this.reviewsLazyController = null;
+        }
+
+        container.innerHTML = `<p class="loading-placeholder">Buscando reseñas...</p>`;
+
+        const db = ListopicApp.services.db;
+        if (!db) {
+            container.innerHTML = '<p class="error-placeholder">Servicio de datos no disponible.</p>';
+            return;
+        }
+
+        let lastDoc = null;
+        let reachedEnd = false;
+
+        const baseQuery = db.collectionGroup('reviews')
+            .where('userId', '==', userIdToLoad)
+            .orderBy('updatedAt', 'desc');
+
+        const loadBatch = async ({ batchSize }) => {
+            if (reachedEnd) {
+                return { items: [], hasMore: false };
             }
-    
-            // --- INICIO DE LA MEJORA: ENRIQUECIMIENTO DE DATOS ---
-            const reviewsData = [];
-            reviewsSnapshot.forEach(doc => reviewsData.push({ id: doc.id, ...doc.data() }));
-    
-            const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
-            const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];
-            const authorIds = [...new Set(reviewsData.map(r => r.userId).filter(Boolean))]; // <-- NUEVO
-    
-            const listPromises = listIds.map(id => ListopicApp.services.db.collection('lists').doc(id).get());
-            const placePromises = placeIds.map(id => ListopicApp.services.db.collection('places').doc(id).get());
-            const authorPromises = authorIds.map(id => ListopicApp.services.db.collection('users').doc(id).get()); // <-- NUEVO
-            
-            const [listDocs, placeDocs, authorDocs] = await Promise.all([ // <-- NUEVO
-                Promise.all(listPromises), 
-                Promise.all(placePromises),
-                Promise.all(authorPromises) // <-- NUEVO
-            ]);
-            
-            const listsMap = new Map(listDocs.map(doc => [doc.id, doc.data()]));
-            const placesMap = new Map(placeDocs.map(doc => [doc.id, doc.data()]));
-            const authorsMap = new Map(authorDocs.map(doc => [doc.id, doc.data()])); // <-- NUEVO
-            
-            const enrichedReviews = reviewsData.map(review => {
-                const listData = listsMap.get(review.listId);
-                const authorData = authorsMap.get(review.userId); // <-- NUEVO
-                const placeData = placesMap.get(review.placeId); // <-- NUEVO
-    
-                return {
-                    ...review,
-                    listName: listData?.name || 'Lista Desconocida',
-                    criteriaDefinition: listData?.criteriaDefinition || {},
-                    // Objeto author completo
-                    author: {                                        // <-- NUEVO
-                        id: review.userId,
-                        name: authorData?.displayName || authorData?.username || 'Usuario',
-                        photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png'
-                    },
-                    // Objeto place completo
-                    place: {                                         // <-- NUEVO
-                        id: review.placeId,
-                        name: placeData?.name || 'Lugar Desconocido',
-                        googleMapsUrl: placeData?.googleMapsUrl || '#'
-                    }
-                };
+
+            let query = baseQuery.limit(batchSize);
+            if (lastDoc) {
+                query = query.startAfter(lastDoc);
+            }
+
+            const snapshot = await query.get();
+            if (snapshot.empty) {
+                reachedEnd = true;
+                return { items: [], hasMore: false };
+            }
+
+            lastDoc = snapshot.docs[snapshot.docs.length - 1];
+            const enriched = await ListopicApp.uiUtils.enrichReviews(snapshot.docs);
+            if (snapshot.size < batchSize) {
+                reachedEnd = true;
+            }
+
+            return {
+                items: enriched,
+                hasMore: !reachedEnd,
+                nextCursor: lastDoc
+            };
+        };
+
+        try {
+            this.reviewsLazyController = ListopicApp.uiUtils.setupLazyReviewList({
+                container,
+                batchSize: 5,
+                emptyMessage: '<p>Este usuario aún no ha escrito ninguna reseña.</p>',
+                loadBatch
             });
-            
-            this.renderUserReviews(enrichedReviews);
         } catch (error) {
-            console.error(`page-profile: Error fetching reviews:`, error);
-            container.innerHTML = '<p class="error-placeholder">Error al cargar las reseï¿½as.</p>';
+            console.error(`page-profile: Error inicializando reseñas:`, error);
+            container.innerHTML = '<p class="error-placeholder">Error al cargar las reseñas.</p>';
         }
     },
 
-    renderUserReviews: function(reviews) {
-        const container = this.elements.myReviewsContainer;
-        if (!container) return;
-        container.innerHTML = '';
-        if (!reviews || reviews.length === 0) {
-            container.innerHTML = '<p>Este usuario a\u00fan no ha escrito ninguna rese\u00f1a.</p>';
-            return;
-        }
-        const ui = ListopicApp.uiUtils;
-        reviews.forEach(review => {
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = ui.renderReviewSuperCard(review);
-            const article = wrapper.firstElementChild;
-            if (article) {
-                container.appendChild(article);
-            }
-        });
-    }
 
 };
 

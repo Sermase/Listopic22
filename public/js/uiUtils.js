@@ -2,7 +2,12 @@
 
 window.ListopicApp = window.ListopicApp || {};
 
-// Añadir una caché de categorías al estado global si no existe
+window.ListopicApp.state.reviewEnrichmentCache = window.ListopicApp.state.reviewEnrichmentCache || {
+    lists: new Map(),
+    places: new Map(),
+    authors: new Map()
+};
+// AÃ±adir una cachÃ© de categorÃ­as al estado global si no existe
 window.ListopicApp.state = window.ListopicApp.state || {};
 window.ListopicApp.state.categoryCache = window.ListopicApp.state.categoryCache || {};
 
@@ -80,27 +85,27 @@ ListopicApp.uiUtils = {
         `.trim();
     },
 
-    // NUEVA FUNCIÓN PARA OBTENER ICONOS DE FORMA EFICIENTE
+    // NUEVA FUNCIÃ“N PARA OBTENER ICONOS DE FORMA EFICIENTE
     getListIcon: async function(list) {
         const defaultIcon = 'fa-solid fa-list';
         if (!list) return defaultIcon;
     
-        // --- LÓGICA HÍBRIDA ---
+        // --- LÃ“GICA HÃBRIDA ---
     
-        // 1. PRIORIDAD MÁXIMA: Buscar por palabras clave en el nombre de la lista
+        // 1. PRIORIDAD MÃXIMA: Buscar por palabras clave en el nombre de la lista
         if (list.name) {
             const listNameLower = list.name.toLowerCase();
             if (listNameLower.includes('tarta') || listNameLower.includes('pastel') || listNameLower.includes('torta')) return 'fa-solid fa-birthday-cake';
             if (listNameLower.includes('pizza')) return 'fa-solid fa-pizza-slice';
             if (listNameLower.includes('hamburguesa') || listNameLower.includes('burger')) return 'fa-solid fa-hamburger';
             if (listNameLower.includes('taco') || listNameLower.includes('mexican') || listNameLower.includes('nacho')) return 'fa-solid fa-pepper-hot';
-            if (listNameLower.includes('café') || listNameLower.includes('coffee')) return 'fa-solid fa-coffee';
+            if (listNameLower.includes('cafÃ©') || listNameLower.includes('coffee')) return 'fa-solid fa-coffee';
             if (listNameLower.includes('sushi') || listNameLower.includes('japo')) return 'fa-solid fa-fish';
             if (listNameLower.includes('helado') || listNameLower.includes('ice cream')) return 'fa-solid fa-ice-cream';
-            // Puedes añadir más palabras clave aquí en el futuro
+            // Puedes aÃ±adir mÃ¡s palabras clave aquÃ­ en el futuro
         }
     
-        // 2. SEGUNDA PRIORIDAD: Buscar el icono de la categoría en la base de datos
+        // 2. SEGUNDA PRIORIDAD: Buscar el icono de la categorÃ­a en la base de datos
         if (list.categoryId) {
             const categoryCache = ListopicApp.state.categoryCache || {};
     
@@ -126,7 +131,7 @@ ListopicApp.uiUtils = {
             }
         }
     
-        // 3. ÚLTIMO RECURSO: Devolver el icono por defecto
+        // 3. ÃšLTIMO RECURSO: Devolver el icono por defecto
         return defaultIcon;
     },
 
@@ -141,7 +146,7 @@ ListopicApp.uiUtils = {
         if (src) {
             const img = document.createElement('img');
             img.src = src;
-            img.alt = "Previsualización";
+            img.alt = "PrevisualizaciÃ³n";
             img.onerror = () => {
                 previewContainer.innerHTML = '<p style="color: var(--danger-color, #ff8a80);">Error al cargar imagen.</p>';
             };
@@ -195,12 +200,12 @@ ListopicApp.uiUtils = {
     
     renderCriteriaSliders: function(containerElement, existingRatings = {}, criteriaDefinitionMap = {}) {
         if (!containerElement) {
-            console.warn('No se encontró el contenedor de criterios dinámicos.');
+            console.warn('No se encontrÃ³ el contenedor de criterios dinÃ¡micos.');
             return;
         }
         containerElement.innerHTML = '';
         if (!criteriaDefinitionMap || Object.keys(criteriaDefinitionMap).length === 0) {
-            containerElement.innerHTML = '<p>No hay criterios de valoración definidos para esta lista.</p>';
+            containerElement.innerHTML = '<p>No hay criterios de valoraciÃ³n definidos para esta lista.</p>';
             return;
         }
 
@@ -337,10 +342,10 @@ ListopicApp.uiUtils = {
     },
 
     // ==========================================================
-// === FUNCIÓN CENTRALIZADA: SUPER TARJETA RESEÑA v3.0 =====
+// === FUNCIÃ“N CENTRALIZADA: SUPER TARJETA RESEÃ‘A v3.0 =====
 // ==========================================================
 
-    // En uiUtils.js, reemplaza la función entera por esta:
+    // En uiUtils.js, reemplaza la funciÃ³n entera por esta:
 
     renderReviewSuperCard: function(review) {
         const uiUtils = this;
@@ -383,7 +388,7 @@ ListopicApp.uiUtils = {
             ? `<a href="${placeUrl}" target="_blank" rel="noopener" class="place-icon-link" onclick="event.stopPropagation()" title="Ver en Google Maps">
                     <i class="fas fa-map-marker-alt"></i>
                 </a>`
-            : `<span class="place-icon-link place-icon-link--disabled" title="Ubicación no disponible">
+            : `<span class="place-icon-link place-icon-link--disabled" title="UbicaciÃ³n no disponible">
                     <i class="fas fa-map-marker-alt"></i>
                </span>`;
 
@@ -570,7 +575,7 @@ ListopicApp.uiUtils = {
     },
    
 
-    // AÑADE ESTA FUNCIÓN AUXILIAR DENTRO DE ListopicApp.uiUtils
+    // AÃ‘ADE ESTA FUNCIÃ“N AUXILIAR DENTRO DE ListopicApp.uiUtils
     getRatingColor: function(rating) {
         const numericRating = parseFloat(rating);
         if (numericRating >= 8) return 'var(--accent-color-tertiary)'; // Verde
@@ -600,9 +605,9 @@ ListopicApp.uiUtils = {
     // ... al final de uiUtils.js, dentro del objeto ListopicApp.uiUtils ...
 
     /**
-     * Genera el HTML para una tarjeta de reseña en la vista de lista agrupada.
+     * Genera el HTML para una tarjeta de reseÃ±a en la vista de lista agrupada.
      * Muestra los criterios y la media de forma prominente.
-     * @param {object} group - El objeto de la reseña agrupada.
+     * @param {object} group - El objeto de la reseÃ±a agrupada.
      * @param {object} listData - Los datos de la lista (para los criterios).
      * @param {string} listIcon - La clase del icono para el placeholder.
      * @returns {string} El HTML de la tarjeta.
@@ -617,7 +622,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
     const uiUtils = this;
     const detailUrl = `grouped-detail-view.html?listId=${group.listId}&placeId=${group.placeId}&item=${encodeURIComponent(group.itemName || "")}`;
 
-    // Desglose de criterios con BARRAS DE PROGRESO (tu lógica se mantiene)
+    // Desglose de criterios con BARRAS DE PROGRESO (tu lÃ³gica se mantiene)
     let criteriaHtml = '';
     if (group.avgScores && listData.criteriaDefinition && Object.keys(listData.criteriaDefinition).length > 0) {
         const criteriaItems = Object.entries(group.avgScores)
@@ -641,9 +646,9 @@ createListViewGroupCard: function(group, listData, listIcon) {
         }
     }
     
-    // Etiquetas relevantes (tu lógica se mantiene)
+    // Etiquetas relevantes (tu lÃ³gica se mantiene)
     let tagsHtml = '';
-    // CORRECCIÓN: Usamos group.groupTags que es el campo correcto que viene del backend
+    // CORRECCIÃ“N: Usamos group.groupTags que es el campo correcto que viene del backend
     if (group.groupTags && group.groupTags.length > 0) {
         const tags = group.groupTags.map(tag => uiUtils.buildInteractiveTag({
             text: tag,
@@ -658,12 +663,12 @@ createListViewGroupCard: function(group, listData, listIcon) {
         tagsHtml = `<div class="review-list-card__tags">${tags}</div>`;
     }
 
-    // Imagen (tu lógica se mantiene)
+    // Imagen (tu lÃ³gica se mantiene)
     const imageHtml = group.thumbnailUrl
         ? `<img src="${uiUtils.escapeHtml(group.thumbnailUrl)}" alt="Foto" class="review-list-card__image">`
         : `<div class="review-list-card__icon-placeholder"><i class="${listIcon || 'fas fa-camera'}"></i></div>`;
 
-    // --- ¡MEJORA! Creamos el nuevo botón del mapa ---
+    // --- Â¡MEJORA! Creamos el nuevo botÃ³n del mapa ---
     const mapLinkTestId = uiUtils.generateAutomationId('map-link', group.placeId || group.establishmentName || group.itemName || 'map');
     const mapLinkHtml = group.googleMapsUrl
         ? `<a href="${uiUtils.escapeHtml(group.googleMapsUrl)}" class="score-container__map-link" target="_blank" rel="noopener" data-testid="${mapLinkTestId}" data-entity-type="place" data-entity-id="${uiUtils.escapeHtml(String(group.placeId || ''))}" onclick="event.stopPropagation()">
@@ -694,7 +699,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
 
                 <div class="score-container__main">
                     <span class="score-value">${(group.avgGeneralScore || 0).toFixed(1)}</span>
-                    <span class="review-count-badge">${group.itemCount} reseña${group.itemCount > 1 ? 's' : ''}</span>
+                    <span class="review-count-badge">${group.itemCount} reseÃ±a${group.itemCount > 1 ? 's' : ''}</span>
                 </div>
 
                 ${mapLinkHtml}
@@ -726,51 +731,220 @@ createListViewGroupCard: function(group, listData, listIcon) {
     enrichReviews: async function(reviewDocs) {
         try {
             if (!reviewDocs || reviewDocs.length === 0) return [];
-            
+
             const reviewsData = reviewDocs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-            // 1. Recolectar todos los IDs únicos necesarios
+
             const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
             const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];
             const authorIds = [...new Set(reviewsData.map(r => r.userId).filter(Boolean))];
-    
-            // 2. Crear promesas para obtener todos los datos en paralelo
-            const listPromises = listIds.map(id => ListopicApp.services.db.collection('lists').doc(id).get());
-            const placePromises = placeIds.length > 0 ? 
-                placeIds.map(id => ListopicApp.services.db.collection('places').doc(id).get()) : [];
-            const authorPromises = authorIds.length > 0 ?
-                authorIds.map(id => ListopicApp.services.db.collection('users').doc(id).get()) : [];
-    
-            // 3. Esperar a que todas las consultas se completen
+
+            const globalState = window.ListopicApp.state = window.ListopicApp.state || {};
+            globalState.reviewEnrichmentCache = globalState.reviewEnrichmentCache || {
+                lists: new Map(),
+                places: new Map(),
+                authors: new Map()
+            };
+
+            const ensureMap = (value) => value instanceof Map ? value : new Map(Object.entries(value || {}));
+            const caches = globalState.reviewEnrichmentCache;
+            caches.lists = ensureMap(caches.lists);
+            caches.places = ensureMap(caches.places);
+            caches.authors = ensureMap(caches.authors);
+
+            const listCache = caches.lists;
+            const placeCache = caches.places;
+            const authorCache = caches.authors;
+
+            const db = ListopicApp.services?.db;
+            if (!db) {
+                console.warn('enrichReviews: db service not available');
+                return reviewsData;
+            }
+
+            const missingListIds = listIds.filter(id => !listCache.has(id));
+            const missingPlaceIds = placeIds.filter(id => !placeCache.has(id));
+            const missingAuthorIds = authorIds.filter(id => !authorCache.has(id));
+
+            const listPromises = missingListIds.map(id => db.collection('lists').doc(id).get());
+            const placePromises = missingPlaceIds.map(id => db.collection('places').doc(id).get());
+            const authorPromises = missingAuthorIds.map(id => db.collection('users').doc(id).get());
+
             const [listSnapshots, placeSnapshots, authorSnapshots] = await Promise.all([
                 Promise.all(listPromises),
                 Promise.all(placePromises),
-                Promise.all(authorPromises),
+                Promise.all(authorPromises)
             ]);
-    
-            // 4. Crear mapas para un acceso rápido y eficiente a los datos
-            const listsMap = new Map(
-                listSnapshots.filter(doc => doc.exists).map(doc => [doc.id, doc.data()])
-            );
-            const placesMap = new Map(
-                placeSnapshots.filter(doc => doc.exists).map(doc => [doc.id, doc.data()])
-            );
-            const authorsMap = new Map(
-                authorSnapshots.filter(doc => doc.exists).map(doc => [doc.id, doc.data()])
-            );
-    
-            // 5. Mapear sobre las reseñas originales y construir los objetos enriquecidos
+
+            listSnapshots.forEach(doc => {
+                listCache.set(doc.id, doc.exists ? doc.data() : null);
+            });
+            placeSnapshots.forEach(doc => {
+                placeCache.set(doc.id, doc.exists ? doc.data() : null);
+            });
+            authorSnapshots.forEach(doc => {
+                authorCache.set(doc.id, doc.exists ? doc.data() : null);
+            });
+
             return reviewsData.map(review => {
-                const listData = listsMap.get(review.listId);
-                const authorData = authorsMap.get(review.userId);
-                const placeData = placesMap.get(review.placeId);
+                const listData = listCache.get(review.listId) || null;
+                const authorData = authorCache.get(review.userId) || null;
+                const placeData = placeCache.get(review.placeId) || null;
                 return {
                     ...review,
                     listName: listData?.name || 'Lista Desconocida',
                     criteriaDefinition: listData?.criteriaDefinition || {},
                     author: {
                         id: review.userId,
-                        name: authorData?.displayName || authorData?.username || 'Usuario Anónimo',
+    setupLazyReviewList: function({
+        container,
+        batchSize = 5,
+        loadBatch,
+        renderItem = (review) => this.renderReviewSuperCard(review),
+        emptyMessage = '<p class="loading-placeholder">No hay reseas disponibles.</p>',
+        loadingMessage = 'Cargando reseas...',
+        moreLoadingMessage = 'Cargando ms reseas...',
+        sentinelClass = 'lazy-review-sentinel',
+        rootMargin = '200px 0px'
+    } = {}) {
+        const uiUtils = this;
+
+        if (!container) {
+            console.warn('setupLazyReviewList: contenedor no encontrado.');
+            return { destroy() {}, forceLoad() {} };
+        }
+        if (typeof loadBatch !== 'function') {
+            console.warn('setupLazyReviewList: loadBatch debe ser una funcin.');
+            return { destroy() {}, forceLoad() {} };
+        }
+
+        container.innerHTML = '';
+
+        const sentinel = document.createElement('div');
+        sentinel.className = sentinelClass;
+        sentinel.innerHTML = `<span class="loading-placeholder">${uiUtils.escapeHtml(loadingMessage)}</span>`;
+        container.appendChild(sentinel);
+
+        const state = {
+            loading: false,
+            done: false,
+            cursor: null,
+            loaded: 0,
+            initial: true
+        };
+
+        const updateSentinel = (html) => {
+            sentinel.innerHTML = html;
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    loadNext();
+                }
+            });
+        }, { rootMargin });
+
+        observer.observe(sentinel);
+
+        const detachSentinel = () => {
+            observer.disconnect();
+            if (sentinel.parentNode) {
+                sentinel.parentNode.removeChild(sentinel);
+            }
+        };
+
+        const renderItems = (items) => {
+            if (!items || items.length === 0) return;
+            const html = items.map(item => renderItem(item)).join('');
+            sentinel.insertAdjacentHTML('beforebegin', html);
+        };
+
+        const showEmptyState = () => {
+            detachSentinel();
+            if (emptyMessage) {
+                container.innerHTML = emptyMessage;
+            } else {
+                container.innerHTML = '';
+            }
+        };
+
+        const loadNext = async () => {
+            if (state.loading || state.done) return;
+            state.loading = true;
+            const loadingText = state.initial ? loadingMessage : moreLoadingMessage;
+            updateSentinel(`<span class="loading-placeholder">${uiUtils.escapeHtml(loadingText)}</span>`);
+
+            try {
+                const result = await loadBatch({
+                    batchSize,
+                    cursor: state.cursor,
+                    loaded: state.loaded
+                });
+
+                let items = [];
+                let hasMore = true;
+                let nextCursor;
+
+                if (Array.isArray(result)) {
+                    items = result;
+                    hasMore = result.length >= batchSize;
+                } else if (result && typeof result === 'object') {
+                    items = Array.isArray(result.items) ? result.items : [];
+                    nextCursor = result.nextCursor !== undefined ? result.nextCursor : result.cursor;
+                    if (typeof result.hasMore === 'boolean') {
+                        hasMore = result.hasMore;
+                    } else {
+                        hasMore = items.length >= batchSize;
+                    }
+                } else {
+                    items = [];
+                    hasMore = false;
+                }
+
+                if (nextCursor !== undefined) {
+                    state.cursor = nextCursor;
+                }
+
+                if (items.length > 0) {
+                    renderItems(items);
+                    state.loaded += items.length;
+                    state.initial = false;
+                }
+
+                if (state.loaded === 0 && (!items || items.length === 0)) {
+                    showEmptyState();
+                    state.done = true;
+                } else if (!hasMore || items.length < batchSize) {
+                    state.done = true;
+                    detachSentinel();
+                } else {
+                    updateSentinel(`<span class="loading-placeholder">${uiUtils.escapeHtml(moreLoadingMessage)}</span>`);
+                }
+            } catch (error) {
+                console.error('setupLazyReviewList: error cargando reseas', error);
+                updateSentinel('<span class="error-placeholder">Error al cargar reseas.</span>');
+                observer.disconnect();
+                state.done = true;
+            } finally {
+                state.loading = false;
+            }
+        };
+
+        loadNext();
+
+        return {
+            destroy() {
+                observer.disconnect();
+                if (sentinel.parentNode) {
+                    sentinel.parentNode.removeChild(sentinel);
+                }
+            },
+            forceLoad() {
+                loadNext();
+            }
+        };
+    },
+                        name: authorData?.displayName || authorData?.username || 'Usuario AnÃ³nimo',
                         photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png'
                     },
                     place: {
@@ -781,7 +955,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
                 };
             });
         } catch (error) {
-            console.error("Error catastrófico en enrichReviews:", error);
+            console.error("Error catastrÃ³fico en enrichReviews:", error);
             return [];
         }
     },
@@ -810,7 +984,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
         return criteriaItems || '<p class="loading-placeholder">No hay criterios ponderables para mostrar.</p>';
     },
 
-    // Añade esta función dentro del objeto ListopicApp.uiUtils en tu archivo public/js/uiUtils.js
+    // AÃ±ade esta funciÃ³n dentro del objeto ListopicApp.uiUtils en tu archivo public/js/uiUtils.js
 
     updateReviewFormWithPlace: function(placeData) {
         const establishmentNameSearchInput = document.getElementById('restaurant-name-search-input');
@@ -855,14 +1029,14 @@ createListViewGroupCard: function(group, listData, listIcon) {
 
         const placeName = placeData.name || '';
         if (this.setPlaceSelectionStatus) {
-            this.setPlaceSelectionStatus('success', 'añadido correctamente.', { highlight: placeName });
+            this.setPlaceSelectionStatus('success', 'aÃ±adido correctamente.', { highlight: placeName });
         }
     },
 
 
 
     // ==========================================================
-    // ===       FUNCIONES PARA RENDERIZAR BÚSQUEDA (MEJORADAS) ===
+    // ===       FUNCIONES PARA RENDERIZAR BÃšSQUEDA (MEJORADAS) ===
     // ==========================================================
 
     createListCard: function(listData, id) {
@@ -888,7 +1062,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
             entityId: id
         });
         const reviewsTag = this.buildInteractiveTag({
-            text: `${listData.reviewCount || 0} reseñas`,
+            text: `${listData.reviewCount || 0} reseÃ±as`,
             iconClass: 'fas fa-pencil-alt',
             tagType: 'reviews',
             value: listData.reviewCount || 0,
@@ -940,7 +1114,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
             extraClasses: 'info-tag--lists'
         });
         const reviewsTag = this.buildInteractiveTag({
-            text: `${userData.reviewsCount || 0} reseñas`,
+            text: `${userData.reviewsCount || 0} reseÃ±as`,
             iconClass: 'fas fa-star',
             tagType: 'reviews',
             value: userData.reviewsCount || 0,
@@ -1094,7 +1268,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
     },
     
     // ==========================================================
-    // === FUNCIÓN DE COMPRESIÓN DE IMÁGENES (REVISADA)       ===
+    // === FUNCIÃ“N DE COMPRESIÃ“N DE IMÃGENES (REVISADA)       ===
     // ==========================================================
 
     compressImage: function(file, options = {}) {
@@ -1134,15 +1308,15 @@ createListViewGroupCard: function(group, listData, listIcon) {
                     canvas.toBlob(
                         (blob) => {
                             if (blob) {
-                                // Generamos un nombre de archivo más limpio y seguro
+                                // Generamos un nombre de archivo mÃ¡s limpio y seguro
                                 const safeFileName = `compressed_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_').toLowerCase()}`;
                                 const newFile = new File([blob], safeFileName, {
-                                    type: 'image/jpeg', // Forzamos a JPEG por la compresión con calidad
+                                    type: 'image/jpeg', // Forzamos a JPEG por la compresiÃ³n con calidad
                                     lastModified: Date.now(),
                                 });
                                 resolve(newFile);
                             } else {
-                                reject(new Error('La conversión de Canvas a Blob falló.'));
+                                reject(new Error('La conversiÃ³n de Canvas a Blob fallÃ³.'));
                             }
                         },
                         'image/jpeg',

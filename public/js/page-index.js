@@ -305,15 +305,29 @@ ListopicApp.pageIndex = (() => {
                         if (allDocs.length === 0) {
                             feed.innerHTML = '<p class="loading-placeholder">Aún no hay reseñas de tus seguidos.</p>';
                         } else {
-                            // Ordenar por createdAt desc y limitar
                             allDocs.sort((a, b) => {
                                 const ta = a.data().createdAt?.toMillis ? a.data().createdAt.toMillis() : 0;
                                 const tb = b.data().createdAt?.toMillis ? b.data().createdAt.toMillis() : 0;
                                 return tb - ta;
                             });
-                            allDocs = allDocs.slice(0, 10);
-                            const enriched = await ui.enrichReviews(allDocs);
-                            feed.innerHTML = enriched.map(r => ui.renderReviewSuperCard(r)).join('');
+
+                            const docQueue = allDocs.slice(0, 30);
+                            ui.setupLazyReviewList({
+                                container: feed,
+                                batchSize: 5,
+                                emptyMessage: '<p class="loading-placeholder">Aún no hay reseñas de tus seguidos.</p>',
+                                loadBatch: async ({ batchSize }) => {
+                                    const batchDocs = docQueue.splice(0, batchSize);
+                                    if (batchDocs.length === 0) {
+                                        return { items: [], hasMore: false };
+                                    }
+                                    const enriched = await ui.enrichReviews(batchDocs);
+                                    return {
+                                        items: enriched,
+                                        hasMore: docQueue.length > 0
+                                    };
+                                }
+                            });
                         }
                     }
                 }
