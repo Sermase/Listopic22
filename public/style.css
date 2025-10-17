@@ -3691,10 +3691,34 @@ body.modal-open {
     font-size: 1.1rem;
 }
 
+.notification-thumbnail-wrapper {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--container-bg);
+    box-shadow: var(--shadow-elevation-low);
+}
+
+.notification-thumbnail-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .notification-main {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.notification-main:hover .notification-title {
+    text-decoration: underline;
 }
 
 .notification-title {
@@ -3716,6 +3740,23 @@ body.modal-open {
     font-weight: 600;
     color: var(--accent-color-secondary);
     text-decoration: none;
+}
+
+.notification-inline-link {
+    color: var(--accent-color-secondary);
+    font-weight: 600;
+    text-decoration: none;
+    margin-right: 2px;
+}
+
+.notification-inline-link:hover,
+.notification-inline-link:focus {
+    text-decoration: underline;
+}
+
+.notification-quote {
+    font-style: italic;
+    color: var(--secondary-text-color);
 }
 
 .notification-link:hover,

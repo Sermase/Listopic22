@@ -825,6 +825,30 @@ ListopicApp.services = (() => {
         }
     };
 
+    const getUserNotifications = async (userId, options = {}) => {
+        if (!userId) {
+            throw new Error('Se requiere el ID de usuario para obtener notificaciones.');
+        }
+
+        try {
+            const limitValue = Number.isFinite(options.limit) ? Number(options.limit) : 30;
+            let query = db.collection('users')
+                .doc(userId)
+                .collection('notifications')
+                .orderBy('createdAt', 'desc');
+
+            if (limitValue > 0) {
+                query = query.limit(limitValue);
+            }
+
+            const snapshot = await query.get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (error) {
+            console.error('[firebaseService] Error obteniendo notificaciones del usuario:', error);
+            throw new Error('No se pudieron obtener tus notificaciones.');
+        }
+    };
+
     const listenToNotifications = (userId, onUpdate, onError) => {
         if (!userId) return () => {};
         try {
@@ -893,6 +917,7 @@ ListopicApp.services = (() => {
         sendChatMessage,
         markChatMessagesAsRead,
         listenToNotifications,
+        getUserNotifications,
         markNotificationsAsRead
 
     };
