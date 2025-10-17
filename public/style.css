@@ -3935,7 +3935,7 @@ body.light-theme .modal-content {
     border: 1px solid var(--input-border);
 }
 body.light-theme .save-button {
-    color: rgb(31, 31, 31); /* Text on green */
+    color: rgba(22, 22, 22, 1); /* Text on green */
 }
 body.light-theme .save-button.has-changes {
     color: var(--main-button-text); /* Dark text on yellow */
