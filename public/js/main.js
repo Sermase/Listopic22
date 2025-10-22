@@ -316,6 +316,82 @@ ListopicApp.reviewReactions = (() => {
         }
     };
 
+    const mobileMediaQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(max-width: 768px)')
+        : null;
+
+    const isMobileViewport = () => {
+        if (mobileMediaQuery && typeof mobileMediaQuery.matches === 'boolean') {
+            return mobileMediaQuery.matches;
+        }
+        if (typeof window !== 'undefined' && typeof window.innerWidth === 'number') {
+            return window.innerWidth <= 768;
+        }
+        return false;
+    };
+
+    const getReactionBurstLabel = (button, card, reactionType) => {
+        if (!button) {
+            return '';
+        }
+        const btnLabel = button.dataset?.reactionLabel || '';
+        if (btnLabel && btnLabel.trim()) {
+            return btnLabel.trim();
+        }
+        const cardDataset = card?.dataset || {};
+        if (reactionType === 'like') {
+            const categoryLike = cardDataset.categoryLikeLabel || '';
+            if (categoryLike && categoryLike.trim()) {
+                return categoryLike.trim();
+            }
+            const storedLike = cardDataset.likeLabel || '';
+            if (storedLike && storedLike.trim()) {
+                return storedLike.trim();
+            }
+        } else if (reactionType === 'dislike') {
+            const categoryDislike = cardDataset.categoryDislikeLabel || '';
+            if (categoryDislike && categoryDislike.trim()) {
+                return categoryDislike.trim();
+            }
+            const storedDislike = cardDataset.dislikeLabel || '';
+            if (storedDislike && storedDislike.trim()) {
+                return storedDislike.trim();
+            }
+        }
+        const fallbackText = button.querySelector('.action-label')?.textContent || '';
+        return typeof fallbackText === 'string' ? fallbackText.trim() : '';
+    };
+
+    const triggerMobileReactionBurst = (button, card, reactionType) => {
+        if (!button || !reactionType || !isMobileViewport()) {
+            return;
+        }
+        const label = getReactionBurstLabel(button, card, reactionType);
+        if (!label) {
+            return;
+        }
+        const container = button;
+        const existing = container.querySelector('.reaction-burst');
+        if (existing) {
+            existing.remove();
+        }
+        const burst = document.createElement('span');
+        burst.className = `reaction-burst reaction-burst--${reactionType}`;
+        burst.textContent = label;
+        container.appendChild(burst);
+        requestAnimationFrame(() => {
+            burst.classList.add('is-active');
+        });
+        const exitDelay = 900;
+        const removeDelay = 250;
+        setTimeout(() => {
+            burst.classList.add('is-exiting');
+            setTimeout(() => {
+                burst.remove();
+            }, removeDelay);
+        }, exitDelay);
+    };
+
     const createReactionNotification = async ({
         ownerId,
         actorId,
@@ -504,6 +580,7 @@ ListopicApp.reviewReactions = (() => {
         }
 
         if (trigger) {
+            triggerMobileReactionBurst(trigger, card, reactionType);
             trigger.disabled = true;
         }
 
