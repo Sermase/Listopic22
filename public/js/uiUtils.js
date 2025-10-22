@@ -421,6 +421,13 @@ ListopicApp.uiUtils = {
             ? `<div class="review-super-card__tags">${review.userTags.map(tag => `<span class="info-tag">${uiUtils.escapeHtml(tag)}</span>`).join('')}</div>`
             : '';
 
+        const normalizeLabel = (value) => typeof value === 'string' ? value.trim() : '';
+        const rawCategoryId = typeof review.categoryId === 'string' ? review.categoryId.trim() : '';
+        const categoryId = rawCategoryId && rawCategoryId !== 'Hmm...' ? rawCategoryId : '';
+        const categoryInfo = review.category && typeof review.category === 'object' ? review.category : {};
+        const categoryLikeRaw = normalizeLabel(review.categoryLikeLabel || categoryInfo.like);
+        const categoryDislikeRaw = normalizeLabel(review.categoryDislikeLabel || categoryInfo.dislike);
+
         const orderedCriteria = Object.entries(criteriaDefinition)
             .map(([key, definition]) => ({
                 key,
@@ -432,14 +439,14 @@ ListopicApp.uiUtils = {
                 return a.key.localeCompare(b.key);
             });
         const primaryCriterionDefinition = orderedCriteria.length ? orderedCriteria[0].definition : null;
-        const likeLabelRaw = primaryCriterionDefinition && typeof primaryCriterionDefinition.like === 'string' && primaryCriterionDefinition.like.trim()
-            ? primaryCriterionDefinition.like.trim()
-            : 'Me encanta';
-        const dislikeLabelRaw = primaryCriterionDefinition && typeof primaryCriterionDefinition.dislike === 'string' && primaryCriterionDefinition.dislike.trim()
-            ? primaryCriterionDefinition.dislike.trim()
-            : 'Meh...';
+        const criterionLikeRaw = primaryCriterionDefinition ? normalizeLabel(primaryCriterionDefinition.like) : '';
+        const criterionDislikeRaw = primaryCriterionDefinition ? normalizeLabel(primaryCriterionDefinition.dislike) : '';
+        const likeLabelRaw = categoryLikeRaw || criterionLikeRaw || 'Me encanta';
+        const dislikeLabelRaw = categoryDislikeRaw || criterionDislikeRaw || 'Meh...';
         const likeLabel = uiUtils.escapeHtml(likeLabelRaw);
         const dislikeLabel = uiUtils.escapeHtml(dislikeLabelRaw);
+        const categoryLikeLabelEscaped = uiUtils.escapeHtml(categoryLikeRaw);
+        const categoryDislikeLabelEscaped = uiUtils.escapeHtml(categoryDislikeRaw);
 
         const reactionCounts = (review.reactionCounts && typeof review.reactionCounts === 'object')
             ? review.reactionCounts
@@ -475,8 +482,9 @@ ListopicApp.uiUtils = {
                             class="review-action-button reaction-button like-button"
                             data-review-action="like"
                             data-reaction-type="like"
+                            data-reaction-label="${likeLabel}"
                             aria-pressed="${viewerReactionRaw === 'like' ? 'true' : 'false'}">
-                            <i class="fas fa-circle-check" aria-hidden="true"></i>
+                            <i class="fas fa-heart" aria-hidden="true"></i>
                             <span class="action-label">${likeLabel}</span>
                             <span class="action-count" data-action-count="like">${likeCount}</span>
                         </button>
@@ -484,8 +492,9 @@ ListopicApp.uiUtils = {
                             class="review-action-button reaction-button dislike-button"
                             data-review-action="dislike"
                             data-reaction-type="dislike"
+                            data-reaction-label="${dislikeLabel}"
                             aria-pressed="${viewerReactionRaw === 'dislike' ? 'true' : 'false'}">
-                            <i class="fas fa-circle-xmark" aria-hidden="true"></i>
+                            <i class="fas fa-sad-tear" aria-hidden="true"></i>
                             <span class="action-label">${dislikeLabel}</span>
                             <span class="action-count" data-action-count="dislike">${dislikeCount}</span>
                         </button>
@@ -535,6 +544,9 @@ ListopicApp.uiUtils = {
                 data-reaction-dislike-count="${dislikeCount}"
                 data-comment-count="${commentsCount}"
                 data-user-reaction="${viewerReaction}"
+                data-category-id="${uiUtils.escapeHtml(categoryId)}"
+                data-category-like-label="${categoryLikeLabelEscaped}"
+                data-category-dislike-label="${categoryDislikeLabelEscaped}"
                 data-like-label="${likeLabel}"
                 data-dislike-label="${dislikeLabel}">
                 <header class="review-super-card__header">
@@ -754,6 +766,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
             const listCache = caches.lists;
             const placeCache = caches.places;
             const authorCache = caches.authors;
+            const categoryCache = (globalState.categoryCache = globalState.categoryCache || {});
 
             const db = ListopicApp.services?.db;
             if (!db) {
@@ -785,14 +798,76 @@ createListViewGroupCard: function(group, listData, listIcon) {
                 authorCache.set(doc.id, doc.exists ? doc.data() : null);
             });
 
+            const sanitizeCategoryId = (value) => {
+                if (typeof value !== 'string') {
+                    return '';
+                }
+                const trimmed = value.trim();
+                if (!trimmed || trimmed === 'Hmm...') {
+                    return '';
+                }
+                return trimmed;
+            };
+            const sanitizeLabel = (value) => typeof value === 'string' ? value.trim() : '';
+
+            const categoryIds = new Set();
+            reviewsData.forEach(review => {
+                const listData = listCache.get(review.listId) || null;
+                const candidates = [
+                    review.categoryId,
+                    review.listCategoryId,
+                    review.category,
+                    listData && listData.categoryId,
+                    listData && listData.category
+                ];
+                candidates.forEach(candidate => {
+                    const normalized = sanitizeCategoryId(candidate);
+                    if (normalized) {
+                        categoryIds.add(normalized);
+                    }
+                });
+            });
+
+            const missingCategoryIds = Array.from(categoryIds).filter(id => !Object.prototype.hasOwnProperty.call(categoryCache, id));
+            if (missingCategoryIds.length > 0) {
+                const categorySnapshots = await Promise.all(
+                    missingCategoryIds.map(id => db.collection('categories').doc(id).get())
+                );
+                categorySnapshots.forEach(doc => {
+                    categoryCache[doc.id] = doc.exists ? doc.data() : null;
+                });
+            }
+
             return reviewsData.map(review => {
                 const listData = listCache.get(review.listId) || null;
                 const authorData = authorCache.get(review.userId) || null;
                 const placeData = placeCache.get(review.placeId) || null;
+                const categoryCandidates = [
+                    review.categoryId,
+                    review.listCategoryId,
+                    review.category,
+                    listData && listData.categoryId,
+                    listData && listData.category
+                ];
+                let categoryId = '';
+                for (const candidate of categoryCandidates) {
+                    const normalized = sanitizeCategoryId(candidate);
+                    if (normalized) {
+                        categoryId = normalized;
+                        break;
+                    }
+                }
+                const categoryData = categoryId ? (categoryCache[categoryId] || null) : null;
+                const categoryLikeLabel = sanitizeLabel(review.categoryLikeLabel || (categoryData && categoryData.like));
+                const categoryDislikeLabel = sanitizeLabel(review.categoryDislikeLabel || (categoryData && categoryData.dislike));
                 return {
                     ...review,
                     listName: listData?.name || 'Lista Desconocida',
                     criteriaDefinition: listData?.criteriaDefinition || {},
+                    categoryId,
+                    category: categoryData,
+                    categoryLikeLabel,
+                    categoryDislikeLabel,
                     author: {
                         id: review.userId,
                         name: authorData?.displayName || authorData?.username || 'Usuario Anónimo',
