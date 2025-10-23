@@ -11,6 +11,16 @@ const { buildGroupedItemsForList } = require("./grouped-aggregator");
 
 const db = getFirestore();
 
+const MAX_PLACES_SUGGESTIONS = 8;
+const MIN_LOCAL_RESULTS_THRESHOLD = 3;
+const GOOGLE_NEARBY_RESULT_LIMIT = 6;
+const GOOGLE_TEXT_RESULT_LIMIT = 6;
+const MAX_LOCAL_NEARBY_DISTANCE_KM = 75;
+
+const CATEGORY_TYPE_FALLBACKS = Object.freeze({
+  'hmm-comida': ['restaurant', 'cafe', 'meal_takeaway', 'bar', 'meal_delivery']
+});
+
 const VALID_HTTPS_ERROR_CODES = new Set([
   'ok',
   'cancelled',
@@ -94,6 +104,366 @@ async function getPlaceDocsByIds(ids) {
   return results;
 }
 
+function sanitizeTypeArray(types, limit = 10) {
+  if (!Array.isArray(types)) {
+    return [];
+  }
+  const sanitized = [];
+  for (const raw of types) {
+    if (typeof raw !== 'string') {
+      continue;
+    }
+    const value = raw.trim();
+    if (!value) {
+      continue;
+    }
+    sanitized.push(value.toLowerCase());
+    if (sanitized.length >= limit) {
+      break;
+    }
+  }
+  return sanitized;
+}
+
+function parseCategoryTypesParam(raw) {
+  if (!raw || typeof raw !== 'string') {
+    return [];
+  }
+  const parts = raw.split(',');
+  return sanitizeTypeArray(parts);
+}
+
+async function resolveCategoryPlaceTypes(categoryId, rawTypesParam) {
+  const fromQuery = parseCategoryTypesParam(rawTypesParam);
+  if (fromQuery.length) {
+    return fromQuery;
+  }
+
+  if (!categoryId) {
+    return [];
+  }
+
+  try {
+    const categoryDoc = await db.collection('categories').doc(categoryId).get();
+    if (categoryDoc.exists) {
+      const categoryData = categoryDoc.data() || {};
+      const docArray = sanitizeTypeArray(categoryData.googlePlaceTypes);
+      if (docArray.length) {
+        return docArray;
+      }
+      if (typeof categoryData.googlePlaceType === 'string') {
+        const single = sanitizeTypeArray([categoryData.googlePlaceType]);
+        if (single.length) {
+          return single;
+        }
+      }
+      const alternative = sanitizeTypeArray(categoryData.placeTypes);
+      if (alternative.length) {
+        return alternative;
+      }
+    }
+  } catch (error) {
+    logger.error(`resolveCategoryPlaceTypes: Error retrieving category ${categoryId}`, error);
+  }
+
+  const fallback = CATEGORY_TYPE_FALLBACKS[categoryId];
+  if (Array.isArray(fallback) && fallback.length) {
+    return sanitizeTypeArray(fallback);
+  }
+
+  return [];
+}
+
+function normalizeForComparison(value) {
+  if (!value) {
+    return '';
+  }
+  return value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function computeMatchScore(normalizedName, normalizedQuery) {
+  if (!normalizedName || !normalizedQuery) {
+    return 0;
+  }
+  if (normalizedName === normalizedQuery) {
+    return 3;
+  }
+  if (normalizedName.startsWith(normalizedQuery)) {
+    return 2;
+  }
+  if (normalizedName.includes(normalizedQuery)) {
+    return 1;
+  }
+  return 0;
+}
+
+function numberOrNull(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildAllowedTypesSet(categoryTypes) {
+  const sanitized = sanitizeTypeArray(categoryTypes);
+  return new Set(sanitized);
+}
+
+function buildLocalPlaceCandidate(doc, {
+  normalizedQueryNoDiacritics,
+  userLat,
+  userLon,
+  allowedTypesSet,
+  maxDistanceKm
+}) {
+  const data = doc.data() || {};
+  const normalizedName = normalizeForComparison(data.name || '');
+  const matchScore = computeMatchScore(normalizedName, normalizedQueryNoDiacritics);
+  const placeTypes = Array.isArray(data.types)
+    ? data.types
+        .map(type => (typeof type === 'string' ? type.toLowerCase() : ''))
+        .filter(Boolean)
+    : [];
+
+  if (allowedTypesSet && allowedTypesSet.size > 0) {
+    const matchesAllowedType = placeTypes.some(type => allowedTypesSet.has(type));
+    if (!matchesAllowedType) {
+      return null;
+    }
+  }
+
+  const rawLocation = data.location || data.coordinates || {};
+  const lat = numberOrNull(rawLocation.latitude);
+  const lon = numberOrNull(rawLocation.longitude);
+  let distanceInKm = null;
+  if (lat !== null && lon !== null && Number.isFinite(userLat) && Number.isFinite(userLon)) {
+    distanceInKm = getDistance(userLat, userLon, lat, lon);
+  }
+  if (typeof maxDistanceKm === 'number' && distanceInKm !== null && distanceInKm > maxDistanceKm) {
+    return null;
+  }
+
+  const reviewsCount = Number.isFinite(data.reviewsCount)
+    ? data.reviewsCount
+    : (Number.isFinite(data.googleUserRatingsTotal) ? data.googleUserRatingsTotal : 0);
+
+  const suggestion = {
+    place_id: (typeof data.googlePlaceId === 'string' && data.googlePlaceId) ? data.googlePlaceId : doc.id,
+    name: data.name || 'Lugar sin nombre',
+    formatted_address: data.address || data.formatted_address || '',
+    vicinity: data.address || data.formatted_address || '',
+    geometry: {
+      location: {
+        lat,
+        lng: lon
+      }
+    },
+    types: Array.isArray(data.types) ? data.types : [],
+    rating: Number.isFinite(data.googleRating)
+      ? data.googleRating
+      : (Number.isFinite(data.averageRating) ? data.averageRating : undefined),
+    user_ratings_total: Number.isFinite(data.googleUserRatingsTotal)
+      ? data.googleUserRatingsTotal
+      : (Number.isFinite(data.reviewsCount) ? data.reviewsCount : undefined),
+    listopicPlaceId: doc.id,
+    source: 'listopic'
+  };
+
+  if (typeof data.googleMapsUrl === 'string' && data.googleMapsUrl) {
+    suggestion.googleMapsUrl = data.googleMapsUrl;
+  }
+  if (typeof data.mainImageUrl === 'string' && data.mainImageUrl) {
+    suggestion.mainImageUrl = data.mainImageUrl;
+  }
+  if (typeof data.website === 'string' && data.website) {
+    suggestion.website = data.website;
+  }
+  if (typeof data.phone === 'string' && data.phone) {
+    suggestion.international_phone_number = data.phone;
+  }
+  if (distanceInKm !== null) {
+    suggestion.distanceInKm = Number(distanceInKm.toFixed(2));
+  }
+
+  return {
+    suggestion,
+    matchScore,
+    distanceInKm,
+    reviewsCount
+  };
+}
+
+function sortLocalCandidates(a, b) {
+  if (b.matchScore !== a.matchScore) {
+    return b.matchScore - a.matchScore;
+  }
+  const aHasDistance = Number.isFinite(a.distanceInKm);
+  const bHasDistance = Number.isFinite(b.distanceInKm);
+  if (aHasDistance && bHasDistance && a.distanceInKm !== b.distanceInKm) {
+    return a.distanceInKm - b.distanceInKm;
+  }
+  if (aHasDistance && !bHasDistance) {
+    return -1;
+  }
+  if (!aHasDistance && bHasDistance) {
+    return 1;
+  }
+  return (b.reviewsCount || 0) - (a.reviewsCount || 0);
+}
+
+function mergePlaceResults(primary, secondary, maxResults) {
+  const combined = [];
+  const seen = new Set();
+
+  const register = (place) => {
+    if (!place || typeof place !== 'object') {
+      return;
+    }
+    const placeId = typeof place.place_id === 'string' && place.place_id
+      ? place.place_id
+      : (typeof place.listopicPlaceId === 'string' && place.listopicPlaceId ? place.listopicPlaceId : null);
+    const key = placeId || `${place.geometry?.location?.lat ?? 'x'}:${place.geometry?.location?.lng ?? 'x'}:${place.name ?? ''}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    combined.push(place);
+  };
+
+  primary.forEach(register);
+  secondary.forEach(register);
+
+  if (combined.length > maxResults) {
+    return combined.slice(0, maxResults);
+  }
+  return combined;
+}
+
+function filterGoogleResultsByTypes(results, allowedTypesSet) {
+  if (!Array.isArray(results)) {
+    return [];
+  }
+  if (!allowedTypesSet || allowedTypesSet.size === 0) {
+    return results;
+  }
+  return results.filter(place => {
+    if (!Array.isArray(place.types)) {
+      return false;
+    }
+    return place.types.some(type => {
+      if (typeof type !== 'string') {
+        return false;
+      }
+      return allowedTypesSet.has(type.toLowerCase());
+    });
+  });
+}
+
+function annotateGoogleResult(place, userLat, userLon) {
+  const clone = place ? { ...place } : {};
+  clone.source = 'google';
+  const lat = numberOrNull(place?.geometry?.location?.lat);
+  const lon = numberOrNull(place?.geometry?.location?.lng);
+  if (lat !== null && lon !== null && Number.isFinite(userLat) && Number.isFinite(userLon)) {
+    const distance = getDistance(userLat, userLon, lat, lon);
+    clone.distanceInKm = Number(distance.toFixed(2));
+  }
+  return clone;
+}
+
+async function searchListopicPlacesByName(query, {
+  userLat,
+  userLon,
+  limit,
+  categoryTypes
+}) {
+  const trimmedQuery = (query || '').trim();
+  if (!trimmedQuery) {
+    return [];
+  }
+
+  const normalizedLower = trimmedQuery.toLowerCase();
+  const normalizedForMatch = normalizeForComparison(trimmedQuery);
+  const allowedTypesSet = buildAllowedTypesSet(categoryTypes);
+
+  const fetchLimit = Math.min(Math.max(limit || 1, 1) * 3, 30);
+  const candidates = [];
+
+  try {
+    const snapshot = await db
+      .collection('places')
+      .orderBy('name_normalized')
+      .startAt(normalizedLower)
+      .endAt(`${normalizedLower}\uf8ff`)
+      .limit(fetchLimit)
+      .get();
+
+    snapshot.forEach(doc => {
+      const candidate = buildLocalPlaceCandidate(doc, {
+        normalizedQueryNoDiacritics: normalizedForMatch,
+        userLat,
+        userLon,
+        allowedTypesSet,
+        maxDistanceKm: null
+      });
+      if (candidate) {
+        candidates.push(candidate);
+      }
+    });
+  } catch (error) {
+    logger.error('searchListopicPlacesByName: Error querying local places', error);
+    return [];
+  }
+
+  candidates.sort(sortLocalCandidates);
+  return candidates.slice(0, limit).map(entry => entry.suggestion);
+}
+
+async function fetchLocalPlacesByTypes(categoryTypes, {
+  userLat,
+  userLon,
+  limit,
+  maxDistanceKm
+}) {
+  const sanitizedTypes = sanitizeTypeArray(categoryTypes);
+  if (!sanitizedTypes.length) {
+    return [];
+  }
+
+  const allowedTypesSet = new Set(sanitizedTypes);
+  const fetchLimit = Math.min(Math.max(limit || 1, 1) * 5, 50);
+  const candidates = [];
+
+  try {
+    const snapshot = await db
+      .collection('places')
+      .where('types', 'array-contains-any', sanitizedTypes.slice(0, 10))
+      .limit(fetchLimit)
+      .get();
+
+    snapshot.forEach(doc => {
+      const candidate = buildLocalPlaceCandidate(doc, {
+        normalizedQueryNoDiacritics: '',
+        userLat,
+        userLon,
+        allowedTypesSet,
+        maxDistanceKm
+      });
+      if (candidate) {
+        candidates.push(candidate);
+      }
+    });
+  } catch (error) {
+    logger.error('fetchLocalPlacesByTypes: Error querying local places', error);
+    return [];
+  }
+
+  candidates.sort(sortLocalCandidates);
+  return candidates.slice(0, limit).map(entry => entry.suggestion);
+}
+
 const groupedReviews = onRequest(
     async (req, res) => {
       cors(req, res, async () => {
@@ -151,49 +521,81 @@ const updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{reviewI
 // --- FUNCIÓN placesNearbyRestaurants (MEJORADA) ---
 const placesNearbyRestaurants = onRequest(async (req, res) => {
   cors(req, res, async () => {
-    const { latitude, longitude, categoryId } = req.query;
+    const { latitude, longitude, categoryId, categoryTypes: rawCategoryTypes } = req.query;
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
-    if (!latitude || !longitude) {
+    const userLat = numberOrNull(latitude);
+    const userLon = numberOrNull(longitude);
+
+    if (!Number.isFinite(userLat) || !Number.isFinite(userLon)) {
       logger.warn("placesNearbyRestaurants: Latitud y longitud son requeridas.");
       return res.status(400).json({ message: "Latitud y longitud son requeridas." });
     }
     if (!categoryId) {
-        logger.warn("placesNearbyRestaurants: categoryId no fue proporcionado.");
-        return res.status(400).json({ message: "El ID de la categoría es requerido." });
+      logger.warn("placesNearbyRestaurants: categoryId no fue proporcionado.");
+      return res.status(400).json({ message: "El ID de la categoría es requerido." });
     }
+
+    const categoryTypes = await resolveCategoryPlaceTypes(categoryId, rawCategoryTypes);
+    const allowedTypesSet = buildAllowedTypesSet(categoryTypes);
+
+    let localResults = [];
+    try {
+      localResults = await fetchLocalPlacesByTypes(categoryTypes, {
+        userLat,
+        userLon,
+        limit: MAX_PLACES_SUGGESTIONS,
+        maxDistanceKm: MAX_LOCAL_NEARBY_DISTANCE_KM
+      });
+    } catch (error) {
+      logger.error('placesNearbyRestaurants: Error recuperando lugares locales', error);
+    }
+
     if (!apiKey) {
+      if (localResults.length) {
+        logger.warn('placesNearbyRestaurants: API key no disponible, devolviendo resultados locales', { localCount: localResults.length });
+        return res.status(200).json(localResults.slice(0, MAX_PLACES_SUGGESTIONS));
+      }
       logger.error("placesNearbyRestaurants: GOOGLE_PLACES_API_KEY no está disponible.");
       return res.status(500).json({ message: "Error de configuración del servidor." });
     }
 
-    let type = 'point_of_interest'; // Tipo por defecto si la categoría no especifica uno
-    try {
-        const categoryDoc = await db.collection('categories').doc(categoryId).get();
-        if (categoryDoc.exists) {
-            const categoryData = categoryDoc.data();
-            type = categoryData.googlePlaceType || type;
-            logger.info(`Búsqueda por cercanía para categoría ${categoryId} usando tipo: ${type}`);
-        }
-    } catch (error) {
-        logger.error(`Error buscando la categoría ${categoryId}:`, error);
-        return res.status(500).json({ message: "Error interno al buscar la categoría." });
+    if (localResults.length >= MIN_LOCAL_RESULTS_THRESHOLD) {
+      logger.info('placesNearbyRestaurants: suficientes resultados locales, se evita llamada a Google', {
+        categoryId,
+        localCount: localResults.length
+      });
+      return res.status(200).json(localResults.slice(0, MAX_PLACES_SUGGESTIONS));
     }
 
-    // Usamos rankby=distance, que ordena por cercanía y requiere un 'type', 'keyword' o 'name'.
-    // Es incompatible con 'radius'.
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&key=${apiKey}&language=es&rankby=distance&type=${encodeURIComponent(type)}`;
-    
-    logger.info("placesNearbyRestaurants: Fetching Google Places with rankby=distance", {url: url.replace(apiKey, "REDACTED_API_KEY")});
-    
+    const typeForGoogle = (categoryTypes && categoryTypes.length)
+      ? categoryTypes[0]
+      : 'point_of_interest';
+
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${userLat},${userLon}&key=${apiKey}&language=es&rankby=distance&type=${encodeURIComponent(typeForGoogle)}`;
+    logger.info("placesNearbyRestaurants: Fetching Google Places with rankby=distance", { url: url.replace(apiKey, "REDACTED_API_KEY"), categoryId });
+
     try {
       const placesResponse = await fetch(url);
       const placesData = await placesResponse.json();
+
       if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
-        res.status(200).json(placesData.results || []);
+        const rawResults = Array.isArray(placesData.results) ? placesData.results : [];
+        const filteredGoogle = filterGoogleResultsByTypes(rawResults, allowedTypesSet)
+          .slice(0, GOOGLE_NEARBY_RESULT_LIMIT)
+          .map(place => annotateGoogleResult(place, userLat, userLon));
+
+        const merged = mergePlaceResults(localResults, filteredGoogle, MAX_PLACES_SUGGESTIONS);
+        res.status(200).json(merged);
       } else {
-        logger.error("placesNearbyRestaurants: Error desde Google Places API", {status: placesData.status, error_message: placesData.error_message});
-        res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message });
+        logger.error("placesNearbyRestaurants: Error desde Google Places API", {
+          status: placesData.status,
+          error_message: placesData.error_message
+        });
+        res.status(500).json({
+          message: `Error de la API de Google Places: ${placesData.status}`,
+          details: placesData.error_message
+        });
       }
     } catch (error) {
       logger.error("placesNearbyRestaurants: Error al contactar Google Places API", error);
@@ -217,71 +619,95 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 const placesTextSearch = onRequest(async (req, res) => {
-    cors(req, res, async () => {
-        const { query, latitude, longitude } = req.query;
-        const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  cors(req, res, async () => {
+    const { query, latitude, longitude, categoryId, categoryTypes: rawCategoryTypes } = req.query;
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
-        if (!query) {
-            return res.status(400).json({ message: "El término de búsqueda (query) es requerido." });
-        }
-        if (!apiKey) {
-            return res.status(500).json({ message: "Error de configuración del servidor." });
-        }
+    if (!query || !query.trim()) {
+      return res.status(400).json({ message: "El término de búsqueda (query) es requerido." });
+    }
 
-        let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}&language=es&type=establishment`;
-        
-        if (latitude && longitude) {
-            url += `&location=${latitude},${longitude}&radius=40000`; // radio en metros (40km)
-        }
+    const trimmedQuery = query.trim();
+    const userLat = numberOrNull(latitude);
+    const userLon = numberOrNull(longitude);
 
-        logger.info("placesTextSearch: Fetching Google Places", { url: url.replace(apiKey, "REDACTED_API_KEY") });
-        
-        try {
-            const placesResponse = await fetch(url);
-            const placesData = await placesResponse.json();
+    const categoryTypes = await resolveCategoryPlaceTypes(categoryId, rawCategoryTypes);
+    const allowedTypesSet = buildAllowedTypesSet(categoryTypes);
 
-            if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
-                let results = placesData.results || [];
+    let localMatches = [];
+    try {
+      localMatches = await searchListopicPlacesByName(trimmedQuery, {
+        userLat,
+        userLon,
+        limit: MAX_PLACES_SUGGESTIONS,
+        categoryTypes
+      });
+    } catch (error) {
+      logger.error('placesTextSearch: Error al buscar lugares locales', error);
+      localMatches = [];
+    }
 
-                if (results.length > 0 && latitude && longitude) {
-                    const userLat = parseFloat(latitude);
-                    const userLon = parseFloat(longitude);
-                    const lowerCaseQuery = query.toLowerCase();
+    if (!apiKey) {
+      if (localMatches.length) {
+        logger.warn('placesTextSearch: API key no disponible, devolviendo resultados locales', {
+          query: trimmedQuery,
+          localCount: localMatches.length
+        });
+        return res.status(200).json(localMatches.slice(0, MAX_PLACES_SUGGESTIONS));
+      }
+      return res.status(500).json({ message: "Error de configuración del servidor." });
+    }
 
-                    results.forEach(place => {
-                        const lowerCaseName = place.name.toLowerCase();
-                        let matchScore = 0;
-                        if (lowerCaseName === lowerCaseQuery) matchScore = 3;
-                        else if (lowerCaseName.startsWith(lowerCaseQuery)) matchScore = 2;
-                        else if (lowerCaseName.includes(lowerCaseQuery)) matchScore = 1;
+    if (localMatches.length >= MIN_LOCAL_RESULTS_THRESHOLD) {
+      logger.info('placesTextSearch: suficientes coincidencias locales, se evita llamada a Google', {
+        query: trimmedQuery,
+        localCount: localMatches.length,
+        categoryId: categoryId || null
+      });
+      return res.status(200).json(localMatches.slice(0, MAX_PLACES_SUGGESTIONS));
+    }
 
-                        const placeLat = place.geometry.location.lat;
-                        const placeLon = place.geometry.location.lng;
-                        const distance = getDistance(userLat, userLon, placeLat, placeLon);
-                        place.distanceInKm = distance;
+    let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(trimmedQuery)}&key=${apiKey}&language=es`;
+    const typeForGoogle = (categoryTypes && categoryTypes.length) ? categoryTypes[0] : 'establishment';
+    url += `&type=${encodeURIComponent(typeForGoogle)}`;
 
-                        let distanceScore = 0;
-                        if (distance < 25) distanceScore = 10;
-                        else if (distance < 100) distanceScore = 5;
-                        else if (distance < 800) distanceScore = 1;
-                        else distanceScore = 0.1;
+    if (Number.isFinite(userLat) && Number.isFinite(userLon)) {
+      url += `&location=${userLat},${userLon}&radius=40000`;
+    }
 
-                        place.finalScore = matchScore * distanceScore;
-                    });
-
-                    results.sort((a, b) => b.finalScore - a.finalScore);
-                }
-                
-                res.status(200).json(results);
-            } else {
-                logger.error("placesTextSearch: Error desde Google Places API", { status: placesData.status, error_message: placesData.error_message });
-                res.status(500).json({ message: `Error de la API de Google Places: ${placesData.status}`, details: placesData.error_message });
-            }
-        } catch (error) {
-            logger.error("placesTextSearch: Error al contactar Google Places API", error);
-            res.status(500).json({ message: "Error interno al buscar lugares por texto." });
-        }
+    logger.info("placesTextSearch: Fetching Google Places", {
+      url: url.replace(apiKey, "REDACTED_API_KEY"),
+      categoryId: categoryId || null,
+      query: trimmedQuery
     });
+
+    try {
+      const placesResponse = await fetch(url);
+      const placesData = await placesResponse.json();
+
+      if (placesData.status === "OK" || placesData.status === "ZERO_RESULTS") {
+        const rawResults = Array.isArray(placesData.results) ? placesData.results : [];
+        const filteredGoogle = filterGoogleResultsByTypes(rawResults, allowedTypesSet)
+          .slice(0, GOOGLE_TEXT_RESULT_LIMIT)
+          .map(place => annotateGoogleResult(place, userLat, userLon));
+
+        const merged = mergePlaceResults(localMatches, filteredGoogle, MAX_PLACES_SUGGESTIONS);
+        res.status(200).json(merged);
+      } else {
+        logger.error("placesTextSearch: Error desde Google Places API", {
+          status: placesData.status,
+          error_message: placesData.error_message
+        });
+        res.status(500).json({
+          message: `Error de la API de Google Places: ${placesData.status}`,
+          details: placesData.error_message
+        });
+      }
+    } catch (error) {
+      logger.error("placesTextSearch: Error al contactar Google Places API", error);
+      res.status(500).json({ message: "Error interno al buscar lugares por texto." });
+    }
+  });
 });
 
 

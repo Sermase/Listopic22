@@ -177,14 +177,44 @@ ListopicApp.placesService = (() => {
             return;
         }
 
-        let categoryId;
-        try {
-            const listDoc = await ListopicApp.services.db.collection('lists').doc(listId).get();
-            categoryId = listDoc.exists ? listDoc.data().categoryId : null;
-        } catch (error) {
-            suggestionsBox.innerHTML = '<p style="color:var(--danger-color);">Error al cargar datos de la lista.</p>';
-            setStatus('error', 'Error al cargar datos de la lista.');
-            return;
+        let categoryId = typeof state.currentListCategoryId === 'string' ? state.currentListCategoryId : null;
+        let categoryTypes = Array.isArray(state.currentListCategoryGoogleTypes)
+            ? state.currentListCategoryGoogleTypes.filter(type => typeof type === 'string' && type.trim())
+            : [];
+
+        if (!categoryId) {
+            try {
+                const listDoc = await ListopicApp.services.db.collection('lists').doc(listId).get();
+                if (listDoc.exists) {
+                    const listData = listDoc.data() || {};
+                    if (typeof listData.categoryId === 'string') {
+                        categoryId = listData.categoryId;
+                        state.currentListCategoryId = categoryId;
+                    }
+                    const listCategoryTypes = Array.isArray(listData.categoryGooglePlaceTypes)
+                        ? listData.categoryGooglePlaceTypes
+                        : Array.isArray(listData.categoryGoogleTypes)
+                            ? listData.categoryGoogleTypes
+                            : null;
+                    const singleType = typeof listData.categoryGooglePlaceType === 'string'
+                        ? listData.categoryGooglePlaceType
+                        : null;
+                    const sanitizedTypes = Array.isArray(listCategoryTypes)
+                        ? listCategoryTypes.filter(type => typeof type === 'string' && type.trim())
+                        : [];
+                    if (sanitizedTypes.length) {
+                        categoryTypes = sanitizedTypes;
+                        state.currentListCategoryGoogleTypes = sanitizedTypes;
+                    } else if (singleType && singleType.trim()) {
+                        categoryTypes = [singleType.trim()];
+                        state.currentListCategoryGoogleTypes = categoryTypes;
+                    }
+                }
+            } catch (error) {
+                suggestionsBox.innerHTML = '<p style="color:var(--danger-color);">Error al cargar datos de la lista.</p>';
+                setStatus('error', 'Error al cargar datos de la lista.');
+                return;
+            }
         }
 
         if (!categoryId) {
@@ -194,11 +224,15 @@ ListopicApp.placesService = (() => {
         }
 
         try {
-            const places = await callPlaceFunction('placesNearbyRestaurants', {
+            const params = {
                 latitude: state.userLatitude,
                 longitude: state.userLongitude,
                 categoryId: categoryId
-            });
+            };
+            if (categoryTypes.length) {
+                params.categoryTypes = categoryTypes.join(',');
+            }
+            const places = await callPlaceFunction('placesNearbyRestaurants', params);
             displayPlaceSuggestions(places, suggestionsBox);
         } catch (error) {
             suggestionsBox.innerHTML = `<p style="color:var(--danger-color);">${escapeHtml(error.message)}</p>`;
@@ -244,6 +278,16 @@ ListopicApp.placesService = (() => {
         if (state.userLatitude && state.userLongitude) {
             params.latitude = state.userLatitude;
             params.longitude = state.userLongitude;
+        }
+
+        if (typeof state.currentListCategoryId === 'string' && state.currentListCategoryId) {
+            params.categoryId = state.currentListCategoryId;
+        }
+        const categoryTypes = Array.isArray(state.currentListCategoryGoogleTypes)
+            ? state.currentListCategoryGoogleTypes.filter(type => typeof type === 'string' && type.trim())
+            : [];
+        if (categoryTypes.length) {
+            params.categoryTypes = categoryTypes.join(',');
         }
 
         try {

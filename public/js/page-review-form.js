@@ -583,6 +583,25 @@ ListopicApp.pageReviewForm = (() => {
             }
 
             const listData = listSnap.data() || {};
+            state.currentListCategoryId = typeof listData.categoryId === 'string' ? listData.categoryId : null;
+            const listCategoryTypes = Array.isArray(listData.categoryGooglePlaceTypes)
+                ? listData.categoryGooglePlaceTypes
+                : Array.isArray(listData.categoryGoogleTypes)
+                    ? listData.categoryGoogleTypes
+                    : null;
+            const singleCategoryType = typeof listData.categoryGooglePlaceType === 'string'
+                ? listData.categoryGooglePlaceType
+                : null;
+            const sanitizedCategoryTypes = Array.isArray(listCategoryTypes)
+                ? listCategoryTypes.filter(type => typeof type === 'string' && type.trim())
+                : [];
+            if (sanitizedCategoryTypes.length) {
+                state.currentListCategoryGoogleTypes = sanitizedCategoryTypes;
+            } else if (singleCategoryType && singleCategoryType.trim()) {
+                state.currentListCategoryGoogleTypes = [singleCategoryType.trim()];
+            } else {
+                state.currentListCategoryGoogleTypes = null;
+            }
             state.currentListNameForSearch = listData.name || '';
             state.currentListCriteriaDefinitions = listData.criteriaDefinition || {};
 
@@ -846,6 +865,8 @@ ListopicApp.pageReviewForm = (() => {
 
         state.currentListId = listId;
         state.selectedFileForUpload = null;
+        state.currentListCategoryId = null;
+        state.currentListCategoryGoogleTypes = null;
 
         const listIdInput = document.getElementById('review-form-listId');
         if (listIdInput) {
