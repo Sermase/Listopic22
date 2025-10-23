@@ -21,6 +21,29 @@ ListopicApp.state = {
     globalRealtimeCleanup: [],
     notificationsCache: []
 };
+
+const buildGroupedDetailUrl = (options = {}) => {
+    const listId = options.listId || '';
+    const placeId = options.placeId || '';
+    const itemName = options.itemName || options.item || '';
+    const reviewId = options.reviewId || options.id || '';
+
+    if (!listId || !placeId) {
+        if (listId) {
+            return `list-view.html?listId=${encodeURIComponent(listId)}`;
+        }
+        return 'grouped-detail-view.html';
+    }
+
+    const params = new URLSearchParams({ listId, placeId });
+    if (itemName) {
+        params.set('item', itemName);
+    }
+    if (reviewId) {
+        params.set('reviewId', reviewId);
+    }
+    return `grouped-detail-view.html?${params.toString()}`;
+};
 ListopicApp.reviewActions = (() => {
     let initialized = false;
 
@@ -1917,12 +1940,24 @@ const mapNotificationToDisplayModel = (notification = {}) => {
     const listName = listNameRaw.trim();
     const listUrl = listId ? `list-view.html?listId=${encodeURIComponent(listId)}` : null;
     const reviewId = typeof notification.reviewId === 'string' ? notification.reviewId : null;
+    const placeId = typeof notification.placeId === 'string' ? notification.placeId : null;
     const itemNameRaw = typeof notification.itemName === 'string' ? notification.itemName : '';
     const itemName = itemNameRaw.trim();
-    const reviewUrl = notification.detailUrl
-        || (reviewId && listId
-            ? `detail-view.html?id=${encodeURIComponent(reviewId)}&listId=${encodeURIComponent(listId)}`
-            : null);
+    let reviewUrl = typeof notification.detailUrl === 'string' ? notification.detailUrl.trim() : '';
+    if (!reviewUrl || reviewUrl.includes('detail-view.html')) {
+        if (listId && placeId) {
+            reviewUrl = buildGroupedDetailUrl({
+                listId,
+                placeId,
+                itemName,
+                reviewId
+            });
+        } else if (listId) {
+            reviewUrl = `list-view.html?listId=${encodeURIComponent(listId)}`;
+        } else {
+            reviewUrl = null;
+        }
+    }
 
     const segments = [];
 
@@ -2696,10 +2731,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (pageName === 'list-view.html') {
                 if (ListopicApp.pageListView && ListopicApp.pageListView.init) {
                     ListopicApp.pageListView.init();
-                }
-            } else if (pageName === 'detail-view.html') {
-                if (ListopicApp.pageDetailView && ListopicApp.pageDetailView.init) {
-                    ListopicApp.pageDetailView.init();
                 }
             } else if (pageName === 'grouped-detail-view.html') {
                 if (ListopicApp.pageGroupedDetailView && ListopicApp.pageGroupedDetailView.init) {
