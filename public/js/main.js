@@ -1,4 +1,4 @@
-Ôªøwindow.ListopicApp = window.ListopicApp || {};
+window.ListopicApp = window.ListopicApp || {};
 
 // Initialize shared state container
 ListopicApp.state = {
@@ -16,7 +16,7 @@ ListopicApp.state = {
     currentGroupDetailCriteriaDefinition: {}, // Usar el mapa de criterios
     lightboxImageUrls: [],
     currentLightboxImageIndex: 0,
-    // Firebase services no deber√≠an estar en state, se acceden desde ListopicApp.services
+    // Firebase services no deberÌan estar en state, se acceden desde ListopicApp.services
     globalRealtimeInitialized: false,
     globalRealtimeCleanup: [],
     notificationsCache: []
@@ -65,6 +65,154 @@ ListopicApp.reviewActions = (() => {
             });
         }
     };
+
+    const ACTIONS_WITH_PRESSED_STATE = new Set(['like', 'dislike', 'comment', 'save']);
+    const PERSISTED_ACTIONS = new Set(['like', 'dislike', 'comment', 'save', 'share']);
+    const STORAGE_PREFIX = 'listopic.reviewAction.';
+    let storageAvailableCache = null;
+
+    const isStorageAvailable = () => {
+        if (storageAvailableCache !== null) {
+            return storageAvailableCache;
+        }
+        try {
+            const testKey = `${STORAGE_PREFIX}__test__`;
+            window.localStorage.setItem(testKey, '1');
+            window.localStorage.removeItem(testKey);
+            storageAvailableCache = true;
+        } catch (error) {
+            storageAvailableCache = false;
+        }
+        return storageAvailableCache;
+    };
+
+    const getActionStorageKey = (card, action) => {
+        if (!card || !action) return null;
+        const reviewId = card.dataset?.reviewId;
+        if (!reviewId) return null;
+        return `${STORAGE_PREFIX}${action}:${reviewId}`;
+    };
+
+    const persistActionState = (card, action, isActive) => {
+        if (!PERSISTED_ACTIONS.has(action) || !isStorageAvailable()) {
+            return;
+        }
+        const storageKey = getActionStorageKey(card, action);
+        if (!storageKey) {
+            return;
+        }
+        try {
+            if (isActive) {
+                window.localStorage.setItem(storageKey, '1');
+            } else {
+                window.localStorage.removeItem(storageKey);
+            }
+        } catch (error) {
+            // Ignore storage errors (private mode, quota, etc.)
+        }
+    };
+
+    const readPersistedActionState = (card, action) => {
+        if (!PERSISTED_ACTIONS.has(action) || !isStorageAvailable()) {
+            return false;
+        }
+        const storageKey = getActionStorageKey(card, action);
+        if (!storageKey) {
+            return false;
+        }
+        try {
+            return window.localStorage.getItem(storageKey) === '1';
+        } catch (error) {
+            return false;
+        }
+    };
+
+    const setActionActiveState = (card, action, isActive) => {
+        if (!card || !action) {
+            return;
+        }
+        const button = card.querySelector(`[data-review-action="${action}"]`);
+        if (!button) {
+            return;
+        }
+        const active = Boolean(isActive);
+        button.classList.toggle('is-active', active);
+        if (ACTIONS_WITH_PRESSED_STATE.has(action)) {
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        }
+        const datasetKey = `action${action.charAt(0).toUpperCase()}${action.slice(1)}Active`;
+        if (active) {
+            card.dataset[datasetKey] = '1';
+        } else {
+            delete card.dataset[datasetKey];
+        }
+        persistActionState(card, action, active);
+    };
+
+    const applyInitialActionStateToCard = (card, storageReadyOverride) => {
+        if (!card || card.dataset.actionsHydrated === '1') {
+            return;
+        }
+        const storageReady = typeof storageReadyOverride === 'boolean' ? storageReadyOverride : isStorageAvailable();
+        const reaction = (card.dataset.userReaction || '').toLowerCase();
+        if (reaction === 'like' || reaction === 'dislike') {
+            setActionActiveState(card, 'like', reaction === 'like');
+            setActionActiveState(card, 'dislike', reaction === 'dislike');
+        } else if (storageReady) {
+            setActionActiveState(card, 'like', readPersistedActionState(card, 'like'));
+            setActionActiveState(card, 'dislike', readPersistedActionState(card, 'dislike'));
+        } else {
+            setActionActiveState(card, 'like', false);
+            setActionActiveState(card, 'dislike', false);
+        }
+
+        if (storageReady) {
+            setActionActiveState(card, 'comment', readPersistedActionState(card, 'comment'));
+            setActionActiveState(card, 'save', readPersistedActionState(card, 'save'));
+            setActionActiveState(card, 'share', readPersistedActionState(card, 'share'));
+        } else {
+            setActionActiveState(card, 'comment', false);
+            setActionActiveState(card, 'save', false);
+            setActionActiveState(card, 'share', false);
+        }
+
+        card.dataset.actionsHydrated = '1';
+    };
+
+    let reviewActionStateObserver = null;
+
+    const restoreInitialActionStates = () => {
+        const cards = document.querySelectorAll('.review-super-card');
+        const storageReady = isStorageAvailable();
+        cards.forEach(card => applyInitialActionStateToCard(card, storageReady));
+
+        if (!reviewActionStateObserver && typeof MutationObserver === 'function') {
+            reviewActionStateObserver = new MutationObserver((mutations) => {
+                const observerStorageReady = isStorageAvailable();
+                mutations.forEach(mutation => {
+                    mutation.addedNodes.forEach(node => {
+                        if (!node || node.nodeType !== 1) {
+                            return;
+                        }
+                        if (node.classList && node.classList.contains('review-super-card')) {
+                            applyInitialActionStateToCard(node, observerStorageReady);
+                        } else if (typeof node.querySelectorAll === 'function') {
+                            node.querySelectorAll('.review-super-card').forEach(childCard => {
+                                applyInitialActionStateToCard(childCard, observerStorageReady);
+                            });
+                        }
+                    });
+                });
+            });
+            if (document && document.body) {
+                reviewActionStateObserver.observe(document.body, { childList: true, subtree: true });
+            } else {
+                reviewActionStateObserver.disconnect();
+                reviewActionStateObserver = null;
+            }
+        }
+    };
+
 
     const decodeDatasetValue = (() => {
         let textarea = null;
@@ -130,7 +278,7 @@ ListopicApp.reviewActions = (() => {
             entityType: 'review',
             listId: data.listId,
             reviewId: data.reviewId,
-            title: data.itemName || 'Rese√±a guardada',
+            title: data.itemName || 'ReseÒa guardada',
             subtitle: data.listName ? `Lista: ${data.listName}` : '',
             imageUrl: data.photoUrl || '',
             context: {
@@ -163,13 +311,14 @@ ListopicApp.reviewActions = (() => {
             }
             const descriptor = buildArchiveDescriptorFromReview(data);
             if (!descriptor) {
-                notify('No se pudo preparar esta rese√±a para guardar.', 'error');
+                notify('No se pudo preparar esta reseÒa para guardar.', 'error');
                 return;
             }
             try {
                 await archiveService.openSaveModal(descriptor);
+                setActionActiveState(card, 'save', true);
             } catch (error) {
-                console.error('[reviewActions] Error al abrir El Archivo desde el men√∫ de rese√±a:', error);
+                console.error('[reviewActions] Error al abrir El Archivo desde el men˙ de reseÒa:', error);
                 notify(error.message || 'No se pudo abrir El Archivo.', 'error');
             }
             return;
@@ -178,10 +327,12 @@ ListopicApp.reviewActions = (() => {
         if (action === 'share') {
             if (window.ListopicApp?.reviewShare?.open) {
                 window.ListopicApp.reviewShare.open(data);
+                setActionActiveState(card, 'share', true);
             } else {
                 const success = await handleShareFallback(data.detailUrl);
                 if (success) {
                     notify('Enlace preparado para compartir.', 'success');
+                    setActionActiveState(card, 'share', true);
                 } else {
                     notify('No se pudo compartir la rese\u00f1a.', 'error');
                 }
@@ -313,12 +464,14 @@ ListopicApp.reviewActions = (() => {
         initialized = true;
         document.addEventListener('click', onDocumentClick, true);
         document.addEventListener('keydown', onDocumentKeydown);
+        restoreInitialActionStates();
     };
 
     return {
         init,
         closeMenus: closeAllMenus,
-        getReviewData
+        getReviewData,
+        setActionActiveState
     };
 })();
 ListopicApp.reviewReactions = (() => {
@@ -459,7 +612,7 @@ ListopicApp.reviewReactions = (() => {
         try {
             await notificationsRef.add(payload);
         } catch (error) {
-            console.error('[reviewReactions] Error creando notificaci√≥n de reacci√≥n:', error);
+            console.error('[reviewReactions] Error creando notificaciÛn de reacciÛn:', error);
         }
     };
 
@@ -507,7 +660,7 @@ ListopicApp.reviewReactions = (() => {
         try {
             await notificationsRef.add(payload);
         } catch (error) {
-            console.error('[reviewComments] Error creando notificaci√≥n de comentario:', error);
+            console.error('[reviewComments] Error creando notificaciÛn de comentario:', error);
         }
     };
 
@@ -549,8 +702,6 @@ ListopicApp.reviewReactions = (() => {
             if (countEl) {
                 countEl.textContent = likeCount;
             }
-            likeBtn.classList.toggle('is-active', currentReaction === 'like');
-            likeBtn.setAttribute('aria-pressed', currentReaction === 'like' ? 'true' : 'false');
         }
 
         if (dislikeBtn) {
@@ -558,8 +709,21 @@ ListopicApp.reviewReactions = (() => {
             if (countEl) {
                 countEl.textContent = dislikeCount;
             }
-            dislikeBtn.classList.toggle('is-active', currentReaction === 'dislike');
-            dislikeBtn.setAttribute('aria-pressed', currentReaction === 'dislike' ? 'true' : 'false');
+        }
+
+        const actionsApi = window.ListopicApp?.reviewActions;
+        if (actionsApi && typeof actionsApi.setActionActiveState === 'function') {
+            actionsApi.setActionActiveState(card, 'like', currentReaction === 'like');
+            actionsApi.setActionActiveState(card, 'dislike', currentReaction === 'dislike');
+        } else {
+            if (likeBtn) {
+                likeBtn.classList.toggle('is-active', currentReaction === 'like');
+                likeBtn.setAttribute('aria-pressed', currentReaction === 'like' ? 'true' : 'false');
+            }
+            if (dislikeBtn) {
+                dislikeBtn.classList.toggle('is-active', currentReaction === 'dislike');
+                dislikeBtn.setAttribute('aria-pressed', currentReaction === 'dislike' ? 'true' : 'false');
+            }
         }
 
         card.dataset.reactionLikeCount = likeCount;
@@ -988,12 +1152,21 @@ ListopicApp.reviewComments = (() => {
                 const isOwner = Boolean(currentUserId && data.userId && currentUserId === data.userId);
                 return { id: doc.id, isOwner, ...data };
             }));
+            const hasUserComment = comments.some(comment => comment && comment.isOwner);
             renderComments(comments);
             updateCardCommentCount(currentContext.card, comments.length);
+            const actionsApi = window.ListopicApp?.reviewActions;
+            if (actionsApi && typeof actionsApi.setActionActiveState === 'function' && currentContext?.card) {
+                actionsApi.setActionActiveState(currentContext.card, 'comment', hasUserComment);
+            }
         } catch (error) {
             console.error('[reviewComments] Error cargando comentarios:', error);
             showNotification('No se pudieron cargar los comentarios.', 'error');
             renderComments([]);
+            const actionsApi = window.ListopicApp?.reviewActions;
+            if (actionsApi && typeof actionsApi.setActionActiveState === 'function' && activeContext?.card) {
+                actionsApi.setActionActiveState(activeContext.card, 'comment', false);
+            }
         } finally {
             toggleLoading(false);
         }
@@ -1085,7 +1258,7 @@ ListopicApp.reviewComments = (() => {
         if (!commentId) {
             return;
         }
-        if (!window.confirm('¬øEliminar este comentario?')) {
+        if (!window.confirm('øEliminar este comentario?')) {
             return;
         }
 
@@ -1243,7 +1416,7 @@ ListopicApp.reviewShare = (() => {
         const colorOptions = module?.getColorSchemeOptions?.() || [
             { value: 'midnight', label: 'Aurora nocturna' },
             { value: 'sunset', label: 'Atardecer brillante' },
-            { value: 'ocean', label: 'Olas fr√≠as' },
+            { value: 'ocean', label: 'Olas frÌas' },
             { value: 'forest', label: 'Bosque vivo' }
         ];
         storyColorSelect.innerHTML = colorOptions
@@ -1251,7 +1424,7 @@ ListopicApp.reviewShare = (() => {
             .join('');
         const styleOptions = module?.getGraphicStyleOptions?.() || [
             { value: 'bars', label: 'Barras' },
-            { value: 'radar', label: 'Gr√°fico radar' }
+            { value: 'radar', label: 'Gr·fico radar' }
         ];
         storyStyleSelect.innerHTML = styleOptions
             .map(option => `<option value="${option.value}">${option.label}</option>`)
@@ -1305,7 +1478,7 @@ ListopicApp.reviewShare = (() => {
         }
         const module = getStoryModule();
         if (!module) {
-            setStoryFeedback('La generaci√≥n de tarjetas no est√° disponible por ahora.', 'warning');
+            setStoryFeedback('La generaciÛn de tarjetas no est· disponible por ahora.', 'warning');
             if (storyButton) {
                 storyButton.disabled = true;
             }
@@ -1330,7 +1503,7 @@ ListopicApp.reviewShare = (() => {
             storyCustomization.graphicStyle = storyStyleSelect.value;
         }
         if (storyFeedbackElement && !storyFeedbackElement.hidden && storyFeedbackElement.dataset.type !== 'error') {
-            setStoryFeedback('Aplicaremos el nuevo estilo en la pr√≥xima tarjeta.', 'info');
+            setStoryFeedback('Aplicaremos el nuevo estilo en la prÛxima tarjeta.', 'info');
         }
     };
 
@@ -1374,7 +1547,7 @@ ListopicApp.reviewShare = (() => {
         try {
             const { context, criteriaDefinitions } = await prepareStoryContext();
             const { blob } = await module.createInstagramStoryCard(context, criteriaDefinitions, storyCustomization);
-            const fileName = `listopic-story-${context.review?.id || 'rese√±a'}.png`;
+            const fileName = `listopic-story-${context.review?.id || 'reseÒa'}.png`;
             const file = new File([blob], fileName, { type: 'image/png' });
             let shared = false;
             if (navigator.canShare) {
@@ -1382,18 +1555,18 @@ ListopicApp.reviewShare = (() => {
                     if (navigator.canShare({ files: [file] })) {
                         await navigator.share({
                             files: [file],
-                            title: `Mi rese√±a en ${context.place?.name || context.review?.establishmentName || 'Listopic'}`,
-                            text: context.review?.itemName ? `${context.review.itemName} en Listopic` : 'Mi rese√±a en Listopic'
+                            title: `Mi reseÒa en ${context.place?.name || context.review?.establishmentName || 'Listopic'}`,
+                            text: context.review?.itemName ? `${context.review.itemName} en Listopic` : 'Mi reseÒa en Listopic'
                         });
                         shared = true;
-                        setStoryFeedback('¬°Tarjeta lista! Completa la publicaci√≥n en Instagram.', 'success');
+                        setStoryFeedback('°Tarjeta lista! Completa la publicaciÛn en Instagram.', 'success');
                     }
                 } catch (error) {
                     if (error?.name === 'AbortError') {
                         setStoryFeedback('Compartir cancelado. Puedes descargar la tarjeta para subirla manualmente.', 'info');
                     } else {
                         console.warn('[reviewShare] Error compartiendo tarjeta:', error);
-                        setStoryFeedback('No pudimos compartir autom√°ticamente. Descarga la tarjeta para subirla t√∫.', 'info');
+                        setStoryFeedback('No pudimos compartir autom·ticamente. Descarga la tarjeta para subirla t˙.', 'info');
                     }
                 }
             }
@@ -1405,11 +1578,11 @@ ListopicApp.reviewShare = (() => {
                     storyDownloadLink.hidden = false;
                     storyDownloadLink.click();
                 }
-                setStoryFeedback('Descargamos la tarjeta. Busca la imagen en tu galer√≠a.', 'info');
+                setStoryFeedback('Descargamos la tarjeta. Busca la imagen en tu galerÌa.', 'info');
             }
         } catch (error) {
             console.error('[reviewShare] Error generando la tarjeta:', error);
-            setStoryFeedback('No pudimos generar la tarjeta. Int√©ntalo nuevamente.', 'error');
+            setStoryFeedback('No pudimos generar la tarjeta. IntÈntalo nuevamente.', 'error');
         } finally {
             setStoryButtonLoading(false);
             if (blobUrl) {
@@ -1430,7 +1603,7 @@ ListopicApp.reviewShare = (() => {
                     <i class="fas fa-times"></i>
                 </button>
                 <div class="help-modal__content review-share-modal__content">
-                    <h2 id="review-share-title" class="review-share-modal__title">Compartir rese√±a</h2>
+                    <h2 id="review-share-title" class="review-share-modal__title">Compartir reseÒa</h2>
                     <p class="review-share-modal__subtitle"></p>
                     <section class="review-share-modal__section">
                         <h3 class="review-share-modal__section-title">Compartir enlace</h3>
@@ -1445,7 +1618,7 @@ ListopicApp.reviewShare = (() => {
                         <h3 class="review-share-modal__section-title">Enviar a un chat</h3>
                         <div class="review-share-modal__chats">
                             <p class="review-share-modal__chats-loading">Cargando chats...</p>
-                            <p class="review-share-modal__chats-empty" hidden>No hay chats activos todav√≠a.</p>
+                            <p class="review-share-modal__chats-empty" hidden>No hay chats activos todavÌa.</p>
                             <div class="review-share-modal__chats-list"></div>
                         </div>
                         <p class="review-share-modal__chat-feedback" hidden></p>
@@ -1456,7 +1629,7 @@ ListopicApp.reviewShare = (() => {
                         <div class="review-share-modal__story-grid">
                             <label class="review-share-modal__story-label" for="review-share-story-color">Colores</label>
                             <select id="review-share-story-color" class="review-share-modal__story-select"></select>
-                            <label class="review-share-modal__story-label" for="review-share-story-style">Gr√°fico</label>
+                            <label class="review-share-modal__story-label" for="review-share-story-style">Gr·fico</label>
                             <select id="review-share-story-style" class="review-share-modal__story-select"></select>
                         </div>
                         <div class="review-share-modal__story-actions">
@@ -1911,7 +2084,7 @@ const truncateText = (text, maxLength = 140) => {
     if (normalized.length <= maxLength) {
         return normalized;
     }
-    return `${normalized.slice(0, maxLength - 1)}‚Ä¶`;
+    return `${normalized.slice(0, maxLength - 1)}Ö`;
 };
 
 const mapNotificationToDisplayModel = (notification = {}) => {
@@ -1920,11 +2093,11 @@ const mapNotificationToDisplayModel = (notification = {}) => {
         id: notification.id || '',
         type,
         read: Boolean(notification.read),
-        title: 'Notificaci√≥n',
+        title: 'NotificaciÛn',
         segments: [],
         iconClass: 'fas fa-bell',
         thumbnailUrl: '',
-        thumbnailAlt: 'Notificaci√≥n',
+        thumbnailAlt: 'NotificaciÛn',
         primaryLink: null,
         createdAt: parseNotificationTimestamp(notification.createdAt)
     };
@@ -1984,7 +2157,7 @@ const mapNotificationToDisplayModel = (notification = {}) => {
     } else if (type === 'review_comment') {
         const snippet = truncateText(notification.commentSnippet || notification.comment || '', 160);
 
-        model.title = 'Nuevo comentario en tu rese√±a';
+        model.title = 'Nuevo comentario en tu reseÒa';
         model.iconClass = 'fas fa-comment-dots';
         model.thumbnailUrl = notification.reviewPhotoUrl || notification.actorPhotoUrl || '';
         model.thumbnailAlt = itemName ? `Imagen de ${itemName}` : `Avatar de ${actorName}`;
@@ -1995,11 +2168,11 @@ const mapNotificationToDisplayModel = (notification = {}) => {
         } else {
             segments.push({ type: 'text', text: actorName });
         }
-        segments.push({ type: 'text', text: ' coment√≥ en tu rese√±a' });
+        segments.push({ type: 'text', text: ' comentÛ en tu reseÒa' });
 
         if (reviewUrl && itemName) {
             segments.push({ type: 'text', text: ' ' });
-            segments.push({ type: 'link', text: itemName, href: reviewUrl, title: `Ver rese√±a de ${itemName}` });
+            segments.push({ type: 'link', text: itemName, href: reviewUrl, title: `Ver reseÒa de ${itemName}` });
         } else if (itemName) {
             segments.push({ type: 'text', text: ` ${itemName}` });
         }
@@ -2021,10 +2194,10 @@ const mapNotificationToDisplayModel = (notification = {}) => {
             : '';
         const isDislike = reactionType === 'dislike';
         const actionText = isDislike
-            ? ' marc√≥ tu rese√±a como "No me gusta"'
-            : ' le dio Me gusta a tu rese√±a';
+            ? ' marcÛ tu reseÒa como "No me gusta"'
+            : ' le dio Me gusta a tu reseÒa';
 
-        model.title = 'Nueva reacci√≥n a tu rese√±a';
+        model.title = 'Nueva reacciÛn a tu reseÒa';
         model.iconClass = isDislike ? 'fas fa-thumbs-down' : 'fas fa-thumbs-up';
         model.thumbnailUrl = notification.reviewPhotoUrl || notification.actorPhotoUrl || '';
         model.thumbnailAlt = itemName ? `Imagen de ${itemName}` : `Avatar de ${actorName}`;
@@ -2039,7 +2212,7 @@ const mapNotificationToDisplayModel = (notification = {}) => {
 
         if (reviewUrl && itemName) {
             segments.push({ type: 'text', text: ' ' });
-            segments.push({ type: 'link', text: itemName, href: reviewUrl, title: `Ver rese√±a de ${itemName}` });
+            segments.push({ type: 'link', text: itemName, href: reviewUrl, title: `Ver reseÒa de ${itemName}` });
         } else if (itemName) {
             segments.push({ type: 'text', text: ` ${itemName}` });
         }
@@ -2052,11 +2225,11 @@ const mapNotificationToDisplayModel = (notification = {}) => {
         }
     } else {
         const message = notification.message || notification.text || notification.title || '';
-        model.title = notification.title || 'Notificaci√≥n';
+        model.title = notification.title || 'NotificaciÛn';
         if (typeof message === 'string' && message.trim().length > 0) {
             segments.push({ type: 'text', text: message.trim() });
         } else {
-            segments.push({ type: 'text', text: 'Tienes una nueva notificaci√≥n.' });
+            segments.push({ type: 'text', text: 'Tienes una nueva notificaciÛn.' });
         }
 
         if (notification.url) {
@@ -2150,7 +2323,7 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
         item.className = 'notification-item';
         if (linkTarget) {
             item.href = linkTarget;
-            item.setAttribute('aria-label', displayModel.title || 'Ver detalle de la notificaci√≥n');
+            item.setAttribute('aria-label', displayModel.title || 'Ver detalle de la notificaciÛn');
         }
         if (notification.id) {
             item.dataset.notificationId = notification.id;
@@ -2161,14 +2334,14 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
 
         const avatar = document.createElement('img');
         avatar.src = displayModel.thumbnailUrl || 'img/default-avatar.png';
-        avatar.alt = displayModel.thumbnailAlt || 'Avatar de notificaci√≥n';
+        avatar.alt = displayModel.thumbnailAlt || 'Avatar de notificaciÛn';
 
         const content = document.createElement('div');
         content.className = 'notification-content';
 
         const title = document.createElement('span');
         title.className = 'notification-title';
-        title.textContent = displayModel.title || 'Nueva notificaci√≥n';
+        title.textContent = displayModel.title || 'Nueva notificaciÛn';
 
         const meta = document.createElement('span');
         meta.className = 'notification-meta';
@@ -2198,7 +2371,7 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
             const authUser = auth && auth.currentUser;
             if (authUser) {
                 ListopicApp.services.markNotificationsAsRead(authUser.uid, [notification.id]).catch(error => {
-                    console.error('[main] Error marcando notificaci√≥n como le√≠da:', error);
+                    console.error('[main] Error marcando notificaciÛn como leÌda:', error);
                 });
             }
         };
@@ -2508,7 +2681,7 @@ function setupNotificationsUI(currentUser) {
                 mediaWrapper.className = 'notification-thumbnail-wrapper';
                 const thumbnail = document.createElement('img');
                 thumbnail.src = model.thumbnailUrl;
-                thumbnail.alt = model.thumbnailAlt || 'Imagen de notificaci√≥n';
+                thumbnail.alt = model.thumbnailAlt || 'Imagen de notificaciÛn';
                 thumbnail.loading = 'lazy';
                 mediaWrapper.appendChild(thumbnail);
             } else {
@@ -2527,14 +2700,14 @@ function setupNotificationsUI(currentUser) {
 
             const titleElement = document.createElement('h3');
             titleElement.className = 'notification-title';
-            titleElement.textContent = model.title || 'Notificaci√≥n';
+            titleElement.textContent = model.title || 'NotificaciÛn';
             mainWrapper.appendChild(titleElement);
 
             const messageElement = document.createElement('p');
             messageElement.className = 'notification-message';
             renderNotificationSegments(messageElement, model.segments, { closeModalCallback: closeModal });
             if (!messageElement.textContent.trim()) {
-                messageElement.textContent = 'Tienes una nueva notificaci√≥n.';
+                messageElement.textContent = 'Tienes una nueva notificaciÛn.';
             }
             mainWrapper.appendChild(messageElement);
 
@@ -2574,7 +2747,7 @@ function setupNotificationsUI(currentUser) {
         if (!currentUser) {
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'Inicia sesi√≥n para ver tus notificaciones.';
+            emptyElement.textContent = 'Inicia sesiÛn para ver tus notificaciones.';
             finalize();
             return;
         }
@@ -2582,7 +2755,7 @@ function setupNotificationsUI(currentUser) {
         if (!ListopicApp.services || typeof ListopicApp.services.getUserNotifications !== 'function') {
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'El servicio de notificaciones no est√° disponible en este momento.';
+            emptyElement.textContent = 'El servicio de notificaciones no est· disponible en este momento.';
             finalize();
             return;
         }
@@ -2618,7 +2791,7 @@ function setupNotificationsUI(currentUser) {
                         ? { ...notification, read: true }
                         : notification);
                 } catch (markError) {
-                    console.error('[main] Error marcando notificaciones como le√≠das desde el modal:', markError);
+                    console.error('[main] Error marcando notificaciones como leÌdas desde el modal:', markError);
                 }
             }
 
@@ -2627,7 +2800,7 @@ function setupNotificationsUI(currentUser) {
             console.error('main.js: No se pudieron cargar las notificaciones:', error);
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'No pudimos cargar tus notificaciones. Intenta nuevamente m√°s tarde.';
+            emptyElement.textContent = 'No pudimos cargar tus notificaciones. Intenta nuevamente m·s tarde.';
         } finally {
             finalize();
         }
@@ -2657,8 +2830,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // }
 
     if (!ListopicApp.services || !ListopicApp.services.auth || !ListopicApp.services.storage || !ListopicApp.services.db) {
-        console.error("MAIN.JS: Firebase services (auth, storage, db) no disponibles."); // <--- LOG 2 (si entra aqu√≠)
-        // Podr√≠as mostrar un error al usuario aqu√≠ si la app no puede funcionar.
+        console.error("MAIN.JS: Firebase services (auth, storage, db) no disponibles."); // <--- LOG 2 (si entra aquÌ)
+        // PodrÌas mostrar un error al usuario aquÌ si la app no puede funcionar.
         const body = document.querySelector('body');
         if (body) {
             body.innerHTML = '<p style="color:red; text-align:center; margin-top: 50px;">Error critico: La aplicacion no pudo inicializar los servicios base. Por favor, recarga o contacta soporte.</p>';
@@ -2671,18 +2844,18 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("MAIN.JS: Inicializando ThemeManager..."); // <--- LOG 4
         ListopicApp.themeManager.init();
     } else {
-        console.error("MAIN.JS: ThemeManager no disponible."); // <--- LOG 5 (si entra aqu√≠)
+        console.error("MAIN.JS: ThemeManager no disponible."); // <--- LOG 5 (si entra aquÌ)
     }
 
     if (ListopicApp.authService && ListopicApp.authService.init) {
         console.log("MAIN.JS: Inicializando AuthService..."); // <--- LOG 6
         ListopicApp.authService.init();
     } else {
-        console.error("MAIN.JS: AuthService no disponible."); // <--- LOG 7 (si entra aqu√≠)
+        console.error("MAIN.JS: AuthService no disponible."); // <--- LOG 7 (si entra aquÌ)
     }
 
     const pagePath = window.location.pathname;
-    const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1).toLowerCase(); // Convertido a min√∫sculas para consistencia
+    const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1).toLowerCase(); // Convertido a min˙sculas para consistencia
     console.log("MAIN.JS: pagePath detectado:", pagePath); // <--- LOG 8
     console.log("MAIN.JS: pageName calculado:", pageName); // <--- LOG 9
     const isIndexPage = pageName === '' || pageName === 'index.html';
@@ -2701,16 +2874,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pageName === 'auth.html') {
             console.log("MAIN.JS: Es auth.html, intentando inicializar pageAuth..."); // <--- LOG 12
             if (ListopicApp.pageAuth && ListopicApp.pageAuth.init) {
-                ListopicApp.pageAuth.init(); // pageAuth puede tener l√≥gica incluso si el usuario ya est√° logueado (para redirigir)
+                ListopicApp.pageAuth.init(); // pageAuth puede tener lÛgica incluso si el usuario ya est· logueado (para redirigir)
             }
         } else if (!user) {
-            // Si no es la pagina de autenticacion y no hay usuario, authService ya deber√≠a haber redirigido.
-            // No se inicializa ninguna otra l√≥gica de pagina.
-            console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService deber√≠a redirigir."); // <--- LOG 13
+            // Si no es la pagina de autenticacion y no hay usuario, authService ya deberÌa haber redirigido.
+            // No se inicializa ninguna otra lÛgica de pagina.
+            console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService deberÌa redirigir."); // <--- LOG 13
             return;
         } else {
-            // Usuario autenticado, o pagina p√∫blica que no requiere autenticacion (como index, si se decide)
-            console.log("MAIN.JS: Usuario autenticado o pagina p√∫blica. Procediendo a inicializar l√≥gica de pagina espec√≠fica."); // <--- LOG 14
+            // Usuario autenticado, o pagina p˙blica que no requiere autenticacion (como index, si se decide)
+            console.log("MAIN.JS: Usuario autenticado o pagina p˙blica. Procediendo a inicializar lÛgica de pagina especÌfica."); // <--- LOG 14
             initializeGlobalRealtimeFeatures(user);
             if (isIndexPage) {
                 console.log("MAIN.JS: Es Index page, intentando inicializar pageIndex..."); // <--- LOG 15
@@ -2720,7 +2893,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (pageName === 'review-form.html') {
                 console.log("MAIN.JS: Es review-form.html, intentando inicializar pageReviewForm..."); // <--- LOG 16
                 if (ListopicApp.pageReviewForm && ListopicApp.pageReviewForm.init) {
-                    ListopicApp.pageReviewForm.init(); // Aqu√≠ es donde se llamar√≠a a tu init
+                    ListopicApp.pageReviewForm.init(); // AquÌ es donde se llamarÌa a tu init
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageReviewForm.init no encontrado!"); // <--- LOG 17 (si falta)
                 }
@@ -2744,7 +2917,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (pageName === 'profile.html') {
                 console.log("MAIN.JS: Coincide 'profile.html', comprobando si pageProfile existe...");
                 if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
-                    console.log("MAIN.JS: Coincide 'profile.html', ejecutando pageProfile.init()..."); // Log de confirmaci√≥n
+                    console.log("MAIN.JS: Coincide 'profile.html', ejecutando pageProfile.init()..."); // Log de confirmaciÛn
                     ListopicApp.pageProfile.init();
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageProfile.init no encontrado!"); // Log de error
@@ -2753,15 +2926,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (ListopicApp.pageChats && ListopicApp.pageChats.init) {
                     ListopicApp.pageChats.init();
                 }
-            } else if (pageName === 'search.html') { // NUEVA CONDICI√ìN
+            } else if (pageName === 'search.html') { // NUEVA CONDICI”N
                 if (ListopicApp.pageSearch && ListopicApp.pageSearch.init) {
                     ListopicApp.pageSearch.init();
                 }
-            } else if (pageName === 'place-detail.html') { // P√ÅGINA DE LUGAR
+            } else if (pageName === 'place-detail.html') { // P¡GINA DE LUGAR
                 if (ListopicApp.pagePlace && ListopicApp.pagePlace.init) {
                     ListopicApp.pagePlace.init();
                 }
-            } else if (pageName === 'developer.html') { // P√ÅGINA DE LUGAR
+            } else if (pageName === 'developer.html') { // P¡GINA DE LUGAR
             if (ListopicApp.pagePlace && ListopicApp.pageDeveloper.init) {
                 ListopicApp.pagePlace.init();
                 }
@@ -2770,20 +2943,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     ListopicApp.pageChats.init();
                 }
             } else {
-                // Esta es la l√≠nea 95 en la estructura original del if/else if
-                console.warn("MAIN.JS: No se detect√≥ una pagina conocida. pageName:", pageName); // <--- LOG si ninguna coincide
+                // Esta es la lÌnea 95 en la estructura original del if/else if
+                console.warn("MAIN.JS: No se detectÛ una pagina conocida. pageName:", pageName); // <--- LOG si ninguna coincide
             }
         }
     }).catch(error => {
         console.error("MAIN.JS: Error en onAuthStateChangedPromise:", error); // <--- LOG 18 (si la promesa falla)
-        // Manejar error cr√≠tico si la autenticacion no se puede verificar
+        // Manejar error crÌtico si la autenticacion no se puede verificar
     });
 
-    console.log("MAIN.JS: Fin del script de inicializaci√≥n de main.js."); // <--- LOG 19
+    console.log("MAIN.JS: Fin del script de inicializaciÛn de main.js."); // <--- LOG 19
 
 
 
-    // --- L√≥gica para la Instalaci√≥n de la PWA (desde el Men√∫ de Usuario) ---
+    // --- LÛgica para la InstalaciÛn de la PWA (desde el Men˙ de Usuario) ---
 let deferredPrompt;
 const installMenuItem = document.getElementById('installPwaBtn');
 
@@ -2791,30 +2964,30 @@ const installMenuItem = document.getElementById('installPwaBtn');
 window.addEventListener('beforeinstallprompt', (e) => {
     // Prevenir que se muestre el mini-infobar por defecto
     e.preventDefault();
-    // Guardar el evento para usarlo despu√©s
+    // Guardar el evento para usarlo despuÈs
     deferredPrompt = e;
     
-    // Mostrar la opci√≥n en el men√∫ solo si no est√° ya instalada
+    // Mostrar la opciÛn en el men˙ solo si no est· ya instalada
     // y el navegador lo permite.
     if (installMenuItem && !isAppInstalled()) {
-        console.log("Evento 'beforeinstallprompt' capturado. Mostrando opci√≥n de instalar en el men√∫.");
+        console.log("Evento 'beforeinstallprompt' capturado. Mostrando opciÛn de instalar en el men˙.");
         installMenuItem.style.display = 'block';
     }
 });
 
-// Criterio 2: El usuario hace clic en nuestro bot√≥n del men√∫
+// Criterio 2: El usuario hace clic en nuestro botÛn del men˙
 if (installMenuItem) {
     installMenuItem.addEventListener('click', async () => {
-        // Asegurarnos de que a√∫n tenemos el evento
+        // Asegurarnos de que a˙n tenemos el evento
         if (deferredPrompt) {
-            // Mostrar el di√°logo de instalaci√≥n del navegador
+            // Mostrar el di·logo de instalaciÛn del navegador
             deferredPrompt.prompt();
             
             // Esperar la respuesta del usuario
             const { outcome } = await deferredPrompt.userChoice;
-            console.log(`Respuesta del usuario al prompt de instalaci√≥n: ${outcome}`);
+            console.log(`Respuesta del usuario al prompt de instalaciÛn: ${outcome}`);
 
-            // Si el usuario acepta, ya no necesitamos mostrar el bot√≥n
+            // Si el usuario acepta, ya no necesitamos mostrar el botÛn
             if (outcome === 'accepted') {
                 installMenuItem.style.display = 'none';
             }
@@ -2827,53 +3000,54 @@ if (installMenuItem) {
 
 // Criterio 3: La app se ha instalado correctamente
 window.addEventListener('appinstalled', () => {
-    // Ocultar la opci√≥n del men√∫ y limpiar todo
+    // Ocultar la opciÛn del men˙ y limpiar todo
     if (installMenuItem) {
         installMenuItem.style.display = 'none';
     }
     deferredPrompt = null;
-    console.log('PWA fue instalada con √©xito.');
+    console.log('PWA fue instalada con Èxito.');
     if(ListopicApp.services && ListopicApp.services.showNotification) {
-        ListopicApp.services.showNotification('¬°Listopic instalado! B√∫scalo en tu pantalla de inicio.', 'success');
+        ListopicApp.services.showNotification('°Listopic instalado! B˙scalo en tu pantalla de inicio.', 'success');
     }
 });
 
-// Funci√≥n de ayuda para saber si la app ya se est√° ejecutando como PWA
+// FunciÛn de ayuda para saber si la app ya se est· ejecutando como PWA
 function isAppInstalled() {
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Al cargar la pagina, si ya est√° en modo standalone, nos aseguramos
-// de que el bot√≥n no aparezca por si acaso.
+// Al cargar la pagina, si ya est· en modo standalone, nos aseguramos
+// de que el botÛn no aparezca por si acaso.
 if (isAppInstalled() && installMenuItem) {
-    console.log("La app ya se est√° ejecutando en modo standalone. La opci√≥n de instalar no se mostrar√°.");
+    console.log("La app ya se est· ejecutando en modo standalone. La opciÛn de instalar no se mostrar·.");
     installMenuItem.style.display = 'none';
 }
-// --- Fin de la L√≥gica de Instalaci√≥n de la PWA ---
+// --- Fin de la LÛgica de InstalaciÛn de la PWA ---
 
 
     
 });
 
 
-// Funci√≥n global para limpiar cache de etiquetas (√∫til para desarrollo)
+// FunciÛn global para limpiar cache de etiquetas (˙til para desarrollo)
 window.clearCategoryTagsCache = function() {
     if (ListopicApp.pageSearch && ListopicApp.pageSearch.clearTagsCache) {
         ListopicApp.pageSearch.clearTagsCache();
         console.log('Cache de etiquetas limpiado');
     } else {
-        console.warn('Funci√≥n de limpiar cache no disponible');
+        console.warn('FunciÛn de limpiar cache no disponible');
     }
 };
 
-// Registro del Service Worker para gestionar el cach√©
+// Registro del Service Worker para gestionar el cachÈ
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then((registration) => {
-      console.log('Service Worker registrado con √©xito:', registration);
+      console.log('Service Worker registrado con Èxito:', registration);
     }).catch((err) => {
       console.log('Fallo en el registro del Service Worker:', err);
     });
   });
 }
+
 

@@ -42,10 +42,15 @@ ListopicApp.pageGroupedDetailView = (() => {
         state.currentGroupDetailItem = decodeURIComponent(urlParams.get('item') || '');
 
         // --- Elementos del DOM (NUEVOS y ANTIGUOS) ---
-        const groupTitleEl = document.getElementById('group-title');
+        const groupTitleTagEl = document.getElementById('group-title-tag');
+        const groupItemTitleEl = document.getElementById('group-item-title');
         const listNameSubheaderEl = document.getElementById('list-name-subheader');
         const placeDetailLinkEl = document.getElementById('place-detail-link');
-        const placeNameLinkTextEl = document.getElementById('place-name-link-text');
+        const groupPlaceNameEl = document.getElementById('group-place-name');
+        const groupPlaceImageEl = document.getElementById('group-place-image');
+        const listopicRatingEl = document.getElementById('group-listopic-rating');
+        const googleRatingChipEl = document.getElementById('group-google-rating-chip');
+        const googleRatingValueEl = document.getElementById('group-google-rating');
         const gmapsLinkEl = document.getElementById('gmaps-link');
         const groupAverageScoreEl = document.getElementById('group-average-score')?.querySelector('.score-value');
         const groupReviewCountEl = document.getElementById('group-review-count')?.querySelector('.count-value');
@@ -54,13 +59,15 @@ ListopicApp.pageGroupedDetailView = (() => {
         const individualReviewsListEl = document.getElementById('individual-reviews-list');
         const saveToArchiveBtn = document.getElementById('group-save-to-archive-btn');
         const backToListButton = document.getElementById('back-to-list-view');
+        let heroImageUrl = null;
 
         if (backToListButton) backToListButton.href = `list-view.html?listId=${state.currentGroupDetailListId || ''}`;
 
 
         if (!state.currentGroupDetailListId || !placeIdFromUrl) {
             const errorMsg = "Error: Faltan parámetros para cargar el detalle.";
-            if (groupTitleEl) groupTitleEl.textContent = errorMsg;
+            if (groupItemTitleEl) groupItemTitleEl.textContent = errorMsg;
+            if (groupTitleTagEl) groupTitleTagEl.textContent = "Error";
             if (individualReviewsListEl) individualReviewsListEl.innerHTML = `<p>${errorMsg}</p>`;
             ListopicApp.services.showNotification(errorMsg, "error");
             return;
@@ -146,19 +153,75 @@ ListopicApp.pageGroupedDetailView = (() => {
             }
 
             // 2. Poblar la cabecera con datos del lugar y la lista
-            let titleText = placeData.name || "Lugar Desconocido";
-            if (state.currentGroupDetailItem) titleText += ` - ${uiUtils.escapeHtml(state.currentGroupDetailItem)}`;
-            if (groupTitleEl) groupTitleEl.textContent = titleText;
-            if (listNameSubheaderEl) listNameSubheaderEl.textContent = `En lista: ${uiUtils.escapeHtml(state.currentGroupDetailListName)}`;
-            
-            if (placeDetailLinkEl) {
-                placeDetailLinkEl.href = `place-detail.html?placeId=${placeData.id}`;
-                placeDetailLinkEl.style.display = 'inline-flex';
-                if(placeNameLinkTextEl) placeNameLinkTextEl.textContent = `Ver página de "${uiUtils.escapeHtml(placeData.name)}"`;
+            const itemTitle = state.currentGroupDetailItem
+                ? uiUtils.escapeHtml(state.currentGroupDetailItem)
+                : uiUtils.escapeHtml(placeData.name || 'Elemento sin nombre');
+
+            if (groupTitleTagEl) {
+                const listName = state.currentGroupDetailListName || 'Grupo';
+                groupTitleTagEl.textContent = listName;
+
+                if (state.currentGroupDetailListId) {
+                    const listHref = `list-view.html?listId=${encodeURIComponent(state.currentGroupDetailListId)}`;
+                    groupTitleTagEl.href = listHref;
+                    groupTitleTagEl.classList.remove('is-disabled');
+                    groupTitleTagEl.setAttribute('title', `Ir a la lista ${listName}`);
+                    groupTitleTagEl.setAttribute('aria-label', `Ir a la lista ${listName}`);
+                } else {
+                    groupTitleTagEl.removeAttribute('href');
+                    groupTitleTagEl.classList.add('is-disabled');
+                    groupTitleTagEl.removeAttribute('title');
+                    groupTitleTagEl.removeAttribute('aria-label');
+                }
             }
-            if (gmapsLinkEl && placeData.googleMapsUrl) {
-                gmapsLinkEl.href = placeData.googleMapsUrl;
-                gmapsLinkEl.style.display = 'inline-flex';
+            if (groupItemTitleEl) {
+                groupItemTitleEl.textContent = itemTitle;
+            }
+            if (listNameSubheaderEl) {
+                listNameSubheaderEl.textContent = `En lista: ${uiUtils.escapeHtml(state.currentGroupDetailListName || 'Desconocida')}`;
+            }
+
+            if (placeDetailLinkEl) {
+                if (placeData.id) {
+                    placeDetailLinkEl.href = `place-detail.html?placeId=${placeData.id}`;
+                    placeDetailLinkEl.classList.remove('is-disabled');
+                } else {
+                    placeDetailLinkEl.href = '#';
+                    placeDetailLinkEl.classList.add('is-disabled');
+                }
+            }
+            if (groupPlaceNameEl) {
+                groupPlaceNameEl.textContent = placeData.name || 'Lugar no disponible';
+            }
+            if (groupPlaceImageEl) {
+                const candidatePhotos = Array.isArray(placeData.photos) ? placeData.photos : [];
+                const primaryImage = placeData.mainImageUrl || candidatePhotos[0] || 'img/listopic-logo.png';
+                groupPlaceImageEl.src = primaryImage;
+                groupPlaceImageEl.alt = `Foto de ${placeData.name || 'lugar'}`;
+                heroImageUrl = primaryImage;
+            }
+            if (gmapsLinkEl) {
+                if (placeData.googleMapsUrl) {
+                    gmapsLinkEl.href = placeData.googleMapsUrl;
+                    gmapsLinkEl.style.display = 'inline-flex';
+                } else {
+                    gmapsLinkEl.style.display = 'none';
+                }
+            }
+            const googleRating = typeof placeData.googleRating === 'number'
+                ? placeData.googleRating
+                : (typeof placeData.rating === 'number' ? placeData.rating : null);
+            if (googleRatingValueEl && googleRatingChipEl) {
+                if (Number.isFinite(googleRating)) {
+                    googleRatingValueEl.textContent = googleRating.toFixed(1);
+                    googleRatingChipEl.style.display = 'inline-flex';
+                } else {
+                    googleRatingChipEl.style.display = 'none';
+                }
+            }
+            if (listopicRatingEl) {
+                const initialListopic = Number.isFinite(placeData.averageRating) ? placeData.averageRating.toFixed(1) : '—';
+                listopicRatingEl.textContent = initialListopic;
             }
 
             // 3. Obtener y enriquecer reseñas
@@ -197,10 +260,43 @@ ListopicApp.pageGroupedDetailView = (() => {
                 }
             });
             state.lightboxImageUrls = [...new Set(state.lightboxImageUrls)];
+            if (heroImageUrl) {
+                if (!state.lightboxImageUrls.includes(heroImageUrl)) {
+                    state.lightboxImageUrls.unshift(heroImageUrl);
+                }
+                if (groupPlaceImageEl && !groupPlaceImageEl.dataset.lightboxBound) {
+                    const openHeroLightbox = () => {
+                        const currentIndex = state.lightboxImageUrls.indexOf(heroImageUrl);
+                        if (currentIndex >= 0) {
+                            openLightbox(currentIndex);
+                        } else {
+                            state.lightboxImageUrls.unshift(heroImageUrl);
+                            openLightbox(0);
+                        }
+                    };
+
+                    groupPlaceImageEl.dataset.lightboxBound = 'true';
+                    groupPlaceImageEl.classList.add('is-clickable-lightbox');
+                    groupPlaceImageEl.setAttribute('tabindex', '0');
+                    groupPlaceImageEl.setAttribute('role', 'button');
+                    groupPlaceImageEl.title = 'Ampliar imagen';
+                    groupPlaceImageEl.setAttribute('aria-label', 'Ampliar imagen del lugar');
+                    groupPlaceImageEl.addEventListener('click', openHeroLightbox);
+                    groupPlaceImageEl.addEventListener('keydown', (event) => {
+                        if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+                            event.preventDefault();
+                            openHeroLightbox();
+                        }
+                    });
+                }
+            }
             
             // Renderizar estadísticas principales
             const groupAvgScore = enrichedReviews.length > 0 ? (totalOverallScoreSum / enrichedReviews.length) : 0;
             if (groupAverageScoreEl) groupAverageScoreEl.textContent = groupAvgScore.toFixed(1);
+            if (listopicRatingEl && enrichedReviews.length > 0) {
+                listopicRatingEl.textContent = groupAvgScore.toFixed(1);
+            }
             if (groupReviewCountEl) groupReviewCountEl.textContent = enrichedReviews.length;
 
             // 5. Renderizar BARRAS DE CRITERIOS PROMEDIADAS

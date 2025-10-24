@@ -2121,24 +2121,6 @@ small.non-weighted-header { /* Para (NP) en cabeceras */
 }
 
 
-/* --- Estilos para Grouped Detail View (grouped-detail-view.html) --- */
-.grouped-detail-header {
-    text-align: center;
-    margin-bottom: 25px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid var(--input-border);
-}
-.grouped-detail-header h2 {
-    font-size: clamp(1.8em, 5vw, 2.5em); 
-    color: var(--title-color);
-    margin-bottom: 5px;
-}
-.grouped-detail-header #list-name-subheader {
-    font-size: 1em;
-    color: var(--secondary-text-color);
-    margin-top: 0;
-}
-
 .group-summary-section, .group-images-section, .individual-reviews-section {
     margin-bottom: 30px;
 }
@@ -6289,20 +6271,28 @@ body.light-theme .info-tag:hover {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 10px;
+    padding: 6px 12px;
     border-radius: 999px;
     border: 1px solid var(--border-color-light);
     background-color: transparent;
-    color: var(--text-color);
+    color: var(--text-color-strong, var(--text-color));
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
-    transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     white-space: nowrap;
 }
 
 .review-action-button i {
-    font-size: 1rem;
+    font-size: 1.15rem;
+    color: inherit;
+    transition: color 0.2s ease;
+}
+
+.review-action-button.save-button i,
+.review-action-button.share-button i,
+.review-action-button.comments-button i {
+    font-size: 1.15rem;
 }
 
  .review-action-button .action-count {
@@ -6320,25 +6310,57 @@ body.light-theme .info-tag:hover {
     align-items: center;
 }
 
-.review-action-button:hover,
-.review-action-button:focus-visible {
+.review-action-button:not(.is-active):hover,
+.review-action-button:not(.is-active):focus-visible {
     background-color: var(--container-bg-secondary);
     color: var(--accent-color-primary);
     box-shadow: var(--shadow-elevation-low);
 }
 
 .review-action-button.is-active {
-    background-color: rgba(17, 138, 178, 0.15);
-    border-color: var(--accent-color-tertiary);
-    color: var(--accent-color-primary);
+    background-color: transparent;
+    border-color: var(--border-color-light);
+    box-shadow: none;
 }
 
-.review-action-button.like-button {
-    color: var(--accent-color-primary);
+.review-action-button.is-active.like-button {
+    color: #ff4d6a;
 }
 
-.review-action-button.dislike-button {
-    color: var(--danger-color);
+.review-action-button.is-active.like-button i {
+    color: #ff4d6a;
+}
+
+.review-action-button.is-active.dislike-button {
+    color: #3b82f6;
+}
+
+.review-action-button.is-active.dislike-button i {
+    color: #3b82f6;
+}
+
+.review-action-button.is-active.comments-button {
+    color: #f6c549;
+}
+
+.review-action-button.is-active.comments-button i {
+    color: #f6c549;
+}
+
+.review-action-button.is-active.save-button {
+    color: #2ecc71;
+}
+
+.review-action-button.is-active.save-button i {
+    color: #2ecc71;
+}
+
+.review-action-button.is-active.share-button {
+    color: inherit;
+}
+
+.review-action-button.is-active.share-button i {
+    color: inherit;
 }
 
 @media (min-width: 769px) {
@@ -6446,6 +6468,7 @@ body.light-theme .info-tag:hover {
         border: none;
         background: transparent;
         overflow: visible;
+        box-shadow: none;
     }
     .review-action-button .action-label {
         display: none;
@@ -6464,18 +6487,20 @@ body.light-theme .info-tag:hover {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 42px;
-        height: 42px;
-        font-size: 1.3rem;
-        border-radius: 50%;
-        background-color: var(--container-bg-secondary);
+        width: 46px;
+        height: 46px;
+        font-size: 1.45rem;
+        border-radius: 16px;
+        background: linear-gradient(145deg, var(--container-bg), var(--container-bg-secondary));
+        border: 1px solid var(--border-color-light);
         box-shadow: var(--shadow-elevation-low);
-        transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        color: inherit;
+        backdrop-filter: blur(6px);
+        transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
     .review-action-button:hover i,
-    .review-action-button:focus-visible i,
-    .review-action-button.is-active i {
-        background-color: rgba(var(--primary-bg-rgb-values), 0.85);
+    .review-action-button:focus-visible i {
+        transform: translateY(-2px);
         box-shadow: var(--shadow-elevation-medium);
     }
 
@@ -7570,62 +7595,222 @@ body.light-theme .leaflet-popup-tip {
 
 
 /* =================================================== */
-/* === ESTILOS PARA LA NUEVA CABECERA DE GRUPO (v1) === */
+/* === CABECERA DEL DETALLE AGRUPADO ==================== */
 /* =================================================== */
 
 .group-header-card {
     background-color: var(--container-bg-secondary);
     border-radius: var(--border-radius-large);
-    padding: clamp(15px, 3vw, 25px);
+    padding: clamp(16px, 3vw, 28px);
     margin-bottom: 25px;
     border: 1px solid var(--border-color-light);
     box-shadow: var(--shadow-elevation-low);
     display: flex;
     flex-wrap: wrap;
-    gap: 20px;
+    gap: clamp(18px, 2.5vw, 28px);
 }
 
-.group-header__main-info {
-    flex: 1 1 300px; /* Crece y tiene una base de 300px */
-    text-align: left;
+.group-header__info-column {
+    flex: 1 1 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
 }
 
-.group-header__main-info h2 {
-    font-size: clamp(1.6em, 4vw, 2.2em);
-    margin: 0 0 5px 0;
-    text-align: left;
+.group-header__titles {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.group-header__main-info #group-subtitle {
-    margin: 0 0 15px 0;
+.group-title-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(var(--accent-color-primary-rgb, 29,185,84), 0.16);
+    color: var(--accent-color-primary);
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    width: fit-content;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.group-title-tag:hover,
+.group-title-tag:focus-visible {
+    background: rgba(var(--accent-color-primary-rgb, 29,185,84), 0.24);
+    color: var(--accent-color-primary);
+    outline: none;
+}
+
+.group-title-tag.is-disabled {
+    cursor: default;
+    pointer-events: none;
+    opacity: 0.75;
+}
+
+.group-item-title {
+    margin: 0;
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    color: var(--title-color);
+}
+
+.group-subtitle {
+    margin: 0;
     color: var(--secondary-text-color);
     font-size: 0.9em;
 }
 
-.place-info-actions {
+.group-place-card {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    background: var(--container-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-medium);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-elevation-low);
+}
+
+.group-place-card__media {
+    width: 96px;
+    height: 96px;
+    border-radius: var(--border-radius-medium);
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
+}
+
+.group-place-card__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.group-place-card__media img.is-clickable-lightbox {
+    cursor: zoom-in;
+}
+
+.group-place-card__media img.is-clickable-lightbox:focus-visible {
+    outline: 2px solid var(--accent-color-primary);
+    outline-offset: 3px;
+}
+
+.group-place-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1 1 auto;
+}
+
+.group-place-card__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 1.05em;
+    color: var(--title-color);
+    text-decoration: none;
+}
+
+.group-place-card__name:hover,
+.group-place-card__name:focus-visible {
+    color: var(--accent-color-primary);
+    text-decoration: underline;
+}
+
+.group-place-card__name.is-disabled {
+    color: var(--secondary-text-color);
+    cursor: default;
+    pointer-events: none;
+    text-decoration: none;
+}
+
+.group-place-card__name.is-disabled:hover,
+.group-place-card__name.is-disabled:focus-visible {
+    color: var(--secondary-text-color);
+    text-decoration: none;
+}
+
+.group-place-card__ratings {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
 
-/* Reutilizamos y adaptamos el estilo de info-tag */
-.info-tag.info-tag--place, .info-tag.info-tag--gmaps {
+.rating-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.rating-chip__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.rating-chip__value {
+    font-size: 1.1em;
+    font-weight: 700;
+}
+
+.rating-chip--listopic {
+    background: rgba(var(--accent-color-primary-rgb, 29,185,84), 0.18);
+    color: var(--accent-color-primary);
+}
+
+.rating-chip--google {
+    background: rgba(66, 133, 244, 0.16);
+    color: #4385f4;
+}
+
+.light-theme .rating-chip--listopic {
+    background: rgba(var(--accent-color-primary-rgb, 29,185,84), 0.12);
+}
+
+.light-theme .rating-chip--google {
+    background: rgba(66, 133, 244, 0.12);
+    color: #1a73e8;
+}
+
+.place-info-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.group-header__info-column .place-info-actions {
+    margin-top: 4px;
+}
+
+.place-info-actions .info-tag {
     text-decoration: none;
     font-size: 0.85em;
     padding: 6px 12px;
 }
 
 .group-header__stats-and-criteria {
-    flex: 1 1 350px; /* Crece y tiene una base mayor */
+    flex: 1 1 340px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 18px;
 }
 
 .header-stats-container {
     display: flex;
     gap: 20px;
-    padding-bottom: 10px;
+    padding-bottom: 12px;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -7651,6 +7836,29 @@ body.light-theme .leaflet-popup-tip {
     font-style: italic;
     font-size: 0.9em;
     opacity: 0.7;
+}
+
+@media (max-width: 900px) {
+    .group-header-card {
+        flex-direction: column;
+    }
+    .group-header__stats-and-criteria {
+        flex: 1 1 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .group-place-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .group-place-card__media {
+        width: 100%;
+        height: 180px;
+    }
+    .grouped-detail-container .back-button {
+        margin-top: 18px;
+    }
 }
 
 /* =================================================== */
@@ -7826,10 +8034,11 @@ body.light-theme .leaflet-popup-tip {
     gap: 5px;
 }
 
-.reaction-button, .comments-button {
+.reaction-button,
+.comments-button {
     background: none;
     border: none;
-    color: var(--text-color);
+    color: var(--text-color-strong, #111111);
     font-size: 0.9em;
     font-weight: 500;
     cursor: pointer;
@@ -7839,20 +8048,36 @@ body.light-theme .leaflet-popup-tip {
     transition: color 0.2s ease, transform 0.1s ease;
 }
 
-.reaction-button:hover, .comments-button:hover {
+.reaction-button i,
+.comments-button i {
+    font-size: 1.15em;
+    color: inherit;
+}
+
+.reaction-button:not(.is-active):hover,
+.comments-button:not(.is-active):hover {
     color: var(--accent-color-primary);
     transform: translateY(-1px);
 }
-.reaction-button i, .comments-button i {
-    font-size: 1.1em;
+
+.reaction-button.is-active.like-button,
+.reaction-button.is-active.like-button i {
+    color: #ff4d6a;
 }
 
-.like-button .fa-heart {
-    color: var(--accent-color-primary);
+.reaction-button.is-active.dislike-button,
+.reaction-button.is-active.dislike-button i {
+    color: #3b82f6;
 }
 
-.dislike-button .fa-sad-tear {
-    color: var(--danger-color);
+.comments-button.is-active,
+.comments-button.is-active i {
+    color: #f6c549;
+}
+
+.save-button.is-active,
+.save-button.is-active i {
+    color: #2ecc71;
 }
 
 .stats-item .count {
@@ -7898,7 +8123,7 @@ body.light-theme .leaflet-popup-tip {
 .reaction-button, .comments-button {
     background: none;
     border: none;
-    color: var(--text-color);
+    color: var(--text-color-strong, #111111);
     font-size: 0.9em;
     font-weight: 500;
     cursor: pointer;
@@ -7908,20 +8133,34 @@ body.light-theme .leaflet-popup-tip {
     transition: color 0.2s ease, transform 0.1s ease;
 }
 
-.reaction-button:hover, .comments-button:hover {
+.reaction-button:not(.is-active):hover, .comments-button:not(.is-active):hover {
     color: var(--accent-color-primary);
     transform: translateY(-1px);
 }
-.reaction-button i, .comments-button i {
-    font-size: 1.1em;
+.reaction-button i,
+.comments-button i {
+    font-size: 1.15em;
+    color: inherit;
 }
 
-.like-button .fa-heart {
-    color: var(--accent-color-primary);
+.reaction-button.is-active.like-button,
+.reaction-button.is-active.like-button i {
+    color: #ff4d6a;
 }
 
-.dislike-button .fa-sad-tear {
-    color: var(--danger-color);
+.reaction-button.is-active.dislike-button,
+.reaction-button.is-active.dislike-button i {
+    color: #3b82f6;
+}
+
+.comments-button.is-active,
+.comments-button.is-active i {
+    color: #f6c549;
+}
+
+.save-button.is-active,
+.save-button.is-active i {
+    color: #2ecc71;
 }
 
 .stats-item .count {
