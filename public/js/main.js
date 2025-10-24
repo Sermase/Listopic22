@@ -180,6 +180,7 @@ ListopicApp.reviewActions = (() => {
     };
 
     let reviewActionStateObserver = null;
+    let archiveUpdateHandler = null;
 
     const restoreInitialActionStates = () => {
         const cards = document.querySelectorAll('.review-super-card');
@@ -316,7 +317,6 @@ ListopicApp.reviewActions = (() => {
             }
             try {
                 await archiveService.openSaveModal(descriptor);
-                setActionActiveState(card, 'save', true);
             } catch (error) {
                 console.error('[reviewActions] Error al abrir El Archivo desde el menú de reseña:', error);
                 notify(error.message || 'No se pudo abrir El Archivo.', 'error');
@@ -465,6 +465,22 @@ ListopicApp.reviewActions = (() => {
         document.addEventListener('click', onDocumentClick, true);
         document.addEventListener('keydown', onDocumentKeydown);
         restoreInitialActionStates();
+        if (!archiveUpdateHandler) {
+            archiveUpdateHandler = (event) => {
+                const detail = event.detail || {};
+                const entityKey = detail.entityKey;
+                if (!entityKey) {
+                    return;
+                }
+                const cards = document.querySelectorAll(`.review-super-card[data-archive-entity-key="${entityKey}"]`);
+                if (!cards || cards.length === 0) {
+                    return;
+                }
+                const isSaved = Array.isArray(detail.archiveIds) && detail.archiveIds.length > 0;
+                cards.forEach(card => setActionActiveState(card, 'save', isSaved));
+            };
+            window.addEventListener('archive:updated', archiveUpdateHandler);
+        }
     };
 
     return {
@@ -3049,5 +3065,7 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
+
+
 
 

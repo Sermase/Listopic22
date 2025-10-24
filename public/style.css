@@ -7780,8 +7780,8 @@ body.light-theme .leaflet-popup-tip {
 }
 
 .light-theme .rating-chip--google {
-    background: rgba(66, 133, 244, 0.12);
-    color: #1a73e8;
+    background: rgba(251, 188, 4, 0.2);
+    color: #fbbc04;
 }
 
 .place-info-actions {
@@ -7849,12 +7849,21 @@ body.light-theme .leaflet-popup-tip {
 
 @media (max-width: 640px) {
     .group-place-card {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
     }
     .group-place-card__media {
-        width: 100%;
-        height: 180px;
+        width: 70px;
+        height: 70px;
+    }
+    .group-place-card__body {
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .group-place-card__ratings {
+        flex-wrap: wrap;
+        gap: 8px;
     }
     .grouped-detail-container .back-button {
         margin-top: 18px;
@@ -10411,6 +10420,12 @@ body.chat-list-modal-open {
     position: sticky;
     bottom: 0;
     z-index: 2;
+}
+
+#archive-modal .archive-modal__actions {
+    background: transparent;
+    padding: 20px 0 16px;
+    box-shadow: none;
 }
 
 .archive-modal__actions .button {

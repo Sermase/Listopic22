@@ -407,6 +407,7 @@ ListopicApp.uiUtils = {
         });
         const safeDetailUrl = uiUtils.escapeHtml(detailUrl);
         const isOwner = Boolean(currentUserId && authorId && currentUserId === authorId);
+        const archiveEntityKey = (listId && review.id) ? `review:${listId}:${review.id}` : '';
 
         const placeDetailLinkHtml = placeId && placeId !== '#'
             ? `<a href="place-detail.html?placeId=${placeId}" class="place-name-link place-name-link--title" onclick="event.stopPropagation()">${placeName}</a>`
@@ -572,6 +573,7 @@ ListopicApp.uiUtils = {
                 data-reaction-dislike-count="${dislikeCount}"
                 data-comment-count="${commentsCount}"
                 data-user-reaction="${viewerReaction}"
+                data-archive-entity-key="${uiUtils.escapeHtml(archiveEntityKey)}"
                 data-category-id="${uiUtils.escapeHtml(categoryId)}"
                 data-category-like-label="${categoryLikeLabelEscaped}"
                 data-category-dislike-label="${categoryDislikeLabelEscaped}"
