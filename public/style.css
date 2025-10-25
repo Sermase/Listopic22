@@ -6461,7 +6461,7 @@ body.light-theme .info-tag:hover {
         flex-direction: row;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 6px;
         width: auto;
         height: auto;
         padding: 0;
@@ -6475,7 +6475,7 @@ body.light-theme .info-tag:hover {
     }
     .review-action-button .action-count {
         position: static;
-        margin-left: 0;
+        margin-left: 2px;
         min-width: 0;
         padding: 0;
         font-size: 0.9rem;
@@ -6487,21 +6487,21 @@ body.light-theme .info-tag:hover {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 46px;
-        height: 46px;
-        font-size: 1.45rem;
-        border-radius: 16px;
-        background: linear-gradient(145deg, var(--container-bg), var(--container-bg-secondary));
-        border: 1px solid var(--border-color-light);
-        box-shadow: var(--shadow-elevation-low);
+        width: auto;
+        height: auto;
+        font-size: 1.2rem;
+        border-radius: 8px;
+        background: none;
+        border: none;
+        box-shadow: none;
         color: inherit;
-        backdrop-filter: blur(6px);
-        transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        backdrop-filter: none;
+        transition: color 0.2s ease;
     }
     .review-action-button:hover i,
     .review-action-button:focus-visible i {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-elevation-medium);
+        transform: none;
+        box-shadow: none;
     }
 
     .reaction-burst {
