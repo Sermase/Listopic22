@@ -1,4 +1,4 @@
-ï»¿window.ListopicApp = window.ListopicApp || {};
+window.ListopicApp = window.ListopicApp || {};
 
 ListopicApp.archiveService = (() => {
     const FIELD_VALUE = () => firebase.firestore.FieldValue;
@@ -7,7 +7,7 @@ ListopicApp.archiveService = (() => {
         {
             id: '__default-quiero-ir',
             name: 'Quiero ir',
-            description: 'Guarda aquÃ­ los lugares o elementos que quieres probar.',
+            description: 'Guarda aquí los lugares o elementos que quieres probar.',
             systemId: 'WANT_TO_GO',
             sortOrder: 10
         },
@@ -98,7 +98,7 @@ ListopicApp.archiveService = (() => {
                         </div>
                         <div class="archive-modal__empty" hidden>
                             <i class="fas fa-folder-open" aria-hidden="true"></i>
-                            <span>TodavÃ­a no tienes archivos personales. Â¡Crea el primero!</span>
+                            <span>Todavía no tienes archivos personales. ¡Crea el primero!</span>
                         </div>
                         <div class="archive-modal__list" id="archive-modal-list"></div>
                         <div class="archive-modal__create">
@@ -348,16 +348,6 @@ ListopicApp.archiveService = (() => {
         }
     }
 
-    function redirectToArchivePageIfNeeded() {
-        if (typeof window === 'undefined' || !window.location) {
-            return;
-        }
-        const currentPage = (window.location.pathname || '').split('/').pop();
-        if (currentPage === 'archive.html') {
-            return;
-        }
-        window.location.assign('archive.html');
-    }
 
     function renderArchiveList() {
         if (!state.archivesListEl) {
@@ -418,7 +408,7 @@ ListopicApp.archiveService = (() => {
     async function ensureUserIdAvailable() {
         const auth = getAuth();
         if (!auth) {
-            throw new Error('Servicio de autenticaciÃ³n no disponible.');
+            throw new Error('Servicio de autenticación no disponible.');
         }
         let user = auth.currentUser;
         if (user) {
@@ -429,7 +419,7 @@ ListopicApp.archiveService = (() => {
             user = await window.ListopicApp.authService.onAuthStateChangedPromise();
         }
         if (!user) {
-            throw new Error('Debes iniciar sesiÃ³n para guardar en tus archivos.');
+            throw new Error('Debes iniciar sesión para guardar en tus archivos.');
         }
         state.userId = user.uid;
         return user.uid;
@@ -674,9 +664,8 @@ ListopicApp.archiveService = (() => {
             dispatchArchiveUpdated(state.currentEntity.entityKey, targetArchiveIds);
             showNotification('Elemento actualizado en tus archivos.', 'success');
             closeModal();
-            redirectToArchivePageIfNeeded();
         } catch (error) {
-            console.error('[archiveService] Error guardando selecciÃ³n', error);
+            console.error('[archiveService] Error guardando selección', error);
             showNotification(error.message || 'No se pudo guardar en tus archivos.', 'error');
         } finally {
             state.isSaving = false;
@@ -754,7 +743,7 @@ ListopicApp.archiveService = (() => {
             }
             await Promise.all(tasks);
         } catch (error) {
-            console.error('[archiveService] Error al mover elemento tras reseÃ±a', error);
+            console.error('[archiveService] Error al mover elemento tras reseña', error);
         }
     }
 
@@ -815,3 +804,4 @@ ListopicApp.archiveService = (() => {
         }
     };
 })();
+

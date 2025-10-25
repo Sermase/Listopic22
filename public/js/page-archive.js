@@ -43,9 +43,25 @@ ListopicApp.pageArchive = (() => {
     });
 
     const resolveItemLink = (item) => {
-        if (item.entityType === 'review' && item.listId && item.reviewId) {
-            const params = new URLSearchParams({ listId: item.listId, id: item.reviewId });
-            return `detail-view.html?${params.toString()}`;
+        if (item.entityType === 'review') {
+            const listId = item.listId || item.context?.listId || null;
+            const placeId = item.placeId || item.context?.placeId || null;
+            const itemName = item.itemName || item.context?.itemName || null;
+            const reviewId = item.reviewId || null;
+            const buildGroupedUrl = ListopicApp.uiUtils?.buildGroupedDetailUrl;
+            if (listId && placeId) {
+                if (typeof buildGroupedUrl === 'function') {
+                    return buildGroupedUrl({ listId, placeId, itemName, reviewId });
+                }
+                const params = new URLSearchParams({ listId, placeId });
+                if (itemName) params.set('item', itemName);
+                if (reviewId) params.set('reviewId', reviewId);
+                return `grouped-detail-view.html?${params.toString()}`;
+            }
+            if (listId) {
+                return `list-view.html?listId=${encodeURIComponent(listId)}`;
+            }
+            return null;
         }
         if (item.entityType === 'group' && item.listId && item.placeId) {
             const params = new URLSearchParams({

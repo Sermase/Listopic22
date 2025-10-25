@@ -341,6 +341,29 @@ ListopicApp.uiUtils = {
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     },
 
+    buildGroupedDetailUrl: function(options = {}) {
+        const listId = options.listId || '';
+        const placeId = options.placeId || '';
+        const itemName = options.itemName || options.item || '';
+        const reviewId = options.reviewId || options.id || options.reviewID || '';
+
+        if (!listId || !placeId) {
+            if (listId) {
+                return `list-view.html?listId=${encodeURIComponent(listId)}`;
+            }
+            return 'grouped-detail-view.html';
+        }
+
+        const params = new URLSearchParams({ listId, placeId });
+        if (itemName) {
+            params.set('item', itemName);
+        }
+        if (reviewId) {
+            params.set('reviewId', reviewId);
+        }
+        return `grouped-detail-view.html?${params.toString()}`;
+    },
+
     // ==========================================================
 // === FUNCIÓN CENTRALIZADA: SUPER TARJETA RESEÑA v3.0 =====
 // ==========================================================
@@ -376,9 +399,15 @@ ListopicApp.uiUtils = {
         const overallRating = Number.isFinite(overallRatingValue) ? overallRatingValue.toFixed(1) : '0.0';
         const ratingColor = this.getRatingColor(overallRating);
 
-        const detailUrl = `detail-view.html?id=${review.id || ''}&listId=${listId}`;
-        const dataDetailUrl = uiUtils.escapeHtml(detailUrl);
+        const detailUrl = uiUtils.buildGroupedDetailUrl({
+            listId,
+            placeId,
+            itemName: itemNameRaw,
+            reviewId: review.id || ''
+        });
+        const safeDetailUrl = uiUtils.escapeHtml(detailUrl);
         const isOwner = Boolean(currentUserId && authorId && currentUserId === authorId);
+        const archiveEntityKey = (listId && review.id) ? `review:${listId}:${review.id}` : '';
 
         const placeDetailLinkHtml = placeId && placeId !== '#'
             ? `<a href="place-detail.html?placeId=${placeId}" class="place-name-link place-name-link--title" onclick="event.stopPropagation()">${placeName}</a>`
@@ -526,7 +555,7 @@ ListopicApp.uiUtils = {
             </div>`;
 
         return `
-            <article class="review-super-card" onclick="window.location.href='${detailUrl}';"
+            <article class="review-super-card" onclick="window.location.href=this.dataset.detailUrl;"
                 data-review-id="${uiUtils.escapeHtml(review.id || '')}"
                 data-list-id="${uiUtils.escapeHtml(listId)}"
                 data-author-id="${uiUtils.escapeHtml(authorId)}"
@@ -535,7 +564,7 @@ ListopicApp.uiUtils = {
                 data-item-name="${uiUtils.escapeHtml(itemNameRaw)}"
                 data-place-id="${uiUtils.escapeHtml(placeId)}"
                 data-place-name="${uiUtils.escapeHtml(placeNameRaw)}"
-                data-detail-url="${dataDetailUrl}"
+                data-detail-url="${safeDetailUrl}"
                 data-overall-rating="${overallRating}"
                 data-photo-url="${uiUtils.escapeHtml(review.photoUrl || '')}"
                 data-comment="${uiUtils.escapeHtml(review.comment || '')}"
@@ -544,6 +573,7 @@ ListopicApp.uiUtils = {
                 data-reaction-dislike-count="${dislikeCount}"
                 data-comment-count="${commentsCount}"
                 data-user-reaction="${viewerReaction}"
+                data-archive-entity-key="${uiUtils.escapeHtml(archiveEntityKey)}"
                 data-category-id="${uiUtils.escapeHtml(categoryId)}"
                 data-category-like-label="${categoryLikeLabelEscaped}"
                 data-category-dislike-label="${categoryDislikeLabelEscaped}"
@@ -632,7 +662,12 @@ ListopicApp.uiUtils = {
 
 createListViewGroupCard: function(group, listData, listIcon) {
     const uiUtils = this;
-    const detailUrl = `grouped-detail-view.html?listId=${group.listId}&placeId=${group.placeId}&item=${encodeURIComponent(group.itemName || "")}`;
+    const rawDetailUrl = uiUtils.buildGroupedDetailUrl({
+        listId: group.listId,
+        placeId: group.placeId,
+        itemName: group.itemName || group.establishmentName || ''
+    });
+    const detailUrl = uiUtils.escapeHtml(rawDetailUrl);
 
     // Desglose de criterios con BARRAS DE PROGRESO (tu lógica se mantiene)
     let criteriaHtml = '';
@@ -694,7 +729,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
     const safeGroupId = uiUtils.escapeHtml(String(group.groupId || `${group.listId || 'list'}-${group.placeId || 'place'}-${group.itemName || 'item'}`));
 
     return `
-        <article class="review-list-card" role="button" tabindex="0" data-testid="${cardAutomationId}" data-entity-type="grouped-item" data-entity-id="${safeGroupId}" data-list-id="${uiUtils.escapeHtml(String(group.listId || ''))}" data-place-id="${uiUtils.escapeHtml(String(group.placeId || ''))}" data-item-name="${uiUtils.escapeHtml(String(group.itemName || group.establishmentName || ''))}" onclick="window.location.href='${detailUrl}'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='${detailUrl}';}">
+        <article class="review-list-card" role="button" tabindex="0" data-testid="${cardAutomationId}" data-entity-type="grouped-item" data-entity-id="${safeGroupId}" data-list-id="${uiUtils.escapeHtml(String(group.listId || ''))}" data-place-id="${uiUtils.escapeHtml(String(group.placeId || ''))}" data-item-name="${uiUtils.escapeHtml(String(group.itemName || group.establishmentName || ''))}" data-detail-url="${detailUrl}" onclick="window.location.href=this.dataset.detailUrl;" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href=this.dataset.detailUrl;}">
             <div class="review-list-card__image-container">${imageHtml}</div>
             <div class="review-list-card__main-content">
                 <h4 class="review-list-card__title">${uiUtils.escapeHtml(group.itemName || group.establishmentName)}</h4>
