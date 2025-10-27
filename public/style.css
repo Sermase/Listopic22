@@ -8149,7 +8149,7 @@ body.light-theme .leaflet-popup-tip {
 .reaction-button i,
 .comments-button i {
     font-size: 1.15em;
-    color: inherit;
+    color: var(--text-color-strong, var(--text-color));
 }
 
 .reaction-button.is-active.like-button,
