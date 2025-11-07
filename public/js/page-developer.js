@@ -112,6 +112,19 @@ ListopicApp.pageDeveloper = (() => {
 
         const auditPlaceIdsBtn = document.getElementById('audit-place-ids-btn');
         if (auditPlaceIdsBtn) auditPlaceIdsBtn.addEventListener('click', runPlaceIdAudit);
+
+        // Listeners para los botones de Algolia
+        const syncAllBtn = document.getElementById('algolia-sync-all-btn');
+        if (syncAllBtn) syncAllBtn.addEventListener('click', () => backfillAlgolia(null));
+
+        const syncListsBtn = document.getElementById('algolia-sync-lists-btn');
+        if (syncListsBtn) syncListsBtn.addEventListener('click', () => backfillAlgolia('lists'));
+
+        const syncUsersBtn = document.getElementById('algolia-sync-users-btn');
+        if (syncUsersBtn) syncUsersBtn.addEventListener('click', () => backfillAlgolia('users'));
+
+        const syncPlacesBtn = document.getElementById('algolia-sync-places-btn');
+        if (syncPlacesBtn) syncPlacesBtn.addEventListener('click', () => backfillAlgolia('places'));
     }
 
     function updateActionButtonsState() {
@@ -556,7 +569,7 @@ ListopicApp.pageDeveloper = (() => {
 
         try {
             const functions = firebase.app().functions('europe-west1');
-            const backfill = functions.httpsCallable('algolia-adminBackfillAlgolia');
+            const backfill = functions.httpsCallable('adminBackfillAlgolia');
             const collections = collectionName ? [collectionName] : ['lists', 'users', 'places'];
             
             for (const collection of collections) {
