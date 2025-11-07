@@ -1,5 +1,6 @@
 'use strict';
 
+const functions = require("firebase-functions");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
@@ -11,21 +12,29 @@ let algoliaClient = null;
 const indices = {};
 const ensuredSettings = new Set();
 
-(function initAlgoliaClient() {
-    const appId = process.env.ALGOLIA_APP_ID;
-    const apiKey = process.env.ALGOLIA_API_KEY;
-    if (!appId || !apiKey) {
-        logger.warn("Algolia: environment variables not configured. Module inactive.");
-        return;
+function getIndex(indexName) {
+    if (!algoliaClient) {
+        const appId = process.env.ALGOLIA_APP_ID;
+        const apiKey = process.env.ALGOLIA_API_KEY;
+        if (!appId || !apiKey) {
+            logger.warn("Algolia: environment variables not configured. Module inactive.");
+            return null;
+        }
+        try {
+            algoliaClient = algoliasearch(appId, apiKey);
+            logger.info("Algolia client initialised on first use.");
+        } catch (error) {
+            logger.error("Algolia: unable to initialise client.", error);
+            algoliaClient = null;
+            return null;
+        }
     }
-    try {
-        algoliaClient = algoliasearch(appId, apiKey);
-        logger.info("Algolia client initialised.");
-    } catch (error) {
-        logger.error("Algolia: unable to initialise client.", error);
-        algoliaClient = null;
+
+    if (!indices[indexName]) {
+        indices[indexName] = algoliaClient.initIndex(indexName);
     }
-})();
+    return indices[indexName];
+}
 
 const COLLECTION_CONFIGS = {
     lists: {
@@ -74,16 +83,6 @@ const INDEX_SETTINGS = {
         numericAttributesForFiltering: ["avgGeneralScore", "reviewCount"]
     }
 };
-
-function getIndex(indexName) {
-    if (!algoliaClient) {
-        return null;
-    }
-    if (!indices[indexName]) {
-        indices[indexName] = algoliaClient.initIndex(indexName);
-    }
-    return indices[indexName];
-}
 
 async function getIndexWithSettings(indexName) {
     const index = getIndex(indexName);
