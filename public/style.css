@@ -8132,7 +8132,7 @@ body.light-theme .leaflet-popup-tip {
 .reaction-button, .comments-button {
     background: none;
     border: none;
-    color: var(--text-color-strong, #111111);
+    color: var(--text-color-strong);
     font-size: 0.9em;
     font-weight: 500;
     cursor: pointer;

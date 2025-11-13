@@ -436,7 +436,10 @@ ListopicApp.uiUtils = {
         const placeUrlRaw = place.googleMapsUrl || '#';
         const placeUrl = uiUtils.escapeHtml(placeUrlRaw);
 
-        const listId = review.listId || '';
+        const listId = review.listId
+            || review.parentListId
+            || (review.list && review.list.id)
+            || '';
         const listNameRaw = review.listName || 'Lista Desconocida';
         const listName = uiUtils.escapeHtml(listNameRaw);
 
@@ -827,7 +830,34 @@ createListViewGroupCard: function(group, listData, listIcon) {
         try {
             if (!reviewDocs || reviewDocs.length === 0) return [];
 
-            const reviewsData = reviewDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const reviewsData = reviewDocs.map(doc => {
+                const rawData = (doc && typeof doc.data === 'function') ? (doc.data() || {}) : {};
+                const parentListId = doc && doc.ref && doc.ref.parent && doc.ref.parent.parent
+                    ? doc.ref.parent.parent.id
+                    : '';
+                const normalized = {
+                    id: doc.id,
+                    ...rawData
+                };
+
+                if (!normalized.listId && parentListId) {
+                    normalized.listId = parentListId;
+                }
+                if (!normalized.userId && normalized.authorId) {
+                    normalized.userId = normalized.authorId;
+                }
+                if (!normalized.placeId) {
+                    const fallbackPlaceId = (normalized.place && normalized.place.id)
+                        || normalized.establishmentId
+                        || normalized.placeID
+                        || '';
+                    if (fallbackPlaceId) {
+                        normalized.placeId = fallbackPlaceId;
+                    }
+                }
+
+                return normalized;
+            });
 
             const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
             const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];

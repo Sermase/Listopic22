@@ -135,7 +135,6 @@ ListopicApp.pageIndex = (() => {
     }
 
     async function init() {
-        console.log('Initializing Index page logic (epic)...');
 
         const db = ListopicApp.services.db;
         const auth = ListopicApp.services.auth;
