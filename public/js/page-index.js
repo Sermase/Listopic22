@@ -135,7 +135,6 @@ ListopicApp.pageIndex = (() => {
     }
 
     async function init() {
-        console.log('Initializing Index page logic (epic)...');
 
         const db = ListopicApp.services.db;
         const auth = ListopicApp.services.auth;
@@ -311,7 +310,38 @@ ListopicApp.pageIndex = (() => {
                                 return tb - ta;
                             });
 
-                            const docQueue = allDocs.slice(0, 30);
+                            let docQueue = allDocs.slice(0, 30);
+
+                            // Filtrar reseñas privadas: solo mostrar reseñas de listas públicas.
+                            try {
+                                const listIds = [...new Set(docQueue.map(doc => {
+                                    const data = typeof doc.data === 'function' ? (doc.data() || {}) : {};
+                                    return data.listId || null;
+                                }).filter(Boolean))];
+
+                                if (listIds.length > 0) {
+                                    const listSnaps = await Promise.all(
+                                        listIds.map(id => db.collection('lists').doc(id).get().catch(() => null))
+                                    );
+                                    const allowedListIds = new Set(
+                                        listSnaps
+                                            .filter(snap => snap?.exists && snap.data()?.isPublic === true)
+                                            .map(snap => snap.id)
+                                    );
+                                    docQueue = docQueue.filter(doc => {
+                                        const data = typeof doc.data === 'function' ? (doc.data() || {}) : {};
+                                        return data.listId && allowedListIds.has(data.listId);
+                                    });
+                                }
+                            } catch (filterError) {
+                                console.warn('INDEX: No se pudieron filtrar listas privadas del feed:', filterError);
+                            }
+
+                            if (docQueue.length === 0) {
+                                feed.innerHTML = '<p class="loading-placeholder">Tus seguidos todavía no tienen reseñas públicas para mostrar.</p>';
+                                return;
+                            }
+
                             ui.setupLazyReviewList({
                                 container: feed,
                                 batchSize: 5,
@@ -379,6 +409,16 @@ ListopicApp.pageIndex = (() => {
                                 reviewsCount: p.reviewsCount || 0,
                             };
                         }).filter(p => p.location && typeof p.location.latitude === 'number' && typeof p.location.longitude === 'number' && (p.reviewsCount || 0) > 0 && (p.avgGeneralScore || 0) > 0);
+
+                        if (ui && typeof ui.refreshPlacePhotoIfNeeded === 'function') {
+                            const refreshTargets = places
+                                .filter(place => !place.mainImageUrl || ui.isLegacyGooglePhotoUrl(place.mainImageUrl))
+                                .slice(0, 10);
+                            if (refreshTargets.length) {
+                                await Promise.all(refreshTargets.map(place => ui.refreshPlacePhotoIfNeeded(place).catch(() => null)));
+                            }
+                        }
+
                         addGlobalPlacesToMap(places);
                 } catch (e) { console.error('INDEX: Error cargando lugares para el mapa global', e); }
                 } else if (globalMapInstance) {

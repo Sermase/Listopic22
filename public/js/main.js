@@ -1,4 +1,4 @@
-window.ListopicApp = window.ListopicApp || {};
+ï»¿window.ListopicApp = window.ListopicApp || {};
 
 // Initialize shared state container
 ListopicApp.state = {
@@ -16,7 +16,7 @@ ListopicApp.state = {
     currentGroupDetailCriteriaDefinition: {}, // Usar el mapa de criterios
     lightboxImageUrls: [],
     currentLightboxImageIndex: 0,
-    // Firebase services no deberían estar en state, se acceden desde ListopicApp.services
+    // Firebase services no deberÃ­an estar en state, se acceden desde ListopicApp.services
     globalRealtimeInitialized: false,
     globalRealtimeCleanup: [],
     notificationsCache: []
@@ -279,7 +279,7 @@ ListopicApp.reviewActions = (() => {
             entityType: 'review',
             listId: data.listId,
             reviewId: data.reviewId,
-            title: data.itemName || 'Reseña guardada',
+            title: data.itemName || 'ReseÃ±a guardada',
             subtitle: data.listName ? `Lista: ${data.listName}` : '',
             imageUrl: data.photoUrl || '',
             context: {
@@ -312,13 +312,13 @@ ListopicApp.reviewActions = (() => {
             }
             const descriptor = buildArchiveDescriptorFromReview(data);
             if (!descriptor) {
-                notify('No se pudo preparar esta reseña para guardar.', 'error');
+                notify('No se pudo preparar esta reseÃ±a para guardar.', 'error');
                 return;
             }
             try {
                 await archiveService.openSaveModal(descriptor);
             } catch (error) {
-                console.error('[reviewActions] Error al abrir El Archivo desde el menú de reseña:', error);
+                console.error('[reviewActions] Error al abrir El Archivo desde el menÃº de reseÃ±a:', error);
                 notify(error.message || 'No se pudo abrir El Archivo.', 'error');
             }
             return;
@@ -628,7 +628,7 @@ ListopicApp.reviewReactions = (() => {
         try {
             await notificationsRef.add(payload);
         } catch (error) {
-            console.error('[reviewReactions] Error creando notificación de reacción:', error);
+            console.error('[reviewReactions] Error creando notificaciÃ³n de reacciÃ³n:', error);
         }
     };
 
@@ -676,7 +676,7 @@ ListopicApp.reviewReactions = (() => {
         try {
             await notificationsRef.add(payload);
         } catch (error) {
-            console.error('[reviewComments] Error creando notificación de comentario:', error);
+            console.error('[reviewComments] Error creando notificaciÃ³n de comentario:', error);
         }
     };
 
@@ -1274,7 +1274,7 @@ ListopicApp.reviewComments = (() => {
         if (!commentId) {
             return;
         }
-        if (!window.confirm('¿Eliminar este comentario?')) {
+        if (!window.confirm('Â¿Eliminar este comentario?')) {
             return;
         }
 
@@ -1432,7 +1432,7 @@ ListopicApp.reviewShare = (() => {
         const colorOptions = module?.getColorSchemeOptions?.() || [
             { value: 'midnight', label: 'Aurora nocturna' },
             { value: 'sunset', label: 'Atardecer brillante' },
-            { value: 'ocean', label: 'Olas frías' },
+            { value: 'ocean', label: 'Olas frÃ­as' },
             { value: 'forest', label: 'Bosque vivo' }
         ];
         storyColorSelect.innerHTML = colorOptions
@@ -1440,7 +1440,7 @@ ListopicApp.reviewShare = (() => {
             .join('');
         const styleOptions = module?.getGraphicStyleOptions?.() || [
             { value: 'bars', label: 'Barras' },
-            { value: 'radar', label: 'Gráfico radar' }
+            { value: 'radar', label: 'GrÃ¡fico radar' }
         ];
         storyStyleSelect.innerHTML = styleOptions
             .map(option => `<option value="${option.value}">${option.label}</option>`)
@@ -1494,7 +1494,7 @@ ListopicApp.reviewShare = (() => {
         }
         const module = getStoryModule();
         if (!module) {
-            setStoryFeedback('La generación de tarjetas no está disponible por ahora.', 'warning');
+            setStoryFeedback('La generaciÃ³n de tarjetas no estÃ¡ disponible por ahora.', 'warning');
             if (storyButton) {
                 storyButton.disabled = true;
             }
@@ -1519,7 +1519,7 @@ ListopicApp.reviewShare = (() => {
             storyCustomization.graphicStyle = storyStyleSelect.value;
         }
         if (storyFeedbackElement && !storyFeedbackElement.hidden && storyFeedbackElement.dataset.type !== 'error') {
-            setStoryFeedback('Aplicaremos el nuevo estilo en la próxima tarjeta.', 'info');
+            setStoryFeedback('Aplicaremos el nuevo estilo en la prÃ³xima tarjeta.', 'info');
         }
     };
 
@@ -1563,7 +1563,7 @@ ListopicApp.reviewShare = (() => {
         try {
             const { context, criteriaDefinitions } = await prepareStoryContext();
             const { blob } = await module.createInstagramStoryCard(context, criteriaDefinitions, storyCustomization);
-            const fileName = `listopic-story-${context.review?.id || 'reseña'}.png`;
+            const fileName = `listopic-story-${context.review?.id || 'reseÃ±a'}.png`;
             const file = new File([blob], fileName, { type: 'image/png' });
             let shared = false;
             if (navigator.canShare) {
@@ -1571,18 +1571,18 @@ ListopicApp.reviewShare = (() => {
                     if (navigator.canShare({ files: [file] })) {
                         await navigator.share({
                             files: [file],
-                            title: `Mi reseña en ${context.place?.name || context.review?.establishmentName || 'Listopic'}`,
-                            text: context.review?.itemName ? `${context.review.itemName} en Listopic` : 'Mi reseña en Listopic'
+                            title: `Mi reseÃ±a en ${context.place?.name || context.review?.establishmentName || 'Listopic'}`,
+                            text: context.review?.itemName ? `${context.review.itemName} en Listopic` : 'Mi reseÃ±a en Listopic'
                         });
                         shared = true;
-                        setStoryFeedback('¡Tarjeta lista! Completa la publicación en Instagram.', 'success');
+                        setStoryFeedback('Â¡Tarjeta lista! Completa la publicaciÃ³n en Instagram.', 'success');
                     }
                 } catch (error) {
                     if (error?.name === 'AbortError') {
                         setStoryFeedback('Compartir cancelado. Puedes descargar la tarjeta para subirla manualmente.', 'info');
                     } else {
                         console.warn('[reviewShare] Error compartiendo tarjeta:', error);
-                        setStoryFeedback('No pudimos compartir automáticamente. Descarga la tarjeta para subirla tú.', 'info');
+                        setStoryFeedback('No pudimos compartir automÃ¡ticamente. Descarga la tarjeta para subirla tÃº.', 'info');
                     }
                 }
             }
@@ -1594,11 +1594,11 @@ ListopicApp.reviewShare = (() => {
                     storyDownloadLink.hidden = false;
                     storyDownloadLink.click();
                 }
-                setStoryFeedback('Descargamos la tarjeta. Busca la imagen en tu galería.', 'info');
+                setStoryFeedback('Descargamos la tarjeta. Busca la imagen en tu galerÃ­a.', 'info');
             }
         } catch (error) {
             console.error('[reviewShare] Error generando la tarjeta:', error);
-            setStoryFeedback('No pudimos generar la tarjeta. Inténtalo nuevamente.', 'error');
+            setStoryFeedback('No pudimos generar la tarjeta. IntÃ©ntalo nuevamente.', 'error');
         } finally {
             setStoryButtonLoading(false);
             if (blobUrl) {
@@ -1619,7 +1619,7 @@ ListopicApp.reviewShare = (() => {
                     <i class="fas fa-times"></i>
                 </button>
                 <div class="help-modal__content review-share-modal__content">
-                    <h2 id="review-share-title" class="review-share-modal__title">Compartir reseña</h2>
+                    <h2 id="review-share-title" class="review-share-modal__title">Compartir reseÃ±a</h2>
                     <p class="review-share-modal__subtitle"></p>
                     <section class="review-share-modal__section">
                         <h3 class="review-share-modal__section-title">Compartir enlace</h3>
@@ -1634,7 +1634,7 @@ ListopicApp.reviewShare = (() => {
                         <h3 class="review-share-modal__section-title">Enviar a un chat</h3>
                         <div class="review-share-modal__chats">
                             <p class="review-share-modal__chats-loading">Cargando chats...</p>
-                            <p class="review-share-modal__chats-empty" hidden>No hay chats activos todavía.</p>
+                            <p class="review-share-modal__chats-empty" hidden>No hay chats activos todavÃ­a.</p>
                             <div class="review-share-modal__chats-list"></div>
                         </div>
                         <p class="review-share-modal__chat-feedback" hidden></p>
@@ -1645,7 +1645,7 @@ ListopicApp.reviewShare = (() => {
                         <div class="review-share-modal__story-grid">
                             <label class="review-share-modal__story-label" for="review-share-story-color">Colores</label>
                             <select id="review-share-story-color" class="review-share-modal__story-select"></select>
-                            <label class="review-share-modal__story-label" for="review-share-story-style">Gráfico</label>
+                            <label class="review-share-modal__story-label" for="review-share-story-style">GrÃ¡fico</label>
                             <select id="review-share-story-style" class="review-share-modal__story-select"></select>
                         </div>
                         <div class="review-share-modal__story-actions">
@@ -2100,7 +2100,7 @@ const truncateText = (text, maxLength = 140) => {
     if (normalized.length <= maxLength) {
         return normalized;
     }
-    return `${normalized.slice(0, maxLength - 1)}…`;
+    return `${normalized.slice(0, maxLength - 1)}â€¦`;
 };
 
 const mapNotificationToDisplayModel = (notification = {}) => {
@@ -2109,11 +2109,11 @@ const mapNotificationToDisplayModel = (notification = {}) => {
         id: notification.id || '',
         type,
         read: Boolean(notification.read),
-        title: 'Notificación',
+        title: 'NotificaciÃ³n',
         segments: [],
         iconClass: 'fas fa-bell',
         thumbnailUrl: '',
-        thumbnailAlt: 'Notificación',
+        thumbnailAlt: 'NotificaciÃ³n',
         primaryLink: null,
         createdAt: parseNotificationTimestamp(notification.createdAt)
     };
@@ -2173,7 +2173,7 @@ const mapNotificationToDisplayModel = (notification = {}) => {
     } else if (type === 'review_comment') {
         const snippet = truncateText(notification.commentSnippet || notification.comment || '', 160);
 
-        model.title = 'Nuevo comentario en tu reseña';
+        model.title = 'Nuevo comentario en tu reseÃ±a';
         model.iconClass = 'fas fa-comment-dots';
         model.thumbnailUrl = notification.reviewPhotoUrl || notification.actorPhotoUrl || '';
         model.thumbnailAlt = itemName ? `Imagen de ${itemName}` : `Avatar de ${actorName}`;
@@ -2184,11 +2184,11 @@ const mapNotificationToDisplayModel = (notification = {}) => {
         } else {
             segments.push({ type: 'text', text: actorName });
         }
-        segments.push({ type: 'text', text: ' comentó en tu reseña' });
+        segments.push({ type: 'text', text: ' comentÃ³ en tu reseÃ±a' });
 
         if (reviewUrl && itemName) {
             segments.push({ type: 'text', text: ' ' });
-            segments.push({ type: 'link', text: itemName, href: reviewUrl, title: `Ver reseña de ${itemName}` });
+            segments.push({ type: 'link', text: itemName, href: reviewUrl, title: `Ver reseÃ±a de ${itemName}` });
         } else if (itemName) {
             segments.push({ type: 'text', text: ` ${itemName}` });
         }
@@ -2210,10 +2210,10 @@ const mapNotificationToDisplayModel = (notification = {}) => {
             : '';
         const isDislike = reactionType === 'dislike';
         const actionText = isDislike
-            ? ' marcó tu reseña como "No me gusta"'
-            : ' le dio Me gusta a tu reseña';
+            ? ' marcÃ³ tu reseÃ±a como "No me gusta"'
+            : ' le dio Me gusta a tu reseÃ±a';
 
-        model.title = 'Nueva reacción a tu reseña';
+        model.title = 'Nueva reacciÃ³n a tu reseÃ±a';
         model.iconClass = isDislike ? 'fas fa-thumbs-down' : 'fas fa-thumbs-up';
         model.thumbnailUrl = notification.reviewPhotoUrl || notification.actorPhotoUrl || '';
         model.thumbnailAlt = itemName ? `Imagen de ${itemName}` : `Avatar de ${actorName}`;
@@ -2228,7 +2228,7 @@ const mapNotificationToDisplayModel = (notification = {}) => {
 
         if (reviewUrl && itemName) {
             segments.push({ type: 'text', text: ' ' });
-            segments.push({ type: 'link', text: itemName, href: reviewUrl, title: `Ver reseña de ${itemName}` });
+            segments.push({ type: 'link', text: itemName, href: reviewUrl, title: `Ver reseÃ±a de ${itemName}` });
         } else if (itemName) {
             segments.push({ type: 'text', text: ` ${itemName}` });
         }
@@ -2241,11 +2241,11 @@ const mapNotificationToDisplayModel = (notification = {}) => {
         }
     } else {
         const message = notification.message || notification.text || notification.title || '';
-        model.title = notification.title || 'Notificación';
+        model.title = notification.title || 'NotificaciÃ³n';
         if (typeof message === 'string' && message.trim().length > 0) {
             segments.push({ type: 'text', text: message.trim() });
         } else {
-            segments.push({ type: 'text', text: 'Tienes una nueva notificación.' });
+            segments.push({ type: 'text', text: 'Tienes una nueva notificaciÃ³n.' });
         }
 
         if (notification.url) {
@@ -2339,7 +2339,7 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
         item.className = 'notification-item';
         if (linkTarget) {
             item.href = linkTarget;
-            item.setAttribute('aria-label', displayModel.title || 'Ver detalle de la notificación');
+            item.setAttribute('aria-label', displayModel.title || 'Ver detalle de la notificaciÃ³n');
         }
         if (notification.id) {
             item.dataset.notificationId = notification.id;
@@ -2350,14 +2350,14 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
 
         const avatar = document.createElement('img');
         avatar.src = displayModel.thumbnailUrl || 'img/default-avatar.png';
-        avatar.alt = displayModel.thumbnailAlt || 'Avatar de notificación';
+        avatar.alt = displayModel.thumbnailAlt || 'Avatar de notificaciÃ³n';
 
         const content = document.createElement('div');
         content.className = 'notification-content';
 
         const title = document.createElement('span');
         title.className = 'notification-title';
-        title.textContent = displayModel.title || 'Nueva notificación';
+        title.textContent = displayModel.title || 'Nueva notificaciÃ³n';
 
         const meta = document.createElement('span');
         meta.className = 'notification-meta';
@@ -2387,7 +2387,7 @@ const renderNotificationsList = (notifications, container, emptyStateElement) =>
             const authUser = auth && auth.currentUser;
             if (authUser) {
                 ListopicApp.services.markNotificationsAsRead(authUser.uid, [notification.id]).catch(error => {
-                    console.error('[main] Error marcando notificación como leída:', error);
+                    console.error('[main] Error marcando notificaciÃ³n como leÃ­da:', error);
                 });
             }
         };
@@ -2697,7 +2697,7 @@ function setupNotificationsUI(currentUser) {
                 mediaWrapper.className = 'notification-thumbnail-wrapper';
                 const thumbnail = document.createElement('img');
                 thumbnail.src = model.thumbnailUrl;
-                thumbnail.alt = model.thumbnailAlt || 'Imagen de notificación';
+                thumbnail.alt = model.thumbnailAlt || 'Imagen de notificaciÃ³n';
                 thumbnail.loading = 'lazy';
                 mediaWrapper.appendChild(thumbnail);
             } else {
@@ -2716,14 +2716,14 @@ function setupNotificationsUI(currentUser) {
 
             const titleElement = document.createElement('h3');
             titleElement.className = 'notification-title';
-            titleElement.textContent = model.title || 'Notificación';
+            titleElement.textContent = model.title || 'NotificaciÃ³n';
             mainWrapper.appendChild(titleElement);
 
             const messageElement = document.createElement('p');
             messageElement.className = 'notification-message';
             renderNotificationSegments(messageElement, model.segments, { closeModalCallback: closeModal });
             if (!messageElement.textContent.trim()) {
-                messageElement.textContent = 'Tienes una nueva notificación.';
+                messageElement.textContent = 'Tienes una nueva notificaciÃ³n.';
             }
             mainWrapper.appendChild(messageElement);
 
@@ -2763,7 +2763,7 @@ function setupNotificationsUI(currentUser) {
         if (!currentUser) {
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'Inicia sesión para ver tus notificaciones.';
+            emptyElement.textContent = 'Inicia sesiÃ³n para ver tus notificaciones.';
             finalize();
             return;
         }
@@ -2771,7 +2771,7 @@ function setupNotificationsUI(currentUser) {
         if (!ListopicApp.services || typeof ListopicApp.services.getUserNotifications !== 'function') {
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'El servicio de notificaciones no está disponible en este momento.';
+            emptyElement.textContent = 'El servicio de notificaciones no estÃ¡ disponible en este momento.';
             finalize();
             return;
         }
@@ -2807,7 +2807,7 @@ function setupNotificationsUI(currentUser) {
                         ? { ...notification, read: true }
                         : notification);
                 } catch (markError) {
-                    console.error('[main] Error marcando notificaciones como leídas desde el modal:', markError);
+                    console.error('[main] Error marcando notificaciones como leÃ­das desde el modal:', markError);
                 }
             }
 
@@ -2816,7 +2816,7 @@ function setupNotificationsUI(currentUser) {
             console.error('main.js: No se pudieron cargar las notificaciones:', error);
             loadingElement.hidden = true;
             emptyElement.hidden = false;
-            emptyElement.textContent = 'No pudimos cargar tus notificaciones. Intenta nuevamente más tarde.';
+            emptyElement.textContent = 'No pudimos cargar tus notificaciones. Intenta nuevamente mÃ¡s tarde.';
         } finally {
             finalize();
         }
@@ -2846,8 +2846,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // }
 
     if (!ListopicApp.services || !ListopicApp.services.auth || !ListopicApp.services.storage || !ListopicApp.services.db) {
-        console.error("MAIN.JS: Firebase services (auth, storage, db) no disponibles."); // <--- LOG 2 (si entra aquí)
-        // Podrías mostrar un error al usuario aquí si la app no puede funcionar.
+        console.error("MAIN.JS: Firebase services (auth, storage, db) no disponibles."); // <--- LOG 2 (si entra aquÃ­)
+        // PodrÃ­as mostrar un error al usuario aquÃ­ si la app no puede funcionar.
         const body = document.querySelector('body');
         if (body) {
             body.innerHTML = '<p style="color:red; text-align:center; margin-top: 50px;">Error critico: La aplicacion no pudo inicializar los servicios base. Por favor, recarga o contacta soporte.</p>';
@@ -2860,18 +2860,18 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("MAIN.JS: Inicializando ThemeManager..."); // <--- LOG 4
         ListopicApp.themeManager.init();
     } else {
-        console.error("MAIN.JS: ThemeManager no disponible."); // <--- LOG 5 (si entra aquí)
+        console.error("MAIN.JS: ThemeManager no disponible."); // <--- LOG 5 (si entra aquÃ­)
     }
 
     if (ListopicApp.authService && ListopicApp.authService.init) {
         console.log("MAIN.JS: Inicializando AuthService..."); // <--- LOG 6
         ListopicApp.authService.init();
     } else {
-        console.error("MAIN.JS: AuthService no disponible."); // <--- LOG 7 (si entra aquí)
+        console.error("MAIN.JS: AuthService no disponible."); // <--- LOG 7 (si entra aquÃ­)
     }
 
     const pagePath = window.location.pathname;
-    const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1).toLowerCase(); // Convertido a minúsculas para consistencia
+    const pageName = pagePath.substring(pagePath.lastIndexOf('/') + 1).toLowerCase(); // Convertido a minÃºsculas para consistencia
     console.log("MAIN.JS: pagePath detectado:", pagePath); // <--- LOG 8
     console.log("MAIN.JS: pageName calculado:", pageName); // <--- LOG 9
     const isIndexPage = pageName === '' || pageName === 'index.html';
@@ -2890,26 +2890,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pageName === 'auth.html') {
             console.log("MAIN.JS: Es auth.html, intentando inicializar pageAuth..."); // <--- LOG 12
             if (ListopicApp.pageAuth && ListopicApp.pageAuth.init) {
-                ListopicApp.pageAuth.init(); // pageAuth puede tener lógica incluso si el usuario ya está logueado (para redirigir)
+                ListopicApp.pageAuth.init(); // pageAuth puede tener lÃ³gica incluso si el usuario ya estÃ¡ logueado (para redirigir)
             }
         } else if (!user) {
-            // Si no es la pagina de autenticacion y no hay usuario, authService ya debería haber redirigido.
-            // No se inicializa ninguna otra lógica de pagina.
-            console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService debería redirigir."); // <--- LOG 13
+            // Si no es la pagina de autenticacion y no hay usuario, authService ya deberÃ­a haber redirigido.
+            // No se inicializa ninguna otra lÃ³gica de pagina.
+            console.log("MAIN.JS: Usuario no autenticado y no en auth.html. authService deberÃ­a redirigir."); // <--- LOG 13
             return;
         } else {
-            // Usuario autenticado, o pagina pública que no requiere autenticacion (como index, si se decide)
-            console.log("MAIN.JS: Usuario autenticado o pagina pública. Procediendo a inicializar lógica de pagina específica."); // <--- LOG 14
+            // Usuario autenticado, o pagina pÃºblica que no requiere autenticacion (como index, si se decide)
+            console.log("MAIN.JS: Usuario autenticado o pagina pÃºblica. Procediendo a inicializar lÃ³gica de pagina especÃ­fica."); // <--- LOG 14
             initializeGlobalRealtimeFeatures(user);
             if (isIndexPage) {
-                console.log("MAIN.JS: Es Index page, intentando inicializar pageIndex..."); // <--- LOG 15
                  if(ListopicApp.pageIndex && ListopicApp.pageIndex.init) {
                     ListopicApp.pageIndex.init();
                 }
             } else if (pageName === 'review-form.html') {
                 console.log("MAIN.JS: Es review-form.html, intentando inicializar pageReviewForm..."); // <--- LOG 16
                 if (ListopicApp.pageReviewForm && ListopicApp.pageReviewForm.init) {
-                    ListopicApp.pageReviewForm.init(); // Aquí es donde se llamaría a tu init
+                    ListopicApp.pageReviewForm.init(); // AquÃ­ es donde se llamarÃ­a a tu init
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageReviewForm.init no encontrado!"); // <--- LOG 17 (si falta)
                 }
@@ -2933,7 +2932,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (pageName === 'profile.html') {
                 console.log("MAIN.JS: Coincide 'profile.html', comprobando si pageProfile existe...");
                 if (ListopicApp.pageProfile && ListopicApp.pageProfile.init) {
-                    console.log("MAIN.JS: Coincide 'profile.html', ejecutando pageProfile.init()..."); // Log de confirmación
+                    console.log("MAIN.JS: Coincide 'profile.html', ejecutando pageProfile.init()..."); // Log de confirmaciÃ³n
                     ListopicApp.pageProfile.init();
                 } else {
                     console.error("MAIN.JS: ListopicApp.pageProfile.init no encontrado!"); // Log de error
@@ -2942,15 +2941,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (ListopicApp.pageChats && ListopicApp.pageChats.init) {
                     ListopicApp.pageChats.init();
                 }
-            } else if (pageName === 'search.html') { // NUEVA CONDICIÓN
+            } else if (pageName === 'search.html') { // NUEVA CONDICIÃ“N
                 if (ListopicApp.pageSearch && ListopicApp.pageSearch.init) {
                     ListopicApp.pageSearch.init();
                 }
-            } else if (pageName === 'place-detail.html') { // PÁGINA DE LUGAR
+            } else if (pageName === 'place-detail.html') { // PÃGINA DE LUGAR
                 if (ListopicApp.pagePlace && ListopicApp.pagePlace.init) {
                     ListopicApp.pagePlace.init();
                 }
-            } else if (pageName === 'developer.html') { // PÁGINA DE LUGAR
+            } else if (pageName === 'developer.html') { // PÃGINA DE LUGAR
             if (ListopicApp.pagePlace && ListopicApp.pageDeveloper.init) {
                 ListopicApp.pagePlace.init();
                 }
@@ -2959,20 +2958,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     ListopicApp.pageChats.init();
                 }
             } else {
-                // Esta es la línea 95 en la estructura original del if/else if
-                console.warn("MAIN.JS: No se detectó una pagina conocida. pageName:", pageName); // <--- LOG si ninguna coincide
+                // Esta es la lÃ­nea 95 en la estructura original del if/else if
+                console.warn("MAIN.JS: No se detectÃ³ una pagina conocida. pageName:", pageName); // <--- LOG si ninguna coincide
             }
         }
     }).catch(error => {
         console.error("MAIN.JS: Error en onAuthStateChangedPromise:", error); // <--- LOG 18 (si la promesa falla)
-        // Manejar error crítico si la autenticacion no se puede verificar
+        // Manejar error crÃ­tico si la autenticacion no se puede verificar
     });
 
-    console.log("MAIN.JS: Fin del script de inicialización de main.js."); // <--- LOG 19
+    console.log("MAIN.JS: Fin del script de inicializaciÃ³n de main.js."); // <--- LOG 19
 
 
 
-    // --- Lógica para la Instalación de la PWA (desde el Menú de Usuario) ---
+    // --- LÃ³gica para la InstalaciÃ³n de la PWA (desde el MenÃº de Usuario) ---
 let deferredPrompt;
 const installMenuItem = document.getElementById('installPwaBtn');
 
@@ -2980,30 +2979,30 @@ const installMenuItem = document.getElementById('installPwaBtn');
 window.addEventListener('beforeinstallprompt', (e) => {
     // Prevenir que se muestre el mini-infobar por defecto
     e.preventDefault();
-    // Guardar el evento para usarlo después
+    // Guardar el evento para usarlo despuÃ©s
     deferredPrompt = e;
     
-    // Mostrar la opción en el menú solo si no está ya instalada
+    // Mostrar la opciÃ³n en el menÃº solo si no estÃ¡ ya instalada
     // y el navegador lo permite.
     if (installMenuItem && !isAppInstalled()) {
-        console.log("Evento 'beforeinstallprompt' capturado. Mostrando opción de instalar en el menú.");
+        console.log("Evento 'beforeinstallprompt' capturado. Mostrando opciÃ³n de instalar en el menÃº.");
         installMenuItem.style.display = 'block';
     }
 });
 
-// Criterio 2: El usuario hace clic en nuestro botón del menú
+// Criterio 2: El usuario hace clic en nuestro botÃ³n del menÃº
 if (installMenuItem) {
     installMenuItem.addEventListener('click', async () => {
-        // Asegurarnos de que aún tenemos el evento
+        // Asegurarnos de que aÃºn tenemos el evento
         if (deferredPrompt) {
-            // Mostrar el diálogo de instalación del navegador
+            // Mostrar el diÃ¡logo de instalaciÃ³n del navegador
             deferredPrompt.prompt();
             
             // Esperar la respuesta del usuario
             const { outcome } = await deferredPrompt.userChoice;
-            console.log(`Respuesta del usuario al prompt de instalación: ${outcome}`);
+            console.log(`Respuesta del usuario al prompt de instalaciÃ³n: ${outcome}`);
 
-            // Si el usuario acepta, ya no necesitamos mostrar el botón
+            // Si el usuario acepta, ya no necesitamos mostrar el botÃ³n
             if (outcome === 'accepted') {
                 installMenuItem.style.display = 'none';
             }
@@ -3016,55 +3015,56 @@ if (installMenuItem) {
 
 // Criterio 3: La app se ha instalado correctamente
 window.addEventListener('appinstalled', () => {
-    // Ocultar la opción del menú y limpiar todo
+    // Ocultar la opciÃ³n del menÃº y limpiar todo
     if (installMenuItem) {
         installMenuItem.style.display = 'none';
     }
     deferredPrompt = null;
-    console.log('PWA fue instalada con éxito.');
+    console.log('PWA fue instalada con Ã©xito.');
     if(ListopicApp.services && ListopicApp.services.showNotification) {
-        ListopicApp.services.showNotification('¡Listopic instalado! Búscalo en tu pantalla de inicio.', 'success');
+        ListopicApp.services.showNotification('Â¡Listopic instalado! BÃºscalo en tu pantalla de inicio.', 'success');
     }
 });
 
-// Función de ayuda para saber si la app ya se está ejecutando como PWA
+// FunciÃ³n de ayuda para saber si la app ya se estÃ¡ ejecutando como PWA
 function isAppInstalled() {
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Al cargar la pagina, si ya está en modo standalone, nos aseguramos
-// de que el botón no aparezca por si acaso.
+// Al cargar la pagina, si ya estÃ¡ en modo standalone, nos aseguramos
+// de que el botÃ³n no aparezca por si acaso.
 if (isAppInstalled() && installMenuItem) {
-    console.log("La app ya se está ejecutando en modo standalone. La opción de instalar no se mostrará.");
+    console.log("La app ya se estÃ¡ ejecutando en modo standalone. La opciÃ³n de instalar no se mostrarÃ¡.");
     installMenuItem.style.display = 'none';
 }
-// --- Fin de la Lógica de Instalación de la PWA ---
+// --- Fin de la LÃ³gica de InstalaciÃ³n de la PWA ---
 
 
     
 });
 
 
-// Función global para limpiar cache de etiquetas (útil para desarrollo)
+// FunciÃ³n global para limpiar cache de etiquetas (Ãºtil para desarrollo)
 window.clearCategoryTagsCache = function() {
     if (ListopicApp.pageSearch && ListopicApp.pageSearch.clearTagsCache) {
         ListopicApp.pageSearch.clearTagsCache();
         console.log('Cache de etiquetas limpiado');
     } else {
-        console.warn('Función de limpiar cache no disponible');
+        console.warn('FunciÃ³n de limpiar cache no disponible');
     }
 };
 
-// Registro del Service Worker para gestionar el caché
+// Registro del Service Worker para gestionar el cachÃ©
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then((registration) => {
-      console.log('Service Worker registrado con éxito:', registration);
+      console.log('Service Worker registrado con Ã©xito:', registration);
     }).catch((err) => {
       console.log('Fallo en el registro del Service Worker:', err);
     });
   });
 }
+
 
 
 

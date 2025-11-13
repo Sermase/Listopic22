@@ -85,6 +85,54 @@ ListopicApp.uiUtils = {
         `.trim();
     },
 
+    isLegacyGooglePhotoUrl: function(url) {
+        return typeof url === 'string' && url.includes('maps.googleapis.com/maps/api/place/photo');
+    },
+
+    refreshPlacePhotoIfNeeded: async function(place, options = {}) {
+        if (!place) {
+            return null;
+        }
+        const currentUrl = place.mainImageUrl;
+        if (currentUrl && !this.isLegacyGooglePhotoUrl(currentUrl)) {
+            return currentUrl;
+        }
+
+        const placeId = place.id || place.placeId || place.googlePlaceId;
+        if (!placeId || !ListopicApp.placesService || typeof ListopicApp.placesService.refreshMainImage !== 'function') {
+            return currentUrl || null;
+        }
+
+        const globalState = window.ListopicApp.state = window.ListopicApp.state || {};
+        if (!(globalState.pendingPlacePhotoRefreshes instanceof Map)) {
+            globalState.pendingPlacePhotoRefreshes = new Map();
+        }
+        const cache = globalState.pendingPlacePhotoRefreshes;
+
+        if (cache.has(placeId)) {
+            return cache.get(placeId);
+        }
+
+        const refreshPromise = ListopicApp.placesService.refreshMainImage(placeId, options)
+            .then(result => {
+                if (result && result.photoUrl) {
+                    place.mainImageUrl = result.photoUrl;
+                    return result.photoUrl;
+                }
+                return place.mainImageUrl || null;
+            })
+            .catch(error => {
+                console.warn(`refreshPlacePhotoIfNeeded: no se pudo refrescar la foto del lugar ${placeId}`, error);
+                return place.mainImageUrl || null;
+            })
+            .finally(() => {
+                cache.delete(placeId);
+            });
+
+        cache.set(placeId, refreshPromise);
+        return refreshPromise;
+    },
+
     // NUEVA FUNCIÓN PARA OBTENER ICONOS DE FORMA EFICIENTE
     getListIcon: async function(list) {
         const defaultIcon = 'fa-solid fa-list';
@@ -388,7 +436,10 @@ ListopicApp.uiUtils = {
         const placeUrlRaw = place.googleMapsUrl || '#';
         const placeUrl = uiUtils.escapeHtml(placeUrlRaw);
 
-        const listId = review.listId || '';
+        const listId = review.listId
+            || review.parentListId
+            || (review.list && review.list.id)
+            || '';
         const listNameRaw = review.listName || 'Lista Desconocida';
         const listName = uiUtils.escapeHtml(listNameRaw);
 
@@ -779,7 +830,34 @@ createListViewGroupCard: function(group, listData, listIcon) {
         try {
             if (!reviewDocs || reviewDocs.length === 0) return [];
 
-            const reviewsData = reviewDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const reviewsData = reviewDocs.map(doc => {
+                const rawData = (doc && typeof doc.data === 'function') ? (doc.data() || {}) : {};
+                const parentListId = doc && doc.ref && doc.ref.parent && doc.ref.parent.parent
+                    ? doc.ref.parent.parent.id
+                    : '';
+                const normalized = {
+                    id: doc.id,
+                    ...rawData
+                };
+
+                if (!normalized.listId && parentListId) {
+                    normalized.listId = parentListId;
+                }
+                if (!normalized.userId && normalized.authorId) {
+                    normalized.userId = normalized.authorId;
+                }
+                if (!normalized.placeId) {
+                    const fallbackPlaceId = (normalized.place && normalized.place.id)
+                        || normalized.establishmentId
+                        || normalized.placeID
+                        || '';
+                    if (fallbackPlaceId) {
+                        normalized.placeId = fallbackPlaceId;
+                    }
+                }
+
+                return normalized;
+            });
 
             const listIds = [...new Set(reviewsData.map(r => r.listId).filter(Boolean))];
             const placeIds = [...new Set(reviewsData.map(r => r.placeId).filter(Boolean))];
@@ -813,25 +891,25 @@ createListViewGroupCard: function(group, listData, listIcon) {
             const missingPlaceIds = placeIds.filter(id => !placeCache.has(id));
             const missingAuthorIds = authorIds.filter(id => !authorCache.has(id));
 
-            const listPromises = missingListIds.map(id => db.collection('lists').doc(id).get());
-            const placePromises = missingPlaceIds.map(id => db.collection('places').doc(id).get());
-            const authorPromises = missingAuthorIds.map(id => db.collection('users').doc(id).get());
+            const fetchDocsSafely = async (collectionName, ids, cache, entityLabel) => {
+                if (!ids || ids.length === 0) return;
+                await Promise.all(ids.map(async (id) => {
+                    try {
+                        const doc = await db.collection(collectionName).doc(id).get();
+                        cache.set(id, doc.exists ? doc.data() : null);
+                    } catch (err) {
+                        const code = err?.code || err?.message || 'unknown-error';
+                        console.warn(`[enrichReviews] No se pudo cargar ${entityLabel} ${id}: ${code}`);
+                        cache.set(id, null);
+                    }
+                }));
+            };
 
-            const [listSnapshots, placeSnapshots, authorSnapshots] = await Promise.all([
-                Promise.all(listPromises),
-                Promise.all(placePromises),
-                Promise.all(authorPromises)
+            await Promise.all([
+                fetchDocsSafely('lists', missingListIds, listCache, 'lista'),
+                fetchDocsSafely('places', missingPlaceIds, placeCache, 'lugar'),
+                fetchDocsSafely('users', missingAuthorIds, authorCache, 'autor')
             ]);
-
-            listSnapshots.forEach(doc => {
-                listCache.set(doc.id, doc.exists ? doc.data() : null);
-            });
-            placeSnapshots.forEach(doc => {
-                placeCache.set(doc.id, doc.exists ? doc.data() : null);
-            });
-            authorSnapshots.forEach(doc => {
-                authorCache.set(doc.id, doc.exists ? doc.data() : null);
-            });
 
             const sanitizeCategoryId = (value) => {
                 if (typeof value !== 'string') {
