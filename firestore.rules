@@ -11,10 +11,37 @@ service cloud.firestore {
              || (userType is string && userType == 'jefe');
     }
 
+    function isFollowingUser(targetUserId) {
+      return request.auth != null &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)/following/$(targetUserId)).data != null;
+    }
+
+    function isFollowingList(listId) {
+      return request.auth != null &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)/followingLists/$(listId)).data != null;
+    }
+
+    function isListFollower(listId) {
+      return request.auth != null &&
+             get(/databases/$(database)/documents/lists/$(listId)/followers/$(request.auth.uid)).data != null;
+    }
+
     // Helper: comprobar si el usuario puede leer una lista concreta por ID
     function canReadListById(listId) {
       let list = get(/databases/$(database)/documents/lists/$(listId)).data;
-      return list.isPublic == true || (request.auth != null && (list.userId == request.auth.uid || isJefe(request.auth.uid)));
+      return list != null && (
+        list.isPublic == true ||
+        (
+          request.auth != null &&
+          (
+            list.userId == request.auth.uid ||
+            isJefe(request.auth.uid) ||
+            isFollowingUser(list.userId) ||
+            isFollowingList(listId) ||
+            isListFollower(listId)
+          )
+        )
+      );
     }
 
     function isListOwner(listId) {
@@ -47,8 +74,9 @@ service cloud.firestore {
     // REGLA PARA COLLECTION GROUP 'reviews' (RESPETA PRIVACIDAD DE LISTAS)
     // ===============================================
     match /{path=**}/reviews/{reviewId} {
-      // Requiere estar autenticado
-      allow read: if request.auth != null;
+      allow read: if request.auth != null &&
+                   (resource.data.listId is string) &&
+                   canReadListById(resource.data.listId);
     }
 
     // ===============================================
@@ -109,9 +137,14 @@ service cloud.firestore {
     // REGLAS PARA LISTAS (`lists`) (ACTUALIZADAS)
     // ===============================================
     match /lists/{listId} {
-      allow read: if resource.data.isPublic == true || 
-                      (request.auth != null && resource.data.userId == request.auth.uid) ||
-                      (request.auth != null && isJefe(request.auth.uid));
+      allow read: if resource.data.isPublic == true ||
+                      (request.auth != null && (
+                        resource.data.userId == request.auth.uid ||
+                        isJefe(request.auth.uid) ||
+                        isFollowingUser(resource.data.userId) ||
+                        isFollowingList(listId) ||
+                        isListFollower(listId)
+                      ));
       allow list: if request.auth != null && isJefe(request.auth.uid);
       
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;

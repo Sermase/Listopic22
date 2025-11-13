@@ -195,7 +195,21 @@ ListopicApp.pageGroupedDetailView = (() => {
             }
             if (groupPlaceImageEl) {
                 const candidatePhotos = Array.isArray(placeData.photos) ? placeData.photos : [];
-                const primaryImage = placeData.mainImageUrl || candidatePhotos[0] || 'img/listopic-logo.png';
+                let primaryImage = placeData.mainImageUrl || candidatePhotos[0] || 'img/listopic-logo.png';
+                if (uiUtils && typeof uiUtils.refreshPlacePhotoIfNeeded === 'function' &&
+                    (!placeData.mainImageUrl || uiUtils.isLegacyGooglePhotoUrl(placeData.mainImageUrl))) {
+                    try {
+                        const refreshed = await uiUtils.refreshPlacePhotoIfNeeded({
+                            ...placeData,
+                            id: placeDoc.id || placeIdFromUrl
+                        });
+                        if (refreshed) {
+                            primaryImage = refreshed;
+                        }
+                    } catch (error) {
+                        console.warn('page-grouped-detail-view: no se pudo refrescar la imagen del lugar.', error);
+                    }
+                }
                 groupPlaceImageEl.src = primaryImage;
                 groupPlaceImageEl.alt = `Foto de ${placeData.name || 'lugar'}`;
                 heroImageUrl = primaryImage;

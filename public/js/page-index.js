@@ -379,6 +379,16 @@ ListopicApp.pageIndex = (() => {
                                 reviewsCount: p.reviewsCount || 0,
                             };
                         }).filter(p => p.location && typeof p.location.latitude === 'number' && typeof p.location.longitude === 'number' && (p.reviewsCount || 0) > 0 && (p.avgGeneralScore || 0) > 0);
+
+                        if (ui && typeof ui.refreshPlacePhotoIfNeeded === 'function') {
+                            const refreshTargets = places
+                                .filter(place => !place.mainImageUrl || ui.isLegacyGooglePhotoUrl(place.mainImageUrl))
+                                .slice(0, 10);
+                            if (refreshTargets.length) {
+                                await Promise.all(refreshTargets.map(place => ui.refreshPlacePhotoIfNeeded(place).catch(() => null)));
+                            }
+                        }
+
                         addGlobalPlacesToMap(places);
                 } catch (e) { console.error('INDEX: Error cargando lugares para el mapa global', e); }
                 } else if (globalMapInstance) {

@@ -299,9 +299,39 @@ ListopicApp.placesService = (() => {
         }
     }
 
+    async function refreshMainImage(placeId, options = {}) {
+        const endpoint = ListopicApp.config?.FUNCTION_URLS?.refreshPlaceMainImage;
+        if (!endpoint) {
+            throw new Error("El endpoint refreshPlaceMainImage no está configurado.");
+        }
+        if (!placeId) {
+            throw new Error("refreshMainImage requiere placeId.");
+        }
+
+        const params = new URLSearchParams({ placeId: placeId });
+        if (options.force) params.set('force', '1');
+        if (options.maxWidth) params.set('maxWidth', String(options.maxWidth));
+
+        const fullUrl = `${endpoint}?${params.toString()}`;
+        console.log(`[placesService] Refrescando imagen principal para el lugar ${placeId} → ${fullUrl}`);
+
+        try {
+            const response = await fetch(fullUrl);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: `Error HTTP ${response.status}` }));
+                throw new Error(errorData.message || `Error ${response.status} al refrescar foto del lugar.`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('placesService.refreshMainImage: Error al refrescar imagen principal.', error);
+            throw error;
+        }
+    }
+
     return {
         fetchNearbyRestaurantsWithContext,
-        searchRestaurantsByName
+        searchRestaurantsByName,
+        refreshMainImage
     };
 })();
 

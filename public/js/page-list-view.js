@@ -248,7 +248,7 @@ ListopicApp.pageListView = (() => {
         });
         updateFilteredPlacesForMap(filteredItems);
         renderReviewCards(filteredItems);
-        refreshMapMarkers();
+        refreshMapMarkers().catch(error => console.error('LIST-VIEW: Error al refrescar el mapa tras filtros.', error));
     }
     
     function toggleTagFilter_ListView_Grouped(event) {
@@ -437,13 +437,22 @@ ListopicApp.pageListView = (() => {
         return [];
     }
 
-    function renderPlacesOnMap(places) {
+    async function renderPlacesOnMap(places) {
         if (!listMapInstance || !Array.isArray(places)) return;
 
         markersMap.forEach(marker => marker.remove());
         markersMap.clear();
 
         if (places.length === 0) return;
+
+        if (ListopicApp.uiUtils && typeof ListopicApp.uiUtils.refreshPlacePhotoIfNeeded === 'function') {
+            const refreshTargets = places
+                .filter(place => !place.mainImageUrl || ListopicApp.uiUtils.isLegacyGooglePhotoUrl(place.mainImageUrl))
+                .slice(0, 10);
+            if (refreshTargets.length) {
+                await Promise.all(refreshTargets.map(place => ListopicApp.uiUtils.refreshPlacePhotoIfNeeded(place).catch(() => null)));
+            }
+        }
 
         const markers = [];
         places.forEach(place => {
@@ -496,17 +505,17 @@ ListopicApp.pageListView = (() => {
         }
     }
 
-    function refreshMapMarkers() {
+    async function refreshMapMarkers() {
         if (!listMapInstance) return;
         const places = shouldShowAllPlacesOnMap
             ? basePlacesForMap.slice()
             : basePlacesForMap.filter(place => filteredPlaceIdsForMap.has(place.id));
-        renderPlacesOnMap(places);
+        await renderPlacesOnMap(places);
     }
 
     function addPlacesToMap(places) {
         basePlacesForMap = Array.isArray(places) ? places : [];
-        refreshMapMarkers();
+        refreshMapMarkers().catch(error => console.error('LIST-VIEW: Error al actualizar marcadores en el mapa.', error));
     }
 
     // En public/js/page-list-view.js

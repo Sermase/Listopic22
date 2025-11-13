@@ -96,7 +96,7 @@ ListopicApp.pagePlaceDetail = {
             this.originalReviews = latestReviews || [];
             this.originalGroups = groups || [];
 
-            this.renderPlaceDetails(placeInfo);
+            await this.renderPlaceDetails(placeInfo);
             this.renderReviews(this.originalReviews);
             this.renderGroups(this.originalGroups);
             this.setupGlobalAddReviewButton(this.originalGroups, this.originalReviews);
@@ -109,7 +109,7 @@ ListopicApp.pagePlaceDetail = {
         }
     },
 
-    renderPlaceDetails: function(placeData) {
+    renderPlaceDetails: async function(placeData) {
         // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
         // Obtenemos 'googleRating' de los datos que recibimos
         const {
@@ -133,9 +133,24 @@ ListopicApp.pagePlaceDetail = {
         if (this.elements.placeAddress?.querySelector('span')) {
             this.elements.placeAddress.querySelector('span').textContent = formatted_address || 'Dirección no disponible';
         }
-        // Foto: usar foto de Google (si llega), si no, usar mainImageUrl del doc, y por último el logo
-        const fallbackPhoto = placeData.mainImageUrl || 'img/logo-listopic400.png';
-        this.elements.placePhoto.src = (photos && photos[0]) || fallbackPhoto;
+        const photoCandidates = Array.isArray(photos) ? photos : [];
+        let heroPhoto = photoCandidates[0] || placeData.mainImageUrl || 'img/logo-listopic400.png';
+        if (ListopicApp.uiUtils && typeof ListopicApp.uiUtils.refreshPlacePhotoIfNeeded === 'function' &&
+            (!placeData.mainImageUrl || ListopicApp.uiUtils.isLegacyGooglePhotoUrl(placeData.mainImageUrl))) {
+            try {
+                const refreshed = await ListopicApp.uiUtils.refreshPlacePhotoIfNeeded({
+                    ...placeData,
+                    id: placeData.id || this.placeId
+                });
+                if (refreshed) {
+                    heroPhoto = refreshed;
+                }
+            } catch (error) {
+                console.warn('[page-place-detail.js] No se pudo refrescar la foto principal del lugar.', error);
+            }
+        }
+        placeData.mainImageUrl = heroPhoto;
+        this.elements.placePhoto.src = heroPhoto;
         this.elements.googleMapsLink.href = googleMapsUrl || '#';
         if (!googleMapsUrl) this.elements.googleMapsLink.style.display = 'none';
         

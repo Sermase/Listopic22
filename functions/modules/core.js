@@ -6,6 +6,7 @@ const admin = require("firebase-admin");
 const cors = require("cors")({origin: true});
 const fetch = require("node-fetch");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { buildGroupedItemsForList } = require("./grouped-aggregator");
 
@@ -123,6 +124,168 @@ function sanitizeTypeArray(types, limit = 10) {
     }
   }
   return sanitized;
+}
+
+async function resolveGooglePhotoUrl(photoReference, apiKey, maxWidth = 800) {
+  if (!photoReference || !apiKey) {
+    return null;
+  }
+
+  const safeWidth = Math.min(Math.max(parseInt(maxWidth, 10) || 400, 1), 1600);
+  const endpoint = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${safeWidth}&photoreference=${encodeURIComponent(photoReference)}&key=${apiKey}`;
+
+  try {
+    const response = await fetch(endpoint, { method: 'GET', redirect: 'manual' });
+    if (response.status >= 300 && response.status < 400) {
+      const redirectUrl = response.headers.get('location');
+      if (redirectUrl) {
+        return redirectUrl;
+      }
+    } else {
+      logger.warn("resolveGooglePhotoUrl: respuesta inesperada del endpoint de fotos.", {
+        status: response.status,
+        statusText: response.statusText
+      });
+    }
+  } catch (error) {
+    logger.error("resolveGooglePhotoUrl: error al resolver la URL de la foto de Google.", {
+      photoReference,
+      error: error.message
+    });
+  }
+
+  return null;
+}
+
+function extractTimestampDate(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value.toDate === 'function') {
+    try {
+      return value.toDate();
+    } catch (error) {
+      logger.warn("extractTimestampDate: no se pudo convertir el timestamp.", error);
+      return null;
+    }
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === 'number') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  return null;
+}
+
+async function refreshPlaceMainImageFromSnapshot(docSnapshot, apiKey, { force = false, maxWidth = 800 } = {}) {
+  if (!docSnapshot?.exists) {
+    const error = new Error('El documento del lugar no existe.');
+    error.code = 'not-found';
+    throw error;
+  }
+
+  const placeData = docSnapshot.data() || {};
+  const googlePlaceId = placeData.googlePlaceId || docSnapshot.id;
+  if (!googlePlaceId) {
+    const error = new Error('El documento no tiene googlePlaceId.');
+    error.code = 'invalid-argument';
+    throw error;
+  }
+
+  const lastRefreshDate = extractTimestampDate(placeData.lastPhotoRefresh);
+  const hasLegacyUrl = typeof placeData.mainImageUrl === 'string'
+    && placeData.mainImageUrl.includes('maps.googleapis.com/maps/api/place/photo');
+  const shouldSkip = !force && !hasLegacyUrl && lastRefreshDate && (Date.now() - lastRefreshDate.getTime()) < (6 * 60 * 60 * 1000);
+
+  if (shouldSkip) {
+    return {
+      skipped: true,
+      photoUrl: placeData.mainImageUrl || null,
+      photoReference: placeData.mainImagePhotoReference || null
+    };
+  }
+
+  const fields = "photos";
+  const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${googlePlaceId}&key=${apiKey}&fields=${fields}&language=es`;
+
+  const detailsResponse = await fetch(detailsUrl);
+  const details = await detailsResponse.json();
+
+  if (details.status !== "OK" || !details.result?.photos?.length) {
+    const error = new Error(details.error_message || `Google Places devolvió ${details.status}`);
+    error.code = details.status === 'NOT_FOUND' ? 'not-found' : 'unavailable';
+    throw error;
+  }
+
+  const primaryPhotoReference = details.result.photos[0].photo_reference;
+  const resolvedMainImageUrl = await resolveGooglePhotoUrl(primaryPhotoReference, apiKey, maxWidth);
+
+  if (!resolvedMainImageUrl) {
+    const error = new Error('No se pudo resolver la URL de la foto.');
+    error.code = 'internal';
+    throw error;
+  }
+
+  await docSnapshot.ref.update({
+    mainImageUrl: resolvedMainImageUrl,
+    mainImagePhotoReference: primaryPhotoReference,
+    lastPhotoRefresh: FieldValue.serverTimestamp()
+  });
+
+  return { refreshed: true, photoUrl: resolvedMainImageUrl, photoReference: primaryPhotoReference };
+}
+
+async function refreshPlaceMainImageByIdInternal(placeId, options = {}) {
+  if (!placeId) {
+    const error = new Error('placeId es requerido.');
+    error.code = 'invalid-argument';
+    throw error;
+  }
+  const apiKey = await getGooglePlacesApiKey();
+  if (!apiKey) {
+    const error = new Error('GOOGLE_PLACES_API_KEY no está configurada.');
+    error.code = 'internal';
+    throw error;
+  }
+  const docSnapshot = await db.collection('places').doc(placeId).get();
+  if (!docSnapshot.exists) {
+    const error = new Error('El lugar solicitado no existe.');
+    error.code = 'not-found';
+    throw error;
+  }
+  return await refreshPlaceMainImageFromSnapshot(docSnapshot, apiKey, options);
+}
+
+let cachedGooglePlacesApiKey = null;
+let cachedGooglePlacesApiKeyExpiresAt = 0;
+
+async function getGooglePlacesApiKey() {
+  if (process.env.GOOGLE_PLACES_API_KEY) {
+    return process.env.GOOGLE_PLACES_API_KEY;
+  }
+
+  const now = Date.now();
+  if (cachedGooglePlacesApiKey && cachedGooglePlacesApiKeyExpiresAt > now) {
+    return cachedGooglePlacesApiKey;
+  }
+
+  try {
+    const secretDoc = await db.collection('config').doc('serverSecrets').get();
+    if (secretDoc.exists) {
+      const data = secretDoc.data() || {};
+      if (typeof data.googlePlacesApiKey === 'string' && data.googlePlacesApiKey.trim()) {
+        cachedGooglePlacesApiKey = data.googlePlacesApiKey.trim();
+        cachedGooglePlacesApiKeyExpiresAt = now + (15 * 60 * 1000);
+        return cachedGooglePlacesApiKey;
+      }
+    }
+  } catch (error) {
+    logger.error("getGooglePlacesApiKey: no se pudo leer config/serverSecrets.", error);
+  }
+
+  return null;
 }
 
 function parseCategoryTypesParam(raw) {
@@ -522,7 +685,7 @@ const updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{reviewI
 const placesNearbyRestaurants = onRequest(async (req, res) => {
   cors(req, res, async () => {
     const { latitude, longitude, categoryId, categoryTypes: rawCategoryTypes } = req.query;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = await getGooglePlacesApiKey();
 
     const userLat = numberOrNull(latitude);
     const userLon = numberOrNull(longitude);
@@ -621,7 +784,7 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 const placesTextSearch = onRequest(async (req, res) => {
   cors(req, res, async () => {
     const { query, latitude, longitude, categoryId, categoryTypes: rawCategoryTypes } = req.query;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = await getGooglePlacesApiKey();
 
     if (!query || !query.trim()) {
       return res.status(400).json({ message: "El término de búsqueda (query) es requerido." });
@@ -744,7 +907,7 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
         }
 
         const { placeid } = req.query;
-        const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+        const apiKey = await getGooglePlacesApiKey();
 
         if (!placeid) {
             return res.status(400).json({ message: "El ID del lugar (placeid) es requerido." });
@@ -788,6 +951,21 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                     province = provinceMap[provinceCode] || '';
                 }
 
+                const existingData = docSnapshot.exists ? (docSnapshot.data() || {}) : {};
+                const previousMainImageUrl = existingData.mainImageUrl || null;
+                const previousPhotoReference = existingData.mainImagePhotoReference || null;
+                const primaryPhotoReference = (result.photos && result.photos.length > 0) ? result.photos[0].photo_reference : null;
+                let resolvedMainImageUrl = previousMainImageUrl;
+                let mainImagePhotoReference = previousPhotoReference;
+
+                if (primaryPhotoReference) {
+                    const candidatePhotoUrl = await resolveGooglePhotoUrl(primaryPhotoReference, apiKey, 800);
+                    if (candidatePhotoUrl) {
+                        resolvedMainImageUrl = candidatePhotoUrl;
+                        mainImagePhotoReference = primaryPhotoReference;
+                    }
+                }
+
                 const placeDoc = {
                     name: result.name,
                     name_normalized: result.name.toLowerCase(),
@@ -807,7 +985,8 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                     priceLevel: result.price_level !== undefined ? result.price_level : null,
                     googleRating: result.rating || 0, googleUserRatingsTotal: result.user_ratings_total || 0,
                     types: result.types || [],
-                    mainImageUrl: (result.photos && result.photos.length > 0) ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${result.photos[0].photo_reference}&key=${apiKey}`: null,
+                    mainImageUrl: resolvedMainImageUrl,
+                    mainImagePhotoReference: mainImagePhotoReference,
                     // Nuevos campos estructurados
                     // Estos campos pueden rellenarse vía otras fuentes o con endpoints v1 en el futuro
                     accessibility: result.accessibilityOptions ? {
@@ -816,8 +995,8 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                         wheelchairAccessibleParking: result.accessibilityOptions.wheelchairAccessibleParking ?? null,
                         wheelchairAccessibleRestroom: result.accessibilityOptions.wheelchairAccessibleRestroom ?? null,
                         hearingLoop: result.accessibilityOptions.hearingLoop ?? null,
-                    } : (docSnapshot.exists ? (docSnapshot.data().accessibility || null) : null),
-                    serviceOptions: (docSnapshot.exists ? (docSnapshot.data().serviceOptions || null) : null),
+                    } : (existingData.accessibility || null),
+                    serviceOptions: existingData.serviceOptions || null,
                     updatedAt: FieldValue.serverTimestamp(), lastGoogleSync: FieldValue.serverTimestamp(),
                 };
 
@@ -1115,14 +1294,14 @@ const updateListWithValidation = onCall(async (request) => {
 const reverseGeocode = onRequest(async (req, res) => {
   cors(req, res, async () => {
     const { lat, lon } = req.query;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = await getGooglePlacesApiKey();
 
     if (!lat || !lon) {
       logger.warn("reverseGeocode: Latitud (lat) y longitud (lon) son requeridas.", {query: req.query, structuredData: true});
       return res.status(400).json({ message: "Latitud y longitud son requeridas." });
     }
     if (!apiKey) {
-      logger.error("reverseGeocode: GOOGLE_PLACES_API_KEY no está disponible como variable de entorno del proceso.", {structuredData: true});
+      logger.error("reverseGeocode: GOOGLE_PLACES_API_KEY no está disponible en la configuración.", {structuredData: true});
       return res.status(500).json({ message: "Error de configuración del servidor (API Key no encontrada)." });
     }
 
@@ -1953,7 +2132,7 @@ const adminUpdateAllPlaces = onCall(async (request) => {
         throw new HttpsError('internal', 'Error al verificar permisos.');
     }
 
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = await getGooglePlacesApiKey();
     if (!apiKey) {
         logger.error("adminUpdateAllPlaces: GOOGLE_PLACES_API_KEY no está disponible.");
         throw new HttpsError('internal', 'Error de configuración del servidor (Places API Key no encontrada).');
@@ -1989,6 +2168,20 @@ const adminUpdateAllPlaces = onCall(async (request) => {
 
                 if (details.status === "OK" && details.result) {
                     const result = details.result;
+                    const previousPhotoReference = placeData.mainImagePhotoReference || null;
+                    const previousMainImageUrl = placeData.mainImageUrl || null;
+                    const primaryPhotoReference = (result.photos && result.photos.length > 0) ? result.photos[0].photo_reference : null;
+                    let resolvedMainImageUrl = previousMainImageUrl;
+                    let mainImagePhotoReference = previousPhotoReference;
+
+                    if (primaryPhotoReference) {
+                        const candidatePhotoUrl = await resolveGooglePhotoUrl(primaryPhotoReference, apiKey, 400);
+                        if (candidatePhotoUrl) {
+                            resolvedMainImageUrl = candidatePhotoUrl;
+                            mainImagePhotoReference = primaryPhotoReference;
+                        }
+                    }
+
                     const updateData = {
                         name: result.name,
                         formatted_address: result.formatted_address,
@@ -1997,7 +2190,8 @@ const adminUpdateAllPlaces = onCall(async (request) => {
                         'location.latitude': result.geometry?.location?.lat,
                         'location.longitude': result.geometry?.location?.lng,
                         googleMapsUrl: result.url,
-                        mainImageUrl: result.photos && result.photos.length > 0 ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${result.photos[0].photo_reference}&key=${apiKey}` : (placeData.mainImageUrl || null),
+                        mainImageUrl: resolvedMainImageUrl,
+                        mainImagePhotoReference: mainImagePhotoReference,
                         priceLevel: result.price_level,
                         website: result.website,
                         phone: result.international_phone_number,
@@ -2391,7 +2585,7 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
         throw new HttpsError('invalid-argument', 'Se requieren documentId y googlePlaceId.');
     }
 
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = await getGooglePlacesApiKey();
     if (!apiKey) {
         logger.error("adminUpdateSinglePlace: GOOGLE_PLACES_API_KEY no está disponible.");
         throw new HttpsError('internal', 'Error de configuración del servidor.');
@@ -2407,6 +2601,22 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
 
         if (details.status === "OK" && details.result) {
             const result = details.result;
+            const existingDoc = await placeRef.get();
+            const existingData = existingDoc.exists ? (existingDoc.data() || {}) : {};
+            const previousMainImageUrl = existingData.mainImageUrl || null;
+            const previousPhotoReference = existingData.mainImagePhotoReference || null;
+            const primaryPhotoReference = (result.photos && result.photos.length > 0) ? result.photos[0].photo_reference : null;
+            let resolvedMainImageUrl = previousMainImageUrl;
+            let mainImagePhotoReference = previousPhotoReference;
+
+            if (primaryPhotoReference) {
+                const candidatePhotoUrl = await resolveGooglePhotoUrl(primaryPhotoReference, apiKey, 400);
+                if (candidatePhotoUrl) {
+                    resolvedMainImageUrl = candidatePhotoUrl;
+                    mainImagePhotoReference = primaryPhotoReference;
+                }
+            }
+
             const updateData = {
                 name: result.name,
                 formatted_address: result.formatted_address,
@@ -2417,7 +2627,8 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
                     longitude: result.geometry?.location?.lng,
                 },
                 googleMapsUrl: result.url,
-                mainImageUrl: result.photos && result.photos.length > 0 ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${result.photos[0].photo_reference}&key=${apiKey}` : null,
+                mainImageUrl: resolvedMainImageUrl,
+                mainImagePhotoReference: mainImagePhotoReference,
                 priceLevel: result.price_level,
                 website: result.website,
                 phone: result.international_phone_number,
@@ -2443,6 +2654,94 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
         throw new HttpsError('internal', 'Ocurrió una excepción al actualizar el lugar.');
     }
 });
+
+const refreshPlaceMainImage = onRequest(async (req, res) => {
+    cors(req, res, async () => {
+        if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'OPTIONS') {
+            res.set('Allow', 'GET,POST,OPTIONS');
+            return res.status(405).json({ message: 'Método no permitido.' });
+        }
+        if (req.method === 'OPTIONS') {
+            return res.status(204).send('');
+        }
+
+        try {
+            const placeId = req.method === 'GET'
+                ? (req.query.placeId || req.query.documentId || req.query.id)
+                : (req.body?.placeId || req.body?.documentId || req.body?.id);
+
+            if (!placeId) {
+                return res.status(400).json({ message: 'placeId es requerido.' });
+            }
+
+            const force = req.method === 'POST'
+                ? Boolean(req.body?.force)
+                : req.query.force === '1';
+            const maxWidthParam = req.method === 'POST'
+                ? req.body?.maxWidth
+                : req.query.maxWidth;
+            const maxWidth = maxWidthParam ? parseInt(maxWidthParam, 10) : undefined;
+
+            const result = await refreshPlaceMainImageByIdInternal(placeId, { force, maxWidth });
+            return res.status(200).json({
+                photoUrl: result.photoUrl || null,
+                refreshed: !!result.refreshed,
+                skipped: !!result.skipped
+            });
+        } catch (error) {
+            const status = error.code === 'not-found'
+                ? 404
+                : error.code === 'invalid-argument'
+                    ? 400
+                    : 500;
+            return res.status(status).json({
+                message: error.message || 'No se pudo refrescar la imagen del lugar.'
+            });
+        }
+    });
+});
+
+const refreshStalePlacePhotos = onSchedule(
+    {
+        schedule: 'every 6 hours',
+        timeZone: 'Europe/Madrid'
+    },
+    async () => {
+        const apiKey = await getGooglePlacesApiKey();
+        if (!apiKey) {
+            logger.error("refreshStalePlacePhotos: GOOGLE_PLACES_API_KEY no está configurada.");
+            return;
+        }
+
+        try {
+            const snapshot = await db
+                .collection('places')
+                .orderBy('lastPhotoRefresh', 'asc')
+                .limit(15)
+                .get();
+
+            for (const doc of snapshot.docs) {
+                const data = doc.data() || {};
+                const legacyUrl = typeof data.mainImageUrl === 'string'
+                    && data.mainImageUrl.includes('maps.googleapis.com/maps/api/place/photo');
+                const lastRefreshDate = extractTimestampDate(data.lastPhotoRefresh);
+                const shouldRefresh = legacyUrl || !lastRefreshDate || (Date.now() - lastRefreshDate.getTime()) > (48 * 60 * 60 * 1000);
+                if (!shouldRefresh) {
+                    continue;
+                }
+
+                try {
+                    await refreshPlaceMainImageFromSnapshot(doc, apiKey, { force: true, maxWidth: 800 });
+                    logger.info(`refreshStalePlacePhotos: foto actualizada para ${doc.id}`);
+                } catch (error) {
+                    logger.warn(`refreshStalePlacePhotos: fallo al refrescar ${doc.id}`, error);
+                }
+            }
+        } catch (error) {
+            logger.error("refreshStalePlacePhotos: error inesperado al iterar lugares.", error);
+        }
+    }
+);
 
 
 const adminFixPlaceDocument = onCall({ cors: true }, async (request) => {
@@ -2987,6 +3286,8 @@ module.exports = {
     adminFixPlaceDocument,
     adminAuditPlaceIdConsistency,
     adminUpdateSingleListAggregates,
+    refreshPlaceMainImage,
+    refreshStalePlacePhotos,
     updateAggregatesOnForumMessageChange,
     toggleFollowPlace,
     toggleFollowList,
