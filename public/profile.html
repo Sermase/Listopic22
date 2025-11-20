@@ -42,12 +42,19 @@
 <body>
     <header class="header-actions-container">
         <div class="header-left-content">
-            <div class="app-logo-container">
-                <a href="index.html" title="Ir a la p&aacute;gina de inicio">
-                    <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
-                </a>
-            </div>
+            <a class="brand-chip" href="index.html" aria-label="Volver al inicio">
+                <span class="brand-dot"></span>
+                <div class="brand-text">
+                    <span class="brand-title-text">Listopic</span>
+                    <span class="brand-subtitle-text">listas vivas</span>
+                </div>
+            </a>
         </div>
+        <nav class="header-nav" aria-label="Navegaci&oacute;n principal">
+            <a href="search.html" class="nav-link">Explorar</a>
+            <a href="archive.html" class="nav-link">Archivo</a>
+            <a href="list-form.html" class="nav-link nav-link-primary">Crear</a>
+        </nav>
         <div class="header-right-actions">
             <a href="search.html" id="search-link-button" class="search-button header-action-button icon-with-badge" aria-label="Buscar">
                 <i class="fas fa-search" aria-hidden="true"></i>
@@ -91,17 +98,20 @@
     <main>
         <div class="container profile-page-container">
     
-            <div class="profile-header">
-                
-                <div class="profile-left-column">
+            <div class="profile-hero-card">
+                <div class="profile-cover"></div>
+                <div class="profile-hero-body">
+                    <div class="profile-avatar-shell">
+                        <img id="profile-photo-display" src="img/placeholder-avatar.png" alt="Foto de perfil" class="profile-picture">
+                        <div class="profile-level-pill" id="profile-level-pill" style="display:none;">Lvl</div>
+                    </div>
                     <div class="profile-main-info">
                         <h3 id="profile-display-name">Cargando...</h3>
                         <h2 id="profile-username-display">@cargando...</h2> 
-                        <p id="profile-location-display" style="display: none;">
+                        <p id="profile-location-display" class="profile-location" style="display: none;">
                             <i class="fas fa-map-marker-alt"></i> <span>...</span>
                         </p>
-                        <p id="profile-bio-display">Cargando biograf&iacute;a...</p>
-                        
+                        <p id="profile-bio-display" class="profile-bio">Cargando biograf&iacute;a...</p>
                     </div>
                     <div class="profile-actions">
                         <button id="open-edit-profile-modal-btn" class="button secondary-button edit-profile-button" style="display: none;">
@@ -110,24 +120,16 @@
                         <button id="follow-unfollow-btn" class="button primary-button" style="display: none;">
                             Seguir
                         </button>
-
                         <button id="direct-message-btn" class="button secondary-button" style="display: none;">
                             <i class="fas fa-paper-plane"></i> Mensaje directo
-
                         </button>
                     </div>
                 </div>
-    
-                <div class="profile-right-column">
-                    <div class="profile-picture-container">
-                        <img id="profile-photo-display" src="img/placeholder-avatar.png" alt="Foto de perfil" class="profile-picture">
-                    </div>
-                    <div class="profile-stats">
-                        <div class="stat-item"><span class="count" id="lists-count">0</span><span class="label">Listas</span></div>
-                        <div class="stat-item"><span class="count" id="reviews-count">0</span><span class="label">Rese&ntilde;as</span></div>
-                        <div class="stat-item"><span class="count" id="followers-count">0</span><span class="label">Seguidores</span></div>
-                        <div class="stat-item"><span class="count" id="following-count">0</span><span class="label">Siguiendo</span></div>
-                    </div>
+                <div class="profile-stats-bar">
+                    <div class="stat-item"><span class="count" id="lists-count">0</span><span class="label">Listas</span></div>
+                    <div class="stat-item"><span class="count" id="reviews-count">0</span><span class="label">Rese&ntilde;as</span></div>
+                    <div class="stat-item"><span class="count" id="followers-count">0</span><span class="label">Seguidores</span></div>
+                    <div class="stat-item"><span class="count" id="following-count">0</span><span class="label">Siguiendo</span></div>
                 </div>
             </div>
     

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Listopic - Rank Your World</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              background: '#f8fafc', // Slate 50
+              surface: '#ffffff',
+              primary: '#4f46e5', // Indigo 600
+              secondary: '#ec4899', // Pink 500
+              tertiary: '#10b981', // Emerald 500
+              text: {
+                main: '#1e293b', // Slate 800
+                muted: '#64748b', // Slate 500
+                light: '#94a3b8'
+              }
+            },
+            fontFamily: {
+              sans: ['Manrope', 'sans-serif'],
+              display: ['Poppins', 'sans-serif'],
+            },
+            backgroundImage: {
+              'brand-gradient': 'linear-gradient(135deg, #4f46e5 0%, #ec4899 100%)',
+              'card-gradient': 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 100%)',
+            },
+            boxShadow: {
+              'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+              'hover': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #f8fafc;
+        color: #1e293b;
+      }
+      /* Hide scrollbar for cleaner horizontal scrolling */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+      }
+      /* Smooth styling for progress bars */
+      progress::-webkit-progress-bar {
+        background-color: #f1f5f9;
+        border-radius: 99px;
+      }
+      progress::-webkit-progress-value {
+        background: linear-gradient(90deg, #4f46e5, #ec4899);
+        border-radius: 99px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

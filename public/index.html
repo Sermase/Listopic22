@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,85 +10,151 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 
     <link rel="icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
     <meta property="og:title" content="Listopic - Tu Rincón Personal de Valoraciones">
-    <meta property="og:description" content="Crea, comparte y descubre listas de valoración personalizadas sobre cualquier tema que te apasione. Pero de momento sólo Hmm...">
-    <meta property="og:image" content="https://listopic.web.app/public/img/listopic-logo400.png"> 
+    <meta property="og:description"
+        content="Crea, comparte y descubre listas de valoración personalizadas sobre cualquier tema que te apasione. Pero de momento sólo Hmm...">
+    <meta property="og:image" content="https://listopic.web.app/public/img/listopic-logo400.png">
     <meta property="og:url" content="https://listopic.web.app/index.html">
-    <meta property="og:type" content="website">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-</head>
+    <!DOCTYPE html>
+    <html lang="es">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Listopic (App de Valoraciones)</title>
+
+        <link rel="manifest" href="/site.webmanifest">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap"
+            rel="stylesheet">
+        <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+            integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+        <link rel="icon" href="img/favicon.ico" type="image/x-icon">
+        <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16x16.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png">
+        <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
+        <meta property="og:title" content="Listopic - Tu Rincón Personal de Valoraciones">
+        <meta property="og:description"
+            content="Crea, comparte y descubre listas de valoración personalizadas sobre cualquier tema que te apasione. Pero de momento sólo Hmm...">
+        <meta property="og:image" content="https://listopic.web.app/public/img/listopic-logo400.png">
+        <meta property="og:url" content="https://listopic.web.app/index.html">
+        <meta property="og:type" content="website">
+
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+            integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+            crossorigin="anonymous" referrerpolicy="no-referrer" />
+    </head>
 
 <body>
-    <header class="header-actions-container">
-        <div class="header-left-content">
-            <div class="app-logo-container">
-                <a href="index.html" title="Ir a la p&aacute;gina de inicio">
-                    <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
+    <header class="app-header">
+        <div class="header-content">
+            <a class="brand-logo" href="index.html" aria-label="Volver al inicio">
+                <div class="brand-mark">
+                    <span class="brand-dot"></span>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title-text">Listopic</span>
+                </div>
+            </a>
+
+            <nav class="main-nav" aria-label="Navegación principal">
+                <a href="search.html" class="nav-item">
+                    <i class="fas fa-compass nav-icon"></i>
+                    <span class="nav-label">Explorar</span>
                 </a>
-            </div>
-        </div>
-        <div class="header-right-actions">
-            <a href="search.html" id="search-link-button" class="search-button header-action-button icon-with-badge" aria-label="Buscar">
-                <i class="fas fa-search" aria-hidden="true"></i>
-            </a>
-            <a href="chats.html" id="chats-link-button" class="header-action-button icon-with-badge" aria-label="Chats">
-                <i class="fas fa-comments" aria-hidden="true"></i>
-                <span class="badge-indicator" id="chats-badge" hidden></span>
-            </a>
-            <div class="header-icon-group">
-                <button id="notifications-button" class="header-action-button icon-with-badge" aria-label="Notificaciones" aria-expanded="false" aria-haspopup="true">
-                    <i class="fas fa-bell" aria-hidden="true"></i>
-                    <span class="badge-indicator" id="notifications-badge" hidden></span>
-                </button>
-                <div id="notifications-dropdown" class="notifications-dropdown" role="menu" aria-hidden="true">
-                    <h4>Notificaciones</h4>
-                    <p class="notifications-empty-state">Sin notificaciones nuevas.</p>
-                    <div class="notifications-list" id="notifications-list" hidden></div>
-                </div>
-            </div>
-            <div class="user-profile-menu-container">
-                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Men&uacute; de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
-                    <i class="fas fa-user-circle" aria-hidden="true"></i>
-                </button>
-                <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
-                    <a href="profile.html" role="menuitem">Perfil</a>
-                    <a href="chats.html" role="menuitem">Chats</a>
-                    <a href="archive.html" role="menuitem">Archivo</a>
-                    <hr class="user-menu-divider">
-                    <button type="button" role="menuitem" id="installPwaBtn" style="display: none;">
-                        <i class="fas fa-download"></i> Instalar Aplicaci&oacute;n
+                <a href="archive.html" class="nav-item">
+                    <i class="fas fa-archive nav-icon"></i>
+                    <span class="nav-label">Archivo</span>
+                </a>
+                <a href="list-form.html" class="nav-item nav-cta">
+                    <i class="fas fa-plus nav-icon"></i>
+                    <span class="nav-label">Crear</span>
+                </a>
+            </nav>
+
+            <div class="header-actions">
+                <a href="search.html" class="action-button icon-only mobile-only" aria-label="Buscar">
+                    <i class="fas fa-search"></i>
+                </a>
+
+                <a href="chats.html" class="action-button icon-only" aria-label="Chats">
+                    <i class="fas fa-comment-alt"></i>
+                    <span class="badge-dot" id="chats-badge" hidden></span>
+                </a>
+
+                <div class="action-group notification-group">
+                    <button id="notifications-button" class="action-button icon-only" aria-label="Notificaciones">
+                        <i class="fas fa-bell"></i>
+                        <span class="badge-dot" id="notifications-badge" hidden></span>
                     </button>
-                    <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesi&oacute;n</button>
+                    <!-- Dropdown se mantiene igual, solo clases de estilo cambiarán -->
+                    <div id="notifications-dropdown" class="dropdown-menu notifications-dropdown" hidden>
+                        <div class="dropdown-header">
+                            <h4>Notificaciones</h4>
+                        </div>
+                        <div class="dropdown-content">
+                            <p class="empty-state">Sin notificaciones nuevas.</p>
+                            <div class="notifications-list" id="notifications-list" hidden></div>
+                        </div>
+                    </div>
                 </div>
+
+                <div class="action-group user-group">
+                    <button id="userProfileBtn" class="action-button user-button" aria-label="Menú de usuario">
+                        <div class="user-avatar-placeholder">
+                            <i class="fas fa-user"></i>
+                        </div>
+                    </button>
+                    <div id="userMenuDropdown" class="dropdown-menu user-dropdown" hidden>
+                        <a href="profile.html" class="dropdown-item">
+                            <i class="fas fa-user-circle"></i> Perfil
+                        </a>
+                        <a href="chats.html" class="dropdown-item">
+                            <i class="fas fa-comments"></i> Chats
+                        </a>
+                        <a href="archive.html" class="dropdown-item">
+                            <i class="fas fa-box-open"></i> Archivo
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <button type="button" class="dropdown-item" id="installPwaBtn" style="display: none;">
+                            <i class="fas fa-download"></i> Instalar App
+                        </button>
+                        <button type="button" class="dropdown-item text-danger" id="logoutBtnUserMenu">
+                            <i class="fas fa-sign-out-alt"></i> Cerrar sesión
+                        </button>
+                    </div>
+                </div>
+
+                <button id="theme-toggle-button" class="action-button icon-only theme-toggle" title="Cambiar tema">
+                    <i class="fas fa-moon"></i>
+                </button>
             </div>
-            <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
-                <i class="fas fa-moon" aria-hidden="true"></i>
-            </button>
         </div>
     </header>
 
     <main>
         <div class="container">
             <section class="hero" aria-label="Bienvenida">
-                <h1 class="brand-title">
-                    <span class="logo-petal p1"></span>
-                    <span class="logo-petal p2"></span>
-                      L i S T ó P i C  
-                    <span class="logo-petal p4"></span>
-                    <span class="logo-petal p5"></span>
-                </h1>
-                <!-- <p class="hero-subtitle">Tu rincón personal de valoraciones. Crea listas, puntúa, comparte.</p> -->
-                
-                </section>
+                <h1 class="brand-title">Listopic</h1>
+                <p class="hero-subtitle">Listas vivas, curadas en tiempo real. Crea, explora y comparte sin fricción.
+                </p>
+            </section>
 
             <div class="tabs">
                 <button class="tab-button" data-tab="explore">Explorar</button>
@@ -97,15 +164,18 @@
             <div class="tab-content" id="explore">
                 <section>
                     <div class="hero-actions">
-                        <form id="hero-search-form" class="hero-search" role="search" aria-label="Buscar" action="search.html" method="GET">
+                        <form id="hero-search-form" class="hero-search" role="search" aria-label="Buscar"
+                            action="search.html" method="GET">
                             <i class="fas fa-search" aria-hidden="true"></i>
-                            <input id="hero-search-input" name="q" type="search" placeholder="Buscar listas, lugares o etiquetas" aria-label="Buscar" />
+                            <input id="hero-search-input" name="q" type="search"
+                                placeholder="Buscar listas, lugares o etiquetas" aria-label="Buscar" />
                             <button type="submit" class="button primary">Buscar</button>
                         </form>
                         <a href="list-form.html" class="button cta" id="hero-create-list-btn">
                             <i class="fas fa-plus-circle"></i> Crear lista
                         </a>
                     </div>
+                    <p class="tags-label">Superetiquetas en vivo</p>
                     <div class="trending-tags" id="trending-tags" aria-live="polite" aria-label="Tendencias"></div>
                 </section>
                 <section>
@@ -119,13 +189,8 @@
                             <span class="close-modal" id="close-global-map-modal-btn" title="Cerrar mapa">&times;</span>
                             <h2 id="global-map-title">Mapa de Lugares</h2>
                             <div id="global-map-container">
-                                <button
-                                    type="button"
-                                    id="global-map-center-user-btn"
-                                    class="map-center-control"
-                                    aria-label="Centrar en mi ubicación"
-                                    title="Centrar en mi ubicación"
-                                >
+                                <button type="button" id="global-map-center-user-btn" class="map-center-control"
+                                    aria-label="Centrar en mi ubicación" title="Centrar en mi ubicación">
                                     <i class="fas fa-compass" aria-hidden="true"></i>
                                 </button>
                             </div>
@@ -145,7 +210,9 @@
                     <h2>Listas recientes</h2>
                     <nav class="list-collection-container">
                         <ul id="list-circles-ul">
-                            <li><p>Cargando listas...</p></li>
+                            <li>
+                                <p>Cargando listas...</p>
+                            </li>
                         </ul>
                         <a href="list-form.html" class="add-list-button" title="Crear nueva lista">
                             <i class="fas fa-plus-circle"></i>
@@ -182,8 +249,10 @@
     <script src="js/places-service.js"></script>
     <script src="js/themeManager.js"></script>
     <script src="js/main.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="js/page-index.js"></script>
 
 </body>
+
 </html>
