@@ -12728,9 +12728,9 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 .main-nav {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     background: transparent;
-    padding: 0;
+    padding: 6px 0;
     border-radius: 0;
     border: none;
     box-shadow: none;
@@ -12748,7 +12748,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 .nav-links {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: nowrap;
     white-space: nowrap;
     flex: 0 1 auto;
@@ -12759,18 +12759,19 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 14px;
-    border-radius: 999px;
+    padding: 6px 12px;
+    border-radius: 18px;
     text-decoration: none;
     color: var(--secondary-text-color);
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
     background: rgba(var(--primary-bg-rgb-values), 0.45);
-    border: 1px solid rgba(255,255,255,0.06);
-    min-height: 38px;
-    min-width: 42px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    min-height: 36px;
+    min-width: max-content;
     line-height: 1;
+    flex-shrink: 0;
 }
 
 .nav-item:hover {
@@ -12781,19 +12782,28 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 
 .nav-item.icon-only,
 .nav-item.nav-button {
-    padding: 8px;
+    padding: 0;
     justify-content: center;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(var(--primary-bg-rgb-values), 0.45);
 }
 
+
 .nav-item.theme-toggle {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
     padding: 0;
     border-radius: 50%;
     justify-content: center;
     background: rgba(var(--primary-bg-rgb-values), 0.45);
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
 .nav-item.theme-toggle .nav-label {
     display: none;
 }
@@ -12817,43 +12827,53 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 .nav-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: nowrap;
     white-space: nowrap;
     justify-content: flex-end;
     flex: 0 1 auto;
     flex-shrink: 0;
 }
+
+.nav-actions>* {
+    flex-shrink: 0;
+}
+
+
 .nav-action {
     background: rgba(var(--primary-bg-rgb-values), 0.45);
-    border: 1px solid rgba(255,255,255,0.05);
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
+
 .profile-accent {
     background: linear-gradient(135deg, rgba(var(--accent-color-primary-rgb), 0.92), rgba(var(--accent-color-secondary-rgb), 0.88));
     color: #fff;
-    border: 1px solid rgba(255,255,255,0.15);
-    box-shadow: 0 6px 16px rgba(var(--accent-color-primary-rgb), 0.25);
-    padding: 8px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 3px 10px rgba(var(--accent-color-primary-rgb), 0.18);
+    padding: 6px 12px;
     gap: 8px;
-    border-radius: 999px;
+    border-radius: 18px;
     white-space: nowrap;
     min-width: max-content;
+    min-height: 36px;
 }
+
+
 .profile-accent .nav-label,
 .profile-accent .nav-icon {
     color: #fff;
 }
 
 .profile-accent .user-avatar-placeholder {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.16);
-    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     color: #fff;
     display: grid;
     place-items: center;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* Actions */
@@ -13016,7 +13036,26 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     }
 
     .nav-item {
-        padding: 8px;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        min-width: 0;
+        min-height: 0;
+        justify-content: center;
+        border-radius: 50%;
+    }
+
+    .profile-accent {
+        min-width: 0;
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .profile-accent .user-avatar-placeholder {
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, var(--accent-color-primary), var(--accent-color-secondary));
+        border: none;
     }
 }
 
