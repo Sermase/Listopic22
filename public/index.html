@@ -73,78 +73,59 @@
                 </div>
             </a>
 
-            <nav class="main-nav" aria-label="Navegación principal">
-                <a href="search.html" class="nav-item">
-                    <i class="fas fa-compass nav-icon"></i>
-                    <span class="nav-label">Explorar</span>
-                </a>
-                <a href="archive.html" class="nav-item">
-                    <i class="fas fa-archive nav-icon"></i>
-                    <span class="nav-label">Archivo</span>
-                </a>
-                <a href="list-form.html" class="nav-item nav-cta">
-                    <i class="fas fa-plus nav-icon"></i>
-                    <span class="nav-label">Crear</span>
-                </a>
-            </nav>
-
-            <div class="header-actions">
-                <a href="search.html" class="action-button icon-only mobile-only" aria-label="Buscar">
-                    <i class="fas fa-search"></i>
-                </a>
-
-                <a href="chats.html" class="action-button icon-only" aria-label="Chats">
-                    <i class="fas fa-comment-alt"></i>
-                    <span class="badge-dot" id="chats-badge" hidden></span>
-                </a>
-
-                <div class="action-group notification-group">
-                    <button id="notifications-button" class="action-button icon-only" aria-label="Notificaciones">
-                        <i class="fas fa-bell"></i>
-                        <span class="badge-dot" id="notifications-badge" hidden></span>
-                    </button>
-                    <!-- Dropdown se mantiene igual, solo clases de estilo cambiarán -->
-                    <div id="notifications-dropdown" class="dropdown-menu notifications-dropdown" hidden>
-                        <div class="dropdown-header">
-                            <h4>Notificaciones</h4>
-                        </div>
-                        <div class="dropdown-content">
-                            <p class="empty-state">Sin notificaciones nuevas.</p>
-                            <div class="notifications-list" id="notifications-list" hidden></div>
-                        </div>
-                    </div>
+            <nav class="main-nav" aria-label="Navegaci&oacute;n principal">
+                <div class="nav-links">
+                    <a href="search.html" class="nav-item">
+                        <i class="fas fa-search nav-icon"></i>
+                        <span class="nav-label">Buscar</span>
+                    </a>
+                    <a href="archive.html" class="nav-item">
+                        <i class="fas fa-archive nav-icon"></i>
+                        <span class="nav-label">Archivo</span>
+                    </a>
+                    <!-- <a href="list-form.html" class="nav-item nav-cta">
+                        <i class="fas fa-plus nav-icon"></i>
+                        <span class="nav-label">Crear</span>
+                    </a> -->
                 </div>
 
-                <div class="action-group user-group">
-                    <button id="userProfileBtn" class="action-button user-button" aria-label="Menú de usuario">
+                <div class="nav-actions">
+                    <a href="chats.html" class="nav-item nav-action">
+                        <i class="fas fa-comment-alt nav-icon"></i>
+                        <span class="nav-label">Chats</span>
+                        <span class="badge-dot" id="chats-badge" hidden></span>
+                    </a>
+
+                    <div class="action-group notification-group">
+                        <button id="notifications-button" class="nav-item nav-action nav-button" aria-label="Notificaciones">
+                            <i class="fas fa-bell nav-icon"></i>
+                            <span class="nav-label">Alertas</span>
+                            <span class="badge-dot" id="notifications-badge" hidden></span>
+                        </button>
+                        <div id="notifications-dropdown" class="dropdown-menu notifications-dropdown" hidden>
+                            <div class="dropdown-header">
+                                <h4>Notificaciones</h4>
+                            </div>
+                            <div class="dropdown-content">
+                                <p class="empty-state">Sin notificaciones nuevas.</p>
+                                <div class="notifications-list" id="notifications-list" hidden></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <a href="profile.html" id="userProfileBtn" class="nav-item nav-action nav-button user-button profile-accent" aria-label="Ir a mi perfil">
                         <div class="user-avatar-placeholder">
-                            <i class="fas fa-user"></i>
+                            <i class="fas fa-user nav-icon"></i>
                         </div>
-                    </button>
-                    <div id="userMenuDropdown" class="dropdown-menu user-dropdown" hidden>
-                        <a href="profile.html" class="dropdown-item">
-                            <i class="fas fa-user-circle"></i> Perfil
-                        </a>
-                        <a href="chats.html" class="dropdown-item">
-                            <i class="fas fa-comments"></i> Chats
-                        </a>
-                        <a href="archive.html" class="dropdown-item">
-                            <i class="fas fa-box-open"></i> Archivo
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <button type="button" class="dropdown-item" id="installPwaBtn" style="display: none;">
-                            <i class="fas fa-download"></i> Instalar App
-                        </button>
-                        <button type="button" class="dropdown-item text-danger" id="logoutBtnUserMenu">
-                            <i class="fas fa-sign-out-alt"></i> Cerrar sesión
-                        </button>
-                    </div>
-                </div>
+                        <span class="nav-label">Perfil</span>
+                    </a>
 
-                <button id="theme-toggle-button" class="action-button icon-only theme-toggle" title="Cambiar tema">
-                    <i class="fas fa-moon"></i>
-                </button>
-            </div>
+                    <button id="theme-toggle-button" class="nav-item nav-action nav-button theme-toggle" title="Cambiar tema">
+                        <i class="fas fa-moon nav-icon"></i>
+                        <span class="nav-label">Tema</span>
+                    </button>
+                </div>
+            </nav>
         </div>
     </header>
 
