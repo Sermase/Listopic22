@@ -425,7 +425,12 @@ ListopicApp.uiUtils = {
 
         const author = review.author || {};
         const authorId = author.id || review.userId || '';
-        const authorNameRaw = author.name || 'Usuario Anonimo';
+        const authorNameRaw = author.username
+            || review.authorUsername
+            || author.displayName
+            || author.name
+            || review.authorName
+            || 'Usuario';
         const authorName = uiUtils.escapeHtml(authorNameRaw);
         const authorPhoto = uiUtils.escapeHtml(author.photoUrl || 'img/placeholder-avatar.png');
 
