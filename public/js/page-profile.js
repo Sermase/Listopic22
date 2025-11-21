@@ -31,6 +31,7 @@ ListopicApp.pageProfile = {
         saveProfileButton: null,
         
         // --- Campos del Formulario del Modal ---
+        editUsernameInput: null,
         editDisplayNameInput: null,
         editSurnamesInput: null,
         editLocationInput: null,
@@ -116,6 +117,7 @@ ListopicApp.pageProfile = {
         this.elements.modalMessageArea = document.getElementById('modal-message-area');
         this.elements.saveProfileButton = document.getElementById('save-profile-button');
         
+        this.elements.editUsernameInput = document.getElementById('edit-username');
         this.elements.editDisplayNameInput = document.getElementById('edit-displayName');
         this.elements.editSurnamesInput = document.getElementById('edit-surnames');
         this.elements.editLocationInput = document.getElementById('edit-location');
@@ -382,10 +384,10 @@ ListopicApp.pageProfile = {
     },
 
     renderProfileData: function() {
-        const { displayName, username, bio, location, photoUrl, publicListsCount, privateListsCount, reviewsCount, followersCount, followingCount } = this.profileData;
+        const { displayName, name, username, bio, location, photoUrl, publicListsCount, privateListsCount, reviewsCount, followersCount, followingCount } = this.profileData;
         const totalLists = (publicListsCount || 0) + (privateListsCount || 0);
 
-        if (this.elements.displayNameElement) this.elements.displayNameElement.textContent = displayName || username || 'Usuario';
+        if (this.elements.displayNameElement) this.elements.displayNameElement.textContent = name || displayName || username || 'Usuario';
         if (this.elements.usernameDisplayElement) this.elements.usernameDisplayElement.textContent = `@${username || 'usuario'}`;
         if (this.elements.bioDisplayElement) this.elements.bioDisplayElement.textContent = bio || 'Este usuario aún no ha añadido una biografía.';
         if (this.elements.locationDisplayElement) {
@@ -409,7 +411,8 @@ ListopicApp.pageProfile = {
 
     openEditModal: function() {
         if (!this.profileData) return;
-        this.elements.editDisplayNameInput.value = this.profileData.displayName || '';
+        this.elements.editUsernameInput.value = this.profileData.username || '';
+        this.elements.editDisplayNameInput.value = this.profileData.name || this.profileData.displayName || '';
         this.elements.editSurnamesInput.value = this.profileData.surnames || '';
         this.elements.editLocationInput.value = this.profileData.location || '';
         this.elements.editBioInput.value = this.profileData.bio || '';
@@ -447,6 +450,17 @@ ListopicApp.pageProfile = {
         const storage = ListopicApp.services.storage;
 
         try {
+            const usernameInput = (this.elements.editUsernameInput?.value || '').trim();
+            const nameInput = (this.elements.editDisplayNameInput?.value || '').trim();
+            const surnamesInput = (this.elements.editSurnamesInput?.value || '').trim();
+
+            const usernameRegex = /^[A-Za-zÁÉÍÓÚÜáéíóúüÑñ0-9._-]{5,20}$/;
+            if (!usernameRegex.test(usernameInput)) {
+                this.displayModalMessage("El nombre de usuario debe tener 5-20 caracteres, sin espacios. Usa letras (tildes ok), números, ., _ o -.", true);
+                this.elements.saveProfileButton.disabled = false;
+                return;
+            }
+
             let newPhotoURL = this.elements.editPhotoUrlInput.value.trim();
             if (this.selectedPhotoFile) {
                 const filePath = `profile-photos/${this.currentUser.uid}/${Date.now()}_${this.selectedPhotoFile.name}`;
@@ -456,8 +470,10 @@ ListopicApp.pageProfile = {
             }
 
             const updatesForFirestore = {
-                displayName: this.elements.editDisplayNameInput.value.trim(),
-                surnames: this.elements.editSurnamesInput.value.trim(),
+                username: usernameInput,
+                name: nameInput,
+                displayName: nameInput || usernameInput,
+                surnames: surnamesInput,
                 location: this.elements.editLocationInput.value.trim(),
                 bio: this.elements.editBioInput.value.trim(),
                 photoUrl: newPhotoURL,
@@ -465,7 +481,7 @@ ListopicApp.pageProfile = {
             };
             
             const updatesForAuth = {
-                displayName: updatesForFirestore.displayName,
+                displayName: usernameInput,
                 photoURL: newPhotoURL
             };
 
