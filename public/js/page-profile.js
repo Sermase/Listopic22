@@ -511,7 +511,7 @@ ListopicApp.pageProfile = {
         }
     },
 
-    renderUserLists: async function(listDocs) {
+        renderUserLists: async function(listDocs) {
         if (!this.elements.myListsUl) return;
         this.elements.myListsUl.innerHTML = '';
         if (listDocs.length === 0) {
@@ -528,13 +528,30 @@ ListopicApp.pageProfile = {
             const privacyIcon = list.isPublic ? 'fa-globe-americas' : 'fa-lock';
             const privacyText = list.isPublic ? 'Pública' : 'Privada';
             const listIcon = await uiUtils.getListIcon(list);
+            const reviewsCount = list.reviewCount || 0;
+            const followersCount = list.followersCount || 0;
+            const previewImage =
+                list.mainImageUrl ||
+                list.coverImageUrl ||
+                list.previewImage ||
+                (Array.isArray(list.places) && list.places[0]?.mainImageUrl) ||
+                list.imageUrl ||
+                null;
 
             li.innerHTML = `
-                <a href="list-view.html?listId=${doc.id}">
-                    <strong class="profile-list-item-name"><i class="fas ${listIcon}" style="margin-right: 8px;"></i>${uiUtils.escapeHtml(list.name)}</strong>
-                    <div class="profile-list-item-meta">
-                        <span><i class="fas fa-pencil-alt"></i> ${list.reviewCount || 0} reseñas</span>
-                        <span><i class="fas ${privacyIcon}"></i> ${privacyText}</span>
+                <a href="list-view.html?listId=${doc.id}" class="profile-list-card">
+                    ${previewImage
+                        ? `<div class="profile-list-thumb" style="background-image:url('${uiUtils.escapeHtml(previewImage)}');"></div>`
+                        : `<div class="profile-list-thumb placeholder"><i class="fas ${listIcon}"></i></div>`}
+                    <div class="profile-list-body">
+                        <div class="profile-list-top">
+                            <span class="profile-list-item-name"><i class="fas ${listIcon}"></i>${uiUtils.escapeHtml(list.name)}</span>
+                            <span class="profile-list-privacy"><i class="fas ${privacyIcon}"></i> ${privacyText}</span>
+                        </div>
+                        <div class="profile-list-stats">
+                            <span><i class="fas fa-heart"></i> ${followersCount}</span>
+                            <span><i class="fas fa-pencil-alt"></i> ${reviewsCount} reseñas</span>
+                        </div>
                     </div>
                 </a>
             `;
@@ -612,6 +629,9 @@ ListopicApp.pageProfile = {
 };
 
 console.log("page-profile.js: Script PARSEADO y EJECUTADO exitosamente.");
+
+
+
 
 
 
