@@ -686,13 +686,15 @@ ListopicApp.uiUtils = {
                     <div class="review-super-card__main-content">
                         <div class="review-super-card__title-group">
                             <div class="review-super-card__title-row">
-                                <h4 class="review-super-card__title">
-                                    ${gmapsIconHtml}
-                                    ${placeDetailLinkHtml}
-                                </h4>
+                                <div class="review-super-card__title-block">
+                                    <h4 class="review-super-card__title">
+                                        ${gmapsIconHtml}
+                                        ${placeDetailLinkHtml}
+                                    </h4>
+                                    <p class="review-super-card__subtitle"><span>${itemName}</span></p>
+                                </div>
                                 ${inlineScoreChip}
                             </div>
-                            <p class="review-super-card__subtitle"><span>${itemName}</span></p>
                         </div>
                         ${criteriaHtml}
                         ${commentHtml}

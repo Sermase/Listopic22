@@ -7717,6 +7717,12 @@ body.light-theme .info-tag:hover {
     gap: 10px;
 }
 
+.review-super-card__title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .review-super-card__score-chip {
     display: none;
     align-items: center;
@@ -8066,7 +8072,7 @@ body.light-theme .info-tag:hover {
     }
 
     .review-super-card__image-container {
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
 
     .review-super-card__main-content {
@@ -8122,7 +8128,7 @@ body.light-theme .info-tag:hover {
 
     .review-super-card__body {
         padding: 5px;
-        gap: 15px;
+        gap: 5px;
     }
 
     .review-super-card__actions-bar {
