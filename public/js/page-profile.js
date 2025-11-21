@@ -20,6 +20,7 @@ ListopicApp.pageProfile = {
         openEditModalBtn: null,
         followUnfollowBtn: null, // NUEVO
         directMessageBtn: null,
+        logoutButton: null,
 
         profileMessageArea: null,
         
@@ -125,6 +126,7 @@ ListopicApp.pageProfile = {
         this.elements.editPhotoUrlInput = document.getElementById('edit-photo-url');
         this.elements.editPhotoFileInput = document.getElementById('edit-photo-file');
         this.elements.editPhotoPreview = document.getElementById('edit-photo-preview');
+        this.elements.logoutButton = document.getElementById('logout-button');
     
         // Dentro de cacheDOMElements en ListopicApp.pageProfile
         this.elements.photoModal = document.getElementById('photo-modal');
@@ -164,6 +166,9 @@ ListopicApp.pageProfile = {
 
         if (this.elements.directMessageBtn) {
             this.elements.directMessageBtn.style.display = isOwnProfile ? 'none' : 'inline-flex';
+        }
+        if (this.elements.logoutButton) {
+            this.elements.logoutButton.style.display = isOwnProfile ? 'inline-flex' : 'none';
         }
 
     },

@@ -9004,6 +9004,8 @@ body.light-theme .leaflet-popup-tip {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    justify-self: start;
+    text-align: left;
 }
 
 .profile-main-info h3 {
@@ -9040,7 +9042,9 @@ body.light-theme .leaflet-popup-tip {
     display: flex;
     gap: 8px;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    align-self: start;
+    justify-self: start;
 }
 
 .profile-stats-bar {
@@ -9083,6 +9087,8 @@ body.light-theme .leaflet-popup-tip {
     .profile-actions {
         justify-content: flex-start;
         flex-wrap: wrap;
+        grid-column: 1 / span 2;
+        justify-self: start;
     }
 
     .profile-bio {
