@@ -12681,6 +12681,8 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    flex-wrap: nowrap;
+    overflow-x: hidden;
 }
 
 /* Brand */
@@ -12751,6 +12753,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     justify-content: flex-end;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
 }
 
 .nav-links {
@@ -12840,9 +12843,10 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     flex-wrap: nowrap;
     white-space: nowrap;
     justify-content: flex-end;
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     flex-shrink: 0;
 }
+.nav-actions > * { flex-shrink: 0; }
 
 .nav-actions>* {
     flex-shrink: 0;
