@@ -1,4 +1,4 @@
-// Contenido completo para uiUtils.js
+﻿// Contenido completo para uiUtils.js
 
 window.ListopicApp = window.ListopicApp || {};
 window.ListopicApp.state = window.ListopicApp.state || {};
@@ -553,7 +553,7 @@ ListopicApp.uiUtils = {
         const imageHtml = hasPhoto
             ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${itemName}" class="review-super-card__image">`
             : '';
-        const scoreBubbleHtml = `<div class="review-super-card__score-bubble" aria-label="Valoración ${overallRating}" style="background:${ratingGradient}; color:#f6f7fb;">
+        const scoreBubbleHtml = `<div class="review-super-card__score-bubble" aria-label="Valoración ${overallRating}" style="background:${ratingGradient}; color:#ffffff;">
                     <span class="score-value">${overallRating}</span>
                </div>`;
         const imageContainerHtml = hasPhoto
@@ -563,7 +563,7 @@ ListopicApp.uiUtils = {
                 </div>`
             : '';
         const inlineScoreChip = !hasPhoto
-            ? `<span class="review-super-card__score-chip" aria-label="Valoración ${overallRating}" style="background:${ratingGradient}; color:#f6f7fb;">
+            ? `<span class="review-super-card__score-chip" aria-label="Valoración ${overallRating}" style="background:${ratingGradient}; color:#ffffff;">
                     ${overallRating}
                </span>`
             : '';
