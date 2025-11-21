@@ -562,11 +562,9 @@ ListopicApp.uiUtils = {
                     ${scoreBubbleHtml}
                 </div>`
             : '';
-        const inlineScoreChip = !hasPhoto
-            ? `<span class="review-super-card__score-chip" aria-label="Valoración ${overallRating}" style="background:${ratingGradient}; color:#ffffff;">
+        const inlineScoreChip = `<span class="review-super-card__score-chip" aria-label="Valoración ${overallRating}" style="background:${ratingGradient}; color:#ffffff;">
                     ${overallRating}
-               </span>`
-            : '';
+               </span>`;
 
         const menuHtml = `
             <div class="review-menu" data-review-menu>
@@ -730,6 +728,85 @@ ListopicApp.uiUtils = {
             separatorEl.style.display = 'none';
             listNameEl.style.display = 'none';
         }
+    },
+
+    setRandomHeroSubtitle: function() {
+        const target = document.getElementById('hero-subtitle');
+        if (!target) return;
+        const lines = [
+            "Donde las listas se hacen famosas y tú también un poquito.",
+            "El Olimpo de las listas absurdamente serias.",
+            "Aquí las listas se sienten importantes.",
+            "Donde las listas vienen a ponerse guapas.",
+            "Listas que harían suspirar a una hoja de cálculo.",
+            "Tu pequeño portal para poner orden sin drama.",
+            "La biblioteca infinita de tus “depende”.",
+            "Ideas sueltas buscando lista.",
+            "El país de las listas que siempre tienen sitio para una más.",
+            "Aquí las listas salen mejor peinadas.",
+            "El universo paralelo donde todo queda clarito.",
+            "Territorio apto para maniáticos y despistados por igual.",
+            "El habitáculo premium para tus elecciones más raras.",
+            "Un refugio para pensamientos con vocación de ranking.",
+            "Aquí tus obsesiones tienen su propio ranking.",
+            "Donde lo aleatorio encuentra estructura.",
+            "Donde los gustos se alinean… o al menos se saludan.",
+            "La república independiente de tus opiniones.",
+            "Donde cada gusto encuentra su casillita.",
+            "Tu consola personal para ajustar el mundo.",
+            "Si la vida es un lío, al menos lista tus líos con estilo.",
+            "Tu reino por una buena lista. O al menos por una divertida.",
+            "Tu santuario personal de rankings.",
+            "La patria de las listas bien hechas.",
+            "La frontera amable entre el caos y el orden.",
+            "Donde los rankings encuentran su destino manifiesto.",
+            "La cima desde la que ver el mundo… en columnas.",
+            "La cápsula espacial para tus gustos interplanetarios.",
+            "El coliseo honorable de tus opiniones.",
+            "El paraíso de los que piensan en modo “bullet point”.",
+            "Explora, vota… y presume de criterio sin vergüenza.",
+            "Listas para gente seria. Y para ti también.",
+            "Tu mapa personal de lo importante… y de lo no tanto.",
+            "Un buen lugar para pensar en columnas.",
+            "Listopic: más ordenado que tu cajón de cables.",
+            "Tu rincón para clasificar lo inclasificable.",
+            "Aquí las opiniones encuentran hogar.",
+            "Tu base secreta para ordenar lo que te da la gana.",
+            "Un lugar donde tus preferencias pueden estirarse a gusto.",
+            "Porque siempre hay algo que merece ser listado.",
+            "Aquí las listas vienen a sentirse organizadas.",
+            "Listas sin prisa, pero con intención.",
+            "Pasa, crea y ordénalo a tu manera.",
+            "La zona segura para tus comparaciones imposibles.",
+            "Un rincón amable para tus “esto va primero”.",
+            "Donde el orden se vuelve un poco más simpático.",
+            "El punto exacto entre caos y criterio.",
+            "Aquí empieza el viaje de tus listas más ambiciosas.",
+            "Las listas que tu mente estaba intentando hacer desde hace días.",
+            "El lugar donde tus gustos encuentran la paz (temporal).",
+            "Las listas aquí madrugan solas, nadie sabe por qué.",
+            "El spa favorito de los gustos cansados.",
+            "Donde las ideas hacen cola para verse más ordenadas.",
+            "El balneario oficial de las comparaciones tensas.",
+            "Listas que se estiran antes de empezar.",
+            "La cafetería secreta donde se reúnen los criterios.",
+            "El gimnasio donde tus prioridades levantan pesas.",
+            "El hotel boutique de tus opiniones más viajeras.",
+            "Donde los pensamientos vienen a hacerse un retoque.",
+            "El país donde los gustos pagan impuestos simbólicos.",
+            "El lugar donde tus gustos vienen a aclararse un poco.",
+            "Tu espacio para ordenar lo que solo tú entiendes.",
+            "Cuando el mundo no encaja, siempre queda una buena lista.",
+            "Donde pensar en orden se siente sorprendentemente natural.",
+            "Una manera elegante de poner las ideas en fila.",
+            "Tus criterios, ahora con luz y taquígrafos.",
+            "El sitio donde tus gustos conversan entre ellos.",
+            "El rincón donde tus elecciones respiran hondo.",
+            "Aquí el caos se porta un poquito mejor.",
+            "Para quienes disfrutan poniendo etiquetas sin remordimientos."
+        ];
+        const pick = lines[Math.floor(Math.random() * lines.length)];
+        target.textContent = pick;
     },
 
 
