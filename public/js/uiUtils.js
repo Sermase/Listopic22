@@ -605,6 +605,13 @@ ListopicApp.uiUtils = {
                 </div>
             </div>`;
 
+        const createdAtSource = review.createdAt || review.updatedAt || review.timestamp || review.date;
+        const createdAtLabel = typeof formatTimestampForUi === 'function'
+            ? formatTimestampForUi(createdAtSource)
+            : (createdAtSource
+                ? (createdAtSource.toDate ? createdAtSource.toDate().toLocaleDateString() : new Date(createdAtSource).toLocaleDateString())
+                : '');
+
         return `
             <article class="review-super-card" onclick="window.location.href=this.dataset.detailUrl;"
                 data-review-id="${uiUtils.escapeHtml(review.id || '')}"
@@ -634,7 +641,10 @@ ListopicApp.uiUtils = {
                     <div class="header-main-info">
                         <a href="profile.html?viewUserId=${authorId}" class="author-link" onclick="event.stopPropagation()">
                             <img src="${authorPhoto}" alt="Avatar de ${authorName}" class="author-avatar">
-                            <span class="author-name">${authorName}</span>
+                            <span class="author-text-group">
+                                <span class="author-name">${authorName}</span>
+                                ${createdAtLabel ? `<span class="author-date">${createdAtLabel}</span>` : ''}
+                            </span>
                         </a>
                         <div class="list-highlight">
                             <span class="meta-separator">&middot;</span> en <a href="list-view.html?listId=${listId}" onclick="event.stopPropagation()">${listName}</a>

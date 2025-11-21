@@ -7390,22 +7390,38 @@ body.light-theme .info-tag:hover {
 }
 
 .header-main-info {
-    /* Contenedor para autor y lista */
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    /* Alinear en la misma línea */
     flex-wrap: wrap;
-    /* Por si no cabe en pantallas muy pequeñas */
-    gap: 8px;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    position: relative;
+    background: linear-gradient(135deg, rgba(var(--accent-color-primary-rgb), 0.14), rgba(var(--accent-color-secondary-rgb), 0.1));
+    border: 1px solid rgba(var(--accent-color-primary-rgb), 0.2);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
 }
 
 .author-link {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 8px;
     text-decoration: none;
     color: var(--title-color);
     font-weight: 600;
+    padding-right: 8px;
+}
+
+.author-text-group {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.author-date {
+    font-size: 0.78rem;
+    color: var(--secondary-text-color);
+    font-weight: 500;
 }
 
 .author-link:hover {
@@ -7413,22 +7429,30 @@ body.light-theme .info-tag:hover {
 }
 
 .author-avatar {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--border-color);
+    border: 2px solid rgba(var(--accent-color-primary-rgb), 0.4);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
 }
 
 .list-highlight {
-    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 14px;
+    background: rgba(var(--primary-bg-rgb-values), 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.85rem;
     color: var(--secondary-text-color);
 }
 
 .list-highlight a {
     text-decoration: none;
     font-weight: 600;
-    color: var(--accent-color-secondary);
+    color: var(--text-color);
 }
 
 .list-highlight a:hover {
@@ -7436,8 +7460,8 @@ body.light-theme .info-tag:hover {
 }
 
 .meta-separator {
-    color: var(--secondary-text-color);
-    margin-right: 4px;
+    color: rgba(var(--accent-color-primary-rgb), 0.65);
+    margin-right: 2px;
 }
 
 .review-super-card__score {
