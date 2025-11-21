@@ -135,8 +135,16 @@
     <main>
         <div class="container profile-page-container">
     
-            <div class="profile-hero-card">
+                <div class="profile-hero-card">
                 <div class="profile-cover"></div>
+                <div class="profile-hero-actions">
+                    <button id="open-edit-profile-modal-btn" class="icon-button" style="display:none;" title="Editar perfil">
+                        <i class="fas fa-gear"></i>
+                    </button>
+                    <button id="logout-button" class="icon-button" style="display:none;" title="Cerrar sesión">
+                        <i class="fas fa-power-off"></i>
+                    </button>
+                </div>
                 <div class="profile-hero-body">
                     <div class="profile-avatar-shell">
                         <img id="profile-photo-display" src="img/placeholder-avatar.png" alt="Foto de perfil" class="profile-picture">
@@ -151,9 +159,6 @@
                         <p id="profile-bio-display" class="profile-bio">Cargando biograf&iacute;a...</p>
                     </div>
                     <div class="profile-actions">
-                        <button id="open-edit-profile-modal-btn" class="button secondary-button edit-profile-button" style="display: none;">
-                            Editar Perfil
-                        </button>
                         <button id="follow-unfollow-btn" class="button primary-button" style="display: none;">
                             Seguir
                         </button>
