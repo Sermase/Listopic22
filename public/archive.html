@@ -12,51 +12,95 @@
     <link rel="icon" href="img/favicon.ico" type="image/x-icon">
 </head>
 <body>
-    <header class="header-actions-container">
-        <div class="header-left-content">
-            <div class="app-logo-container">
-                <a href="index.html" title="Ir a la p&aacute;gina de inicio">
-                    <img src="img/listopic-logo.png" alt="Listopic Logo" class="app-logo">
-                </a>
-            </div>
-        </div>
-        <div class="header-right-actions">
-            <a href="search.html" id="search-link-button" class="search-button header-action-button icon-with-badge" aria-label="Buscar">
-                <i class="fas fa-search" aria-hidden="true"></i>
-            </a>
-            <a href="chats.html" id="chats-link-button" class="header-action-button icon-with-badge" aria-label="Chats">
-                <i class="fas fa-comments" aria-hidden="true"></i>
-                <span class="badge-indicator" id="chats-badge" hidden></span>
-            </a>
-            <div class="header-icon-group">
-                <button id="notifications-button" class="header-action-button icon-with-badge" aria-label="Notificaciones" aria-expanded="false" aria-haspopup="true">
-                    <i class="fas fa-bell" aria-hidden="true"></i>
-                    <span class="badge-indicator" id="notifications-badge" hidden></span>
-                </button>
-                <div id="notifications-dropdown" class="notifications-dropdown" role="menu" aria-hidden="true">
-                    <h4>Notificaciones</h4>
-                    <p class="notifications-empty-state">Sin notificaciones nuevas.</p>
-                    <div class="notifications-list" id="notifications-list" hidden></div>
+    <header class="app-header">
+        <div class="header-content">
+            <a class="brand-logo" href="index.html" aria-label="Volver al inicio">
+                <div class="brand-mark">
+                    <span class="brand-dot"></span>
                 </div>
-            </div>
-            <div class="user-profile-menu-container">
-                <button class="user-profile-button header-action-button" id="userProfileBtn" aria-label="Men&uacute; de usuario" aria-expanded="false" aria-controls="userMenuDropdown">
-                    <i class="fas fa-user-circle" aria-hidden="true"></i>
-                </button>
-                <div class="user-menu" id="userMenuDropdown" role="menu" aria-labelledby="userProfileBtn">
-                    <a href="profile.html" role="menuitem">Perfil</a>
-                    <a href="chats.html" role="menuitem">Chats</a>
-                    <a href="archive.html" role="menuitem">Archivo</a>
-                    <hr class="user-menu-divider">
-                    <button type="button" role="menuitem" id="installPwaBtn" style="display: none;">
-                        <i class="fas fa-download"></i> Instalar Aplicaci&oacute;n
+                <div class="brand-text">
+                    <span class="brand-title-text">Listopic</span>
+                </div>
+            </a>
+
+            <nav class="main-nav" aria-label="Navegaci&oacute;n principal">
+                <div class="nav-links">
+                    <a href="search.html" class="nav-item">
+                        <i class="fas fa-search nav-icon"></i>
+                        <span class="nav-label">Buscar</span>
+                    </a>
+                    <a href="archive.html" class="nav-item">
+                        <i class="fas fa-archive nav-icon"></i>
+                        <span class="nav-label">Archivo</span>
+                    </a>
+                    <!-- <a href="list-form.html" class="nav-item nav-cta">
+                        <i class="fas fa-plus nav-icon"></i>
+                        <span class="nav-label">Crear</span>
+                    </a> -->
+                    <a href="chats.html" class="nav-item nav-action">
+                        <i class="fas fa-comment-alt nav-icon"></i>
+                        <span class="nav-label">Chats</span>
+                        <span class="badge-dot" id="chats-badge" hidden></span>
+                    </a>
+                    <button id="notifications-button" class="nav-item" aria-label="Notificaciones">
+                        <i class="fas fa-bell nav-icon"></i>
+                        <span class="nav-label">Alertas</span>
+                        <span class="badge-dot" id="notifications-badge" hidden></span>
                     </button>
-                    <button type="button" role="menuitem" id="logoutBtnUserMenu">Cerrar sesi&oacute;n</button>
+                    <!-- <div id="notifications-dropdown" class="dropdown-menu notifications-dropdown" hidden>
+                        <div class="dropdown-header">
+                            <h4>Notificaciones</h4>
+                        </div>
+                        <div class="dropdown-content">
+                            <p class="empty-state">Sin notificaciones nuevas.</p>
+                            <div class="notifications-list" id="notifications-list" hidden></div>
+                        </div>
+                    </div> -->
+                    <a href="profile.html" id="userProfileBtn" class="nav-item profile-accent"
+                        aria-label="Ir a mi perfil">
+                        <div class="user-avatar-placeholder">
+                            <i class="fas fa-user nav-icon"></i>
+                        </div>
+                        <span class="nav-label">Perfil</span>
+                    </a>
+                    <button id="theme-toggle-button" class="nav-item theme-toggle" title="Cambiar tema">
+                        <i class="fas fa-moon nav-icon"></i>
+                    </button>
                 </div>
-            </div>
-            <button id="theme-toggle-button" class="theme-toggle-button header-action-button" title="Cambiar tema">
-                <i class="fas fa-moon" aria-hidden="true"></i>
-            </button>
+
+                <!-- <div class="nav-actions">
+                    <a href="chats.html" class="nav-item nav-action">
+                        <i class="fas fa-comment-alt nav-icon"></i>
+                        <span class="nav-label">Chats</span>
+                        <span class="badge-dot" id="chats-badge" hidden></span>
+                    </a>
+                    <button id="notifications-button" class="nav-item nav-action nav-button"
+                        aria-label="Notificaciones">
+                        <i class="fas fa-bell nav-icon"></i>
+                        <span class="nav-label">Alertas</span>
+                        <span class="badge-dot" id="notifications-badge" hidden></span>
+                    </button>
+                    <div id="notifications-dropdown" class="dropdown-menu notifications-dropdown" hidden>
+                        <div class="dropdown-header">
+                            <h4>Notificaciones</h4>
+                        </div>
+                        <div class="dropdown-content">
+                            <p class="empty-state">Sin notificaciones nuevas.</p>
+                            <div class="notifications-list" id="notifications-list" hidden></div>
+                        </div>
+                    </div>
+                    <a href="profile.html" id="userProfileBtn" class="nav-item nav-action nav-button profile-accent"
+                        aria-label="Ir a mi perfil">
+                        <div class="user-avatar-placeholder">
+                            <i class="fas fa-user nav-icon"></i>
+                        </div>
+                        <span class="nav-label">Perfil</span>
+                    </a>
+                    <button id="theme-toggle-button" class="nav-item theme-toggle" title="Cambiar tema">
+                        <i class="fas fa-moon nav-icon"></i>
+                    </button>
+                </div> -->
+            </nav>
         </div>
     </header>
 
