@@ -7410,6 +7410,8 @@ body.light-theme .info-tag:hover {
     color: var(--title-color);
     font-weight: 600;
     padding-right: 8px;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .author-text-group {
@@ -7426,6 +7428,13 @@ body.light-theme .info-tag:hover {
 
 .author-link:hover {
     color: var(--accent-color-primary);
+}
+
+.header-main-info:focus-visible,
+.author-link:focus-visible,
+.list-highlight a:focus-visible {
+    outline: none;
+    box-shadow: none;
 }
 
 .author-avatar {
