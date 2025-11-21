@@ -2877,8 +2877,81 @@ document.addEventListener('DOMContentLoaded', () => {
     const isIndexPage = pageName === '' || pageName === 'index.html';
 
     // Esperar a que el estado de autenticacion se resuelva antes de inicializar paginas protegidas
+    const usernameRegexNoSpaces = /^[A-Za-zÁÉÍÓÚÜáéíóúüÑñ0-9._-]{5,20}$/;
+
+    async function enforceUsernameWithoutSpaces(user) {
+        try {
+            if (!user) return;
+            const db = ListopicApp.services?.db;
+            if (!db) return;
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            const data = userDoc.exists ? (userDoc.data() || {}) : {};
+            const currentUsername = (data.username || user.displayName || '').trim();
+            const currentName = (data.name || data.displayName || '').trim();
+            const currentSurnames = (data.surnames || '').trim();
+            if (usernameRegexNoSpaces.test(currentUsername)) return;
+
+            return new Promise((resolve, reject) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'username-warning-overlay';
+                overlay.innerHTML = `
+                    <div class="username-warning-modal">
+                        <div class="username-warning-header">
+                            <h3>Elige un nombre de usuario válido</h3>
+                        </div>
+                        <p class="username-warning-text">Debe tener 5-20 caracteres, sin espacios. Puedes usar letras (tildes ok), números, puntos, guiones o guion bajo.</p>
+                        <form class="username-warning-form">
+                            <label>Nombre de usuario</label>
+                            <input type="text" id="username-warning-input" class="form-input" value="${currentUsername.replace(/"/g, '&quot;')}" required>
+                            <label>Nombre (opcional)</label>
+                            <input type="text" id="username-warning-name" class="form-input" value="${currentName.replace(/"/g, '&quot;')}">
+                            <label>Apellidos (opcional)</label>
+                            <input type="text" id="username-warning-surnames" class="form-input" value="${currentSurnames.replace(/"/g, '&quot;')}">
+                            <p class="username-warning-error" style="display:none;"></p>
+                            <div class="username-warning-actions">
+                                <button type="submit" class="button primary-button">Guardar y continuar</button>
+                            </div>
+                        </form>
+                    </div>`;
+                document.body.appendChild(overlay);
+                const errorEl = overlay.querySelector('.username-warning-error');
+                const formEl = overlay.querySelector('.username-warning-form');
+
+                formEl.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const usernameVal = (overlay.querySelector('#username-warning-input')?.value || '').trim();
+                    const nameVal = (overlay.querySelector('#username-warning-name')?.value || '').trim();
+                    const surnamesVal = (overlay.querySelector('#username-warning-surnames')?.value || '').trim();
+
+                    if (!usernameRegexNoSpaces.test(usernameVal)) {
+                        errorEl.textContent = 'El nombre de usuario debe tener 5-20 caracteres, sin espacios. Usa letras, números, ., _ o -';
+                        errorEl.style.display = 'block';
+                        return;
+                    }
+                    try {
+                        await db.collection('users').doc(user.uid).set({
+                            username: usernameVal,
+                            name: nameVal,
+                            displayName: nameVal || usernameVal,
+                            surnames: surnamesVal,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+                        if (user.updateProfile) {
+                            await user.updateProfile({ displayName: usernameVal });
+                        }
+                        overlay.remove();
+                        resolve();
+                    } catch (err) {
+                        errorEl.textContent = err.message || 'No se pudo guardar. Intenta de nuevo.';
+                        errorEl.style.display = 'block';
+                    }
+                });
+            });
+        } catch (e) { /* noop */ }
+    }
+
     console.log("MAIN.JS: Esperando resolucion de onAuthStateChangedPromise..."); // <--- LOG 10
-    ListopicApp.authService.onAuthStateChangedPromise().then(user => {
+    ListopicApp.authService.onAuthStateChangedPromise().then(async user => {
         console.log("MAIN.JS: onAuthStateChangedPromise resuelta. Usuario:", user ? user.uid : 'No hay usuario'); // <--- LOG 11
 
         try {
@@ -2886,6 +2959,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (notificationsError) {
             console.error('MAIN.JS: Error inicializando el modal de notificaciones:', notificationsError);
         }
+
+        await enforceUsernameWithoutSpaces(user);
 
         // Aviso para usernames con espacios (pedir uno corto y sin espacios)
         const showUsernameWarningModal = (username) => {
