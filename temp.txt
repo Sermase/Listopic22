@@ -7676,43 +7676,28 @@ body.light-theme .info-tag:hover {
     position: absolute;
     right: 14px;
     top: 14px;
-    width: 60px;
-    height: 60px;
-    border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
-    background: rgba(var(--primary-bg-rgb-values), 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(var(--primary-bg-rgb-values), 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.04);
     align-items: center;
     justify-content: center;
     gap: 6px;
     backdrop-filter: blur(8px);
-    opacity: 0.97;
-    animation: respirar 6s ease-in-out infinite;
+    opacity: 0.98;
 }
 
 .review-super-card--score-on-media .review-super-card__score-bubble {
-    display: none;
-    position: absolute;
-    right: 14px;
-    top: 14px;
-    width: 58px;
-    height: 58px;
-    border-radius: 18px;
-    background: rgba(var(--primary-bg-rgb-values), 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.04);
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    backdrop-filter: blur(8px);
-    opacity: 0.97;
+    display: inline-flex;
 }
 
 .review-super-card__score-bubble .score-value {
     font-size: 1.2rem;
     font-weight: 800;
     line-height: 1;
-    color: #ffffff;
+    color: #f6f7fb;
 }
 
 .review-super-card__main-content {
@@ -7738,30 +7723,17 @@ body.light-theme .info-tag:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 60px;
-    height: 60px;
-    border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
     font-weight: 800;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     text-align: center;
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.04);
     margin-left: auto;
-    opacity: 0.97;
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    opacity: 0.98;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     backdrop-filter: blur(8px);
-    animation: respirar 6s ease-in-out infinite;
-}
-
-@keyframes respirar {
-    0% {
-        border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
-    }
-    50% {
-        border-radius: 70% 30% 52% 48% / 33% 60% 40% 67%;
-    }
-    100% {
-        border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
-    }
 }
 
 .review-super-card__title {
@@ -8086,22 +8058,8 @@ body.light-theme .info-tag:hover {
     }
 
     .review-super-card--no-photo .review-super-card__score-bubble {
-    display: none;
-    position: absolute;
-    right: 14px;
-    top: 14px;
-    width: 58px;
-    height: 58px;
-    border-radius: 18px;
-    background: rgba(var(--primary-bg-rgb-values), 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.04);
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    backdrop-filter: blur(8px);
-    opacity: 0.97;
-}
+        display: none;
+    }
 
     .review-super-card__body {
         flex-direction: column;
@@ -13881,6 +13839,4 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
         font-size: 1.1rem;
     }
 }
-
-
 

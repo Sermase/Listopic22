@@ -75,6 +75,15 @@ ListopicApp.pageListView = (() => {
         }
     };
 
+    function updateAddReviewButtonHref(listId, listName) {
+        if (!addReviewButton || !listId) return;
+        const params = new URLSearchParams({ listId });
+        if (listName) {
+            params.set('itemName', listName);
+        }
+        addReviewButton.href = `review-form.html?${params.toString()}`;
+    }
+
 
     const tileLayers = {
         light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
@@ -749,7 +758,7 @@ state.currentListId = urlParamsList.get('listId');
 
 // --- LÓGICA DE INICIALIZACIÓN CORREGIDA ---
 if (state.currentListId) {
-    if (addReviewButton) addReviewButton.href = `review-form.html?listId=${state.currentListId}`;
+    updateAddReviewButtonHref(state.currentListId);
     if (editListLink) editListLink.href = `list-form.html?editListId=${state.currentListId}`;
 
     const listDocRef = ListopicApp.services.db.collection('lists').doc(state.currentListId);
@@ -767,6 +776,7 @@ if (state.currentListId) {
         const category = listData.categoryId || "Hmm..."; 
         ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
         if (listTitleElement) listTitleElement.textContent = state.currentListName;
+        updateAddReviewButtonHref(state.currentListId, state.currentListName);
 
         // Pintar estadísticas junto al título
         try {
@@ -799,6 +809,7 @@ if (state.currentListId) {
         if (categoryLabelEl) categoryLabelEl.textContent = category;
         
         if (listTitleElement) listTitleElement.textContent = state.currentListName;
+        updateAddReviewButtonHref(state.currentListId, state.currentListName);
         state.currentListAvailableTags = responsePayload.tags || [];
         state.currentListCriteriaDefinitions = responsePayload.criteria || {}; 
         currentListIconClass = getListIconClass_ListView(state.currentListName);
