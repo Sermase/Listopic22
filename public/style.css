@@ -7496,6 +7496,10 @@ body.light-theme .info-tag:hover {
     flex: 1 1 auto;
 }
 
+.review-super-card__body.no-image {
+    gap: 0;
+}
+
 .review-super-card__image-container {
     flex: 0 0 150px;
     width: 150px;

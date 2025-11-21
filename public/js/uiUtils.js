@@ -538,9 +538,15 @@ ListopicApp.uiUtils = {
         const viewerReactionRaw = typeof review.viewerReaction === 'string' ? review.viewerReaction.trim() : '';
         const viewerReaction = uiUtils.escapeHtml(viewerReactionRaw);
 
-        const imageHtml = review.photoUrl
+        const hasPhoto = Boolean(review.photoUrl);
+        const imageHtml = hasPhoto
             ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${itemName}" class="review-super-card__image">`
-            : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
+            : '';
+        const imageContainerHtml = hasPhoto
+            ? `<div class="review-super-card__image-container">
+                    ${imageHtml}
+                </div>`
+            : '';
 
         const menuHtml = `
             <div class="review-menu" data-review-menu>
@@ -655,10 +661,8 @@ ListopicApp.uiUtils = {
                         ${menuHtml}
                     </div>
                 </header>
-                <div class="review-super-card__body">
-                    <div class="review-super-card__image-container">
-                        ${imageHtml}
-                    </div>
+                <div class="review-super-card__body${hasPhoto ? '' : ' no-image'}">
+                    ${imageContainerHtml}
                     <div class="review-super-card__main-content">
                         <div class="review-super-card__title-group">
                             <h4 class="review-super-card__title">
