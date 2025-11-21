@@ -539,12 +539,20 @@ ListopicApp.uiUtils = {
         const viewerReaction = uiUtils.escapeHtml(viewerReactionRaw);
 
         const hasPhoto = Boolean(review.photoUrl);
+        const cardClass = hasPhoto ? 'review-super-card review-super-card--has-photo' : 'review-super-card';
         const imageHtml = hasPhoto
             ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${itemName}" class="review-super-card__image">`
+            : '';
+        const scoreBubbleHtml = hasPhoto
+            ? `<div class="review-super-card__score-bubble" aria-label="Valoración ${overallRating}">
+                    <span class="review-super-card__score-bubble-label">Valoración</span>
+                    <span class="score-value" style="color: ${ratingColor};">${overallRating}</span>
+               </div>`
             : '';
         const imageContainerHtml = hasPhoto
             ? `<div class="review-super-card__image-container">
                     ${imageHtml}
+                    ${scoreBubbleHtml}
                 </div>`
             : '';
 
@@ -619,7 +627,7 @@ ListopicApp.uiUtils = {
                 : '');
 
         return `
-            <article class="review-super-card" onclick="window.location.href=this.dataset.detailUrl;"
+            <article class="${cardClass}" onclick="window.location.href=this.dataset.detailUrl;"
                 data-review-id="${uiUtils.escapeHtml(review.id || '')}"
                 data-list-id="${uiUtils.escapeHtml(listId)}"
                 data-author-id="${uiUtils.escapeHtml(authorId)}"
