@@ -450,6 +450,16 @@ ListopicApp.uiUtils = {
         const overallRating = Number.isFinite(overallRatingValue) ? overallRatingValue.toFixed(1) : '0.0';
         const ratingColor = this.getRatingColor(overallRating);
 
+        const getRatingTheme = (rating) => {
+            const r = Number(rating) || 0;
+            if (r >= 8) return { main: 'rgb(61, 213, 152)', soft: 'rgba(61, 213, 152, 0.18)' };
+            if (r >= 6) return { main: 'rgb(242, 201, 76)', soft: 'rgba(242, 201, 76, 0.18)' };
+            if (r >= 4) return { main: 'rgb(255, 113, 91)', soft: 'rgba(255, 113, 91, 0.18)' };
+            return { main: 'rgb(217, 83, 79)', soft: 'rgba(217, 83, 79, 0.18)' };
+        };
+        const { main: ratingMainColor, soft: ratingSoftColor } = getRatingTheme(overallRatingValue);
+        const ratingGradient = `linear-gradient(135deg, ${ratingSoftColor} 0%, ${ratingMainColor} 95%)`;
+
         const detailUrl = uiUtils.buildGroupedDetailUrl({
             listId,
             placeId,
@@ -539,21 +549,23 @@ ListopicApp.uiUtils = {
         const viewerReaction = uiUtils.escapeHtml(viewerReactionRaw);
 
         const hasPhoto = Boolean(review.photoUrl);
-        const cardClass = hasPhoto ? 'review-super-card review-super-card--has-photo' : 'review-super-card';
+        const cardClass = 'review-super-card review-super-card--score-on-media' + (hasPhoto ? ' review-super-card--has-photo' : ' review-super-card--no-photo');
         const imageHtml = hasPhoto
             ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${itemName}" class="review-super-card__image">`
             : '';
-        const scoreBubbleHtml = hasPhoto
-            ? `<div class="review-super-card__score-bubble" aria-label="Valoración ${overallRating}">
-                    <span class="review-super-card__score-bubble-label">Valoración</span>
-                    <span class="score-value" style="color: ${ratingColor};">${overallRating}</span>
-               </div>`
-            : '';
+        const scoreBubbleHtml = `<div class="review-super-card__score-bubble" aria-label="Valoración ${overallRating}" style="background:${ratingGradient}; color:#f6f7fb;">
+                    <span class="score-value">${overallRating}</span>
+               </div>`;
         const imageContainerHtml = hasPhoto
             ? `<div class="review-super-card__image-container">
                     ${imageHtml}
                     ${scoreBubbleHtml}
                 </div>`
+            : '';
+        const inlineScoreChip = !hasPhoto
+            ? `<span class="review-super-card__score-chip" aria-label="Valoración ${overallRating}" style="background:${ratingGradient}; color:#f6f7fb;">
+                    ${overallRating}
+               </span>`
             : '';
 
         const menuHtml = `
@@ -660,23 +672,28 @@ ListopicApp.uiUtils = {
                                 ${createdAtLabel ? `<span class="author-date">${createdAtLabel}</span>` : ''}
                             </span>
                         </a>
-                        <div class="list-highlight">
-                            <span class="meta-separator">&middot;</span> en <a href="list-view.html?listId=${listId}" onclick="event.stopPropagation()">${listName}</a>
-                        </div>
+                        <span class="list-highlight">
+                            <span class="meta-separator">&middot;</span>
+                            <span class="list-highlight__label">en</span>
+                            <a href="list-view.html?listId=${listId}" onclick="event.stopPropagation()">${listName}</a>
+                        </span>
                     </div>
                     <div class="review-super-card__score">
                         <span class="score-value" style="color: ${ratingColor};">${overallRating}</span>
                         ${menuHtml}
                     </div>
                 </header>
-                <div class="review-super-card__body${hasPhoto ? '' : ' no-image'}">
+                <div class="review-super-card__body">
                     ${imageContainerHtml}
                     <div class="review-super-card__main-content">
                         <div class="review-super-card__title-group">
-                            <h4 class="review-super-card__title">
-                                ${gmapsIconHtml}
-                                ${placeDetailLinkHtml}
-                            </h4>
+                            <div class="review-super-card__title-row">
+                                <h4 class="review-super-card__title">
+                                    ${gmapsIconHtml}
+                                    ${placeDetailLinkHtml}
+                                </h4>
+                                ${inlineScoreChip}
+                            </div>
                             <p class="review-super-card__subtitle"><span>${itemName}</span></p>
                         </div>
                         ${criteriaHtml}
