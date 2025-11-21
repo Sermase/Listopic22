@@ -8941,7 +8941,8 @@ body.light-theme .leaflet-popup-tip {
     gap: 18px;
     padding: 0 18px 18px 18px;
     margin-top: -56px;
-    align-items: end;
+    align-items: start;
+    justify-items: start;
 }
 
 .profile-avatar-shell {
