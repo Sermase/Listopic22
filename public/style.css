@@ -8096,13 +8096,18 @@ body.light-theme .info-tag:hover {
     }
 
     
-    .review-super-card--score-on-media .review-super-card__score-bubble {
+    /* Con foto: solo burbuja sobre la imagen (oculta el chip) */
+    .review-super-card--score-on-media.review-super-card--has-photo .review-super-card__score-bubble {
         display: inline-flex;
     }
-    .review-super-card--score-on-media .review-super-card__score-chip {
-        display: inline-flex;
+    .review-super-card--score-on-media.review-super-card--has-photo .review-super-card__score-chip {
+        display: none;
     }
-    .review-super-card--no-photo .review-super-card__score-bubble {
+    /* Sin foto: chip en título, sin burbuja flotante */
+    .review-super-card--score-on-media.review-super-card--no-photo .review-super-card__score-bubble {
+        display: none;
+    }
+    .review-super-card--score-on-media.review-super-card--no-photo .review-super-card__score-chip {
         display: inline-flex;
     }
 

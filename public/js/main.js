@@ -2887,6 +2887,51 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('MAIN.JS: Error inicializando el modal de notificaciones:', notificationsError);
         }
 
+        // Aviso para usernames con espacios (pedir uno corto y sin espacios)
+        const showUsernameWarningModal = (username) => {
+            if (!username || typeof username !== 'string') return;
+            if (!username.includes(' ')) return;
+            const flagKey = 'usernameSpaceWarningShown';
+            if (localStorage.getItem(flagKey) === '1') return;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'username-warning-overlay';
+            overlay.innerHTML = `
+                <div class="username-warning-modal">
+                    <div class="username-warning-header">
+                        <h3>Elige un nombre de usuario sin espacios</h3>
+                        <button class="username-warning-close" aria-label="Cerrar aviso">&times;</button>
+                    </div>
+                    <p class="username-warning-text">Tu nombre de usuario debe ser corto, sin espacios y solo puede incluir letras, números o guión bajo.</p>
+                    <ul class="username-warning-rules">
+                        <li>Sin espacios ni acentos.</li>
+                        <li>Recomendado: 3 a 20 caracteres.</li>
+                        <li>Caracteres permitidos: a-z, 0-9 y _</li>
+                    </ul>
+                    <div class="username-warning-actions">
+                        <button class="button secondary-button username-warning-dismiss">Ahora no</button>
+                        <a class="button primary-button" href="profile.html">Editar nombre de usuario</a>
+                    </div>
+                </div>
+            `;
+            const close = () => {
+                overlay.remove();
+                localStorage.setItem(flagKey, '1');
+            };
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) close();
+            });
+            overlay.querySelector('.username-warning-close')?.addEventListener('click', close);
+            overlay.querySelector('.username-warning-dismiss')?.addEventListener('click', close);
+            document.body.appendChild(overlay);
+        };
+
+        try {
+            if (user && typeof user.displayName === 'string') {
+                showUsernameWarningModal(user.displayName);
+            }
+        } catch (e) { /* noop */ }
+
         if (pageName === 'auth.html') {
             console.log("MAIN.JS: Es auth.html, intentando inicializar pageAuth..."); // <--- LOG 12
             if (ListopicApp.pageAuth && ListopicApp.pageAuth.init) {
