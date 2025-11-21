@@ -1571,10 +1571,6 @@ body.light-theme .confirm-modal__dialog {
 }
 
 @media (max-width: 640px) {
-    body {
-        padding: 16px 12px calc(var(--footer-height) + 16px) 12px;
-    }
-
     main {
         align-items: stretch;
         padding-top: 0;
@@ -9999,10 +9995,10 @@ body.light-theme .leaflet-popup-tip {
 
 .trending-tags {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     flex-wrap: wrap;
     justify-content: center;
-    margin-top: 10px;
+    margin-top: 12px;
     z-index: 1;
     row-gap: 12px;
 }
@@ -10020,35 +10016,43 @@ body.light-theme .leaflet-popup-tip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 14px;
-    background: linear-gradient(135deg, rgba(var(--primary-bg-rgb-values), 0.65), rgba(var(--primary-bg-rgb-values), 0.45));
+    padding: 10px 14px;
+    background: linear-gradient(145deg, rgba(var(--primary-bg-rgb-values), 0.7), rgba(var(--primary-bg-rgb-values), 0.55));
     border: 1px solid rgba(var(--accent-color-primary-rgb), 0.35);
-    border-radius: 14px;
+    border-radius: 999px;
     color: var(--text-color);
-    font-size: 0.94rem;
+    font-size: 0.95rem;
     text-decoration: none;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
     overflow: hidden;
-    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
 .tag-chip::after {
     content: '';
     position: absolute;
     inset: 1px;
-    border-radius: 12px;
-    background: radial-gradient(circle at 20% 20%, rgba(var(--accent-color-secondary-rgb), 0.08), transparent 45%);
+    border-radius: 999px;
+    background: radial-gradient(circle at 30% 20%, rgba(var(--accent-color-secondary-rgb), 0.12), transparent 50%);
     pointer-events: none;
 }
 
 .tag-chip i {
     color: var(--accent-color-primary);
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--accent-color-primary-rgb), 0.15);
+    border-radius: 50%;
 }
 
 .tag-chip:hover {
-    border-color: rgba(var(--accent-color-secondary-rgb), 0.6);
-    transform: translateY(-1px);
+    border-color: rgba(var(--accent-color-secondary-rgb), 0.65);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-elevation-medium);
+    color: var(--text-color);
 }
 
 .featured-grid {
