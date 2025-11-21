@@ -576,20 +576,26 @@ function renderTable_ListView_Grouped(groupedItemsToRender) {
 
 function initForumModal() {
     forumModal = document.getElementById('list-forum-modal');
-    closeModalForumBtn = forumModal.querySelector('.close-modal');
+    closeModalForumBtn = forumModal ? forumModal.querySelector('.close-modal') : null;
     forumListNameSpan = document.getElementById('forum-list-name');
     forumMessagesContainer = document.getElementById('forum-messages-container');
     newForumMessageInput = document.getElementById('new-forum-message');
     sendForumMessageBtn = document.getElementById('send-forum-message');
+    const forumButton = document.getElementById('forum-button');
+
+    if (!forumModal || !closeModalForumBtn || !forumMessagesContainer || !newForumMessageInput || !sendForumMessageBtn || !forumButton) {
+        return false;
+    }
     
     const listName = ListopicApp.state.currentListName || listTitleElement.textContent;
     if(forumListNameSpan) forumListNameSpan.textContent = listName;
     
-    document.getElementById('forum-button').addEventListener('click', openForumModal);
+    forumButton.addEventListener('click', openForumModal);
     closeModalForumBtn.addEventListener('click', closeForumModal);
     sendForumMessageBtn.addEventListener('click', sendForumMessage);
 
     initForumFirestoreRef();
+    return true;
 }
 
 function initForumFirestoreRef() {

@@ -12783,7 +12783,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
+    padding: 0px 12px;
     border-radius: 18px;
     text-decoration: none;
     color: var(--secondary-text-color);
