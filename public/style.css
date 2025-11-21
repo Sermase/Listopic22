@@ -3392,6 +3392,7 @@ body.light-theme .user-menu-divider {
     font-weight: 600;
     letter-spacing: 0.01em;
     transition: color 0.2s ease, background-color 0.2s ease;
+
 }
 
 .nav-link:hover {
@@ -3468,6 +3469,12 @@ body.light-theme .user-menu-divider {
 
     .nav-link {
         padding: 7px 10px;
+        gap: 4px;
+    }
+
+    .nav-links {
+        padding: 7px 10px;
+        gap: 4px;
     }
 
     .trending-tags {
@@ -12753,13 +12760,14 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     white-space: nowrap;
     flex: 0 1 auto;
     flex-shrink: 0;
+    margin-right: 4px;
 }
 
 .nav-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
+    padding: 0px 12px;
     border-radius: 18px;
     text-decoration: none;
     color: var(--secondary-text-color);
@@ -12850,7 +12858,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 3px 10px rgba(var(--accent-color-primary-rgb), 0.18);
-    padding: 6px 12px;
+    padding: 0px 12px;
     gap: 8px;
     border-radius: 18px;
     white-space: nowrap;
@@ -13073,6 +13081,11 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 
     .header-content {
         padding: 0 16px;
+    }
+
+    .nav-links {
+        padding: 7px 10px;
+        gap: 4px;
     }
 
     .nav-actions {
