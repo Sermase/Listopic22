@@ -10120,8 +10120,8 @@ body.light-theme .leaflet-popup-tip {
     padding: 0 6px;
     margin-left: 6px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.18);
-    color: #fff;
+    background: rgba(102, 102, 102, 0.18);
+    color: color(--text-primary);
     font-size: 0.8rem;
     font-weight: 700;
 }
@@ -10293,20 +10293,6 @@ body.light-theme .leaflet-popup-tip {
     color: var(--accent-color-primary);
 }
 
-.forum-count-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 6px;
-    margin-left: 6px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.18);
-    color: #fff;
-    font-size: 0.8rem;
-    font-weight: 700;
-}
 
 .search-filter-row {
     display: flex;
