@@ -219,7 +219,7 @@ ListopicApp.pagePlaceDetail = {
                     placeId: this.placeId,
                     title: name || 'Lugar guardado',
                     subtitle: formatted_address || '',
-                    imageUrl: (photos && photos[0]) || fallbackPhoto,
+                    imageUrl: (photos && photos[0]) || heroPhoto,
                     context: {
                         placeName: name || '',
                         address: formatted_address || '',

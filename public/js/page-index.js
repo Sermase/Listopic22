@@ -1,4 +1,4 @@
-// Contenido completo para page-index.js (epic index)
+﻿// Contenido completo para page-index.js (epic index)
 
 window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageIndex = (() => {
@@ -40,7 +40,7 @@ ListopicApp.pageIndex = (() => {
         if (!globalUserLocationMarker) {
             globalUserLocationMarker = L.marker(coords, { icon: userIcon })
                 .addTo(globalMapInstance)
-                .bindPopup('¡Estás aquí!');
+                .bindPopup('Â¡EstÃ¡s aquÃ­!');
         } else {
             globalUserLocationMarker.setLatLng(coords);
             globalUserLocationMarker.setIcon(userIcon);
@@ -63,14 +63,14 @@ ListopicApp.pageIndex = (() => {
         }
 
         if (!navigator.geolocation) {
-            if (!silent) ListopicApp.services?.showNotification?.('Tu navegador no permite obtener tu ubicación automáticamente.', 'warn');
+            if (!silent) ListopicApp.services?.showNotification?.('Tu navegador no permite obtener tu ubicaciÃ³n automÃ¡ticamente.', 'warn');
             return;
         }
 
         navigator.geolocation.getCurrentPosition(pos => {
             setGlobalUserLocationMarker(pos.coords.latitude, pos.coords.longitude, { recenter: true });
         }, () => {
-            if (!silent) ListopicApp.services?.showNotification?.('No se pudo obtener tu ubicación.', 'warn');
+            if (!silent) ListopicApp.services?.showNotification?.('No se pudo obtener tu ubicaciÃ³n.', 'warn');
         });
     }
 
@@ -140,12 +140,12 @@ ListopicApp.pageIndex = (() => {
         const auth = ListopicApp.services.auth;
         const ui = ListopicApp.uiUtils;
 
-        // Actualizar el header de la página. Como es la portada, no pasamos nombre de lista.
+        // Actualizar el header de la pÃ¡gina. Como es la portada, no pasamos nombre de lista.
         if (ui && ui.updatePageHeaderInfo) {
             ui.updatePageHeaderInfo("Hmm...");
         }
 
-        // Buscar desde el héroe
+        // Buscar desde el hÃ©roe
         const heroSearchForm = document.getElementById('hero-search-form');
         const heroSearchInput = document.getElementById('hero-search-input');
         if (heroSearchForm && heroSearchInput) {
@@ -157,7 +157,7 @@ ListopicApp.pageIndex = (() => {
             });
         }
 
-        // CTA crear lista (si no hay sesión, redirige a auth)
+        // CTA crear lista (si no hay sesiÃ³n, redirige a auth)
         const createListCta = document.getElementById('hero-create-list-btn') || document.querySelector('.add-list-button');
         if (createListCta) {
             createListCta.addEventListener('click', (e) => {
@@ -167,13 +167,13 @@ ListopicApp.pageIndex = (() => {
                 if (auth?.currentUser) {
                     window.location.href = 'list-form.html';
                 } else {
-                    ListopicApp.services?.showNotification?.('Debes iniciar sesión para crear una lista.', 'info');
+                    ListopicApp.services?.showNotification?.('Debes iniciar sesiÃ³n para crear una lista.', 'info');
                     window.location.href = 'auth.html';
                 }
             });
         }
 
-        // Pestañas
+        // PestaÃ±as
         const tabButtons = document.querySelectorAll('.tab-button');
         const tabContents = document.querySelectorAll('.tab-content');
         tabButtons.forEach(btn => {
@@ -187,7 +187,7 @@ ListopicApp.pageIndex = (() => {
             });
         });
 
-        // --- Datos dinámicos ---
+        // --- Datos dinÃ¡micos ---
         const featuredGrid = document.getElementById('featured-lists');
         const trendingTagsEl = document.getElementById('trending-tags');
         const listCirclesUl = document.getElementById('list-circles-ul');
@@ -212,19 +212,32 @@ ListopicApp.pageIndex = (() => {
                     const reviews = list.reviewCount || 0;
                     const comments = list.commentsCount || 0;
                     const followers = list.followersCount || 0;
-                    return `
+                    const thumb =
+                        list.mainImageUrl ||
+                        list.coverImageUrl ||
+                        list.previewImage ||
+                        (Array.isArray(list.places) && list.places[0]?.mainImageUrl) ||
+                        list.imageUrl ||
+                        '';
+                    const thumbHtml = thumb
+                        ? `<div class="featured-thumb" style="background-image:url('${ui.escapeHtml(thumb)}');"></div>`
+                        : `<div class="featured-thumb placeholder"><i class="${iconClass}"></i></div>`;
+                                        return `
                         <article class="featured-card">
                             <a href="list-view.html?listId=${list.id}">
-                                <h3><i class="${iconClass}"></i> ${name}</h3>
-                                <div class="meta">
-                                    <span title="Reseñas"><i class="fas fa-pencil-alt"></i> ${reviews}</span>
-                                    <span title="Comentarios"><i class="fas fa-comments"></i> ${comments}</span>
-                                    <span title="Seguidores"><i class="fas fa-user-group"></i> ${followers}</span>
+                                ${thumbHtml}
+                                <div class="featured-card__body">
+                                    <h3 class="featured-card__title"><i class="${iconClass}"></i> ${name}</h3>
+                                    <div class="meta">
+                                        <span title="Seguidores"><i class="fas fa-heart"></i> ${followers}</span>
+                                        <span title="Reseñas"><i class="fas fa-pencil-alt"></i> ${reviews}</span>
+                                        <span title="Comentarios"><i class="fas fa-comments"></i> ${comments}</span>
+                                    </div>
                                 </div>
                             </a>
                         </article>`;
                 }));
-                featuredGrid.innerHTML = cards.join('') || '<p class="loading-placeholder">Sin datos aún.</p>';
+                featuredGrid.innerHTML = cards.join('') || '<p class="loading-placeholder">Sin datos aÃºn.</p>';
             }
         } catch (e) {
             console.error('INDEX: Error loading featured lists', e);
@@ -252,7 +265,7 @@ ListopicApp.pageIndex = (() => {
                     const listHtmlItems = await Promise.all(listPromises);
                     listCirclesUl.innerHTML = listHtmlItems.map(html => `<li>${html}</li>`).join('');
                 } else {
-                    listCirclesUl.innerHTML = '<li><p>Aún no hay listas públicas disponibles. ¡Anímate y <a href="list-form.html" style="color: var(--accent-color-primary);">crea la primera</a>!</p></li>';
+                    listCirclesUl.innerHTML = '<li><p>AÃºn no hay listas pÃºblicas disponibles. Â¡AnÃ­mate y <a href="list-form.html" style="color: var(--accent-color-primary);">crea la primera</a>!</p></li>';
                 }
             } catch (error) {
                 console.error('INDEX: Error fetching or processing public lists:', error);
@@ -270,12 +283,12 @@ ListopicApp.pageIndex = (() => {
             }).join('');
         }
 
-        // 4) Actividad reciente (últimas reseñas) SOLO de usuarios que sigues
+        // 4) Actividad reciente (Ãºltimas reseÃ±as) SOLO de usuarios que sigues
         if (feed) {
             try {
                 const currentUid = auth?.currentUser?.uid;
                 if (!currentUid) {
-                    feed.innerHTML = '<p class="loading-placeholder">Inicia sesión para ver novedades.</p>';
+                    feed.innerHTML = '<p class="loading-placeholder">Inicia sesiÃ³n para ver novedades.</p>';
                 } else {
                     const followingSnap = await db.collection('users').doc(currentUid).collection('following').limit(200).get();
                     const followedUserIds = [];
@@ -288,7 +301,7 @@ ListopicApp.pageIndex = (() => {
                     });
 
                     if (followedUserIds.length === 0) {
-                        feed.innerHTML = '<p class="loading-placeholder">Tu feed está vacío. ¡Sigue a alguien para ver sus reseñas!</p>';
+                        feed.innerHTML = '<p class="loading-placeholder">Tu feed estÃ¡ vacÃ­o. Â¡Sigue a alguien para ver sus reseÃ±as!</p>';
                     } else {
                         // Firestore limita 'in' a 10 elementos -> hacemos chunks
                         const chunks = [];
@@ -302,7 +315,7 @@ ListopicApp.pageIndex = (() => {
                         results.forEach(snap => allDocs.push(...snap.docs));
 
                         if (allDocs.length === 0) {
-                            feed.innerHTML = '<p class="loading-placeholder">Aún no hay reseñas de tus seguidos.</p>';
+                            feed.innerHTML = '<p class="loading-placeholder">AÃºn no hay reseÃ±as de tus seguidos.</p>';
                         } else {
                             allDocs.sort((a, b) => {
                                 const ta = a.data().createdAt?.toMillis ? a.data().createdAt.toMillis() : 0;
@@ -312,7 +325,7 @@ ListopicApp.pageIndex = (() => {
 
                             let docQueue = allDocs.slice(0, 30);
 
-                            // Filtrar rese�as privadas: solo mostrar rese�as de listas p�blicas.
+                            // Filtrar reseñas privadas: solo mostrar reseñas de listas públicas.
                             try {
                                 const listIds = [...new Set(docQueue.map(doc => {
                                     const data = typeof doc.data === 'function' ? (doc.data() || {}) : {};
@@ -338,14 +351,14 @@ ListopicApp.pageIndex = (() => {
                             }
 
                             if (docQueue.length === 0) {
-                                feed.innerHTML = '<p class="loading-placeholder">Tus seguidos todav�a no tienen rese�as p�blicas para mostrar.</p>';
+                                feed.innerHTML = '<p class="loading-placeholder">Tus seguidos todavía no tienen reseñas públicas para mostrar.</p>';
                                 return;
                             }
 
                             ui.setupLazyReviewList({
                                 container: feed,
                                 batchSize: 5,
-                                emptyMessage: '<p class="loading-placeholder">Aún no hay reseñas de tus seguidos.</p>',
+                                emptyMessage: '<p class="loading-placeholder">AÃºn no hay reseÃ±as de tus seguidos.</p>',
                                 loadBatch: async ({ batchSize }) => {
                                     const batchDocs = docQueue.splice(0, batchSize);
                                     if (batchDocs.length === 0) {
@@ -484,7 +497,7 @@ ListopicApp.pageIndex = (() => {
             if (place.location?.latitude && place.location?.longitude) {
                 const m = L.marker([place.location.latitude, place.location.longitude], { icon: getIconByScore(place.avgGeneralScore) });
 
-                // Popup básico con placeholder de items
+                // Popup bÃ¡sico con placeholder de items
                 const popupId = `popup_items_${place.id}`;
                 const popupContent = `
                     <div class="listopic-map-popup">
@@ -510,7 +523,7 @@ ListopicApp.pageIndex = (() => {
                                     <span class="popup-item__name">${ListopicApp.uiUtils.escapeHtml(g.itemName || 'General')}</span>
                                     <span class="score-badge">${(g.avgGeneralScore || 0).toFixed(1)}</span>
                                 </div>
-                            `).join('') : '<div class="popup-item__row"><span class="popup-item__name">Sin elementos aún</span></div>';
+                            `).join('') : '<div class="popup-item__row"><span class="popup-item__name">Sin elementos aÃºn</span></div>';
                         const el = document.getElementById(popupId);
                         if (el) el.innerHTML = itemsHtml;
                     } catch (e) {
@@ -534,3 +547,12 @@ ListopicApp.pageIndex = (() => {
         init
     };
 })();
+
+
+
+
+
+
+
+
+
