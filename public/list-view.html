@@ -150,26 +150,36 @@
    
     <main>
         <div class="container">
-            <div class="list-header-actions">
-                 <h2 id="list-title">[Cargando nombre de la lista...]</h2>
-                 <div id="list-stats" class="list-stats"></div>
-                 <button id="follow-list-btn" class="button follow-cta-button" title="Seguir lista">
-                    <i class="fas fa-bookmark"></i> Seguir lista
-                 </button>
-            </div>
+            <section class="list-hero-card">
+                <div class="list-hero-top">
+                    <div class="list-hero-info">
+                        <p class="list-hero-subtitle" id="list-category-label">Lista destacada</p>
+                        <h1 id="list-title">[Cargando nombre de la lista...]</h1>
+                    </div>
+                    <div class="list-hero-actions">
+                        <button id="follow-list-btn" class="list-hero-btn follow" title="Seguir lista">
+                            <i class="fas fa-bookmark"></i><span class="btn-label">Seguir</span>
+                        </button>
+                        <a href="review-form.html" role="button" class="list-hero-btn primary add-review-btn">
+                            <i class="fas fa-plus-circle"></i><span class="btn-label">Añadir reseña</span>
+                        </a>
+                        <button type="button" id="show-map-modal-btn" class="list-hero-btn map-btn" title="Ver en mapa">
+                            <i class="fas fa-map-marked-alt"></i><span class="btn-label">Mapa</span>
+                        </button>
+                        <button type="button" id="forum-button" class="list-hero-btn ghost forum-btn" title="Foro de la lista">
+                            <i class="fas fa-comments"></i><span class="btn-label">Foro</span><span class="forum-count-badge" id="forum-count">0</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="list-stats" class="list-hero-stats"></div>
+            </section>
             <div class="search-filter-container">
-                <input type="search" placeholder="Buscar en la lista..." class="search-input form-input">
-                <a href="review-form.html" role="button" class="add-review-button submit-button">
-                    <i class="fas fa-plus-circle"></i> Añadir
-                </a>
-            </div>
-            <div class="list-view-actions">
-                <button type="button" id="show-map-modal-btn" class="button secondary-button">
-                    <i class="fas fa-map-marked-alt"></i> Ver en Mapa
-                </button>
-                <button type="button" id="show-filters-modal-btn" class="button secondary-button">
-                    <i class="fas fa-filter"></i> Más filtros
-                </button>
+                <div class="search-filter-row">
+                    <input type="search" placeholder="Buscar en la lista..." class="search-input form-input">
+                    <button type="button" id="show-filters-modal-btn" class="button secondary-button filter-pill">
+                        <i class="fas fa-filter"></i> Filtros
+                    </button>
+                </div>
             </div>
             
             <div id="list-map-modal" class="modal">

@@ -772,16 +772,18 @@ if (state.currentListId) {
         try {
             const statsEl = document.getElementById('list-stats');
             if (statsEl) {
-                const rc = listData.reviewCount || 0;
-                const fc = listData.followersCount || 0;
-                const cc = listData.commentsCount || 0;
-                statsEl.innerHTML = `
-                    <span><i class="fas fa-star-half-alt"></i> ${rc} reseñas</span>
-                    <span><i class="fas fa-user-group"></i> <span id="list-followers-count">${fc}</span> seguidores</span>
-                    <span><i class="fas fa-comments"></i> ${cc} comentarios</span>
-                `;
-            }
-        } catch(e) { /* noop */ }
+        const rc = listData.reviewCount || 0;
+        const fc = listData.followersCount || 0;
+        const cc = listData.commentsCount || 0;
+        statsEl.innerHTML = `
+            <span><i class="fas fa-star-half-alt"></i> ${rc} reseñas</span>
+            <span><i class="fas fa-user-group"></i> <span id="list-followers-count">${fc}</span> seguidores</span>
+            <span><i class="fas fa-comments"></i> ${cc} comentarios</span>
+        `;
+        const forumCountEl = document.getElementById('forum-count');
+        if (forumCountEl) forumCountEl.textContent = cc;
+        }
+    } catch(e) { /* noop */ }
 
         return fetchGroupedReviews(state.currentListId);
 
@@ -793,6 +795,8 @@ if (state.currentListId) {
         state.currentListName = responsePayload.listName || "Ranking Agrupado";
         const category = responsePayload.categoryId || "Hmm..."; 
         ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
+        const categoryLabelEl = document.getElementById('list-category-label');
+        if (categoryLabelEl) categoryLabelEl.textContent = category;
         
         if (listTitleElement) listTitleElement.textContent = state.currentListName;
         state.currentListAvailableTags = responsePayload.tags || [];
