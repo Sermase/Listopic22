@@ -12695,6 +12695,8 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     position: relative;
     z-index: 2;
     margin-right: auto;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .brand-mark {
@@ -12771,7 +12773,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 0px 12px;
+    padding: 6px 12px;
     border-radius: 18px;
     text-decoration: none;
     color: var(--secondary-text-color);
@@ -12784,6 +12786,8 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     min-width: max-content;
     line-height: 1;
     flex-shrink: 0;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .nav-item:hover {
@@ -12803,6 +12807,8 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     border-radius: 50%;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(var(--primary-bg-rgb-values), 0.45);
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 
@@ -12887,6 +12893,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     display: grid;
     place-items: center;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* Actions */
