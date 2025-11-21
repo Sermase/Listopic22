@@ -1,4 +1,6 @@
-ï»¿// Contenido completo para page-index.js (epic index)
+// Contenido completo para page-index.js (epic index)
+
+// Contenido completo para page-index.js (epic index)
 
 window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageIndex = (() => {
@@ -9,6 +11,78 @@ ListopicApp.pageIndex = (() => {
     let globalUserLocationMarker = null;
     let lastKnownGlobalUserLatLng = null;
 
+    const heroSubtitles = [
+        "Donde las listas se hacen famosas y tú también un poquito.",
+        "El Olimpo de las listas absurdamente serias.",
+        "Aquí las listas se sienten importantes.",
+        "Donde las listas vienen a ponerse guapas.",
+        "Listas que harían suspirar a una hoja de cálculo.",
+        "Tu pequeño portal para poner orden sin drama.",
+        "La biblioteca infinita de tus “depende”.",
+        "Ideas sueltas buscando lista.",
+        "El país de las listas que siempre tienen sitio para una más.",
+        "Aquí las listas salen mejor peinadas.",
+        "El universo paralelo donde todo queda clarito.",
+        "Territorio apto para maniáticos y despistados por igual.",
+        "El habitáculo premium para tus elecciones más raras.",
+        "Un refugio para pensamientos con vocación de ranking.",
+        "Aquí tus obsesiones tienen su propio ranking.",
+        "Donde lo aleatorio encuentra estructura.",
+        "Donde los gustos se alinean… o al menos se saludan.",
+        "La república independiente de tus opiniones.",
+        "Donde cada gusto encuentra su casillita.",
+        "Tu consola personal para ajustar el mundo.",
+        "Si la vida es un lío, al menos lista tus líos con estilo.",
+        "Tu reino por una buena lista. O al menos por una divertida.",
+        "Tu santuario personal de rankings.",
+        "La patria de las listas bien hechas.",
+        "La frontera amable entre el caos y el orden.",
+        "Donde los rankings encuentran su destino manifiesto.",
+        "La cima desde la que ver el mundo… en columnas.",
+        "La cápsula espacial para tus gustos interplanetarios.",
+        "El coliseo honorable de tus opiniones.",
+        "El paraíso de los que piensan en modo “bullet point”.",
+        "Explora, vota… y presume de criterio sin vergüenza.",
+        "Listas para gente seria. Y para ti también.",
+        "Tu mapa personal de lo importante… y de lo no tanto.",
+        "Un buen lugar para pensar en columnas.",
+        "Listopic: más ordenado que tu cajón de cables.",
+        "Tu rincón para clasificar lo inclasificable.",
+        "Aquí las opiniones encuentran hogar.",
+        "Tu base secreta para ordenar lo que te da la gana.",
+        "Un lugar donde tus preferencias pueden estirarse a gusto.",
+        "Porque siempre hay algo que merece ser listado.",
+        "Aquí las listas vienen a sentirse organizadas.",
+        "Listas sin prisa, pero con intención.",
+        "Pasa, crea y ordénalo a tu manera.",
+        "La zona segura para tus comparaciones imposibles.",
+        "Un rincón amable para tus “esto va primero”.",
+        "Donde el orden se vuelve un poco más simpático.",
+        "El punto exacto entre caos y criterio.",
+        "Aquí empieza el viaje de tus listas más ambiciosas.",
+        "Las listas que tu mente estaba intentando hacer desde hace días.",
+        "El lugar donde tus gustos encuentran la paz (temporal).",
+        "Las listas aquí madrugan solas, nadie sabe por qué.",
+        "El spa favorito de los gustos cansados.",
+        "Donde las ideas hacen cola para verse más ordenadas.",
+        "El balneario oficial de las comparaciones tensas.",
+        "Listas que se estiran antes de empezar.",
+        "La cafetería secreta donde se reúnen los criterios.",
+        "El gimnasio donde tus prioridades levantan pesas.",
+        "El hotel boutique de tus opiniones más viajeras.",
+        "Donde los pensamientos vienen a hacerse un retoque.",
+        "El país donde los gustos pagan impuestos simbólicos.",
+        "El lugar donde tus gustos vienen a aclararse un poco.",
+        "Tu espacio para ordenar lo que solo tú entiendes.",
+        "Cuando el mundo no encaja, siempre queda una buena lista.",
+        "Donde pensar en orden se siente sorprendentemente natural.",
+        "Una manera elegante de poner las ideas en fila.",
+        "Tus criterios, ahora con luz y taquígrafos.",
+        "El sitio donde tus gustos conversan entre ellos.",
+        "El rincón donde tus elecciones respiran hondo.",
+        "Aquí el caos se porta un poquito mejor.",
+        "Para quienes disfrutan poniendo etiquetas sin remordimientos."
+    ];
     const tileLayers = {
         light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
         dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
@@ -40,7 +114,7 @@ ListopicApp.pageIndex = (() => {
         if (!globalUserLocationMarker) {
             globalUserLocationMarker = L.marker(coords, { icon: userIcon })
                 .addTo(globalMapInstance)
-                .bindPopup('Ã‚Â¡EstÃƒÂ¡s aquÃƒÂ­!');
+                .bindPopup('Â¡EstÃ¡s aquÃ­!');
         } else {
             globalUserLocationMarker.setLatLng(coords);
             globalUserLocationMarker.setIcon(userIcon);
@@ -63,14 +137,14 @@ ListopicApp.pageIndex = (() => {
         }
 
         if (!navigator.geolocation) {
-            if (!silent) ListopicApp.services?.showNotification?.('Tu navegador no permite obtener tu ubicaciÃƒÂ³n automÃƒÂ¡ticamente.', 'warn');
+            if (!silent) ListopicApp.services?.showNotification?.('Tu navegador no permite obtener tu ubicaciÃ³n automÃ¡ticamente.', 'warn');
             return;
         }
 
         navigator.geolocation.getCurrentPosition(pos => {
             setGlobalUserLocationMarker(pos.coords.latitude, pos.coords.longitude, { recenter: true });
         }, () => {
-            if (!silent) ListopicApp.services?.showNotification?.('No se pudo obtener tu ubicaciÃƒÂ³n.', 'warn');
+            if (!silent) ListopicApp.services?.showNotification?.('No se pudo obtener tu ubicaciÃ³n.', 'warn');
         });
     }
 
@@ -110,6 +184,84 @@ ListopicApp.pageIndex = (() => {
         } catch (e) { /* noop */ }
     }
 
+    function setRandomHeroSubtitle() {
+        const el = document.getElementById('hero-subtitle');
+        if (!el) return;
+        const lines = [
+            "Donde las listas se hacen famosas y t\u00fa tambi\u00e9n un poquito.",
+            "El Olimpo de las listas absurdamente serias.",
+            "Aqu\u00ed las listas se sienten importantes.",
+            "Donde las listas vienen a ponerse guapas.",
+            "Listas que har\u00edan suspirar a una hoja de c\u00e1lculo.",
+            "Tu peque\u00f1o portal para poner orden sin drama.",
+            "La biblioteca infinita de tus \u201cdepende\u201d.",
+            "Ideas sueltas buscando lista.",
+            "El pa\u00eds de las listas que siempre tienen sitio para una m\u00e1s.",
+            "Aqu\u00ed las listas salen mejor peinadas.",
+            "El universo paralelo donde todo queda clarito.",
+            "Territorio apto para mani\u00e1ticos y despistados por igual.",
+            "El habit\u00e1culo premium para tus elecciones m\u00e1s raras.",
+            "Un refugio para pensamientos con vocaci\u00f3n de ranking.",
+            "Aqu\u00ed tus obsesiones tienen su propio ranking.",
+            "Donde lo aleatorio encuentra estructura.",
+            "Donde los gustos se alinean\u2026 o al menos se saludan.",
+            "La rep\u00fablica independiente de tus opiniones.",
+            "Donde cada gusto encuentra su casillita.",
+            "Tu consola personal para ajustar el mundo.",
+            "Si la vida es un l\u00edo, al menos lista tus l\u00edos con estilo.",
+            "Tu reino por una buena lista. O al menos por una divertida.",
+            "Tu santuario personal de rankings.",
+            "La patria de las listas bien hechas.",
+            "La frontera amable entre el caos y el orden.",
+            "Donde los rankings encuentran su destino manifiesto.",
+            "La cima desde la que ver el mundo\u2026 en columnas.",
+            "La c\u00e1psula espacial para tus gustos interplanetarios.",
+            "El coliseo honorable de tus opiniones.",
+            "El para\u00edso de los que piensan en modo \u201cbullet point\u201d.",
+            "Explora, vota\u2026 y presume de criterio sin verg\u00fcenza.",
+            "Listas para gente seria. Y para ti tambi\u00e9n.",
+            "Tu mapa personal de lo importante\u2026 y de lo no tanto.",
+            "Un buen lugar para pensar en columnas.",
+            "Listopic: m\u00e1s ordenado que tu caj\u00f3n de cables.",
+            "Tu rinc\u00f3n para clasificar lo inclasificable.",
+            "Aqu\u00ed las opiniones encuentran hogar.",
+            "Tu base secreta para ordenar lo que te da la gana.",
+            "Un lugar donde tus preferencias pueden estirarse a gusto.",
+            "Porque siempre hay algo que merece ser listado.",
+            "Aqu\u00ed las listas vienen a sentirse organizadas.",
+            "Listas sin prisa, pero con intenci\u00f3n.",
+            "Pasa, crea y ord\u00e9nalo a tu manera.",
+            "La zona segura para tus comparaciones imposibles.",
+            "Un rinc\u00f3n amable para tus \u201cesto va primero\u201d.",
+            "Donde el orden se vuelve un poco m\u00e1s simp\u00e1tico.",
+            "El punto exacto entre caos y criterio.",
+            "Aqu\u00ed empieza el viaje de tus listas m\u00e1s ambiciosas.",
+            "Las listas que tu mente estaba intentando hacer desde hace d\u00edas.",
+            "El lugar donde tus gustos encuentran la paz (temporal).",
+            "Las listas aqu\u00ed madrugan solas, nadie sabe por qu\u00e9.",
+            "El spa favorito de los gustos cansados.",
+            "Donde las ideas hacen cola para verse m\u00e1s ordenadas.",
+            "El balneario oficial de las comparaciones tensas.",
+            "Listas que se estiran antes de empezar.",
+            "La cafeter\u00eda secreta donde se re\u00fanen los criterios.",
+            "El gimnasio donde tus prioridades levantan pesas.",
+            "El hotel boutique de tus opiniones m\u00e1s viajeras.",
+            "Donde los pensamientos vienen a hacerse un retoque.",
+            "El pa\u00eds donde los gustos pagan impuestos simb\u00f3licos.",
+            "El lugar donde tus gustos vienen a aclararse un poco.",
+            "Tu espacio para ordenar lo que solo t\u00fa entiendes.",
+            "Cuando el mundo no encaja, siempre queda una buena lista.",
+            "Donde pensar en orden se siente sorprendentemente natural.",
+            "Una manera elegante de poner las ideas en fila.",
+            "Tus criterios, ahora con luz y taqu\u00edgrafos.",
+            "El sitio donde tus gustos conversan entre ellos.",
+            "El rinc\u00f3n donde tus elecciones respiran hondo.",
+            "Aqu\u00ed el caos se porta un poquito mejor.",
+            "Para quienes disfrutan poniendo etiquetas sin remordimientos."
+        ];
+        el.textContent = lines[Math.floor(Math.random() * lines.length)];
+    }
+
     // Utilidades del pin (reutilizadas de list-view)
     const createPlaceIconSvg = (score, color = '#118AB2') => {
         const textColor = 'white';
@@ -140,12 +292,13 @@ ListopicApp.pageIndex = (() => {
         const auth = ListopicApp.services.auth;
         const ui = ListopicApp.uiUtils;
 
-        // Actualizar el header de la pÃƒÂ¡gina. Como es la portada, no pasamos nombre de lista.
+        // Actualizar el header de la pÃ¡gina. Como es la portada, no pasamos nombre de lista.
         if (ui && ui.updatePageHeaderInfo) {
             ui.updatePageHeaderInfo("Hmm...");
         }
+        setRandomHeroSubtitle();
 
-        // Buscar desde el hÃƒÂ©roe
+        // Buscar desde el hÃ©roe
         const heroSearchForm = document.getElementById('hero-search-form');
         const heroSearchInput = document.getElementById('hero-search-input');
         if (heroSearchForm && heroSearchInput) {
@@ -157,7 +310,7 @@ ListopicApp.pageIndex = (() => {
             });
         }
 
-        // CTA crear lista (si no hay sesiÃƒÂ³n, redirige a auth)
+        // CTA crear lista (si no hay sesiÃ³n, redirige a auth)
         const createListCta = document.getElementById('hero-create-list-btn') || document.querySelector('.add-list-button');
         if (createListCta) {
             createListCta.addEventListener('click', (e) => {
@@ -167,13 +320,13 @@ ListopicApp.pageIndex = (() => {
                 if (auth?.currentUser) {
                     window.location.href = 'list-form.html';
                 } else {
-                    ListopicApp.services?.showNotification?.('Debes iniciar sesiÃƒÂ³n para crear una lista.', 'info');
+                    ListopicApp.services?.showNotification?.('Debes iniciar sesiÃ³n para crear una lista.', 'info');
                     window.location.href = 'auth.html';
                 }
             });
         }
 
-        // PestaÃƒÂ±as
+        // PestaÃ±as
         const tabButtons = document.querySelectorAll('.tab-button');
         const tabContents = document.querySelectorAll('.tab-content');
         tabButtons.forEach(btn => {
@@ -187,7 +340,7 @@ ListopicApp.pageIndex = (() => {
             });
         });
 
-        // --- Datos dinÃƒÂ¡micos ---
+        // --- Datos dinÃ¡micos ---
         const featuredGrid = document.getElementById('featured-lists');
         const trendingTagsEl = document.getElementById('trending-tags');
         const listCirclesUl = document.getElementById('list-circles-ul');
@@ -230,14 +383,14 @@ ListopicApp.pageIndex = (() => {
                                     <h3 class="featured-card__title"><i class="${iconClass}"></i> ${name}</h3>
                                     <div class="meta">
                                         <span title="Seguidores"><i class="fas fa-heart"></i> ${followers}</span>
-                                        <span title="ReseÃ±as"><i class="fas fa-pencil-alt"></i> ${reviews}</span>
+                                        <span title="Reseñas"><i class="fas fa-pencil-alt"></i> ${reviews}</span>
                                         <span title="Comentarios"><i class="fas fa-comments"></i> ${comments}</span>
                                     </div>
                                 </div>
                             </a>
                         </article>`;
                 }));
-                featuredGrid.innerHTML = cards.join('') || '<p class="loading-placeholder">Sin datos aÃƒÂºn.</p>';
+                featuredGrid.innerHTML = cards.join('') || '<p class="loading-placeholder">Sin datos aÃºn.</p>';
             }
         } catch (e) {
             console.error('INDEX: Error loading featured lists', e);
@@ -265,7 +418,7 @@ ListopicApp.pageIndex = (() => {
                     const listHtmlItems = await Promise.all(listPromises);
                     listCirclesUl.innerHTML = listHtmlItems.map(html => `<li>${html}</li>`).join('');
                 } else {
-                    listCirclesUl.innerHTML = '<li><p>AÃƒÂºn no hay listas pÃƒÂºblicas disponibles. Ã‚Â¡AnÃƒÂ­mate y <a href="list-form.html" style="color: var(--accent-color-primary);">crea la primera</a>!</p></li>';
+                    listCirclesUl.innerHTML = '<li><p>AÃºn no hay listas pÃºblicas disponibles. Â¡AnÃ­mate y <a href="list-form.html" style="color: var(--accent-color-primary);">crea la primera</a>!</p></li>';
                 }
             } catch (error) {
                 console.error('INDEX: Error fetching or processing public lists:', error);
@@ -283,12 +436,12 @@ ListopicApp.pageIndex = (() => {
             }).join('');
         }
 
-        // 4) Actividad reciente (ÃƒÂºltimas reseÃƒÂ±as) SOLO de usuarios que sigues
+        // 4) Actividad reciente (Ãºltimas reseÃ±as) SOLO de usuarios que sigues
         if (feed) {
             try {
                 const currentUid = auth?.currentUser?.uid;
                 if (!currentUid) {
-                    feed.innerHTML = '<p class="loading-placeholder">Inicia sesiÃƒÂ³n para ver novedades.</p>';
+                    feed.innerHTML = '<p class="loading-placeholder">Inicia sesiÃ³n para ver novedades.</p>';
                 } else {
                     const followingSnap = await db.collection('users').doc(currentUid).collection('following').limit(200).get();
                     const followedUserIds = [];
@@ -301,7 +454,7 @@ ListopicApp.pageIndex = (() => {
                     });
 
                     if (followedUserIds.length === 0) {
-                        feed.innerHTML = '<p class="loading-placeholder">Tu feed estÃƒÂ¡ vacÃƒÂ­o. Ã‚Â¡Sigue a alguien para ver sus reseÃƒÂ±as!</p>';
+                        feed.innerHTML = '<p class="loading-placeholder">Tu feed estÃ¡ vacÃ­o. Â¡Sigue a alguien para ver sus reseÃ±as!</p>';
                     } else {
                         // Firestore limita 'in' a 10 elementos -> hacemos chunks
                         const chunks = [];
@@ -315,7 +468,7 @@ ListopicApp.pageIndex = (() => {
                         results.forEach(snap => allDocs.push(...snap.docs));
 
                         if (allDocs.length === 0) {
-                            feed.innerHTML = '<p class="loading-placeholder">AÃƒÂºn no hay reseÃƒÂ±as de tus seguidos.</p>';
+                            feed.innerHTML = '<p class="loading-placeholder">AÃºn no hay reseÃ±as de tus seguidos.</p>';
                         } else {
                             allDocs.sort((a, b) => {
                                 const ta = a.data().createdAt?.toMillis ? a.data().createdAt.toMillis() : 0;
@@ -324,41 +477,72 @@ ListopicApp.pageIndex = (() => {
                             });
 
                             let docQueue = allDocs.slice(0, 30);
-
-                            // Filtrar reseÃ±as privadas: solo mostrar reseÃ±as de listas pÃºblicas.
-                            try {
-                                const listIds = [...new Set(docQueue.map(doc => {
-                                    const data = typeof doc.data === 'function' ? (doc.data() || {}) : {};
-                                    return data.listId || null;
-                                }).filter(Boolean))];
-
-                                if (listIds.length > 0) {
-                                    const listSnaps = await Promise.all(
-                                        listIds.map(id => db.collection('lists').doc(id).get().catch(() => null))
-                                    );
-                                    const allowedListIds = new Set(
-                                        listSnaps
-                                            .filter(snap => snap?.exists && snap.data()?.isPublic === true)
-                                            .map(snap => snap.id)
-                                    );
-                                    docQueue = docQueue.filter(doc => {
-                                        const data = typeof doc.data === 'function' ? (doc.data() || {}) : {};
-                                        return data.listId && allowedListIds.has(data.listId);
-                                    });
-                                }
-                            } catch (filterError) {
-                                console.warn('INDEX: No se pudieron filtrar listas privadas del feed:', filterError);
-                            }
-
-                            if (docQueue.length === 0) {
-                                feed.innerHTML = '<p class="loading-placeholder">Tus seguidos todavÃ­a no tienen reseÃ±as pÃºblicas para mostrar.</p>';
-                                return;
-                            }
-
+
+
+                            // Filtrar reseñas privadas: solo mostrar reseñas de listas públicas.
+
+                            try {
+
+                                const listIds = [...new Set(docQueue.map(doc => {
+
+                                    const data = typeof doc.data === 'function' ? (doc.data() || {}) : {};
+
+                                    return data.listId || null;
+
+                                }).filter(Boolean))];
+
+
+
+                                if (listIds.length > 0) {
+
+                                    const listSnaps = await Promise.all(
+
+                                        listIds.map(id => db.collection('lists').doc(id).get().catch(() => null))
+
+                                    );
+
+                                    const allowedListIds = new Set(
+
+                                        listSnaps
+
+                                            .filter(snap => snap?.exists && snap.data()?.isPublic === true)
+
+                                            .map(snap => snap.id)
+
+                                    );
+
+                                    docQueue = docQueue.filter(doc => {
+
+                                        const data = typeof doc.data === 'function' ? (doc.data() || {}) : {};
+
+                                        return data.listId && allowedListIds.has(data.listId);
+
+                                    });
+
+                                }
+
+                            } catch (filterError) {
+
+                                console.warn('INDEX: No se pudieron filtrar listas privadas del feed:', filterError);
+
+                            }
+
+
+
+                            if (docQueue.length === 0) {
+
+                                feed.innerHTML = '<p class="loading-placeholder">Tus seguidos todavía no tienen reseñas públicas para mostrar.</p>';
+
+                                return;
+
+                            }
+
+
+
                             ui.setupLazyReviewList({
                                 container: feed,
                                 batchSize: 5,
-                                emptyMessage: '<p class="loading-placeholder">AÃƒÂºn no hay reseÃƒÂ±as de tus seguidos.</p>',
+                                emptyMessage: '<p class="loading-placeholder">AÃºn no hay reseÃ±as de tus seguidos.</p>',
                                 loadBatch: async ({ batchSize }) => {
                                     const batchDocs = docQueue.splice(0, batchSize);
                                     if (batchDocs.length === 0) {
@@ -497,7 +681,7 @@ ListopicApp.pageIndex = (() => {
             if (place.location?.latitude && place.location?.longitude) {
                 const m = L.marker([place.location.latitude, place.location.longitude], { icon: getIconByScore(place.avgGeneralScore) });
 
-                // Popup bÃƒÂ¡sico con placeholder de items
+                // Popup bÃ¡sico con placeholder de items
                 const popupId = `popup_items_${place.id}`;
                 const popupContent = `
                     <div class="listopic-map-popup">
@@ -523,7 +707,7 @@ ListopicApp.pageIndex = (() => {
                                     <span class="popup-item__name">${ListopicApp.uiUtils.escapeHtml(g.itemName || 'General')}</span>
                                     <span class="score-badge">${(g.avgGeneralScore || 0).toFixed(1)}</span>
                                 </div>
-                            `).join('') : '<div class="popup-item__row"><span class="popup-item__name">Sin elementos aÃƒÂºn</span></div>';
+                            `).join('') : '<div class="popup-item__row"><span class="popup-item__name">Sin elementos aÃºn</span></div>';
                         const el = document.getElementById(popupId);
                         if (el) el.innerHTML = itemsHtml;
                     } catch (e) {
@@ -542,11 +726,18 @@ ListopicApp.pageIndex = (() => {
             globalMapInstance.fitBounds(bounds.pad(0.1));
         }
     }
-
     return {
         init
     };
 })();
+
+
+
+
+
+
+
+
 
 
 
