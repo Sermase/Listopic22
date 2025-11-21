@@ -12673,6 +12673,12 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
 }
 
+.app-header,
+.app-header * {
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
 .header-content {
     max-width: 1400px;
     margin: 0 auto;
