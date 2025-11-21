@@ -538,9 +538,15 @@ ListopicApp.uiUtils = {
         const viewerReactionRaw = typeof review.viewerReaction === 'string' ? review.viewerReaction.trim() : '';
         const viewerReaction = uiUtils.escapeHtml(viewerReactionRaw);
 
-        const imageHtml = review.photoUrl
+        const hasPhoto = Boolean(review.photoUrl);
+        const imageHtml = hasPhoto
             ? `<img src="${uiUtils.escapeHtml(review.photoUrl)}" alt="Foto de ${itemName}" class="review-super-card__image">`
-            : `<div class="review-super-card__icon-placeholder"><i class="fas fa-camera"></i></div>`;
+            : '';
+        const imageContainerHtml = hasPhoto
+            ? `<div class="review-super-card__image-container">
+                    ${imageHtml}
+                </div>`
+            : '';
 
         const menuHtml = `
             <div class="review-menu" data-review-menu>
@@ -605,6 +611,13 @@ ListopicApp.uiUtils = {
                 </div>
             </div>`;
 
+        const createdAtSource = review.createdAt || review.updatedAt || review.timestamp || review.date;
+        const createdAtLabel = typeof formatTimestampForUi === 'function'
+            ? formatTimestampForUi(createdAtSource)
+            : (createdAtSource
+                ? (createdAtSource.toDate ? createdAtSource.toDate().toLocaleDateString() : new Date(createdAtSource).toLocaleDateString())
+                : '');
+
         return `
             <article class="review-super-card" onclick="window.location.href=this.dataset.detailUrl;"
                 data-review-id="${uiUtils.escapeHtml(review.id || '')}"
@@ -634,7 +647,10 @@ ListopicApp.uiUtils = {
                     <div class="header-main-info">
                         <a href="profile.html?viewUserId=${authorId}" class="author-link" onclick="event.stopPropagation()">
                             <img src="${authorPhoto}" alt="Avatar de ${authorName}" class="author-avatar">
-                            <span class="author-name">${authorName}</span>
+                            <span class="author-text-group">
+                                <span class="author-name">${authorName}</span>
+                                ${createdAtLabel ? `<span class="author-date">${createdAtLabel}</span>` : ''}
+                            </span>
                         </a>
                         <div class="list-highlight">
                             <span class="meta-separator">&middot;</span> en <a href="list-view.html?listId=${listId}" onclick="event.stopPropagation()">${listName}</a>
@@ -645,10 +661,8 @@ ListopicApp.uiUtils = {
                         ${menuHtml}
                     </div>
                 </header>
-                <div class="review-super-card__body">
-                    <div class="review-super-card__image-container">
-                        ${imageHtml}
-                    </div>
+                <div class="review-super-card__body${hasPhoto ? '' : ' no-image'}">
+                    ${imageContainerHtml}
                     <div class="review-super-card__main-content">
                         <div class="review-super-card__title-group">
                             <h4 class="review-super-card__title">

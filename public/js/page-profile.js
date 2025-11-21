@@ -339,7 +339,7 @@ ListopicApp.pageProfile = {
 
         try {
             if (!ListopicApp.services.createChatWithParticipants) {
-                throw new Error('El servicio de chats no estï¿½ disponible en este momento.');
+                throw new Error('El servicio de chats no está disponible en este momento.');
             }
 
             const result = await ListopicApp.services.createChatWithParticipants(this.currentUser, [this.profileOwnerUserId]);
@@ -349,7 +349,7 @@ ListopicApp.pageProfile = {
                 redirecting = true;
                 window.location.href = `${targetPath}?chatId=${encodeURIComponent(result.chatId)}`;
             } else {
-                throw new Error('No se pudo crear la conversaciï¿½n.');
+                throw new Error('No se pudo crear la conversación.');
             }
         } catch (error) {
             console.error('[page-profile] Error al iniciar mensaje directo:', error);
@@ -387,7 +387,7 @@ ListopicApp.pageProfile = {
 
         if (this.elements.displayNameElement) this.elements.displayNameElement.textContent = displayName || username || 'Usuario';
         if (this.elements.usernameDisplayElement) this.elements.usernameDisplayElement.textContent = `@${username || 'usuario'}`;
-        if (this.elements.bioDisplayElement) this.elements.bioDisplayElement.textContent = bio || 'Este usuario aï¿½n no ha aï¿½adido una biografï¿½a.';
+        if (this.elements.bioDisplayElement) this.elements.bioDisplayElement.textContent = bio || 'Este usuario aún no ha añadido una biografía.';
         if (this.elements.locationDisplayElement) {
             if (location) {
                 this.elements.locationDisplayElement.querySelector('span').textContent = location;
@@ -427,7 +427,7 @@ ListopicApp.pageProfile = {
 
     showImagePreview: function(src) {
         if (this.elements.editPhotoPreview) {
-            this.elements.editPhotoPreview.innerHTML = src ? `<img src="${src}" alt="Previsualizaciï¿½n">` : '';
+            this.elements.editPhotoPreview.innerHTML = src ? `<img src="${src}" alt="Previsualización">` : '';
         }
     },
     
@@ -461,7 +461,7 @@ ListopicApp.pageProfile = {
                 location: this.elements.editLocationInput.value.trim(),
                 bio: this.elements.editBioInput.value.trim(),
                 photoUrl: newPhotoURL,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Buena prï¿½ctica
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Buena práctica
             };
             
             const updatesForAuth = {
@@ -472,7 +472,7 @@ ListopicApp.pageProfile = {
             await db.collection('users').doc(this.currentUser.uid).update(updatesForFirestore);
             await auth.currentUser.updateProfile(updatesForAuth);
             
-            this.displayModalMessage("Perfil actualizado con ï¿½xito.", false);
+            this.displayModalMessage("Perfil actualizado con éxito.", false);
             
             setTimeout(() => {
                 this.closeEditModal();
@@ -515,7 +515,7 @@ ListopicApp.pageProfile = {
         if (!this.elements.myListsUl) return;
         this.elements.myListsUl.innerHTML = '';
         if (listDocs.length === 0) {
-            this.elements.myListsUl.innerHTML = '<li>Este usuario aï¿½n no ha creado ninguna lista visible.</li>';
+            this.elements.myListsUl.innerHTML = '<li>Este usuario aún no ha creado ninguna lista visible.</li>';
             return;
         }
 
@@ -526,14 +526,14 @@ ListopicApp.pageProfile = {
             li.className = 'profile-list-item';
 
             const privacyIcon = list.isPublic ? 'fa-globe-americas' : 'fa-lock';
-            const privacyText = list.isPublic ? 'Pï¿½blica' : 'Privada';
+            const privacyText = list.isPublic ? 'Pública' : 'Privada';
             const listIcon = await uiUtils.getListIcon(list);
 
             li.innerHTML = `
                 <a href="list-view.html?listId=${doc.id}">
                     <strong class="profile-list-item-name"><i class="fas ${listIcon}" style="margin-right: 8px;"></i>${uiUtils.escapeHtml(list.name)}</strong>
                     <div class="profile-list-item-meta">
-                        <span><i class="fas fa-pencil-alt"></i> ${list.reviewCount || 0} reseï¿½as</span>
+                        <span><i class="fas fa-pencil-alt"></i> ${list.reviewCount || 0} reseñas</span>
                         <span><i class="fas ${privacyIcon}"></i> ${privacyText}</span>
                     </div>
                 </a>
