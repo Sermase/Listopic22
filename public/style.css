@@ -7686,6 +7686,13 @@ body.light-theme .info-tag:hover {
     animation: respirar 6s ease-in-out infinite;
 }
 
+.review-super-card a,
+.review-super-card button,
+.review-super-card .author-link,
+.review-super-card .list-highlight a,
+.review-super-card .place-name-link--title {
+    -webkit-tap-highlight-color: transparent;
+}
 
 
 .review-super-card--score-on-media .review-super-card__score-bubble {
