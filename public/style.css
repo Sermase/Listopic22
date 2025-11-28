@@ -357,12 +357,12 @@ h1:not(.brand-title),
     font-weight: 600;
     letter-spacing: 1px;
     text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.2);
-    text-align: center;
+    text-align: left;
     animation: fadeInUpScale 0.8s ease-out 0.2s backwards;
 }
 
 .container h2 {
-    margin-bottom: 30px;
+    margin-bottom: 8px;
 }
 
 
