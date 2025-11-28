@@ -116,18 +116,29 @@
     </header>
 
     <main class="review-form-page">
-        <div class="review-form-shell">
-            <section class="review-form-card" aria-label="Formulario de reseña">
-                <div class="form-card-header">
+        <section class="lp-hero review-hero">
+            <div class="lp-hero-grid">
+                <div class="lp-hero-main">
+                        <div class="lp-hero-eyebrow-row">
+                            <span class="lp-hero-chip is-accent">Nueva reseña</span>
+                        </div>
+                        <h1 class="lp-hero-title">Añadir Nueva Reseña</h1>
+                    <p class="lp-hero-description">Completa los campos clave y comparte tu valoración.</p>
+                    </div>
+                <div class="lp-hero-actions form-card-header">
                     <a href="list-view.html" class="back-button" aria-label="Cancelar y volver al ranking"><i class="fas fa-arrow-left"></i> Cancelar y Volver</a>
                     <button type="button" class="help-button" id="open-help-modal" aria-haspopup="dialog" aria-controls="tips-modal">
                         <i class="fas fa-circle-question" aria-hidden="true"></i>
                         Ayuda y consejos
                     </button>
                 </div>
+            </div>
+        </section>
+        <div class="review-form-shell">
+            <section class="review-form-card" aria-label="Formulario de reseña">
                 <div class="form-title-block">
-                    <h1>Añadir Nueva Reseña</h1>
-                    <!-- <p class="form-intro">Encuentra rápidamente el lugar perfecto, añade los detalles clave y deja una reseña memorable para la comunidad.</p> -->
+                    <h2>Añadir Nueva Reseña</h2>
+                    <p class="form-intro">Comparte una valoración clara y breve. Lo esencial es localizar el lugar, puntuar los criterios y añadir un toque personal.</p>
                 </div>
                 <form id="review-form" action="#" method="POST">
                     <input type="hidden" id="review-form-listId" name="listId">

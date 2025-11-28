@@ -721,11 +721,52 @@ ListopicApp.uiUtils = {
         return 'var(--danger-color)'; // Rojo
     },
 
+    getCategoryCache: function() {
+        window.ListopicApp.state = window.ListopicApp.state || {};
+        window.ListopicApp.state.categoryCache = window.ListopicApp.state.categoryCache || {};
+        return window.ListopicApp.state.categoryCache;
+    },
+
+    ensureCategoryCached: async function(categoryId) {
+        if (!categoryId) return null;
+        const cache = this.getCategoryCache();
+        if (Object.prototype.hasOwnProperty.call(cache, categoryId)) {
+            return cache[categoryId];
+        }
+        try {
+            const db = window.ListopicApp?.services?.db;
+            if (!db) return null;
+            const snap = await db.collection('categories').doc(categoryId).get();
+            cache[categoryId] = snap.exists ? snap.data() : null;
+            return cache[categoryId];
+        } catch (e) {
+            console.warn(`No se pudo precargar la categoría ${categoryId}`, e);
+            cache[categoryId] = cache[categoryId] ?? null;
+            return cache[categoryId];
+        }
+    },
+
+    getCategoryLabel: function(categoryId, fallback = "") {
+        const cache = this.getCategoryCache();
+        const entry = categoryId ? cache[categoryId] : null;
+        const label = [
+            entry && entry.displayname,
+            entry && entry.displayName,
+            entry && entry.name,
+            entry && entry.title,
+            entry && entry.label,
+            fallback,
+            categoryId
+        ].find(v => typeof v === 'string' && v.trim());
+        return label ? label.trim() : '';
+    },
+
     updatePageHeaderInfo: function(categoryName = "Hmm...", listName = null) {
         const categoryEl = document.getElementById('page-category-name');
         const separatorEl = document.getElementById('page-list-name-separator');
         const listNameEl = document.getElementById('page-list-name');
-        if (categoryEl) categoryEl.textContent = this.escapeHtml(categoryName);
+        const resolvedCategory = this.getCategoryLabel(categoryName, categoryName);
+        if (categoryEl) categoryEl.textContent = this.escapeHtml(resolvedCategory);
         if (listName && listNameEl && separatorEl) {
             listNameEl.textContent = this.escapeHtml(listName);
             separatorEl.style.display = 'inline';

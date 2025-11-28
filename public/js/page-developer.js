@@ -637,6 +637,7 @@ ListopicApp.pageDeveloper = (() => {
         const sel = document.getElementById('admin-category-select');
         const idInput = document.getElementById('admin-cat-id');
         const nameInput = document.getElementById('admin-cat-name');
+        const displayNameInput = document.getElementById('admin-cat-displayname');
         const iconInput = document.getElementById('admin-cat-icon');
         const orderInput = document.getElementById('admin-cat-order');
         const likeInput = document.getElementById('admin-cat-like');
@@ -657,11 +658,12 @@ ListopicApp.pageDeveloper = (() => {
             const options = ['<option value="" disabled selected>Selecciona categoría...</option>']
                 .concat(docsSorted.map(d => {
                     const data = d.data();
-                    return `<option value="${d.id}">${escapeHtml(data.name || d.id)}</option>`;
+                    const label = data.displayname || data.displayName || data.name || d.id;
+                    return `<option value="${d.id}">${escapeHtml(label)}</option>`;
                 }));
             sel.innerHTML = options.join('');
             // Selección por defecto tipo "Comida"
-            const prefer = docsSorted.find(d => ((d.data().name||d.id||'').toString().toLowerCase().includes('comida')))
+            const prefer = docsSorted.find(d => ((d.data().displayname||d.data().displayName||d.data().name||d.id||'').toString().toLowerCase().includes('comida')))
                         || docsSorted.find(d => typeof d.data().order === 'number' && d.data().order === 1)
                         || docsSorted[0];
             if (prefer) {
@@ -675,6 +677,7 @@ ListopicApp.pageDeveloper = (() => {
                 const data = doc.data();
                 idInput.value = doc.id;
                 nameInput.value = data.name || '';
+                if (displayNameInput) displayNameInput.value = data.displayname || data.displayName || '';
                 iconInput.value = data.icon || '';
                 orderInput.value = data.order ?? '';
                 likeInput.value = data.like || '';
@@ -691,6 +694,7 @@ ListopicApp.pageDeveloper = (() => {
             sel.value = '';
             idInput.value = '';
             nameInput.value = '';
+            if (displayNameInput) displayNameInput.value = '';
             iconInput.value = '';
             orderInput.value = '';
             likeInput.value = '';

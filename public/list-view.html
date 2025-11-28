@@ -150,19 +150,22 @@
    
     <main>
         <div class="container">
-            <section class="list-hero-card">
-                <div class="list-hero-top">
-                    <div class="list-hero-info">
-                        <p class="list-hero-subtitle" id="list-category-label">Lista destacada</p>
-                        <h1 id="list-title">[Cargando nombre de la lista...]</h1>
+            <section class="list-hero-card lp-hero">
+                <div class="lp-hero-grid">
+                    <div class="lp-hero-main">
+                        <div class="lp-hero-eyebrow-row lp-hero-eyebrow-inline">
+                            <span class="list-hero-subtitle lp-hero-chip is-accent" id="list-category-label">Lista destacada</span>
+                            <div id="list-stats" class="list-hero-stats lp-hero-stats"></div>
+                        </div>
+                        <h1 class="lp-hero-title" id="list-title">[Cargando nombre de la lista...]</h1>
                     </div>
-                    <div class="list-hero-actions">
-                        <button id="follow-list-btn" class="list-hero-btn follow" title="Seguir lista">
-                            <i class="fas fa-bookmark"></i><span class="btn-label">Seguir</span>
-                        </button>
+                    <div class="list-hero-actions lp-hero-actions">
                         <a href="review-form.html" role="button" class="list-hero-btn primary add-review-button">
                             <i class="fas fa-plus-circle"></i><span class="btn-label">Añadir reseña</span>
                         </a>
+                        <button id="follow-list-btn" class="list-hero-btn follow" title="Seguir lista">
+                            <i class="fas fa-bookmark"></i><span class="btn-label">Seguir</span>
+                        </button>
                         <button type="button" id="show-map-modal-btn" class="list-hero-btn map-btn" title="Ver en mapa">
                             <i class="fas fa-map-marked-alt"></i><span class="btn-label">Mapa</span>
                         </button>
@@ -171,22 +174,21 @@
                         </button>
                     </div>
                 </div>
-                <div id="list-stats" class="list-hero-stats"></div>
-            </section>
-            <div class="search-filter-container">
-                <div class="search-filter-row">
-                    <input type="search" placeholder="Buscar en la lista..." class="search-input form-input">
-                    <button
-                        type="button"
-                        id="show-filters-modal-btn"
-                        class="filter-icon-btn"
-                        aria-label="Mostrar filtros"
-                        title="Filtros"
-                    >
-                        <i class="fas fa-filter"></i>
-                    </button>
+                <div class="search-filter-container">
+                    <div class="search-filter-row">
+                        <input type="search" placeholder="Buscar en la lista..." class="search-input form-input">
+                        <button
+                            type="button"
+                            id="show-filters-modal-btn"
+                            class="filter-icon-btn"
+                            aria-label="Mostrar filtros"
+                            title="Filtros"
+                        >
+                            <i class="fas fa-filter"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            </section>
             
             <div id="list-map-modal" class="modal">
                 <div class="modal-content map-modal-content">

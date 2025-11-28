@@ -30,11 +30,135 @@ ListopicApp.pageGroupedDetailView = (() => {
         const lightboxImage = document.getElementById('lightbox-image');
         if (lightboxImage) lightboxImage.src = ListopicApp.state.lightboxImageUrls[currentLightboxImageIndex];
     }
+
+    async function ensureChartJs() {
+        if (window.Chart) return window.Chart;
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            script.defer = true;
+            script.onload = () => resolve(window.Chart);
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+        return window.Chart;
+    }
+
+    function renderCriteriaRadar({ container, canvas, averages, criteriaDefinition = {}, overallScore = 0, chartsRegistry = {} }) {
+        if (!container) return;
+        if (!canvas) {
+            container.innerHTML = '<p class="loading-placeholder">Sin datos de criterios.</p>';
+            return;
+        }
+
+        const hasData = averages && Object.keys(averages).length > 0;
+        if (!hasData) {
+            container.innerHTML = '<p class="loading-placeholder">Sin datos de criterios.</p>';
+            return;
+        }
+
+        container.querySelector('.loading-placeholder')?.remove();
+
+        const keys = Object.keys(criteriaDefinition).length ? Object.keys(criteriaDefinition) : Object.keys(averages);
+        const labels = keys.map(k => criteriaDefinition[k]?.label || k);
+        const values = keys.map(k => Number(averages[k] || 0));
+        const reference = keys.map(() => Number(overallScore || 0));
+
+        // Cleanup previous chart
+        if (chartsRegistry.criteriaRadar) {
+            chartsRegistry.criteriaRadar.destroy();
+        }
+
+        ensureChartJs().then((Chart) => {
+            chartsRegistry.criteriaRadar = new Chart(canvas.getContext('2d'), {
+                type: 'radar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Este elemento',
+                            data: values,
+                            fill: true,
+                            backgroundColor: 'rgba(92, 124, 250, 0.20)',
+                            borderColor: 'rgba(92, 124, 250, 0.9)',
+                            pointBackgroundColor: 'rgba(92, 124, 250, 0.9)',
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: 'Media general',
+                            data: reference,
+                            fill: false,
+                            borderColor: 'rgba(61, 213, 152, 0.9)',
+                            pointBackgroundColor: 'rgba(61, 213, 152, 0.9)',
+                            borderDash: [6, 6],
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 10,
+                            ticks: {
+                                backdropColor: 'transparent',
+                                stepSize: 2,
+                                color: getComputedStyle(document.body).getPropertyValue('--secondary-text-color') || '#aaa',
+                                display: true
+                            },
+                            grid: {
+                                color: 'rgba(255,255,255,0.08)'
+                            },
+                            angleLines: {
+                                color: 'rgba(255,255,255,0.08)'
+                            },
+                            pointLabels: {
+                                color: getComputedStyle(document.body).getPropertyValue('--text-color') || '#fff',
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: getComputedStyle(document.body).getPropertyValue('--text-color') || '#fff'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const label = ctx.label || '';
+                                    const val = ctx.parsed.r ?? ctx.raw;
+                                    return `${label}: ${Number(val).toFixed(1)}`;
+                                }
+                            }
+                        }
+                    },
+                    elements: {
+                        line: {
+                            borderWidth: 2
+                        }
+                    }
+                }
+            });
+        }).catch(() => {
+            container.innerHTML = '<p class="loading-placeholder">No se pudo cargar el gráfico.</p>';
+        });
+    }
     
     async function initializeGroupedDetailView() {
         const state = ListopicApp.state;
         const db = ListopicApp.services.db;
         const uiUtils = ListopicApp.uiUtils;
+        const chartsRegistry = window.ListopicApp._charts = window.ListopicApp._charts || {};
 
         const urlParams = new URLSearchParams(window.location.search);
         state.currentGroupDetailListId = urlParams.get('listId');
@@ -55,10 +179,12 @@ ListopicApp.pageGroupedDetailView = (() => {
         const groupAverageScoreEl = document.getElementById('group-average-score')?.querySelector('.score-value');
         const groupReviewCountEl = document.getElementById('group-review-count')?.querySelector('.count-value');
         const avgCriteriaBarsEl = document.getElementById('group-avg-criteria-bars');
+        const criteriaRadarCanvas = document.getElementById('group-criteria-radar');
         const groupImageGalleryEl = document.getElementById('group-image-gallery');
         const individualReviewsListEl = document.getElementById('individual-reviews-list');
         const saveToArchiveBtn = document.getElementById('group-save-to-archive-btn');
         const backToListButton = document.getElementById('back-to-list-view');
+        const addGroupReviewBtn = document.getElementById('add-group-review-btn');
         let heroImageUrl = null;
 
         if (backToListButton) backToListButton.href = `list-view.html?listId=${state.currentGroupDetailListId || ''}`;
@@ -180,6 +306,11 @@ ListopicApp.pageGroupedDetailView = (() => {
             if (listNameSubheaderEl) {
                 listNameSubheaderEl.textContent = `En lista: ${uiUtils.escapeHtml(state.currentGroupDetailListName || 'Desconocida')}`;
             }
+            if (addGroupReviewBtn && state.currentGroupDetailListId && placeData.id) {
+                const href = `review-form.html?listId=${encodeURIComponent(state.currentGroupDetailListId)}&placeId=${encodeURIComponent(placeData.id)}&item=${encodeURIComponent(state.currentGroupDetailItem || placeData.name || '')}`;
+                addGroupReviewBtn.href = href;
+                addGroupReviewBtn.style.display = 'inline-flex';
+            }
 
             if (placeDetailLinkEl) {
                 if (placeData.id) {
@@ -196,7 +327,8 @@ ListopicApp.pageGroupedDetailView = (() => {
             if (groupPlaceImageEl) {
                 const candidatePhotos = Array.isArray(placeData.photos) ? placeData.photos : [];
                 let primaryImage = placeData.mainImageUrl || candidatePhotos[0] || 'img/listopic-logo.png';
-                if (uiUtils && typeof uiUtils.refreshPlacePhotoIfNeeded === 'function' &&
+                const hasGoogleId = placeData.googlePlaceId || placeData.placeId || placeData.google_place_id;
+                if (hasGoogleId && uiUtils && typeof uiUtils.refreshPlacePhotoIfNeeded === 'function' &&
                     (!placeData.mainImageUrl || uiUtils.isLegacyGooglePhotoUrl(placeData.mainImageUrl))) {
                     try {
                         const refreshed = await uiUtils.refreshPlacePhotoIfNeeded({
@@ -313,14 +445,20 @@ ListopicApp.pageGroupedDetailView = (() => {
             }
             if (groupReviewCountEl) groupReviewCountEl.textContent = enrichedReviews.length;
 
-            // 5. Renderizar BARRAS DE CRITERIOS PROMEDIADAS
+            // 5. Renderizar RADAR DE CRITERIOS PROMEDIADAS
             if (avgCriteriaBarsEl) {
                 const avgScores = {};
                 for (const key in criteriaTotals) {
                     avgScores[key] = criteriaTotals[key] / criteriaCounts[key];
                 }
-                // Reutilizamos la lógica de renderizado de barras que ya tenemos en uiUtils
-                avgCriteriaBarsEl.innerHTML = uiUtils.renderCriteriaBars(avgScores, state.currentGroupDetailCriteriaDefinition);
+                renderCriteriaRadar({
+                    container: avgCriteriaBarsEl,
+                    canvas: criteriaRadarCanvas,
+                    averages: avgScores,
+                    criteriaDefinition: state.currentGroupDetailCriteriaDefinition,
+                    overallScore: groupAvgScore,
+                    chartsRegistry
+                });
             }
             
 

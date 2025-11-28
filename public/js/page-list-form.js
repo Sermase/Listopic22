@@ -262,7 +262,11 @@ ListopicApp.pageListForm = (() => {
                 });
 
                 categorySelect.innerHTML = '<option value="" disabled selected>Selecciona una categoría</option>' +
-                    cats.map(c => `<option value="${c.id}">${(ListopicApp.uiUtils?.escapeHtml(c.name || c.id)) || c.id}</option>`).join('');
+                    cats.map(c => {
+                        const label = (ListopicApp.uiUtils?.getCategoryLabel?.(c.id, c.displayname || c.displayName || c.name || c.id))
+                            || c.displayname || c.displayName || c.name || c.id;
+                        return `<option value="${c.id}">${(ListopicApp.uiUtils?.escapeHtml(label)) || label}</option>`;
+                    }).join('');
 
                 const getCatById = (id) => {
                     const inSnap = snap.docs.find(d => d.id === id);
@@ -329,7 +333,7 @@ ListopicApp.pageListForm = (() => {
                 });
 
                 // Selección por defecto: prioriza "Comida" si existe; sino la de menor 'order'; sino la primera
-                let defaultCat = cats.find(c => (c.name || c.id || '').toString().toLowerCase().includes('comida'))
+                let defaultCat = cats.find(c => (c.displayname || c.displayName || c.name || c.id || '').toString().toLowerCase().includes('comida'))
                               || cats.find(c => typeof c.order === 'number' && c.order === 1)
                               || cats[0];
                 if (defaultCat) {
