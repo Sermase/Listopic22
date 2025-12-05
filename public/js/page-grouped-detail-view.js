@@ -481,6 +481,15 @@ ListopicApp.pageGroupedDetailView = (() => {
             if (groupScoreChipEl) {
                 const bubbleValueEl = groupScoreChipEl.querySelector('.score-value');
                 if (bubbleValueEl) bubbleValueEl.textContent = avgScoreStr;
+                groupScoreChipEl.classList.remove('is-good', 'is-mid', 'is-bad');
+                const scoreNum = Number(groupAvgScore) || 0;
+                if (scoreNum >= 8.5) {
+                    groupScoreChipEl.classList.add('is-good');
+                } else if (scoreNum >= 6) {
+                    groupScoreChipEl.classList.add('is-mid');
+                } else {
+                    groupScoreChipEl.classList.add('is-bad');
+                }
             }
             if (listopicRatingEl && enrichedReviews.length > 0) {
                 listopicRatingEl.textContent = avgScoreStr;
