@@ -44,7 +44,7 @@ ListopicApp.pageGroupedDetailView = (() => {
         return window.Chart;
     }
 
-    function renderCriteriaRadar({ container, canvas, averages, criteriaDefinition = {}, overallScore = 0, chartsRegistry = {} }) {
+    function renderCriteriaRadar({ container, canvas, averages, criteriaDefinition = {}, overallScore = 0, chartsRegistry = {}, criteriaOrder = [] }) {
         if (!container) return;
         if (!canvas) {
             container.innerHTML = '<p class="loading-placeholder">Sin datos de criterios.</p>';
@@ -59,7 +59,9 @@ ListopicApp.pageGroupedDetailView = (() => {
 
         container.querySelector('.loading-placeholder')?.remove();
 
-        const keys = Object.keys(criteriaDefinition).length ? Object.keys(criteriaDefinition) : Object.keys(averages);
+        const keys = (Array.isArray(criteriaOrder) && criteriaOrder.length)
+            ? criteriaOrder
+            : (Object.keys(criteriaDefinition).length ? Object.keys(criteriaDefinition) : Object.keys(averages));
         const labels = keys.map(k => criteriaDefinition[k]?.label || k);
         const values = keys.map(k => Number(averages[k] || 0));
         const reference = keys.map(() => Number(overallScore || 0));
@@ -234,11 +236,45 @@ ListopicApp.pageGroupedDetailView = (() => {
             if (!listDoc.exists) throw new Error("Lista de origen no encontrada.");
             if (!placeDoc.exists) throw new Error(`Lugar con ID ${placeIdFromUrl} no encontrado.`);
 
-            const listData = listDoc.data();
-            const placeData = { id: placeDoc.id, ...placeDoc.data() };
-            
-            state.currentGroupDetailListName = listData.name || 'Desconocida';
-            state.currentGroupDetailCriteriaDefinition = listData.criteriaDefinition || {};
+        const listData = listDoc.data();
+        const placeData = { id: placeDoc.id, ...placeDoc.data() };
+        
+        state.currentGroupDetailListName = listData.name || 'Desconocida';
+
+        // Normalizar definición de criterios y orden estable
+        const rawCriteriaDef = listData.criteriaDefinition || {};
+        let normalizedCriteriaDef = {};
+        let criteriaOrder = [];
+        if (Array.isArray(rawCriteriaDef)) {
+            rawCriteriaDef.forEach((crit, idx) => {
+                const key = crit?.key || crit?.id || `crit_${idx}`;
+                if (!key) return;
+                criteriaOrder.push(key);
+                normalizedCriteriaDef[key] = {
+                    label: crit?.label || key,
+                    ...crit
+                };
+            });
+        } else {
+            const entries = Object.entries(rawCriteriaDef);
+            if (entries.length) {
+                entries.sort((a, b) => {
+                    const orderA = typeof a[1]?.order === 'number' ? a[1].order : Number.MAX_SAFE_INTEGER;
+                    const orderB = typeof b[1]?.order === 'number' ? b[1].order : Number.MAX_SAFE_INTEGER;
+                    if (orderA !== orderB) return orderA - orderB;
+                    return a[0].localeCompare(b[0]);
+                });
+                entries.forEach(([key, value]) => {
+                    criteriaOrder.push(key);
+                    normalizedCriteriaDef[key] = { label: value?.label || key, ...value };
+                });
+            }
+        }
+        if (!criteriaOrder.length && Object.keys(normalizedCriteriaDef).length) {
+            criteriaOrder = Object.keys(normalizedCriteriaDef).sort();
+        }
+        state.currentGroupDetailCriteriaDefinition = normalizedCriteriaDef;
+        state.currentGroupCriteriaOrder = criteriaOrder;
 
             if (saveToArchiveBtn) {
                 const archiveService = window.ListopicApp?.archiveService;
@@ -504,16 +540,25 @@ ListopicApp.pageGroupedDetailView = (() => {
             // 5. Renderizar RADAR DE CRITERIOS PROMEDIADAS
             if (avgCriteriaBarsEl) {
                 const avgScores = {};
-                for (const key in criteriaTotals) {
-                    avgScores[key] = criteriaTotals[key] / criteriaCounts[key];
-                }
+                const criteriaOrder = Array.isArray(state.currentGroupCriteriaOrder) && state.currentGroupCriteriaOrder.length
+                    ? state.currentGroupCriteriaOrder
+                    : Object.keys(state.currentGroupDetailCriteriaDefinition || {}).sort();
+                criteriaOrder.forEach((key) => {
+                    const total = criteriaTotals[key] || 0;
+                    const count = criteriaCounts[key] || 0;
+                    avgScores[key] = count > 0 ? (total / count) : 0;
+                });
+                state.currentGroupCriteriaOrder = criteriaOrder;
+                state._lastGroupAvgScores = avgScores;
+                state._lastGroupAvgScore = groupAvgScore;
                 renderCriteriaRadar({
                     container: avgCriteriaBarsEl,
                     canvas: criteriaRadarCanvas,
                     averages: avgScores,
                     criteriaDefinition: state.currentGroupDetailCriteriaDefinition,
                     overallScore: groupAvgScore,
-                    chartsRegistry
+                    chartsRegistry,
+                    criteriaOrder
                 });
             }
             
