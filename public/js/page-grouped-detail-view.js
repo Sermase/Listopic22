@@ -63,6 +63,7 @@ ListopicApp.pageGroupedDetailView = (() => {
         const labels = keys.map(k => criteriaDefinition[k]?.label || k);
         const values = keys.map(k => Number(averages[k] || 0));
         const reference = keys.map(() => Number(overallScore || 0));
+        const gridColor = (getComputedStyle(document.body).getPropertyValue('--chart-grid-color') || 'rgba(255,255,255,0.08)').trim();
 
         // Cleanup previous chart
         if (chartsRegistry.criteriaRadar) {
@@ -70,6 +71,12 @@ ListopicApp.pageGroupedDetailView = (() => {
         }
 
         ensureChartJs().then((Chart) => {
+            const datasetColors = {
+                current: 'rgba(92, 124, 250, 0.9)',
+                currentFill: 'rgba(92, 124, 250, 0.20)',
+                reference: 'rgba(61, 213, 152, 0.9)'
+            };
+
             chartsRegistry.criteriaRadar = new Chart(canvas.getContext('2d'), {
                 type: 'radar',
                 data: {
@@ -79,9 +86,9 @@ ListopicApp.pageGroupedDetailView = (() => {
                             label: 'Este elemento',
                             data: values,
                             fill: true,
-                            backgroundColor: 'rgba(92, 124, 250, 0.20)',
-                            borderColor: 'rgba(92, 124, 250, 0.9)',
-                            pointBackgroundColor: 'rgba(92, 124, 250, 0.9)',
+                            backgroundColor: datasetColors.currentFill,
+                            borderColor: datasetColors.current,
+                            pointBackgroundColor: datasetColors.current,
                             pointRadius: 4,
                             pointHoverRadius: 6
                         },
@@ -89,8 +96,8 @@ ListopicApp.pageGroupedDetailView = (() => {
                             label: 'Media general',
                             data: reference,
                             fill: false,
-                            borderColor: 'rgba(61, 213, 152, 0.9)',
-                            pointBackgroundColor: 'rgba(61, 213, 152, 0.9)',
+                            borderColor: datasetColors.reference,
+                            pointBackgroundColor: datasetColors.reference,
                             borderDash: [6, 6],
                             pointRadius: 3,
                             pointHoverRadius: 5
@@ -100,6 +107,40 @@ ListopicApp.pageGroupedDetailView = (() => {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            displayColors: true,
+                            usePointStyle: true,
+                            callbacks: {
+                                title: (items) => {
+                                    const first = items?.[0];
+                                    return first ? (first.label || '') : '';
+                                },
+                                label: (ctx) => {
+                                    const val = ctx.parsed.r ?? ctx.raw;
+                                    if (ctx.datasetIndex === 0) {
+                                        return `Puntuación: ${Number(val).toFixed(1)}`;
+                                    }
+                                    const ref = reference?.[ctx.dataIndex] ?? val;
+                                    return `Media de la lista: ${Number(ref).toFixed(1)}`;
+                                },
+                                labelColor: (ctx) => {
+                                    const color = ctx.datasetIndex === 0 ? datasetColors.current : datasetColors.reference;
+                                    return {
+                                        borderColor: color,
+                                        backgroundColor: color
+                                    };
+                                }
+                            }
+                        }
+                    },
                     scales: {
                         r: {
                             min: 0,
@@ -107,44 +148,28 @@ ListopicApp.pageGroupedDetailView = (() => {
                             ticks: {
                                 backdropColor: 'transparent',
                                 stepSize: 2,
-                                color: getComputedStyle(document.body).getPropertyValue('--secondary-text-color') || '#aaa',
-                                display: true
+                                color: 'transparent',
+                                display: false
                             },
                             grid: {
-                                color: 'rgba(255,255,255,0.08)'
+                                color: gridColor
                             },
                             angleLines: {
-                                color: 'rgba(255,255,255,0.08)'
+                                color: gridColor
                             },
                             pointLabels: {
-                                color: getComputedStyle(document.body).getPropertyValue('--text-color') || '#fff',
+                                color: 'transparent',
                                 font: {
-                                    size: 12,
+                                    size: 0,
                                     weight: '600'
-                                }
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                color: getComputedStyle(document.body).getPropertyValue('--text-color') || '#fff'
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => {
-                                    const label = ctx.label || '';
-                                    const val = ctx.parsed.r ?? ctx.raw;
-                                    return `${label}: ${Number(val).toFixed(1)}`;
                                 }
                             }
                         }
                     },
                     elements: {
                         line: {
-                            borderWidth: 2
+                            borderWidth: 2,
+                            tension: 0.25
                         }
                     }
                 }
@@ -180,6 +205,7 @@ ListopicApp.pageGroupedDetailView = (() => {
         const groupReviewCountEl = document.getElementById('group-review-count')?.querySelector('.count-value');
         const avgCriteriaBarsEl = document.getElementById('group-avg-criteria-bars');
         const criteriaRadarCanvas = document.getElementById('group-criteria-radar');
+        const groupScoreBubbleEl = document.getElementById('group-score-bubble');
         const groupImageGalleryEl = document.getElementById('group-image-gallery');
         const individualReviewsListEl = document.getElementById('individual-reviews-list');
         const saveToArchiveBtn = document.getElementById('group-save-to-archive-btn');
@@ -439,9 +465,14 @@ ListopicApp.pageGroupedDetailView = (() => {
             
             // Renderizar estadísticas principales
             const groupAvgScore = enrichedReviews.length > 0 ? (totalOverallScoreSum / enrichedReviews.length) : 0;
-            if (groupAverageScoreEl) groupAverageScoreEl.textContent = groupAvgScore.toFixed(1);
+            const avgScoreStr = groupAvgScore.toFixed(1);
+            if (groupAverageScoreEl) groupAverageScoreEl.textContent = avgScoreStr;
+            if (groupScoreBubbleEl) {
+                const bubbleValueEl = groupScoreBubbleEl.querySelector('.score-value');
+                if (bubbleValueEl) bubbleValueEl.textContent = avgScoreStr;
+            }
             if (listopicRatingEl && enrichedReviews.length > 0) {
-                listopicRatingEl.textContent = groupAvgScore.toFixed(1);
+                listopicRatingEl.textContent = avgScoreStr;
             }
             if (groupReviewCountEl) groupReviewCountEl.textContent = enrichedReviews.length;
 
@@ -536,3 +567,6 @@ ListopicApp.pageGroupedDetailView = (() => {
         init
     };
 })();
+
+
+
