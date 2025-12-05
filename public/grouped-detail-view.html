@@ -143,17 +143,22 @@
         <main>
             <div class="container grouped-detail-container">
                 <section class="group-header-card lp-hero">
-                    <div class="group-score-bubble" id="group-score-bubble">
-                        <span class="score-value">--</span>
-                        <span class="score-label">Nota</span>
-                    </div>
-                    <div class="grouped-breadcrumbs">
+                    <div class="group-header-topbar">
                         <a id="group-title-tag" class="group-title-tag lp-hero-chip is-ghost" href="#">Grupo</a>
+                        <div class="group-header-topbar-meta">
+                            <div class="group-review-pill" id="group-review-pill">
+                                <span class="count-value">0</span>
+                                <span class="label">Reseñas</span>
+                            </div>
+                            <div class="review-super-card__score-chip group-score-chip" id="group-score-chip">
+                                <span class="score-value">--</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="lp-hero-grid group-header-grid">
                         <div class="group-header__info-column lp-hero-main">
                             <h2 id="group-item-title" class="group-item-title lp-hero-title">Cargando elemento...</h2>
-                            <p id="list-name-subheader" class="group-subtitle"></p>
+                            <p id="list-name-subheader" class="group-subtitle" hidden></p>
 
                             <article class="group-place-card" id="group-place-card">
                                 <div class="group-place-card__media">
@@ -193,16 +198,6 @@
                         </div>
 
                         <div class="group-header__stats-and-criteria lp-hero-actions">
-                            <div class="header-stats-container">
-                                <div id="group-average-score" class="stat-item">
-                                    <span class="score-value">N/A</span>
-                                    <span class="label">Media General</span>
-                                </div>
-                                <div id="group-review-count" class="stat-item">
-                                    <span class="count-value">N/A</span>
-                                    <span class="label">Reseñas</span>
-                                </div>
-                            </div>
                             <div id="group-avg-criteria-bars" class="criteria-radar-shell">
                                 <canvas id="group-criteria-radar" aria-label="Radar de criterios" role="img"></canvas>
                                 <p class="loading-placeholder">Calculando medias...</p>

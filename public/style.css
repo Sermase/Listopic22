@@ -8102,7 +8102,7 @@ body.light-theme .info-tag:hover {
     place-items: center;
     gap: 8px;
     min-height: clamp(240px, 32vw, 340px);
-    padding: 10px;
+    padding: 0;
     border-radius: var(--border-radius-medium);
     background: rgba(var(--primary-bg-rgb-values), 0.22);
     border: none;
@@ -8116,7 +8116,7 @@ body.light-theme .info-tag:hover {
 #group-criteria-radar {
     width: 100%;
     max-width: 380px;
-    height: clamp(240px, 32vw, 340px);
+    height: clamp(220px, 30vw, 320px);
     aspect-ratio: 1;
 }
 
@@ -8149,7 +8149,7 @@ body.light-theme .info-tag:hover {
     }
     #group-criteria-radar {
         max-width: 320px;
-        height: clamp(210px, 60vw, 280px);
+        height: clamp(200px, 55vw, 260px);
     }
     .criteria-bar__label {
         flex: 0 0 40%;
@@ -9861,51 +9861,50 @@ body.light-theme .leaflet-popup-tip {
     isolation: isolate;
 }
 
-.group-score-bubble {
-    position: absolute;
-    top: 12px;
-    right: 12px;
+.group-header-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.group-header-topbar-meta {
     display: inline-flex;
     align-items: center;
+    gap: 10px;
+}
+
+.group-review-pill {
+    display: inline-flex;
+    align-items: baseline;
     gap: 6px;
-    padding: 10px 12px;
-    border-radius: 18px;
-    background: rgba(var(--primary-bg-rgb-values), 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    animation: respirar 7s ease-in-out infinite;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: rgba(var(--primary-bg-rgb-values), 0.5);
+    border: 1px solid var(--border-color-light);
+    box-shadow: var(--shadow-elevation-low);
+    font-weight: 700;
+    color: var(--title-color);
 }
 
-.group-score-bubble .score-value {
-    font-weight: 800;
-    font-size: 1.2rem;
-    color: #fff;
-    line-height: 1;
+.group-review-pill .count-value {
+    font-size: 1rem;
 }
 
-.group-score-bubble .score-label {
+.group-review-pill .label {
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--secondary-text-color);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    line-height: 1.1;
+    letter-spacing: 0.06em;
 }
 
-@media (max-width: 640px) {
-    .group-score-bubble {
-        top: 10px;
-        right: 10px;
-        padding: 8px 10px;
-        gap: 4px;
-    }
-    .group-score-bubble .score-value {
-        font-size: 1rem;
-    }
-    .group-score-bubble .score-label {
-        font-size: 0.72rem;
-    }
+.group-score-chip.review-super-card__score-chip {
+    display: inline-flex;
+    position: static;
+    margin: 0;
+    width: 60px;
+    height: 60px;
 }
 
 .group-header-card::before,
@@ -10017,6 +10016,8 @@ body.light-theme .leaflet-popup-tip {
     padding: 12px 14px;
     box-shadow: none;
     backdrop-filter: blur(6px);
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .group-place-card__media {
@@ -10088,6 +10089,13 @@ body.light-theme .leaflet-popup-tip {
     gap: 10px;
 }
 
+.group-place-card:hover,
+.group-place-card:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevation-low);
+    border-color: rgba(var(--accent-color-primary-rgb), 0.45);
+}
+
 .rating-chip {
     display: inline-flex;
     align-items: center;
@@ -10148,9 +10156,9 @@ body.light-theme .leaflet-popup-tip {
     flex: 1 1 340px;
     display: grid;
     grid-template-rows: auto 1fr;
-    gap: 12px;
+    gap: 0;
     min-width: 0;
-    padding: clamp(12px, 1.6vw, 16px);
+    padding: 0;
     border-radius: var(--border-radius-large);
     background: transparent;
     border: none;
@@ -10158,6 +10166,7 @@ body.light-theme .leaflet-popup-tip {
     position: relative;
     overflow: visible;
     isolation: isolate;
+    margin-top: -6px;
 }
 
 .header-stats-container {
@@ -10206,6 +10215,19 @@ body.light-theme .leaflet-popup-tip {
 }
 
 @media (max-width: 640px) {
+    .group-header-topbar {
+        justify-content: space-between;
+    }
+
+    .group-score-chip.review-super-card__score-chip {
+        width: 52px;
+        height: 52px;
+    }
+
+    .group-review-pill {
+        padding: 7px 10px;
+    }
+
     .grouped-breadcrumbs {
         flex-direction: row;
         align-items: center;

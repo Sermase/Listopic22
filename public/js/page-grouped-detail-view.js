@@ -201,11 +201,11 @@ ListopicApp.pageGroupedDetailView = (() => {
         const googleRatingChipEl = document.getElementById('group-google-rating-chip');
         const googleRatingValueEl = document.getElementById('group-google-rating');
         const gmapsLinkEl = document.getElementById('gmaps-link');
-        const groupAverageScoreEl = document.getElementById('group-average-score')?.querySelector('.score-value');
-        const groupReviewCountEl = document.getElementById('group-review-count')?.querySelector('.count-value');
+        const groupReviewPillEl = document.getElementById('group-review-pill');
+        const groupPlaceCardEl = document.getElementById('group-place-card');
         const avgCriteriaBarsEl = document.getElementById('group-avg-criteria-bars');
         const criteriaRadarCanvas = document.getElementById('group-criteria-radar');
-        const groupScoreBubbleEl = document.getElementById('group-score-bubble');
+        const groupScoreChipEl = document.getElementById('group-score-chip');
         const groupImageGalleryEl = document.getElementById('group-image-gallery');
         const individualReviewsListEl = document.getElementById('individual-reviews-list');
         const saveToArchiveBtn = document.getElementById('group-save-to-archive-btn');
@@ -330,7 +330,7 @@ ListopicApp.pageGroupedDetailView = (() => {
                 groupItemTitleEl.textContent = itemTitle;
             }
             if (listNameSubheaderEl) {
-                listNameSubheaderEl.textContent = `En lista: ${uiUtils.escapeHtml(state.currentGroupDetailListName || 'Desconocida')}`;
+                listNameSubheaderEl.textContent = '';
             }
             if (addGroupReviewBtn && state.currentGroupDetailListId && placeData.id) {
                 const href = `review-form.html?listId=${encodeURIComponent(state.currentGroupDetailListId)}&placeId=${encodeURIComponent(placeData.id)}&item=${encodeURIComponent(state.currentGroupDetailItem || placeData.name || '')}`;
@@ -349,6 +349,18 @@ ListopicApp.pageGroupedDetailView = (() => {
             }
             if (groupPlaceNameEl) {
                 groupPlaceNameEl.textContent = placeData.name || 'Lugar no disponible';
+            }
+            if (groupPlaceCardEl && placeDetailLinkEl?.href) {
+                const goToPlace = () => window.location.href = placeDetailLinkEl.href;
+                groupPlaceCardEl.setAttribute('role', 'link');
+                groupPlaceCardEl.setAttribute('tabindex', '0');
+                groupPlaceCardEl.addEventListener('click', goToPlace);
+                groupPlaceCardEl.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+                        event.preventDefault();
+                        goToPlace();
+                    }
+                });
             }
             if (groupPlaceImageEl) {
                 const candidatePhotos = Array.isArray(placeData.photos) ? placeData.photos : [];
@@ -466,15 +478,19 @@ ListopicApp.pageGroupedDetailView = (() => {
             // Renderizar estadísticas principales
             const groupAvgScore = enrichedReviews.length > 0 ? (totalOverallScoreSum / enrichedReviews.length) : 0;
             const avgScoreStr = groupAvgScore.toFixed(1);
-            if (groupAverageScoreEl) groupAverageScoreEl.textContent = avgScoreStr;
-            if (groupScoreBubbleEl) {
-                const bubbleValueEl = groupScoreBubbleEl.querySelector('.score-value');
+            if (groupScoreChipEl) {
+                const bubbleValueEl = groupScoreChipEl.querySelector('.score-value');
                 if (bubbleValueEl) bubbleValueEl.textContent = avgScoreStr;
             }
             if (listopicRatingEl && enrichedReviews.length > 0) {
                 listopicRatingEl.textContent = avgScoreStr;
             }
-            if (groupReviewCountEl) groupReviewCountEl.textContent = enrichedReviews.length;
+            if (groupReviewPillEl) {
+                const countEl = groupReviewPillEl.querySelector('.count-value');
+                const labelEl = groupReviewPillEl.querySelector('.label');
+                if (countEl) countEl.textContent = enrichedReviews.length;
+                if (labelEl) labelEl.textContent = enrichedReviews.length === 1 ? 'Reseña' : 'Reseñas';
+            }
 
             // 5. Renderizar RADAR DE CRITERIOS PROMEDIADAS
             if (avgCriteriaBarsEl) {
