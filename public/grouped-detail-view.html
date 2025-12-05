@@ -142,63 +142,66 @@
 
         <main>
             <div class="container grouped-detail-container">
-                <a href="#" class="back-button" id="back-to-list-view"><i class="fas fa-arrow-left"></i> Volver a la Lista</a>
-                
-                <section class="group-header-card">
-                    <div class="group-header__info-column">
-                        <div class="group-header__titles">
-                            <a id="group-title-tag" class="group-title-tag" href="#">Grupo</a>
-                            <h2 id="group-item-title" class="group-item-title">Cargando elemento...</h2>
-                        </div>
-
-                        <article class="group-place-card" id="group-place-card">
-                            <div class="group-place-card__media">
-                                <img src="img/listopic-logo.png" alt="Foto del lugar" id="group-place-image">
-                            </div>
-                            <div class="group-place-card__body">
-                                <a href="#" id="place-detail-link" class="group-place-card__name">
-                                    <i class="fas fa-store" aria-hidden="true"></i>
-                                    <span id="group-place-name">Cargando lugar...</span>
-                                </a>
-                                <div class="group-place-card__ratings">
-                                    <div class="rating-chip rating-chip--listopic">
-                                        <span class="rating-chip__label">Listopic</span>
-                                        <span class="rating-chip__value" id="group-listopic-rating">—</span>
-                                    </div>
-                                    <div class="rating-chip rating-chip--google" id="group-google-rating-chip">
-                                        <span class="rating-chip__label"><i class="fa-brands fa-google" aria-hidden="true"></i> Google</span>
-                                        <span class="rating-chip__value" id="group-google-rating">—</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </article>
-                        
-
-                        <div class="place-info-actions">
-                            <a href="#" id="gmaps-link" class="info-tag info-tag--gmaps" target="_blank" style="display: none;">
-                                <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
-                                <span>Ver en Google Maps</span>
-                            </a>
-                            <button type="button" id="group-save-to-archive-btn" class="info-tag info-tag--action" style="display: none;">
-                                <i class="fas fa-bookmark" aria-hidden="true"></i>
-                                <span>Guardar</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="group-header__stats-and-criteria">
-                        <div class="header-stats-container">
-                            <div id="group-average-score" class="stat-item">
-                                <span class="score-value">N/A</span>
-                                <span class="label">Media General</span>
-                            </div>
-                            <div id="group-review-count" class="stat-item">
-                                <span class="count-value">N/A</span>
+                <section class="group-header-card lp-hero">
+                    <div class="group-header-topbar">
+                        <a id="group-title-tag" class="group-title-tag lp-hero-chip is-ghost" href="#">Grupo</a>
+                        <div class="group-header-topbar-meta">
+                            <div class="group-review-pill" id="group-review-pill">
+                                <span class="count-value">0</span>
                                 <span class="label">Reseñas</span>
                             </div>
+                            <div class="review-super-card__score-chip group-score-chip" id="group-score-chip">
+                                <span class="score-value">--</span>
+                            </div>
                         </div>
-                        <div id="group-avg-criteria-bars" class="criteria-bars-list">
-                            <p class="loading-placeholder">Calculando medias...</p>
+                    </div>
+                    <div class="lp-hero-grid group-header-grid">
+                        <div class="group-header__info-column lp-hero-main">
+                            <h2 id="group-item-title" class="group-item-title lp-hero-title">Cargando elemento...</h2>
+                            <p id="list-name-subheader" class="group-subtitle" hidden></p>
+
+                            <article class="group-place-card" id="group-place-card">
+                                <div class="group-place-card__media">
+                                    <img src="img/listopic-logo.png" alt="Foto del lugar" id="group-place-image">
+                                </div>
+                                <div class="group-place-card__body">
+                                    <a href="#" id="place-detail-link" class="group-place-card__name">
+                                        <i class="fas fa-store" aria-hidden="true"></i>
+                                        <span id="group-place-name">Cargando lugar...</span>
+                                    </a>
+                                    <div class="group-place-card__ratings">
+                                        <div class="rating-chip rating-chip--listopic">
+                                            <span class="rating-chip__label">Listopic</span>
+                                            <span class="rating-chip__value" id="group-listopic-rating">—</span>
+                                        </div>
+                                        <div class="rating-chip rating-chip--google" id="group-google-rating-chip">
+                                            <span class="rating-chip__label"><i class="fa-brands fa-google" aria-hidden="true"></i> Google</span>
+                                            <span class="rating-chip__value" id="group-google-rating">—</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </article>
+
+                            <div class="place-info-actions lp-inline-actions">
+                                <a href="#" id="gmaps-link" class="info-tag info-tag--gmaps" target="_blank" style="display: none;">
+                                    <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+                                    <span>Ver en Google Maps</span>
+                                </a>
+                                <button type="button" id="group-save-to-archive-btn" class="info-tag info-tag--action" style="display: none;">
+                                    <i class="fas fa-bookmark" aria-hidden="true"></i>
+                                    <span>Guardar</span>
+                                </button>
+                                <a href="review-form.html" id="add-group-review-btn" class="button primary-button" style="display:none;">
+                                    <i class="fas fa-plus-circle"></i> Añadir reseña
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="group-header__stats-and-criteria lp-hero-actions">
+                            <div id="group-avg-criteria-bars" class="criteria-radar-shell">
+                                <canvas id="group-criteria-radar" aria-label="Radar de criterios" role="img"></canvas>
+                                <p class="loading-placeholder">Calculando medias...</p>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -214,7 +217,7 @@
                     </div>
                 </section>
     
-                <section class="individual-reviews-section">
+                <section class="individual-reviews-section card">
                     <h3><i class="fas fa-user-edit"></i> Reseñas Individuales</h3>
                     <div id="individual-reviews-list" class="reviews-list-container">
                         <p>Cargando reseñas...</p>

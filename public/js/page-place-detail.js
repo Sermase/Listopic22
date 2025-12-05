@@ -39,6 +39,7 @@ ListopicApp.pagePlaceDetail = {
             placeAddress: document.getElementById('place-address'),
             googleMapsLink: document.getElementById('place-google-maps-link'),
             avgRating: document.getElementById('place-avg-rating'),
+            scoreChip: document.getElementById('place-score-chip'),
             reviewCount: document.getElementById('place-review-count'),
             listsCount: document.getElementById('place-lists-count'),
             reviewsContainer: document.getElementById('place-reviews-container'),
@@ -157,6 +158,7 @@ ListopicApp.pagePlaceDetail = {
         // --- Renderizado de estadísticas (con los cambios) ---
         this.elements.reviewCount.textContent = reviewsCount !== undefined ? reviewsCount : '0';
         this.elements.avgRating.textContent = averageRating ? averageRating.toFixed(1) : 'N/A';
+        this.applyScoreChipColor(this.elements.scoreChip, averageRating);
         this.elements.followersCount.textContent = followersCount !== undefined ? followersCount : '0';
         // Mostramos la nueva nota de Google, formateada a un decimal
         this.elements.googleRating.textContent = googleRating ? googleRating.toFixed(1) : 'N/A';
@@ -263,6 +265,20 @@ ListopicApp.pagePlaceDetail = {
             } else {
                 saveButton.style.display = 'none';
             }
+        }
+    },
+
+    applyScoreChipColor: function(chipEl, scoreValue) {
+        if (!chipEl) return;
+        chipEl.classList.remove('is-good', 'is-mid', 'is-bad');
+        const value = typeof scoreValue === 'number' ? scoreValue : parseFloat(scoreValue);
+        if (Number.isNaN(value)) return;
+        if (value >= 8.5) {
+            chipEl.classList.add('is-good');
+        } else if (value >= 6.5) {
+            chipEl.classList.add('is-mid');
+        } else {
+            chipEl.classList.add('is-bad');
         }
     },
 
@@ -436,15 +452,15 @@ updateFollowButtonUI: function() {
     const btn = this.elements.followUnfollowBtn;
     if (!btn) return;
 
+    btn.classList.remove('primary-button', 'secondary-button', 'follow-btn--active', 'follow-btn--idle');
     if (this.isFollowing) {
         btn.innerHTML = `<i class="fas fa-check"></i> Siguiendo`;
-        btn.classList.remove('primary-button');
-        btn.classList.add('secondary-button');
+        btn.classList.add('follow-btn--active');
     } else {
         btn.innerHTML = `<i class="fas fa-bookmark"></i> Seguir Lugar`;
-        btn.classList.remove('secondary-button');
-        btn.classList.add('primary-button');
+        btn.classList.add('follow-btn--idle');
     }
+    btn.classList.add('place-action-btn', 'follow-btn');
 },
 
 handleFollowToggle: async function() {
@@ -504,15 +520,15 @@ updateFollowButtonUI: function() {
     const btn = this.elements.followUnfollowBtn;
     if (!btn) return;
 
+    btn.classList.remove('primary-button', 'secondary-button', 'follow-btn--active', 'follow-btn--idle');
     if (this.isFollowing) {
         btn.innerHTML = `<i class="fas fa-check"></i> Siguiendo`;
-        btn.classList.remove('primary-button');
-        btn.classList.add('secondary-button');
+        btn.classList.add('follow-btn--active');
     } else {
         btn.innerHTML = `<i class="fas fa-bookmark"></i> Seguir Lugar`;
-        btn.classList.remove('secondary-button');
-        btn.classList.add('primary-button');
+        btn.classList.add('follow-btn--idle');
     }
+    btn.classList.add('place-action-btn', 'follow-btn');
 },
 
 handleFollowToggle: async function() {

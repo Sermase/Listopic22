@@ -756,13 +756,25 @@ currentSortDirection = 'desc';
 const urlParamsList = new URLSearchParams(window.location.search);
 state.currentListId = urlParamsList.get('listId'); 
 
+async function applyCategoryLabel(categoryId) {
+    const ui = ListopicApp.uiUtils;
+    const fallback = categoryId || "Hmm...";
+    if (ui?.ensureCategoryCached) {
+        try { await ui.ensureCategoryCached(categoryId); } catch (e) { /* ignore */ }
+    }
+    const label = ui?.getCategoryLabel ? ui.getCategoryLabel(categoryId, fallback) : fallback;
+    if (ui?.updatePageHeaderInfo) ui.updatePageHeaderInfo(label, state.currentListName);
+    const categoryLabelEl = document.getElementById('list-category-label');
+    if (categoryLabelEl) categoryLabelEl.textContent = label;
+}
+
 // --- LÓGICA DE INICIALIZACIÓN CORREGIDA ---
 if (state.currentListId) {
     updateAddReviewButtonHref(state.currentListId);
     if (editListLink) editListLink.href = `list-form.html?editListId=${state.currentListId}`;
 
     const listDocRef = ListopicApp.services.db.collection('lists').doc(state.currentListId);
-    listDocRef.get().then(listDoc => {
+    listDocRef.get().then(async listDoc => {
         if (!listDoc.exists) throw new Error("La lista no fue encontrada.");
         
         const listData = listDoc.data();
@@ -774,7 +786,7 @@ if (state.currentListId) {
 
         state.currentListName = listData.name || "Ranking";
         const category = listData.categoryId || "Hmm..."; 
-        ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
+        await applyCategoryLabel(category);
         if (listTitleElement) listTitleElement.textContent = state.currentListName;
         updateAddReviewButtonHref(state.currentListId, state.currentListName);
 
@@ -788,7 +800,6 @@ if (state.currentListId) {
         statsEl.innerHTML = `
             <span><i class="fas fa-star-half-alt"></i> ${rc} reseñas</span>
             <span><i class="fas fa-user-group"></i> <span id="list-followers-count">${fc}</span> seguidores</span>
-            <span><i class="fas fa-comments"></i> ${cc} comentarios</span>
         `;
         const forumCountEl = document.getElementById('forum-count');
         if (forumCountEl) forumCountEl.textContent = cc;
@@ -804,10 +815,7 @@ if (state.currentListId) {
         }
         state.currentListName = responsePayload.listName || "Ranking Agrupado";
         const category = responsePayload.categoryId || "Hmm..."; 
-        ListopicApp.uiUtils.updatePageHeaderInfo(category, state.currentListName);
-        const categoryLabelEl = document.getElementById('list-category-label');
-        if (categoryLabelEl) categoryLabelEl.textContent = category;
-        
+        await applyCategoryLabel(category);
         if (listTitleElement) listTitleElement.textContent = state.currentListName;
         updateAddReviewButtonHref(state.currentListId, state.currentListName);
         state.currentListAvailableTags = responsePayload.tags || [];

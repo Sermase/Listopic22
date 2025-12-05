@@ -212,7 +212,7 @@ ListopicApp.pageSearch = (() => {
         if (!entry) {
             return categoryId;
         }
-        const label = [entry.displayName, entry.name, entry.title, entry.label]
+        const label = [entry.displayname, entry.displayName, entry.name, entry.title, entry.label]
             .find((value) => typeof value === "string" && value.trim());
         return label ? label.trim() : categoryId;
     }

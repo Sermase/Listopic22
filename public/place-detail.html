@@ -108,72 +108,72 @@
 
     <main>
         <div class="container place-detail-page-container">
-            <div class="place-header-container">
-                <div class="place-photo-container">
-                    <img id="place-photo" src="img/logo-listopic400.png" alt="Foto del lugar">
-                </div>
-                <div class="place-info-main">
-                    <h1 id="place-name">Cargando...</h1>
-                    
-                    <p id="place-address"><i class="fas fa-map-marker-alt"></i> <span>Cargando...</span></p>
-
-                    <p id="place-website-container" style="display: none;">
-                        <i class="fas fa-globe"></i> <a id="place-website" href="#" target="_blank" rel="noopener noreferrer"></a>
-                    </p>
-                    <p id="place-phone-container" style="display: none;">
-                        <i class="fas fa-phone"></i> <span id="place-phone"></span>
-                    </p>
-                    <p id="place-hours-container" style="display: none;">
-                        <i class="fas fa-clock"></i> <span id="place-hours"></span>
-                    </p>
-                    <p id="place-price-container" style="display: none;">
-                        <i class="fas fa-money-bill-wave"></i> <span id="place-price"></span>
-                    </p>
-                    
-                    <div class="place-actions">
-                        <a id="place-google-maps-link" href="#" target="_blank" class="button secondary-button">
-                            <i class="fas fa-map"></i> Ver en Google Maps
-                        </a>
-                        <a id="add-review-global-btn" class="button secondary-button" style="display:none;" href="#">
-                            <i class="fas fa-plus"></i> Valorar este lugar
-                        </a>
-                        <button id="place-save-to-archive-btn" class="button secondary-button" type="button" style="display: none;">
-                            <i class="fas fa-bookmark"></i> Guardar
-                        </button>
-                        <button id="follow-unfollow-place-btn" class="button primary-button" style="display: none;">
-                            <i class="fas fa-bookmark"></i> Seguir Lugar
-                        </button>
+            <section class="place-header-container place-header-card group-header-card">
+                <div class="place-header-topbar">
+                    <div class="place-topbar-left">
+                        <span class="lp-hero-chip is-accent place-chip-tight">Lugar</span>
+                        <div class="place-topbar-meta">
+                            <div class="group-review-pill place-review-pill">
+                                <span class="count-value" id="place-review-count">0</span>
+                                <span class="label">Reseñas</span>
+                            </div>
+                            <span class="rating-chip rating-chip--google place-google-chip" title="Nota en Google">
+                                <span class="rating-chip__label"><i class="fab fa-google"></i> Google</span>
+                                <span class="rating-chip__value" id="place-google-rating">N/A</span>
+                            </span>
+                            <span class="rating-chip rating-chip--followers place-followers-chip" title="Seguidores del lugar">
+                                <span class="rating-chip__label"><i class="fas fa-user-friends"></i> Seguidores</span>
+                                <span class="rating-chip__value" id="place-followers-count">0</span>
+                            </span>
+                        </div>
                     </div>
-
-                    <div id="place-attributes" class="place-attributes">
-                        <div class="attr-group" id="place-accessibility"></div>
-                        <div class="attr-group" id="place-services"></div>
+                    <div class="group-score-chip review-super-card__score-chip place-score-chip is-mid" id="place-score-chip">
+                        <span class="score-value" id="place-avg-rating">N/A</span>
                     </div>
                 </div>
-            </div>
 
-            <div class="place-stats-container">
-                <div class="stat-item">
-                    <span class="count" id="place-avg-rating">N/A</span>
-                    <span class="label">Listopic</span>
+                <div class="place-mini-card">
+                    <div class="place-mini-photo">
+                        <img id="place-photo" src="img/logo-listopic400.png" alt="Foto del lugar">
+                    </div>
+                    <div class="place-mini-body">
+                        <h1 class="place-title" id="place-name">Cargando...</h1>
+                        <div class="place-meta-grid place-meta-grid--compact">
+                            <p id="place-address" class="place-meta-line"><i class="fas fa-map-marker-alt"></i> <span>Cargando...</span></p>
+                            <p id="place-website-container" class="place-meta-line place-meta-website" style="display: none;">
+                                <i class="fas fa-globe"></i> <a id="place-website" class="place-website-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+                            </p>
+                            <p id="place-phone-container" class="place-meta-line" style="display: none;">
+                                <i class="fas fa-phone"></i> <span id="place-phone"></span>
+                            </p>
+                            <p id="place-hours-container" class="place-meta-line" style="display: none;">
+                                <i class="fas fa-clock"></i> <span id="place-hours"></span>
+                            </p>
+                            <p id="place-price-container" class="place-meta-line" style="display: none;">
+                                <i class="fas fa-money-bill-wave"></i> <span id="place-price"></span>
+                            </p>
+                        </div>
+                        <div class="place-actions place-actions-compact">
+                            <a id="place-google-maps-link" href="#" target="_blank" class="place-action-btn secondary-button">
+                                <i class="fas fa-map"></i> Ver en Google Maps
+                            </a>
+                            <button id="place-save-to-archive-btn" class="place-action-btn secondary-button" type="button" style="display: none;">
+                                <i class="fas fa-bookmark"></i> Guardar
+                            </button>
+                            <button id="follow-unfollow-place-btn" class="place-action-btn follow-btn follow-btn--idle" style="display: none;">
+                                <i class="fas fa-bookmark"></i> Seguir Lugar
+                            </button>
+                            <a id="add-review-global-btn" class="place-action-btn place-action-btn--accent" style="display:none;" href="#">
+                                <i class="fas fa-plus"></i> Valorar este lugar
+                            </a>
+                        </div>
+                        <div id="place-attributes" class="place-attributes">
+                            <div class="attr-group" id="place-accessibility"></div>
+                            <div class="attr-group" id="place-services"></div>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <span class="count" id="place-google-rating">N/A</span>
-                    <span class="label">Google</span>
-                </div>
-                <div class="stat-item">
-                    <span class="count" id="place-review-count">0</span>
-                    <span class="label">Reseñas</span>
-                </div>
-                <!-- <div class="stat-item">
-                    <span class="count" id="place-lists-count">0</span>
-                    <span class="label">Veces en Listas</span>
-                </div> -->
-                 <div class="stat-item">
-                    <span class="count" id="place-followers-count">0</span>
-                    <span class="label">Seguidores</span>
-                </div>
-            </div>
+            </section>
 
             <div class="profile-tabs">
                 <button class="profile-tab-button active" data-tab="reviews">
