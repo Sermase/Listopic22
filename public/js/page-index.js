@@ -12,75 +12,75 @@ ListopicApp.pageIndex = (() => {
     let lastKnownGlobalUserLatLng = null;
 
     const heroSubtitles = [
-        "Donde las listas se hacen famosas y tú también un poquito.",
+        "Donde las listas se hacen famosas y tï¿½ tambiï¿½n un poquito.",
         "El Olimpo de las listas absurdamente serias.",
-        "Aquí las listas se sienten importantes.",
+        "Aquï¿½ las listas se sienten importantes.",
         "Donde las listas vienen a ponerse guapas.",
-        "Listas que harían suspirar a una hoja de cálculo.",
-        "Tu pequeño portal para poner orden sin drama.",
-        "La biblioteca infinita de tus “depende”.",
+        "Listas que harï¿½an suspirar a una hoja de cï¿½lculo.",
+        "Tu pequeï¿½o portal para poner orden sin drama.",
+        "La biblioteca infinita de tus ï¿½dependeï¿½.",
         "Ideas sueltas buscando lista.",
-        "El país de las listas que siempre tienen sitio para una más.",
-        "Aquí las listas salen mejor peinadas.",
+        "El paï¿½s de las listas que siempre tienen sitio para una mï¿½s.",
+        "Aquï¿½ las listas salen mejor peinadas.",
         "El universo paralelo donde todo queda clarito.",
-        "Territorio apto para maniáticos y despistados por igual.",
-        "El habitáculo premium para tus elecciones más raras.",
-        "Un refugio para pensamientos con vocación de ranking.",
-        "Aquí tus obsesiones tienen su propio ranking.",
+        "Territorio apto para maniï¿½ticos y despistados por igual.",
+        "El habitï¿½culo premium para tus elecciones mï¿½s raras.",
+        "Un refugio para pensamientos con vocaciï¿½n de ranking.",
+        "Aquï¿½ tus obsesiones tienen su propio ranking.",
         "Donde lo aleatorio encuentra estructura.",
-        "Donde los gustos se alinean… o al menos se saludan.",
-        "La república independiente de tus opiniones.",
+        "Donde los gustos se alineanï¿½ o al menos se saludan.",
+        "La repï¿½blica independiente de tus opiniones.",
         "Donde cada gusto encuentra su casillita.",
         "Tu consola personal para ajustar el mundo.",
-        "Si la vida es un lío, al menos lista tus líos con estilo.",
+        "Si la vida es un lï¿½o, al menos lista tus lï¿½os con estilo.",
         "Tu reino por una buena lista. O al menos por una divertida.",
         "Tu santuario personal de rankings.",
         "La patria de las listas bien hechas.",
         "La frontera amable entre el caos y el orden.",
         "Donde los rankings encuentran su destino manifiesto.",
-        "La cima desde la que ver el mundo… en columnas.",
-        "La cápsula espacial para tus gustos interplanetarios.",
+        "La cima desde la que ver el mundoï¿½ en columnas.",
+        "La cï¿½psula espacial para tus gustos interplanetarios.",
         "El coliseo honorable de tus opiniones.",
-        "El paraíso de los que piensan en modo “bullet point”.",
-        "Explora, vota… y presume de criterio sin vergüenza.",
-        "Listas para gente seria. Y para ti también.",
-        "Tu mapa personal de lo importante… y de lo no tanto.",
+        "El paraï¿½so de los que piensan en modo ï¿½bullet pointï¿½.",
+        "Explora, votaï¿½ y presume de criterio sin vergï¿½enza.",
+        "Listas para gente seria. Y para ti tambiï¿½n.",
+        "Tu mapa personal de lo importanteï¿½ y de lo no tanto.",
         "Un buen lugar para pensar en columnas.",
-        "Listopic: más ordenado que tu cajón de cables.",
-        "Tu rincón para clasificar lo inclasificable.",
-        "Aquí las opiniones encuentran hogar.",
+        "Listopic: mï¿½s ordenado que tu cajï¿½n de cables.",
+        "Tu rincï¿½n para clasificar lo inclasificable.",
+        "Aquï¿½ las opiniones encuentran hogar.",
         "Tu base secreta para ordenar lo que te da la gana.",
         "Un lugar donde tus preferencias pueden estirarse a gusto.",
         "Porque siempre hay algo que merece ser listado.",
-        "Aquí las listas vienen a sentirse organizadas.",
-        "Listas sin prisa, pero con intención.",
-        "Pasa, crea y ordénalo a tu manera.",
+        "Aquï¿½ las listas vienen a sentirse organizadas.",
+        "Listas sin prisa, pero con intenciï¿½n.",
+        "Pasa, crea y ordï¿½nalo a tu manera.",
         "La zona segura para tus comparaciones imposibles.",
-        "Un rincón amable para tus “esto va primero”.",
-        "Donde el orden se vuelve un poco más simpático.",
+        "Un rincï¿½n amable para tus ï¿½esto va primeroï¿½.",
+        "Donde el orden se vuelve un poco mï¿½s simpï¿½tico.",
         "El punto exacto entre caos y criterio.",
-        "Aquí empieza el viaje de tus listas más ambiciosas.",
-        "Las listas que tu mente estaba intentando hacer desde hace días.",
+        "Aquï¿½ empieza el viaje de tus listas mï¿½s ambiciosas.",
+        "Las listas que tu mente estaba intentando hacer desde hace dï¿½as.",
         "El lugar donde tus gustos encuentran la paz (temporal).",
-        "Las listas aquí madrugan solas, nadie sabe por qué.",
+        "Las listas aquï¿½ madrugan solas, nadie sabe por quï¿½.",
         "El spa favorito de los gustos cansados.",
-        "Donde las ideas hacen cola para verse más ordenadas.",
+        "Donde las ideas hacen cola para verse mï¿½s ordenadas.",
         "El balneario oficial de las comparaciones tensas.",
         "Listas que se estiran antes de empezar.",
-        "La cafetería secreta donde se reúnen los criterios.",
+        "La cafeterï¿½a secreta donde se reï¿½nen los criterios.",
         "El gimnasio donde tus prioridades levantan pesas.",
-        "El hotel boutique de tus opiniones más viajeras.",
+        "El hotel boutique de tus opiniones mï¿½s viajeras.",
         "Donde los pensamientos vienen a hacerse un retoque.",
-        "El país donde los gustos pagan impuestos simbólicos.",
+        "El paï¿½s donde los gustos pagan impuestos simbï¿½licos.",
         "El lugar donde tus gustos vienen a aclararse un poco.",
-        "Tu espacio para ordenar lo que solo tú entiendes.",
+        "Tu espacio para ordenar lo que solo tï¿½ entiendes.",
         "Cuando el mundo no encaja, siempre queda una buena lista.",
         "Donde pensar en orden se siente sorprendentemente natural.",
         "Una manera elegante de poner las ideas en fila.",
-        "Tus criterios, ahora con luz y taquígrafos.",
+        "Tus criterios, ahora con luz y taquï¿½grafos.",
         "El sitio donde tus gustos conversan entre ellos.",
-        "El rincón donde tus elecciones respiran hondo.",
-        "Aquí el caos se porta un poquito mejor.",
+        "El rincï¿½n donde tus elecciones respiran hondo.",
+        "Aquï¿½ el caos se porta un poquito mejor.",
         "Para quienes disfrutan poniendo etiquetas sin remordimientos."
     ];
     const tileLayers = {
@@ -383,7 +383,7 @@ ListopicApp.pageIndex = (() => {
                                     <h3 class="featured-card__title"><i class="${iconClass}"></i> ${name}</h3>
                                     <div class="meta">
                                         <span title="Seguidores"><i class="fas fa-heart"></i> ${followers}</span>
-                                        <span title="Reseñas"><i class="fas fa-pencil-alt"></i> ${reviews}</span>
+                                        <span title="Reseï¿½as"><i class="fas fa-pencil-alt"></i> ${reviews}</span>
                                         <span title="Comentarios"><i class="fas fa-comments"></i> ${comments}</span>
                                     </div>
                                 </div>
@@ -470,16 +470,18 @@ ListopicApp.pageIndex = (() => {
                         if (allDocs.length === 0) {
                             feed.innerHTML = '<p class="loading-placeholder">AÃºn no hay reseÃ±as de tus seguidos.</p>';
                         } else {
-                            allDocs.sort((a, b) => {
-                                const ta = a.data().createdAt?.toMillis ? a.data().createdAt.toMillis() : 0;
-                                const tb = b.data().createdAt?.toMillis ? b.data().createdAt.toMillis() : 0;
-                                return tb - ta;
-                            });
+                            const ts = (doc) => {
+                                const data = typeof doc.data === 'function' ? (doc.data() || {}) : {};
+                                const created = data.createdAt?.toMillis ? data.createdAt.toMillis() : null;
+                                const updated = data.updatedAt?.toMillis ? data.updatedAt.toMillis() : null;
+                                return created ?? updated ?? 0;
+                            };
+                            allDocs.sort((a, b) => ts(b) - ts(a));
 
                             let docQueue = allDocs.slice(0, 30);
 
 
-                            // Filtrar reseñas privadas: solo mostrar reseñas de listas públicas.
+                            // Filtrar reseï¿½as privadas: solo mostrar reseï¿½as de listas pï¿½blicas.
 
                             try {
 
@@ -531,7 +533,7 @@ ListopicApp.pageIndex = (() => {
 
                             if (docQueue.length === 0) {
 
-                                feed.innerHTML = '<p class="loading-placeholder">Tus seguidos todavía no tienen reseñas públicas para mostrar.</p>';
+                                feed.innerHTML = '<p class="loading-placeholder">Tus seguidos todavï¿½a no tienen reseï¿½as pï¿½blicas para mostrar.</p>';
 
                                 return;
 

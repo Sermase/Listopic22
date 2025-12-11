@@ -602,7 +602,7 @@ ListopicApp.pageProfile = {
 
         const baseQuery = db.collectionGroup('reviews')
             .where('userId', '==', userIdToLoad)
-            .orderBy('updatedAt', 'desc');
+            .orderBy('createdAt', 'desc');
 
         const loadBatch = async ({ batchSize }) => {
             if (reachedEnd) {
@@ -650,7 +650,6 @@ ListopicApp.pageProfile = {
 };
 
 console.log("page-profile.js: Script PARSEADO y EJECUTADO exitosamente.");
-
 
 
 

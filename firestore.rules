@@ -74,9 +74,10 @@ service cloud.firestore {
     // REGLA PARA COLLECTION GROUP 'reviews' (RESPETA PRIVACIDAD DE LISTAS)
     // ===============================================
     match /{path=**}/reviews/{reviewId} {
-      allow read: if request.auth != null &&
-                   (resource.data.listId is string) &&
-                   canReadListById(resource.data.listId);
+      allow read: if request.auth != null && (
+                   isJefe(request.auth.uid) ||
+                   ((resource.data.listId is string) && canReadListById(resource.data.listId))
+                 );
     }
 
     // ===============================================
@@ -154,12 +155,13 @@ service cloud.firestore {
       match /reviews/{reviewId} {
         allow read: if canReadListById(listId);
         allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // El autor puede editar su rese�a. Otros pueden actualizar los contadores de reacciones.
+        // El autor o un jefe pueden editar; otros solo contadores de reacciones/comentarios.
         allow update: if request.auth != null && (
                         resource.data.userId == request.auth.uid ||
+                        isJefe(request.auth.uid) ||
                         (canReadListById(listId) && (isReactionCountUpdate() || isCommentsCountUpdate()))
                       );
-        allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+        allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
 
         match /reactions/{reactionUserId} {
           allow read: if canReadListById(listId);
@@ -284,7 +286,6 @@ service cloud.firestore {
     }
   }
 }
-
 
 
 
