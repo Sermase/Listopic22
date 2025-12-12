@@ -1874,9 +1874,8 @@ const getPlaceDetails = onCall(async (request) => {
       }
       const placeData = { id: placeDoc.id, ...placeDoc.data() };
 
-      // 2. Obtener todas las reseñas asociadas a este lugar
-      // *** CORREGIDO: Usamos 'updatedAt' para ordenar ***
-      const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).orderBy('updatedAt', 'desc').get();
+      // 2. Obtener todas las reseñas asociadas a este lugar (ordenadas por creación más reciente)
+      const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).orderBy('createdAt', 'desc').get();
       const allReviews = reviewsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       // 3. Agrupar reseñas por itemName para la pestaña "Grupos"
@@ -3293,5 +3292,4 @@ module.exports = {
     toggleFollowList,
     getDistance,
 };
-
 

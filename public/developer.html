@@ -21,6 +21,34 @@
         .dev-audit-log code { background: rgba(var(--text-color-rgb), 0.08); padding: 2px 4px; border-radius: 4px; }
 
     </style>
+    <style>
+        .dev-tools-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 8px; }
+        @media (min-width: 1080px) { .dev-tools-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .dev-tool-card { background: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; box-shadow: var(--shadow-sm, 0 6px 20px rgba(0,0,0,0.06)); }
+        .dev-tool-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+        .dev-tool-subtitle { margin: 4px 0 0 0; color: var(--secondary-text-color); font-size: 0.95em; }
+        .dev-tool-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(var(--accent-color-primary-rgb),0.12); color: var(--accent-color-primary); border-radius: 999px; font-weight: 600; font-size: 0.9em; }
+        .dev-tool-form { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 6px; }
+        .dev-tool-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 4px 0; }
+        .dev-tool-results { margin-top: 8px; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; background: var(--container-bg-secondary); min-height: 64px; }
+        .dev-tool-editor { margin-top: 12px; padding: 12px; border: 1px dashed var(--border-color); border-radius: 8px; background: var(--primary-bg); }
+        .dev-helper-text { color: var(--secondary-text-color); font-size: 0.9em; margin: 4px 0 10px 0; }
+        .dev-mini-table table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .dev-mini-table th, .dev-mini-table td { padding: 6px 8px; border: 1px solid var(--border-color-light); text-align: left; }
+        .dev-mini-table th { background: var(--container-bg-secondary); }
+        .dev-result-list { display: grid; gap: 10px; }
+        .dev-result-card { border: 1px solid var(--border-color); background: var(--primary-bg); border-radius: 8px; padding: 10px; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: transform 0.1s ease, box-shadow 0.2s ease; }
+        .dev-result-card:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .dev-result-meta { display: flex; flex-direction: column; gap: 2px; }
+        .dev-result-title { font-weight: 700; }
+        .dev-result-sub { color: var(--secondary-text-color); font-size: 0.92em; }
+        .dev-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
+        .dev-modal__dialog { background: var(--primary-bg); border-radius: 12px; border: 1px solid var(--border-color); width: min(720px, 95vw); max-height: 90vh; overflow-y: auto; box-shadow: 0 18px 38px rgba(0,0,0,0.2); position: relative; z-index: 1; }
+        .dev-modal__header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border-color); }
+        .dev-modal__body { padding: 12px 16px 16px; }
+        .dev-modal__close { background: none; border: none; font-size: 1.1em; color: var(--secondary-text-color); cursor: pointer; }
+        .dev-modal__overlay { position: absolute; inset: 0; }
+    </style>
 </head>
 <body>
     <header class="app-header">
@@ -117,7 +145,7 @@
 
     <main class="dev-container">
         <h1><i class="fas fa-tools"></i> Panel de Desarrollador</h1>
-        <div class="dev-main-tabs"> <button class="dev-main-tab-button active" data-tab="data">Data Viewer</button> <button class="dev-main-tab-button" data-tab="algolia">Algolia Sync</button> <button class="dev-main-tab-button" data-tab="categories">Categorías</button> </div>
+        <div class="dev-main-tabs"> <button class="dev-main-tab-button active" data-tab="data">Data Viewer</button> <button class="dev-main-tab-button" data-tab="tools">Buscadores</button> <button class="dev-main-tab-button" data-tab="algolia">Algolia Sync</button> <button class="dev-main-tab-button" data-tab="categories">Categorías</button> </div>
         <div id="tab-content-data" class="dev-tab-content" style="display: block;">
             <div id="dev-tabs-container"></div>
             <div class="dev-actions-container">
@@ -142,6 +170,288 @@
             <div id="stats-audit-log" class="dev-audit-log" aria-live="polite"></div>
             <div id="place-id-audit-log" class="dev-audit-log" aria-live="polite"></div>
             <div id="dev-content-container"></div>
+        </div>
+        <div id="tab-content-tools" class="dev-tab-content" style="display: none;">
+            <div class="dev-tools-grid">
+                <section class="dev-tool-card" id="dev-tool-reviews">
+                    <div class="dev-tool-header">
+                        <div>
+                            <h3><i class="fas fa-star-half-alt"></i> Reseñas</h3>
+                            <p class="dev-tool-subtitle">Busca por usuario, lugar, elemento o lista y edita campos clave de la reseña.</p>
+                        </div>
+                        <span class="dev-tool-tag"><i class="fas fa-wrench"></i> Edición</span>
+                    </div>
+                    <div class="dev-tool-form form-grid">
+                        <div>
+                            <label for="dev-review-filter-user">Usuario (ID)</label>
+                            <input id="dev-review-filter-user" class="form-input" placeholder="uid del autor">
+                        </div>
+                        <div>
+                            <label for="dev-review-filter-place">Lugar (placeId)</label>
+                            <input id="dev-review-filter-place" class="form-input" placeholder="googlePlaceId o docId">
+                        </div>
+                        <div>
+                            <label for="dev-review-filter-item">Elemento (itemName)</label>
+                            <input id="dev-review-filter-item" class="form-input" placeholder="Texto exacto del elemento">
+                        </div>
+                        <div>
+                            <label for="dev-review-filter-list">Lista (listId)</label>
+                            <input id="dev-review-filter-list" class="form-input" placeholder="ID de la lista">
+                        </div>
+                        <div>
+                            <label for="dev-review-filter-id">ID de reseña</label>
+                            <input id="dev-review-filter-id" class="form-input" placeholder="reviewId (opcional)">
+                        </div>
+                        <div>
+                            <label for="dev-review-filter-from">Creada desde</label>
+                            <input id="dev-review-filter-from" type="date" class="form-input">
+                        </div>
+                        <div>
+                            <label for="dev-review-filter-to">Creada hasta</label>
+                            <input id="dev-review-filter-to" type="date" class="form-input">
+                        </div>
+                        <div>
+                            <label for="dev-review-limit">Máximo resultados</label>
+                            <select id="dev-review-limit" class="form-input">
+                                <option value="20">20</option>
+                                <option value="50" selected>50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="dev-tool-actions">
+                        <button id="dev-review-search-btn" class="button primary-button"><i class="fas fa-search"></i> Buscar reseñas</button>
+                        <button id="dev-review-clear-btn" class="button secondary-button">Limpiar</button>
+                    </div>
+                    <p class="dev-helper-text">Se consulta <code>collectionGroup('reviews')</code> con filtros exactos. El campo de elemento se busca como coincidencia exacta (itemNameLower).</p>
+                    <div id="dev-review-results" class="dev-tool-results" aria-live="polite"></div>
+                    <div id="dev-review-modal" class="dev-modal" hidden>
+                        <div class="dev-modal__overlay" data-close-modal></div>
+                        <div class="dev-modal__dialog">
+                            <div class="dev-modal__header">
+                                <div>
+                                    <strong>Editar reseña</strong>
+                                    <p class="dev-helper-text" style="margin:4px 0 0 0;">Actualiza el documento en su misma ruta (no mueve la reseña de lista).</p>
+                                </div>
+                                <button class="dev-modal__close" id="dev-review-cancel-btn" data-close-modal aria-label="Cerrar"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="dev-modal__body">
+                                <div id="dev-review-editor" class="dev-tool-editor">
+                                    <div class="form-grid dev-tool-form">
+                                        <div>
+                                            <label for="dev-review-edit-id">ID</label>
+                                            <input id="dev-review-edit-id" class="form-input" disabled>
+                                        </div>
+                                        <div>
+                                            <label for="dev-review-edit-list">Lista (listId)</label>
+                                            <input id="dev-review-edit-list" class="form-input" placeholder="listId">
+                                        </div>
+                                        <div>
+                                            <label for="dev-review-edit-user">Usuario creador</label>
+                                            <input id="dev-review-edit-user" class="form-input" placeholder="userId / ownerId / authorId">
+                                        </div>
+                                        <div>
+                                            <label for="dev-review-edit-place">Lugar (placeId)</label>
+                                            <input id="dev-review-edit-place" class="form-input" placeholder="googlePlaceId o docId">
+                                        </div>
+                                        <div>
+                                            <label for="dev-review-edit-item">Elemento (itemName)</label>
+                                            <input id="dev-review-edit-item" class="form-input" placeholder="itemName">
+                                        </div>
+                                        <div>
+                                            <label for="dev-review-edit-establishment">Nombre del lugar</label>
+                                            <input id="dev-review-edit-establishment" class="form-input" placeholder="establishmentName">
+                                        </div>
+                                        <div>
+                                            <label for="dev-review-edit-created">Fecha de creación</label>
+                                            <input id="dev-review-edit-created" type="date" class="form-input">
+                                        </div>
+                                    </div>
+                                    <label for="dev-review-edit-json">Campos extra (JSON, merge)</label>
+                                    <textarea id="dev-review-edit-json" class="form-input" rows="6" placeholder='{"campo":"valor"}'></textarea>
+                                    <div class="dev-tool-actions">
+                                        <button id="dev-review-save-btn" class="button primary-button"><i class="fas fa-save"></i> Guardar cambios</button>
+                                        <button id="dev-review-cancel-btn-inline" class="button secondary-button" data-close-modal>Cerrar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="dev-tool-card" id="dev-tool-groups">
+                    <div class="dev-tool-header">
+                        <div>
+                            <h3><i class="fas fa-object-group"></i> Grupos</h3>
+                            <p class="dev-tool-subtitle">Busca agrupaciones (lista + lugar + elemento) y aplica cambios en lote a sus reseñas.</p>
+                        </div>
+                        <span class="dev-tool-tag"><i class="fas fa-layer-group"></i> Grupo</span>
+                    </div>
+                    <div class="dev-tool-form form-grid">
+                        <div>
+                            <label for="dev-group-filter-list">Lista (listId)</label>
+                            <input id="dev-group-filter-list" class="form-input" placeholder="Obligatorio">
+                        </div>
+                        <div>
+                            <label for="dev-group-filter-place">Lugar (placeId)</label>
+                            <input id="dev-group-filter-place" class="form-input" placeholder="googlePlaceId o docId">
+                        </div>
+                        <div>
+                            <label for="dev-group-filter-item">Elemento (itemName)</label>
+                            <input id="dev-group-filter-item" class="form-input" placeholder="Texto exacto o parcial">
+                        </div>
+                    </div>
+                    <div class="dev-tool-actions">
+                        <button id="dev-group-search-btn" class="button primary-button"><i class="fas fa-search"></i> Buscar grupos</button>
+                        <button id="dev-group-clear-btn" class="button secondary-button">Limpiar</button>
+                    </div>
+                    <p class="dev-helper-text">Se usa la función <code>groupedReviews</code> y luego se filtra en cliente.</p>
+                    <div id="dev-group-results" class="dev-tool-results" aria-live="polite"></div>
+                    <div id="dev-group-editor" class="dev-tool-editor" hidden>
+                        <h4>Editar reseñas del grupo</h4>
+                        <p id="dev-group-selected" class="dev-helper-text"></p>
+                        <div class="form-grid dev-tool-form">
+                            <div>
+                                <label for="dev-group-edit-item">Nuevo itemName</label>
+                                <input id="dev-group-edit-item" class="form-input" placeholder="itemName">
+                            </div>
+                            <div>
+                                <label for="dev-group-edit-place">Nuevo placeId</label>
+                                <input id="dev-group-edit-place" class="form-input" placeholder="placeId">
+                            </div>
+                            <div>
+                                <label for="dev-group-edit-list">Nuevo listId</label>
+                                <input id="dev-group-edit-list" class="form-input" placeholder="listId (solo cambia campo)">
+                            </div>
+                            <div>
+                                <label for="dev-group-edit-user">Nuevo userId</label>
+                                <input id="dev-group-edit-user" class="form-input" placeholder="userId para userId/authorId/ownerId">
+                            </div>
+                        </div>
+                        <div class="dev-helper-text">Los cambios se aplican a todas las reseñas que coincidan con la combinación lista + lugar + elemento.</div>
+                        <div class="dev-tool-actions">
+                            <button id="dev-group-apply-btn" class="button primary-button"><i class="fas fa-share-square"></i> Actualizar reseñas</button>
+                            <button id="dev-group-cancel-btn" class="button secondary-button">Cerrar</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="dev-tool-card" id="dev-tool-places">
+                    <div class="dev-tool-header">
+                        <div>
+                            <h3><i class="fas fa-map-marker-alt"></i> Lugares</h3>
+                            <p class="dev-tool-subtitle">Localiza lugares por ID, Google Place ID o propietario y edita campos básicos.</p>
+                        </div>
+                        <span class="dev-tool-tag"><i class="fas fa-map"></i> Lugares</span>
+                    </div>
+                    <div class="dev-tool-form form-grid">
+                        <div>
+                            <label for="dev-place-filter-id">ID de lugar</label>
+                            <input id="dev-place-filter-id" class="form-input" placeholder="Doc ID exacto">
+                        </div>
+                        <div>
+                            <label for="dev-place-filter-google">Google Place ID</label>
+                            <input id="dev-place-filter-google" class="form-input" placeholder="ChIJ...">
+                        </div>
+                        <div>
+                            <label for="dev-place-filter-user">Propietario (userId)</label>
+                            <input id="dev-place-filter-user" class="form-input" placeholder="uid">
+                        </div>
+                        <div>
+                            <label for="dev-place-filter-name">Nombre contiene</label>
+                            <input id="dev-place-filter-name" class="form-input" placeholder="Filtro en cliente">
+                        </div>
+                    </div>
+                    <div class="dev-tool-actions">
+                        <button id="dev-place-search-btn" class="button primary-button"><i class="fas fa-search"></i> Buscar lugares</button>
+                        <button id="dev-place-clear-btn" class="button secondary-button">Limpiar</button>
+                    </div>
+                    <div id="dev-place-results" class="dev-tool-results" aria-live="polite"></div>
+                    <div id="dev-place-editor" class="dev-tool-editor" hidden>
+                        <h4>Editar lugar</h4>
+                        <div class="form-grid dev-tool-form">
+                            <div>
+                                <label for="dev-place-edit-id">ID</label>
+                                <input id="dev-place-edit-id" class="form-input" disabled>
+                            </div>
+                            <div>
+                                <label for="dev-place-edit-name">Nombre</label>
+                                <input id="dev-place-edit-name" class="form-input" placeholder="Nombre del lugar">
+                            </div>
+                            <div>
+                                <label for="dev-place-edit-google">Google Place ID</label>
+                                <input id="dev-place-edit-google" class="form-input" placeholder="ChIJ...">
+                            </div>
+                            <div>
+                                <label for="dev-place-edit-user">Propietario (userId)</label>
+                                <input id="dev-place-edit-user" class="form-input" placeholder="uid">
+                            </div>
+                        </div>
+                        <label for="dev-place-edit-json">Campos extra (JSON, merge)</label>
+                        <textarea id="dev-place-edit-json" class="form-input" rows="6" placeholder='{"campo":"valor"}'></textarea>
+                        <div class="dev-tool-actions">
+                            <button id="dev-place-save-btn" class="button primary-button"><i class="fas fa-save"></i> Guardar cambios</button>
+                            <button id="dev-place-cancel-btn" class="button secondary-button">Cerrar</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="dev-tool-card" id="dev-tool-lists">
+                    <div class="dev-tool-header">
+                        <div>
+                            <h3><i class="fas fa-list-alt"></i> Listas</h3>
+                            <p class="dev-tool-subtitle">Busca listas por ID, usuario o nombre y corrige datos básicos.</p>
+                        </div>
+                        <span class="dev-tool-tag"><i class="fas fa-clipboard-list"></i> Listas</span>
+                    </div>
+                    <div class="dev-tool-form form-grid">
+                        <div>
+                            <label for="dev-list-filter-id">ID de lista</label>
+                            <input id="dev-list-filter-id" class="form-input" placeholder="Doc ID exacto">
+                        </div>
+                        <div>
+                            <label for="dev-list-filter-user">Propietario (userId)</label>
+                            <input id="dev-list-filter-user" class="form-input" placeholder="uid">
+                        </div>
+                        <div>
+                            <label for="dev-list-filter-name">Nombre contiene</label>
+                            <input id="dev-list-filter-name" class="form-input" placeholder="Filtro en cliente">
+                        </div>
+                    </div>
+                    <div class="dev-tool-actions">
+                        <button id="dev-list-search-btn" class="button primary-button"><i class="fas fa-search"></i> Buscar listas</button>
+                        <button id="dev-list-clear-btn" class="button secondary-button">Limpiar</button>
+                    </div>
+                    <div id="dev-list-results" class="dev-tool-results" aria-live="polite"></div>
+                    <div id="dev-list-editor" class="dev-tool-editor" hidden>
+                        <h4>Editar lista</h4>
+                        <div class="form-grid dev-tool-form">
+                            <div>
+                                <label for="dev-list-edit-id">ID</label>
+                                <input id="dev-list-edit-id" class="form-input" disabled>
+                            </div>
+                            <div>
+                                <label for="dev-list-edit-name">Nombre</label>
+                                <input id="dev-list-edit-name" class="form-input" placeholder="Nombre de la lista">
+                            </div>
+                            <div>
+                                <label for="dev-list-edit-user">Propietario (userId)</label>
+                                <input id="dev-list-edit-user" class="form-input" placeholder="uid">
+                            </div>
+                            <div>
+                                <label for="dev-list-edit-category">Categoría</label>
+                                <input id="dev-list-edit-category" class="form-input" placeholder="categoryId">
+                            </div>
+                        </div>
+                        <label for="dev-list-edit-json">Campos extra (JSON, merge)</label>
+                        <textarea id="dev-list-edit-json" class="form-input" rows="6" placeholder='{"campo":"valor"}'></textarea>
+                        <div class="dev-tool-actions">
+                            <button id="dev-list-save-btn" class="button primary-button"><i class="fas fa-save"></i> Guardar cambios</button>
+                            <button id="dev-list-cancel-btn" class="button secondary-button">Cerrar</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
         </div>
 
         <div id="tab-content-algolia" class="dev-tab-content" style="display: none;">
