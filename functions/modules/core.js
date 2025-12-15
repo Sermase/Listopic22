@@ -17,6 +17,19 @@ const MIN_LOCAL_RESULTS_THRESHOLD = 3;
 const GOOGLE_NEARBY_RESULT_LIMIT = 6;
 const GOOGLE_TEXT_RESULT_LIMIT = 6;
 const MAX_LOCAL_NEARBY_DISTANCE_KM = 75;
+const SERVER_MANAGED_LIST_FIELDS = new Set([
+  'userId',
+  'reviewCount',
+  'reviewsCount',
+  'followersCount',
+  'commentsCount',
+  'reactions',
+  'createdAt',
+  'updatedAt',
+  'averageRating',
+  'lastGoogleSync',
+  'lastPhotoRefresh'
+]);
 
 const CATEGORY_TYPE_FALLBACKS = Object.freeze({
   'hmm-comida': ['restaurant', 'cafe', 'meal_takeaway', 'bar', 'meal_delivery']
@@ -85,6 +98,37 @@ function buildHttpsErrorFrom(error, fallbackMessage, fallbackCode = 'internal') 
   }
 
   return new HttpsError(normalizedCode, message, Object.keys(details).length ? details : undefined);
+}
+
+function sanitizeListPayload(data) {
+  const safe = {};
+  if (!data || typeof data !== 'object') {
+    return safe;
+  }
+  for (const [key, value] of Object.entries(data)) {
+    if (SERVER_MANAGED_LIST_FIELDS.has(key)) {
+      continue;
+    }
+    safe[key] = value;
+  }
+  return safe;
+}
+
+async function requireAuthFromRequest(req, res) {
+  const authHeader = req.get('Authorization') || '';
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) {
+    res.status(401).json({ message: 'No autorizado: falta token Bearer.' });
+    return null;
+  }
+  try {
+    const decoded = await admin.auth().verifyIdToken(match[1]);
+    return decoded;
+  } catch (error) {
+    logger.warn('requireAuthFromRequest: token inválido', { error: error.message });
+    res.status(401).json({ message: 'No autorizado: token inválido.' });
+    return null;
+  }
 }
 
 // Helper: fetch place docs by IDs in chunks of 10 (Firestore 'in' limit)
@@ -635,6 +679,53 @@ const groupedReviews = onRequest(
               return res.status(400).send({ error: "listId es requerido." });
           }
 
+          let requesterUid = null;
+          try {
+              const listSnap = await db.collection('lists').doc(listId).get();
+              if (!listSnap.exists) {
+                  return res.status(404).send({ error: "La lista no existe." });
+              }
+              const listData = listSnap.data() || {};
+              const isPublic = listData.isPublic === true;
+              if (!isPublic) {
+                  const decoded = await requireAuthFromRequest(req, res);
+                  if (!decoded) return;
+                  requesterUid = decoded.uid;
+                  const isOwner = listData.userId === requesterUid;
+                  let isJefe = false;
+                  let isFollower = false;
+
+                  try {
+                      const userDoc = await db.collection('users').doc(requesterUid).get();
+                      const userType = userDoc.exists ? userDoc.data().userType : null;
+                      if (Array.isArray(userType)) {
+                          isJefe = userType.includes('jefe');
+                      } else if (typeof userType === 'string') {
+                          isJefe = userType === 'jefe';
+                      }
+                  } catch (e) {
+                      logger.warn("groupedReviews: no se pudo leer userType", { uid: requesterUid, error: e.message });
+                  }
+
+                  if (!isOwner && !isJefe) {
+                      const followerRef = db.collection('lists').doc(listId).collection('followers').doc(requesterUid);
+                      const followingRef = db.collection('users').doc(requesterUid).collection('followingLists').doc(listId);
+                      const [followerSnap, followingSnap] = await Promise.all([
+                        followerRef.get(),
+                        followingRef.get()
+                      ]);
+                      isFollower = followerSnap.exists || followingSnap.exists;
+                  }
+
+                  if (!isOwner && !isJefe && !isFollower) {
+                      return res.status(403).send({ error: "No tienes permiso para ver esta lista." });
+                  }
+              }
+          } catch (authError) {
+              logger.error("groupedReviews: error validando permisos", authError);
+              return res.status(500).send({ error: "Error interno validando permisos." });
+          }
+
           try {
               const { listData, groupedReviews } = await buildGroupedItemsForList(listId);
               const responseListData = listData || {};
@@ -684,6 +775,8 @@ const updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{reviewI
 // --- FUNCIÓN placesNearbyRestaurants (MEJORADA) ---
 const placesNearbyRestaurants = onRequest(async (req, res) => {
   cors(req, res, async () => {
+    const auth = await requireAuthFromRequest(req, res);
+    if (!auth) return;
     const { latitude, longitude, categoryId, categoryTypes: rawCategoryTypes } = req.query;
     const apiKey = await getGooglePlacesApiKey();
 
@@ -783,6 +876,8 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 
 const placesTextSearch = onRequest(async (req, res) => {
   cors(req, res, async () => {
+    const auth = await requireAuthFromRequest(req, res);
+    if (!auth) return;
     const { query, latitude, longitude, categoryId, categoryTypes: rawCategoryTypes } = req.query;
     const apiKey = await getGooglePlacesApiKey();
 
@@ -892,19 +987,9 @@ const provinceMap = {
 
 const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
     cors(req, res, async () => {
-        // 1. AHORA ACEPTAMOS EL userId DESDE LA PETICIÓN
-        // Autenticación: requerir ID token en Authorization: Bearer <token>
-        try {
-            const authHeader = req.get('Authorization') || '';
-            const m = authHeader.match(/^Bearer\s+(.*)$/i);
-            if (!m) {
-                return res.status(401).json({ message: 'No autorizado: falta token Bearer.' });
-            }
-            const decoded = await admin.auth().verifyIdToken(m[1]);
-            req.user = { uid: decoded.uid };
-        } catch (e) {
-            return res.status(401).json({ message: 'No autorizado: token inválido.' });
-        }
+        const decoded = await requireAuthFromRequest(req, res);
+        if (!decoded) return;
+        req.user = { uid: decoded.uid };
 
         const { placeid } = req.query;
         const apiKey = await getGooglePlacesApiKey();
@@ -1149,7 +1234,16 @@ const createList = onCall(async (data, context) => {
         }
 
         // Si no existe, proceder a crear la lista
+        const clientPayload = sanitizeListPayload({
+            name: listName,
+            criteriaDefinition,
+            availableTags,
+            isPublic,
+            categoryId
+        });
+
         const newListData = {
+            ...clientPayload,
             name: listName.trim(),
             userId: userId,
             criteriaDefinition: criteriaDefinition || {},
@@ -1209,8 +1303,10 @@ const createListWithValidation = onCall(async (request) => {
       }
 
       // 2. Crear la lista si no existe
+      const sanitized = sanitizeListPayload(data);
       const newListData = {
-          ...data, // Usamos todos los datos enviados desde el cliente (name, isPublic, etc.)
+          ...sanitized, // Usamos datos permitidos enviados desde el cliente
+          name: listName.trim(),
           userId: userId,
           reviewCount: 0,
           reactions: {},
@@ -1268,8 +1364,10 @@ const updateListWithValidation = onCall(async (request) => {
       }
       
       // 3. Preparar los datos para la actualización
+      const sanitized = sanitizeListPayload(listData);
       const updatePayload = {
-          ...listData, // Usamos los datos que nos envía el cliente
+          ...sanitized, // Usamos los datos permitidos que nos envía el cliente
+          name: (listData.name || '').trim(),
           updatedAt: FieldValue.serverTimestamp(),
       };
 
@@ -1293,6 +1391,8 @@ const updateListWithValidation = onCall(async (request) => {
 // NUEVA FUNCIÓN: reverseGeocode
 const reverseGeocode = onRequest(async (req, res) => {
   cors(req, res, async () => {
+    const auth = await requireAuthFromRequest(req, res);
+    if (!auth) return;
     const { lat, lon } = req.query;
     const apiKey = await getGooglePlacesApiKey();
 
@@ -1868,15 +1968,28 @@ const getPlaceDetails = onCall(async (request) => {
 
   try {
       // 1. Obtener datos básicos del lugar
-      const placeDoc = await db.collection('places').doc(placeId).get();
+      let placeDoc = await db.collection('places').doc(placeId).get();
+      if (!placeDoc.exists) {
+          // Fallback: buscar por googlePlaceId
+          const altSnap = await db.collection('places').where('googlePlaceId', '==', placeId).limit(1).get();
+          if (!altSnap.empty) {
+              placeDoc = altSnap.docs[0];
+          }
+      }
       if (!placeDoc.exists) {
           throw new HttpsError('not-found', 'El lugar no fue encontrado.');
       }
       const placeData = { id: placeDoc.id, ...placeDoc.data() };
 
       // 2. Obtener todas las reseñas asociadas a este lugar (ordenadas por creación más reciente)
-      const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).orderBy('createdAt', 'desc').get();
-      const allReviews = reviewsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).get();
+      const allReviews = reviewsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => {
+          const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt ? Date.parse(a.createdAt) : 0);
+          const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt ? Date.parse(b.createdAt) : 0);
+          return tB - tA;
+        });
 
       // 3. Agrupar reseñas por itemName para la pestaña "Grupos"
       const groupedByItem = {};
@@ -3292,4 +3405,3 @@ module.exports = {
     toggleFollowList,
     getDistance,
 };
-

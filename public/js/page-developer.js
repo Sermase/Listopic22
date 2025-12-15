@@ -5,9 +5,13 @@ ListopicApp.pageDeveloper = (() => {
     const collectionsToFetch = ['users', 'lists', 'places', 'categories', 'listForums'];
 
     let currentData = [];
+    let viewData = [];
     let currentCollectionName = '';
     let sortState = {};
     let selectedRowIds = new Set(); // <-- Para guardar los IDs de las filas seleccionadas
+    let quickFilters = new Set();
+    let searchTerm = '';
+    const jobCards = new Map();
     let currentLimit = 100;
     const advancedState = {
         reviewResults: [],
@@ -38,6 +42,9 @@ ListopicApp.pageDeveloper = (() => {
                 console.log('Permiso de administrador concedido. Cargando dashboard.');
                 setupTabs();
                 setupActionButtons(); // <-- Se llama aquí para que los botones existan desde el principio
+                setupFiltersBar();
+                setupModalListeners();
+                setupConsoleSearch();
                 setupAdvancedTools();
                 if (collectionsToFetch.length > 0) {
                     switchTab(collectionsToFetch[0]);
@@ -95,6 +102,50 @@ ListopicApp.pageDeveloper = (() => {
         if (!element) return;
         element.hidden = !isVisible;
         element.style.display = isVisible ? '' : 'none';
+    }
+
+    // --- Job cards (progreso de tareas largas) ---
+    function upsertJobCard(jobId, title) {
+        const container = document.getElementById('dev-job-cards');
+        if (!container) return null;
+        let card = container.querySelector(`[data-job-id="${jobId}"]`);
+        if (!card) {
+            card = document.createElement('div');
+            card.className = 'dev-job-card';
+            card.dataset.jobId = jobId;
+            card.innerHTML = `
+                <div class="dev-job-meta">
+                    <span class="dev-job-title">${escapeHtml(title)}</span>
+                    <span class="dev-job-status" data-job-status></span>
+                    <div class="dev-progress" aria-hidden="true"><div class="dev-progress-bar" data-job-progress></div></div>
+                </div>
+                <span class="dev-status-pill warn" data-job-pill>En curso</span>
+            `;
+            container.prepend(card);
+        }
+        jobCards.set(jobId, card);
+        return card;
+    }
+
+    function updateJobCard(jobId, { statusText, progress, tone }) {
+        const card = jobCards.get(jobId);
+        if (!card) return;
+        const statusEl = card.querySelector('[data-job-status]');
+        if (statusEl && statusText) statusEl.textContent = statusText;
+        const bar = card.querySelector('[data-job-progress]');
+        if (bar && typeof progress === 'number') {
+            const clamped = Math.max(0, Math.min(100, progress));
+            bar.style.width = `${clamped}%`;
+        }
+        const pill = card.querySelector('[data-job-pill]');
+        if (pill && tone) {
+            pill.className = `dev-status-pill ${tone}`;
+            pill.textContent = tone === 'ok' ? 'Listo' : tone === 'danger' ? 'Error' : 'En curso';
+        }
+    }
+
+    function finishJobCard(jobId, tone, message) {
+        updateJobCard(jobId, { statusText: message, progress: 100, tone: tone });
     }
 
     function serializeDataForTextarea(data) {
@@ -160,6 +211,269 @@ ListopicApp.pageDeveloper = (() => {
         };
     }
 
+    // --- Filtros y resumen maestro-detalle ---
+    function getCollectionFilters(collectionName) {
+        switch (collectionName) {
+            case 'places':
+                return [
+                    { id: 'noGoogleId', label: 'Sin googlePlaceId', predicate: (item) => !item.googlePlaceId },
+                    { id: 'sinFoto', label: 'Sin foto principal', predicate: (item) => !item.mainImageUrl },
+                    { id: 'sinCoords', label: 'Sin coordenadas', predicate: (item) => !(item.location?.latitude && item.location?.longitude) }
+                ];
+            case 'lists':
+                return [
+                    { id: 'privadas', label: 'Privadas', predicate: (item) => item.isPublic === false },
+                    { id: 'sinCategoria', label: 'Sin categoría', predicate: (item) => !item.categoryId },
+                    { id: 'sinResenas', label: 'Sin reseñas', predicate: (item) => !item.reviewCount }
+                ];
+            case 'users':
+                return [
+                    { id: 'sinRol', label: 'Sin rol', predicate: (item) => !item.userType || (Array.isArray(item.userType) && item.userType.length === 0) },
+                    { id: 'sinNombre', label: 'Sin nombre', predicate: (item) => !item.displayName && !item.username },
+                    { id: 'sinFoto', label: 'Sin foto', predicate: (item) => !item.photoUrl }
+                ];
+            default:
+                return [];
+        }
+    }
+
+    function renderFilterChips() {
+        const container = document.getElementById('dev-filter-chips');
+        if (!container) return;
+        container.innerHTML = '';
+        const filters = getCollectionFilters(currentCollectionName);
+        filters.forEach(filter => {
+            const btn = document.createElement('button');
+            btn.className = `dev-chip ${quickFilters.has(filter.id) ? 'active' : ''}`;
+            btn.textContent = filter.label;
+            btn.dataset.filterId = filter.id;
+            btn.addEventListener('click', () => {
+                if (quickFilters.has(filter.id)) {
+                    quickFilters.delete(filter.id);
+                } else {
+                    quickFilters.add(filter.id);
+                }
+                btn.classList.toggle('active', quickFilters.has(filter.id));
+                applyFilters();
+            });
+            container.appendChild(btn);
+        });
+    }
+
+    function matchesSearch(item) {
+        if (!searchTerm) return true;
+        const term = searchTerm.toLowerCase();
+        return Object.entries(item).some(([key, value]) => {
+            if (key === 'id') {
+                return String(value || '').toLowerCase().includes(term);
+            }
+            if (typeof value === 'string') {
+                return value.toLowerCase().includes(term);
+            }
+            if (typeof value === 'number') {
+                return String(value).includes(term);
+            }
+            return false;
+        });
+    }
+
+    function matchesQuickFilters(item) {
+        if (!quickFilters.size) return true;
+        const filters = getCollectionFilters(currentCollectionName);
+        return Array.from(quickFilters).every(fId => {
+            const f = filters.find(x => x.id === fId);
+            return f ? f.predicate(item) : true;
+        });
+    }
+
+    function applyFilters() {
+        viewData = (currentData || []).filter(item => matchesSearch(item) && matchesQuickFilters(item));
+        renderSummaryCards();
+        renderTable(viewData, document.getElementById('dev-content-container'));
+        const first = viewData[0] || null;
+        renderDetailPanel(first);
+        updateActionButtonsState();
+    }
+
+    function getCollectionMetrics(collectionName, data) {
+        const total = data.length;
+        const metrics = [{ label: 'Documentos', value: total }];
+        if (collectionName === 'places') {
+            metrics.push(
+                { label: 'Sin googlePlaceId', value: data.filter(d => !d.googlePlaceId).length, filterId: 'noGoogleId' },
+                { label: 'Sin foto principal', value: data.filter(d => !d.mainImageUrl).length, filterId: 'sinFoto' },
+                { label: 'Sin coordenadas', value: data.filter(d => !(d.location?.latitude && d.location?.longitude)).length, filterId: 'sinCoords' }
+            );
+        } else if (collectionName === 'lists') {
+            metrics.push(
+                { label: 'Privadas', value: data.filter(d => d.isPublic === false).length, filterId: 'privadas' },
+                { label: 'Sin categoría', value: data.filter(d => !d.categoryId).length, filterId: 'sinCategoria' },
+                { label: 'Sin reseñas', value: data.filter(d => !d.reviewCount).length, filterId: 'sinResenas' }
+            );
+        } else if (collectionName === 'users') {
+            metrics.push(
+                { label: 'Sin rol', value: data.filter(d => !d.userType || (Array.isArray(d.userType) && d.userType.length === 0)).length, filterId: 'sinRol' },
+                { label: 'Sin nombre', value: data.filter(d => !d.displayName && !d.username).length, filterId: 'sinNombre' },
+                { label: 'Sin foto', value: data.filter(d => !d.photoUrl).length, filterId: 'sinFoto' }
+            );
+        }
+        return metrics;
+    }
+
+    function renderSummaryCards() {
+        const container = document.getElementById('dev-summary-cards');
+        if (!container) return;
+        const metrics = getCollectionMetrics(currentCollectionName, viewData || currentData || []);
+        container.innerHTML = '';
+        metrics.forEach(metric => {
+            const card = document.createElement('div');
+            card.className = 'dev-summary-card';
+            card.innerHTML = `
+                <span class="dev-summary-title">${escapeHtml(metric.label)}</span>
+                <span class="dev-summary-value">${metric.value}</span>
+                ${typeof metric.filterId === 'string' ? `<span class="dev-summary-pill">Click para filtrar</span>` : ''}
+            `;
+            if (metric.filterId) {
+                card.addEventListener('click', () => {
+                    if (quickFilters.has(metric.filterId)) {
+                        quickFilters.delete(metric.filterId);
+                    } else {
+                        quickFilters.add(metric.filterId);
+                    }
+                    renderFilterChips();
+                    applyFilters();
+                });
+            }
+            container.appendChild(card);
+        });
+    }
+
+    function setupFiltersBar() {
+        const searchInput = document.getElementById('dev-filter-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                searchTerm = (e.target.value || '').trim();
+                applyFilters();
+            });
+        }
+        renderFilterChips();
+    }
+
+    // --- Consola de búsqueda unificada ---
+    function setupConsoleSearch() {
+        const searchBtn = document.getElementById('dev-console-search-btn');
+        const clearBtn = document.getElementById('dev-console-clear-btn');
+        const select = document.getElementById('dev-console-collection');
+        if (select) {
+            select.addEventListener('change', () => {
+                updateConsoleFilters(select.value);
+            });
+        }
+        if (searchBtn) searchBtn.addEventListener('click', runConsoleSearch);
+        if (clearBtn) clearBtn.addEventListener('click', clearConsoleSearch);
+        updateConsoleFilters(select?.value || 'lists');
+    }
+
+    function updateConsoleFilters(collection) {
+        const config = {
+            lists: ['id','user','name','limit'],
+            places: ['id','user','name','google','limit'],
+            users: ['id','user','name','limit'],
+            categories: ['id','name','limit'],
+            listForums: ['id','user','name','limit']
+        };
+        const allowed = new Set(config[collection] || ['id','name','limit']);
+        document.querySelectorAll('.dev-console-field').forEach(field => {
+            const key = field.dataset.field;
+            const visible = allowed.has(key) || key === 'collection';
+            field.style.display = visible ? '' : 'none';
+        });
+    }
+
+    async function runConsoleSearch() {
+        const collection = document.getElementById('dev-console-collection')?.value || 'lists';
+        const id = getInputValue('dev-console-id');
+        const user = getInputValue('dev-console-user');
+        const nameContains = getInputValue('dev-console-name');
+        const googleId = getInputValue('dev-console-google');
+        const limitRaw = parseInt(getInputValue('dev-console-limit'), 10);
+        const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 500) : 120;
+
+        currentCollectionName = collection;
+        document.querySelectorAll('.dev-tab-button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.collection === collection);
+        });
+        quickFilters.clear();
+        searchTerm = nameContains;
+        const searchInput = document.getElementById('dev-filter-search');
+        if (searchInput) searchInput.value = nameContains;
+        renderFilterChips();
+
+        const contentContainer = document.getElementById('dev-content-container');
+        if (contentContainer) {
+            contentContainer.innerHTML = '<p>Buscando...</p>';
+        }
+
+        try {
+            const data = await fetchConsoleData({ collection, id, user, nameContains, googleId, limit });
+            currentData = data;
+            viewData = data;
+            applyFilters();
+        } catch (e) {
+            console.error('Error en consola de búsqueda', e);
+            if (contentContainer) contentContainer.innerHTML = `<p style="color:var(--danger-color);">Error: ${e.message}</p>`;
+        }
+    }
+
+    function clearConsoleSearch() {
+        ['dev-console-id','dev-console-user','dev-console-name','dev-console-google','dev-console-limit'].forEach(id => setInputValue(id, ''));
+        const select = document.getElementById('dev-console-collection');
+        if (select) select.value = 'lists';
+        searchTerm = '';
+        quickFilters.clear();
+        renderFilterChips();
+        applyFilters();
+    }
+
+    async function fetchConsoleData({ collection, id, user, nameContains, googleId, limit }) {
+        if (id) {
+            const doc = await db.collection(collection).doc(id).get();
+            if (doc.exists) {
+                return [{ id: doc.id, ...doc.data() }];
+            }
+            return [];
+        }
+
+        // Build base query
+        let query = db.collection(collection);
+        if (collection === 'places') {
+            if (googleId) query = query.where('googlePlaceId', '==', googleId);
+            if (user) query = query.where('createdByUserId', '==', user);
+        } else if (collection === 'lists') {
+            if (user) query = query.where('userId', '==', user);
+        } else if (collection === 'users') {
+            if (user) {
+                // soportar búsqueda exacta por email
+                query = query.where('emailLowerCase', '==', user.toLowerCase());
+            }
+        } else if (collection === 'categories') {
+            // sin filtros server, se filtrará en cliente
+        } else if (collection === 'listForums') {
+            if (user) query = query.where('ownerId', '==', user);
+        }
+        query = query.limit(limit);
+        const snap = await query.get();
+        let rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (nameContains) {
+            const term = nameContains.toLowerCase();
+            rows = rows.filter(r => {
+                const name = (r.name || r.displayName || '').toLowerCase();
+                return name.includes(term);
+            });
+        }
+        return rows;
+    }
+
     function showModal(id) {
         const modal = document.getElementById(id);
         if (!modal) return;
@@ -186,6 +500,16 @@ ListopicApp.pageDeveloper = (() => {
             button.addEventListener('click', () => switchTab(collectionName));
             tabsContainer.appendChild(button);
         });
+    }
+
+    function setupModalListeners() {
+        document.querySelectorAll('[data-close-modal]').forEach(btn => {
+            btn.addEventListener('click', closeDetailModal);
+        });
+        const saveBtn = document.getElementById('dev-detail-save-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', saveDetailModal);
+        }
     }
     
     // --- Lógica de los Botones de Acción ---
@@ -290,7 +614,7 @@ ListopicApp.pageDeveloper = (() => {
     function exportSelectedToCsv() {
         const dataToExport = selectedRowIds.size > 0 
             ? currentData.filter(row => selectedRowIds.has(row.id))
-            : currentData;
+            : (viewData.length ? viewData : currentData);
 
         if (dataToExport.length === 0) {
             alert('No hay datos para exportar.');
@@ -340,15 +664,20 @@ ListopicApp.pageDeveloper = (() => {
         const originalBtnText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
         btn.disabled = true;
+        const jobId = `update-all-places-${Date.now()}`;
+        upsertJobCard(jobId, 'Actualizar todos los lugares');
+        updateJobCard(jobId, { statusText: 'Ejecutando función...', progress: 10, tone: 'warn' });
 
         try {
             const adminUpdateAllPlaces = firebase.app().functions('europe-west1').httpsCallable('adminUpdateAllPlaces');
             const result = await adminUpdateAllPlaces();
             const { updated, skipped, errors } = result.data;
             alert(`Actualización completada.\n\nActualizados: ${updated}\nOmitidos: ${skipped}\nErrores: ${errors}`);
+            finishJobCard(jobId, 'ok', `Actualizados: ${updated}, Omitidos: ${skipped}, Errores: ${errors}`);
         } catch (error) {
             console.error("Error al ejecutar adminUpdateAllPlaces:", error);
             alert(`Error al actualizar los lugares: ${error.message}`);
+            finishJobCard(jobId, 'danger', error.message);
         } finally {
             btn.innerHTML = originalBtnText;
             btn.disabled = false;
@@ -363,6 +692,9 @@ ListopicApp.pageDeveloper = (() => {
         const btn = document.getElementById('update-selected-btn');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+        const jobId = `update-selected-places-${Date.now()}`;
+        upsertJobCard(jobId, `Actualizar ${selectedRowIds.size} lugares`);
+        updateJobCard(jobId, { statusText: 'Enviando peticiones...', progress: 5, tone: 'warn' });
 
         let successCount = 0;
         let errorCount = 0;
@@ -374,10 +706,14 @@ ListopicApp.pageDeveloper = (() => {
                 const adminUpdateSinglePlace = firebase.app().functions('europe-west1').httpsCallable('adminUpdateSinglePlace');
                 updatePromises.push(
                     adminUpdateSinglePlace({ documentId: docId, googlePlaceId: place.googlePlaceId })
-                    .then(() => successCount++)
+                    .then(() => { successCount++; })
                     .catch(err => {
                         console.error(`Error actualizando el lugar ${docId}:`, err);
                         errorCount++;
+                    })
+                    .finally(() => {
+                        const progress = Math.round(((successCount + errorCount) / selectedRowIds.size) * 100);
+                        updateJobCard(jobId, { statusText: `Procesando... (${successCount + errorCount}/${selectedRowIds.size})`, progress, tone: 'warn' });
                     })
                 );
             } else {
@@ -389,6 +725,7 @@ ListopicApp.pageDeveloper = (() => {
         await Promise.all(updatePromises);
         
         alert(`Operación completada.\n\nActualizados: ${successCount}\nErrores: ${errorCount}`);
+        finishJobCard(jobId, errorCount ? 'warn' : 'ok', `Ok: ${successCount} · Errores: ${errorCount}`);
         btn.disabled = false;
         btn.innerHTML = 'Actualizar Selección';
         switchTab(currentCollectionName); // Recargar la vista
@@ -527,12 +864,21 @@ ListopicApp.pageDeveloper = (() => {
         document.querySelectorAll('.dev-tab-button').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.collection === collectionName);
         });
+        const consoleSelect = document.getElementById('dev-console-collection');
+        if (consoleSelect) {
+            consoleSelect.value = collectionName;
+            updateConsoleFilters(collectionName);
+        }
 
         const contentContainer = document.getElementById('dev-content-container');
         contentContainer.innerHTML = `<p>Cargando datos de "${collectionName}"...</p>`;
         sortState = {};
         selectedRowIds.clear(); // Limpiar selección al cambiar de pestaña
         updateActionButtonsState(); // Actualizar estado de botones
+        quickFilters.clear();
+        searchTerm = '';
+        const searchInput = document.getElementById('dev-filter-search');
+        if (searchInput) searchInput.value = '';
 
         const limitSelect = document.getElementById('dev-limit-select');
         if (limitSelect) {
@@ -550,7 +896,9 @@ ListopicApp.pageDeveloper = (() => {
                 contentContainer.innerHTML = `<p>No se encontraron documentos en la colección "${collectionName}".</p>`;
                 return;
             }
-            renderTable(currentData, contentContainer);
+            viewData = [...currentData];
+            renderFilterChips();
+            applyFilters();
         } catch (error) {
             console.error(`Error fetching collection ${collectionName}:`, error);
             contentContainer.innerHTML = `<p style="color:var(--danger-color);">Error al cargar datos de "${collectionName}": ${error.message}</p>`;
@@ -560,12 +908,14 @@ ListopicApp.pageDeveloper = (() => {
     function renderTable(data, container) {
         if (!data || data.length === 0) {
             container.innerHTML = `<p>No hay datos para mostrar.</p>`;
+            renderDetailPanel(null);
             return;
         }
 
         const allKeys = new Set(['id']);
         data.forEach(item => Object.keys(item).forEach(key => allKeys.add(key)));
-        const headers = Array.from(allKeys);
+        const preferred = getDisplayColumns(currentCollectionName, Array.from(allKeys));
+        const headers = preferred.length ? preferred : Array.from(allKeys);
         
         // Añadimos la columna de selección al principio
         const tableHeaders = [
@@ -596,6 +946,10 @@ ListopicApp.pageDeveloper = (() => {
             </div>`;
         container.innerHTML = tableHTML;
         addTableEventListeners(container);
+        const first = data[0];
+        if (first && !selectedRowIds.size) {
+            renderDetailPanel(first);
+        }
     }
 
     function addTableEventListeners(container) {
@@ -614,26 +968,29 @@ ListopicApp.pageDeveloper = (() => {
         const selectAllCheckbox = container.querySelector('#select-all-checkbox');
         const rowCheckboxes = container.querySelectorAll('.row-selector');
 
-        selectAllCheckbox.addEventListener('change', (e) => {
-            const isChecked = e.target.checked;
-            rowCheckboxes.forEach(checkbox => {
-                checkbox.checked = isChecked;
-                const rowId = checkbox.dataset.id;
-                if (isChecked) {
-                    selectedRowIds.add(rowId);
-                    document.querySelector(`[data-row-id="${rowId}"]`).classList.add('selected');
-                } else {
-                    selectedRowIds.delete(rowId);
-                    document.querySelector(`[data-row-id="${rowId}"]`).classList.remove('selected');
-                }
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                rowCheckboxes.forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                    const rowId = checkbox.dataset.id;
+                    const rowEl = container.querySelector(`[data-row-id="${rowId}"]`);
+                    if (isChecked) {
+                        selectedRowIds.add(rowId);
+                        rowEl && rowEl.classList.add('selected');
+                    } else {
+                        selectedRowIds.delete(rowId);
+                        rowEl && rowEl.classList.remove('selected');
+                    }
+                });
+                updateActionButtonsState();
             });
-            updateActionButtonsState();
-        });
+        }
 
         rowCheckboxes.forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
                 const rowId = e.target.dataset.id;
-                const rowElement = document.querySelector(`[data-row-id="${rowId}"]`);
+                const rowElement = container.querySelector(`[data-row-id="${rowId}"]`);
                 if (e.target.checked) {
                     selectedRowIds.add(rowId);
                     rowElement.classList.add('selected');
@@ -641,22 +998,44 @@ ListopicApp.pageDeveloper = (() => {
                     selectedRowIds.delete(rowId);
                     rowElement.classList.remove('selected');
                 }
-                selectAllCheckbox.checked = rowCheckboxes.length === selectedRowIds.size;
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = rowCheckboxes.length === selectedRowIds.size;
+                }
                 updateActionButtonsState();
+            });
+        });
+
+        container.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('input')) return;
+                const rowId = row.dataset.rowId;
+                const item = viewData.find(d => d.id === rowId) || currentData.find(d => d.id === rowId);
+                if (item) {
+                    renderDetailPanel(item);
+                }
+            });
+            row.addEventListener('dblclick', (e) => {
+                const rowId = row.dataset.rowId;
+                const item = viewData.find(d => d.id === rowId) || currentData.find(d => d.id === rowId);
+                if (item) {
+                    openDetailModal(item);
+                }
             });
         });
     }
 
 
     function sortData(key, direction) {
-        currentData.sort((a, b) => {
+        const sorter = (a, b) => {
             const valA = a[key], valB = b[key];
             if (valA === null || typeof valA === 'undefined') return 1;
             if (valB === null || typeof valB === 'undefined') return -1;
             if (valA > valB) return direction === 'asc' ? 1 : -1;
             if (valA < valB) return direction === 'asc' ? -1 : 1;
             return 0;
-        });
+        };
+        currentData.sort(sorter);
+        viewData.sort(sorter);
     }
 
     function formatCell(value) {
@@ -674,16 +1053,244 @@ ListopicApp.pageDeveloper = (() => {
         return escapeHtml(valueStr);
     }
 
+    function getDisplayColumns(collection, allKeysArray) {
+        const defaults = {
+            users: ['id','displayName','username','email','userType','followersCount','reviewsCount'],
+            lists: ['id','name','userId','categoryId','isPublic','reviewCount','followersCount'],
+            places: ['id','name','city','province','googlePlaceId','reviewsCount','mainImageUrl'],
+            categories: ['id','name','displayName','order'],
+            listForums: ['id','ownerId','name']
+        };
+        const configured = defaults[collection] || [];
+        const available = new Set(allKeysArray || []);
+        return configured.filter(key => available.has(key));
+    }
+
+    function renderDetailPanel(item) {
+        const panel = document.getElementById('dev-detail-panel');
+        if (!panel) return;
+        if (!item) {
+            panel.innerHTML = `<p style="color:var(--secondary-text-color);">Selecciona una fila para ver detalles.</p>`;
+            return;
+        }
+
+        const title = getItemTitle(item);
+        const meta = getItemMeta(item);
+        const highlightFields = getHighlightFields(item);
+        const statusBadges = getStatusBadges(item);
+
+        const kvHtml = highlightFields.map(kv => `
+            <div class="dev-detail-kv">
+                <div class="label">${escapeHtml(kv.label)}</div>
+                <div class="value">${escapeHtml(kv.value ?? '')}</div>
+            </div>
+        `).join('');
+
+        const badgesHtml = statusBadges.map(b => `<span class="dev-status-pill ${b.tone}">${escapeHtml(b.text)}</span>`).join(' ');
+
+        panel.innerHTML = `
+            <div class="dev-detail-header">
+                <div>
+                    <div class="dev-detail-title">${escapeHtml(title)}</div>
+                    <div class="dev-detail-meta">${escapeHtml(meta)}</div>
+                    <div>${badgesHtml}</div>
+                </div>
+                <span class="dev-summary-pill">ID: ${escapeHtml(item.id)}</span>
+            </div>
+            <div class="dev-detail-grid">${kvHtml}</div>
+            <div class="dev-json-block"><pre>${escapeHtml(JSON.stringify(item, null, 2))}</pre></div>
+            <div class="dev-tool-actions">
+                <button id="dev-open-modal-btn" class="button secondary-button"><i class="fas fa-up-right-from-square"></i> Ver detalle</button>
+            </div>
+        `;
+        const openBtn = panel.querySelector('#dev-open-modal-btn');
+        if (openBtn) {
+            openBtn.addEventListener('click', () => openDetailModal(item));
+        }
+    }
+
+    function getItemTitle(item) {
+        if (currentCollectionName === 'places') return item.name || item.googlePlaceId || item.id;
+        if (currentCollectionName === 'lists') return item.name || item.id;
+        if (currentCollectionName === 'users') return item.displayName || item.username || item.email || item.id;
+        return item.id;
+    }
+
+    function getItemMeta(item) {
+        if (currentCollectionName === 'places') {
+            const parts = [];
+            if (item.city) parts.push(item.city);
+            if (item.province) parts.push(item.province);
+            if (item.country) parts.push(item.country);
+            return parts.join(' · ') || 'Place';
+        }
+        if (currentCollectionName === 'lists') {
+            const pub = item.isPublic === false ? 'Privada' : 'Pública';
+            return `${pub} · ${item.reviewCount || 0} reseñas`;
+        }
+        if (currentCollectionName === 'users') {
+            const role = Array.isArray(item.userType) ? item.userType.join(', ') : (item.userType || 'Usuario');
+            return `${role} · ${item.email || ''}`;
+        }
+        return currentCollectionName;
+    }
+
+    function getHighlightFields(item) {
+        if (currentCollectionName === 'places') {
+            const lat = Number(item.location?.latitude ?? item.location?.lat ?? item.coordinates?.latitude ?? item.coordinates?.lat ?? NaN);
+            const lon = Number(item.location?.longitude ?? item.location?.lng ?? item.coordinates?.longitude ?? item.coordinates?.lng ?? NaN);
+            const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
+            return [
+                { label: 'Google Place ID', value: item.googlePlaceId || '—' },
+                { label: 'Coords', value: hasCoords ? `${lat.toFixed(4)}, ${lon.toFixed(4)}` : 'Sin coordenadas' },
+                { label: 'Foto', value: item.mainImageUrl ? 'Con foto' : 'Sin foto' },
+                { label: 'Rating', value: item.googleRating ?? item.averageRating ?? '—' },
+                { label: 'Reviews', value: item.googleUserRatingsTotal ?? item.reviewsCount ?? 0 }
+            ];
+        }
+        if (currentCollectionName === 'lists') {
+            return [
+                { label: 'Propietario', value: item.userId || '—' },
+                { label: 'Categoría', value: item.categoryId || '—' },
+                { label: 'Pública', value: item.isPublic === false ? 'No' : 'Sí' },
+                { label: 'Reviews', value: item.reviewCount ?? 0 },
+                { label: 'Seguidores', value: item.followersCount ?? 0 }
+            ];
+        }
+        if (currentCollectionName === 'users') {
+            return [
+                { label: 'Email', value: item.email || item.emailLowerCase || '—' },
+                { label: 'Rol', value: Array.isArray(item.userType) ? item.userType.join(', ') : (item.userType || 'Usuario') },
+                { label: 'Reviews', value: item.reviewsCount ?? 0 },
+                { label: 'Seguidores', value: item.followersCount ?? 0 },
+                { label: 'Siguiendo', value: item.followingCount ?? 0 }
+            ];
+        }
+        return [
+            { label: 'ID', value: item.id }
+        ];
+    }
+
+    function getStatusBadges(item) {
+        const badges = [];
+        if (currentCollectionName === 'places') {
+            if (!item.googlePlaceId) badges.push({ tone: 'warn', text: 'Falta googlePlaceId' });
+            if (!item.mainImageUrl) badges.push({ tone: 'warn', text: 'Sin foto' });
+            if (!(item.location?.latitude && item.location?.longitude)) badges.push({ tone: 'warn', text: 'Sin coordenadas' });
+        } else if (currentCollectionName === 'lists') {
+            if (item.isPublic === false) badges.push({ tone: 'warn', text: 'Privada' });
+            if (!item.categoryId) badges.push({ tone: 'warn', text: 'Sin categoría' });
+        } else if (currentCollectionName === 'users') {
+            if (!item.userType || (Array.isArray(item.userType) && item.userType.length === 0)) badges.push({ tone: 'warn', text: 'Sin rol' });
+        }
+        if (!badges.length) badges.push({ tone: 'ok', text: 'OK' });
+        return badges;
+    }
+
+    function getDetailLink(item) {
+        if (!item || !item.id) return null;
+        if (currentCollectionName === 'places') {
+            return { url: `place-detail.html?placeId=${encodeURIComponent(item.id)}`, label: 'Abrir lugar' };
+        }
+        if (currentCollectionName === 'lists') {
+            return { url: `list-view.html?listId=${encodeURIComponent(item.id)}`, label: 'Abrir lista' };
+        }
+        if (currentCollectionName === 'users') {
+            return { url: `profile.html?viewUserId=${encodeURIComponent(item.id)}`, label: 'Abrir usuario' };
+        }
+        if (currentCollectionName === 'categories') {
+            return { url: `developer.html#cat-${encodeURIComponent(item.id)}`, label: 'Abrir categoría' };
+        }
+        if (currentCollectionName === 'listForums') {
+            return { url: `chats.html?forumId=${encodeURIComponent(item.id)}`, label: 'Abrir foro' };
+        }
+        return null;
+    }
+
     function escapeHtml(unsafe) {
         if (typeof unsafe !== 'string') unsafe = String(unsafe);
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
+    // Modal de detalle/edición
+    let currentModalItem = null;
+    function openDetailModal(item) {
+        currentModalItem = item;
+        const modal = document.getElementById('dev-detail-modal');
+        const titleEl = document.getElementById('dev-detail-modal-title');
+        const metaEl = document.getElementById('dev-detail-modal-meta');
+        const jsonEl = document.getElementById('dev-detail-modal-json');
+        const editor = document.getElementById('dev-detail-modal-editor');
+        if (!modal || !titleEl || !metaEl || !jsonEl || !editor) return;
+
+        titleEl.textContent = getItemTitle(item);
+        metaEl.textContent = getItemMeta(item);
+        const highlightFields = getHighlightFields(item);
+        const statusBadges = getStatusBadges(item);
+        const detailLink = getDetailLink(item);
+        const kvHtml = highlightFields.map(kv => `
+            <div class="dev-modal-kv">
+                <div class="label">${escapeHtml(kv.label)}</div>
+                <div class="value">${escapeHtml(kv.value ?? '')}</div>
+            </div>
+        `).join('');
+        const badgesHtml = statusBadges.map(b => `<span class="dev-status-pill ${b.tone}">${escapeHtml(b.text)}</span>`).join(' ');
+        jsonEl.innerHTML = `
+            <div class="dev-modal-grid">${kvHtml}</div>
+            <div style="margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">${badgesHtml}
+                ${detailLink ? `<a class="dev-summary-pill" href="${escapeHtml(detailLink.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(detailLink.label)}</a>` : ''}
+            </div>
+            <div class="dev-json-block"><pre>${escapeHtml(JSON.stringify(item, null, 2))}</pre></div>
+        `;
+        editor.value = JSON.stringify(item, null, 2);
+        modal.hidden = false;
+        modal.style.display = 'flex';
+    }
+
+    function closeDetailModal() {
+        const modal = document.getElementById('dev-detail-modal');
+        if (modal) {
+            modal.hidden = true;
+            modal.style.display = 'none';
+        }
+        currentModalItem = null;
+    }
+
+    async function saveDetailModal() {
+        if (!currentModalItem) return;
+        const editor = document.getElementById('dev-detail-modal-editor');
+        if (!editor) return;
+        let payload;
+        try {
+            payload = JSON.parse(editor.value || '{}');
+            if (typeof payload !== 'object' || Array.isArray(payload)) {
+                throw new Error('El JSON debe ser un objeto.');
+            }
+        } catch (e) {
+            alert(`JSON inválido: ${e.message}`);
+            return;
+        }
+        if (!confirm(`¿Guardar cambios en ${currentCollectionName}/${currentModalItem.id}?`)) {
+            return;
+        }
+        try {
+            await db.collection(currentCollectionName).doc(currentModalItem.id).set(payload, { merge: true });
+            alert('Guardado con éxito.');
+            closeDetailModal();
+            switchTab(currentCollectionName);
+        } catch (e) {
+            console.error('Error al guardar', e);
+            alert(`Error al guardar: ${e.message}`);
+        }
+    }
     // --- NUEVA FUNCIÓN PARA ALGOLIA ---
     async function backfillAlgolia(collectionName = null) {
         const logContainer = document.getElementById('algolia-sync-log');
         if (!logContainer) return;
-        
+
+        const jobId = `algolia-${Date.now()}`;
+        upsertJobCard(jobId, 'Sincronizar Algolia');
+        updateJobCard(jobId, { statusText: 'Solicitando sincronización...', progress: 5, tone: 'warn' });
         logContainer.innerHTML = '<p><code>Solicitando sincronización para Algolia...</code></p>';
 
         try {
@@ -696,13 +1303,18 @@ ListopicApp.pageDeveloper = (() => {
                 try {
                     const result = await backfill({ collectionName: collection });
                     logContainer.innerHTML += `<p style="color: var(--accent-color-tertiary);"><code>✅ ${collection}: ${result.data.message}</code></p>`;
+                    const progress = Math.round(((collections.indexOf(collection) + 1) / collections.length) * 100);
+                    updateJobCard(jobId, { statusText: `${collection} listo`, progress, tone: 'warn' });
                 } catch (error) {
                     logContainer.innerHTML += `<p style="color: var(--danger-color);"><code>🔥 Error en '${collection}': ${error.message}</code></p>`;
+                    updateJobCard(jobId, { statusText: `Error en ${collection}`, progress: 100, tone: 'danger' });
                 }
             }
             logContainer.innerHTML += '<p><code>Proceso de sincronización completado.</code></p>';
+            finishJobCard(jobId, 'ok', 'Algolia sincronizado');
         } catch (error) {
             logContainer.innerHTML += `<p style="color: var(--danger-color);"><code>🔥 Error general al llamar la función: ${error.message}</code></p>`;
+            finishJobCard(jobId, 'danger', error.message);
         }
     }
 
@@ -734,18 +1346,29 @@ ListopicApp.pageDeveloper = (() => {
         btn.disabled = true;
         const originalBtnText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+        const jobId = `update-lists-${Date.now()}`;
+        upsertJobCard(jobId, `Actualizar ${selectedRowIds.size} listas`);
+        updateJobCard(jobId, { statusText: 'Enviando...', progress: 5, tone: 'warn' });
         let successCount = 0;
         let errorCount = 0;
         try {
             const callable = firebase.app().functions('europe-west1').httpsCallable('adminUpdateSingleListAggregates');
             await Promise.all(
-                Array.from(selectedRowIds).map(id => callable({ listId: id }).then(()=>successCount++).catch(()=>errorCount++))
+                Array.from(selectedRowIds).map(id => callable({ listId: id }).then(()=>{
+                    successCount++;
+                    const progress = Math.round(((successCount + errorCount) / selectedRowIds.size) * 100);
+                    updateJobCard(jobId, { statusText: `Listas procesadas ${successCount + errorCount}/${selectedRowIds.size}`, progress, tone: 'warn' });
+                }).catch(()=>{
+                    errorCount++;
+                }))
             );
             alert(`Listas actualizadas: ${successCount}\nErrores: ${errorCount}`);
+            finishJobCard(jobId, errorCount ? 'warn' : 'ok', `Ok: ${successCount} · Errores: ${errorCount}`);
             switchTab(currentCollectionName);
         } catch (e) {
             console.error('Error en updateSelectedLists', e);
             alert('Error al actualizar listas: ' + e.message);
+            finishJobCard(jobId, 'danger', e.message);
         } finally {
             btn.innerHTML = originalBtnText;
             btn.disabled = false;

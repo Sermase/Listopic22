@@ -9,10 +9,73 @@
     <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
     
     <style>
-        /* (Tus estilos de developer.html permanecen aquí, sin cambios) */
-        main.dev-container { display: block !important; } .dev-container { padding-top: 80px; width: 95%; max-width: 1400px; margin: 0 auto; } .dev-main-tabs { display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 20px; } .dev-main-tab-button { padding: 12px 20px; cursor: pointer; background: none; border: none; color: var(--secondary-text-color); font-size: 1.1em; font-weight: 500; border-bottom: 3px solid transparent; transition: all 0.2s ease-in-out; } .dev-main-tab-button:hover { color: var(--text-color); background-color: rgba(var(--accent-color-primary-rgb), 0.1); } .dev-main-tab-button.active { color: var(--accent-color-primary); border-bottom-color: var(--accent-color-primary); } .dev-tab-content { display: none; } #dev-tabs-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; } .dev-tab-button { background-color: var(--container-bg-secondary); border: 1px solid var(--border-color); padding: 8px 15px; border-radius: 20px; cursor: pointer; color: var(--secondary-text-color); transition: all 0.2s ease; } .dev-tab-button:hover { background-color: rgba(var(--text-color-rgb), 0.1); } .dev-tab-button.active { background-color: var(--accent-color-secondary); color: white; font-weight: 600; border-color: var(--accent-color-secondary);} .data-table-wrapper { width: 100%; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 6px; } .data-table { width: 100%; border-collapse: collapse; font-size: 0.9em; } .data-table th, .data-table td { padding: 8px 12px; border: 1px solid var(--border-color-light); text-align: left; white-space: nowrap; } .data-table th { background-color: var(--container-bg-secondary); position: sticky; top: 0; } .data-table tbody tr:hover { background-color: rgba(var(--accent-color-primary-rgb), 0.1); } .data-table tbody tr.selected { background-color: rgba(var(--accent-color-primary-rgb), 0.2); } .data-table pre { max-height: 100px; overflow: auto; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px; white-space: pre-wrap; word-break: break-all; } .dev-actions-container { padding: 15px 0; display: flex; flex-wrap: wrap; gap: 10px; } .dev-actions-container .button:disabled { background-color: var(--disabled-bg); color: var(--disabled-text-color); cursor: not-allowed; opacity: 0.6; } #algolia-sync-log { background-color: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; min-height: 200px; max-height: 400px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; color: var(--text-color); } #algolia-sync-log p { margin: 0 0 5px 0; }
-        .dev-audit-log { margin-top: 10px; background-color: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; max-height: 360px; overflow-y: auto; font-size: 0.9em; line-height: 1.5; }
+        /* Layout base */
+        main.dev-container { display: block !important; }
+        .dev-container { padding-top: 80px; width: 95%; max-width: 1400px; margin: 0 auto; }
+        .dev-main-tabs { display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 20px; }
+        .dev-main-tab-button { padding: 12px 20px; cursor: pointer; background: none; border: none; color: var(--secondary-text-color); font-size: 1.1em; font-weight: 500; border-bottom: 3px solid transparent; transition: all 0.2s ease-in-out; }
+        .dev-main-tab-button:hover { color: var(--text-color); background-color: rgba(var(--accent-color-primary-rgb), 0.1); }
+        .dev-main-tab-button.active { color: var(--accent-color-primary); border-bottom-color: var(--accent-color-primary); }
+        .dev-tab-content { display: none; }
+        #dev-tabs-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
+        .dev-tab-button { background-color: var(--container-bg-secondary); border: 1px solid var(--border-color); padding: 8px 15px; border-radius: 20px; cursor: pointer; color: var(--secondary-text-color); transition: all 0.2s ease; }
+        .dev-tab-button:hover { background-color: rgba(var(--text-color-rgb), 0.1); }
+        .dev-tab-button.active { background-color: var(--accent-color-secondary); color: white; font-weight: 600; border-color: var(--accent-color-secondary);}
+        .dev-actions-container { padding: 15px 0; display: flex; flex-wrap: wrap; gap: 10px; }
+        .dev-actions-container .button:disabled { background-color: var(--disabled-bg); color: var(--disabled-text-color); cursor: not-allowed; opacity: 0.6; }
 
+        /* Data viewer mejorado */
+        .dev-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 10px 0 6px; }
+        .dev-summary-card { background: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; box-shadow: var(--shadow-sm, 0 4px 12px rgba(0,0,0,0.06)); display: flex; flex-direction: column; gap: 4px; cursor: pointer; transition: transform 0.08s ease, box-shadow 0.12s ease; }
+        .dev-summary-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,0.08); }
+        .dev-summary-title { font-size: 0.9rem; color: var(--secondary-text-color); }
+        .dev-summary-value { font-size: 1.5rem; font-weight: 800; }
+        .dev-summary-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; padding: 3px 8px; border-radius: 999px; background: rgba(var(--accent-color-primary-rgb),0.1); color: var(--accent-color-primary); }
+
+        .dev-filters-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 6px 0 12px; }
+        .dev-search-input { display: flex; align-items: center; gap: 8px; background: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 10px; min-width: 260px; }
+        .dev-search-input input { border: none; outline: none; background: transparent; width: 100%; color: var(--text-color); }
+        .dev-filter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .dev-chip { border: 1px solid var(--border-color); background: var(--container-bg-secondary); color: var(--secondary-text-color); padding: 6px 10px; border-radius: 16px; cursor: pointer; transition: all 0.15s ease; font-size: 0.9rem; }
+        .dev-chip:hover { background: rgba(var(--text-color-rgb), 0.08); }
+        .dev-chip.active { background: var(--accent-color-secondary); color: #fff; border-color: var(--accent-color-secondary); }
+
+        .dev-split-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: start; }
+        @media (max-width: 1024px) { .dev-split-layout { grid-template-columns: 1fr; } }
+        .dev-list-panel { min-height: 240px; }
+        .dev-detail-panel { position: sticky; top: 90px; background: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; box-shadow: var(--shadow-sm, 0 6px 20px rgba(0,0,0,0.06)); min-height: 200px; }
+        .dev-detail-header { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+        .dev-detail-title { font-size: 1.1rem; font-weight: 700; }
+        .dev-detail-meta { color: var(--secondary-text-color); font-size: 0.92rem; }
+        .dev-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin: 10px 0; }
+        .dev-detail-kv { background: var(--container-bg-secondary); border: 1px solid var(--border-color-light); border-radius: 8px; padding: 8px; }
+        .dev-detail-kv .label { font-size: 0.8rem; color: var(--secondary-text-color); }
+        .dev-detail-kv .value { font-weight: 600; }
+        .dev-json-block { background: var(--primary-bg); border: 1px dashed var(--border-color); border-radius: 8px; padding: 8px; max-height: 260px; overflow: auto; font-family: 'Courier New', monospace; font-size: 0.85rem; }
+        .dev-status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; }
+        .dev-status-pill.ok { background: rgba(48,172,118,0.12); color: #17834f; border: 1px solid rgba(48,172,118,0.4); }
+        .dev-status-pill.warn { background: rgba(255,193,7,0.16); color: #b38300; border: 1px solid rgba(255,193,7,0.4); }
+        .dev-status-pill.danger { background: rgba(244,67,54,0.12); color: #b63b32; border: 1px solid rgba(244,67,54,0.4); }
+
+        .data-table-wrapper { width: 100%; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 6px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .data-table th, .data-table td { padding: 8px 12px; border: 1px solid var(--border-color-light); text-align: left; white-space: nowrap; }
+        .data-table th { background-color: var(--container-bg-secondary); position: sticky; top: 0; }
+        .data-table tbody tr:hover { background-color: rgba(var(--accent-color-primary-rgb), 0.1); cursor: pointer; }
+        .data-table tbody tr.selected { background-color: rgba(var(--accent-color-primary-rgb), 0.2); }
+        .data-table pre { max-height: 100px; overflow: auto; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+
+        /* Job cards */
+        .dev-job-cards { display: grid; gap: 10px; margin: 8px 0 14px; }
+        .dev-job-card { border: 1px solid var(--border-color); background: var(--primary-bg); border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .dev-job-meta { display: flex; flex-direction: column; gap: 2px; }
+        .dev-job-title { font-weight: 700; }
+        .dev-progress { height: 6px; background: var(--border-color); border-radius: 999px; overflow: hidden; margin-top: 6px; }
+        .dev-progress-bar { height: 100%; width: 0%; background: var(--accent-color-primary); transition: width 0.2s ease; }
+        .dev-job-status { font-size: 0.9rem; color: var(--secondary-text-color); }
+
+        /* Auditor?a */
+        .dev-audit-log { margin-top: 10px; background-color: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; max-height: 360px; overflow-y: auto; font-size: 0.9em; line-height: 1.5; }
         .dev-audit-log h4 { margin: 0 0 8px 0; }
         .dev-audit-log details { margin-top: 12px; border: 1px solid var(--border-color-light); border-radius: 4px; padding: 8px 12px; background: var(--container-bg-secondary); }
         .dev-audit-log details summary { cursor: pointer; font-weight: 600; }
@@ -20,8 +83,7 @@
         .dev-audit-log li { margin-bottom: 6px; }
         .dev-audit-log code { background: rgba(var(--text-color-rgb), 0.08); padding: 2px 4px; border-radius: 4px; }
 
-    </style>
-    <style>
+        /* Cards de herramientas existentes */
         .dev-tools-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 8px; }
         @media (min-width: 1080px) { .dev-tools-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .dev-tool-card { background: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; box-shadow: var(--shadow-sm, 0 6px 20px rgba(0,0,0,0.06)); }
@@ -48,6 +110,10 @@
         .dev-modal__body { padding: 12px 16px 16px; }
         .dev-modal__close { background: none; border: none; font-size: 1.1em; color: var(--secondary-text-color); cursor: pointer; }
         .dev-modal__overlay { position: absolute; inset: 0; }
+        .dev-modal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 10px; }
+        .dev-modal-kv { background: var(--container-bg-secondary); border: 1px solid var(--border-color-light); border-radius: 8px; padding: 8px; }
+        .dev-modal-kv .label { font-size: 0.8rem; color: var(--secondary-text-color); }
+        .dev-modal-kv .value { font-weight: 600; }
     </style>
 </head>
 <body>
@@ -167,9 +233,69 @@
                 <button id="audit-stats-btn" class="button secondary-button"><i class="fas fa-chart-line"></i> Revisar estadísticas</button>
                 <button id="audit-place-ids-btn" class="button secondary-button"><i class="fas fa-fingerprint"></i> Auditoría IDs Places</button>
             </div>
+            <div id="dev-summary-cards" class="dev-summary-grid"></div>
+            <div class="dev-filters-bar">
+                <div class="dev-search-input">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                    <input id="dev-filter-search" type="search" placeholder="Buscar por id, nombre, email..." aria-label="Buscar en la colección">
+                </div>
+                <div id="dev-filter-chips" class="dev-filter-chips"></div>
+            </div>
+            <div id="dev-job-cards" class="dev-job-cards" aria-live="polite"></div>
             <div id="stats-audit-log" class="dev-audit-log" aria-live="polite"></div>
             <div id="place-id-audit-log" class="dev-audit-log" aria-live="polite"></div>
-            <div id="dev-content-container"></div>
+            <section class="dev-tool-card" id="dev-console-card">
+                <div class="dev-tool-header">
+                    <div>
+                        <h3><i class="fas fa-terminal"></i> Consola de búsqueda</h3>
+                        <p class="dev-tool-subtitle">Busca y gestiona usuarios, listas, lugares o categorías. Selecciona varias filas para borrar o actualizar; pulsa una fila para detalle, o “Ver detalle” para modal completo.</p>
+                    </div>
+                    <span class="dev-tool-tag"><i class="fas fa-filter"></i> Global</span>
+                </div>
+                <div class="dev-tool-form form-grid">
+                    <div class="dev-console-field" data-field="collection">
+                        <label for="dev-console-collection">Tipo</label>
+                        <select id="dev-console-collection" class="form-input">
+                            <option value="lists">Listas</option>
+                            <option value="places">Lugares</option>
+                            <option value="users">Usuarios</option>
+                            <option value="categories">Categorías</option>
+                            <option value="listForums">Foros (listForums)</option>
+                        </select>
+                    </div>
+                    <div class="dev-console-field" data-field="id">
+                        <label for="dev-console-id">ID</label>
+                        <input id="dev-console-id" class="form-input" placeholder="Doc ID exacto">
+                    </div>
+                    <div class="dev-console-field" data-field="user">
+                        <label for="dev-console-user">Propietario / usuario</label>
+                        <input id="dev-console-user" class="form-input" placeholder="userId / email exacto">
+                    </div>
+                    <div class="dev-console-field" data-field="name">
+                        <label for="dev-console-name">Nombre contiene</label>
+                        <input id="dev-console-name" class="form-input" placeholder="Filtro en cliente">
+                    </div>
+                    <div class="dev-console-field" data-field="google">
+                        <label for="dev-console-google">Google Place ID</label>
+                        <input id="dev-console-google" class="form-input" placeholder="ChIJ... (solo lugares)">
+                    </div>
+                    <div class="dev-console-field" data-field="limit">
+                        <label for="dev-console-limit">Límite</label>
+                        <input id="dev-console-limit" type="number" class="form-input" min="1" max="500" value="120">
+                    </div>
+                </div>
+                <div class="dev-tool-actions">
+                    <button id="dev-console-search-btn" class="button primary-button"><i class="fas fa-search"></i> Buscar</button>
+                    <button id="dev-console-clear-btn" class="button secondary-button">Limpiar</button>
+                </div>
+                <p class="dev-helper-text">Los filtros no vacíos se aplican al consultar; el filtro “Nombre contiene” se aplica en cliente. Las ediciones abren un modal y piden confirmación.</p>
+            </section>
+            <div class="dev-split-layout">
+                <div class="dev-list-panel">
+                    <div id="dev-content-container"></div>
+                </div>
+                <aside id="dev-detail-panel" class="dev-detail-panel" aria-live="polite"></aside>
+            </div>
         </div>
         <div id="tab-content-tools" class="dev-tab-content" style="display: none;">
             <div class="dev-tools-grid">
@@ -510,6 +636,29 @@
             </div>
         </div>
     </main>
+    <!-- Modal detalle/edición -->
+    <div id="dev-detail-modal" class="dev-modal" hidden>
+        <div class="dev-modal__overlay" data-close-modal></div>
+        <div class="dev-modal__dialog">
+            <div class="dev-modal__header">
+                <div>
+                    <h3 id="dev-detail-modal-title">Detalle</h3>
+                    <p id="dev-detail-modal-meta" class="dev-tool-subtitle"></p>
+                </div>
+                <button class="dev-modal__close" data-close-modal aria-label="Cerrar"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="dev-modal__body">
+                <div class="dev-json-block" id="dev-detail-modal-json"></div>
+                <label for="dev-detail-modal-editor" class="dev-helper-text">Editar (JSON merge)</label>
+                <textarea id="dev-detail-modal-editor" class="form-input" rows="8" spellcheck="false"></textarea>
+                <div class="dev-tool-actions">
+                    <button id="dev-detail-save-btn" class="button primary-button"><i class="fas fa-save"></i> Guardar cambios</button>
+                    <button class="button secondary-button" data-close-modal>Cerrar</button>
+                </div>
+                <p class="dev-helper-text">Se hará merge sobre el documento actual. Se pedirá confirmación antes de guardar.</p>
+            </div>
+        </div>
+    </div>
     <footer><p>&copy; 2024 Listopic. All rights reserved.</p></footer>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
