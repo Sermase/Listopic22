@@ -8,6 +8,13 @@ ListopicApp.pageIndex = (() => {
     let lastKnownGlobalUserLatLng = null;
     let initialGlobalMapParams = null;
 
+    let exploreMaxDistanceKm = null;
+    let globalPlacesData = [];
+    let globalPlacesLayerGroup = null;
+    let globalPlacesMarkersById = new Map();
+    let globalDistanceCircle = null;
+    let hasWarnedMissingGeoForDistance = false;
+
     const heroSubtitles = [
         "Carruseles al estilo Netflix, decisiones al estilo TripAdvisor.",
         "Explora Wow/Hmm con contenido gigante y scroll sin friccion.",
@@ -55,6 +62,7 @@ ListopicApp.pageIndex = (() => {
             globalUserLocationMarker.setIcon(userIcon);
         }
         lastKnownGlobalUserLatLng = coords;
+        try { syncGlobalMapDistanceFilter(); } catch (e) {}
         if (recenter) {
             const currentZoom = globalMapInstance.getZoom ? globalMapInstance.getZoom() : 13;
             const targetZoom = currentZoom < 13 ? 13 : currentZoom;
@@ -111,7 +119,8 @@ ListopicApp.pageIndex = (() => {
     function addGlobalPlacesToMap(places) {
         if (!globalMapInstance || !places) return;
         const ui = ListopicApp?.uiUtils;
-        const markers = [];
+        globalPlacesData = Array.isArray(places) ? places : [];
+        if (!globalPlacesLayerGroup) globalPlacesLayerGroup = L.layerGroup().addTo(globalMapInstance);
         places.forEach((place) => {
             if (place.location?.latitude && place.location?.longitude) {
                 const m = L.marker([place.location.latitude, place.location.longitude], { icon: getIconByScore(place.avgGeneralScore || place.averageRating) });
@@ -134,13 +143,60 @@ ListopicApp.pageIndex = (() => {
                 `;
                 m.bindPopup(popupContent);
                 m.on("dblclick", () => { window.location.href = `place-detail.html?placeId=${place.id}`; });
-                m.addTo(globalMapInstance);
-                markers.push(m);
+                if (place.id) globalPlacesMarkersById.set(place.id, m);
+                m.addTo(globalPlacesLayerGroup);
             }
         });
-        if (markers.length && !lastKnownGlobalUserLatLng) {
-            const fg = L.featureGroup(markers);
-            globalMapInstance.fitBounds(fg.getBounds().pad(0.1));
+        try { syncGlobalMapDistanceFilter({ autoFit: !lastKnownGlobalUserLatLng }); } catch (e) {}
+    }
+
+    function syncGlobalMapDistanceFilter({ autoFit = false } = {}) {
+        if (!globalMapInstance || !globalPlacesLayerGroup) return;
+
+        const hasRange = typeof exploreMaxDistanceKm === "number" && isFinite(exploreMaxDistanceKm) && exploreMaxDistanceKm > 0;
+        const hasUser = Array.isArray(lastKnownGlobalUserLatLng) && lastKnownGlobalUserLatLng.length === 2;
+        const userLatLng = hasUser ? L.latLng(lastKnownGlobalUserLatLng[0], lastKnownGlobalUserLatLng[1]) : null;
+        const maxMeters = hasRange ? exploreMaxDistanceKm * 1000 : null;
+
+        globalPlacesLayerGroup.clearLayers();
+
+        const markers = [];
+        globalPlacesData.forEach((place) => {
+            if (!place?.id) return;
+            const marker = globalPlacesMarkersById.get(place.id);
+            if (!marker) return;
+            if (!place.location || typeof place.location.latitude !== "number" || typeof place.location.longitude !== "number") return;
+            if (hasRange && userLatLng) {
+                const dist = userLatLng.distanceTo(L.latLng(place.location.latitude, place.location.longitude));
+                if (dist > maxMeters) return;
+            }
+            marker.addTo(globalPlacesLayerGroup);
+            markers.push(marker);
+        });
+
+        if (hasRange && userLatLng) {
+            if (!globalDistanceCircle) {
+                globalDistanceCircle = L.circle(userLatLng, {
+                    radius: maxMeters,
+                    color: "rgba(92, 124, 250, 0.75)",
+                    weight: 2,
+                    fillColor: "rgba(92, 124, 250, 0.22)",
+                    fillOpacity: 0.22
+                }).addTo(globalMapInstance);
+            } else {
+                globalDistanceCircle.setLatLng(userLatLng);
+                globalDistanceCircle.setRadius(maxMeters);
+                if (!globalMapInstance.hasLayer(globalDistanceCircle)) globalDistanceCircle.addTo(globalMapInstance);
+            }
+        } else if (globalDistanceCircle) {
+            try { globalMapInstance.removeLayer(globalDistanceCircle); } catch (e) {}
+        }
+
+        if (autoFit && markers.length && !lastKnownGlobalUserLatLng) {
+            try {
+                const fg = L.featureGroup(markers);
+                globalMapInstance.fitBounds(fg.getBounds().pad(0.1));
+            } catch (e) {}
         }
     }
 
@@ -201,9 +257,12 @@ ListopicApp.pageIndex = (() => {
         const topPlacesEl = document.getElementById("rail-places");
         const trendingTagsEl = document.getElementById("trending-tags") || document.getElementById("explore-tags");
         const moodFiltersEl = document.getElementById("mood-filters");
+        const categoryFiltersEl = document.getElementById("explore-category-filters");
+        const distanceSelectEl = document.getElementById("explore-distance-select");
         const feed = document.getElementById("feed-container");
         const tagCounter = new Map();
         let currentMood = "all";
+        let currentCategoryId = "";
 
         if (moodFiltersEl) {
             moodFiltersEl.querySelectorAll(".mood-chip").forEach((chip) => {
@@ -215,6 +274,97 @@ ListopicApp.pageIndex = (() => {
                 });
             });
         }
+
+        async function ensureUserLocation({ recenter = false } = {}) {
+            if (Array.isArray(lastKnownGlobalUserLatLng) && lastKnownGlobalUserLatLng.length === 2) return lastKnownGlobalUserLatLng;
+            if (!navigator.geolocation) return null;
+            return new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        setGlobalUserLocationMarker(pos.coords.latitude, pos.coords.longitude, { recenter });
+                        resolve([pos.coords.latitude, pos.coords.longitude]);
+                    },
+                    () => resolve(null),
+                    { enableHighAccuracy: true, timeout: 8000 }
+                );
+            });
+        }
+
+        function renderCategoryChips(categoryIds) {
+            if (!categoryFiltersEl) return;
+            const cache = ui?.getCategoryCache ? ui.getCategoryCache() : {};
+            const ids = Array.isArray(categoryIds) ? categoryIds : [];
+            const entries = ids
+                .filter((id) => typeof id === "string" && id.trim())
+                .map((id) => ({
+                    id,
+                    label: ui?.getCategoryLabel ? ui.getCategoryLabel(id, (cache[id] && (cache[id].name || cache[id].title)) || id) : id
+                }))
+                .sort((a, b) => (a.label || "").localeCompare(b.label || "", "es", { sensitivity: "base" }));
+
+            categoryFiltersEl.innerHTML = "";
+
+            const addChip = (id, label) => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = `pill-chip explore-filter-chip${id === currentCategoryId ? " active" : ""}`;
+                btn.dataset.categoryId = id;
+                btn.textContent = label;
+                btn.addEventListener("click", () => {
+                    currentCategoryId = id;
+                    categoryFiltersEl.querySelectorAll(".explore-filter-chip").forEach((el) => {
+                        el.classList.toggle("active", el.dataset.categoryId === currentCategoryId);
+                    });
+                    refreshRails();
+                });
+                categoryFiltersEl.appendChild(btn);
+            };
+
+            addChip("", "Todo");
+            entries.forEach((e) => addChip(e.id, e.label || e.id));
+        }
+
+        async function loadExploreCategories() {
+            if (!categoryFiltersEl || !db) return;
+            renderCategoryChips([]);
+            try {
+                const snap = await db.collection("categories").get();
+                const cache = ui?.getCategoryCache ? ui.getCategoryCache() : null;
+                const categoryIds = snap.docs.map((doc) => {
+                    const data = doc.data() || null;
+                    if (cache) cache[doc.id] = data;
+                    return doc.id;
+                });
+                renderCategoryChips(categoryIds);
+            } catch (e) {
+                renderCategoryChips([]);
+            }
+        }
+
+        distanceSelectEl &&
+            distanceSelectEl.addEventListener("change", async () => {
+                const raw = (distanceSelectEl.value || "").trim();
+                const km = raw ? parseFloat(raw) : NaN;
+                exploreMaxDistanceKm = isFinite(km) && km > 0 ? km : null;
+                hasWarnedMissingGeoForDistance = false;
+
+                if (exploreMaxDistanceKm) {
+                    const loc = await ensureUserLocation({ recenter: true });
+                    if (!loc) {
+                        exploreMaxDistanceKm = null;
+                        distanceSelectEl.value = "";
+                        if (!hasWarnedMissingGeoForDistance) {
+                            hasWarnedMissingGeoForDistance = true;
+                            ListopicApp.services?.showNotification?.("Activa tu ubicacion para filtrar por distancia.", "warn");
+                        }
+                    }
+                }
+
+                try { syncGlobalMapDistanceFilter(); } catch (e) {}
+                refreshRails();
+            });
+
+        loadExploreCategories();
 
         async function getListHeroFromPlaces(listId) {
             if (!listId) return null;
@@ -326,10 +476,11 @@ ListopicApp.pageIndex = (() => {
         async function loadTopLists() {
             if (!topListsEl) return;
             try {
-                const snap = await db.collection("lists").where("isPublic", "==", true).orderBy("reviewCount", "desc").limit(20).get();
+                const snap = await db.collection("lists").where("isPublic", "==", true).orderBy("reviewCount", "desc").limit(80).get();
                 const lists = snap.docs
                     .map((d) => ({ id: d.id, ...d.data() }))
                     .filter((l) => passMood(getScore(l), currentMood))
+                    .filter((l) => (currentCategoryId ? (typeof l?.categoryId === "string" && l.categoryId.trim() === currentCategoryId) : true))
                     .slice(0, 12);
                 await renderListCards(topListsEl, lists, { showRank: true });
             } catch (e) {
@@ -341,10 +492,11 @@ ListopicApp.pageIndex = (() => {
         async function loadNewLists() {
             if (!newListsEl) return;
             try {
-                const snap = await db.collection("lists").where("isPublic", "==", true).orderBy("createdAt", "desc").limit(20).get();
+                const snap = await db.collection("lists").where("isPublic", "==", true).orderBy("createdAt", "desc").limit(80).get();
                 const lists = snap.docs
                     .map((d) => ({ id: d.id, ...d.data() }))
                     .filter((l) => passMood(getScore(l), currentMood))
+                    .filter((l) => (currentCategoryId ? (typeof l?.categoryId === "string" && l.categoryId.trim() === currentCategoryId) : true))
                     .slice(0, 12);
                 await renderListCards(newListsEl, lists, { showRank: true });
             } catch (e) {
@@ -404,13 +556,21 @@ ListopicApp.pageIndex = (() => {
         async function loadTopPlaces() {
             if (!topPlacesEl) return;
             try {
-                const snap = await db.collection("places").orderBy("averageRating", "desc").limit(20).get();
+                const snap = await db.collection("places").orderBy("averageRating", "desc").limit(200).get();
+                const userLatLng = Array.isArray(lastKnownGlobalUserLatLng) ? L.latLng(lastKnownGlobalUserLatLng[0], lastKnownGlobalUserLatLng[1]) : null;
+                const maxMeters = typeof exploreMaxDistanceKm === "number" && isFinite(exploreMaxDistanceKm) ? exploreMaxDistanceKm * 1000 : null;
                 const places = snap.docs
                     .map((d) => {
                         const p = d.data() || {};
                         return { id: d.id, name: p.name || "Lugar", mainImageUrl: p.mainImageUrl || null, averageRating: typeof p.averageRating === "number" ? p.averageRating : 0, reviewsCount: p.reviewsCount || 0, location: p.location };
                     })
                     .filter((p) => passMood(p.averageRating || 0, currentMood))
+                    .filter((p) => {
+                        if (!maxMeters || !userLatLng) return true;
+                        if (!p.location || typeof p.location.latitude !== "number" || typeof p.location.longitude !== "number") return false;
+                        const dist = userLatLng.distanceTo(L.latLng(p.location.latitude, p.location.longitude));
+                        return dist <= maxMeters;
+                    })
                     .slice(0, 12);
                 topPlacesEl.innerHTML = places
                     .map((p, idx) => {
@@ -668,6 +828,7 @@ ListopicApp.pageIndex = (() => {
                 } catch (e) { console.error("INDEX: Error cargando lugares para el mapa global", e); }
             } else {
                 globalMapInstance.invalidateSize();
+                try { syncGlobalMapDistanceFilter(); } catch (e) {}
             }
         }
 

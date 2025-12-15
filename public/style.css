@@ -15029,7 +15029,9 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 .rail-track.review-grid .review-card { min-width: 240px; }
 
 .discover-page .featured-card {
-    min-width: 240px;
+    width: 260px;
+    min-width: 260px;
+    flex: 0 0 260px;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 18px;
@@ -15042,7 +15044,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 .discover-page .featured-card.place-card .featured-thumb { height: 180px; }
 .discover-page .featured-card.place-card.carousel-card--place .featured-thumb { height: 200px; border-radius: 20px; }
 
-.discover-page .featured-card a { display: flex; flex-direction: column; height: 100%; gap: 10px; }
+.discover-page .featured-card a { display: flex; flex-direction: column; height: 100%; gap: 10px; width: 100%; flex: 1 1 auto; }
 .discover-page .featured-thumb {
     width: 100%;
     height: 170px;
@@ -15055,8 +15057,8 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 .discover-page .featured-card .meta { gap: 8px; flex-wrap: wrap; }
 
 .discover-page .carousel-card--list a { gap: 0; }
-.discover-page .carousel-card--list .featured-thumb { height: 220px; border-radius: 20px; }
-.discover-page .carousel-card--list .featured-card__title { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.02em; }
+.discover-page .carousel-card--list .featured-thumb { height: 240px; border-radius: 20px; }
+.discover-page .carousel-card--list .featured-card__title { font-size: 0.98rem; font-weight: 800; letter-spacing: 0.02em; }
 .discover-page .carousel-card--list .featured-card__title i { color: rgba(255, 255, 255, 0.9); }
 
 .discover-page .featured-card:hover {
@@ -15249,6 +15251,85 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+.discover-page .explore-filters {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.discover-page .explore-filters__left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 520px;
+}
+
+.discover-page .explore-filters__right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+
+.discover-page .explore-filters__label {
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: var(--secondary-text-color);
+    white-space: nowrap;
+}
+
+.discover-page .explore-filters__chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 2px 0 4px;
+    scrollbar-width: none;
+}
+
+.discover-page .explore-filters__chips::-webkit-scrollbar { height: 0; display: none; }
+
+.discover-page .explore-filter-chip {
+    cursor: pointer;
+    user-select: none;
+    flex: 0 0 auto;
+}
+
+.discover-page button.pill-chip {
+    appearance: none;
+    font: inherit;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.discover-page .explore-filter-chip.active {
+    background: rgba(var(--accent-color-primary-rgb,92,124,250), 0.18);
+    border-color: rgba(var(--accent-color-primary-rgb,92,124,250), 0.35);
+    color: var(--text-color);
+}
+
+.discover-page .explore-filters__select {
+    appearance: none;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-color);
+    font-weight: 800;
+    font-size: 0.9rem;
+    outline: none;
+}
+
+.discover-page .explore-filters__select:focus-visible {
+    border-color: rgba(var(--accent-color-primary-rgb,92,124,250), 0.55);
+    box-shadow: 0 0 0 3px rgba(var(--accent-color-primary-rgb,92,124,250), 0.18);
 }
 
 .map-strip #global-map-container {
@@ -15510,7 +15591,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     .hero-search button { width: 100%; }
     #global-map-container { height: 240px; }
     .rail-track { gap: 10px; }
-    .discover-page .featured-card { min-width: 220px; }
+    .discover-page .featured-card { width: 220px; min-width: 220px; flex: 0 0 220px; }
 }
 
 /* --- Reviews rail horizontal overrides --- */
@@ -15564,14 +15645,14 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 }
 
 .discover-page .pill-chip--badge {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     padding: 0;
     border-radius: 999px;
     display: grid;
     place-items: center;
     font-weight: 900;
-    font-size: 0.86rem;
+    font-size: 0.82rem;
     letter-spacing: 0.01em;
     box-shadow: none;
     background: var(--score-bg, rgba(0, 0, 0, 0.38));

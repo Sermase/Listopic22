@@ -55,6 +55,25 @@
         <div class="tab-panels">
             <div class="tab-content active" id="explore">
                 <section class="map-strip">
+                    <div class="explore-filters" aria-label="Filtros de exploracion">
+                        <div class="explore-filters__left">
+                            <div class="explore-filters__label">Categorias</div>
+                            <div id="explore-category-filters" class="explore-filters__chips" role="group" aria-label="Filtrar por categoria"></div>
+                        </div>
+                        <div class="explore-filters__right">
+                            <label class="explore-filters__label" for="explore-distance-select">Distancia</label>
+                            <select id="explore-distance-select" class="explore-filters__select" aria-label="Distancia maxima">
+                                <option value="">Sin rango</option>
+                                <option value="1">1 km</option>
+                                <option value="2">2 km</option>
+                                <option value="5">5 km</option>
+                                <option value="10">10 km</option>
+                                <option value="20">20 km</option>
+                                <option value="50">50 km</option>
+                                <option value="100">100 km</option>
+                            </select>
+                        </div>
+                    </div>
                     <div id="global-map-container">
                         <button
                             type="button"
