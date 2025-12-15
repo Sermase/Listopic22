@@ -750,9 +750,9 @@ ListopicApp.uiUtils = {
         const cache = this.getCategoryCache();
         const entry = categoryId ? cache[categoryId] : null;
         const label = [
+            entry && entry.name,
             entry && entry.displayname,
             entry && entry.displayName,
-            entry && entry.name,
             entry && entry.title,
             entry && entry.label,
             fallback,
@@ -1718,7 +1718,6 @@ createListViewGroupCard: function(group, listData, listIcon) {
         }
     });
 })();
-
 
 
 

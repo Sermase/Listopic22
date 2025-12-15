@@ -1212,6 +1212,168 @@ ListopicApp.pageDeveloper = (() => {
         return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
+    function renderListImageEditor(item) {
+        const main = (item?.mainImageUrl || '').trim();
+        const cover = (item?.coverImageUrl || '').trim();
+        const previewUrl = main || cover;
+        const previewSource = main ? 'mainImageUrl' : (cover ? 'coverImageUrl' : '');
+        const hint = cover && !main ? ` <span class="dev-summary-pill">Tip: tienes <code>coverImageUrl</code></span>` : '';
+        return `
+            <div class="dev-image-card" id="dev-list-image-editor">
+                <div class="dev-image-card__header">
+                    <div>
+                        <div class="dev-image-card__title">Imagen de la lista</div>
+                        <div class="dev-image-card__meta">Se guarda en <code>mainImageUrl</code>${previewSource ? `. Vista previa: <code>${escapeHtml(previewSource)}</code>.` : '.'}</div>
+                    </div>
+                    ${hint}
+                </div>
+                <div class="dev-image-card__body">
+                    <div class="dev-image-preview">
+                        <img id="dev-list-image-preview" alt="Imagen de la lista" loading="lazy" ${previewUrl ? `src="${escapeHtml(previewUrl)}"` : ''}>
+                        <div id="dev-list-image-preview-empty" class="dev-image-preview-empty" ${previewUrl ? 'hidden' : ''}>Sin imagen</div>
+                    </div>
+                    <div>
+                        <label for="dev-list-image-url" class="dev-helper-text" style="margin:0 0 6px 0;">URL</label>
+                        <input id="dev-list-image-url" class="form-input" type="url" placeholder="https://..." value="${escapeHtml(main)}">
+                        <div class="dev-image-actions">
+                            <button id="dev-list-image-save-btn" class="button primary-button" type="button"><i class="fas fa-image"></i> Guardar imagen</button>
+                            <button id="dev-list-image-apply-json-btn" class="button secondary-button" type="button">Aplicar al JSON</button>
+                            <button id="dev-list-image-clear-btn" class="button secondary-button" type="button">Limpiar</button>
+                            ${cover ? `<button id="dev-list-image-use-cover-btn" class="button secondary-button" type="button">Usar coverImageUrl</button>` : ''}
+                        </div>
+                        <p class="dev-helper-text" style="margin:6px 0 0 0;">“Guardar imagen” actualiza Firestore directamente (si la URL está vacía, borra el campo).</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function updateDetailModalJsonPreview(item) {
+        const pre = document.getElementById('dev-detail-modal-json-pre');
+        if (!pre) return;
+        pre.textContent = JSON.stringify(item, null, 2);
+    }
+
+    function patchDetailModalEditorMainImageUrl(url) {
+        const editor = document.getElementById('dev-detail-modal-editor');
+        if (!editor) return { ok: false, error: 'Editor no encontrado.' };
+        let payload;
+        try {
+            payload = JSON.parse(editor.value || '{}');
+            if (typeof payload !== 'object' || Array.isArray(payload)) throw new Error('El JSON debe ser un objeto.');
+        } catch (e) {
+            return { ok: false, error: `JSON inválido: ${e.message}` };
+        }
+
+        const trimmed = (url || '').trim();
+        if (trimmed) {
+            payload.mainImageUrl = trimmed;
+        } else {
+            delete payload.mainImageUrl;
+        }
+        editor.value = JSON.stringify(payload, null, 2);
+        return { ok: true };
+    }
+
+    function setupListImageEditor(item) {
+        const urlInput = document.getElementById('dev-list-image-url');
+        const previewImg = document.getElementById('dev-list-image-preview');
+        const previewEmpty = document.getElementById('dev-list-image-preview-empty');
+        const saveBtn = document.getElementById('dev-list-image-save-btn');
+        const applyJsonBtn = document.getElementById('dev-list-image-apply-json-btn');
+        const clearBtn = document.getElementById('dev-list-image-clear-btn');
+        const useCoverBtn = document.getElementById('dev-list-image-use-cover-btn');
+        if (!urlInput || !previewImg || !previewEmpty || !saveBtn || !applyJsonBtn || !clearBtn) return;
+
+        const setButtonsEnabled = (enabled) => {
+            [saveBtn, applyJsonBtn, clearBtn, useCoverBtn].forEach(btn => {
+                if (!btn) return;
+                btn.disabled = !enabled;
+            });
+        };
+
+        const setPreviewUrl = (rawUrl) => {
+            const next = (rawUrl || '').trim();
+            if (next) {
+                previewImg.src = next;
+                previewEmpty.hidden = true;
+            } else {
+                previewImg.removeAttribute('src');
+                previewEmpty.hidden = false;
+            }
+        };
+
+        previewImg.onerror = () => {
+            previewEmpty.hidden = false;
+        };
+
+        urlInput.addEventListener('input', () => setPreviewUrl(urlInput.value));
+
+        const applyToLocalState = (rawUrl) => {
+            const next = (rawUrl || '').trim();
+            if (!currentModalItem) return;
+            if (next) currentModalItem.mainImageUrl = next;
+            else delete currentModalItem.mainImageUrl;
+            updateDetailModalJsonPreview(currentModalItem);
+        };
+
+        clearBtn.addEventListener('click', () => {
+            urlInput.value = '';
+            setPreviewUrl('');
+        });
+
+        if (useCoverBtn) {
+            useCoverBtn.addEventListener('click', () => {
+                const cover = (item?.coverImageUrl || '').trim();
+                urlInput.value = cover;
+                setPreviewUrl(cover);
+            });
+        }
+
+        applyJsonBtn.addEventListener('click', () => {
+            const url = (urlInput.value || '').trim();
+            const res = patchDetailModalEditorMainImageUrl(url);
+            if (!res.ok) {
+                notify(res.error, 'error');
+                return;
+            }
+            applyToLocalState(url);
+            notify('mainImageUrl aplicado al JSON.', 'success');
+        });
+
+        saveBtn.addEventListener('click', async () => {
+            if (!currentModalItem?.id || currentCollectionName !== 'lists') return;
+            const url = (urlInput.value || '').trim();
+            const msg = url
+                ? `¿Guardar mainImageUrl en lists/${currentModalItem.id}?`
+                : `¿Borrar mainImageUrl en lists/${currentModalItem.id}?`;
+            if (!confirm(msg)) return;
+
+            setButtonsEnabled(false);
+            try {
+                const deleteValue = firebase?.firestore?.FieldValue?.delete?.();
+                const payload = url ? { mainImageUrl: url } : { mainImageUrl: deleteValue };
+                if (!url && !deleteValue) throw new Error('No se pudo obtener FieldValue.delete()');
+
+                await db.collection('lists').doc(currentModalItem.id).set(payload, { merge: true });
+
+                const editorRes = patchDetailModalEditorMainImageUrl(url);
+                if (!editorRes.ok) {
+                    notify(`Imagen guardada, pero no se pudo actualizar el JSON del editor: ${editorRes.error}`, 'warning');
+                }
+                applyToLocalState(url);
+                notify('Imagen guardada.', 'success');
+            } catch (e) {
+                console.error('Error al guardar imagen de lista', e);
+                notify(`Error al guardar imagen: ${e.message}`, 'error');
+            } finally {
+                setButtonsEnabled(true);
+            }
+        });
+
+        setPreviewUrl(urlInput.value || item?.coverImageUrl || '');
+    }
+
     // Modal de detalle/edición
     let currentModalItem = null;
     function openDetailModal(item) {
@@ -1235,16 +1397,19 @@ ListopicApp.pageDeveloper = (() => {
             </div>
         `).join('');
         const badgesHtml = statusBadges.map(b => `<span class="dev-status-pill ${b.tone}">${escapeHtml(b.text)}</span>`).join(' ');
+        const imageEditorHtml = currentCollectionName === 'lists' ? renderListImageEditor(item) : '';
         jsonEl.innerHTML = `
             <div class="dev-modal-grid">${kvHtml}</div>
             <div style="margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">${badgesHtml}
                 ${detailLink ? `<a class="dev-summary-pill" href="${escapeHtml(detailLink.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(detailLink.label)}</a>` : ''}
             </div>
-            <div class="dev-json-block"><pre>${escapeHtml(JSON.stringify(item, null, 2))}</pre></div>
+            ${imageEditorHtml}
+            <div class="dev-json-block"><pre id="dev-detail-modal-json-pre">${escapeHtml(JSON.stringify(item, null, 2))}</pre></div>
         `;
         editor.value = JSON.stringify(item, null, 2);
         modal.hidden = false;
         modal.style.display = 'flex';
+        if (currentCollectionName === 'lists') setupListImageEditor(item);
     }
 
     function closeDetailModal() {
