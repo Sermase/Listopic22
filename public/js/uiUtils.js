@@ -1150,13 +1150,15 @@ createListViewGroupCard: function(group, listData, listIcon) {
                         name: authorData?.displayName || authorData?.username || 'Usuario Anónimo',
                         photoUrl: authorData?.photoUrl || 'img/placeholder-avatar.png'
                     },
-                    place: {
-                        id: review.placeId,
-                        name: placeData?.name || 'Lugar Desconocido',
-                        googleMapsUrl: placeData?.googleMapsUrl || '#'
-                    }
-                };
-            });
+                     place: {
+                         id: review.placeId,
+                         name: placeData?.name || 'Lugar Desconocido',
+                         city: placeData?.city || placeData?.locationCity || placeData?.addressCity || '',
+                         province: placeData?.province || '',
+                         googleMapsUrl: placeData?.googleMapsUrl || '#'
+                     }
+                 };
+             });
         } catch (error) {
             console.error("Error catastrófico en enrichReviews:", error);
             return [];
@@ -1718,7 +1720,6 @@ createListViewGroupCard: function(group, listData, listIcon) {
         }
     });
 })();
-
 
 
 

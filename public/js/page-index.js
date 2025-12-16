@@ -494,7 +494,16 @@ ListopicApp.pageIndex = (() => {
                     const overlayThumbStyle = thumb
                         ? `style="background-image:url('${ui.escapeHtml(thumb)}');"`
                         : `style="background: linear-gradient(135deg, rgba(var(--accent-color-primary-rgb), 0.22), rgba(var(--accent-color-secondary-rgb), 0.18));"`;
-                    const topNamePill = bestGroupName ? `<span class="pill-label pill-label--stat" title="Mejor valorado"><i class="fas fa-crown"></i> ${bestGroupName}</span>` : "";
+                    const bestGroupCityRaw = bestGroup ? (bestGroup.city || bestGroup.locationCity || bestGroup.addressCity || bestGroup.town || bestGroup.locality || "") : "";
+                    const bestGroupCity = bestGroupCityRaw ? ui.escapeHtml(String(bestGroupCityRaw)) : "";
+                    const bestGroupLocationPills = (bestGroupName || bestGroupCity)
+                        ? `
+                            <div class="overlay-tags" aria-label="Ubicacion">
+                                ${bestGroupCity ? `<span class="overlay-pill overlay-pill--city" title="${bestGroupCity}">${bestGroupCity}</span>` : ""}
+                                ${bestGroupName ? `<span class="overlay-pill overlay-pill--place" title="${bestGroupName}">${bestGroupName}</span>` : ""}
+                            </div>
+                        `.trim()
+                        : "";
                     const topScoreBadge = bestGroupScore ? `<span class="pill-chip pill-chip--badge" title="Puntuación">${Number(bestGroupScore).toFixed(1)}</span>` : "";
                     const categoryTop = category ? `<span class="pill-label pill-label--category-top" title="Categoría">${category}</span>` : "";
                     const thumbHtml = `
@@ -503,12 +512,13 @@ ListopicApp.pageIndex = (() => {
                                 ${categoryTop}
                                 ${topScoreBadge}
                             </div>
-                            <div class="overlay-info overlay-info--list">
-                                <h3 class="featured-card__title overlay-title-pill">${name}</h3>
+                            <div class="overlay-info overlay-info--list overlay-info--flush">
+                                <h3 class="overlay-title">${name}</h3>
+                                ${bestGroupLocationPills}
                                 <div class="overlay-pills">
                                     <span class="pill-label pill-label--stat" title="Seguidores"><i class="fas fa-heart"></i> ${followers}</span>
                                     <span class="pill-label pill-label--stat" title="Reseñas"><i class="fas fa-pencil-alt"></i> ${reviews}</span>
-                                    ${topNamePill}
+
                                 </div>
                             </div>
                         </div>`;
@@ -697,8 +707,10 @@ ListopicApp.pageIndex = (() => {
              hotReviewsEl.innerHTML = finalItems
                  .map((r) => {
                      const title = ui.escapeHtml(r.itemName || r.establishmentName || "Resena");
-                     const listName = ui.escapeHtml(r.listName || "");
-                     const placeName = ui.escapeHtml(r.establishmentName || "");
+                     const placeName = ui.escapeHtml(r.place?.name || r.establishmentName || "");
+                     const placeCity = ui.escapeHtml(r.place?.city || "");
+                     const authorName = ui.escapeHtml(r.author?.name || "Usuario");
+                     const authorPhotoUrl = ui.escapeHtml(r.author?.photoUrl || "img/placeholder-avatar.png");
                      const ratingNum = typeof r.overallRating === "number" ? r.overallRating : 0;
                      const rating = ratingNum ? ratingNum.toFixed(1) : "-";
                      const scoreBg = ratingNum ? ui.getRatingHexColor(ratingNum) : "";
@@ -720,18 +732,24 @@ ListopicApp.pageIndex = (() => {
                      return `
                          <article class="review-card carousel-card carousel-card--review">
                              <a href="${ui.escapeHtml(groupedLink)}">
-                                  <div class="review-thumb overlay-thumb" ${thumbStyle}>
-                                      <div class="overlay-top overlay-top--tr overlay-top--review">
-                                          ${ratingBadge}
-                                      </div>
-                                      <div class="overlay-info overlay-info--review">
-                                          <h3 class="overlay-title">${title}</h3>
-                                          ${placeName ? `<p class="overlay-sub"><i class="fas fa-map-marker-alt"></i> ${placeName}</p>` : ""}
-                                          ${listName ? `<p class="overlay-sub"><i class="fas fa-list"></i> ${listName}</p>` : ""}
-                                     </div>
-                                 </div>
-                             </a>
-                         </article>
+                                   <div class="review-thumb overlay-thumb" ${thumbStyle}>
+                                       <div class="overlay-top overlay-top--review overlay-top--author" title="${authorName}">
+                                           <span class="overlay-author-chip">
+                                               <img class="overlay-avatar" src="${authorPhotoUrl}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='img/placeholder-avatar.png';">
+                                               <span class="overlay-author-chip__name">${authorName}</span>
+                                           </span>
+                                       </div>
+                                       <div class="overlay-top overlay-top--tr overlay-top--review">
+                                           ${ratingBadge}
+                                       </div>
+                                        <div class="overlay-info overlay-info--review overlay-info--flush">
+                                            <h3 class="overlay-title">${title}</h3>
+                                            ${placeName ? `<p class="overlay-sub overlay-sub--place" title="${placeName}"><i class="fas fa-map-marker-alt"></i> <span>${placeName}</span></p>` : ""}
+                                            ${placeCity ? `<p class="overlay-sub overlay-sub--city" title="${placeCity}"><i class="fas fa-city"></i> <span>${placeCity}</span></p>` : ""}
+                                       </div>
+                                  </div>
+                              </a>
+                          </article>
                      `;
                      })
                      .join("");
