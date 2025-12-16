@@ -53,7 +53,7 @@
 
         <div class="tab-panels">
             <div class="tab-content active" id="explore">
-                <section class="map-strip">
+                <section class="map-strip map-strip--filters">
                     <div class="explore-filters" aria-label="Filtros de exploracion">
                         <div class="explore-filters__left">
                             <div class="explore-filters__label">Categorías</div>
@@ -73,7 +73,7 @@
                             </select>
                         </div>
                     </div>
-                    <div id="global-map-container">
+                    <!-- <div id="global-map-container">
                         <button
                             type="button"
                             id="global-map-center-user-btn"
@@ -83,7 +83,7 @@
                         >
                             <i class="fas fa-compass" aria-hidden="true"></i>
                         </button>
-                    </div>
+                    </div> -->
                 </section>
 
                 <section class="rail-block">
@@ -99,7 +99,7 @@
 
                 <section class="rail-block">
                     <div class="rail-header minimal">
-                        <h2>Mejor Hmm...</h2>
+                        <h2 id="rail-top-groups-title">Mejor en Lispotic</h2>
                         <div class="rail-actions rail-nav" data-target="rail-top-groups" hidden>
                             <button type="button" class="rail-nav-btn" data-dir="-1" aria-label="Anterior"><i class="fas fa-chevron-left"></i></button>
                             <button type="button" class="rail-nav-btn" data-dir="1" aria-label="Siguiente"><i class="fas fa-chevron-right"></i></button>
@@ -117,6 +117,38 @@
                         </div>
                     </div>
                     <div id="rail-users" class="rail-track rail-cards users" aria-live="polite"></div>
+                </section>
+
+                <section class="map-strip map-strip--accordion" aria-label="Mapa">
+                    <button
+                        type="button"
+                        id="toggle-global-map-btn"
+                        class="map-strip__toggle"
+                        aria-expanded="false"
+                        aria-controls="global-map-panel"
+                    >
+                        <span class="map-strip__toggle-left">
+                            <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+                            <span>Mapa</span>
+                        </span>
+                        <span class="map-strip__toggle-right">
+                            <span class="map-strip__toggle-hint">Desplegar</span>
+                            <i class="fas fa-chevron-down map-strip__chev" aria-hidden="true"></i>
+                        </span>
+                    </button>
+                    <div id="global-map-panel" class="map-strip__panel" hidden>
+                        <div id="global-map-container">
+                            <button
+                                type="button"
+                                id="global-map-center-user-btn"
+                                class="map-center-control"
+                                aria-label="Centrar en mi ubicaciИn"
+                                title="Centrar en mi ubicaciИn"
+                            >
+                                <i class="fas fa-compass" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
                 <section class="rail-block">
