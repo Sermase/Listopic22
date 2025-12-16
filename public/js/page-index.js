@@ -631,7 +631,16 @@ ListopicApp.pageIndex = (() => {
                 const places = snap.docs
                     .map((d) => {
                         const p = d.data() || {};
-                        return { id: d.id, name: p.name || "Lugar", mainImageUrl: p.mainImageUrl || null, averageRating: typeof p.averageRating === "number" ? p.averageRating : 0, reviewsCount: p.reviewsCount || 0, location: p.location };
+                        return {
+                            id: d.id,
+                            name: p.name || "Lugar",
+                            city: p.city || p.locationCity || p.addressCity || p.town || p.locality || "",
+                            province: p.province || "",
+                            mainImageUrl: p.mainImageUrl || null,
+                            averageRating: typeof p.averageRating === "number" ? p.averageRating : 0,
+                            reviewsCount: p.reviewsCount || 0,
+                            location: p.location
+                        };
                     })
                     .filter((p) => passMood(p.averageRating || 0, currentMood))
                     .filter((p) => {
@@ -648,20 +657,21 @@ ListopicApp.pageIndex = (() => {
                         const scoreBg = ratingNum ? ui.getRatingHexColor(ratingNum) : "";
                         const scoreFg = ratingNum >= 6 && ratingNum < 8 ? "#1b2130" : "#ffffff";
                         const ratingBadge = `<span class="pill-chip pill-chip--badge" ${scoreBg ? `style="--score-bg:${ui.escapeHtml(scoreBg)};--score-fg:${scoreFg};"` : ""} title="Valoración">${rating}</span>`;
+                        const reviewsBadge = `<span class="overlay-top-count" title="Resenas"><i class="fas fa-comment-dots" aria-hidden="true"></i> ${p.reviewsCount}</span>`;
+                        const city = ui.escapeHtml((p.city || "").trim());
                         const thumb = p.mainImageUrl ? `style="background-image:url('${ui.escapeHtml(p.mainImageUrl)}');"` : "";
                         return `
                             <article class="featured-card place-card carousel-card carousel-card--place">
                                 <span class="rank-badge">#${idx + 1}</span>
                                 <a href="place-detail.html?placeId=${p.id}">
                                     <div class="featured-thumb overlay-thumb" ${thumb}>
-                                        <div class="overlay-top overlay-top--tr">
+                                        <div class="overlay-top overlay-top--tr overlay-top--stack">
                                             ${ratingBadge}
+                                            ${reviewsBadge}
                                         </div>
                                         <div class="overlay-info">
-                                            <h3 class="featured-card__title"><i class="fas fa-map-marker-alt"></i> ${ui.escapeHtml(p.name)}</h3>
-                                            <div class="meta">
-                                                <span class="pill-label"><i class="fas fa-comment-dots"></i> ${p.reviewsCount}</span>
-                                            </div>
+                                            <h3 class="overlay-title" title="${ui.escapeHtml(p.name)}">${ui.escapeHtml(p.name)}</h3>
+                                            ${city ? `<p class="overlay-sub overlay-sub--city" title="${city}"><i class="fas fa-city" aria-hidden="true"></i> <span>${city}</span></p>` : ""}
                                         </div>
                                     </div>
                              </a>

@@ -14286,8 +14286,8 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 }
 
 .brand-dot {
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     background: white;
     border-radius: 50%;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -15835,6 +15835,32 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 .overlay-top--tr {
     left: auto;
     right: 10px;
+}
+
+.overlay-top--stack {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.overlay-top-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.32);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    backdrop-filter: blur(10px);
+}
+
+.overlay-top-count i {
+    opacity: 0.9;
 }
 
 .discover-page .pill-chip--badge {
