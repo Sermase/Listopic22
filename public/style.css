@@ -2413,6 +2413,7 @@ body.light-theme .criterion-slider-config {
     border: none;
 }
 
+.image-upload-area .image-actions button,
 #image-actions button {
     background-color: var(--accent-color-secondary);
     color: white;
@@ -2424,8 +2425,15 @@ body.light-theme .criterion-slider-config {
     font-size: 0.9em;
 }
 
+.image-upload-area .image-actions button:hover,
 #image-actions button:hover {
     opacity: 0.9;
+}
+
+/* DEVELOPER: Drop highlight (imagen lista) */
+.dev-image-preview.drag-over {
+    outline: 2px solid var(--accent-color-primary);
+    outline-offset: 3px;
 }
 
 /* REVIEW-FORM: Tag Selection (Checkboxes) */

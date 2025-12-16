@@ -22,6 +22,13 @@ ListopicApp.pageListForm = (() => {
         const fixedTagsGroup = document.getElementById('fixed-tags-group');
         const listFormTitleH2 = listForm.parentElement?.querySelector('h2');
         const listNameInput = document.getElementById('list-name');
+        const listImageDropArea = document.getElementById('list-image-drop-area');
+        const listImageFileInput = document.getElementById('list-image-file');
+        const listImageUrlInput = document.getElementById('list-image-url');
+        const listImagePreview = document.getElementById('list-image-preview');
+        const listImageBrowseBtn = document.getElementById('list-image-browse-btn');
+        const listImageClearBtn = document.getElementById('list-image-clear-btn');
+        const listImageHint = document.getElementById('list-image-hint');
         const isPublicToggle = document.getElementById('list-public-toggle'); // ¡AÑADE ESTA LÍNEA AQUÍ!
 
 
@@ -30,6 +37,197 @@ ListopicApp.pageListForm = (() => {
         if (!critListLF) console.warn("LIST-FORM: Contenedor #criteria-list no encontrado.");
         if (!addTagBtnLF) console.warn("LIST-FORM: Botón #add-tag-btn no encontrado.");
         if (!tagsListLF) console.warn("LIST-FORM: Contenedor #tags-list no encontrado.");
+
+        let selectedListImageFile = null;
+        let listImageTouched = false;
+        let listImageObjectUrl = null;
+
+        const showListFormNotification = (message, type = 'info') => {
+            if (ListopicApp?.services?.showNotification) {
+                ListopicApp.services.showNotification(message, type);
+                return;
+            }
+            console[type === 'error' ? 'error' : 'log'](message);
+        };
+
+        const setListImagePreviewFromUrl = (src) => {
+            if (!listImagePreview) {
+                return;
+            }
+
+            if (listImageObjectUrl && src !== listImageObjectUrl) {
+                try { URL.revokeObjectURL(listImageObjectUrl); } catch (_) {}
+                listImageObjectUrl = null;
+            }
+
+            const uiUtils = ListopicApp.uiUtils || {};
+            if (typeof uiUtils.showPreviewGlobal === 'function') {
+                uiUtils.showPreviewGlobal(src, listImagePreview);
+                return;
+            }
+
+            listImagePreview.innerHTML = '';
+            if (!src) {
+                return;
+            }
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = "Previsualizaci¢n";
+            img.onerror = () => {
+                listImagePreview.innerHTML = '<p class="loading-placeholder">No se pudo cargar la imagen.</p>';
+            };
+            listImagePreview.appendChild(img);
+        };
+
+        const clearListImageSelection = ({ keepPreview = false } = {}) => {
+            selectedListImageFile = null;
+            if (listImageFileInput) {
+                listImageFileInput.value = '';
+            }
+            if (!keepPreview) {
+                setListImagePreviewFromUrl('');
+            }
+        };
+
+        const setupListImageHandling = () => {
+            if (!listImageDropArea || !listImageFileInput || !listImageUrlInput || !listImagePreview) {
+                return;
+            }
+
+            const preventDefaults = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+            };
+
+            const handleImageFile = async (file) => {
+                if (!file) {
+                    return;
+                }
+                if (!file.type || !file.type.startsWith('image/')) {
+                    showListFormNotification('El archivo seleccionado no es una imagen v lida.', 'error');
+                    return;
+                }
+
+                try {
+                    const uiUtils = ListopicApp.uiUtils || {};
+                    const compressedFile = typeof uiUtils.compressImage === 'function'
+                        ? await uiUtils.compressImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.72 })
+                        : file;
+
+                    listImageTouched = true;
+                    selectedListImageFile = compressedFile;
+                    if (listImageUrlInput) {
+                        listImageUrlInput.value = '';
+                    }
+                    if (listImageHint) {
+                        listImageHint.hidden = true;
+                        listImageHint.textContent = '';
+                    }
+
+                    if (listImageObjectUrl) {
+                        try { URL.revokeObjectURL(listImageObjectUrl); } catch (_) {}
+                        listImageObjectUrl = null;
+                    }
+                    listImageObjectUrl = URL.createObjectURL(compressedFile);
+                    setListImagePreviewFromUrl(listImageObjectUrl);
+                } catch (error) {
+                    console.error('[ListForm] Error al procesar la imagen seleccionada:', error);
+                    showListFormNotification('No se pudo procesar la imagen seleccionada.', 'error');
+                    clearListImageSelection();
+                }
+            };
+
+            listImageDropArea.addEventListener('click', (event) => {
+                const target = event.target;
+                if (target instanceof HTMLElement && target.closest('button')) {
+                    return;
+                }
+                listImageFileInput.click();
+            });
+
+            listImageBrowseBtn?.addEventListener('click', (event) => {
+                event.preventDefault();
+                listImageFileInput.click();
+            });
+
+            listImageClearBtn?.addEventListener('click', (event) => {
+                event.preventDefault();
+                listImageTouched = true;
+                if (listImageUrlInput) {
+                    listImageUrlInput.value = '';
+                }
+                if (listImageHint) {
+                    listImageHint.hidden = true;
+                    listImageHint.textContent = '';
+                }
+                clearListImageSelection();
+            });
+
+            listImageFileInput.addEventListener('change', (event) => {
+                const file = event.target.files?.[0];
+                handleImageFile(file);
+            });
+
+            listImageUrlInput.addEventListener('input', () => {
+                listImageTouched = true;
+                selectedListImageFile = null;
+                if (listImageFileInput) {
+                    listImageFileInput.value = '';
+                }
+                const value = listImageUrlInput.value.trim();
+                if (!value) {
+                    setListImagePreviewFromUrl('');
+                    return;
+                }
+                setListImagePreviewFromUrl(value);
+            });
+
+            ['dragenter', 'dragover'].forEach((eventName) => {
+                listImageDropArea.addEventListener(eventName, (event) => {
+                    preventDefaults(event);
+                    listImageDropArea.classList.add('drag-over');
+                });
+            });
+
+            ['dragleave', 'dragend'].forEach((eventName) => {
+                listImageDropArea.addEventListener(eventName, (event) => {
+                    preventDefaults(event);
+                    listImageDropArea.classList.remove('drag-over');
+                });
+            });
+
+            listImageDropArea.addEventListener('drop', (event) => {
+                preventDefaults(event);
+                listImageDropArea.classList.remove('drag-over');
+                const files = Array.from(event.dataTransfer?.files || []);
+                const file = files.find(candidate => candidate.type && candidate.type.startsWith('image/'));
+                if (!file) {
+                    if (files.length) {
+                        showListFormNotification('Solo puedes arrastrar archivos de imagen en este espacio.', 'warning');
+                    }
+                    return;
+                }
+                handleImageFile(file);
+            });
+        };
+
+        const uploadListImageToStorage = async (listId, file) => {
+            if (!listId || !file) {
+                return null;
+            }
+
+            const storage = ListopicApp?.services?.storage;
+            if (!storage?.ref) {
+                throw new Error('Firebase Storage no est  disponible.');
+            }
+
+            const rawName = typeof file.name === 'string' && file.name.trim() ? file.name.trim() : `list_image_${Date.now()}.jpg`;
+            const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `list-images/${listId}/${Date.now()}_${safeName}`;
+            const storageRef = storage.ref(storagePath);
+            const uploadSnapshot = await storageRef.put(file);
+            return await uploadSnapshot.ref.getDownloadURL();
+        };
 
         // Estado auxiliar global para edición
         window.ListopicApp.state = window.ListopicApp.state || {};
@@ -391,6 +589,10 @@ ListopicApp.pageListForm = (() => {
                 if (entries.length === 0) {
                     critListLF.innerHTML = '<p class="loading-placeholder">Esta categoría no define criterios. Añádelos manualmente.</p>';
                 } else {
+                    const trimmedUrl = (listImageUrlInput?.value || '').trim();
+                    if (trimmedUrl && !selectedListImageFile) {
+                        listDataPayload.mainImageUrl = trimmedUrl;
+                    }
                     entries.forEach(([key, def]) => {
                         critListLF.appendChild(createCriterionItem(key, def));
                     });
@@ -402,6 +604,7 @@ ListopicApp.pageListForm = (() => {
         }
 
         loadCategoriesAndWire();
+        setupListImageHandling();
         if (addTagBtnLF && tagsListLF) {
             addTagBtnLF.addEventListener('click', () => tagsListLF.appendChild(createTagItem()));
         }
@@ -440,6 +643,35 @@ ListopicApp.pageListForm = (() => {
                         categoryInput.value = listData.categoryId || listData.categoryName || 'Hmm...';
                         window.ListopicApp.state.isEditingList = true;
                         window.ListopicApp.state.currentEditingCategoryId = categoryInput.value;
+                    }
+
+                    if (listImageUrlInput && listImagePreview) {
+                        const main = (listData.mainImageUrl || '').trim();
+                        const cover = (listData.coverImageUrl || '').trim();
+                        selectedListImageFile = null;
+                        listImageTouched = false;
+                        if (main) {
+                            listImageUrlInput.value = main;
+                            setListImagePreviewFromUrl(main);
+                            if (listImageHint) {
+                                listImageHint.hidden = true;
+                                listImageHint.textContent = '';
+                            }
+                        } else if (cover) {
+                            listImageUrlInput.value = '';
+                            setListImagePreviewFromUrl(cover);
+                            if (listImageHint) {
+                                listImageHint.textContent = 'Vista previa de coverImageUrl (no se guardar  como mainImageUrl si no cambias nada).';
+                                listImageHint.hidden = false;
+                            }
+                        } else {
+                            listImageUrlInput.value = '';
+                            setListImagePreviewFromUrl('');
+                            if (listImageHint) {
+                                listImageHint.hidden = true;
+                                listImageHint.textContent = '';
+                            }
+                        }
                     }
 
                     if (critListLF) {
@@ -601,6 +833,14 @@ ListopicApp.pageListForm = (() => {
             try {
                 let savedListId;
                 if (listIdToEdit) {
+                    const trimmedUrl = (listImageUrlInput?.value || '').trim();
+                    if (selectedListImageFile) {
+                        const uploadedUrl = await uploadListImageToStorage(listIdToEdit, selectedListImageFile);
+                        listDataPayload.mainImageUrl = uploadedUrl;
+                    } else if (listImageTouched) {
+                        // Vacío => "quitar" (revertirá a coverImageUrl en la UI)
+                        listDataPayload.mainImageUrl = trimmedUrl;
+                    }
                     const updateListFunction = functions.httpsCallable('updateListWithValidation');
                     await updateListFunction({ listId: listIdToEdit, data: listDataPayload });
                     savedListId = listIdToEdit;
@@ -609,6 +849,20 @@ ListopicApp.pageListForm = (() => {
                     const createListFunction = functions.httpsCallable('createListWithValidation');
                     const result = await createListFunction(listDataPayload);
                     savedListId = result.data.listId;
+
+                    if (selectedListImageFile && savedListId) {
+                        try {
+                            const uploadedUrl = await uploadListImageToStorage(savedListId, selectedListImageFile);
+                            const updateListFunction = functions.httpsCallable('updateListWithValidation');
+                            await updateListFunction({
+                                listId: savedListId,
+                                data: { name: listDataPayload.name, mainImageUrl: uploadedUrl }
+                            });
+                        } catch (e) {
+                            console.warn('[ListForm] La lista se creó, pero no se pudo subir/guardar la imagen:', e);
+                            ListopicApp.services.showNotification('La lista se creó, pero no pudimos subir la imagen. Puedes intentarlo editando la lista.', 'warning');
+                        }
+                    }
                     ListopicApp.services.showNotification(result.data.message || '¡Lista creada con éxito!', 'success');
                 }
                 window.location.href = `list-view.html?listId=${savedListId}`;

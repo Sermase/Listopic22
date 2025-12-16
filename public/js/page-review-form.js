@@ -375,6 +375,7 @@ ListopicApp.pageReviewForm = (() => {
             if (target instanceof HTMLElement && target.closest('button')) {
                 return;
             }
+            photoFileInput.removeAttribute('capture');
             photoFileInput.click();
         });
 
@@ -428,7 +429,13 @@ ListopicApp.pageReviewForm = (() => {
 
         galleryButton?.addEventListener('click', (event) => {
             event.preventDefault();
-            notify('Muy pronto podrás elegir imágenes de tu galería.', 'info');
+            if (!photoFileInput) {
+                notify('No se pudo abrir el selector de imágenes.', 'error');
+                return;
+            }
+            photoFileInput.removeAttribute('capture');
+            photoFileInput.value = '';
+            photoFileInput.click();
         });
 
         useCameraButton?.addEventListener('click', (event) => {

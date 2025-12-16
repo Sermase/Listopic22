@@ -1228,15 +1228,17 @@ ListopicApp.pageDeveloper = (() => {
                     ${hint}
                 </div>
                 <div class="dev-image-card__body">
-                    <div class="dev-image-preview">
+                    <div class="dev-image-preview" id="dev-list-image-drop-area" role="button" tabindex="0" title="Arrastra una imagen o haz clic para seleccionar">
                         <img id="dev-list-image-preview" alt="Imagen de la lista" loading="lazy" ${previewUrl ? `src="${escapeHtml(previewUrl)}"` : ''}>
                         <div id="dev-list-image-preview-empty" class="dev-image-preview-empty" ${previewUrl ? 'hidden' : ''}>Sin imagen</div>
+                        <input type="file" id="dev-list-image-file" accept="image/*" class="file-input-hidden">
                     </div>
                     <div>
                         <label for="dev-list-image-url" class="dev-helper-text" style="margin:0 0 6px 0;">URL</label>
                         <input id="dev-list-image-url" class="form-input" type="url" placeholder="https://..." value="${escapeHtml(main)}">
                         <div class="dev-image-actions">
                             <button id="dev-list-image-save-btn" class="button primary-button" type="button"><i class="fas fa-image"></i> Guardar imagen</button>
+                            <button id="dev-list-image-pick-file-btn" class="button secondary-button" type="button"><i class="fas fa-upload"></i> Elegir archivo</button>
                             <button id="dev-list-image-apply-json-btn" class="button secondary-button" type="button">Aplicar al JSON</button>
                             <button id="dev-list-image-clear-btn" class="button secondary-button" type="button">Limpiar</button>
                             ${cover ? `<button id="dev-list-image-use-cover-btn" class="button secondary-button" type="button">Usar coverImageUrl</button>` : ''}
@@ -1280,13 +1282,20 @@ ListopicApp.pageDeveloper = (() => {
         const previewImg = document.getElementById('dev-list-image-preview');
         const previewEmpty = document.getElementById('dev-list-image-preview-empty');
         const saveBtn = document.getElementById('dev-list-image-save-btn');
+        const pickFileBtn = document.getElementById('dev-list-image-pick-file-btn');
         const applyJsonBtn = document.getElementById('dev-list-image-apply-json-btn');
         const clearBtn = document.getElementById('dev-list-image-clear-btn');
         const useCoverBtn = document.getElementById('dev-list-image-use-cover-btn');
+        const dropArea = document.getElementById('dev-list-image-drop-area');
+        const fileInput = document.getElementById('dev-list-image-file');
+
+        let selectedFile = null;
+        let objectUrl = null;
+
         if (!urlInput || !previewImg || !previewEmpty || !saveBtn || !applyJsonBtn || !clearBtn) return;
 
         const setButtonsEnabled = (enabled) => {
-            [saveBtn, applyJsonBtn, clearBtn, useCoverBtn].forEach(btn => {
+            [saveBtn, pickFileBtn, applyJsonBtn, clearBtn, useCoverBtn].forEach(btn => {
                 if (!btn) return;
                 btn.disabled = !enabled;
             });
@@ -1303,11 +1312,30 @@ ListopicApp.pageDeveloper = (() => {
             }
         };
 
+        const revokeObjectUrl = () => {
+            if (!objectUrl) {
+                return;
+            }
+            try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+            objectUrl = null;
+        };
+
+        const clearPendingFile = () => {
+            selectedFile = null;
+            revokeObjectUrl();
+            if (fileInput) {
+                fileInput.value = '';
+            }
+        };
+
         previewImg.onerror = () => {
             previewEmpty.hidden = false;
         };
 
-        urlInput.addEventListener('input', () => setPreviewUrl(urlInput.value));
+        urlInput.addEventListener('input', () => {
+            clearPendingFile();
+            setPreviewUrl(urlInput.value);
+        });
 
         const applyToLocalState = (rawUrl) => {
             const next = (rawUrl || '').trim();
@@ -1319,6 +1347,7 @@ ListopicApp.pageDeveloper = (() => {
 
         clearBtn.addEventListener('click', () => {
             urlInput.value = '';
+            clearPendingFile();
             setPreviewUrl('');
         });
 
@@ -1326,11 +1355,107 @@ ListopicApp.pageDeveloper = (() => {
             useCoverBtn.addEventListener('click', () => {
                 const cover = (item?.coverImageUrl || '').trim();
                 urlInput.value = cover;
+                clearPendingFile();
                 setPreviewUrl(cover);
             });
         }
 
+        const openFilePicker = () => {
+            if (!fileInput) {
+                notify('No se pudo abrir el selector de archivos.', 'error');
+                return;
+            }
+            fileInput.value = '';
+            fileInput.click();
+        };
+
+        const handleImageFile = async (file) => {
+            if (!file) {
+                return;
+            }
+            if (!file.type || !file.type.startsWith('image/')) {
+                notify('El archivo seleccionado no es una imagen válida.', 'error');
+                return;
+            }
+
+            try {
+                const uiUtils = window.ListopicApp?.uiUtils || {};
+                const compressedFile = typeof uiUtils.compressImage === 'function'
+                    ? await uiUtils.compressImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.72 })
+                    : file;
+
+                clearPendingFile();
+                selectedFile = compressedFile;
+                urlInput.value = '';
+                objectUrl = URL.createObjectURL(compressedFile);
+                setPreviewUrl(objectUrl);
+            } catch (error) {
+                console.error('[Developer] Error al procesar la imagen seleccionada:', error);
+                notify('No se pudo procesar la imagen seleccionada.', 'error');
+                clearPendingFile();
+                setPreviewUrl(urlInput.value || item?.coverImageUrl || '');
+            }
+        };
+
+        pickFileBtn?.addEventListener('click', (event) => {
+            event.preventDefault();
+            openFilePicker();
+        });
+
+        dropArea?.addEventListener('click', (event) => {
+            event.preventDefault();
+            openFilePicker();
+        });
+
+        dropArea?.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+            event.preventDefault();
+            openFilePicker();
+        });
+
+        fileInput?.addEventListener('change', (event) => {
+            const file = event.target.files?.[0];
+            handleImageFile(file);
+        });
+
+        const preventDefaults = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        ['dragenter', 'dragover'].forEach((eventName) => {
+            dropArea?.addEventListener(eventName, (event) => {
+                preventDefaults(event);
+                dropArea.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'dragend', 'drop'].forEach((eventName) => {
+            dropArea?.addEventListener(eventName, (event) => {
+                preventDefaults(event);
+                dropArea.classList.remove('drag-over');
+            });
+        });
+
+        dropArea?.addEventListener('drop', (event) => {
+            const files = Array.from(event.dataTransfer?.files || []);
+            const file = files.find(candidate => candidate.type && candidate.type.startsWith('image/'));
+            if (!file) {
+                if (files.length) {
+                    notify('Solo puedes arrastrar archivos de imagen en este espacio.', 'warning');
+                }
+                return;
+            }
+            handleImageFile(file);
+        });
+
         applyJsonBtn.addEventListener('click', () => {
+            if (selectedFile) {
+                notify('Tienes una imagen seleccionada pero pendiente de subir. Pulsa "Guardar imagen" para subirla y guardarla.', 'info');
+                return;
+            }
             const url = (urlInput.value || '').trim();
             const res = patchDetailModalEditorMainImageUrl(url);
             if (!res.ok) {
@@ -1343,14 +1468,35 @@ ListopicApp.pageDeveloper = (() => {
 
         saveBtn.addEventListener('click', async () => {
             if (!currentModalItem?.id || currentCollectionName !== 'lists') return;
-            const url = (urlInput.value || '').trim();
-            const msg = url
-                ? `¿Guardar mainImageUrl en lists/${currentModalItem.id}?`
-                : `¿Borrar mainImageUrl en lists/${currentModalItem.id}?`;
+            let url = (urlInput.value || '').trim();
+            const hasFile = !!selectedFile;
+            const msg = hasFile
+                ? `¿Subir imagen y guardar mainImageUrl en lists/${currentModalItem.id}?`
+                : (url
+                    ? `¿Guardar mainImageUrl en lists/${currentModalItem.id}?`
+                    : `¿Borrar mainImageUrl en lists/${currentModalItem.id}?`);
             if (!confirm(msg)) return;
 
             setButtonsEnabled(false);
             try {
+                if (hasFile) {
+                    const storage = window.ListopicApp?.services?.storage || ListopicApp?.services?.storage;
+                    if (!storage?.ref) {
+                        throw new Error('Firebase Storage no está disponible.');
+                    }
+                    const rawName = typeof selectedFile.name === 'string' && selectedFile.name.trim()
+                        ? selectedFile.name.trim()
+                        : `list_image_${Date.now()}.jpg`;
+                    const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+                    const storagePath = `list-images/${currentModalItem.id}/${Date.now()}_${safeName}`;
+                    const storageRef = storage.ref(storagePath);
+                    const uploadSnapshot = await storageRef.put(selectedFile);
+                    url = await uploadSnapshot.ref.getDownloadURL();
+                    urlInput.value = url;
+                    clearPendingFile();
+                    setPreviewUrl(url);
+                }
+
                 const deleteValue = firebase?.firestore?.FieldValue?.delete?.();
                 const payload = url ? { mainImageUrl: url } : { mainImageUrl: deleteValue };
                 if (!url && !deleteValue) throw new Error('No se pudo obtener FieldValue.delete()');
