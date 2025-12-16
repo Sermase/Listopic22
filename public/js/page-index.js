@@ -251,6 +251,7 @@ ListopicApp.pageIndex = (() => {
         });
 
         const topListsEl = document.getElementById("rail-lists");
+        const topGroupsEl = document.getElementById("rail-top-groups");
         const newListsEl = document.getElementById("rail-new");
         const topUsersEl = document.getElementById("rail-users");
         const hotReviewsEl = document.getElementById("rail-reviews");
@@ -434,10 +435,13 @@ ListopicApp.pageIndex = (() => {
                     });
                     const bestPlace = sorted[0];
                     const thumbUrl = bestPlace?.mainImageUrl || null;
+                    const placeId = bestPlace?.id || bestPlace?.placeId || bestPlace?.googlePlaceId || bestPlace?.place_id || null;
+                    const placeName = typeof bestPlace?.name === "string" ? bestPlace.name : "";
+                    const placeCity = typeof bestPlace?.city === "string" ? bestPlace.city : (typeof bestPlace?.locationCity === "string" ? bestPlace.locationCity : "");
                     const topItem = Array.isArray(bestPlace?.topItems) ? bestPlace.topItems[0] : null;
                     const topItemName = typeof topItem?.name === "string" ? topItem.name : "";
                     const topItemScore = typeof topItem?.avgGeneralScore === "number" ? topItem.avgGeneralScore : (typeof bestPlace?.bestItemScore === "number" ? bestPlace.bestItemScore : 0);
-                    return { thumbUrl, topItemName, topItemScore };
+                    return { thumbUrl, topItemName, topItemScore, placeId, placeName, placeCity };
                 } catch (e) {
                     return null;
                 }
@@ -551,6 +555,157 @@ ListopicApp.pageIndex = (() => {
             } catch (e) {
                 console.error("INDEX: Error loading top lists", e);
                 topListsEl.innerHTML = `<p class="error-placeholder">${e.message}</p>`;
+            }
+        }
+
+        async function loadTopGroups() {
+            if (!topGroupsEl) return;
+            try {
+                topGroupsEl.innerHTML = '<p class="loading-placeholder">Cargando mejores grupos...</p>';
+
+                let snap = null;
+                try {
+                    snap = await db.collectionGroup("reviews").orderBy("overallRating", "desc").limit(420).get();
+                } catch (e) {
+                    snap = await db.collectionGroup("reviews").orderBy("createdAt", "desc").limit(420).get();
+                }
+
+                const docs = snap?.docs || [];
+                if (!docs.length) {
+                    topGroupsEl.innerHTML = '<p class="loading-placeholder">Aun no hay reseñas publicas.</p>';
+                    return;
+                }
+
+                const listIds = [...new Set(docs.map((doc) => (doc.data() || {}).listId).filter(Boolean))];
+                let publicLists = new Set();
+                if (listIds.length) {
+                    const listSnaps = await Promise.all(listIds.map((id) => db.collection("lists").doc(id).get().catch(() => null)));
+                    publicLists = new Set(listSnaps.filter((s) => s?.exists && s.data()?.isPublic === true).map((s) => s.id));
+                }
+
+                const filteredDocs = docs.filter((doc) => {
+                    const data = doc.data() || {};
+                    if (data.listId && !publicLists.has(data.listId)) return false;
+                    return true;
+                });
+
+                const enriched = await ui.enrichReviews(filteredDocs.slice(0, 360));
+                const groupsByListPlaceItem = new Map();
+
+                enriched.forEach((r) => {
+                    const listId = r.listId || "";
+                    const placeId = r.placeId || r.place?.id || "";
+                    const itemNameRaw = r.itemName || r.item || r.itemTitle || r.item_label || "";
+                    const itemName = typeof itemNameRaw === "string" ? itemNameRaw.trim() : "";
+                    if (!listId || !placeId || !itemName) return;
+
+                    const ratingNum = typeof r.overallRating === "number"
+                        ? r.overallRating
+                        : (typeof r.avgGeneralScore === "number" ? r.avgGeneralScore : getScore(r));
+                    if (!isFinite(ratingNum) || ratingNum <= 0) return;
+
+                    const itemKey = itemName.toLowerCase();
+                    const key = `${listId}||${placeId}||${itemKey}`;
+                    const prev = groupsByListPlaceItem.get(key);
+                    const thumbCandidate = r.photoUrl || r.imageUrl || r.placePhotoUrl || r.mainImageUrl || "";
+
+                    if (!prev) {
+                        groupsByListPlaceItem.set(key, {
+                            listId,
+                            listName: r.listName || "",
+                            categoryId: r.categoryId || "",
+                            placeId,
+                            placeName: r.establishmentName || r.place?.name || "",
+                            itemName,
+                            itemKey,
+                            thumbUrl: thumbCandidate || "",
+                            sum: ratingNum,
+                            count: 1
+                        });
+                        return;
+                    }
+
+                    prev.sum += ratingNum;
+                    prev.count += 1;
+                    if (!prev.thumbUrl && thumbCandidate) prev.thumbUrl = thumbCandidate;
+                });
+
+                const groups = [...groupsByListPlaceItem.values()]
+                    .map((g) => ({ ...g, avgScore: g.count ? g.sum / g.count : 0 }))
+                    .filter((g) => isFinite(g.avgScore) && g.avgScore > 0);
+
+                const scoped = groups
+                    .filter((g) => passMood(g.avgScore || 0, currentMood))
+                    .filter((g) => {
+                        if (selectedCategoryIds.size === 0) return true;
+                        const cat = typeof g?.categoryId === "string" ? g.categoryId.trim() : "";
+                        return cat && selectedCategoryIds.has(cat);
+                    });
+
+                if (!scoped.length) {
+                    topGroupsEl.innerHTML = '<p class="loading-placeholder">No hay grupos para estas categorías.</p>';
+                    return;
+                }
+
+                const byPlaceAndItem = new Map();
+                scoped.forEach((g) => {
+                    const key = `${g.placeId}||${g.itemKey}`;
+                    const prev = byPlaceAndItem.get(key);
+                    if (!prev) return void byPlaceAndItem.set(key, g);
+                    if ((g.avgScore || 0) > (prev.avgScore || 0)) return void byPlaceAndItem.set(key, g);
+                    if ((g.avgScore || 0) === (prev.avgScore || 0) && (g.count || 0) > (prev.count || 0)) return void byPlaceAndItem.set(key, g);
+                });
+
+                const finalItems = [...byPlaceAndItem.values()]
+                    .sort((a, b) => (b.avgScore || 0) - (a.avgScore || 0) || (b.count || 0) - (a.count || 0))
+                    .slice(0, 12);
+
+                topGroupsEl.innerHTML = finalItems
+                    .map((g) => {
+                        const title = ui.escapeHtml(g.itemName || "Plato");
+                        const placeName = ui.escapeHtml(g.placeName || "Lugar");
+                        const listName = ui.escapeHtml(g.listName || "");
+
+                        const ratingNum = typeof g.avgScore === "number" ? g.avgScore : 0;
+                        const rating = ratingNum ? ratingNum.toFixed(1) : "-";
+                        const scoreBg = ratingNum ? ui.getRatingHexColor(ratingNum) : "";
+                        const scoreFg = ratingNum >= 6 && ratingNum < 8 ? "#1b2130" : "#ffffff";
+                        const ratingBadge = `<span class="pill-chip pill-chip--badge" ${scoreBg ? `style="--score-bg:${ui.escapeHtml(scoreBg)};--score-fg:${scoreFg};"` : ""} title="Valoracion">${rating}</span>`;
+
+                        const groupedLink = ui?.buildGroupedDetailUrl
+                            ? ui.buildGroupedDetailUrl({
+                                  listId: g.listId || "",
+                                  placeId: g.placeId || "",
+                                  itemName: g.itemName || ""
+                              })
+                            : (g.listId ? `list-view.html?listId=${g.listId}` : "search.html");
+
+                        const img = g.thumbUrl || "";
+                        const thumbStyle = img
+                            ? `style="background-image:url('${ui.escapeHtml(img)}');"`
+                            : `style="background: rgba(var(--accent-color-primary-rgb, 92, 124, 250), 0.12);"`;
+
+                        return `
+                            <article class="review-card carousel-card carousel-card--review carousel-card--top-group">
+                                <a href="${ui.escapeHtml(groupedLink)}">
+                                    <div class="review-thumb overlay-thumb" ${thumbStyle}>
+                                        <div class="overlay-top overlay-top--tr overlay-top--review">
+                                            ${ratingBadge}
+                                        </div>
+                                        <div class="overlay-info overlay-info--review overlay-info--flush">
+                                            <h3 class="overlay-title" title="${title}">${title}</h3>
+                                            ${placeName ? `<p class="overlay-sub overlay-sub--place" title="${placeName}"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> <span>${placeName}</span></p>` : ""}
+                                            ${listName ? `<p class="overlay-sub overlay-sub--place" title="${listName}"><i class="fas fa-list-ul" aria-hidden="true"></i> <span>${listName}</span></p>` : ""}
+                                        </div>
+                                    </div>
+                                </a>
+                            </article>
+                        `;
+                    })
+                    .join("");
+            } catch (e) {
+                console.error("INDEX: Error loading top groups", e);
+                topGroupsEl.innerHTML = `<p class="error-placeholder">${e.message}</p>`;
             }
         }
 
@@ -771,7 +926,7 @@ ListopicApp.pageIndex = (() => {
 
         async function refreshRails() {
             tagCounter.clear();
-            await Promise.all([loadTopLists(), loadNewLists(), loadTopUsers(), loadTopPlaces(), loadHotReviews()]);
+            await Promise.all([loadTopLists(), loadTopGroups(), loadTopUsers(), loadTopPlaces(), loadHotReviews(), loadNewLists()]);
             if (trendingTagsEl) {
                 const sorted = [...tagCounter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
                 trendingTagsEl.innerHTML = sorted
