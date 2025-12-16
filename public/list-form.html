@@ -208,6 +208,25 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label>Imagen principal (opcional):</label>
+                    <div class="image-upload-area" id="list-image-drop-area">
+                        <div class="upload-instructions">
+                            <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
+                            <p>Arrastra una imagen aquí o haz clic para seleccionar</p>
+                        </div>
+                        <input type="file" id="list-image-file" accept="image/*" class="file-input-hidden">
+                        <div class="image-actions" id="list-image-actions">
+                            <button type="button" id="list-image-browse-btn"><i class="fas fa-images" aria-hidden="true"></i> Elegir imagen</button>
+                            <button type="button" id="list-image-clear-btn"><i class="fas fa-trash" aria-hidden="true"></i> Quitar</button>
+                        </div>
+                        <p class="helper-text">o introduce una URL:</p>
+                        <input type="url" id="list-image-url" class="form-input url-input" placeholder="https://ejemplo.com/imagen.jpg">
+                        <div class="image-preview" id="list-image-preview"></div>
+                        <p class="helper-text subtle" id="list-image-hint" hidden></p>
+                    </div>
+                </div>
+
                 <hr class="form-divider">
                 <fieldset class="criteria-group">
                     <legend>Criterios de Valoración (Barras)</legend>

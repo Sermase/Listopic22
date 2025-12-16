@@ -251,6 +251,7 @@ ListopicApp.pageIndex = (() => {
         });
 
         const topListsEl = document.getElementById("rail-lists");
+        const topGroupsEl = document.getElementById("rail-top-groups");
         const newListsEl = document.getElementById("rail-new");
         const topUsersEl = document.getElementById("rail-users");
         const hotReviewsEl = document.getElementById("rail-reviews");
@@ -434,10 +435,13 @@ ListopicApp.pageIndex = (() => {
                     });
                     const bestPlace = sorted[0];
                     const thumbUrl = bestPlace?.mainImageUrl || null;
+                    const placeId = bestPlace?.id || bestPlace?.placeId || bestPlace?.googlePlaceId || bestPlace?.place_id || null;
+                    const placeName = typeof bestPlace?.name === "string" ? bestPlace.name : "";
+                    const placeCity = typeof bestPlace?.city === "string" ? bestPlace.city : (typeof bestPlace?.locationCity === "string" ? bestPlace.locationCity : "");
                     const topItem = Array.isArray(bestPlace?.topItems) ? bestPlace.topItems[0] : null;
                     const topItemName = typeof topItem?.name === "string" ? topItem.name : "";
                     const topItemScore = typeof topItem?.avgGeneralScore === "number" ? topItem.avgGeneralScore : (typeof bestPlace?.bestItemScore === "number" ? bestPlace.bestItemScore : 0);
-                    return { thumbUrl, topItemName, topItemScore };
+                    return { thumbUrl, topItemName, topItemScore, placeId, placeName, placeCity };
                 } catch (e) {
                     return null;
                 }
@@ -494,7 +498,16 @@ ListopicApp.pageIndex = (() => {
                     const overlayThumbStyle = thumb
                         ? `style="background-image:url('${ui.escapeHtml(thumb)}');"`
                         : `style="background: linear-gradient(135deg, rgba(var(--accent-color-primary-rgb), 0.22), rgba(var(--accent-color-secondary-rgb), 0.18));"`;
-                    const topNamePill = bestGroupName ? `<span class="pill-label pill-label--stat" title="Mejor valorado"><i class="fas fa-crown"></i> ${bestGroupName}</span>` : "";
+                    const bestGroupCityRaw = bestGroup ? (bestGroup.city || bestGroup.locationCity || bestGroup.addressCity || bestGroup.town || bestGroup.locality || "") : "";
+                    const bestGroupCity = bestGroupCityRaw ? ui.escapeHtml(String(bestGroupCityRaw)) : "";
+                    const bestGroupLocationPills = (bestGroupName || bestGroupCity)
+                        ? `
+                            <div class="overlay-tags" aria-label="Ubicacion">
+                                ${bestGroupCity ? `<span class="overlay-pill overlay-pill--city" title="${bestGroupCity}">${bestGroupCity}</span>` : ""}
+                                ${bestGroupName ? `<span class="overlay-pill overlay-pill--place" title="${bestGroupName}">${bestGroupName}</span>` : ""}
+                            </div>
+                        `.trim()
+                        : "";
                     const topScoreBadge = bestGroupScore ? `<span class="pill-chip pill-chip--badge" title="Puntuación">${Number(bestGroupScore).toFixed(1)}</span>` : "";
                     const categoryTop = category ? `<span class="pill-label pill-label--category-top" title="Categoría">${category}</span>` : "";
                     const thumbHtml = `
@@ -503,12 +516,13 @@ ListopicApp.pageIndex = (() => {
                                 ${categoryTop}
                                 ${topScoreBadge}
                             </div>
-                            <div class="overlay-info overlay-info--list">
-                                <h3 class="featured-card__title overlay-title-pill">${name}</h3>
+                            <div class="overlay-info overlay-info--list overlay-info--flush">
+                                <h3 class="overlay-title">${name}</h3>
+                                ${bestGroupLocationPills}
                                 <div class="overlay-pills">
                                     <span class="pill-label pill-label--stat" title="Seguidores"><i class="fas fa-heart"></i> ${followers}</span>
                                     <span class="pill-label pill-label--stat" title="Reseñas"><i class="fas fa-pencil-alt"></i> ${reviews}</span>
-                                    ${topNamePill}
+
                                 </div>
                             </div>
                         </div>`;
@@ -541,6 +555,157 @@ ListopicApp.pageIndex = (() => {
             } catch (e) {
                 console.error("INDEX: Error loading top lists", e);
                 topListsEl.innerHTML = `<p class="error-placeholder">${e.message}</p>`;
+            }
+        }
+
+        async function loadTopGroups() {
+            if (!topGroupsEl) return;
+            try {
+                topGroupsEl.innerHTML = '<p class="loading-placeholder">Cargando mejores grupos...</p>';
+
+                let snap = null;
+                try {
+                    snap = await db.collectionGroup("reviews").orderBy("overallRating", "desc").limit(420).get();
+                } catch (e) {
+                    snap = await db.collectionGroup("reviews").orderBy("createdAt", "desc").limit(420).get();
+                }
+
+                const docs = snap?.docs || [];
+                if (!docs.length) {
+                    topGroupsEl.innerHTML = '<p class="loading-placeholder">Aun no hay reseñas publicas.</p>';
+                    return;
+                }
+
+                const listIds = [...new Set(docs.map((doc) => (doc.data() || {}).listId).filter(Boolean))];
+                let publicLists = new Set();
+                if (listIds.length) {
+                    const listSnaps = await Promise.all(listIds.map((id) => db.collection("lists").doc(id).get().catch(() => null)));
+                    publicLists = new Set(listSnaps.filter((s) => s?.exists && s.data()?.isPublic === true).map((s) => s.id));
+                }
+
+                const filteredDocs = docs.filter((doc) => {
+                    const data = doc.data() || {};
+                    if (data.listId && !publicLists.has(data.listId)) return false;
+                    return true;
+                });
+
+                const enriched = await ui.enrichReviews(filteredDocs.slice(0, 360));
+                const groupsByListPlaceItem = new Map();
+
+                enriched.forEach((r) => {
+                    const listId = r.listId || "";
+                    const placeId = r.placeId || r.place?.id || "";
+                    const itemNameRaw = r.itemName || r.item || r.itemTitle || r.item_label || "";
+                    const itemName = typeof itemNameRaw === "string" ? itemNameRaw.trim() : "";
+                    if (!listId || !placeId || !itemName) return;
+
+                    const ratingNum = typeof r.overallRating === "number"
+                        ? r.overallRating
+                        : (typeof r.avgGeneralScore === "number" ? r.avgGeneralScore : getScore(r));
+                    if (!isFinite(ratingNum) || ratingNum <= 0) return;
+
+                    const itemKey = itemName.toLowerCase();
+                    const key = `${listId}||${placeId}||${itemKey}`;
+                    const prev = groupsByListPlaceItem.get(key);
+                    const thumbCandidate = r.photoUrl || r.imageUrl || r.placePhotoUrl || r.mainImageUrl || "";
+
+                    if (!prev) {
+                        groupsByListPlaceItem.set(key, {
+                            listId,
+                            listName: r.listName || "",
+                            categoryId: r.categoryId || "",
+                            placeId,
+                            placeName: r.establishmentName || r.place?.name || "",
+                            itemName,
+                            itemKey,
+                            thumbUrl: thumbCandidate || "",
+                            sum: ratingNum,
+                            count: 1
+                        });
+                        return;
+                    }
+
+                    prev.sum += ratingNum;
+                    prev.count += 1;
+                    if (!prev.thumbUrl && thumbCandidate) prev.thumbUrl = thumbCandidate;
+                });
+
+                const groups = [...groupsByListPlaceItem.values()]
+                    .map((g) => ({ ...g, avgScore: g.count ? g.sum / g.count : 0 }))
+                    .filter((g) => isFinite(g.avgScore) && g.avgScore > 0);
+
+                const scoped = groups
+                    .filter((g) => passMood(g.avgScore || 0, currentMood))
+                    .filter((g) => {
+                        if (selectedCategoryIds.size === 0) return true;
+                        const cat = typeof g?.categoryId === "string" ? g.categoryId.trim() : "";
+                        return cat && selectedCategoryIds.has(cat);
+                    });
+
+                if (!scoped.length) {
+                    topGroupsEl.innerHTML = '<p class="loading-placeholder">No hay grupos para estas categorías.</p>';
+                    return;
+                }
+
+                const byPlaceAndItem = new Map();
+                scoped.forEach((g) => {
+                    const key = `${g.placeId}||${g.itemKey}`;
+                    const prev = byPlaceAndItem.get(key);
+                    if (!prev) return void byPlaceAndItem.set(key, g);
+                    if ((g.avgScore || 0) > (prev.avgScore || 0)) return void byPlaceAndItem.set(key, g);
+                    if ((g.avgScore || 0) === (prev.avgScore || 0) && (g.count || 0) > (prev.count || 0)) return void byPlaceAndItem.set(key, g);
+                });
+
+                const finalItems = [...byPlaceAndItem.values()]
+                    .sort((a, b) => (b.avgScore || 0) - (a.avgScore || 0) || (b.count || 0) - (a.count || 0))
+                    .slice(0, 12);
+
+                topGroupsEl.innerHTML = finalItems
+                    .map((g) => {
+                        const title = ui.escapeHtml(g.itemName || "Plato");
+                        const placeName = ui.escapeHtml(g.placeName || "Lugar");
+                        const listName = ui.escapeHtml(g.listName || "");
+
+                        const ratingNum = typeof g.avgScore === "number" ? g.avgScore : 0;
+                        const rating = ratingNum ? ratingNum.toFixed(1) : "-";
+                        const scoreBg = ratingNum ? ui.getRatingHexColor(ratingNum) : "";
+                        const scoreFg = ratingNum >= 6 && ratingNum < 8 ? "#1b2130" : "#ffffff";
+                        const ratingBadge = `<span class="pill-chip pill-chip--badge" ${scoreBg ? `style="--score-bg:${ui.escapeHtml(scoreBg)};--score-fg:${scoreFg};"` : ""} title="Valoracion">${rating}</span>`;
+
+                        const groupedLink = ui?.buildGroupedDetailUrl
+                            ? ui.buildGroupedDetailUrl({
+                                  listId: g.listId || "",
+                                  placeId: g.placeId || "",
+                                  itemName: g.itemName || ""
+                              })
+                            : (g.listId ? `list-view.html?listId=${g.listId}` : "search.html");
+
+                        const img = g.thumbUrl || "";
+                        const thumbStyle = img
+                            ? `style="background-image:url('${ui.escapeHtml(img)}');"`
+                            : `style="background: rgba(var(--accent-color-primary-rgb, 92, 124, 250), 0.12);"`;
+
+                        return `
+                            <article class="review-card carousel-card carousel-card--review carousel-card--top-group">
+                                <a href="${ui.escapeHtml(groupedLink)}">
+                                    <div class="review-thumb overlay-thumb" ${thumbStyle}>
+                                        <div class="overlay-top overlay-top--tr overlay-top--review">
+                                            ${ratingBadge}
+                                        </div>
+                                        <div class="overlay-info overlay-info--review overlay-info--flush">
+                                            <h3 class="overlay-title" title="${title}">${title}</h3>
+                                            ${placeName ? `<p class="overlay-sub overlay-sub--place" title="${placeName}"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> <span>${placeName}</span></p>` : ""}
+                                            ${listName ? `<p class="overlay-sub overlay-sub--place" title="${listName}"><i class="fas fa-list-ul" aria-hidden="true"></i> <span>${listName}</span></p>` : ""}
+                                        </div>
+                                    </div>
+                                </a>
+                            </article>
+                        `;
+                    })
+                    .join("");
+            } catch (e) {
+                console.error("INDEX: Error loading top groups", e);
+                topGroupsEl.innerHTML = `<p class="error-placeholder">${e.message}</p>`;
             }
         }
 
@@ -621,7 +786,16 @@ ListopicApp.pageIndex = (() => {
                 const places = snap.docs
                     .map((d) => {
                         const p = d.data() || {};
-                        return { id: d.id, name: p.name || "Lugar", mainImageUrl: p.mainImageUrl || null, averageRating: typeof p.averageRating === "number" ? p.averageRating : 0, reviewsCount: p.reviewsCount || 0, location: p.location };
+                        return {
+                            id: d.id,
+                            name: p.name || "Lugar",
+                            city: p.city || p.locationCity || p.addressCity || p.town || p.locality || "",
+                            province: p.province || "",
+                            mainImageUrl: p.mainImageUrl || null,
+                            averageRating: typeof p.averageRating === "number" ? p.averageRating : 0,
+                            reviewsCount: p.reviewsCount || 0,
+                            location: p.location
+                        };
                     })
                     .filter((p) => passMood(p.averageRating || 0, currentMood))
                     .filter((p) => {
@@ -638,20 +812,21 @@ ListopicApp.pageIndex = (() => {
                         const scoreBg = ratingNum ? ui.getRatingHexColor(ratingNum) : "";
                         const scoreFg = ratingNum >= 6 && ratingNum < 8 ? "#1b2130" : "#ffffff";
                         const ratingBadge = `<span class="pill-chip pill-chip--badge" ${scoreBg ? `style="--score-bg:${ui.escapeHtml(scoreBg)};--score-fg:${scoreFg};"` : ""} title="Valoración">${rating}</span>`;
+                        const reviewsBadge = `<span class="overlay-top-count" title="Resenas"><i class="fas fa-comment-dots" aria-hidden="true"></i> ${p.reviewsCount}</span>`;
+                        const city = ui.escapeHtml((p.city || "").trim());
                         const thumb = p.mainImageUrl ? `style="background-image:url('${ui.escapeHtml(p.mainImageUrl)}');"` : "";
                         return `
                             <article class="featured-card place-card carousel-card carousel-card--place">
                                 <span class="rank-badge">#${idx + 1}</span>
                                 <a href="place-detail.html?placeId=${p.id}">
                                     <div class="featured-thumb overlay-thumb" ${thumb}>
-                                        <div class="overlay-top overlay-top--tr">
+                                        <div class="overlay-top overlay-top--tr overlay-top--stack">
                                             ${ratingBadge}
+                                            ${reviewsBadge}
                                         </div>
                                         <div class="overlay-info">
-                                            <h3 class="featured-card__title"><i class="fas fa-map-marker-alt"></i> ${ui.escapeHtml(p.name)}</h3>
-                                            <div class="meta">
-                                                <span class="pill-label"><i class="fas fa-comment-dots"></i> ${p.reviewsCount}</span>
-                                            </div>
+                                            <h3 class="overlay-title" title="${ui.escapeHtml(p.name)}">${ui.escapeHtml(p.name)}</h3>
+                                            ${city ? `<p class="overlay-sub overlay-sub--city" title="${city}"><i class="fas fa-city" aria-hidden="true"></i> <span>${city}</span></p>` : ""}
                                         </div>
                                     </div>
                              </a>
@@ -697,8 +872,10 @@ ListopicApp.pageIndex = (() => {
              hotReviewsEl.innerHTML = finalItems
                  .map((r) => {
                      const title = ui.escapeHtml(r.itemName || r.establishmentName || "Resena");
-                     const listName = ui.escapeHtml(r.listName || "");
-                     const placeName = ui.escapeHtml(r.establishmentName || "");
+                     const placeName = ui.escapeHtml(r.place?.name || r.establishmentName || "");
+                     const placeCity = ui.escapeHtml(r.place?.city || "");
+                     const authorName = ui.escapeHtml(r.author?.name || "Usuario");
+                     const authorPhotoUrl = ui.escapeHtml(r.author?.photoUrl || "img/placeholder-avatar.png");
                      const ratingNum = typeof r.overallRating === "number" ? r.overallRating : 0;
                      const rating = ratingNum ? ratingNum.toFixed(1) : "-";
                      const scoreBg = ratingNum ? ui.getRatingHexColor(ratingNum) : "";
@@ -720,18 +897,24 @@ ListopicApp.pageIndex = (() => {
                      return `
                          <article class="review-card carousel-card carousel-card--review">
                              <a href="${ui.escapeHtml(groupedLink)}">
-                                  <div class="review-thumb overlay-thumb" ${thumbStyle}>
-                                      <div class="overlay-top overlay-top--tr overlay-top--review">
-                                          ${ratingBadge}
-                                      </div>
-                                      <div class="overlay-info overlay-info--review">
-                                          <h3 class="overlay-title">${title}</h3>
-                                          ${placeName ? `<p class="overlay-sub"><i class="fas fa-map-marker-alt"></i> ${placeName}</p>` : ""}
-                                          ${listName ? `<p class="overlay-sub"><i class="fas fa-list"></i> ${listName}</p>` : ""}
-                                     </div>
-                                 </div>
-                             </a>
-                         </article>
+                                   <div class="review-thumb overlay-thumb" ${thumbStyle}>
+                                       <div class="overlay-top overlay-top--review overlay-top--author" title="${authorName}">
+                                           <span class="overlay-author-chip">
+                                               <img class="overlay-avatar" src="${authorPhotoUrl}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='img/placeholder-avatar.png';">
+                                               <span class="overlay-author-chip__name">${authorName}</span>
+                                           </span>
+                                       </div>
+                                       <div class="overlay-top overlay-top--tr overlay-top--review">
+                                           ${ratingBadge}
+                                       </div>
+                                        <div class="overlay-info overlay-info--review overlay-info--flush">
+                                            <h3 class="overlay-title">${title}</h3>
+                                            ${placeName ? `<p class="overlay-sub overlay-sub--place" title="${placeName}"><i class="fas fa-map-marker-alt"></i> <span>${placeName}</span></p>` : ""}
+                                            ${placeCity ? `<p class="overlay-sub overlay-sub--city" title="${placeCity}"><i class="fas fa-city"></i> <span>${placeCity}</span></p>` : ""}
+                                       </div>
+                                  </div>
+                              </a>
+                          </article>
                      `;
                      })
                      .join("");
@@ -743,7 +926,7 @@ ListopicApp.pageIndex = (() => {
 
         async function refreshRails() {
             tagCounter.clear();
-            await Promise.all([loadTopLists(), loadNewLists(), loadTopUsers(), loadTopPlaces(), loadHotReviews()]);
+            await Promise.all([loadTopLists(), loadTopGroups(), loadTopUsers(), loadTopPlaces(), loadHotReviews(), loadNewLists()]);
             if (trendingTagsEl) {
                 const sorted = [...tagCounter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
                 trendingTagsEl.innerHTML = sorted
