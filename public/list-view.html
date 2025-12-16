@@ -177,6 +177,19 @@
                 <div class="search-filter-container">
                     <div class="search-filter-row">
                         <input type="search" placeholder="Buscar en la lista..." class="search-input form-input">
+                        <div class="distance-filter" aria-label="Filtro de distancia">
+                            <label for="list-distance-select" class="distance-filter__label">Distancia</label>
+                            <select id="list-distance-select" class="distance-filter__select" aria-label="Distancia maxima">
+                                <option value="0">Sin rango</option>
+                                <option value="1">1 km</option>
+                                <option value="2">2 km</option>
+                                <option value="5">5 km</option>
+                                <option value="10">10 km</option>
+                                <option value="20">20 km</option>
+                                <option value="50">50 km</option>
+                                <option value="100">100 km</option>
+                            </select>
+                        </div>
                         <button
                             type="button"
                             id="show-filters-modal-btn"

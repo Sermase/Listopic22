@@ -262,15 +262,17 @@ ListopicApp.pageIndex = (() => {
         const feed = document.getElementById("feed-container");
         const tagCounter = new Map();
         let currentMood = "all";
-        let currentCategoryId = "";
+        const selectedCategoryIds = new Set();
+        let followingFeedController = null;
 
         if (moodFiltersEl) {
             moodFiltersEl.querySelectorAll(".mood-chip").forEach((chip) => {
-                chip.addEventListener("click", () => {
+                chip.addEventListener("click", async () => {
                     moodFiltersEl.querySelectorAll(".mood-chip").forEach((c) => c.classList.remove("active"));
                     chip.classList.add("active");
                     currentMood = chip.dataset.mood || "all";
-                    refreshRails();
+                    await refreshRails();
+                    await refreshFollowingFeed();
                 });
             });
         }
@@ -307,15 +309,25 @@ ListopicApp.pageIndex = (() => {
             const addChip = (id, label) => {
                 const btn = document.createElement("button");
                 btn.type = "button";
-                btn.className = `pill-chip explore-filter-chip${id === currentCategoryId ? " active" : ""}`;
+                const isActive = id ? selectedCategoryIds.has(id) : selectedCategoryIds.size === 0;
+                btn.className = `pill-chip explore-filter-chip${isActive ? " active" : ""}`;
                 btn.dataset.categoryId = id;
                 btn.textContent = label;
-                btn.addEventListener("click", () => {
-                    currentCategoryId = id;
+                btn.addEventListener("click", async () => {
+                    if (!id) {
+                        selectedCategoryIds.clear();
+                    } else if (selectedCategoryIds.has(id)) {
+                        selectedCategoryIds.delete(id);
+                    } else {
+                        selectedCategoryIds.add(id);
+                    }
                     categoryFiltersEl.querySelectorAll(".explore-filter-chip").forEach((el) => {
-                        el.classList.toggle("active", el.dataset.categoryId === currentCategoryId);
+                        const elId = el.dataset.categoryId || "";
+                        const active = elId ? selectedCategoryIds.has(elId) : selectedCategoryIds.size === 0;
+                        el.classList.toggle("active", active);
                     });
-                    refreshRails();
+                    await refreshRails();
+                    await refreshFollowingFeed();
                 });
                 categoryFiltersEl.appendChild(btn);
             };
@@ -342,7 +354,7 @@ ListopicApp.pageIndex = (() => {
         }
 
         distanceSelectEl &&
-            distanceSelectEl.addEventListener("change", async () => {
+            distanceSelectEl.addEventListener("change", async (ev) => {
                 const raw = (distanceSelectEl.value || "").trim();
                 const km = raw ? parseFloat(raw) : NaN;
                 exploreMaxDistanceKm = isFinite(km) && km > 0 ? km : null;
@@ -360,11 +372,50 @@ ListopicApp.pageIndex = (() => {
                     }
                 }
 
+                try { window.localStorage.setItem("listopic.defaultDistanceKm", String(exploreMaxDistanceKm || 0)); } catch (e) {}
+                if (ev && ev.isTrusted) {
+                    try {
+                        const uid = auth?.currentUser?.uid;
+                        if (uid) {
+                            await db.collection("users").doc(uid).update({
+                                defaultDistanceKm: exploreMaxDistanceKm || 0,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        }
+                    } catch (e) {}
+                }
                 try { syncGlobalMapDistanceFilter(); } catch (e) {}
                 refreshRails();
             });
 
         loadExploreCategories();
+
+        async function initExploreDistanceFromPreference() {
+            if (!distanceSelectEl) return;
+            let preferred = null;
+            try {
+                const raw = window.localStorage.getItem("listopic.defaultDistanceKm");
+                const parsed = raw != null ? parseFloat(raw) : NaN;
+                if (isFinite(parsed)) preferred = parsed;
+            } catch (e) {}
+
+            if (preferred == null) {
+                try {
+                    const uid = auth?.currentUser?.uid;
+                    if (uid) {
+                        const snap = await db.collection("users").doc(uid).get();
+                        const data = snap.exists ? (snap.data() || {}) : {};
+                        if (typeof data.defaultDistanceKm === "number") preferred = data.defaultDistanceKm;
+                    }
+                } catch (e) {}
+            }
+
+            if (preferred == null) preferred = 10;
+            distanceSelectEl.value = preferred > 0 ? String(preferred) : "";
+            distanceSelectEl.dispatchEvent(new Event("change"));
+        }
+
+        initExploreDistanceFromPreference();
 
         async function getListHeroFromPlaces(listId) {
             if (!listId) return null;
@@ -480,7 +531,11 @@ ListopicApp.pageIndex = (() => {
                 const lists = snap.docs
                     .map((d) => ({ id: d.id, ...d.data() }))
                     .filter((l) => passMood(getScore(l), currentMood))
-                    .filter((l) => (currentCategoryId ? (typeof l?.categoryId === "string" && l.categoryId.trim() === currentCategoryId) : true))
+                    .filter((l) => {
+                        if (selectedCategoryIds.size === 0) return true;
+                        const cat = typeof l?.categoryId === "string" ? l.categoryId.trim() : "";
+                        return cat && selectedCategoryIds.has(cat);
+                    })
                     .slice(0, 12);
                 await renderListCards(topListsEl, lists, { showRank: true });
             } catch (e) {
@@ -496,7 +551,11 @@ ListopicApp.pageIndex = (() => {
                 const lists = snap.docs
                     .map((d) => ({ id: d.id, ...d.data() }))
                     .filter((l) => passMood(getScore(l), currentMood))
-                    .filter((l) => (currentCategoryId ? (typeof l?.categoryId === "string" && l.categoryId.trim() === currentCategoryId) : true))
+                    .filter((l) => {
+                        if (selectedCategoryIds.size === 0) return true;
+                        const cat = typeof l?.categoryId === "string" ? l.categoryId.trim() : "";
+                        return cat && selectedCategoryIds.has(cat);
+                    })
                     .slice(0, 12);
                 await renderListCards(newListsEl, lists, { showRank: true });
             } catch (e) {
@@ -609,7 +668,7 @@ ListopicApp.pageIndex = (() => {
         async function loadHotReviews() {
             if (!hotReviewsEl) return;
             try {
-                const snap = await db.collectionGroup("reviews").orderBy("createdAt", "desc").limit(20).get();
+                const snap = await db.collectionGroup("reviews").orderBy("createdAt", "desc").limit(60).get();
                 const docs = snap.docs;
                 if (!docs.length) {
                     hotReviewsEl.innerHTML = '<p class="loading-placeholder">Aun no hay resenas publicas.</p>';
@@ -626,8 +685,16 @@ ListopicApp.pageIndex = (() => {
                 if (data.listId && !publicLists.has(data.listId)) return false;
                 return passMood(getScore(data), currentMood);
             });
-            const enriched = await ui.enrichReviews(filteredDocs.slice(0, 12));
-             hotReviewsEl.innerHTML = enriched
+            const enriched = await ui.enrichReviews(filteredDocs.slice(0, 36));
+            const categoryFiltered = selectedCategoryIds.size
+                ? enriched.filter((r) => r?.categoryId && selectedCategoryIds.has(r.categoryId))
+                : enriched;
+            const finalItems = categoryFiltered.slice(0, 12);
+            if (!finalItems.length) {
+                hotReviewsEl.innerHTML = '<p class="loading-placeholder">No hay reseñas para estas categorías.</p>';
+                return;
+            }
+             hotReviewsEl.innerHTML = finalItems
                  .map((r) => {
                      const title = ui.escapeHtml(r.itemName || r.establishmentName || "Resena");
                      const listName = ui.escapeHtml(r.listName || "");
@@ -689,6 +756,111 @@ ListopicApp.pageIndex = (() => {
             updateRailNavVisibility();
         }
 
+        async function refreshFollowingFeed() {
+            if (!feed) return;
+            if (followingFeedController && typeof followingFeedController.destroy === "function") {
+                try { followingFeedController.destroy(); } catch (e) {}
+                followingFeedController = null;
+            }
+
+            try {
+                const currentUid = auth?.currentUser?.uid;
+                if (!currentUid) {
+                    feed.innerHTML = '<p class="loading-placeholder">Inicia sesion para ver novedades.</p>';
+                    return;
+                }
+
+                feed.innerHTML = '<p class="loading-placeholder">Cargando novedades...</p>';
+
+                const followingSnap = await db.collection("users").doc(currentUid).collection("following").limit(200).get();
+                const followedUserIds = [];
+                followingSnap.forEach((doc) => {
+                    const data = doc.data();
+                    if (!data || !data.placeId) followedUserIds.push(doc.id);
+                });
+
+                if (followedUserIds.length === 0) {
+                    feed.innerHTML = '<p class="loading-placeholder">Tu feed esta vacio. Sigue a alguien para ver sus resenas.</p>';
+                    return;
+                }
+
+                const chunks = [];
+                for (let i = 0; i < followedUserIds.length; i += 10) chunks.push(followedUserIds.slice(i, i + 10));
+                const queries = chunks.map((chunk) => db.collectionGroup("reviews").where("userId", "in", chunk).limit(40).get());
+                const results = await Promise.all(queries);
+                let allDocs = [];
+                results.forEach((snap) => allDocs.push(...snap.docs));
+                if (allDocs.length === 0) {
+                    feed.innerHTML = '<p class="loading-placeholder">Aun no hay resenas de tus seguidos.</p>';
+                    return;
+                }
+
+                const ts = (doc) => {
+                    const data = typeof doc.data === "function" ? doc.data() || {} : {};
+                    const created = data.createdAt?.toMillis ? data.createdAt.toMillis() : null;
+                    const updated = data.updatedAt?.toMillis ? data.updatedAt.toMillis() : null;
+                    return created ?? updated ?? 0;
+                };
+                allDocs.sort((a, b) => ts(b) - ts(a));
+                let docQueue = allDocs.slice(0, 80);
+
+                try {
+                    const listIds = [...new Set(docQueue.map((doc) => (doc.data()?.listId ? doc.data().listId : null)).filter(Boolean))];
+                    if (listIds.length > 0) {
+                        const listSnaps = await Promise.all(listIds.map((id) => db.collection("lists").doc(id).get().catch(() => null)));
+                        const allowedListIds = new Set(listSnaps.filter((snap) => snap?.exists && snap.data()?.isPublic === true).map((snap) => snap.id));
+                        docQueue = docQueue.filter((doc) => {
+                            const data = doc.data() || {};
+                            return data.listId && allowedListIds.has(data.listId);
+                        });
+                    }
+                } catch (filterError) {
+                    console.warn("INDEX: No se pudieron filtrar listas privadas del feed:", filterError);
+                }
+
+                if (docQueue.length === 0) {
+                    feed.innerHTML = '<p class="loading-placeholder">Tus seguidos todavia no tienen resenas publicas para mostrar.</p>';
+                    return;
+                }
+
+                const buffer = [];
+                followingFeedController = ui.setupLazyReviewList({
+                    container: feed,
+                    batchSize: 5,
+                    emptyMessage: '<p class="loading-placeholder">Aun no hay resenas de tus seguidos.</p>',
+                    loadBatch: async ({ batchSize }) => {
+                        const items = [];
+                        const wantCategoryFilter = selectedCategoryIds.size > 0;
+
+                        while (items.length < batchSize) {
+                            while (items.length < batchSize && buffer.length) {
+                                items.push(buffer.shift());
+                            }
+                            if (items.length >= batchSize) break;
+                            if (docQueue.length === 0) break;
+
+                            const take = Math.min(Math.max(batchSize * 3, 12), docQueue.length);
+                            const batchDocs = docQueue.splice(0, take);
+                            const enriched = await ui.enrichReviews(batchDocs);
+                            const filtered = enriched
+                                .filter((r) => passMood(getScore(r), currentMood))
+                                .filter((r) => !wantCategoryFilter || (r?.categoryId && selectedCategoryIds.has(r.categoryId)));
+                            buffer.push(...filtered);
+                        }
+
+                        while (items.length < batchSize && buffer.length) {
+                            items.push(buffer.shift());
+                        }
+
+                        return { items, hasMore: docQueue.length > 0 || buffer.length > 0 };
+                    }
+                });
+            } catch (e) {
+                console.error("INDEX: Error loading following feed", e);
+                feed.innerHTML = `<p class="error-placeholder">${e.message}</p>`;
+            }
+        }
+
         function setupRailNav() {
             document.querySelectorAll(".rail-nav[data-target]").forEach((nav) => {
                 const targetId = nav.getAttribute("data-target");
@@ -719,79 +891,7 @@ ListopicApp.pageIndex = (() => {
         window.addEventListener("resize", () => updateRailNavVisibility());
 
         await refreshRails();
-
-        // Feed (seguimientos)
-        if (feed) {
-            try {
-                const currentUid = auth?.currentUser?.uid;
-                if (!currentUid) {
-                    feed.innerHTML = '<p class="loading-placeholder">Inicia sesion para ver novedades.</p>';
-                } else {
-                    const followingSnap = await db.collection("users").doc(currentUid).collection("following").limit(200).get();
-                    const followedUserIds = [];
-                    followingSnap.forEach((doc) => {
-                        const data = doc.data();
-                        if (!data || !data.placeId) followedUserIds.push(doc.id);
-                    });
-
-                    if (followedUserIds.length === 0) {
-                        feed.innerHTML = '<p class="loading-placeholder">Tu feed esta vacio. Sigue a alguien para ver sus resenas.</p>';
-                    } else {
-                        const chunks = [];
-                        for (let i = 0; i < followedUserIds.length; i += 10) chunks.push(followedUserIds.slice(i, i + 10));
-                        const queries = chunks.map((chunk) => db.collectionGroup("reviews").where("userId", "in", chunk).limit(20).get());
-                        const results = await Promise.all(queries);
-                        let allDocs = [];
-                        results.forEach((snap) => allDocs.push(...snap.docs));
-                        if (allDocs.length === 0) {
-                            feed.innerHTML = '<p class="loading-placeholder">Aun no hay resenas de tus seguidos.</p>';
-                        } else {
-                            const ts = (doc) => {
-                                const data = typeof doc.data === "function" ? doc.data() || {} : {};
-                                const created = data.createdAt?.toMillis ? data.createdAt.toMillis() : null;
-                                const updated = data.updatedAt?.toMillis ? data.updatedAt.toMillis() : null;
-                                return created ?? updated ?? 0;
-                            };
-                            allDocs.sort((a, b) => ts(b) - ts(a));
-                            let docQueue = allDocs.slice(0, 30);
-                            try {
-                                const listIds = [...new Set(docQueue.map((doc) => (doc.data()?.listId ? doc.data().listId : null)).filter(Boolean))];
-                                if (listIds.length > 0) {
-                                    const listSnaps = await Promise.all(listIds.map((id) => db.collection("lists").doc(id).get().catch(() => null)));
-                                    const allowedListIds = new Set(listSnaps.filter((snap) => snap?.exists && snap.data()?.isPublic === true).map((snap) => snap.id));
-                                    docQueue = docQueue.filter((doc) => {
-                                        const data = doc.data() || {};
-                                        return data.listId && allowedListIds.has(data.listId);
-                                    });
-                                }
-                            } catch (filterError) {
-                                console.warn("INDEX: No se pudieron filtrar listas privadas del feed:", filterError);
-                            }
-
-                            if (docQueue.length === 0) {
-                                feed.innerHTML = '<p class="loading-placeholder">Tus seguidos todavia no tienen resenas publicas para mostrar.</p>';
-                                return;
-                            }
-
-                            ui.setupLazyReviewList({
-                                container: feed,
-                                batchSize: 5,
-                                emptyMessage: '<p class="loading-placeholder">Aun no hay resenas de tus seguidos.</p>',
-                                loadBatch: async ({ batchSize }) => {
-                                    const batchDocs = docQueue.splice(0, batchSize);
-                                    if (batchDocs.length === 0) return { items: [], hasMore: false };
-                                    const enriched = await ui.enrichReviews(batchDocs);
-                                    return { items: enriched, hasMore: docQueue.length > 0 };
-                                }
-                            });
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error("INDEX: Error loading following feed", e);
-                feed.innerHTML = `<p class="error-placeholder">${e.message}</p>`;
-            }
-        }
+        await refreshFollowingFeed();
 
         // Mapa inline
         const mapContainer = document.getElementById("global-map-container");

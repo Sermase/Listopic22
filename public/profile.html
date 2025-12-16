@@ -156,6 +156,9 @@
                         <p id="profile-location-display" class="profile-location" style="display: none;">
                             <i class="fas fa-map-marker-alt"></i> <span>...</span>
                         </p>
+                        <p id="profile-distance-display" class="profile-location">
+                            <i class="fas fa-route"></i> <span>Rango por defecto: 10 km</span>
+                        </p>
                         <p id="profile-bio-display" class="profile-bio">Cargando biograf&iacute;a...</p>
                     </div>
                     <div class="profile-actions">
@@ -235,6 +238,23 @@
                 </div>
 
                 <hr class="form-divider">
+                <h4>Preferencias</h4>
+                <div class="form-group">
+                    <label for="edit-default-distance-km">Distancia por defecto</label>
+                    <select id="edit-default-distance-km" class="form-input" aria-label="Distancia por defecto">
+                        <option value="0">Sin rango</option>
+                        <option value="1">1 km</option>
+                        <option value="2">2 km</option>
+                        <option value="5">5 km</option>
+                        <option value="10">10 km (recomendado)</option>
+                        <option value="20">20 km</option>
+                        <option value="50">50 km</option>
+                        <option value="100">100 km</option>
+                    </select>
+                    <small class="helper-text subtle">Se usa en Explorar y dentro de las listas para filtrar por cercan&iacute;a.</small>
+                </div>
+
+                <hr class="form-divider">
                 <h4>Foto de Perfil</h4>
                 <div class="form-group">
                      <label for="edit-photo-url">URL de la imagen</label>
@@ -289,4 +309,3 @@
     </div>
 </body>
 </html>
-

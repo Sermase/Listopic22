@@ -162,6 +162,7 @@ ListopicApp.services = (() => {
                 followersCount: 0, // Valor inicial
                 followingCount: 0, // Valor inicial
                 badges: [], // Array vacío inicialmente
+                defaultDistanceKm: 10, // Preferencia de rango (km)
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp del servidor
                 dateOfBirth: null, // Nuevo campo, se inicializa como null
                 residence: ""      // Nuevo campo, se inicializa vacío
@@ -212,6 +213,7 @@ ListopicApp.services = (() => {
                     reviewsCount: 0,     // Añadir contador de reseñas
                     commentsCount: 0,    // Añadir contador de comentarios
                     badges: [],
+                    defaultDistanceKm: 10,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     dateOfBirth: null,
                     residence: ""
@@ -220,6 +222,13 @@ ListopicApp.services = (() => {
                 console.log(`[firebaseService] Perfil Firestore creado para UID: ${user.uid}.`);
             } else {
                 console.log(`[firebaseService] Perfil Firestore ya existe para UID: ${user.uid}. No se necesita crear.`);
+                const data = doc.data() || {};
+                if (typeof data.defaultDistanceKm !== "number") {
+                    await userDocRef.update({
+                        defaultDistanceKm: 10,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
                 // Opcional: podrías actualizar displayName o photoUrl si ha cambiado en Auth
                 // await userDocRef.update({
                 //     username: user.displayName || doc.data().username,

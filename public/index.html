@@ -42,10 +42,11 @@
     </header>
 
     <main class="discover-shell">
-        <section class="hero" aria-label="Bienvenida">
-                <h1 class="brand-title">Listopic</h1>
-                <p class="hero-subtitle" id="hero-subtitle">&nbsp;
-                </p>
+        <section class="list-hero-card discover-hero-card" aria-label="Bienvenida">
+            <div class="list-hero-info">
+                <h1 class="discover-hero-title">Listopic</h1>
+                <p class="hero-subtitle" id="hero-subtitle">&nbsp;</p>
+            </div>
         </section>
         <div class="tabs">
             <button class="tab-button active" data-tab="explore">Explorar</button>
@@ -57,8 +58,8 @@
                 <section class="map-strip">
                     <div class="explore-filters" aria-label="Filtros de exploracion">
                         <div class="explore-filters__left">
-                            <div class="explore-filters__label">Categorias</div>
-                            <div id="explore-category-filters" class="explore-filters__chips" role="group" aria-label="Filtrar por categoria"></div>
+                            <div class="explore-filters__label">Categorías</div>
+                            <div id="explore-category-filters" class="explore-filters__chips" role="group" aria-label="Filtrar por categorías"></div>
                         </div>
                         <div class="explore-filters__right">
                             <label class="explore-filters__label" for="explore-distance-select">Distancia</label>
@@ -142,20 +143,7 @@
                     <div id="rail-reviews" class="rail-track review-grid" aria-live="polite"></div>
                 </section>
 
-                <section class="discover-outro" aria-label="Información de Listopic">
-                    <div class="discover-outro__card">
-                        <div class="discover-outro__header">
-                            <h2 class="discover-outro__title">Listopic</h2>
-                            <span class="pill-chip pill-chip--sm discover-outro__pill">Próximamente</span>
-                        </div>
-                        <p class="discover-outro__lead">Aquí iremos poniendo información, tips y novedades del proyecto.</p>
-                        <div class="discover-outro__placeholder">
-                            <div class="discover-outro__line"></div>
-                            <div class="discover-outro__line"></div>
-                            <div class="discover-outro__line short"></div>
-                        </div>
-                    </div>
-                </section>
+                <!-- Info de empresa: ver footer full-width -->
 
             </div>
 
@@ -167,7 +155,52 @@
         </div>
     </main>
 
-    <footer class="discover-footer">Listopic: listas sociales, rankings utiles y mapas vivos.</footer>
+    <footer class="site-footer-band" aria-label="Informacion corporativa (inventada)">
+        <div class="site-footer-band__inner">
+            <div class="site-footer-band__top">
+                <div class="site-footer-band__brand">
+                    <div class="site-footer-band__logo">
+                        <span class="site-footer-band__dot"></span>
+                        <span class="site-footer-band__name">Listopic</span>
+                    </div>
+                    <p class="site-footer-band__tagline">Empresa absolutamente real, con KPI medidos en Hmm por minuto. (Todo esto es inventado.)</p>
+                </div>
+                <div class="site-footer-band__cols" aria-label="Enlaces corporativos inventados">
+                    <div class="site-footer-col">
+                        <h3 class="site-footer-col__title">Contacto</h3>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">contacto@listopic.unicorn</a>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">Soporte 24/7 (siempre que sea martes)</a>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">Departamento de drama (ext. 404)</a>
+                    </div>
+                    <div class="site-footer-col">
+                        <h3 class="site-footer-col__title">Inversores</h3>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">Serie H: ronda de Hmm</a>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">Deck: 95 diapositivas y 0 conclusiones</a>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">ROI estimado: 3 croquetas/usuario</a>
+                    </div>
+                    <div class="site-footer-col">
+                        <h3 class="site-footer-col__title">Trabaja con nosotros</h3>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">Vacante: Catador/a de rankings</a>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">Requisitos: amar las listas (y el caos)</a>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">Beneficios: WiFi y validacion emocional</a>
+                    </div>
+                    <div class="site-footer-col">
+                        <h3 class="site-footer-col__title">Legal (tambien inventado)</h3>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">Cookies: se las come el CEO</a>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">Privacidad: miramos para otro lado</a>
+                        <a class="site-footer-link" href="#" onclick="event.preventDefault();" title="Inventado">Terminos: depende</a>
+                    </div>
+                </div>
+            </div>
+            <div class="site-footer-band__bottom">
+                <span>© <span id="site-footer-year"></span> Listopic</span>
+                <span class="site-footer-band__disclaimer">Todo lo anterior esta claramente inventado.</span>
+            </div>
+        </div>
+        <script>
+            try { document.getElementById('site-footer-year').textContent = new Date().getFullYear(); } catch (e) {}
+        </script>
+    </footer>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>

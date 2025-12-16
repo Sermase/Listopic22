@@ -11,6 +11,10 @@ ListopicApp.pageListView = (() => {
     addReviewButton, editListLink, deleteListButton, showMapModalBtn,
     followListBtn,
     mapModal, closeMapModalBtn, mapContainer, mapFiltersBtn, mapCenterUserBtn, listMapInstance;
+    let listDistanceSelect = null;
+    let distanceFilterKm = 10;
+    let distanceCircle = null;
+    let hasWarnedMissingGeoForDistance = false;
 
     let markersMap = new Map();
     let basePlacesForMap = [];
@@ -227,6 +231,26 @@ ListopicApp.pageListView = (() => {
             });
         }
     }
+
+    async function ensureUserCoordsForDistance({ recenter = false } = {}) {
+        const state = ListopicApp.state || (ListopicApp.state = {});
+        if (typeof state.userLatitude === "number" && typeof state.userLongitude === "number") {
+            return [state.userLatitude, state.userLongitude];
+        }
+        if (!navigator.geolocation) return null;
+        return new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    state.userLatitude = pos.coords.latitude;
+                    state.userLongitude = pos.coords.longitude;
+                    try { setUserLocationMarker(pos.coords.latitude, pos.coords.longitude, { recenter }); } catch (e) {}
+                    resolve([pos.coords.latitude, pos.coords.longitude]);
+                },
+                () => resolve(null),
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
+        });
+    }
     
     function applyFiltersAndSort_ListView_Grouped() {
         let filteredItems = [...ListopicApp.state.allGroupedItems]; 
@@ -244,6 +268,27 @@ ListopicApp.pageListView = (() => {
                 if (!group.groupTags || group.groupTags.length === 0) return false;
                 return [...activeTagFilters].every(filterTag => group.groupTags.includes(filterTag));
             });
+        }
+
+        if (typeof distanceFilterKm === "number" && isFinite(distanceFilterKm) && distanceFilterKm > 0) {
+            const state = ListopicApp.state || {};
+            const lat = typeof state.userLatitude === "number" ? state.userLatitude : NaN;
+            const lng = typeof state.userLongitude === "number" ? state.userLongitude : NaN;
+            if (isFinite(lat) && isFinite(lng) && window.L && typeof L.latLng === "function") {
+                const userLatLng = L.latLng(lat, lng);
+                const maxMeters = distanceFilterKm * 1000;
+                filteredItems = filteredItems.filter(group => {
+                    const placeId = group.placeId;
+                    if (!placeId) return false;
+                    const placeData = extraFiltersState.placeOptionsMap.get(placeId)
+                        || basePlacesForMap.find(p => p && p.id === placeId)
+                        || null;
+                    const loc = placeData && placeData.location ? placeData.location : null;
+                    if (!loc || typeof loc.latitude !== "number" || typeof loc.longitude !== "number") return false;
+                    const dist = userLatLng.distanceTo(L.latLng(loc.latitude, loc.longitude));
+                    return dist <= maxMeters;
+                });
+            }
         }
 
         filteredItems.sort((a, b) => {
@@ -317,6 +362,7 @@ ListopicApp.pageListView = (() => {
 
         // El resto de la función se mantiene igual (geolocalización, etc.)
         recenterMapToUser({ silent: true });
+        try { syncListMapDistanceCircle(); } catch (e) {}
 
         fetchPlacesForCurrentList();
 
@@ -345,16 +391,55 @@ ListopicApp.pageListView = (() => {
         if (!listMapInstance || typeof lat !== 'number' || typeof lng !== 'number') return;
         const { recenter = false } = options;
         const userLatLng = [lat, lng];
+        try {
+            const state = ListopicApp.state || (ListopicApp.state = {});
+            state.userLatitude = lat;
+            state.userLongitude = lng;
+        } catch (e) {}
         if (!userLocationMarker) {
             const userIcon = L.divIcon({ html: userLocationIconSvg, className: '', iconSize: [48, 48], iconAnchor: [24, 24] });
             userLocationMarker = L.marker(userLatLng, { icon: userIcon }).addTo(listMapInstance).bindPopup('¡Estás aquí!');
         } else {
             userLocationMarker.setLatLng(userLatLng);
         }
+        try { syncListMapDistanceCircle(); } catch (e) {}
         if (recenter) {
             const currentZoom = listMapInstance.getZoom();
             const targetZoom = currentZoom < 13 ? 13 : currentZoom;
             listMapInstance.setView(userLatLng, targetZoom);
+        }
+    }
+
+    function syncListMapDistanceCircle() {
+        if (!listMapInstance || !window.L) return;
+        const state = ListopicApp.state || {};
+        const lat = typeof state.userLatitude === "number" ? state.userLatitude : NaN;
+        const lng = typeof state.userLongitude === "number" ? state.userLongitude : NaN;
+        const hasRange = typeof distanceFilterKm === "number" && isFinite(distanceFilterKm) && distanceFilterKm > 0;
+        const hasUser = isFinite(lat) && isFinite(lng);
+
+        if (!hasRange || !hasUser) {
+            if (distanceCircle) {
+                try { listMapInstance.removeLayer(distanceCircle); } catch (e) {}
+                distanceCircle = null;
+            }
+            return;
+        }
+
+        const radius = distanceFilterKm * 1000;
+        const center = L.latLng(lat, lng);
+        if (!distanceCircle) {
+            distanceCircle = L.circle(center, {
+                radius,
+                color: "rgba(92, 124, 250, 0.75)",
+                weight: 2,
+                fillColor: "rgba(124, 58, 237, 0.22)",
+                fillOpacity: 0.22
+            }).addTo(listMapInstance);
+        } else {
+            distanceCircle.setLatLng(center);
+            distanceCircle.setRadius(radius);
+            if (!listMapInstance.hasLayer(distanceCircle)) distanceCircle.addTo(listMapInstance);
         }
     }
 
@@ -745,6 +830,7 @@ closeMapModalBtn = document.getElementById('close-map-modal-btn');
 mapContainer = document.getElementById('list-map-container');
 mapFiltersBtn = document.getElementById('map-filters-btn');
 mapCenterUserBtn = document.getElementById('map-center-user-btn');
+listDistanceSelect = document.getElementById('list-distance-select');
 
 // Reinicio de estado de la página (se mantiene igual)
 state.allGroupedItems = []; 
@@ -755,6 +841,80 @@ currentSortDirection = 'desc';
 
 const urlParamsList = new URLSearchParams(window.location.search);
 state.currentListId = urlParamsList.get('listId'); 
+
+async function initDistanceFilterFromPreference() {
+    let preferred = null;
+    try {
+        const raw = window.localStorage.getItem("listopic.defaultDistanceKm");
+        const parsed = raw != null ? parseFloat(raw) : NaN;
+        if (isFinite(parsed)) preferred = parsed;
+    } catch (e) {}
+
+    if (preferred == null) {
+        try {
+            const uid = ListopicApp.services?.auth?.currentUser?.uid;
+            const db = ListopicApp.services?.db;
+            if (uid && db) {
+                const snap = await db.collection("users").doc(uid).get();
+                const data = snap.exists ? (snap.data() || {}) : {};
+                if (typeof data.defaultDistanceKm === "number") preferred = data.defaultDistanceKm;
+            }
+        } catch (e) {}
+    }
+
+    if (preferred == null) preferred = 10;
+    distanceFilterKm = isFinite(preferred) ? preferred : 10;
+    if (listDistanceSelect) listDistanceSelect.value = String(distanceFilterKm || 0);
+
+    if (distanceFilterKm > 0) {
+        const loc = await ensureUserCoordsForDistance({ recenter: false });
+        if (!loc) {
+            distanceFilterKm = 0;
+            if (listDistanceSelect) listDistanceSelect.value = "0";
+        }
+    }
+
+    try { syncListMapDistanceCircle(); } catch (e) {}
+    try { applyFiltersAndSort_ListView_Grouped(); } catch (e) {}
+}
+
+listDistanceSelect &&
+    listDistanceSelect.addEventListener("change", async (ev) => {
+        const raw = (listDistanceSelect.value || "").trim();
+        const km = raw ? parseFloat(raw) : NaN;
+        distanceFilterKm = isFinite(km) && km > 0 ? km : 0;
+        hasWarnedMissingGeoForDistance = false;
+
+        if (distanceFilterKm > 0) {
+            const loc = await ensureUserCoordsForDistance({ recenter: false });
+            if (!loc) {
+                distanceFilterKm = 0;
+                listDistanceSelect.value = "0";
+                if (!hasWarnedMissingGeoForDistance) {
+                    hasWarnedMissingGeoForDistance = true;
+                    ListopicApp.services?.showNotification?.("Activa tu ubicacion para filtrar por distancia.", "warn");
+                }
+            }
+        }
+
+        try { window.localStorage.setItem("listopic.defaultDistanceKm", String(distanceFilterKm || 0)); } catch (e) {}
+        if (ev && ev.isTrusted) {
+            try {
+                const uid = ListopicApp.services?.auth?.currentUser?.uid;
+                const db = ListopicApp.services?.db;
+                if (uid && db) {
+                    await db.collection("users").doc(uid).update({
+                        defaultDistanceKm: distanceFilterKm || 0,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            } catch (e) {}
+        }
+        try { syncListMapDistanceCircle(); } catch (e) {}
+        applyFiltersAndSort_ListView_Grouped();
+    });
+
+initDistanceFilterFromPreference();
 
 async function applyCategoryLabel(categoryId) {
     const ui = ListopicApp.uiUtils;
@@ -1048,5 +1208,3 @@ window.addEventListener('popstate', () => {
         init
     };
 })();
-
-

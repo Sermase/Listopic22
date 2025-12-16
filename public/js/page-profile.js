@@ -10,6 +10,7 @@ ListopicApp.pageProfile = {
         usernameDisplayElement: null,
         bioDisplayElement: null,
         locationDisplayElement: null,
+        distanceDisplayElement: null,
         // --- NUEVOS ELEMENTOS PARA ESTADï¿½STICAS ---
         listsCountElement: null,
         reviewsCountElement: null,
@@ -40,6 +41,7 @@ ListopicApp.pageProfile = {
         editPhotoUrlInput: null,
         editPhotoFileInput: null,
         editPhotoPreview: null,
+        editDefaultDistanceSelect: null,
 
     // --- Connections modal elements ---
     connectionsModal: null,
@@ -94,6 +96,7 @@ ListopicApp.pageProfile = {
         this.elements.usernameDisplayElement = document.getElementById('profile-username-display');
         this.elements.bioDisplayElement = document.getElementById('profile-bio-display');
         this.elements.locationDisplayElement = document.getElementById('profile-location-display');
+        this.elements.distanceDisplayElement = document.getElementById('profile-distance-display');
         
         this.elements.listsToggleMain = document.getElementById('lists-toggle-main');
         this.elements.myListsUl = document.getElementById('my-lists-ul');
@@ -126,6 +129,7 @@ ListopicApp.pageProfile = {
         this.elements.editPhotoUrlInput = document.getElementById('edit-photo-url');
         this.elements.editPhotoFileInput = document.getElementById('edit-photo-file');
         this.elements.editPhotoPreview = document.getElementById('edit-photo-preview');
+        this.elements.editDefaultDistanceSelect = document.getElementById('edit-default-distance-km');
         this.elements.logoutButton = document.getElementById('logout-button');
     
         // Dentro de cacheDOMElements en ListopicApp.pageProfile
@@ -403,6 +407,11 @@ ListopicApp.pageProfile = {
                 this.elements.locationDisplayElement.style.display = 'none';
             }
         }
+        if (this.elements.distanceDisplayElement) {
+            const km = typeof this.profileData.defaultDistanceKm === "number" ? this.profileData.defaultDistanceKm : 10;
+            const label = km > 0 ? `${km} km` : "Sin rango";
+            this.elements.distanceDisplayElement.querySelector("span").textContent = `Rango por defecto: ${label}`;
+        }
         if (this.elements.profilePhotoDisplay) {
             this.elements.profilePhotoDisplay.src = photoUrl || 'img/default-avatar.png';
         }
@@ -421,6 +430,8 @@ ListopicApp.pageProfile = {
         this.elements.editSurnamesInput.value = this.profileData.surnames || '';
         this.elements.editLocationInput.value = this.profileData.location || '';
         this.elements.editBioInput.value = this.profileData.bio || '';
+        const distanceValue = typeof this.profileData.defaultDistanceKm === "number" ? this.profileData.defaultDistanceKm : 10;
+        if (this.elements.editDefaultDistanceSelect) this.elements.editDefaultDistanceSelect.value = String(distanceValue);
         this.elements.editPhotoUrlInput.value = this.profileData.photoUrl || '';
         this.showImagePreview(this.profileData.photoUrl);
         this.selectedPhotoFile = null;
@@ -482,6 +493,11 @@ ListopicApp.pageProfile = {
                 location: this.elements.editLocationInput.value.trim(),
                 bio: this.elements.editBioInput.value.trim(),
                 photoUrl: newPhotoURL,
+                defaultDistanceKm: (() => {
+                    const raw = (this.elements.editDefaultDistanceSelect?.value || "").trim();
+                    const num = raw ? parseFloat(raw) : NaN;
+                    return isFinite(num) ? num : 10;
+                })(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Buena práctica
             };
             
@@ -492,6 +508,7 @@ ListopicApp.pageProfile = {
 
             await db.collection('users').doc(this.currentUser.uid).update(updatesForFirestore);
             await auth.currentUser.updateProfile(updatesForAuth);
+            try { window.localStorage.setItem('listopic.defaultDistanceKm', String(updatesForFirestore.defaultDistanceKm)); } catch (e) {}
             
             this.displayModalMessage("Perfil actualizado con éxito.", false);
             
@@ -650,12 +667,6 @@ ListopicApp.pageProfile = {
 };
 
 console.log("page-profile.js: Script PARSEADO y EJECUTADO exitosamente.");
-
-
-
-
-
-
 
 
 
