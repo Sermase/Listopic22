@@ -10916,7 +10916,7 @@ body.light-theme .leaflet-popup-tip {
 .tabs {
     display: inline-flex;
     gap: 6px;
-    margin: 18px 0 26px;
+    margin: 8px 0 6px;
     justify-content: center;
     background: rgba(var(--primary-bg-rgb-values), 0.6);
     border: 1px solid var(--border-color);
@@ -10968,9 +10968,9 @@ body.light-theme .leaflet-popup-tip {
     align-items: center;
     text-align: center;
     gap: 12px;
-    margin: 0 auto 14px;
-    padding: 30px 32px;
-    max-width: 1180px;
+    margin: 0 auto 10px;
+    padding: 20px 24px;
+    max-width: 1080px;
     background: linear-gradient(135deg, rgba(var(--accent-color-primary-rgb), 0.12), rgba(var(--accent-color-secondary-rgb), 0.08)), var(--container-bg);
     border: 1px solid var(--border-color);
     border-radius: calc(var(--border-radius-large) + 4px);
@@ -14778,7 +14778,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 .discover-shell {
     max-width: 1320px;
     margin: 0 auto;
-    padding: calc(var(--header-height, 72px) + 4px) 18px 110px;
+    padding: 18px 14px;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -14915,7 +14915,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 .discover-page .tabs {
     display: inline-flex;
     gap: 6px;
-    margin: 18px 0 26px;
+    margin: 8px 0 6px;
     justify-content: center;
     width: fit-content;
     align-self: center;
@@ -14947,75 +14947,6 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 }
 
 .tab-panels { width: 100%; }
-
-.discover-page .discover-hero-card {
-    width: min(980px, 92vw);
-    margin: 0 auto 6px;
-    position: relative;
-    overflow: hidden;
-    text-align: center;
-    backdrop-filter: blur(10px);
-    border-radius: 22px;
-}
-
-.discover-page .discover-hero-card::before {
-    content: '';
-    position: absolute;
-    inset: -60px;
-    background:
-        radial-gradient(circle at 20% 30%, rgba(124, 58, 237, 0.35), transparent 58%),
-        radial-gradient(circle at 78% 55%, rgba(236, 72, 153, 0.25), transparent 60%),
-        radial-gradient(circle at 50% 110%, rgba(92, 124, 250, 0.22), transparent 60%);
-    filter: blur(12px);
-    opacity: 0.95;
-    pointer-events: none;
-}
-
-.discover-page .discover-hero-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.06), transparent 48%);
-    opacity: 0.6;
-    pointer-events: none;
-}
-
-.discover-page .discover-hero-card > * {
-    position: relative;
-    z-index: 1;
-}
-
-.discover-page .discover-hero-card .list-hero-info {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 10px;
-}
-
-.discover-page .discover-hero-title {
-    margin: 0;
-    font-size: clamp(2rem, 5vw, 2.9rem);
-    letter-spacing: 0.02em;
-    text-align: center;
-    font-weight: 800;
-    background: linear-gradient(120deg, rgba(var(--accent-color-primary-rgb), 0.95), rgba(var(--accent-color-secondary-rgb), 0.9));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-transform: uppercase;
-}
-
-.discover-page .discover-hero-card .hero-subtitle {
-    margin: 0;
-    max-width: 820px;
-    text-align: center;
-    text-transform: none;
-    letter-spacing: 0.01em;
-    font-size: 1.02rem;
-    min-height: 1.6em;
-}
 
 .content-rail {
     background: rgba(255, 255, 255, 0.02);
@@ -15787,7 +15718,7 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
 .message-area.success { background: rgba(6, 214, 160, 0.12); border: 1px solid rgba(6, 214, 160, 0.4); color: var(--accent-color-secondary, #06D6A0); }
 
 @media (max-width: 1024px) {
-    .discover-shell { padding: calc(var(--header-height, 72px) + 8px) 14px 90px; }
+    .discover-shell { padding: 14px 14px; }
     .hero-slab { grid-template-columns: 1fr; }
     #global-map-container { height: 300px; }
 }
@@ -15916,7 +15847,6 @@ body.light-theme .archive-section.is-open .archive-section__toggle-icon {
     justify-content: center;
     align-items: center;
     gap: 10px;
-    width: 100%;
 }
 
 .tab-content#following.active {
