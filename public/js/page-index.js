@@ -52,8 +52,11 @@ ListopicApp.pageIndex = (() => {
     }
 
     function setGlobalUserLocationMarker(lat, lng, { recenter = false } = {}) {
-        if (!globalMapInstance || !isFinite(lat) || !isFinite(lng)) return;
+        if (!isFinite(lat) || !isFinite(lng)) return;
         const coords = [lat, lng];
+        lastKnownGlobalUserLatLng = coords;
+        if (!globalMapInstance || !window.L) return;
+
         const userIcon = L.divIcon({ html: userLocationIconSvg, className: "", iconSize: [48, 48], iconAnchor: [24, 24] });
         if (!globalUserLocationMarker) {
             globalUserLocationMarker = L.marker(coords, { icon: userIcon }).addTo(globalMapInstance).bindPopup("Estas aqui");
@@ -61,7 +64,6 @@ ListopicApp.pageIndex = (() => {
             globalUserLocationMarker.setLatLng(coords);
             globalUserLocationMarker.setIcon(userIcon);
         }
-        lastKnownGlobalUserLatLng = coords;
         try { syncGlobalMapDistanceFilter(); } catch (e) {}
         if (recenter) {
             const currentZoom = globalMapInstance.getZoom ? globalMapInstance.getZoom() : 13;
@@ -252,6 +254,7 @@ ListopicApp.pageIndex = (() => {
 
         const topListsEl = document.getElementById("rail-lists");
         const topGroupsEl = document.getElementById("rail-top-groups");
+        const topGroupsTitleEl = document.getElementById("rail-top-groups-title");
         const newListsEl = document.getElementById("rail-new");
         const topUsersEl = document.getElementById("rail-users");
         const hotReviewsEl = document.getElementById("rail-reviews");
@@ -279,13 +282,15 @@ ListopicApp.pageIndex = (() => {
         }
 
         async function ensureUserLocation({ recenter = false } = {}) {
-            if (Array.isArray(lastKnownGlobalUserLatLng) && lastKnownGlobalUserLatLng.length === 2) return lastKnownGlobalUserLatLng;
+            if (Array.isArray(lastKnownGlobalUserLatLng) && lastKnownGlobalUserLatLng.length === 2) {
+                try { return window.L ? L.latLng(lastKnownGlobalUserLatLng[0], lastKnownGlobalUserLatLng[1]) : lastKnownGlobalUserLatLng; } catch (e) { return lastKnownGlobalUserLatLng; }
+            }
             if (!navigator.geolocation) return null;
             return new Promise((resolve) => {
                 navigator.geolocation.getCurrentPosition(
                     (pos) => {
                         setGlobalUserLocationMarker(pos.coords.latitude, pos.coords.longitude, { recenter });
-                        resolve([pos.coords.latitude, pos.coords.longitude]);
+                        try { resolve(window.L ? L.latLng(pos.coords.latitude, pos.coords.longitude) : [pos.coords.latitude, pos.coords.longitude]); } catch (e) { resolve([pos.coords.latitude, pos.coords.longitude]); }
                     },
                     () => resolve(null),
                     { enableHighAccuracy: true, timeout: 8000 }
@@ -327,6 +332,7 @@ ListopicApp.pageIndex = (() => {
                         const active = elId ? selectedCategoryIds.has(elId) : selectedCategoryIds.size === 0;
                         el.classList.toggle("active", active);
                     });
+                    updateTopGroupsHeading();
                     await refreshRails();
                     await refreshFollowingFeed();
                 });
@@ -335,6 +341,36 @@ ListopicApp.pageIndex = (() => {
 
             addChip("", "Todo");
             entries.forEach((e) => addChip(e.id, e.label || e.id));
+        }
+
+        function updateTopGroupsHeading() {
+            if (!topGroupsTitleEl) return;
+            const selected = [...selectedCategoryIds].filter(Boolean);
+            if (selected.length === 0) {
+                topGroupsTitleEl.textContent = "Mejor en Lispotic";
+                return;
+            }
+            if (selected.length > 1) {
+                topGroupsTitleEl.textContent = "Mejor Selección";
+                return;
+            }
+
+            const onlyId = selected[0];
+            const cache = ui?.getCategoryCache ? ui.getCategoryCache() : {};
+            const labelRaw = ui?.getCategoryLabel
+                ? ui.getCategoryLabel(onlyId, (cache[onlyId] && (cache[onlyId].name || cache[onlyId].title)) || onlyId)
+                : onlyId;
+            const label = (labelRaw || "").trim();
+            const lower = label.toLowerCase();
+            if (lower.includes("hmm")) {
+                topGroupsTitleEl.textContent = "Mejor en Hmm...";
+                return;
+            }
+            if (lower.includes("woow") || lower.includes("wow")) {
+                topGroupsTitleEl.textContent = "Mejor en Woow!";
+                return;
+            }
+            topGroupsTitleEl.textContent = `Mejor en ${label}`;
         }
 
         async function loadExploreCategories() {
@@ -349,8 +385,10 @@ ListopicApp.pageIndex = (() => {
                     return doc.id;
                 });
                 renderCategoryChips(categoryIds);
+                updateTopGroupsHeading();
             } catch (e) {
                 renderCategoryChips([]);
+                updateTopGroupsHeading();
             }
         }
 
@@ -607,7 +645,8 @@ ListopicApp.pageIndex = (() => {
                     const itemKey = itemName.toLowerCase();
                     const key = `${listId}||${placeId}||${itemKey}`;
                     const prev = groupsByListPlaceItem.get(key);
-                    const thumbCandidate = r.photoUrl || r.imageUrl || r.placePhotoUrl || r.mainImageUrl || "";
+                    const thumbCandidate = r.photoUrl || r.imageUrl || r.placePhotoUrl || r.mainImageUrl || r.place?.mainImageUrl || "";
+                    const placeLocation = r.place?.location || null;
 
                     if (!prev) {
                         groupsByListPlaceItem.set(key, {
@@ -619,6 +658,7 @@ ListopicApp.pageIndex = (() => {
                             itemName,
                             itemKey,
                             thumbUrl: thumbCandidate || "",
+                            placeLocation,
                             sum: ratingNum,
                             count: 1
                         });
@@ -628,6 +668,7 @@ ListopicApp.pageIndex = (() => {
                     prev.sum += ratingNum;
                     prev.count += 1;
                     if (!prev.thumbUrl && thumbCandidate) prev.thumbUrl = thumbCandidate;
+                    if (!prev.placeLocation && placeLocation) prev.placeLocation = placeLocation;
                 });
 
                 const groups = [...groupsByListPlaceItem.values()]
@@ -642,13 +683,34 @@ ListopicApp.pageIndex = (() => {
                         return cat && selectedCategoryIds.has(cat);
                     });
 
-                if (!scoped.length) {
+                const userLatLng =
+                    typeof exploreMaxDistanceKm === "number" &&
+                    isFinite(exploreMaxDistanceKm) &&
+                    exploreMaxDistanceKm > 0 &&
+                    Array.isArray(lastKnownGlobalUserLatLng) &&
+                    lastKnownGlobalUserLatLng.length === 2 &&
+                    window.L
+                        ? L.latLng(lastKnownGlobalUserLatLng[0], lastKnownGlobalUserLatLng[1])
+                        : null;
+                const maxMeters =
+                    userLatLng && typeof exploreMaxDistanceKm === "number" && isFinite(exploreMaxDistanceKm) ? exploreMaxDistanceKm * 1000 : null;
+
+                const distanceScoped = maxMeters
+                    ? scoped.filter((g) => {
+                          const loc = g.placeLocation;
+                          if (!loc || typeof loc.latitude !== "number" || typeof loc.longitude !== "number") return false;
+                          const dist = userLatLng.distanceTo(L.latLng(loc.latitude, loc.longitude));
+                          return dist <= maxMeters;
+                      })
+                    : scoped;
+
+                if (!distanceScoped.length) {
                     topGroupsEl.innerHTML = '<p class="loading-placeholder">No hay grupos para estas categorías.</p>';
                     return;
                 }
 
                 const byPlaceAndItem = new Map();
-                scoped.forEach((g) => {
+                distanceScoped.forEach((g) => {
                     const key = `${g.placeId}||${g.itemKey}`;
                     const prev = byPlaceAndItem.get(key);
                     if (!prev) return void byPlaceAndItem.set(key, g);
@@ -1078,6 +1140,8 @@ ListopicApp.pageIndex = (() => {
 
         // Mapa inline
         const mapContainer = document.getElementById("global-map-container");
+        const mapPanel = document.getElementById("global-map-panel");
+        const mapToggleBtn = document.getElementById("toggle-global-map-btn");
         const centerBtn = document.getElementById("global-map-center-user-btn");
         const mapModal = document.getElementById("global-map-modal");
         const mapModalOpenBtn = document.getElementById("show-global-map-modal-btn");
@@ -1134,8 +1198,34 @@ ListopicApp.pageIndex = (() => {
         mapModal && mapModal.addEventListener("click", (e) => { if (e.target === mapModal) closeMapModal(); });
 
         centerBtn && centerBtn.addEventListener("click", (e) => { e.preventDefault(); recenterGlobalMapToUser(); });
+        function setMapPanelOpen(open, { fromUrl = false } = {}) {
+            if (!mapPanel || !mapToggleBtn) return;
+            const hintEl = mapToggleBtn.querySelector(".map-strip__toggle-hint");
+            mapPanel.toggleAttribute("hidden", !open);
+            mapToggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
+            mapToggleBtn.classList.toggle("is-open", open);
+            if (hintEl) hintEl.textContent = open ? "Plegar" : "Desplegar";
+            if (!open) {
+                try { setGlobalMapParamsInUrl(false, null, null, false); } catch (e) {}
+                return;
+            }
+            ensureGlobalMap(fromUrl ? initialGlobalMapParams : null);
+            setTimeout(() => { try { globalMapInstance && globalMapInstance.invalidateSize(); } catch (e) {} }, 120);
+        }
+
+        mapToggleBtn &&
+            mapToggleBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                const isOpen = mapToggleBtn.getAttribute("aria-expanded") === "true";
+                setMapPanelOpen(!isOpen, { fromUrl: false });
+            });
+
         try { initialGlobalMapParams = readGlobalMapParamsFromUrl(); } catch (e) {}
-        ensureGlobalMap(initialGlobalMapParams);
+        if (initialGlobalMapParams?.open) {
+            setMapPanelOpen(true, { fromUrl: true });
+        } else {
+            setMapPanelOpen(false);
+        }
     }
 
     return { init };
