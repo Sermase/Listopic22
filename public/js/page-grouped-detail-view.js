@@ -281,7 +281,6 @@ ListopicApp.pageGroupedDetailView = (() => {
         }
 
         try {
-            const listAveragesPromise = computeListCriteriaAverages(state.currentGroupDetailListId);
             // 1. Obtener datos de la lista y del lugar (en paralelo para más velocidad)
             const listPromise = db.collection('lists').doc(state.currentGroupDetailListId).get();
             const placePromise = db.collection('places').doc(placeIdFromUrl).get();
@@ -329,6 +328,12 @@ ListopicApp.pageGroupedDetailView = (() => {
         }
         state.currentGroupDetailCriteriaDefinition = normalizedCriteriaDef;
         state.currentGroupCriteriaOrder = criteriaOrder;
+
+        const listCriteriaAveragesFromDoc = listData.criteriaAverages || {};
+        let listCriteriaAverages = (listCriteriaAveragesFromDoc && typeof listCriteriaAveragesFromDoc === 'object')
+            ? listCriteriaAveragesFromDoc
+            : {};
+        let listOverallAverage = Number.isFinite(listData.averageRating) ? listData.averageRating : 0;
 
             if (saveToArchiveBtn) {
                 const archiveService = window.ListopicApp?.archiveService;
@@ -591,14 +596,17 @@ ListopicApp.pageGroupedDetailView = (() => {
                 if (labelEl) labelEl.textContent = enrichedReviews.length === 1 ? 'Reseña' : 'Reseñas';
             }
 
-            let listCriteriaAverages = {};
-            let listOverallAverage = 0;
-            try {
-                const { criteria = {}, overall = 0 } = await listAveragesPromise;
-                listCriteriaAverages = criteria;
-                listOverallAverage = overall;
-            } catch (error) {
-                console.warn('page-grouped-detail-view: no se pudieron calcular las medias de la lista', error);
+            const needsComputedAverages = !listCriteriaAverages || Object.keys(listCriteriaAverages).length === 0;
+            if (needsComputedAverages) {
+                try {
+                    const { criteria = {}, overall = 0 } = await computeListCriteriaAverages(state.currentGroupDetailListId);
+                    listCriteriaAverages = criteria;
+                    if (!Number.isFinite(listOverallAverage) || listOverallAverage === 0) {
+                        listOverallAverage = overall;
+                    }
+                } catch (error) {
+                    console.warn('page-grouped-detail-view: no se pudieron calcular las medias de la lista', error);
+                }
             }
             state.currentListCriteriaAverages = listCriteriaAverages;
             state.currentListOverallAverage = listOverallAverage;
