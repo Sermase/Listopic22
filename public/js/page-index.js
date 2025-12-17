@@ -775,6 +775,33 @@ ListopicApp.pageIndex = (() => {
             if (!newListsEl) return;
             try {
                 const snap = await db.collection("lists").where("isPublic", "==", true).orderBy("createdAt", "desc").limit(80).get();
+                const toMillis = (value) => {
+                    if (!value) return 0;
+                    if (typeof value === "number") return value;
+                    if (typeof value === "string") {
+                        const t = Date.parse(value);
+                        return isFinite(t) ? t : 0;
+                    }
+                    if (value instanceof Date) return value.getTime();
+                    if (typeof value?.toMillis === "function") {
+                        try { return value.toMillis(); } catch (e) { return 0; }
+                    }
+                    if (typeof value?.seconds === "number") {
+                        const nanos = typeof value?.nanoseconds === "number" ? value.nanoseconds : 0;
+                        return value.seconds * 1000 + Math.floor(nanos / 1e6);
+                    }
+                    return 0;
+                };
+                const listTimestamp = (list) =>
+                    toMillis(
+                        list?.createdAt ||
+                            list?.created_at ||
+                            list?.updatedAt ||
+                            list?.updated_at ||
+                            list?.lastUpdatedAt ||
+                            list?.lastUpdated ||
+                            0
+                    );
                 const lists = snap.docs
                     .map((d) => ({ id: d.id, ...d.data() }))
                     .filter((l) => passMood(getScore(l), currentMood))
@@ -783,6 +810,7 @@ ListopicApp.pageIndex = (() => {
                         const cat = typeof l?.categoryId === "string" ? l.categoryId.trim() : "";
                         return cat && selectedCategoryIds.has(cat);
                     })
+                    .sort((a, b) => listTimestamp(b) - listTimestamp(a))
                     .slice(0, 12);
                 await renderListCards(newListsEl, lists, { showRank: true });
             } catch (e) {
