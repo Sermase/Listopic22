@@ -1460,6 +1460,66 @@ const reverseGeocode = onRequest(async (req, res) => {
 // === NUEVAS FUNCIONES PARA CONTADORES Y DATOS AGREGADOS          ===
 // ===================================================================
 
+async function recalculateListReviewMetrics(listId) {
+  if (!listId) {
+    logger.warn('recalculateListReviewMetrics: listId es requerido');
+    return null;
+  }
+
+  const listRef = db.collection('lists').doc(listId);
+  const reviewsSnap = await listRef.collection('reviews').get();
+  const criteriaTotals = {};
+  const criteriaCounts = {};
+  let totalOverall = 0;
+  let overallCount = 0;
+
+  reviewsSnap.forEach((doc) => {
+    const data = doc.data() || {};
+    const overall = data.overallRating;
+    if (typeof overall === 'number' && Number.isFinite(overall)) {
+      totalOverall += overall;
+      overallCount += 1;
+    }
+
+    const scores = data.scores || {};
+    Object.entries(scores).forEach(([key, value]) => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        criteriaTotals[key] = (criteriaTotals[key] || 0) + value;
+        criteriaCounts[key] = (criteriaCounts[key] || 0) + 1;
+      }
+    });
+  });
+
+  const criteriaAverages = {};
+  Object.entries(criteriaTotals).forEach(([key, total]) => {
+    const count = criteriaCounts[key] || 0;
+    if (count > 0) {
+      criteriaAverages[key] = Number((total / count).toFixed(2));
+    }
+  });
+
+  const averageRating = overallCount > 0
+    ? Number((totalOverall / overallCount).toFixed(2))
+    : null;
+
+  const updateData = {
+    reviewCount: reviewsSnap.size,
+    averageRating,
+    criteriaAverages,
+    criteriaAveragesUpdatedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  };
+
+  await listRef.update(updateData);
+  logger.info(`recalculateListReviewMetrics: ${listId} => r:${updateData.reviewCount} avg:${averageRating}`);
+
+  return {
+    reviewCount: reviewsSnap.size,
+    averageRating,
+    criteriaAverages,
+  };
+}
+
 /**
  * Trigger que se dispara cuando una reseña es creada o eliminada.
  * Actualiza los contadores de reseñas en los documentos de usuario, lugar y lista.
@@ -1467,6 +1527,7 @@ const reverseGeocode = onRequest(async (req, res) => {
 const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
   const listId = event.params.listId;
   const reviewId = event.params.reviewId;
+  let recalculateList = false;
 
   // Caso 1: CREACIÓN de reseña
   if (!event.data.before.exists && event.data.after.exists) {
@@ -1501,7 +1562,7 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     } catch (error) {
       logger.error("Error al actualizar contadores para nueva reseña:", error);
     }
-    return null;
+    recalculateList = true;
   }
 
   // Caso 2: ELIMINACIÓN de reseña
@@ -1537,7 +1598,7 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     } catch (error) {
       logger.error("Error al actualizar contadores para reseña eliminada:", error);
     }
-    return null;
+    recalculateList = true;
   }
 
   // Caso 3: ACTUALIZACIÓN de reseña
@@ -1576,6 +1637,15 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
       }
     } else {
       logger.info(`Reseña ${reviewId} actualizada sin cambio de lugar. No se modifican contadores.`);
+    }
+    recalculateList = true;
+  }
+
+  if (recalculateList) {
+    try {
+      await recalculateListReviewMetrics(listId);
+    } catch (error) {
+      logger.error(`updateAggregatesOnReviewChange: error al recalcular métricas de lista ${listId}`, error);
     }
     return null;
   }
@@ -3331,27 +3401,54 @@ const adminUpdateSingleListAggregates = onCall(async (request) => {
 
     const listRef = db.collection('lists').doc(listId);
     try {
-        // Contar reseñas en subcolección de la lista
-        const reviewsSnap = await listRef.collection('reviews').get();
-        const reviewCount = reviewsSnap.size;
-        // Contar comentarios en el foro real: listForums/{listId}/messages
-        const forumMsgsSnap = await db.collection('listForums').doc(listId).collection('messages').get();
+        const [listMetrics, forumMsgsSnap, followersSnap] = await Promise.all([
+            recalculateListReviewMetrics(listId),
+            db.collection('listForums').doc(listId).collection('messages').get(),
+            listRef.collection('followers').get()
+        ]);
+
         const commentsCount = forumMsgsSnap.size;
-        // Contar seguidores
-        const followersSnap = await listRef.collection('followers').get();
         const followersCount = followersSnap.size;
 
         await listRef.update({
-            reviewCount,
             commentsCount,
             followersCount,
             updatedAt: FieldValue.serverTimestamp(),
         });
-        logger.info(`adminUpdateSingleListAggregates: ${listId} => r:${reviewCount} c:${commentsCount} f:${followersCount}`);
-        return { success: true, reviewCount, commentsCount, followersCount };
+        logger.info(`adminUpdateSingleListAggregates: ${listId} => r:${listMetrics?.reviewCount} c:${commentsCount} f:${followersCount}`);
+        return { success: true, commentsCount, followersCount, ...(listMetrics || {}) };
     } catch (e) {
         logger.error(`adminUpdateSingleListAggregates error para ${listId}:`, e);
         throw new HttpsError('internal', 'Error al recalcular agregados de la lista.');
+    }
+});
+
+const adminRecalculateListAverages = onCall(async (request) => {
+    const contextAuth = request.auth;
+    if (!contextAuth) {
+        throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+    }
+    try {
+        const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
+        if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
+            throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
+        }
+    } catch (error) {
+        logger.error("adminRecalculateListAverages: Error al verificar permisos", error);
+        throw new HttpsError('internal', 'Error al verificar permisos.');
+    }
+
+    const { listId } = request.data || {};
+    if (!listId) {
+        throw new HttpsError('invalid-argument', 'Se requiere listId.');
+    }
+
+    try {
+        const metrics = await recalculateListReviewMetrics(listId);
+        return { success: true, ...(metrics || {}), listId };
+    } catch (error) {
+        logger.error(`adminRecalculateListAverages error para ${listId}:`, error);
+        throw new HttpsError('internal', 'Error al recalcular medias de la lista.');
     }
 });
 
@@ -3398,6 +3495,7 @@ module.exports = {
     adminFixPlaceDocument,
     adminAuditPlaceIdConsistency,
     adminUpdateSingleListAggregates,
+    adminRecalculateListAverages,
     refreshPlaceMainImage,
     refreshStalePlacePhotos,
     updateAggregatesOnForumMessageChange,

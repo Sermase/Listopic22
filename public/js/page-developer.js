@@ -543,6 +543,9 @@ ListopicApp.pageDeveloper = (() => {
         const updateListsBtn = document.getElementById('update-selected-lists-btn');
         if (updateListsBtn) updateListsBtn.addEventListener('click', updateSelectedLists);
 
+        const recalcListAveragesBtn = document.getElementById('recalculate-list-averages-btn');
+        if (recalcListAveragesBtn) recalcListAveragesBtn.addEventListener('click', recalculateSelectedListAverages);
+
         const fixPlacesBtn = document.getElementById('fix-selected-places-btn');
         if (fixPlacesBtn) fixPlacesBtn.addEventListener('click', fixSelectedPlaces);
 
@@ -606,6 +609,12 @@ ListopicApp.pageDeveloper = (() => {
             const isListsTab = currentCollectionName === 'lists';
             updateListsBtn.style.display = isListsTab ? 'inline-block' : 'none';
             updateListsBtn.disabled = !hasSelection || !isListsTab;
+        }
+        const recalcListAveragesBtn = document.getElementById('recalculate-list-averages-btn');
+        if (recalcListAveragesBtn) {
+            const isListsTab = currentCollectionName === 'lists';
+            recalcListAveragesBtn.style.display = isListsTab ? 'inline-block' : 'none';
+            recalcListAveragesBtn.disabled = !hasSelection || !isListsTab;
         }
     }
 
@@ -1683,6 +1692,52 @@ ListopicApp.pageDeveloper = (() => {
         } finally {
             btn.innerHTML = originalBtnText;
             btn.disabled = false;
+        }
+    }
+
+    async function recalculateSelectedListAverages() {
+        if (selectedRowIds.size === 0) return;
+        if (!confirm(`¿Calcular medias para ${selectedRowIds.size} lista(s)?`)) return;
+        const btn = document.getElementById('recalculate-list-averages-btn');
+        const originalBtnText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculando...';
+        }
+
+        const jobId = `recalc-averages-${Date.now()}`;
+        upsertJobCard(jobId, `Calcular medias (${selectedRowIds.size})`);
+        updateJobCard(jobId, { statusText: 'Preparando cálculo...', progress: 5, tone: 'warn' });
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        try {
+            const callable = firebase.app().functions('europe-west1').httpsCallable('adminRecalculateListAverages');
+            for (const listId of selectedRowIds) {
+                try {
+                    await callable({ listId });
+                    successCount++;
+                } catch (error) {
+                    console.error('Error recalc medias lista', listId, error);
+                    errorCount++;
+                }
+                const processed = successCount + errorCount;
+                const progress = Math.round((processed / selectedRowIds.size) * 100);
+                updateJobCard(jobId, { statusText: `Listas procesadas ${processed}/${selectedRowIds.size}`, progress, tone: 'warn' });
+            }
+            alert(`Medias recalculadas: ${successCount}\nErrores: ${errorCount}`);
+            finishJobCard(jobId, errorCount ? 'warn' : 'ok', `Medias listas: ${successCount}, errores: ${errorCount}`);
+            switchTab(currentCollectionName);
+        } catch (error) {
+            console.error('Error en recalculateSelectedListAverages', error);
+            alert('No se pudieron recalcular las medias: ' + error.message);
+            finishJobCard(jobId, 'danger', error.message);
+        } finally {
+            if (btn) {
+                btn.innerHTML = originalBtnText;
+                btn.disabled = false;
+            }
         }
     }
 
