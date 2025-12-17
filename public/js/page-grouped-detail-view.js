@@ -44,7 +44,55 @@ ListopicApp.pageGroupedDetailView = (() => {
         return window.Chart;
     }
 
-    function renderCriteriaRadar({ container, canvas, averages, criteriaDefinition = {}, overallScore = 0, chartsRegistry = {}, criteriaOrder = [] }) {
+    async function computeListCriteriaAverages(listId) {
+        const db = ListopicApp.services?.db;
+        if (!db || !listId) {
+            return { criteria: {}, overall: 0 };
+        }
+
+        const totals = {};
+        const counts = {};
+        let overallSum = 0;
+        let overallCount = 0;
+
+        const snapshot = await db.collection('lists').doc(listId).collection('reviews').get();
+        snapshot.forEach((doc) => {
+            const data = doc.data() || {};
+            const overall = data.overallRating;
+            if (typeof overall === 'number' && Number.isFinite(overall)) {
+                overallSum += overall;
+                overallCount += 1;
+            }
+            const scores = data.scores || {};
+            Object.entries(scores).forEach(([key, value]) => {
+                if (typeof value === 'number' && Number.isFinite(value)) {
+                    totals[key] = (totals[key] || 0) + value;
+                    counts[key] = (counts[key] || 0) + 1;
+                }
+            });
+        });
+
+        const avgCriteria = {};
+        Object.keys(totals).forEach((key) => {
+            const count = counts[key] || 0;
+            avgCriteria[key] = count > 0 ? (totals[key] / count) : 0;
+        });
+
+        const overall = overallCount > 0 ? (overallSum / overallCount) : 0;
+        return { criteria: avgCriteria, overall };
+    }
+
+    function renderCriteriaRadar({
+        container,
+        canvas,
+        averages,
+        criteriaDefinition = {},
+        chartsRegistry = {},
+        criteriaOrder = [],
+        referenceAverages = null,
+        referenceLabel = 'Media de la lista',
+        fallbackReference = 0
+    }) {
         if (!container) return;
         if (!canvas) {
             container.innerHTML = '<p class="loading-placeholder">Sin datos de criterios.</p>';
@@ -64,7 +112,12 @@ ListopicApp.pageGroupedDetailView = (() => {
             : (Object.keys(criteriaDefinition).length ? Object.keys(criteriaDefinition) : Object.keys(averages));
         const labels = keys.map(k => criteriaDefinition[k]?.label || k);
         const values = keys.map(k => Number(averages[k] || 0));
-        const reference = keys.map(() => Number(overallScore || 0));
+        const reference = keys.map((k) => {
+            if (referenceAverages && typeof referenceAverages === 'object' && Object.prototype.hasOwnProperty.call(referenceAverages, k)) {
+                return Number(referenceAverages[k] || 0);
+            }
+            return Number(fallbackReference || 0);
+        });
         const gridColor = (getComputedStyle(document.body).getPropertyValue('--chart-grid-color') || 'rgba(255,255,255,0.08)').trim();
 
         // Cleanup previous chart
@@ -95,7 +148,7 @@ ListopicApp.pageGroupedDetailView = (() => {
                             pointHoverRadius: 6
                         },
                         {
-                            label: 'Media general',
+                            label: referenceLabel,
                             data: reference,
                             fill: false,
                             borderColor: datasetColors.reference,
@@ -131,7 +184,7 @@ ListopicApp.pageGroupedDetailView = (() => {
                                         return `Puntuación: ${Number(val).toFixed(1)}`;
                                     }
                                     const ref = reference?.[ctx.dataIndex] ?? val;
-                                    return `Media de la lista: ${Number(ref).toFixed(1)}`;
+                                    return `${referenceLabel}: ${Number(ref).toFixed(1)}`;
                                 },
                                 labelColor: (ctx) => {
                                     const color = ctx.datasetIndex === 0 ? datasetColors.current : datasetColors.reference;
@@ -228,6 +281,7 @@ ListopicApp.pageGroupedDetailView = (() => {
         }
 
         try {
+            const listAveragesPromise = computeListCriteriaAverages(state.currentGroupDetailListId);
             // 1. Obtener datos de la lista y del lugar (en paralelo para más velocidad)
             const listPromise = db.collection('lists').doc(state.currentGroupDetailListId).get();
             const placePromise = db.collection('places').doc(placeIdFromUrl).get();
@@ -537,6 +591,18 @@ ListopicApp.pageGroupedDetailView = (() => {
                 if (labelEl) labelEl.textContent = enrichedReviews.length === 1 ? 'Reseña' : 'Reseñas';
             }
 
+            let listCriteriaAverages = {};
+            let listOverallAverage = 0;
+            try {
+                const { criteria = {}, overall = 0 } = await listAveragesPromise;
+                listCriteriaAverages = criteria;
+                listOverallAverage = overall;
+            } catch (error) {
+                console.warn('page-grouped-detail-view: no se pudieron calcular las medias de la lista', error);
+            }
+            state.currentListCriteriaAverages = listCriteriaAverages;
+            state.currentListOverallAverage = listOverallAverage;
+
             // 5. Renderizar RADAR DE CRITERIOS PROMEDIADAS
             if (avgCriteriaBarsEl) {
                 const avgScores = {};
@@ -556,9 +622,10 @@ ListopicApp.pageGroupedDetailView = (() => {
                     canvas: criteriaRadarCanvas,
                     averages: avgScores,
                     criteriaDefinition: state.currentGroupDetailCriteriaDefinition,
-                    overallScore: groupAvgScore,
                     chartsRegistry,
-                    criteriaOrder
+                    criteriaOrder,
+                    referenceAverages: state.currentListCriteriaAverages,
+                    fallbackReference: state.currentListOverallAverage || groupAvgScore
                 });
             }
             
