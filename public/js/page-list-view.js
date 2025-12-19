@@ -22,6 +22,7 @@ ListopicApp.pageListView = (() => {
     let filteredGroupsForMap = [];
     let shouldShowAllPlacesOnMap = true;
     let userLocationMarker = null;
+    const placeLatLngCache = new Map();
     let forumModal, closeModalForumBtn, forumListNameSpan, forumMessagesContainer,
         newForumMessageInput, sendForumMessageBtn, messagesCollectionRef;
 
@@ -251,9 +252,29 @@ ListopicApp.pageListView = (() => {
             );
         });
     }
-    
+
+    function getPlaceLatLng(placeId) {
+        if (!placeId) return null;
+        if (placeLatLngCache.has(placeId)) return placeLatLngCache.get(placeId);
+
+        const placeData =
+            extraFiltersState.placeOptionsMap.get(placeId) ||
+            basePlacesForMap.find((p) => p && p.id === placeId) ||
+            null;
+        const loc = placeData && placeData.location ? placeData.location : null;
+
+        if (loc && typeof loc.latitude === "number" && typeof loc.longitude === "number" && window.L && typeof L.latLng === "function") {
+            const latLng = L.latLng(loc.latitude, loc.longitude);
+            placeLatLngCache.set(placeId, latLng);
+            return latLng;
+        }
+
+        placeLatLngCache.set(placeId, null);
+        return null;
+    }
+
     function applyFiltersAndSort_ListView_Grouped() {
-        let filteredItems = [...ListopicApp.state.allGroupedItems]; 
+        let filteredItems = [...ListopicApp.state.allGroupedItems];
         const searchTerm = searchInput.value.toLowerCase();
 
         if (searchTerm) {
@@ -280,12 +301,9 @@ ListopicApp.pageListView = (() => {
                 filteredItems = filteredItems.filter(group => {
                     const placeId = group.placeId;
                     if (!placeId) return false;
-                    const placeData = extraFiltersState.placeOptionsMap.get(placeId)
-                        || basePlacesForMap.find(p => p && p.id === placeId)
-                        || null;
-                    const loc = placeData && placeData.location ? placeData.location : null;
-                    if (!loc || typeof loc.latitude !== "number" || typeof loc.longitude !== "number") return false;
-                    const dist = userLatLng.distanceTo(L.latLng(loc.latitude, loc.longitude));
+                    const loc = getPlaceLatLng(placeId);
+                    if (!loc) return false;
+                    const dist = userLatLng.distanceTo(loc);
                     return dist <= maxMeters;
                 });
             }
@@ -609,6 +627,7 @@ ListopicApp.pageListView = (() => {
 
     function addPlacesToMap(places) {
         basePlacesForMap = Array.isArray(places) ? places : [];
+        placeLatLngCache.clear();
         refreshMapMarkers().catch(error => console.error('LIST-VIEW: Error al actualizar marcadores en el mapa.', error));
     }
 

@@ -51,6 +51,20 @@ ListopicApp.pageIndex = (() => {
         el.textContent = heroSubtitles[Math.floor(Math.random() * heroSubtitles.length)];
     }
 
+    function buildDistanceChecker() {
+        const hasRange = typeof exploreMaxDistanceKm === "number" && isFinite(exploreMaxDistanceKm) && exploreMaxDistanceKm > 0;
+        const hasUser = Array.isArray(lastKnownGlobalUserLatLng) && lastKnownGlobalUserLatLng.length === 2;
+        if (!hasRange || !hasUser) return () => true;
+        if (!window.L || typeof L.latLng !== "function") return () => true;
+        const userLatLng = L.latLng(lastKnownGlobalUserLatLng[0], lastKnownGlobalUserLatLng[1]);
+        const maxMeters = exploreMaxDistanceKm * 1000;
+        return (loc) => {
+            if (!loc || typeof loc.latitude !== "number" || typeof loc.longitude !== "number") return false;
+            const dist = userLatLng.distanceTo(L.latLng(loc.latitude, loc.longitude));
+            return dist <= maxMeters;
+        };
+    }
+
     function setGlobalUserLocationMarker(lat, lng, { recenter = false } = {}) {
         if (!isFinite(lat) || !isFinite(lng)) return;
         const coords = [lat, lng];
@@ -297,6 +311,28 @@ ListopicApp.pageIndex = (() => {
                 );
             });
         }
+
+        const getListLocation = (list) => {
+            const candidates = [list?.location, list?.centerLocation, list?.locationCenter, list?.geoCenter];
+            for (const loc of candidates) {
+                if (loc && typeof loc.latitude === "number" && typeof loc.longitude === "number") return loc;
+            }
+            if (Array.isArray(list?.places)) {
+                const withLocation = list.places.find((p) => p?.location && typeof p.location.latitude === "number" && typeof p.location.longitude === "number");
+                if (withLocation) return withLocation.location;
+            }
+            return null;
+        };
+
+        const getReviewLocation = (review) => {
+            if (review?.place?.location && typeof review.place.location.latitude === "number" && typeof review.place.location.longitude === "number") {
+                return review.place.location;
+            }
+            if (review?.location && typeof review.location.latitude === "number" && typeof review.location.longitude === "number") {
+                return review.location;
+            }
+            return null;
+        };
 
         function renderCategoryChips(categoryIds) {
             if (!categoryFiltersEl) return;
@@ -580,6 +616,7 @@ ListopicApp.pageIndex = (() => {
             if (!topListsEl) return;
             try {
                 const snap = await db.collection("lists").where("isPublic", "==", true).orderBy("reviewCount", "desc").limit(80).get();
+                const withinDistance = buildDistanceChecker();
                 const lists = snap.docs
                     .map((d) => ({ id: d.id, ...d.data() }))
                     .filter((l) => passMood(getScore(l), currentMood))
@@ -588,6 +625,7 @@ ListopicApp.pageIndex = (() => {
                         const cat = typeof l?.categoryId === "string" ? l.categoryId.trim() : "";
                         return cat && selectedCategoryIds.has(cat);
                     })
+                    .filter((l) => withinDistance(getListLocation(l)))
                     .slice(0, 12);
                 await renderListCards(topListsEl, lists, { showRank: true });
             } catch (e) {
@@ -683,26 +721,8 @@ ListopicApp.pageIndex = (() => {
                         return cat && selectedCategoryIds.has(cat);
                     });
 
-                const userLatLng =
-                    typeof exploreMaxDistanceKm === "number" &&
-                    isFinite(exploreMaxDistanceKm) &&
-                    exploreMaxDistanceKm > 0 &&
-                    Array.isArray(lastKnownGlobalUserLatLng) &&
-                    lastKnownGlobalUserLatLng.length === 2 &&
-                    window.L
-                        ? L.latLng(lastKnownGlobalUserLatLng[0], lastKnownGlobalUserLatLng[1])
-                        : null;
-                const maxMeters =
-                    userLatLng && typeof exploreMaxDistanceKm === "number" && isFinite(exploreMaxDistanceKm) ? exploreMaxDistanceKm * 1000 : null;
-
-                const distanceScoped = maxMeters
-                    ? scoped.filter((g) => {
-                          const loc = g.placeLocation;
-                          if (!loc || typeof loc.latitude !== "number" || typeof loc.longitude !== "number") return false;
-                          const dist = userLatLng.distanceTo(L.latLng(loc.latitude, loc.longitude));
-                          return dist <= maxMeters;
-                      })
-                    : scoped;
+                const withinDistance = buildDistanceChecker();
+                const distanceScoped = scoped.filter((g) => withinDistance(g.placeLocation));
 
                 if (!distanceScoped.length) {
                     topGroupsEl.innerHTML = '<p class="loading-placeholder">No hay grupos para estas categorías.</p>';
@@ -775,6 +795,7 @@ ListopicApp.pageIndex = (() => {
             if (!newListsEl) return;
             try {
                 const snap = await db.collection("lists").where("isPublic", "==", true).orderBy("createdAt", "desc").limit(80).get();
+                const withinDistance = buildDistanceChecker();
                 const toMillis = (value) => {
                     if (!value) return 0;
                     if (typeof value === "number") return value;
@@ -810,6 +831,7 @@ ListopicApp.pageIndex = (() => {
                         const cat = typeof l?.categoryId === "string" ? l.categoryId.trim() : "";
                         return cat && selectedCategoryIds.has(cat);
                     })
+                    .filter((l) => withinDistance(getListLocation(l)))
                     .sort((a, b) => listTimestamp(b) - listTimestamp(a))
                     .slice(0, 12);
                 await renderListCards(newListsEl, lists, { showRank: true });
@@ -819,27 +841,74 @@ ListopicApp.pageIndex = (() => {
             }
         }
 
+
         async function loadTopUsers() {
             if (!topUsersEl) return;
             try {
-                const snap = await db.collection("users").orderBy("reviewsCount", "desc").limit(10).get();
-                const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-                topUsersEl.innerHTML = users
-                    .map((u, idx) => {
-                        const displayNameRaw = u.displayName || u.name || u.username || "Usuario";
-                        const usernameRaw = u.username || "";
+                const withinDistance = buildDistanceChecker();
+                const reviewsSnap = await db.collectionGroup("reviews").orderBy("createdAt", "desc").limit(200).get();
+                if (!reviewsSnap.docs.length) {
+                    topUsersEl.innerHTML = '<p class="loading-placeholder">Aun no hay reseñas publicas.</p>';
+                    return;
+                }
+
+                const enriched = await ui.enrichReviews(reviewsSnap.docs);
+                const filtered = enriched
+                    .filter((r) => passMood(getScore(r), currentMood))
+                    .filter((r) => {
+                        if (selectedCategoryIds.size === 0) return true;
+                        return r?.categoryId && selectedCategoryIds.has(r.categoryId);
+                    })
+                    .filter((r) => withinDistance(getReviewLocation(r)));
+
+                if (!filtered.length) {
+                    topUsersEl.innerHTML = '<p class="loading-placeholder">No hay usuarios con reseñas en este contexto.</p>';
+                    return;
+                }
+
+                const userStats = new Map();
+                filtered.forEach((r) => {
+                    const uid = r.userId || r.authorId || r.author?.id || r.user?.id;
+                    if (!uid) return;
+                    const prev = userStats.get(uid) || { count: 0, totalScore: 0, author: r.author || {} };
+                    const scoreVal = getScore(r);
+                    userStats.set(uid, {
+                        count: prev.count + 1,
+                        totalScore: prev.totalScore + (isFinite(scoreVal) ? scoreVal : 0),
+                        author: prev.author || r.author || {}
+                    });
+                });
+
+                const ranked = [...userStats.entries()]
+                    .sort((a, b) => b[1].count - a[1].count || (b[1].totalScore / Math.max(1, b[1].count)) - (a[1].totalScore / Math.max(1, a[1].count)))
+                    .slice(0, 10);
+
+                const userSnaps = await Promise.all(
+                    ranked.map(([uid]) => db.collection("users").doc(uid).get().catch(() => null))
+                );
+                const userDocMap = new Map();
+                userSnaps.forEach((snap) => { if (snap) userDocMap.set(snap.id, snap); });
+
+                topUsersEl.innerHTML = ranked
+                    .map(([uid, stats], idx) => {
+                        const snap = userDocMap.get(uid);
+                        const data = snap?.exists ? snap.data() || {} : {};
+                        const displayNameRaw = data.displayName || data.name || data.username || stats.author?.name || "Usuario";
+                        const usernameRaw = data.username || stats.author?.username || "";
                         const name = ui.escapeHtml(displayNameRaw);
                         const username = usernameRaw ? ui.escapeHtml(usernameRaw) : "";
-                        const bio = ui.escapeHtml((u.bio || "").trim());
-                        const avatarUrl = u.photoUrl || u.photoURL || u.avatarUrl || "";
+                        const bio = ui.escapeHtml((data.bio || "").trim());
+                        const avatarUrl = data.photoUrl || data.photoURL || data.avatarUrl || stats.author?.photoUrl || "";
                         const avatarStyle = avatarUrl ? `style="background-image:url('${ui.escapeHtml(avatarUrl)}');"` : "";
-                        const followers = typeof u.followersCount === "number" ? u.followersCount : 0;
-                        const reviews = typeof u.reviewsCount === "number" ? u.reviewsCount : 0;
-                        const lists = (typeof u.publicListsCount === "number" ? u.publicListsCount : 0) + (typeof u.privateListsCount === "number" ? u.privateListsCount : 0);
+                        const followers = typeof data.followersCount === "number" ? data.followersCount : 0;
+                        const lists = (typeof data.publicListsCount === "number" ? data.publicListsCount : 0) + (typeof data.privateListsCount === "number" ? data.privateListsCount : 0);
+                        const reviews = stats.count;
+                        const avgScoreNum = stats.count ? stats.totalScore / stats.count : 0;
+                        const avgScore = avgScoreNum ? avgScoreNum.toFixed(1) : "-";
                         return `
                             <article class="user-chip-card carousel-card carousel-card--user">
                                 <span class="rank-badge small">#${idx + 1}</span>
-                                <a class="user-card__link" href="profile.html?viewUserId=${u.id}">
+                                <a class="user-card__link" href="profile.html?viewUserId=${uid}">
                                     <div class="user-card__media">
                                         <div class="user-chip-avatar" ${avatarStyle}>${avatarUrl ? "" : '<img src="img/default-avatar.png" alt="" loading="lazy">'}
                                         </div>
@@ -851,8 +920,9 @@ ListopicApp.pageIndex = (() => {
                                         </div>
                                         ${bio ? `<p class="user-card__bio">${bio}</p>` : ""}
                                         <div class="user-card__stats">
+                                            <span class="pill-label" title="Reseñas en este contexto"><i class="fas fa-pen"></i> ${reviews}</span>
+                                            <span class="pill-label" title="Nota media"><i class="fas fa-star"></i> ${avgScore}</span>
                                             <span class="pill-label" title="Seguidores"><i class="fas fa-heart"></i> ${followers}</span>
-                                            <span class="pill-label" title="Reseñas"><i class="fas fa-pen"></i> ${reviews}</span>
                                             <span class="pill-label" title="Listas"><i class="fas fa-list"></i> ${lists}</span>
                                         </div>
                                     </div>
@@ -866,13 +936,11 @@ ListopicApp.pageIndex = (() => {
                 topUsersEl.innerHTML = `<p class="error-placeholder">${e.message}</p>`;
             }
         }
-
         async function loadTopPlaces() {
             if (!topPlacesEl) return;
             try {
                 const snap = await db.collection("places").orderBy("averageRating", "desc").limit(200).get();
-                const userLatLng = Array.isArray(lastKnownGlobalUserLatLng) ? L.latLng(lastKnownGlobalUserLatLng[0], lastKnownGlobalUserLatLng[1]) : null;
-                const maxMeters = typeof exploreMaxDistanceKm === "number" && isFinite(exploreMaxDistanceKm) ? exploreMaxDistanceKm * 1000 : null;
+                const withinDistance = buildDistanceChecker();
                 const places = snap.docs
                     .map((d) => {
                         const p = d.data() || {};
@@ -888,12 +956,7 @@ ListopicApp.pageIndex = (() => {
                         };
                     })
                     .filter((p) => passMood(p.averageRating || 0, currentMood))
-                    .filter((p) => {
-                        if (!maxMeters || !userLatLng) return true;
-                        if (!p.location || typeof p.location.latitude !== "number" || typeof p.location.longitude !== "number") return false;
-                        const dist = userLatLng.distanceTo(L.latLng(p.location.latitude, p.location.longitude));
-                        return dist <= maxMeters;
-                    })
+                    .filter((p) => withinDistance(p.location))
                     .slice(0, 12);
                 topPlacesEl.innerHTML = places
                     .map((p, idx) => {
@@ -950,11 +1013,13 @@ ListopicApp.pageIndex = (() => {
                 if (data.listId && !publicLists.has(data.listId)) return false;
                 return passMood(getScore(data), currentMood);
             });
+            const withinDistance = buildDistanceChecker();
             const enriched = await ui.enrichReviews(filteredDocs.slice(0, 36));
             const categoryFiltered = selectedCategoryIds.size
                 ? enriched.filter((r) => r?.categoryId && selectedCategoryIds.has(r.categoryId))
                 : enriched;
-            const finalItems = categoryFiltered.slice(0, 12);
+            const distanceFiltered = categoryFiltered.filter((r) => withinDistance(getReviewLocation(r)));
+            const finalItems = distanceFiltered.slice(0, 12);
             if (!finalItems.length) {
                 hotReviewsEl.innerHTML = '<p class="loading-placeholder">No hay reseñas para estas categorías.</p>';
                 return;
@@ -1016,7 +1081,8 @@ ListopicApp.pageIndex = (() => {
 
         async function refreshRails() {
             tagCounter.clear();
-            await Promise.all([loadTopLists(), loadTopGroups(), loadTopUsers(), loadTopPlaces(), loadHotReviews(), loadNewLists()]);
+            await Promise.all([loadTopLists(), loadTopGroups()]);
+            await Promise.allSettled([loadTopUsers(), loadTopPlaces(), loadHotReviews(), loadNewLists()]);
             if (trendingTagsEl) {
                 const sorted = [...tagCounter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
                 trendingTagsEl.innerHTML = sorted
@@ -1044,6 +1110,7 @@ ListopicApp.pageIndex = (() => {
                 }
 
                 feed.innerHTML = '<p class="loading-placeholder">Cargando novedades...</p>';
+                const withinDistance = buildDistanceChecker();
 
                 const followingSnap = await db.collection("users").doc(currentUid).collection("following").limit(200).get();
                 const followedUserIds = [];
@@ -1117,7 +1184,8 @@ ListopicApp.pageIndex = (() => {
                             const enriched = await ui.enrichReviews(batchDocs);
                             const filtered = enriched
                                 .filter((r) => passMood(getScore(r), currentMood))
-                                .filter((r) => !wantCategoryFilter || (r?.categoryId && selectedCategoryIds.has(r.categoryId)));
+                                .filter((r) => !wantCategoryFilter || (r?.categoryId && selectedCategoryIds.has(r.categoryId)))
+                                .filter((r) => withinDistance(getReviewLocation(r)));
                             buffer.push(...filtered);
                         }
 
