@@ -334,6 +334,29 @@ ListopicApp.pageIndex = (() => {
             return null;
         };
 
+        const canScoreListsByRange = () => {
+            const hasRange = typeof exploreMaxDistanceKm === "number" && isFinite(exploreMaxDistanceKm) && exploreMaxDistanceKm > 0;
+            const hasUser = Array.isArray(lastKnownGlobalUserLatLng) && lastKnownGlobalUserLatLng.length === 2;
+            return hasRange && hasUser && window.L && typeof L.latLng === "function";
+        };
+
+        const getListRangeHits = (list, withinDistance) => {
+            if (!list || typeof withinDistance !== "function") return 0;
+            if (Array.isArray(list.places)) {
+                let hits = 0;
+                let sawLocation = false;
+                list.places.forEach((p) => {
+                    const loc = p?.location || p?.place?.location || p?.geo || null;
+                    if (!loc || typeof loc.latitude !== "number" || typeof loc.longitude !== "number") return;
+                    sawLocation = true;
+                    if (withinDistance(loc)) hits += 1;
+                });
+                if (sawLocation) return hits;
+            }
+            const center = getListLocation(list);
+            return center && withinDistance(center) ? 1 : 0;
+        };
+
         function renderCategoryChips(categoryIds) {
             if (!categoryFiltersEl) return;
             const cache = ui?.getCategoryCache ? ui.getCategoryCache() : {};
@@ -617,16 +640,19 @@ ListopicApp.pageIndex = (() => {
             try {
                 const snap = await db.collection("lists").where("isPublic", "==", true).orderBy("reviewCount", "desc").limit(80).get();
                 const withinDistance = buildDistanceChecker();
-                const lists = snap.docs
+                const filtered = snap.docs
                     .map((d) => ({ id: d.id, ...d.data() }))
                     .filter((l) => passMood(getScore(l), currentMood))
                     .filter((l) => {
                         if (selectedCategoryIds.size === 0) return true;
                         const cat = typeof l?.categoryId === "string" ? l.categoryId.trim() : "";
                         return cat && selectedCategoryIds.has(cat);
-                    })
-                    .filter((l) => withinDistance(getListLocation(l)))
-                    .slice(0, 12);
+                    });
+                if (canScoreListsByRange()) {
+                    filtered.forEach((l) => { l._rangeHits = getListRangeHits(l, withinDistance); });
+                    filtered.sort((a, b) => (b._rangeHits || 0) - (a._rangeHits || 0) || (b.reviewCount || 0) - (a.reviewCount || 0));
+                }
+                const lists = filtered.slice(0, 12);
                 await renderListCards(topListsEl, lists, { showRank: true });
             } catch (e) {
                 console.error("INDEX: Error loading top lists", e);
@@ -795,7 +821,6 @@ ListopicApp.pageIndex = (() => {
             if (!newListsEl) return;
             try {
                 const snap = await db.collection("lists").where("isPublic", "==", true).orderBy("createdAt", "desc").limit(80).get();
-                const withinDistance = buildDistanceChecker();
                 const toMillis = (value) => {
                     if (!value) return 0;
                     if (typeof value === "number") return value;
@@ -831,7 +856,6 @@ ListopicApp.pageIndex = (() => {
                         const cat = typeof l?.categoryId === "string" ? l.categoryId.trim() : "";
                         return cat && selectedCategoryIds.has(cat);
                     })
-                    .filter((l) => withinDistance(getListLocation(l)))
                     .sort((a, b) => listTimestamp(b) - listTimestamp(a))
                     .slice(0, 12);
                 await renderListCards(newListsEl, lists, { showRank: true });
