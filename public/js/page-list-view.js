@@ -5,12 +5,30 @@ ListopicApp.pageListView = (() => {
     let currentSortDirection = 'desc';
     let activeTagFilters = new Set();
     let currentListIconClass = 'fa-solid fa-list';
+    let currentFilteredGroups = [];
+    let renderedGroupCount = 0;
+    const PAGE_SIZE = 24;
+    let loadMoreObserver = null;
+    let isRenderingPage = false;
+    let searchDebounceTimer = null;
+    let itemsViewMode = 'list';
+    let modalTagFilters = new Set();
+    let filterPreviewTimer = null;
+    const SCORE_MIN_DEFAULT = 0;
+    const SCORE_MAX_DEFAULT = 10;
 
     // Variables del DOM
-    let listTitleElement, reviewsGridContainer, searchInput, tagFilterContainer,
+    let listTitleElement, reviewsGridContainer, searchInput,
+    listViewToggleButtons, listSortSelect,
     addReviewButton, editListLink, deleteListButton, showMapModalBtn,
     followListBtn,
-    mapModal, closeMapModalBtn, mapContainer, mapFiltersBtn, mapCenterUserBtn, listMapInstance;
+    mapModal, closeMapModalBtn, mapContainer, mapFiltersBtn, mapCenterUserBtn, listMapInstance,
+    listLoadMoreContainer, listLoadMoreBtn, listLoadMoreStatus, listLoadMoreSentinel,
+    scoreMinInput, scoreMaxInput, scoreMinOutput, scoreMaxOutput, scoreRangeLabel,
+    criteriaFiltersWeightedEl, criteriaFiltersNonWeightedEl, tagFilterModalContainer,
+    listFiltersModal, listFiltersApplyBtn, listFiltersClearBtn, listFiltersClearInlineBtn,
+    filtersPreviewCountEl, filtersActiveCountBadge, tagFiltersClearBtn,
+    listFilterToggleButtons, listFiltersPresetButtons, listFiltersDismissButtons;
     let listDistanceSelect = null;
     let distanceFilterKm = 10;
     let distanceCircle = null;
@@ -69,6 +87,8 @@ ListopicApp.pageListView = (() => {
     // Filtros extra y mapa de opciones de lugares
     const extraFiltersState = {
         placeOptionsMap: new Map(),
+        placeOptionsLoaded: false,
+        placeOptionsLoadPromise: null,
         filters: {
             wheelchairEntrance: false,
             wheelchairSeating: false,
@@ -78,6 +98,13 @@ ListopicApp.pageListView = (() => {
             takeout: false,
             curbside: false
         }
+    };
+    const EXTRA_FILTER_KEYS = ['wheelchairEntrance', 'wheelchairSeating', 'outdoor', 'dinein', 'delivery', 'takeout', 'curbside'];
+
+    const listFilterState = {
+        scoreMin: null,
+        scoreMax: null,
+        criteriaMin: {}
     };
 
     function updateAddReviewButtonHref(listId, listName) {
@@ -152,8 +179,6 @@ ListopicApp.pageListView = (() => {
     // En /public/js/page-list-view.js, reemplaza la función getIconByScore
 
     function getIconByScore(score) {
-        // CHIVATO 1: ¿Qué puntuación estamos recibiendo?
-        console.log(`[DEBUG] getIconByScore recibió la puntuación: ${score}`);
         const scoreNum = parseFloat(score) || 0;
     
         // ¡La magia! Obtenemos el color HEX correcto desde nuestro nuevo centro de mando.
@@ -186,30 +211,137 @@ ListopicApp.pageListView = (() => {
     function handleCardImageError(imgElement) {
         if (!imgElement || imgElement.dataset.fallbackApplied === '1') return;
         imgElement.dataset.fallbackApplied = '1';
-        const container = imgElement.closest('.review-list-card__image-container');
+        const container = imgElement.closest('.review-list-card__image-container, .review-list-row__image-container');
         if (!container) return;
         container.innerHTML = '';
         const placeholder = document.createElement('div');
-        placeholder.className = 'review-list-card__icon-placeholder';
+        placeholder.className = container.classList.contains('review-list-row__image-container')
+            ? 'review-list-row__icon-placeholder'
+            : 'review-list-card__icon-placeholder';
         const icon = document.createElement('i');
         icon.className = currentListIconClass || 'fas fa-camera';
         placeholder.appendChild(icon);
         container.appendChild(placeholder);
     }
 
-    function renderReviewCards(groupedItemsToRender) {
+    function buildGroupListRow(group) {
+        const ui = ListopicApp.uiUtils;
+        const placeNameRaw = group.establishmentName || group.placeName || group.place?.name || '';
+        const itemNameRaw = group.itemName || group.item || group.itemTitle || group.item_label || '';
+        const detailItemName = itemNameRaw || group.establishmentName || group.placeName || '';
+        const detailUrl = ui.escapeHtml(ui.buildGroupedDetailUrl({
+            listId: group.listId,
+            placeId: group.placeId,
+            itemName: detailItemName
+        }));
+        const placeName = ui.escapeHtml(placeNameRaw || 'Lugar');
+        const itemName = ui.escapeHtml(itemNameRaw || 'Elemento');
+        const cityRaw = group.placeCity
+            || group.place?.city
+            || group.place?.locationCity
+            || group.place?.addressCity
+            || group.placeProvince
+            || group.place?.province
+            || '';
+        const cityName = cityRaw ? ui.escapeHtml(cityRaw) : '';
+        const cityHtml = cityName
+            ? `<span class="review-list-row__city" title="${cityName}"><i class="fas fa-location-dot" aria-hidden="true"></i>${cityName}</span>`
+            : '';
+        const scoreNumeric = typeof group.avgGeneralScore === 'number'
+            ? group.avgGeneralScore
+            : (parseFloat(group.avgGeneralScore) || 0);
+        const scoreValue = scoreNumeric.toFixed(1);
+        const scoreColor = ui.getRatingHexColor ? ui.getRatingHexColor(scoreNumeric) : null;
+        const countValue = typeof group.itemCount === 'number'
+            ? group.itemCount
+            : parseInt(group.itemCount, 10) || 0;
+        const thumb = group.thumbnailUrl
+            || group.thumbUrl
+            || group.photoUrl
+            || group.imageUrl
+            || group.mainImageUrl
+            || group.placePhotoUrl
+            || group.place?.mainImageUrl
+            || '';
+        const imageHtml = thumb
+            ? `<img src="${ui.escapeHtml(thumb)}" alt="" class="review-list-row__image">`
+            : `<div class="review-list-row__icon-placeholder"><i class="${currentListIconClass || 'fas fa-camera'}"></i></div>`;
+        const safeGroupId = ui.escapeHtml(String(group.groupId || `${group.listId || 'list'}-${group.placeId || 'place'}-${itemNameRaw || 'item'}`));
+        const cardAutomationId = ui.generateAutomationId('list-view-row', group.listId || 'list', group.placeId || 'place', itemNameRaw || group.establishmentName || 'item');
+
+        const mapQuery = [placeNameRaw || itemNameRaw || 'Lugar', cityRaw].filter(Boolean).join(' ');
+        const mapCandidate = typeof group.googleMapsUrl === 'string' ? group.googleMapsUrl.trim() : '';
+        const mapUrlRaw = mapCandidate && mapCandidate !== '#'
+            ? mapCandidate
+            : (mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : '');
+        const mapUrl = mapUrlRaw ? ui.escapeHtml(mapUrlRaw) : '';
+
+        const reviewParams = new URLSearchParams();
+        if (group.listId) reviewParams.set('listId', group.listId);
+        if (group.placeId) reviewParams.set('placeId', group.placeId);
+        const reviewItemNameRaw = itemNameRaw || placeNameRaw || '';
+        if (reviewItemNameRaw) reviewParams.set('itemName', reviewItemNameRaw);
+        const reviewHref = reviewParams.toString() ? `review-form.html?${reviewParams.toString()}` : 'review-form.html';
+        const reviewUrl = ui.escapeHtml(reviewHref);
+
+        const scoreStyle = scoreColor ? ` style="--score-color: ${ui.escapeHtml(scoreColor)};"` : '';
+        return `
+            <article class="review-list-row" role="button" tabindex="0"${scoreStyle} data-testid="${cardAutomationId}" data-entity-type="grouped-item" data-entity-id="${safeGroupId}" data-list-id="${ui.escapeHtml(String(group.listId || ''))}" data-place-id="${ui.escapeHtml(String(group.placeId || ''))}" data-item-name="${ui.escapeHtml(String(group.itemName || group.establishmentName || ''))}" data-detail-url="${detailUrl}" onclick="window.location.href=this.dataset.detailUrl;" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href=this.dataset.detailUrl;}">
+                <div class="review-list-row__image-container">${imageHtml}</div>
+                <div class="review-list-row__main">
+                    <div class="review-list-row__place">
+                        <span class="review-list-row__place-name">${placeName}</span>
+                        ${cityHtml}
+                    </div>
+                    <span class="review-list-row__item">${itemName}</span>
+                </div>
+                <div class="review-list-row__meta">
+                    <div class="review-list-row__stats">
+                        <span class="review-list-row__score">${scoreValue}</span>
+                        <span class="review-list-row__count">${countValue} reseña${countValue === 1 ? '' : 's'}</span>
+                    </div>
+                    <div class="review-list-row__actions">
+                        <a class="review-list-row__action review-list-row__action--map" href="${mapUrl}" target="_blank" rel="noopener" title="Abrir en Google Maps" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
+                            <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+                            <span>Mapa</span>
+                        </a>
+                        <a class="review-list-row__action review-list-row__action--rate" href="${reviewUrl}" title="Valorar" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
+                            <i class="fas fa-star" aria-hidden="true"></i>
+                            <span>Valorar</span>
+                        </a>
+                    </div>
+                </div>
+            </article>
+        `;
+    }
+
+    function renderReviewCards(groupedItemsToRender, { append = false } = {}) {
         if (!reviewsGridContainer) return;
-        reviewsGridContainer.innerHTML = '';
-        if (groupedItemsToRender.length === 0) {
-            reviewsGridContainer.innerHTML = '<p class="no-reviews-message">No hay elementos que coincidan.</p>';
+        if (!append) {
+            reviewsGridContainer.innerHTML = '';
+        }
+        if (!groupedItemsToRender || groupedItemsToRender.length === 0) {
+            if (!append) {
+                reviewsGridContainer.innerHTML = '<p class="no-reviews-message">No hay elementos que coincidan.</p>';
+            }
             return;
         }
-        groupedItemsToRender.forEach(group => {
-            const listData = { criteriaDefinition: ListopicApp.state.currentListCriteriaDefinitions };
-            const cardHtml = ListopicApp.uiUtils.createListViewGroupCard(group, listData, currentListIconClass);
-            reviewsGridContainer.insertAdjacentHTML('beforeend', cardHtml);
-        });
-        reviewsGridContainer.querySelectorAll('.review-list-card__image').forEach(img => {
+        const listData = { criteriaDefinition: ListopicApp.state.currentListCriteriaDefinitions };
+        const cardsHtml = groupedItemsToRender
+            .map(group => (
+                itemsViewMode === 'list'
+                    ? buildGroupListRow(group)
+                    : ListopicApp.uiUtils.createListViewGroupCard(group, listData, currentListIconClass)
+            ))
+            .join('');
+        if (append) {
+            reviewsGridContainer.insertAdjacentHTML('beforeend', cardsHtml);
+        } else {
+            reviewsGridContainer.innerHTML = cardsHtml;
+        }
+        reviewsGridContainer.querySelectorAll('.review-list-card__image, .review-list-row__image').forEach(img => {
+            if (img.dataset.errorHandlerAttached === '1') return;
+            img.dataset.errorHandlerAttached = '1';
             img.addEventListener('error', () => handleCardImageError(img));
             if (img.complete && img.naturalWidth === 0) {
                 handleCardImageError(img);
@@ -217,20 +349,526 @@ ListopicApp.pageListView = (() => {
         });
     }
 
-    function renderTagFilters_ListView() {
-        const uiUtils = ListopicApp.uiUtils;
-        if (!tagFilterContainer) return;
-        tagFilterContainer.innerHTML = '';
-        if (ListopicApp.state.currentListAvailableTags && ListopicApp.state.currentListAvailableTags.length > 0) { 
-            ListopicApp.state.currentListAvailableTags.forEach(tag => {
-                const button = document.createElement('button');
-                button.className = 'tag-filter-button';
-                button.textContent = uiUtils.escapeHtml(tag);
-                button.dataset.tag = tag;
-                button.addEventListener('click', toggleTagFilter_ListView_Grouped);
-                tagFilterContainer.appendChild(button);
+    function formatTagCount(value) {
+        const numberValue = Number(value);
+        if (!isFinite(numberValue)) return '0';
+        return numberValue.toLocaleString('es-ES');
+    }
+
+    function getListSortConfig(rawValue) {
+        const fallback = { type: 'score', direction: 'desc' };
+        if (!rawValue || typeof rawValue !== 'string') return fallback;
+        if (rawValue.startsWith('crit:')) {
+            const parts = rawValue.split(':');
+            return {
+                type: 'criterion',
+                key: parts[1] || '',
+                direction: (parts[2] || 'desc').toLowerCase()
+            };
+        }
+        const [type, direction] = rawValue.split('-');
+        return {
+            type: type || fallback.type,
+            direction: (direction || fallback.direction).toLowerCase()
+        };
+    }
+
+    function refreshListSortOptions() {
+        if (!listSortSelect) return;
+        const definitions = ListopicApp.state.currentListCriteriaDefinitions || {};
+        const options = [
+            { value: 'score-desc', label: 'Mejor nota' },
+            { value: 'score-asc', label: 'Peor nota' },
+            { value: 'reviews-desc', label: 'Mas resenas' },
+            { value: 'reviews-asc', label: 'Menos resenas' },
+            { value: 'place-asc', label: 'Lugar A-Z' },
+            { value: 'place-desc', label: 'Lugar Z-A' },
+            { value: 'item-asc', label: 'Elemento A-Z' },
+            { value: 'item-desc', label: 'Elemento Z-A' }
+        ];
+        Object.entries(definitions).forEach(([key, def]) => {
+            const label = def && def.label ? def.label : key;
+            options.push({ value: `crit:${key}:desc`, label: `Criterio ${label} (mejor)` });
+            options.push({ value: `crit:${key}:asc`, label: `Criterio ${label} (peor)` });
+        });
+
+        const currentValue = listSortSelect.value;
+        listSortSelect.innerHTML = options
+            .map(option => `<option value="${option.value}">${option.label}</option>`)
+            .join('');
+        listSortSelect.value = options.find(opt => opt.value === currentValue)?.value || options[0].value;
+    }
+
+    function getActiveFiltersCount() {
+        let count = 0;
+        if (listFilterState.scoreMin != null || listFilterState.scoreMax != null) count += 1;
+        const criteriaCount = listFilterState.criteriaMin ? Object.keys(listFilterState.criteriaMin).length : 0;
+        count += criteriaCount;
+        count += activeTagFilters.size;
+        const extraActive = Object.values(extraFiltersState.filters || {}).filter(Boolean).length;
+        count += extraActive;
+        return count;
+    }
+
+    function updateFiltersActiveCount() {
+        if (!filtersActiveCountBadge) return;
+        const count = getActiveFiltersCount();
+        filtersActiveCountBadge.textContent = String(count);
+        filtersActiveCountBadge.hidden = count === 0;
+    }
+
+    function formatScoreValue(value) {
+        if (!isFinite(value)) return '';
+        return Number(value).toFixed(1).replace(/\.0$/, '');
+    }
+
+    function updateScoreRangeLabels() {
+        if (!scoreMinInput || !scoreMaxInput) return;
+        const minVal = parseFloat(scoreMinInput.value);
+        const maxVal = parseFloat(scoreMaxInput.value);
+        const minLabel = formatScoreValue(isFinite(minVal) ? minVal : SCORE_MIN_DEFAULT);
+        const maxLabel = formatScoreValue(isFinite(maxVal) ? maxVal : SCORE_MAX_DEFAULT);
+        if (scoreMinOutput) scoreMinOutput.textContent = minLabel || String(SCORE_MIN_DEFAULT);
+        if (scoreMaxOutput) scoreMaxOutput.textContent = maxLabel || String(SCORE_MAX_DEFAULT);
+        if (scoreRangeLabel) {
+            let label = 'Cualquiera';
+            const hasMin = isFinite(minVal) && minVal > SCORE_MIN_DEFAULT;
+            const hasMax = isFinite(maxVal) && maxVal < SCORE_MAX_DEFAULT;
+            if (hasMin && hasMax) {
+                label = `De ${minLabel} a ${maxLabel}`;
+            } else if (hasMin) {
+                label = `Desde ${minLabel}`;
+            } else if (hasMax) {
+                label = `Hasta ${maxLabel}`;
+            }
+            scoreRangeLabel.textContent = label;
+        }
+    }
+
+    function setScoreRangeInputs(minValue, maxValue) {
+        if (!scoreMinInput || !scoreMaxInput) return;
+        const safeMin = isFinite(minValue) ? minValue : SCORE_MIN_DEFAULT;
+        const safeMax = isFinite(maxValue) ? maxValue : SCORE_MAX_DEFAULT;
+        scoreMinInput.value = String(safeMin);
+        scoreMaxInput.value = String(safeMax);
+        updateScoreRangeLabels();
+    }
+
+    function syncScoreRangeInputs() {
+        const minValue = listFilterState.scoreMin != null ? listFilterState.scoreMin : SCORE_MIN_DEFAULT;
+        const maxValue = listFilterState.scoreMax != null ? listFilterState.scoreMax : SCORE_MAX_DEFAULT;
+        setScoreRangeInputs(minValue, maxValue);
+    }
+
+    function handleScoreRangeInput(source) {
+        if (!scoreMinInput || !scoreMaxInput) return;
+        let minValue = parseFloat(scoreMinInput.value);
+        let maxValue = parseFloat(scoreMaxInput.value);
+        if (!isFinite(minValue)) minValue = SCORE_MIN_DEFAULT;
+        if (!isFinite(maxValue)) maxValue = SCORE_MAX_DEFAULT;
+        if (minValue > maxValue) {
+            if (source === 'min') {
+                maxValue = minValue;
+                scoreMaxInput.value = String(maxValue);
+            } else {
+                minValue = maxValue;
+                scoreMinInput.value = String(minValue);
+            }
+        }
+        updateScoreRangeLabels();
+        scheduleFiltersPreview();
+    }
+
+    function setItemsViewMode(mode) {
+        itemsViewMode = mode === 'list' ? 'list' : 'grid';
+        if (reviewsGridContainer) {
+            reviewsGridContainer.classList.toggle('reviews-grid-container--list', itemsViewMode === 'list');
+        }
+        if (listViewToggleButtons && listViewToggleButtons.length) {
+            listViewToggleButtons.forEach(btn => {
+                const isActive = btn.dataset.listView === itemsViewMode;
+                btn.classList.toggle('is-active', isActive);
             });
         }
+        if (currentFilteredGroups.length) {
+            if (renderedGroupCount === 0) {
+                renderNextPage();
+            } else {
+                const slice = currentFilteredGroups.slice(0, renderedGroupCount);
+                renderReviewCards(slice, { append: false });
+            }
+        }
+    }
+
+
+    function renderCriteriaFilterControls() {
+        if (!criteriaFiltersWeightedEl || !criteriaFiltersNonWeightedEl) return;
+        const definitions = ListopicApp.state.currentListCriteriaDefinitions || {};
+        const entries = Object.entries(definitions);
+        criteriaFiltersWeightedEl.innerHTML = '';
+        criteriaFiltersNonWeightedEl.innerHTML = '';
+
+        if (!entries.length) {
+            criteriaFiltersWeightedEl.innerHTML = '<p class="no-reviews-message">No hay criterios definidos.</p>';
+            return;
+        }
+
+        const buildRow = (key, def, container) => {
+            const min = typeof def.min === 'number' ? def.min : 0;
+            const max = typeof def.max === 'number' ? def.max : 10;
+            const step = typeof def.step === 'number' ? def.step : 0.5;
+            const label = def.label || key;
+            const value = listFilterState.criteriaMin[key] != null ? listFilterState.criteriaMin[key] : min;
+
+            const row = document.createElement('div');
+            row.className = 'list-filters-criteria__row';
+            row.innerHTML = `
+                <span class="list-filters-criteria__label">${ListopicApp.uiUtils.escapeHtml(label)}</span>
+                <div class="list-filters-criteria__control">
+                    <input type="range" class="list-filters-criteria__slider" min="${min}" max="${max}" step="${step}" value="${value}" data-criterion-key="${ListopicApp.uiUtils.escapeHtml(key)}" data-criterion-min="${min}">
+                    <span class="list-filters-criteria__value">Cualquiera</span>
+                </div>
+            `;
+            const slider = row.querySelector('.list-filters-criteria__slider');
+            const valueEl = row.querySelector('.list-filters-criteria__value');
+            const refreshLabel = () => {
+                const numericValue = parseFloat(slider.value);
+                valueEl.textContent = numericValue <= min ? 'Cualquiera' : numericValue.toFixed(1);
+            };
+            refreshLabel();
+            slider.addEventListener('input', () => {
+                refreshLabel();
+                scheduleFiltersPreview();
+            });
+            container.appendChild(row);
+        };
+
+        entries.forEach(([key, def]) => {
+            if (def && def.ponderable === false) {
+                buildRow(key, def, criteriaFiltersNonWeightedEl);
+            } else {
+                buildRow(key, def, criteriaFiltersWeightedEl);
+            }
+        });
+
+        if (!criteriaFiltersWeightedEl.children.length) {
+            criteriaFiltersWeightedEl.innerHTML = '<p class="no-reviews-message">No hay criterios ponderados.</p>';
+        }
+        if (!criteriaFiltersNonWeightedEl.children.length) {
+            criteriaFiltersNonWeightedEl.innerHTML = '<p class="no-reviews-message">No hay criterios sin ponderar.</p>';
+        }
+    }
+
+    function syncCriteriaFilterInputs() {
+        if (!criteriaFiltersWeightedEl || !criteriaFiltersNonWeightedEl) return;
+        [criteriaFiltersWeightedEl, criteriaFiltersNonWeightedEl].forEach(container => {
+            container.querySelectorAll('.list-filters-criteria__slider').forEach(slider => {
+                const key = slider.dataset.criterionKey;
+                const minValue = parseFloat(slider.dataset.criterionMin) || 0;
+                const stored = listFilterState.criteriaMin[key];
+                slider.value = stored != null ? stored : minValue;
+                const valueEl = slider.closest('.list-filters-criteria__control')?.querySelector('.list-filters-criteria__value');
+                if (valueEl) {
+                    valueEl.textContent = slider.value <= minValue ? 'Cualquiera' : parseFloat(slider.value).toFixed(1);
+                }
+            });
+        });
+    }
+
+    function renderTagFiltersModal() {
+        if (!tagFilterModalContainer) return;
+        tagFilterModalContainer.innerHTML = '';
+        const rawTags = ListopicApp.state.currentListAvailableTags || [];
+        const tags = [...new Set(rawTags.map(tag => (typeof tag === 'string' ? tag.trim() : '')).filter(Boolean))];
+        if (!tags.length) {
+            tagFilterModalContainer.innerHTML = '<p class="no-reviews-message">No hay etiquetas definidas.</p>';
+            return;
+        }
+        const counts = new Map();
+        const groups = ListopicApp.state._allGroupedItemsBase || [];
+        groups.forEach(group => {
+            (group.groupTags || []).forEach(tag => {
+                const cleaned = typeof tag === 'string' ? tag.trim() : '';
+                if (!cleaned) return;
+                counts.set(cleaned, (counts.get(cleaned) || 0) + 1);
+            });
+        });
+        tags.forEach(tag => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'list-filter-chip';
+            button.dataset.tag = tag;
+            const safeTag = ListopicApp.uiUtils.escapeHtml(tag);
+            const count = counts.get(tag) || 0;
+            button.innerHTML = `<span>#${safeTag}</span><span class="list-filter-chip__count">${formatTagCount(count)}</span>`;
+            button.addEventListener('click', () => {
+                if (modalTagFilters.has(tag)) {
+                    modalTagFilters.delete(tag);
+                } else {
+                    modalTagFilters.add(tag);
+                }
+                syncTagModalSelection();
+                scheduleFiltersPreview();
+            });
+            tagFilterModalContainer.appendChild(button);
+        });
+        syncTagModalSelection();
+    }
+
+    function syncTagModalSelection() {
+        if (!tagFilterModalContainer) return;
+        tagFilterModalContainer.querySelectorAll('.list-filter-chip').forEach(button => {
+            const tag = button.dataset.tag || '';
+            const selected = modalTagFilters.has(tag);
+            button.classList.toggle('is-active', selected);
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        });
+    }
+
+    function readTagModalSelection() {
+        return new Set(modalTagFilters);
+    }
+
+    function syncExtraFilterToggles(filters = extraFiltersState.filters) {
+        if (!listFilterToggleButtons || !listFilterToggleButtons.length) return;
+        listFilterToggleButtons.forEach(button => {
+            const key = button.dataset.filterToggle;
+            if (!key) return;
+            const isActive = !!filters?.[key];
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    }
+
+    function readExtraFilterToggles() {
+        const filters = {};
+        EXTRA_FILTER_KEYS.forEach(key => { filters[key] = false; });
+        if (!listFilterToggleButtons || !listFilterToggleButtons.length) return filters;
+        listFilterToggleButtons.forEach(button => {
+            const key = button.dataset.filterToggle;
+            if (!key || !(key in filters)) return;
+            filters[key] = button.classList.contains('is-active');
+        });
+        return filters;
+    }
+
+    function resetCriteriaSlidersToMin(container) {
+        if (!container) return;
+        container.querySelectorAll('.list-filters-criteria__slider').forEach(slider => {
+            const minValue = parseFloat(slider.dataset.criterionMin) || parseFloat(slider.min) || 0;
+            slider.value = String(minValue);
+            const valueEl = slider.closest('.list-filters-criteria__control')?.querySelector('.list-filters-criteria__value');
+            if (valueEl) valueEl.textContent = 'Cualquiera';
+        });
+    }
+
+    function resetFiltersModal() {
+        modalTagFilters = new Set();
+        setScoreRangeInputs(SCORE_MIN_DEFAULT, SCORE_MAX_DEFAULT);
+        resetCriteriaSlidersToMin(criteriaFiltersWeightedEl);
+        resetCriteriaSlidersToMin(criteriaFiltersNonWeightedEl);
+        if (listFilterToggleButtons && listFilterToggleButtons.length) {
+            listFilterToggleButtons.forEach(button => {
+                button.classList.remove('is-active');
+                button.setAttribute('aria-pressed', 'false');
+            });
+        }
+        syncTagModalSelection();
+        scheduleFiltersPreview();
+    }
+
+    function syncFiltersModalFromState() {
+        modalTagFilters = new Set(activeTagFilters);
+        syncScoreRangeInputs();
+        syncCriteriaFilterInputs();
+        syncTagModalSelection();
+        syncExtraFilterToggles(extraFiltersState.filters);
+        updateScoreRangeLabels();
+    }
+
+    function readModalFiltersSnapshot() {
+        let minValue = parseFloat(scoreMinInput?.value);
+        let maxValue = parseFloat(scoreMaxInput?.value);
+        if (!isFinite(minValue)) minValue = SCORE_MIN_DEFAULT;
+        if (!isFinite(maxValue)) maxValue = SCORE_MAX_DEFAULT;
+        if (minValue > maxValue) {
+            const temp = minValue;
+            minValue = maxValue;
+            maxValue = temp;
+        }
+        const scoreMin = minValue > SCORE_MIN_DEFAULT ? minValue : null;
+        const scoreMax = maxValue < SCORE_MAX_DEFAULT ? maxValue : null;
+
+        const criteriaMin = {};
+        const readCriteriaContainer = (container) => {
+            if (!container) return;
+            container.querySelectorAll('.list-filters-criteria__slider').forEach(slider => {
+                const key = slider.dataset.criterionKey;
+                if (!key) return;
+                const min = parseFloat(slider.dataset.criterionMin) || 0;
+                const value = parseFloat(slider.value);
+                if (isFinite(value) && value > min) {
+                    criteriaMin[key] = value;
+                }
+            });
+        };
+        readCriteriaContainer(criteriaFiltersWeightedEl);
+        readCriteriaContainer(criteriaFiltersNonWeightedEl);
+
+        return {
+            scoreMin,
+            scoreMax,
+            criteriaMin,
+            tags: readTagModalSelection(),
+            extraFilters: readExtraFilterToggles()
+        };
+    }
+
+    function applyFiltersSnapshot(snapshot) {
+        listFilterState.scoreMin = snapshot.scoreMin;
+        listFilterState.scoreMax = snapshot.scoreMax;
+        listFilterState.criteriaMin = snapshot.criteriaMin || {};
+        activeTagFilters = new Set(snapshot.tags || []);
+        Object.assign(extraFiltersState.filters, snapshot.extraFilters || {});
+        updateFiltersActiveCount();
+        const state = ListopicApp.state || {};
+        state.allGroupedItems = applyExtraPlaceFilters(state._allGroupedItemsBase || [], extraFiltersState.filters);
+        applyFiltersAndSort_ListView_Grouped();
+    }
+
+    function filterGroupsWithSnapshot(groups, snapshot) {
+        let scopedItems = Array.isArray(groups) ? groups : [];
+        const searchTerm = (searchInput?.value || '').toLowerCase();
+
+        if (searchTerm) {
+            scopedItems = scopedItems.filter(group =>
+                (group.establishmentName && group.establishmentName.toLowerCase().includes(searchTerm)) ||
+                (group.itemName && group.itemName.toLowerCase().includes(searchTerm))
+            );
+        }
+
+        if (typeof distanceFilterKm === "number" && isFinite(distanceFilterKm) && distanceFilterKm > 0) {
+            const state = ListopicApp.state || {};
+            const lat = typeof state.userLatitude === "number" ? state.userLatitude : NaN;
+            const lng = typeof state.userLongitude === "number" ? state.userLongitude : NaN;
+            if (isFinite(lat) && isFinite(lng) && window.L && typeof L.latLng === "function") {
+                const userLatLng = L.latLng(lat, lng);
+                const maxMeters = distanceFilterKm * 1000;
+                scopedItems = scopedItems.filter(group => {
+                    const placeId = group.placeId;
+                    if (!placeId) return false;
+                    const loc = getPlaceLatLng(placeId);
+                    if (!loc) return false;
+                    const dist = userLatLng.distanceTo(loc);
+                    return dist <= maxMeters;
+                });
+            }
+        }
+
+        if (snapshot.scoreMin != null || snapshot.scoreMax != null) {
+            scopedItems = scopedItems.filter(group => {
+                const score = parseFloat(group.avgGeneralScore) || 0;
+                if (snapshot.scoreMin != null && score < snapshot.scoreMin) return false;
+                if (snapshot.scoreMax != null && score > snapshot.scoreMax) return false;
+                return true;
+            });
+        }
+
+        const criteriaKeys = snapshot.criteriaMin ? Object.keys(snapshot.criteriaMin) : [];
+        if (criteriaKeys.length) {
+            scopedItems = scopedItems.filter(group => {
+                const scores = group.avgScores || {};
+                for (const key of criteriaKeys) {
+                    const minValue = snapshot.criteriaMin[key];
+                    if (minValue == null) continue;
+                    const value = parseFloat(scores[key]) || 0;
+                    if (value < minValue) return false;
+                }
+                return true;
+            });
+        }
+
+        const tagSet = snapshot.tags || new Set();
+        if (tagSet.size > 0) {
+            scopedItems = scopedItems.filter(group => {
+                if (!group.groupTags || group.groupTags.length === 0) return false;
+                return [...tagSet].every(filterTag => group.groupTags.includes(filterTag));
+            });
+        }
+
+        return scopedItems;
+    }
+
+    function updateFiltersPreview() {
+        if (!filtersPreviewCountEl) return;
+        if (!listFiltersModal || !listFiltersModal.classList.contains('is-open')) return;
+        const snapshot = readModalFiltersSnapshot();
+        const baseGroups = ListopicApp.state?._allGroupedItemsBase || [];
+        const filteredByExtras = applyExtraPlaceFilters(baseGroups, snapshot.extraFilters);
+        const previewItems = filterGroupsWithSnapshot(filteredByExtras, snapshot);
+        const previewCount = previewItems.length;
+        filtersPreviewCountEl.textContent = formatTagCount(previewCount);
+        if (listFiltersApplyBtn) {
+            listFiltersApplyBtn.textContent = previewCount > 0
+                ? `Aplicar filtros (${formatTagCount(previewCount)})`
+                : 'Aplicar filtros';
+        }
+    }
+
+    function scheduleFiltersPreview() {
+        if (!listFiltersModal || !listFiltersModal.classList.contains('is-open')) return;
+        if (filterPreviewTimer) window.clearTimeout(filterPreviewTimer);
+        filterPreviewTimer = window.setTimeout(updateFiltersPreview, 140);
+    }
+
+    function updateLoadMoreUI() {
+        if (!listLoadMoreContainer) return;
+        const total = currentFilteredGroups.length;
+        if (total === 0) {
+            listLoadMoreContainer.style.display = 'none';
+            return;
+        }
+        listLoadMoreContainer.style.display = '';
+        const shown = Math.min(renderedGroupCount, total);
+        if (listLoadMoreStatus) {
+            listLoadMoreStatus.textContent = `Mostrando ${formatTagCount(shown)} de ${formatTagCount(total)}`;
+        }
+        if (listLoadMoreBtn) {
+            listLoadMoreBtn.style.display = shown < total ? 'inline-flex' : 'none';
+        }
+    }
+
+    function renderNextPage() {
+        if (!reviewsGridContainer || isRenderingPage) return;
+        const total = currentFilteredGroups.length;
+        if (total === 0) {
+            renderReviewCards([], { append: false });
+            updateLoadMoreUI();
+            return;
+        }
+        if (renderedGroupCount >= total) {
+            updateLoadMoreUI();
+            return;
+        }
+        isRenderingPage = true;
+        const nextItems = currentFilteredGroups.slice(renderedGroupCount, renderedGroupCount + PAGE_SIZE);
+        renderReviewCards(nextItems, { append: renderedGroupCount > 0 });
+        renderedGroupCount += nextItems.length;
+        updateLoadMoreUI();
+        isRenderingPage = false;
+    }
+
+    function setupLoadMoreObserver() {
+        if (!listLoadMoreSentinel || !('IntersectionObserver' in window)) return;
+        if (loadMoreObserver) loadMoreObserver.disconnect();
+        loadMoreObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    renderNextPage();
+                }
+            });
+        }, { rootMargin: '200px 0px' });
+        loadMoreObserver.observe(listLoadMoreSentinel);
     }
 
     async function ensureUserCoordsForDistance({ recenter = false } = {}) {
@@ -274,21 +912,17 @@ ListopicApp.pageListView = (() => {
     }
 
     function applyFiltersAndSort_ListView_Grouped() {
-        let filteredItems = [...ListopicApp.state.allGroupedItems];
-        const searchTerm = searchInput.value.toLowerCase();
+        const sourceItems = Array.isArray(ListopicApp.state.allGroupedItems)
+            ? [...ListopicApp.state.allGroupedItems]
+            : [];
+        const searchTerm = (searchInput?.value || '').toLowerCase();
 
+        let scopedItems = sourceItems;
         if (searchTerm) {
-            filteredItems = filteredItems.filter(group =>
+            scopedItems = scopedItems.filter(group =>
                 (group.establishmentName && group.establishmentName.toLowerCase().includes(searchTerm)) ||
                 (group.itemName && group.itemName.toLowerCase().includes(searchTerm))
             );
-        }
-
-        if (activeTagFilters.size > 0) {
-            filteredItems = filteredItems.filter(group => {
-                if (!group.groupTags || group.groupTags.length === 0) return false;
-                return [...activeTagFilters].every(filterTag => group.groupTags.includes(filterTag));
-            });
         }
 
         if (typeof distanceFilterKm === "number" && isFinite(distanceFilterKm) && distanceFilterKm > 0) {
@@ -298,7 +932,7 @@ ListopicApp.pageListView = (() => {
             if (isFinite(lat) && isFinite(lng) && window.L && typeof L.latLng === "function") {
                 const userLatLng = L.latLng(lat, lng);
                 const maxMeters = distanceFilterKm * 1000;
-                filteredItems = filteredItems.filter(group => {
+                scopedItems = scopedItems.filter(group => {
                     const placeId = group.placeId;
                     if (!placeId) return false;
                     const loc = getPlaceLatLng(placeId);
@@ -309,28 +943,80 @@ ListopicApp.pageListView = (() => {
             }
         }
 
+        let filteredItems = scopedItems;
+
+        const scoreMin = listFilterState.scoreMin;
+        const scoreMax = listFilterState.scoreMax;
+        if (scoreMin != null || scoreMax != null) {
+            filteredItems = filteredItems.filter(group => {
+                const score = parseFloat(group.avgGeneralScore) || 0;
+                if (scoreMin != null && score < scoreMin) return false;
+                if (scoreMax != null && score > scoreMax) return false;
+                return true;
+            });
+        }
+
+        const criteriaFilters = listFilterState.criteriaMin || {};
+        const criteriaKeys = Object.keys(criteriaFilters);
+        if (criteriaKeys.length) {
+            filteredItems = filteredItems.filter(group => {
+                const scores = group.avgScores || {};
+                for (const key of criteriaKeys) {
+                    const minValue = criteriaFilters[key];
+                    if (minValue == null) continue;
+                    const value = parseFloat(scores[key]) || 0;
+                    if (value < minValue) return false;
+                }
+                return true;
+            });
+        }
+        if (activeTagFilters.size > 0) {
+            filteredItems = filteredItems.filter(group => {
+                if (!group.groupTags || group.groupTags.length === 0) return false;
+                return [...activeTagFilters].every(filterTag => group.groupTags.includes(filterTag));
+            });
+        }
+
+        const sortConfig = getListSortConfig(listSortSelect?.value);
+        const directionMultiplier = sortConfig.direction === 'asc' ? 1 : -1;
         filteredItems.sort((a, b) => {
-            let valA = a[currentSortColumn] ?? 0;
-            let valB = b[currentSortColumn] ?? 0;
-            if (currentSortDirection === 'asc') {
-                return valA > valB ? 1 : -1;
-            } else {
-                return valA < valB ? 1 : -1;
+            if (sortConfig.type === 'place') {
+                return (String(a.establishmentName || a.placeName || '')).localeCompare(
+                    String(b.establishmentName || b.placeName || ''),
+                    'es',
+                    { sensitivity: 'base' }
+                ) * directionMultiplier;
             }
+            if (sortConfig.type === 'item') {
+                return (String(a.itemName || a.item || '')).localeCompare(
+                    String(b.itemName || b.item || ''),
+                    'es',
+                    { sensitivity: 'base' }
+                ) * directionMultiplier;
+            }
+            let valA = 0;
+            let valB = 0;
+            if (sortConfig.type === 'reviews') {
+                valA = parseFloat(a.itemCount) || 0;
+                valB = parseFloat(b.itemCount) || 0;
+            } else if (sortConfig.type === 'criterion') {
+                valA = parseFloat(a.avgScores?.[sortConfig.key]) || 0;
+                valB = parseFloat(b.avgScores?.[sortConfig.key]) || 0;
+            } else {
+                valA = parseFloat(a.avgGeneralScore) || 0;
+                valB = parseFloat(b.avgGeneralScore) || 0;
+            }
+            if (valA === valB) return 0;
+            return (valA - valB) * directionMultiplier;
         });
+
+        currentFilteredGroups = filteredItems;
+        renderedGroupCount = 0;
+        renderNextPage();
         updateFilteredPlacesForMap(filteredItems);
-        renderReviewCards(filteredItems);
         refreshMapMarkers().catch(error => console.error('LIST-VIEW: Error al refrescar el mapa tras filtros.', error));
     }
     
-    function toggleTagFilter_ListView_Grouped(event) {
-        const clickedTag = event.target.dataset.tag;
-        if (!clickedTag) return;
-        activeTagFilters.has(clickedTag) ? activeTagFilters.delete(clickedTag) : activeTagFilters.add(clickedTag);
-        event.target.classList.toggle('selected');
-        applyFiltersAndSort_ListView_Grouped();
-    }
-
     function openMapModal() {
         if (!mapModal) return;
     
@@ -839,7 +1525,8 @@ const state = ListopicApp.state;
 listTitleElement = document.getElementById('list-title');
 reviewsGridContainer = document.getElementById('reviews-grid-container'); // Apuntamos al nuevo div
 searchInput = document.querySelector('.search-input');
-tagFilterContainer = document.querySelector('.tag-filter-container');
+listViewToggleButtons = document.querySelectorAll('.list-view-toggle__btn');
+listSortSelect = document.getElementById('list-sort-select');
 addReviewButton = document.querySelector('.add-review-button');
 editListLink = document.getElementById('edit-list-link');
 deleteListButton = document.getElementById('delete-list-button');
@@ -850,6 +1537,28 @@ mapContainer = document.getElementById('list-map-container');
 mapFiltersBtn = document.getElementById('map-filters-btn');
 mapCenterUserBtn = document.getElementById('map-center-user-btn');
 listDistanceSelect = document.getElementById('list-distance-select');
+listLoadMoreContainer = document.getElementById('list-load-more');
+listLoadMoreBtn = document.getElementById('list-load-more-btn');
+listLoadMoreStatus = document.getElementById('list-load-more-status');
+listLoadMoreSentinel = document.getElementById('list-load-more-sentinel');
+scoreMinInput = document.getElementById('filter-score-min');
+scoreMaxInput = document.getElementById('filter-score-max');
+scoreMinOutput = document.getElementById('filter-score-min-output');
+scoreMaxOutput = document.getElementById('filter-score-max-output');
+scoreRangeLabel = document.getElementById('filters-score-label');
+criteriaFiltersWeightedEl = document.getElementById('criteria-filters-weighted');
+criteriaFiltersNonWeightedEl = document.getElementById('criteria-filters-nonweighted');
+tagFilterModalContainer = document.getElementById('tag-filter-modal');
+listFiltersModal = document.getElementById('list-filters-modal');
+listFiltersApplyBtn = document.getElementById('list-filters-apply');
+listFiltersClearBtn = document.getElementById('list-filters-clear');
+listFiltersClearInlineBtn = document.getElementById('filters-clear-inline');
+filtersPreviewCountEl = document.getElementById('filters-preview-count');
+filtersActiveCountBadge = document.getElementById('filters-active-count');
+tagFiltersClearBtn = listFiltersModal ? listFiltersModal.querySelector('[data-tags-clear]') : null;
+listFilterToggleButtons = listFiltersModal ? listFiltersModal.querySelectorAll('.list-filter-toggle') : [];
+listFiltersPresetButtons = listFiltersModal ? listFiltersModal.querySelectorAll('[data-score-preset]') : [];
+listFiltersDismissButtons = listFiltersModal ? listFiltersModal.querySelectorAll('[data-list-filters-dismiss]') : [];
 
 // Reinicio de estado de la página (se mantiene igual)
 state.allGroupedItems = []; 
@@ -857,6 +1566,27 @@ state.currentListAvailableTags = [];
 activeTagFilters = new Set();
 currentSortColumn = 'avgGeneralScore';
 currentSortDirection = 'desc';
+currentFilteredGroups = [];
+renderedGroupCount = 0;
+listFilterState.scoreMin = null;
+listFilterState.scoreMax = null;
+listFilterState.criteriaMin = {};
+syncScoreRangeInputs();
+updateFiltersActiveCount();
+
+if (listViewToggleButtons && listViewToggleButtons.length) {
+    listViewToggleButtons.forEach(btn => {
+        btn.addEventListener('click', () => setItemsViewMode(btn.dataset.listView || 'grid'));
+    });
+}
+if (listSortSelect) {
+    listSortSelect.addEventListener('change', () => applyFiltersAndSort_ListView_Grouped());
+}
+if (listLoadMoreBtn) {
+    listLoadMoreBtn.addEventListener('click', () => renderNextPage());
+}
+setupLoadMoreObserver();
+    setItemsViewMode('list');
 
 const urlParamsList = new URLSearchParams(window.location.search);
 state.currentListId = urlParamsList.get('listId'); 
@@ -931,6 +1661,7 @@ listDistanceSelect &&
         }
         try { syncListMapDistanceCircle(); } catch (e) {}
         applyFiltersAndSort_ListView_Grouped();
+        scheduleFiltersPreview();
     });
 
 initDistanceFilterFromPreference();
@@ -1003,13 +1734,17 @@ if (state.currentListId) {
         
         // Ya no renderizamos cabeceras de tabla
         // renderTableHeaders_ListView_Grouped(); 
-        renderTagFilters_ListView();
-        initForumModal();
-
         state._allGroupedItemsBase = responsePayload.groupedReviews || [];
         state.allGroupedItems = state._allGroupedItemsBase;
-        // Pre-cargar opciones de lugares para filtros extra
-        try { await preloadPlaceOptionsForGroups(state._allGroupedItemsBase); } catch(e) { console.warn('No se pudieron precargar opciones de lugares', e); }
+        extraFiltersState.placeOptionsMap.clear();
+        extraFiltersState.placeOptionsLoaded = false;
+        extraFiltersState.placeOptionsLoadPromise = null;
+        refreshListSortOptions();
+        renderCriteriaFilterControls();
+        renderTagFiltersModal();
+        syncFiltersModalFromState();
+        updateFiltersActiveCount();
+        initForumModal();
         applyFiltersAndSort_ListView_Grouped();
 
         // Restaurar el estado del mapa si venimos de atrás con parámetros en la URL
@@ -1040,17 +1775,66 @@ if (state.currentListId) {
 }
 
 // Listeners de UI (eliminamos el de la tabla)
-if(searchInput) searchInput.addEventListener('input', applyFiltersAndSort_ListView_Grouped);
+if (searchInput) {
+    searchInput.addEventListener('input', () => {
+        if (searchDebounceTimer) window.clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = window.setTimeout(() => {
+            applyFiltersAndSort_ListView_Grouped();
+            scheduleFiltersPreview();
+        }, 180);
+    });
+}
 
 // --- Modal de filtros extra ---
 const showFiltersBtn = document.getElementById('show-filters-modal-btn');
-const extraFiltersModal = document.getElementById('extra-filters-modal');
-const btnFiltersApply = document.getElementById('extra-filters-apply');
-const btnFiltersClear = document.getElementById('extra-filters-clear');
-const btnFiltersCancel = document.getElementById('extra-filters-cancel');
 
-function openFiltersModal(){ if(extraFiltersModal) extraFiltersModal.style.display='flex'; }
-function closeFiltersModal(){ if(extraFiltersModal) extraFiltersModal.style.display='none'; }
+async function ensurePlaceOptionsLoaded({ silent = false } = {}) {
+    if (extraFiltersState.placeOptionsLoaded) return true;
+    if (extraFiltersState.placeOptionsLoadPromise) return extraFiltersState.placeOptionsLoadPromise;
+
+    const baseGroups = state._allGroupedItemsBase || [];
+    if (!baseGroups.length) {
+        extraFiltersState.placeOptionsLoaded = true;
+        return true;
+    }
+    if (!silent) {
+        ListopicApp.services?.showNotification?.('Cargando datos de lugares...', 'info');
+    }
+    extraFiltersState.placeOptionsLoadPromise = preloadPlaceOptionsForGroups(baseGroups)
+        .then(() => {
+            extraFiltersState.placeOptionsLoaded = true;
+            return true;
+        })
+        .catch((e) => {
+            console.warn('No se pudieron cargar opciones de lugares', e);
+            if (!silent) {
+                ListopicApp.services?.showNotification?.('No se pudieron cargar datos de lugares.', 'warn');
+            }
+            return false;
+        })
+        .finally(() => {
+            extraFiltersState.placeOptionsLoadPromise = null;
+        });
+    return extraFiltersState.placeOptionsLoadPromise;
+}
+
+function openFiltersModal() {
+    if (!listFiltersModal) return;
+    listFiltersModal.classList.add('is-open');
+    listFiltersModal.setAttribute('aria-hidden', 'false');
+    syncFiltersModalFromState();
+    scheduleFiltersPreview();
+    const loadPromise = ensurePlaceOptionsLoaded({ silent: true });
+    if (loadPromise && typeof loadPromise.then === 'function') {
+        loadPromise.then(() => scheduleFiltersPreview()).catch(() => {});
+    }
+}
+
+function closeFiltersModal() {
+    if (!listFiltersModal) return;
+    listFiltersModal.classList.remove('is-open');
+    listFiltersModal.setAttribute('aria-hidden', 'true');
+}
 
 showFiltersBtn && showFiltersBtn.addEventListener('click', openFiltersModal);
 mapFiltersBtn && mapFiltersBtn.addEventListener('click', (e) => {
@@ -1061,31 +1845,74 @@ mapCenterUserBtn && mapCenterUserBtn.addEventListener('click', (e) => {
     e.preventDefault();
     recenterMapToUser();
 });
-btnFiltersCancel && btnFiltersCancel.addEventListener('click', (e)=>{ e.preventDefault(); closeFiltersModal(); });
-btnFiltersClear && btnFiltersClear.addEventListener('click', (e)=>{
-    e.preventDefault();
-    Object.assign(extraFiltersState.filters, { wheelchairEntrance:false, wheelchairSeating:false, outdoor:false, dinein:false, delivery:false, takeout:false, curbside:false });
-    ['filt-wheelchair-entrance','filt-wheelchair-seating','filt-outdoor','filt-dinein','filt-delivery','filt-takeout','filt-curbside'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
+if (listFiltersDismissButtons && listFiltersDismissButtons.length) {
+    listFiltersDismissButtons.forEach(btn => btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeFiltersModal();
+    }));
+}
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && listFiltersModal?.classList.contains('is-open')) {
+        closeFiltersModal();
+    }
 });
-btnFiltersApply && btnFiltersApply.addEventListener('click', (e)=>{
+if (scoreMinInput) scoreMinInput.addEventListener('input', () => handleScoreRangeInput('min'));
+if (scoreMaxInput) scoreMaxInput.addEventListener('input', () => handleScoreRangeInput('max'));
+if (listFiltersPresetButtons && listFiltersPresetButtons.length) {
+    listFiltersPresetButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const preset = button.dataset.scorePreset;
+            if (preset === 'reset') {
+                setScoreRangeInputs(SCORE_MIN_DEFAULT, SCORE_MAX_DEFAULT);
+            } else {
+                const minValue = parseFloat(preset);
+                if (isFinite(minValue)) setScoreRangeInputs(minValue, SCORE_MAX_DEFAULT);
+            }
+            scheduleFiltersPreview();
+        });
+    });
+}
+if (listFilterToggleButtons && listFilterToggleButtons.length) {
+    listFilterToggleButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const isActive = button.classList.toggle('is-active');
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            scheduleFiltersPreview();
+        });
+    });
+}
+tagFiltersClearBtn && tagFiltersClearBtn.addEventListener('click', () => {
+    modalTagFilters = new Set();
+    syncTagModalSelection();
+    scheduleFiltersPreview();
+});
+listFiltersClearInlineBtn && listFiltersClearInlineBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    extraFiltersState.filters.wheelchairEntrance = !!document.getElementById('filt-wheelchair-entrance')?.checked;
-    extraFiltersState.filters.wheelchairSeating = !!document.getElementById('filt-wheelchair-seating')?.checked;
-    extraFiltersState.filters.outdoor = !!document.getElementById('filt-outdoor')?.checked;
-    extraFiltersState.filters.dinein = !!document.getElementById('filt-dinein')?.checked;
-    extraFiltersState.filters.delivery = !!document.getElementById('filt-delivery')?.checked;
-    extraFiltersState.filters.takeout = !!document.getElementById('filt-takeout')?.checked;
-    extraFiltersState.filters.curbside = !!document.getElementById('filt-curbside')?.checked;
-    // Aplicar sobre el conjunto base y relanzar el render habitual
-    state.allGroupedItems = applyExtraPlaceFilters(state._allGroupedItemsBase || []);
-    applyFiltersAndSort_ListView_Grouped();
+    resetFiltersModal();
+});
+listFiltersClearBtn && listFiltersClearBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    resetFiltersModal();
+});
+listFiltersApplyBtn && listFiltersApplyBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const snapshot = readModalFiltersSnapshot();
+    const shouldLoadPlaces = hasActiveExtraFilters(snapshot.extraFilters);
+    if (shouldLoadPlaces) {
+        listFiltersApplyBtn.disabled = true;
+        const ok = await ensurePlaceOptionsLoaded();
+        listFiltersApplyBtn.disabled = false;
+        if (!ok) return;
+    }
+    applyFiltersSnapshot(snapshot);
     closeFiltersModal();
 });
 
 async function preloadPlaceOptionsForGroups(groups){
     const ids = [...new Set(groups.map(g=>g.placeId).filter(Boolean))];
     if(ids.length===0) return;
-    const db = ListopicApp.services.db;
+    const db = ListopicApp.services?.db;
+    if (!db) return;
     // Cargas por lotes de 10
     for(let i=0;i<ids.length;i+=10){
         const slice = ids.slice(i,i+10);
@@ -1094,10 +1921,14 @@ async function preloadPlaceOptionsForGroups(groups){
     }
 }
 
-function applyExtraPlaceFilters(groups){
-    const f = extraFiltersState.filters;
-    const needAny = f.wheelchairEntrance||f.wheelchairSeating||f.outdoor||f.dinein||f.delivery||f.takeout||f.curbside;
-    if(!needAny) return groups;
+function hasActiveExtraFilters(filters = extraFiltersState.filters) {
+    const f = filters || {};
+    return !!(f.wheelchairEntrance || f.wheelchairSeating || f.outdoor || f.dinein || f.delivery || f.takeout || f.curbside);
+}
+
+function applyExtraPlaceFilters(groups, filters = extraFiltersState.filters){
+    const f = filters || {};
+    if(!hasActiveExtraFilters(f)) return groups;
     return groups.filter(g=>{
         const p = extraFiltersState.placeOptionsMap.get(g.placeId) || {};
         const acc = p.accessibility || {};

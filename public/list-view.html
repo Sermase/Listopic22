@@ -198,6 +198,7 @@
                             title="Filtros"
                         >
                             <i class="fas fa-filter"></i>
+                            <span class="filter-count-badge" id="filters-active-count" hidden>0</span>
                         </button>
                     </div>
                 </div>
@@ -225,37 +226,137 @@
                     </div>
                 </div>
             </div>
-            <div class="tag-filter-container">
-                <p>Cargando filtros...</p>
-            </div>
-
-            <!-- Modal de filtros adicionales -->
-            <div id="extra-filters-modal" class="lp-modal-overlay" style="display:none;">
-                <div class="lp-modal">
-                    <h3>Filtros de accesibilidad y servicios</h3>
-                    <div class="lp-modal-body">
-                        <div class="form-row"><label><input type="checkbox" id="filt-wheelchair-entrance"> Acceso silla de ruedas</label></div>
-                        <div class="form-row"><label><input type="checkbox" id="filt-wheelchair-seating"> Asientos adaptados</label></div>
-                        <hr class="form-divider-light">
-                        <div class="form-row"><label><input type="checkbox" id="filt-outdoor"> Terraza</label></div>
-                        <div class="form-row"><label><input type="checkbox" id="filt-dinein"> Comer allí</label></div>
-                        <div class="form-row"><label><input type="checkbox" id="filt-delivery"> A domicilio</label></div>
-                        <div class="form-row"><label><input type="checkbox" id="filt-takeout"> Para llevar</label></div>
-                        <div class="form-row"><label><input type="checkbox" id="filt-curbside"> Recogida en coche</label></div>
-                    </div>
-                    <div class="lp-modal-actions">
-                        <button id="extra-filters-apply" class="button primary">Aplicar</button>
-                        <button id="extra-filters-clear" class="button secondary">Limpiar</button>
-                        <button id="extra-filters-cancel" class="button secondary">Cerrar</button>
+            <div class="list-view-shell">
+                <div class="list-view-toolbar">
+                    <div class="list-view-title">Vista</div>
+                    <div class="list-view-controls">
+                        <div class="list-view-toggle" role="group" aria-label="Vista de elementos">
+                            <button type="button" class="list-view-toggle__btn" data-list-view="grid">Cuadricula</button>
+                            <button type="button" class="list-view-toggle__btn is-active" data-list-view="list">Lista</button>
+                        </div>
+                        <div class="list-sort-control">
+                            <label for="list-sort-select" class="list-sort-label">Orden</label>
+                            <select id="list-sort-select" class="list-sort-select" aria-label="Orden de elementos"></select>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    
-        
+
+            <!-- Modal de filtros adicionales -->
+            <div id="list-filters-modal" class="help-modal list-filters-modal" aria-hidden="true">
+                <div class="help-modal__overlay" data-list-filters-dismiss></div>
+                <div class="help-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="list-filters-title">
+                    <button type="button" class="help-modal__close" data-list-filters-dismiss aria-label="Cerrar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="help-modal__content list-filters-modal__content">
+                        <p class="help-modal__eyebrow">Filtros</p>
+                        <h2 id="list-filters-title">Afinar resultados</h2>
+                        <p class="list-filters-modal__subtitle">Ajusta los filtros para descubrir mejor lo que buscas.</p>
+                        <div class="list-filters-modal__summary">
+                            <div class="list-filters-modal__summary-count">
+                                <span id="filters-preview-count">0</span> resultados
+                            </div>
+                            <button type="button" class="button tertiary-button" id="filters-clear-inline">Limpiar todo</button>
+                        </div>
+                        <section class="list-filters-modal__section">
+                            <div class="list-filters-modal__section-head">
+                                <h3>Nota media</h3>
+                                <span class="list-filters-modal__section-meta" id="filters-score-label">Cualquiera</span>
+                            </div>
+                            <div class="list-filters-score">
+                                <div class="list-filters-range">
+                                    <label for="filter-score-min">Min</label>
+                                    <input type="range" id="filter-score-min" min="0" max="10" step="0.5" value="0">
+                                    <output id="filter-score-min-output">0</output>
+                                </div>
+                                <div class="list-filters-range">
+                                    <label for="filter-score-max">Max</label>
+                                    <input type="range" id="filter-score-max" min="0" max="10" step="0.5" value="10">
+                                    <output id="filter-score-max-output">10</output>
+                                </div>
+                            </div>
+                            <div class="list-filters-presets" aria-label="Atajos de nota">
+                                <button type="button" class="list-filter-chip" data-score-preset="7">>= 7</button>
+                                <button type="button" class="list-filter-chip" data-score-preset="8">>= 8</button>
+                                <button type="button" class="list-filter-chip" data-score-preset="9">>= 9</button>
+                                <button type="button" class="list-filter-chip" data-score-preset="reset">Cualquiera</button>
+                            </div>
+                        </section>
+                        <section class="list-filters-modal__section">
+                            <div class="list-filters-modal__section-head">
+                                <h3>Etiquetas</h3>
+                                <button type="button" class="list-filters-link" data-tags-clear>Limpiar</button>
+                            </div>
+                            <div id="tag-filter-modal" class="list-filters-chip-grid"></div>
+                        </section>
+                        <section class="list-filters-modal__section">
+                            <div class="list-filters-modal__section-head">
+                                <h3>Criterios que ponderan</h3>
+                                <span class="list-filters-modal__section-meta">Minimo</span>
+                            </div>
+                            <div id="criteria-filters-weighted" class="list-filters-criteria"></div>
+                        </section>
+                        <section class="list-filters-modal__section">
+                            <div class="list-filters-modal__section-head">
+                                <h3>Criterios sin ponderar</h3>
+                                <span class="list-filters-modal__section-meta">Minimo</span>
+                            </div>
+                            <div id="criteria-filters-nonweighted" class="list-filters-criteria"></div>
+                        </section>
+                        <section class="list-filters-modal__section">
+                            <div class="list-filters-modal__section-head">
+                                <h3>Servicios y accesibilidad</h3>
+                                <span class="list-filters-modal__section-meta">Toca para activar</span>
+                            </div>
+                            <div class="list-filters-toggle-grid">
+                                <button type="button" class="list-filter-toggle" data-filter-toggle="wheelchairEntrance" aria-pressed="false">
+                                    <i class="fas fa-wheelchair"></i>
+                                    <span>Acceso silla de ruedas</span>
+                                </button>
+                                <button type="button" class="list-filter-toggle" data-filter-toggle="wheelchairSeating" aria-pressed="false">
+                                    <i class="fas fa-chair"></i>
+                                    <span>Asientos adaptados</span>
+                                </button>
+                                <button type="button" class="list-filter-toggle" data-filter-toggle="outdoor" aria-pressed="false">
+                                    <i class="fas fa-umbrella-beach"></i>
+                                    <span>Terraza</span>
+                                </button>
+                                <button type="button" class="list-filter-toggle" data-filter-toggle="dinein" aria-pressed="false">
+                                    <i class="fas fa-utensils"></i>
+                                    <span>Comer alli</span>
+                                </button>
+                                <button type="button" class="list-filter-toggle" data-filter-toggle="delivery" aria-pressed="false">
+                                    <i class="fas fa-motorcycle"></i>
+                                    <span>A domicilio</span>
+                                </button>
+                                <button type="button" class="list-filter-toggle" data-filter-toggle="takeout" aria-pressed="false">
+                                    <i class="fas fa-bag-shopping"></i>
+                                    <span>Para llevar</span>
+                                </button>
+                                <button type="button" class="list-filter-toggle" data-filter-toggle="curbside" aria-pressed="false">
+                                    <i class="fas fa-car"></i>
+                                    <span>Recogida en coche</span>
+                                </button>
+                            </div>
+                        </section>
+                        <div class="list-filters-modal__footer">
+                            <button type="button" class="button secondary-button" data-list-filters-dismiss>Cerrar</button>
+                            <button type="button" class="button secondary-button" id="list-filters-clear">Limpiar</button>
+                            <button type="button" class="button primary-button" id="list-filters-apply">Aplicar filtros</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         <div id="reviews-grid-container" class="reviews-grid-container">
             </div>
+
+        <div class="list-load-more" id="list-load-more">
+            <button type="button" id="list-load-more-btn" class="button secondary-button">Cargar mas</button>
+            <div id="list-load-more-status" class="list-load-more__status" aria-live="polite"></div>
+            <div id="list-load-more-sentinel" class="list-load-more__sentinel" aria-hidden="true"></div>
+        </div>
     
         <div class="list-actions">
             <a href="#" id="edit-list-link" class="list-action-button edit-button" title="Editar esta lista" style="display: none;">
