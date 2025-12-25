@@ -877,10 +877,11 @@ ListopicApp.uiUtils = {
 
 createListViewGroupCard: function(group, listData, listIcon) {
     const uiUtils = this;
+    const detailItemName = typeof group.itemName === 'string' ? group.itemName.trim() : '';
     const rawDetailUrl = uiUtils.buildGroupedDetailUrl({
         listId: group.listId,
         placeId: group.placeId,
-        itemName: group.itemName || group.establishmentName || ''
+        itemName: detailItemName
     });
     const detailUrl = uiUtils.escapeHtml(rawDetailUrl);
 
@@ -944,7 +945,7 @@ createListViewGroupCard: function(group, listData, listIcon) {
     const safeGroupId = uiUtils.escapeHtml(String(group.groupId || `${group.listId || 'list'}-${group.placeId || 'place'}-${group.itemName || 'item'}`));
 
     return `
-        <article class="review-list-card" role="button" tabindex="0" data-testid="${cardAutomationId}" data-entity-type="grouped-item" data-entity-id="${safeGroupId}" data-list-id="${uiUtils.escapeHtml(String(group.listId || ''))}" data-place-id="${uiUtils.escapeHtml(String(group.placeId || ''))}" data-item-name="${uiUtils.escapeHtml(String(group.itemName || group.establishmentName || ''))}" data-detail-url="${detailUrl}" onclick="window.location.href=this.dataset.detailUrl;" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href=this.dataset.detailUrl;}">
+        <article class="review-list-card" role="button" tabindex="0" data-testid="${cardAutomationId}" data-entity-type="grouped-item" data-entity-id="${safeGroupId}" data-list-id="${uiUtils.escapeHtml(String(group.listId || ''))}" data-place-id="${uiUtils.escapeHtml(String(group.placeId || ''))}" data-item-name="${uiUtils.escapeHtml(String(detailItemName))}" data-detail-url="${detailUrl}" onclick="window.location.href=this.dataset.detailUrl;" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href=this.dataset.detailUrl;}">
             <div class="review-list-card__image-container">${imageHtml}</div>
             <div class="review-list-card__main-content">
                 <h4 class="review-list-card__title">${uiUtils.escapeHtml(group.itemName || group.establishmentName)}</h4>

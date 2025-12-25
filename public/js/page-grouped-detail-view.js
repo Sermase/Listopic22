@@ -513,13 +513,15 @@ ListopicApp.pageGroupedDetailView = (() => {
                 .get();
             const targetItemName = (state.currentGroupDetailItem || '').trim();
             const normalizedTarget = targetItemName.toLowerCase();
+            const isGeneralTarget = !targetItemName || normalizedTarget === 'general';
             let enrichedReviews = await uiUtils.enrichReviews(reviewsSnapshot.docs);
             enrichedReviews = enrichedReviews.filter(review => {
                 const reviewItemName = (review.itemName || '').trim();
-                if (targetItemName) {
-                    return reviewItemName.toLowerCase() === normalizedTarget;
+                const normalizedReviewItem = reviewItemName.toLowerCase();
+                if (!isGeneralTarget) {
+                    return normalizedReviewItem === normalizedTarget;
                 }
-                return reviewItemName === '';
+                return reviewItemName === '' || normalizedReviewItem === 'general';
             });
 
             // 4. Calcular estadísticas y medias de criterios

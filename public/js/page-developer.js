@@ -1199,7 +1199,8 @@ ListopicApp.pageDeveloper = (() => {
     function getDetailLink(item) {
         if (!item || !item.id) return null;
         if (currentCollectionName === 'places') {
-            return { url: `place-detail.html?placeId=${encodeURIComponent(item.id)}`, label: 'Abrir lugar' };
+            const placeId = item.googlePlaceId || item.id;
+            return { url: `place-detail.html?placeId=${encodeURIComponent(placeId)}`, label: 'Abrir lugar' };
         }
         if (currentCollectionName === 'lists') {
             return { url: `list-view.html?listId=${encodeURIComponent(item.id)}`, label: 'Abrir lista' };
