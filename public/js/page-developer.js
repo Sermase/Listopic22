@@ -1199,7 +1199,8 @@ ListopicApp.pageDeveloper = (() => {
     function getDetailLink(item) {
         if (!item || !item.id) return null;
         if (currentCollectionName === 'places') {
-            return { url: `place-detail.html?placeId=${encodeURIComponent(item.id)}`, label: 'Abrir lugar' };
+            const placeId = item.googlePlaceId || item.id;
+            return { url: `place-detail.html?placeId=${encodeURIComponent(placeId)}`, label: 'Abrir lugar' };
         }
         if (currentCollectionName === 'lists') {
             return { url: `list-view.html?listId=${encodeURIComponent(item.id)}`, label: 'Abrir lista' };
@@ -1576,6 +1577,27 @@ ListopicApp.pageDeveloper = (() => {
         currentModalItem = null;
     }
 
+    function isLegacyGooglePhotoUrl(url) {
+        return typeof url === 'string' && url.includes('maps.googleapis.com/maps/api/place/photo');
+    }
+
+    async function resolveLegacyPlacePhoto(placeId, url) {
+        if (!placeId || !isLegacyGooglePhotoUrl(url)) {
+            return null;
+        }
+        const placesService = window.ListopicApp?.placesService;
+        if (!placesService || typeof placesService.refreshMainImage !== 'function') {
+            return null;
+        }
+        try {
+            const result = await placesService.refreshMainImage(placeId, { force: true });
+            return result?.photoUrl || null;
+        } catch (error) {
+            console.warn('[Developer] Could not refresh legacy place photo.', error);
+            return null;
+        }
+    }
+
     async function saveDetailModal() {
         if (!currentModalItem) return;
         const editor = document.getElementById('dev-detail-modal-editor');
@@ -1592,6 +1614,22 @@ ListopicApp.pageDeveloper = (() => {
         }
         if (!confirm(`¿Guardar cambios en ${currentCollectionName}/${currentModalItem.id}?`)) {
             return;
+        }
+        if (currentCollectionName === 'places') {
+            const hasPayloadUrl = Object.prototype.hasOwnProperty.call(payload, 'mainImageUrl');
+            const payloadUrl = hasPayloadUrl && typeof payload.mainImageUrl === 'string'
+                ? payload.mainImageUrl.trim()
+                : '';
+            const fallbackUrl = !hasPayloadUrl && typeof currentModalItem.mainImageUrl === 'string'
+                ? currentModalItem.mainImageUrl.trim()
+                : '';
+            const legacyUrl = payloadUrl || fallbackUrl;
+            if (isLegacyGooglePhotoUrl(legacyUrl) && (!hasPayloadUrl || isLegacyGooglePhotoUrl(payloadUrl))) {
+                const resolvedUrl = await resolveLegacyPlacePhoto(currentModalItem.id, legacyUrl);
+                if (resolvedUrl) {
+                    payload.mainImageUrl = resolvedUrl;
+                }
+            }
         }
         try {
             await db.collection(currentCollectionName).doc(currentModalItem.id).set(payload, { merge: true });

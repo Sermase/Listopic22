@@ -201,6 +201,164 @@ async function resolveGooglePhotoUrl(photoReference, apiKey, maxWidth = 800) {
   return null;
 }
 
+function buildAccessibilityPayload(accessibilityOptions) {
+  if (!accessibilityOptions || typeof accessibilityOptions !== 'object') {
+    return null;
+  }
+
+  const payload = {
+    wheelchairAccessibleEntrance: accessibilityOptions.wheelchairAccessibleEntrance ?? null,
+    wheelchairAccessibleSeating: accessibilityOptions.wheelchairAccessibleSeating ?? null,
+    wheelchairAccessibleParking: accessibilityOptions.wheelchairAccessibleParking ?? null,
+    wheelchairAccessibleRestroom: accessibilityOptions.wheelchairAccessibleRestroom ?? null,
+    hearingLoop: accessibilityOptions.hearingLoop ?? null
+  };
+
+  const hasValue = Object.values(payload).some((value) => value !== null && value !== undefined);
+  return hasValue ? payload : null;
+}
+
+function resolveAccessibilityPayload(accessibilityOptions, fallback) {
+  const resolved = buildAccessibilityPayload(accessibilityOptions);
+  if (resolved) {
+    return resolved;
+  }
+  return fallback && typeof fallback === 'object' ? fallback : null;
+}
+
+async function fetchPlaceAccessibilityOptions(placeId, apiKey, languageCode = 'es') {
+  if (!placeId || !apiKey) {
+    return null;
+  }
+
+  const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=${encodeURIComponent(languageCode)}`;
+  const headers = {
+    'X-Goog-Api-Key': apiKey,
+    'X-Goog-FieldMask': 'accessibilityOptions'
+  };
+
+  try {
+    const response = await fetch(url, { method: 'GET', headers });
+    const data = await response.json();
+
+    if (!response.ok || data?.error) {
+      logger.warn("fetchPlaceAccessibilityOptions: error desde Places API.", {
+        status: response.status,
+        error: data?.error?.message || data?.error || response.statusText
+      });
+      return null;
+    }
+
+    return data.accessibilityOptions || null;
+  } catch (error) {
+    logger.warn("fetchPlaceAccessibilityOptions: error al contactar Places API.", {
+      placeId,
+      error: error.message
+    });
+    return null;
+  }
+}
+
+function resolveText(value, fallback) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  if (typeof fallback === 'string') {
+    const trimmed = fallback.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return null;
+}
+
+function resolveNumber(value, fallback) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof fallback === 'number' && Number.isFinite(fallback)) {
+    return fallback;
+  }
+  return null;
+}
+
+function resolveTypeArray(types, fallback) {
+  const primary = sanitizeTypeArray(types);
+  if (primary.length) {
+    return primary;
+  }
+  const secondary = sanitizeTypeArray(fallback);
+  return secondary.length ? secondary : null;
+}
+
+function resolvePlaceLocation(result, existingData) {
+  const resultLat = numberOrNull(result?.geometry?.location?.lat);
+  const resultLon = numberOrNull(result?.geometry?.location?.lng);
+  if (resultLat !== null && resultLon !== null) {
+    return { latitude: resultLat, longitude: resultLon };
+  }
+
+  const existingLocation = existingData?.location || {};
+  const existingCoordinates = existingData?.coordinates || {};
+  const fallbackLat = numberOrNull(existingLocation.latitude ?? existingCoordinates.latitude);
+  const fallbackLon = numberOrNull(existingLocation.longitude ?? existingCoordinates.longitude);
+  if (fallbackLat !== null && fallbackLon !== null) {
+    return { latitude: fallbackLat, longitude: fallbackLon };
+  }
+
+  return null;
+}
+
+function extractAddressFields(addressComponents) {
+  const output = {
+    city: null,
+    region: null,
+    country: null,
+    postalCode: null,
+    province: null
+  };
+
+  if (!Array.isArray(addressComponents)) {
+    return output;
+  }
+
+  for (const component of addressComponents) {
+    if (!component || !Array.isArray(component.types)) {
+      continue;
+    }
+    if (component.types.includes('locality')) {
+      output.city = component.long_name;
+    }
+    if (component.types.includes('administrative_area_level_1')) {
+      output.region = component.long_name;
+    }
+    if (component.types.includes('country')) {
+      output.country = component.long_name;
+    }
+    if (component.types.includes('postal_code')) {
+      output.postalCode = component.long_name;
+    }
+  }
+
+  if (output.postalCode) {
+    const provinceCode = output.postalCode.substring(0, 2);
+    output.province = provinceMap?.[provinceCode] || output.province;
+  }
+
+  return output;
+}
+
+function pruneNullishKeys(payload) {
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined || payload[key] === null) {
+      delete payload[key];
+    }
+  });
+}
+
 function extractTimestampDate(value) {
   if (!value) {
     return null;
@@ -1037,6 +1195,7 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                 }
 
                 const existingData = docSnapshot.exists ? (docSnapshot.data() || {}) : {};
+                const accessibilityOptions = await fetchPlaceAccessibilityOptions(result.place_id, apiKey);
                 const previousMainImageUrl = existingData.mainImageUrl || null;
                 const previousPhotoReference = existingData.mainImagePhotoReference || null;
                 const primaryPhotoReference = (result.photos && result.photos.length > 0) ? result.photos[0].photo_reference : null;
@@ -1074,13 +1233,7 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
                     mainImagePhotoReference: mainImagePhotoReference,
                     // Nuevos campos estructurados
                     // Estos campos pueden rellenarse vía otras fuentes o con endpoints v1 en el futuro
-                    accessibility: result.accessibilityOptions ? {
-                        wheelchairAccessibleEntrance: result.accessibilityOptions.wheelchairAccessibleEntrance ?? null,
-                        wheelchairAccessibleSeating: result.accessibilityOptions.wheelchairAccessibleSeating ?? null,
-                        wheelchairAccessibleParking: result.accessibilityOptions.wheelchairAccessibleParking ?? null,
-                        wheelchairAccessibleRestroom: result.accessibilityOptions.wheelchairAccessibleRestroom ?? null,
-                        hearingLoop: result.accessibilityOptions.hearingLoop ?? null,
-                    } : (existingData.accessibility || null),
+                    accessibility: resolveAccessibilityPayload(accessibilityOptions, existingData.accessibility),
                     serviceOptions: existingData.serviceOptions || null,
                     updatedAt: FieldValue.serverTimestamp(), lastGoogleSync: FieldValue.serverTimestamp(),
                 };
@@ -2333,7 +2486,7 @@ const adminUpdateAllPlaces = onCall(async (request) => {
 
         for (const doc of places) {
             const placeData = doc.data();
-            const placeId = placeData.googlePlaceId; // Assuming the field is named googlePlaceId
+            const placeId = placeData.googlePlaceId || doc.id; // Fallback to doc id when missing.
 
             if (!placeId) {
                 skippedCount++;
@@ -2341,7 +2494,7 @@ const adminUpdateAllPlaces = onCall(async (request) => {
             }
 
             // Campos soportados por Place Details legacy
-            const fields = "name,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components,rating,user_ratings_total";
+            const fields = "name,place_id,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components,rating,user_ratings_total,types";
             const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${apiKey}&fields=${fields}&language=es`;
 
             try {
@@ -2350,6 +2503,28 @@ const adminUpdateAllPlaces = onCall(async (request) => {
 
                 if (details.status === "OK" && details.result) {
                     const result = details.result;
+                    const accessibilityOptions = await fetchPlaceAccessibilityOptions(placeId, apiKey);
+                    const addressFields = extractAddressFields(result.address_components);
+                    const resolvedName = resolveText(result.name, placeData.name);
+                    const resolvedAddress = resolveText(result.formatted_address, placeData.formatted_address || placeData.address);
+                    const resolvedLocation = resolvePlaceLocation(result, placeData);
+                    const resolvedTypes = resolveTypeArray(result.types, placeData.types);
+                    const resolvedGooglePlaceId = resolveText(result.place_id, placeData.googlePlaceId || placeId);
+                    const resolvedGoogleMapsUrl = resolveText(result.url, placeData.googleMapsUrl);
+                    const resolvedWebsite = resolveText(result.website, placeData.website);
+                    const resolvedPhone = resolveText(result.international_phone_number, placeData.phone);
+                    const resolvedVicinity = resolveText(result.vicinity, placeData.vicinity);
+                    const resolvedNameNormalized = resolvedName
+                        ? resolvedName.toLowerCase()
+                        : resolveText(placeData.name_normalized, null);
+                    const resolvedAddressNormalized = resolvedAddress
+                        ? resolvedAddress.toLowerCase()
+                        : resolveText(placeData.address_normalized, null);
+                    const resolvedCity = resolveText(addressFields.city, placeData.city);
+                    const resolvedRegion = resolveText(addressFields.region, placeData.region);
+                    const resolvedProvince = resolveText(addressFields.province, placeData.province);
+                    const resolvedCountry = resolveText(addressFields.country, placeData.country);
+                    const resolvedPostalCode = resolveText(addressFields.postalCode, placeData.postalCode);
                     const previousPhotoReference = placeData.mainImagePhotoReference || null;
                     const previousMainImageUrl = placeData.mainImageUrl || null;
                     const primaryPhotoReference = (result.photos && result.photos.length > 0) ? result.photos[0].photo_reference : null;
@@ -2365,30 +2540,40 @@ const adminUpdateAllPlaces = onCall(async (request) => {
                     }
 
                     const updateData = {
-                        name: result.name,
-                        formatted_address: result.formatted_address,
-                        address: result.formatted_address,
-                        address_normalized: result.formatted_address ? result.formatted_address.toLowerCase() : (placeData.address_normalized || null),
-                        'location.latitude': result.geometry?.location?.lat,
-                        'location.longitude': result.geometry?.location?.lng,
-                        googleMapsUrl: result.url,
+                        name: resolvedName,
+                        name_normalized: resolvedNameNormalized,
+                        googlePlaceId: resolvedGooglePlaceId,
+                        formatted_address: resolvedAddress,
+                        address: resolvedAddress,
+                        address_normalized: resolvedAddressNormalized,
+                        city: resolvedCity,
+                        region: resolvedRegion,
+                        province: resolvedProvince,
+                        country: resolvedCountry,
+                        postalCode: resolvedPostalCode,
+                        googleMapsUrl: resolvedGoogleMapsUrl,
                         mainImageUrl: resolvedMainImageUrl,
                         mainImagePhotoReference: mainImagePhotoReference,
-                        priceLevel: result.price_level,
-                        website: result.website,
-                        phone: result.international_phone_number,
-                        vicinity: result.vicinity,
-                        googleRating: typeof result.rating === 'number' ? result.rating : (placeData.googleRating ?? null),
-                        googleUserRatingsTotal: typeof result.user_ratings_total === 'number' ? result.user_ratings_total : (placeData.googleUserRatingsTotal ?? null),
-                        // Si en el futuro usamos Places v1, podremos mapear accessibilityOptions/serviceOptions.
-                        // De momento, preservamos lo existente en la BD.
-                        accessibility: placeData.accessibility || null,
+                        priceLevel: resolveNumber(result.price_level, placeData.priceLevel),
+                        website: resolvedWebsite,
+                        phone: resolvedPhone,
+                        vicinity: resolvedVicinity,
+                        googleRating: resolveNumber(result.rating, placeData.googleRating),
+                        googleUserRatingsTotal: resolveNumber(result.user_ratings_total, placeData.googleUserRatingsTotal),
+                        types: resolvedTypes,
+                        // Accesibilidad via Places API v1; el resto se preserva.
+                        accessibility: resolveAccessibilityPayload(accessibilityOptions, placeData.accessibility),
                         serviceOptions: placeData.serviceOptions || null,
-                        updatedAt: FieldValue.serverTimestamp()
+                        updatedAt: FieldValue.serverTimestamp(),
+                        lastGoogleSync: FieldValue.serverTimestamp()
                     };
 
-                    // Clean undefined values
-                    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+                    if (resolvedLocation) {
+                        updateData.location = resolvedLocation;
+                        updateData.coordinates = resolvedLocation;
+                    }
+
+                    pruneNullishKeys(updateData);
 
                     batch.update(doc.ref, updateData);
                     writeCount++;
@@ -2774,7 +2959,7 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
     }
 
     const placeRef = db.collection('places').doc(documentId);
-    const fields = "name,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components,rating,user_ratings_total";
+    const fields = "name,place_id,formatted_address,geometry,url,photos,price_level,website,international_phone_number,vicinity,address_components,rating,user_ratings_total,types";
     const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${googlePlaceId}&key=${apiKey}&fields=${fields}&language=es`;
 
     try {
@@ -2785,6 +2970,28 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
             const result = details.result;
             const existingDoc = await placeRef.get();
             const existingData = existingDoc.exists ? (existingDoc.data() || {}) : {};
+            const accessibilityOptions = await fetchPlaceAccessibilityOptions(googlePlaceId, apiKey);
+            const addressFields = extractAddressFields(result.address_components);
+            const resolvedName = resolveText(result.name, existingData.name);
+            const resolvedAddress = resolveText(result.formatted_address, existingData.formatted_address || existingData.address);
+            const resolvedLocation = resolvePlaceLocation(result, existingData);
+            const resolvedTypes = resolveTypeArray(result.types, existingData.types);
+            const resolvedGooglePlaceId = resolveText(result.place_id, existingData.googlePlaceId || googlePlaceId);
+            const resolvedGoogleMapsUrl = resolveText(result.url, existingData.googleMapsUrl);
+            const resolvedWebsite = resolveText(result.website, existingData.website);
+            const resolvedPhone = resolveText(result.international_phone_number, existingData.phone);
+            const resolvedVicinity = resolveText(result.vicinity, existingData.vicinity);
+            const resolvedNameNormalized = resolvedName
+                ? resolvedName.toLowerCase()
+                : resolveText(existingData.name_normalized, null);
+            const resolvedAddressNormalized = resolvedAddress
+                ? resolvedAddress.toLowerCase()
+                : resolveText(existingData.address_normalized, null);
+            const resolvedCity = resolveText(addressFields.city, existingData.city);
+            const resolvedRegion = resolveText(addressFields.region, existingData.region);
+            const resolvedProvince = resolveText(addressFields.province, existingData.province);
+            const resolvedCountry = resolveText(addressFields.country, existingData.country);
+            const resolvedPostalCode = resolveText(addressFields.postalCode, existingData.postalCode);
             const previousMainImageUrl = existingData.mainImageUrl || null;
             const previousPhotoReference = existingData.mainImagePhotoReference || null;
             const primaryPhotoReference = (result.photos && result.photos.length > 0) ? result.photos[0].photo_reference : null;
@@ -2800,29 +3007,38 @@ const adminUpdateSinglePlace = onCall({cors: true}, async (request) => {
             }
 
             const updateData = {
-                name: result.name,
-                formatted_address: result.formatted_address,
-                address: result.formatted_address,
-                address_normalized: result.formatted_address ? result.formatted_address.toLowerCase() : null,
-                location: { // Asegurarse de que el objeto location se actualiza correctamente
-                    latitude: result.geometry?.location?.lat,
-                    longitude: result.geometry?.location?.lng,
-                },
-                googleMapsUrl: result.url,
+                name: resolvedName,
+                name_normalized: resolvedNameNormalized,
+                googlePlaceId: resolvedGooglePlaceId,
+                formatted_address: resolvedAddress,
+                address: resolvedAddress,
+                address_normalized: resolvedAddressNormalized,
+                city: resolvedCity,
+                region: resolvedRegion,
+                province: resolvedProvince,
+                country: resolvedCountry,
+                postalCode: resolvedPostalCode,
+                googleMapsUrl: resolvedGoogleMapsUrl,
                 mainImageUrl: resolvedMainImageUrl,
                 mainImagePhotoReference: mainImagePhotoReference,
-                priceLevel: result.price_level,
-                website: result.website,
-                phone: result.international_phone_number,
-                vicinity: result.vicinity,
-                googleRating: typeof result.rating === 'number' ? result.rating : null,
-                googleUserRatingsTotal: typeof result.user_ratings_total === 'number' ? result.user_ratings_total : null,
-                updatedAt: FieldValue.serverTimestamp()
+                priceLevel: resolveNumber(result.price_level, existingData.priceLevel),
+                website: resolvedWebsite,
+                phone: resolvedPhone,
+                vicinity: resolvedVicinity,
+                googleRating: resolveNumber(result.rating, existingData.googleRating),
+                googleUserRatingsTotal: resolveNumber(result.user_ratings_total, existingData.googleUserRatingsTotal),
+                types: resolvedTypes,
+                accessibility: resolveAccessibilityPayload(accessibilityOptions, existingData.accessibility),
+                updatedAt: FieldValue.serverTimestamp(),
+                lastGoogleSync: FieldValue.serverTimestamp()
             };
+
+            if (resolvedLocation) {
+                updateData.location = resolvedLocation;
+                updateData.coordinates = resolvedLocation;
+            }
             
-            // Limpiar claves con valores undefined
-            Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
-            if(updateData.location.latitude === undefined) delete updateData.location;
+            pruneNullishKeys(updateData);
 
             await placeRef.update(updateData);
             logger.info(`Lugar ${documentId} actualizado exitosamente por ${contextAuth.uid}.`);

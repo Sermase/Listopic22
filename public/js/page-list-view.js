@@ -1253,6 +1253,22 @@ ListopicApp.pageListView = (() => {
         }
 
         const markers = [];
+        const buildGroupDetailUrl = (placeId, itemName) => {
+            const trimmed = typeof itemName === 'string' ? itemName.trim() : '';
+            const itemParam = trimmed && trimmed.toLowerCase() !== 'general' ? trimmed : '';
+            if (ListopicApp.uiUtils && typeof ListopicApp.uiUtils.buildGroupedDetailUrl === 'function') {
+                return ListopicApp.uiUtils.buildGroupedDetailUrl({
+                    listId: ListopicApp.state.currentListId,
+                    placeId,
+                    itemName: itemParam
+                });
+            }
+            const params = new URLSearchParams({ listId: ListopicApp.state.currentListId, placeId });
+            if (itemParam) {
+                params.set('item', itemParam);
+            }
+            return `grouped-detail-view.html?${params.toString()}`;
+        };
         places.forEach(place => {
             if (place.location?.latitude && place.location?.longitude) {
                 const items = resolveItemsForPlace(place);
@@ -1265,7 +1281,7 @@ ListopicApp.pageListView = (() => {
                 const itemsHtml = items.length ? `
                     <div class="popup-items">
                         ${items.map(it => `
-                            <a class="popup-item__row" href="grouped-detail-view.html?listId=${ListopicApp.state.currentListId}&placeId=${place.id}&item=${encodeURIComponent(it.name)}">
+                            <a class="popup-item__row" href="${buildGroupDetailUrl(place.id, it.name)}">
                                 <span class="popup-item__name">${ListopicApp.uiUtils.escapeHtml(it.name)}</span>
                                 <span class="score-badge">${(it.avg || 0).toFixed(1)}</span>
                             </a>`).join('')}
