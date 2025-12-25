@@ -362,8 +362,10 @@
                     <div class="dev-tool-actions">
                         <button id="dev-review-search-btn" class="button primary-button"><i class="fas fa-search"></i> Buscar reseñas</button>
                         <button id="dev-review-clear-btn" class="button secondary-button">Limpiar</button>
+                        <button id="dev-review-missing-place-btn" class="button secondary-button" title="Buscar resenas sin placeId"><i class="fas fa-map-marker-alt"></i> Sin lugar</button>
+                        <button id="dev-review-missing-date-btn" class="button secondary-button" title="Buscar resenas sin fecha"><i class="fas fa-calendar-times"></i> Sin fecha</button>
                     </div>
-                    <p class="dev-helper-text">Se consulta <code>collectionGroup('reviews')</code> con filtros exactos. El campo de elemento se busca como coincidencia exacta (itemNameLower).</p>
+                    <p class="dev-helper-text">Se consulta <code>collectionGroup('reviews')</code> con filtros exactos. El campo de elemento se busca como coincidencia exacta (itemNameLower). Los botones "Sin lugar" y "Sin fecha" filtran resenas sin placeId o sin createdAt/updatedAt.</p>
                     <div id="dev-review-results" class="dev-tool-results" aria-live="polite"></div>
                     <div id="dev-review-modal" class="dev-modal" hidden>
                         <div class="dev-modal__overlay" data-close-modal></div>

@@ -1,4 +1,4 @@
-window.ListopicApp = window.ListopicApp || {};
+﻿window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageDeveloper = (() => {
     const db = ListopicApp.services.db;
     const auth = ListopicApp.services.auth;
@@ -2082,6 +2082,10 @@ ListopicApp.pageDeveloper = (() => {
         if (reviewSearchBtn) reviewSearchBtn.addEventListener('click', handleReviewSearch);
         const reviewClearBtn = document.getElementById('dev-review-clear-btn');
         if (reviewClearBtn) reviewClearBtn.addEventListener('click', resetReviewForm);
+        const reviewMissingPlaceBtn = document.getElementById('dev-review-missing-place-btn');
+        if (reviewMissingPlaceBtn) reviewMissingPlaceBtn.addEventListener('click', (event) => handleReviewSearch(event, { missingPlace: true }));
+        const reviewMissingDateBtn = document.getElementById('dev-review-missing-date-btn');
+        if (reviewMissingDateBtn) reviewMissingDateBtn.addEventListener('click', (event) => handleReviewSearch(event, { missingDate: true }));
         const reviewSaveBtn = document.getElementById('dev-review-save-btn');
         if (reviewSaveBtn) reviewSaveBtn.addEventListener('click', saveReviewEdits);
         document.querySelectorAll('#dev-review-modal [data-close-modal]').forEach(el => {
@@ -2124,8 +2128,7 @@ ListopicApp.pageDeveloper = (() => {
     }
 
     // --- Reseñas ---
-    async function handleReviewSearch(event) {
-        event?.preventDefault?.();
+    function buildReviewFilters(overrides = {}) {
         const filters = {
             reviewId: getInputValue('dev-review-filter-id'),
             userId: getInputValue('dev-review-filter-user'),
@@ -2133,14 +2136,28 @@ ListopicApp.pageDeveloper = (() => {
             itemName: getInputValue('dev-review-filter-item'),
             listId: getInputValue('dev-review-filter-list'),
             fromDate: getInputValue('dev-review-filter-from'),
-            toDate: getInputValue('dev-review-filter-to')
+            toDate: getInputValue('dev-review-filter-to'),
+            missingPlace: false,
+            missingDate: false
         };
+        if (Object.prototype.hasOwnProperty.call(overrides, 'missingPlace')) {
+            filters.missingPlace = Boolean(overrides.missingPlace);
+        }
+        if (Object.prototype.hasOwnProperty.call(overrides, 'missingDate')) {
+            filters.missingDate = Boolean(overrides.missingDate);
+        }
+        return filters;
+    }
+
+    async function handleReviewSearch(event, overrides = {}) {
+        event?.preventDefault?.();
+        const filters = buildReviewFilters(overrides);
         const limit = parseInt(getInputValue('dev-review-limit'), 10) || 50;
         const container = document.getElementById('dev-review-results');
         const btn = document.getElementById('dev-review-search-btn');
         if (!container) return;
 
-        if (!filters.reviewId && !filters.userId && !filters.placeId && !filters.itemName && !filters.listId) {
+        if (!filters.reviewId && !filters.userId && !filters.placeId && !filters.itemName && !filters.listId && !filters.missingPlace && !filters.missingDate) {
             container.innerHTML = '<p>Introduce al menos un filtro.</p>';
             return;
         }
@@ -2167,70 +2184,163 @@ ListopicApp.pageDeveloper = (() => {
     }
 
     async function searchReviews(filters, limit = 50) {
-        let query = db.collectionGroup('reviews');
         const warnings = [];
         const normalizedItem = (filters.itemName || '').toLowerCase();
-        let appliedItemFilter = false;
+        const wantsMissingPlace = Boolean(filters.missingPlace);
+        const wantsMissingDate = Boolean(filters.missingDate);
+        let includeItemFilter = Boolean(filters.itemName);
+        let includeMissingPlaceFilter = wantsMissingPlace;
+        let includeMissingDateFilter = wantsMissingDate;
         const { fromMs, toMs } = parseDateRange(filters.fromDate, filters.toDate);
+        const hasDateRange = Boolean(fromMs || toMs);
 
-        try {
+        if (wantsMissingPlace && filters.placeId) {
+            warnings.push('Filtro "sin lugar" ignora placeId.');
+        }
+        if (wantsMissingDate && hasDateRange) {
+            warnings.push('Filtro "sin fecha" ignora el rango de fechas.');
+        }
+
+        const applyCommonFilters = (query, { includePlaceId = true, includeItem = true } = {}) => {
             if (filters.reviewId) query = query.where(firebase.firestore.FieldPath.documentId(), '==', filters.reviewId);
             if (filters.userId) query = query.where('userId', '==', filters.userId);
-            if (filters.placeId) query = query.where('placeId', '==', filters.placeId);
             if (filters.listId) query = query.where('listId', '==', filters.listId);
-            if (filters.itemName) {
+            if (includePlaceId && !wantsMissingPlace && filters.placeId) {
+                query = query.where('placeId', '==', filters.placeId);
+            }
+            if (includeItem && filters.itemName) {
                 query = query.where('itemNameLower', '==', normalizedItem);
-                appliedItemFilter = true;
             }
-            query = query.limit(limit);
-            const snapshot = await query.get();
-            let rows = snapshot.docs.map(doc => ({ id: doc.id, ref: doc.ref, data: doc.data() }));
-            if (fromMs || toMs) {
-                rows = rows.filter(r => {
-                    const ts = getTimestampMs(r.data?.createdAt) || getTimestampMs(r.data?.updatedAt);
-                    if (fromMs && ts < fromMs) return false;
-                    if (toMs && ts > toMs) return false;
-                    return true;
+            return query;
+        };
+
+        const buildReviewQueries = ({ includeItem, includeMissingPlace, includeMissingDate }) => {
+            const queries = [];
+            if (includeMissingPlace) {
+                [null, ''].forEach(placeValue => {
+                    let q = db.collectionGroup('reviews');
+                    q = applyCommonFilters(q, { includePlaceId: false, includeItem });
+                    q = q.where('placeId', '==', placeValue);
+                    if (includeMissingDate) {
+                        q = q.where('createdAt', '==', null).where('updatedAt', '==', null);
+                    }
+                    q = q.limit(limit);
+                    queries.push(q);
                 });
-            }
-            if (filters.itemName && !appliedItemFilter) {
-                rows = rows.filter(r => (r.data?.itemName || '').toLowerCase().includes(normalizedItem));
-            }
-            rows.sort((a, b) => {
-                const ta = getTimestampMs(a.data?.createdAt) || getTimestampMs(a.data?.updatedAt) || 0;
-                const tb = getTimestampMs(b.data?.createdAt) || getTimestampMs(b.data?.updatedAt) || 0;
-                return tb - ta;
-            });
-            return { results: rows, warnings };
-        } catch (error) {
-            if (filters.itemName && error?.code === 'failed-precondition') {
-                warnings.push('No hay índice para itemNameLower, se filtra en cliente.');
-                let fallback = db.collectionGroup('reviews');
-                if (filters.reviewId) fallback = fallback.where(firebase.firestore.FieldPath.documentId(), '==', filters.reviewId);
-                if (filters.userId) fallback = fallback.where('userId', '==', filters.userId);
-                if (filters.placeId) fallback = fallback.where('placeId', '==', filters.placeId);
-                if (filters.listId) fallback = fallback.where('listId', '==', filters.listId);
-                fallback = fallback.limit(limit);
-                const snap = await fallback.get();
-                let rows = snap.docs.map(doc => ({ id: doc.id, ref: doc.ref, data: doc.data() }));
-                if (fromMs || toMs) {
-                    rows = rows.filter(r => {
-                        const ts = getTimestampMs(r.data?.createdAt) || getTimestampMs(r.data?.updatedAt);
-                        if (fromMs && ts < fromMs) return false;
-                        if (toMs && ts > toMs) return false;
-                        return true;
-                    });
+            } else {
+                let q = db.collectionGroup('reviews');
+                q = applyCommonFilters(q, { includePlaceId: true, includeItem });
+                if (includeMissingDate) {
+                    q = q.where('createdAt', '==', null).where('updatedAt', '==', null);
                 }
-                rows = rows.filter(r => (r.data?.itemName || '').toLowerCase().includes(normalizedItem));
-                rows.sort((a, b) => {
-                    const ta = getTimestampMs(a.data?.createdAt) || getTimestampMs(a.data?.updatedAt) || 0;
-                    const tb = getTimestampMs(b.data?.createdAt) || getTimestampMs(b.data?.updatedAt) || 0;
-                    return tb - ta;
-                });
-                return { results: rows, warnings };
+                q = q.limit(limit);
+                queries.push(q);
             }
-            throw error;
+            return queries;
+        };
+
+        const mergeSnapshots = (snapshots) => {
+            const rows = [];
+            const seen = new Set();
+            snapshots.forEach(snapshot => {
+                snapshot.docs.forEach(doc => {
+                    const key = doc.ref.path;
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    rows.push({ id: doc.id, ref: doc.ref, data: doc.data() });
+                });
+            });
+            return rows;
+        };
+
+        const runQueryPlan = async () => {
+            const queries = buildReviewQueries({
+                includeItem: includeItemFilter,
+                includeMissingPlace: includeMissingPlaceFilter,
+                includeMissingDate: includeMissingDateFilter
+            });
+            const snapshots = await Promise.all(queries.map(query => query.get()));
+            return mergeSnapshots(snapshots);
+        };
+
+        let rows = null;
+        let appliedItemFilter = includeItemFilter;
+        let lastError = null;
+
+        try {
+            rows = await runQueryPlan();
+        } catch (error) {
+            lastError = error;
         }
+
+        if (rows === null && lastError?.code === 'failed-precondition' && includeItemFilter) {
+            warnings.push('No hay indice para itemNameLower, se filtra en cliente.');
+            includeItemFilter = false;
+            appliedItemFilter = false;
+            lastError = null;
+            try {
+                rows = await runQueryPlan();
+            } catch (error) {
+                lastError = error;
+            }
+        }
+
+        if (rows === null && lastError?.code === 'failed-precondition' && (includeMissingPlaceFilter || includeMissingDateFilter)) {
+            warnings.push('No hay indice para filtros "sin lugar"/"sin fecha", se filtra en cliente.');
+            includeMissingPlaceFilter = false;
+            includeMissingDateFilter = false;
+            lastError = null;
+            try {
+                rows = await runQueryPlan();
+            } catch (error) {
+                lastError = error;
+            }
+        }
+
+        if (rows === null) {
+            throw lastError;
+        }
+
+        if (!wantsMissingDate && hasDateRange) {
+            rows = rows.filter(r => {
+                const ts = getTimestampMs(r.data?.createdAt) || getTimestampMs(r.data?.updatedAt);
+                if (fromMs && ts < fromMs) return false;
+                if (toMs && ts > toMs) return false;
+                return true;
+            });
+        }
+
+        if (filters.itemName && !appliedItemFilter) {
+            rows = rows.filter(r => (r.data?.itemName || '').toLowerCase().includes(normalizedItem));
+        }
+
+        if (wantsMissingPlace) {
+            rows = rows.filter(r => {
+                const placeId = r.data?.placeId;
+                if (typeof placeId === 'string') return placeId.trim().length === 0;
+                return !placeId;
+            });
+        }
+
+        if (wantsMissingDate) {
+            rows = rows.filter(r => {
+                const createdMs = getTimestampMs(r.data?.createdAt);
+                const updatedMs = getTimestampMs(r.data?.updatedAt);
+                return !createdMs && !updatedMs;
+            });
+        }
+
+        rows.sort((a, b) => {
+            const ta = getTimestampMs(a.data?.createdAt) || getTimestampMs(a.data?.updatedAt) || 0;
+            const tb = getTimestampMs(b.data?.createdAt) || getTimestampMs(b.data?.updatedAt) || 0;
+            return tb - ta;
+        });
+
+        if (rows.length > limit) {
+            rows = rows.slice(0, limit);
+        }
+
+        return { results: rows, warnings };
     }
 
     function renderReviewResults(results, warnings = []) {
@@ -2851,3 +2961,4 @@ ListopicApp.pageDeveloper = (() => {
 
     return { init, setupMainTabs, initCategoriesAdminUI };
 })();
+

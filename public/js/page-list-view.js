@@ -227,8 +227,9 @@ ListopicApp.pageListView = (() => {
     function buildGroupListRow(group) {
         const ui = ListopicApp.uiUtils;
         const placeNameRaw = group.establishmentName || group.placeName || group.place?.name || '';
-        const itemNameRaw = group.itemName || group.item || group.itemTitle || group.item_label || '';
-        const detailItemName = itemNameRaw || group.establishmentName || group.placeName || '';
+        const rawItemName = group.itemName ?? group.item ?? group.itemTitle ?? group.item_label ?? '';
+        const itemNameRaw = typeof rawItemName === 'string' ? rawItemName.trim() : '';
+        const detailItemName = itemNameRaw;
         const detailUrl = ui.escapeHtml(ui.buildGroupedDetailUrl({
             listId: group.listId,
             placeId: group.placeId,
@@ -279,14 +280,14 @@ ListopicApp.pageListView = (() => {
         const reviewParams = new URLSearchParams();
         if (group.listId) reviewParams.set('listId', group.listId);
         if (group.placeId) reviewParams.set('placeId', group.placeId);
-        const reviewItemNameRaw = itemNameRaw || placeNameRaw || '';
+        const reviewItemNameRaw = itemNameRaw;
         if (reviewItemNameRaw) reviewParams.set('itemName', reviewItemNameRaw);
         const reviewHref = reviewParams.toString() ? `review-form.html?${reviewParams.toString()}` : 'review-form.html';
         const reviewUrl = ui.escapeHtml(reviewHref);
 
         const scoreStyle = scoreColor ? ` style="--score-color: ${ui.escapeHtml(scoreColor)};"` : '';
         return `
-            <article class="review-list-row" role="button" tabindex="0"${scoreStyle} data-testid="${cardAutomationId}" data-entity-type="grouped-item" data-entity-id="${safeGroupId}" data-list-id="${ui.escapeHtml(String(group.listId || ''))}" data-place-id="${ui.escapeHtml(String(group.placeId || ''))}" data-item-name="${ui.escapeHtml(String(group.itemName || group.establishmentName || ''))}" data-detail-url="${detailUrl}" onclick="window.location.href=this.dataset.detailUrl;" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href=this.dataset.detailUrl;}">
+            <article class="review-list-row" role="button" tabindex="0"${scoreStyle} data-testid="${cardAutomationId}" data-entity-type="grouped-item" data-entity-id="${safeGroupId}" data-list-id="${ui.escapeHtml(String(group.listId || ''))}" data-place-id="${ui.escapeHtml(String(group.placeId || ''))}" data-item-name="${ui.escapeHtml(String(detailItemName))}" data-detail-url="${detailUrl}" onclick="window.location.href=this.dataset.detailUrl;" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href=this.dataset.detailUrl;}">
                 <div class="review-list-row__image-container">${imageHtml}</div>
                 <div class="review-list-row__main">
                     <div class="review-list-row__place">

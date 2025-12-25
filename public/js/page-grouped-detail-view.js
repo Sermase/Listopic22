@@ -514,15 +514,26 @@ ListopicApp.pageGroupedDetailView = (() => {
             const targetItemName = (state.currentGroupDetailItem || '').trim();
             const normalizedTarget = targetItemName.toLowerCase();
             const isGeneralTarget = !targetItemName || normalizedTarget === 'general';
-            let enrichedReviews = await uiUtils.enrichReviews(reviewsSnapshot.docs);
-            enrichedReviews = enrichedReviews.filter(review => {
+            const allEnrichedReviews = await uiUtils.enrichReviews(reviewsSnapshot.docs);
+            const filterByItem = (reviews, { allowGeneralOnly } = {}) => reviews.filter(review => {
                 const reviewItemName = (review.itemName || '').trim();
                 const normalizedReviewItem = reviewItemName.toLowerCase();
-                if (!isGeneralTarget) {
+                if (!allowGeneralOnly) {
                     return normalizedReviewItem === normalizedTarget;
                 }
                 return reviewItemName === '' || normalizedReviewItem === 'general';
             });
+
+            let enrichedReviews = isGeneralTarget
+                ? filterByItem(allEnrichedReviews, { allowGeneralOnly: true })
+                : filterByItem(allEnrichedReviews);
+
+            if (!enrichedReviews.length && targetItemName) {
+                const placeName = typeof placeData.name === 'string' ? placeData.name.trim() : '';
+                if (placeName && placeName.toLowerCase() === normalizedTarget) {
+                    enrichedReviews = filterByItem(allEnrichedReviews, { allowGeneralOnly: true });
+                }
+            }
 
             // 4. Calcular estadísticas y medias de criterios
             let totalOverallScoreSum = 0;
