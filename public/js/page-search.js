@@ -1,4 +1,4 @@
-window.ListopicApp = window.ListopicApp || {};
+﻿window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageSearch = (() => {
     const INDEX_NAME_BY_ENTITY = {
         lists: "lists",
@@ -151,6 +151,8 @@ ListopicApp.pageSearch = (() => {
         lastFacetQueryByType: {},
         categoriesLoaded: false,
         categoriesLoadingPromise: null,
+        categoryAliasMap: new Map(),
+        categoryEntryByAlias: new Map(),
         listsCacheByCategory: {},
         listsLoadingByCategory: {},
         listNameById: {}
@@ -221,6 +223,29 @@ ListopicApp.pageSearch = (() => {
             .replace(/[\u0300-\u036f]/g, "");
     }
 
+    function isNonEmptyString(value) {
+        return typeof value === "string" && value.trim().length > 0;
+    }
+
+    function normalizeCategoryToken(value) {
+        return normalizeSmartToken(value).replace(/[^a-z0-9]+/g, "");
+    }
+
+    function getCategoryAliasKeys(value) {
+        const normalized = normalizeCategoryToken(value);
+        if (!normalized) {
+            return [];
+        }
+        const keys = new Set([normalized]);
+        if (normalized.includes("j")) {
+            keys.add(normalized.replace(/j/g, "h"));
+        }
+        if (normalized.includes("h")) {
+            keys.add(normalized.replace(/h/g, "j"));
+        }
+        return Array.from(keys);
+    }
+
     function parseSmartNumber(value) {
         if (value === null || value === undefined) {
             return null;
@@ -248,12 +273,135 @@ ListopicApp.pageSearch = (() => {
         return ListopicApp.state.categoryCache;
     }
 
+    function buildCategoryAliasMap() {
+        const cache = getCategoryCache();
+        const aliasMap = new Map();
+        const entryMap = new Map();
+        Object.values(cache).forEach((entry) => {
+            if (!entry || typeof entry !== "object") {
+                return;
+            }
+            const candidates = [
+                entry.id,
+                entry.name,
+                entry.displayname,
+                entry.displayName,
+                entry.title,
+                entry.label
+            ]
+                .filter(isNonEmptyString)
+                .map((value) => value.trim());
+            if (candidates.length === 0) {
+                return;
+            }
+            candidates.forEach((candidate) => {
+                getCategoryAliasKeys(candidate).forEach((normalized) => {
+                    if (!aliasMap.has(normalized)) {
+                        aliasMap.set(normalized, new Set());
+                    }
+                    const set = aliasMap.get(normalized);
+                    candidates.forEach((value) => set.add(value));
+                    if (!entryMap.has(normalized)) {
+                        entryMap.set(normalized, entry);
+                    }
+                });
+            });
+        });
+        state.categoryAliasMap = aliasMap;
+        state.categoryEntryByAlias = entryMap;
+    }
+
+    function getCategoryAliases(value) {
+        const aliasSet = new Set();
+        if (isNonEmptyString(value)) {
+            aliasSet.add(value.trim());
+        }
+        const aliasMap = state.categoryAliasMap;
+        getCategoryAliasKeys(value).forEach((normalized) => {
+            if (!aliasMap || !aliasMap.has(normalized)) {
+                return;
+            }
+            aliasMap.get(normalized).forEach((alias) => {
+                if (isNonEmptyString(alias)) {
+                    aliasSet.add(alias.trim());
+                }
+            });
+        });
+        return Array.from(aliasSet);
+    }
+
+    function getCategoryEntryByAlias(value) {
+        const cache = getCategoryCache();
+        if (cache[value]) {
+            return cache[value];
+        }
+        const entryMap = state.categoryEntryByAlias;
+        const keys = getCategoryAliasKeys(value);
+        for (const key of keys) {
+            if (entryMap && entryMap.has(key)) {
+                return entryMap.get(key);
+            }
+        }
+        return null;
+    }
+
+    function getListCategoryFilterSet() {
+        const selected = state.filters?.lists?.categories;
+        if (!(selected instanceof Set) || selected.size === 0) {
+            return null;
+        }
+        const allowed = new Set();
+        selected.forEach((value) => {
+            const candidates = [];
+            if (isNonEmptyString(value)) {
+                candidates.push(value);
+            }
+            const entry = getCategoryEntryByAlias(value);
+            if (entry) {
+                if (isNonEmptyString(entry.id)) {
+                    candidates.push(entry.id);
+                }
+                if (isNonEmptyString(entry.name)) {
+                    candidates.push(entry.name);
+                }
+            }
+            getCategoryAliases(value).forEach((alias) => {
+                if (isNonEmptyString(alias)) {
+                    candidates.push(alias);
+                }
+            });
+            candidates.forEach((candidate) => {
+                const normalized = normalizeCategoryToken(candidate);
+                if (normalized) {
+                    allowed.add(normalized);
+                }
+            });
+        });
+        return allowed.size > 0 ? allowed : null;
+    }
+
+    function hasActiveListCategoryFilter() {
+        const allowed = getListCategoryFilterSet();
+        return Boolean(allowed && allowed.size > 0);
+    }
+
+    function filterListHitsByCategory(hits) {
+        const allowed = getListCategoryFilterSet();
+        if (!allowed || allowed.size === 0) {
+            return hits;
+        }
+        return hits.filter((hit) => {
+            const value = normalizeCategoryToken(hit?.categoryId || "");
+            return value ? allowed.has(value) : false;
+        });
+    }
+
     function formatCategoryLabel(categoryId) {
         if (!categoryId) {
             return categoryId;
         }
         const cache = getCategoryCache();
-        const entry = cache[categoryId];
+        const entry = cache[categoryId] || getCategoryEntryByAlias(categoryId);
         if (!entry) {
             return categoryId;
         }
@@ -278,8 +426,7 @@ ListopicApp.pageSearch = (() => {
 
     async function ensureCategoriesLoaded() {
         const cache = getCategoryCache();
-        if (Object.keys(cache).length > 0) {
-            state.categoriesLoaded = true;
+        if (state.categoriesLoaded) {
             return;
         }
         if (state.categoriesLoadingPromise) {
@@ -303,9 +450,13 @@ ListopicApp.pageSearch = (() => {
                     cache[doc.id] = { id: doc.id, ...data, _baseTags: normalizedTags };
                 });
                 state.categoriesLoaded = true;
+                buildCategoryAliasMap();
             })
             .catch((error) => {
                 console.warn("page-search: no se pudieron cargar las categorias.", error);
+                if (!state.categoriesLoaded && Object.keys(cache).length > 0) {
+                    buildCategoryAliasMap();
+                }
             })
             .finally(() => {
                 state.categoriesLoadingPromise = null;
@@ -318,10 +469,9 @@ ListopicApp.pageSearch = (() => {
         if (!(selected instanceof Set) || selected.size === 0) {
             return [];
         }
-        const cache = getCategoryCache();
         const tagSet = new Set();
         selected.forEach((categoryId) => {
-            const entry = cache[categoryId];
+            const entry = getCategoryEntryByAlias(categoryId);
             if (!entry) {
                 return;
             }
@@ -415,7 +565,7 @@ ListopicApp.pageSearch = (() => {
         }
         const db = ListopicApp.services?.db;
         if (!db) {
-            console.warn("page-search: Firestore no disponible para cargar listas por categoría.");
+            console.warn("page-search: Firestore no disponible para cargar listas por categorÃ­a.");
             return;
         }
         const pendingPromises = categoryIds.map((categoryId) => {
@@ -425,31 +575,45 @@ ListopicApp.pageSearch = (() => {
             if (state.listsLoadingByCategory[categoryId]) {
                 return state.listsLoadingByCategory[categoryId];
             }
-            const query = db
-                .collection("lists")
-                .where("categoryId", "==", categoryId)
-                .where("isPublic", "==", true)
-                .orderBy("followersCount", "desc")
-                .limit(50)
-                .get()
-                .then((snapshot) => {
+            const aliasValues = Array.from(new Set(getCategoryAliases(categoryId)));
+            const targets = aliasValues.length > 0 ? aliasValues : [categoryId];
+            const query = Promise.allSettled(
+                targets.map((value) => db
+                    .collection("lists")
+                    .where("categoryId", "==", value)
+                    .where("isPublic", "==", true)
+                    .orderBy("followersCount", "desc")
+                    .limit(50)
+                    .get())
+            )
+                .then((results) => {
                     const lists = [];
-                    snapshot.forEach((doc) => {
-                        const data = doc.data() || {};
-                        const entry = {
-                            id: doc.id,
-                            name: data.name || "Lista sin nombre",
-                            followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
-                            reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
-                            categoryId
-                        };
-                        state.listNameById[doc.id] = entry.name;
-                        lists.push(entry);
+                    const seen = new Set();
+                    results.forEach((result) => {
+                        if (result.status !== "fulfilled") {
+                            return;
+                        }
+                        result.value.forEach((doc) => {
+                            if (seen.has(doc.id)) {
+                                return;
+                            }
+                            seen.add(doc.id);
+                            const data = doc.data() || {};
+                            const entry = {
+                                id: doc.id,
+                                name: data.name || "Lista sin nombre",
+                                followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
+                                reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
+                                categoryId
+                            };
+                            state.listNameById[doc.id] = entry.name;
+                            lists.push(entry);
+                        });
                     });
                     state.listsCacheByCategory[categoryId] = lists;
                 })
                 .catch((error) => {
-                    console.warn(`page-search: no se pudieron cargar las listas para la categoría ${categoryId}.`, error);
+                    console.warn(`page-search: no se pudieron cargar las listas para la categoria ${categoryId}.`, error);
                     state.listsCacheByCategory[categoryId] = [];
                 })
                 .finally(() => {
@@ -538,6 +702,11 @@ ListopicApp.pageSearch = (() => {
             }
             const separatorIndex = token.indexOf(":");
             if (separatorIndex === -1) {
+                const candidate = token.replace(/^\"|\"$/g, "");
+                if (candidate && getCategoryEntryByAlias(candidate)) {
+                    parsed.filterTokens.push({ key: "category", value: candidate });
+                    return;
+                }
                 searchTokens.push(token);
                 return;
             }
@@ -567,6 +736,10 @@ ListopicApp.pageSearch = (() => {
                     return;
                 }
                 parsed.filterTokens.push({ key: "placeType", value: cleanedValue });
+                return;
+            }
+            if (["categoria", "categorias", "category", "categories"].includes(key)) {
+                parsed.filterTokens.push({ key: "category", value: cleanedValue });
                 return;
             }
 
@@ -637,6 +810,12 @@ ListopicApp.pageSearch = (() => {
         const userSignals = ["badges", "residence", "userType"];
         if (filterKeys.some((key) => userSignals.includes(key))) {
             return "users";
+        }
+        if (filterKeys.includes("category")) {
+            if (currentType === "items" || currentType === "lists") {
+                return currentType;
+            }
+            return "lists";
         }
         if (filterKeys.includes("reviews")) {
             return "lists";
@@ -740,6 +919,13 @@ ListopicApp.pageSearch = (() => {
                 case "rating":
                     if ("minRating" in targetFilters) {
                         setNumericValue("minRating", token.value);
+                    }
+                    break;
+                case "category":
+                    if ("categories" in targetFilters) {
+                        const entry = getCategoryEntryByAlias(token.value);
+                        const categoryValue = entry?.id || token.value;
+                        addSetValue("categories", categoryValue);
                     }
                     break;
                 case "followers":
@@ -1173,6 +1359,13 @@ ListopicApp.pageSearch = (() => {
         return needsQuotes ? `${attribute}:"${escaped}"` : `${attribute}:${escaped}`;
     }
 
+    function buildFilterEquality(attribute, value) {
+        const text = String(value);
+        const needsQuotes = /[^A-Za-z0-9_-]/.test(text);
+        const escaped = text.replace(/"/g, '\\"');
+        return needsQuotes ? `${attribute}:"${escaped}"` : `${attribute}:${escaped}`;
+    }
+
     function buildFacetFilters(type) {
         if (type === "all") {
             return undefined;
@@ -1183,11 +1376,29 @@ ListopicApp.pageSearch = (() => {
             if (definition.type !== "facet" && definition.type !== "categoryTags" && definition.type !== "listSelector") {
                 return;
             }
+            if (type === "lists" && definition.attribute === "categoryId") {
+                return;
+            }
+            if (type === "items" && definition.attribute === "listCategoryId") {
+                return;
+            }
             const selected = state.filters[type][definition.stateKey];
             if (!(selected instanceof Set) || selected.size === 0) {
                 return;
             }
-            const values = Array.from(selected).map((value) => buildFacetFilter(definition.attribute, value));
+            const valueSet = new Set();
+            Array.from(selected).forEach((value) => {
+                const expandedValues = (definition.attribute === "categoryId" || definition.attribute === "listCategoryId")
+                    ? getCategoryAliases(value)
+                    : [value];
+                expandedValues.forEach((expanded) => {
+                    if (expanded === null || expanded === undefined || expanded === "") {
+                        return;
+                    }
+                    valueSet.add(buildFacetFilter(definition.attribute, expanded));
+                });
+            });
+            const values = Array.from(valueSet);
             if (values.length === 1) {
                 facetFilters.push(values[0]);
             } else if (values.length > 1) {
@@ -1195,6 +1406,41 @@ ListopicApp.pageSearch = (() => {
             }
         });
         return facetFilters.length > 0 ? facetFilters : undefined;
+    }
+
+    function buildItemCategoryFilterString() {
+        const selected = state.filters?.items?.categories;
+        if (!(selected instanceof Set) || selected.size === 0) {
+            return null;
+        }
+        const values = new Set();
+        selected.forEach((value) => {
+            if (isNonEmptyString(value)) {
+                values.add(value.trim());
+            }
+            const entry = getCategoryEntryByAlias(value);
+            if (entry) {
+                if (isNonEmptyString(entry.id)) {
+                    values.add(entry.id.trim());
+                }
+                if (isNonEmptyString(entry.name)) {
+                    values.add(entry.name.trim());
+                }
+            }
+            getCategoryAliases(value).forEach((alias) => {
+                if (isNonEmptyString(alias)) {
+                    values.add(alias.trim());
+                }
+            });
+        });
+        const filters = Array.from(values).map((value) => buildFilterEquality("listCategoryId", value));
+        if (filters.length === 0) {
+            return null;
+        }
+        if (filters.length === 1) {
+            return filters[0];
+        }
+        return `(${filters.join(" OR ")})`;
     }
 
     function buildNumericFilterString(type) {
@@ -1226,8 +1472,9 @@ ListopicApp.pageSearch = (() => {
         const facets = definitions
             .filter((definition) => definition.type === "facet")
             .map((definition) => definition.attribute);
+        const shouldExpandListHits = type === "lists" && hasActiveListCategoryFilter();
         const params = {
-            hitsPerPage: 20,
+            hitsPerPage: shouldExpandListHits ? 200 : 20,
             facets,
             ...getBaseSearchParams()
         };
@@ -1235,9 +1482,15 @@ ListopicApp.pageSearch = (() => {
         if (facetFilters) {
             params.facetFilters = facetFilters;
         }
-        const numericFilters = buildNumericFilterString(type);
-        if (numericFilters) {
-            params.filters = numericFilters;
+        let filters = buildNumericFilterString(type);
+        if (type === "items") {
+            const categoryFilter = buildItemCategoryFilterString();
+            if (categoryFilter) {
+                filters = filters ? `${filters} AND ${categoryFilter}` : categoryFilter;
+            }
+        }
+        if (filters) {
+            params.filters = filters;
         }
         return params;
     }
@@ -1301,6 +1554,13 @@ ListopicApp.pageSearch = (() => {
 
         const rawQuery = (mainSearchInput?.value || "").trim();
         state.currentSearchRaw = rawQuery;
+        if (rawQuery) {
+            try {
+                await ensureCategoriesLoaded();
+            } catch (_) {
+                // Ignorar fallos al precargar categorias para sugerencias
+            }
+        }
         const smartResult = applySmartQueryHints(rawQuery);
         const query = smartResult.query;
         state.currentSearchQuery = query;
@@ -1398,9 +1658,15 @@ ListopicApp.pageSearch = (() => {
                 state.lastFacetQueryByType[currentType] = query || "";
                 renderFiltersPanel(currentType);
                 const resultType = RESULT_TYPE_BY_ENTITY[currentType];
-                const hits = (response.hits || []).map((hit) => ({ ...hit, type: resultType }));
+                let hits = (response.hits || []).map((hit) => ({ ...hit, type: resultType }));
+                if (currentType === "lists") {
+                    hits = filterListHitsByCategory(hits);
+                }
                 renderResults(hits);
-                const totalHits = typeof response.nbHits === "number" ? response.nbHits : hits.length;
+                const rawTotalHits = typeof response.nbHits === "number" ? response.nbHits : hits.length;
+                const totalHits = (currentType === "lists" && hasActiveListCategoryFilter())
+                    ? hits.length
+                    : rawTotalHits;
                 updateResultsMeta({ total: totalHits });
             }
         } catch (error) {
@@ -1591,7 +1857,7 @@ ListopicApp.pageSearch = (() => {
                                 await ensureListsForCategories(categoriesToLoad);
                             }
                         } catch (error) {
-                            console.warn("page-search: no se pudieron actualizar las listas para las categorías seleccionadas.", error);
+                            console.warn("page-search: no se pudieron actualizar las listas para las categorÃ­as seleccionadas.", error);
                         }
                         sanitizeItemLists();
                     } else if (definition.attribute === "listName") {
@@ -1709,7 +1975,7 @@ ListopicApp.pageSearch = (() => {
         if (categories.length === 0) {
             const empty = document.createElement("p");
             empty.className = "filter-block__empty";
-            empty.textContent = "Selecciona una categoría para elegir sus listas destacadas.";
+            empty.textContent = "Selecciona una categorÃ­a para elegir sus listas destacadas.";
             container.appendChild(empty);
             return container;
         }
@@ -1739,7 +2005,7 @@ ListopicApp.pageSearch = (() => {
         if (availableLists.length === 0) {
             const empty = document.createElement("p");
             empty.className = "filter-block__empty";
-            empty.textContent = "Todavía no hay listas públicas en las categorías seleccionadas.";
+            empty.textContent = "TodavÃ­a no hay listas pÃºblicas en las categorÃ­as seleccionadas.";
             container.appendChild(empty);
             return container;
         }
@@ -1782,7 +2048,7 @@ ListopicApp.pageSearch = (() => {
             const countSpan = document.createElement("span");
             countSpan.className = "filter-option__count";
             const followers = typeof list.followersCount === "number" ? list.followersCount : 0;
-            countSpan.textContent = followers > 0 ? followers.toLocaleString("es-ES") : "—";
+            countSpan.textContent = followers > 0 ? followers.toLocaleString("es-ES") : "â€”";
 
             option.appendChild(checkbox);
             option.appendChild(labelSpan);

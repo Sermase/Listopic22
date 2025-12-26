@@ -571,6 +571,9 @@ ListopicApp.pageDeveloper = (() => {
 
         const syncPlacesBtn = document.getElementById('algolia-sync-places-btn');
         if (syncPlacesBtn) syncPlacesBtn.addEventListener('click', () => backfillAlgolia('places'));
+
+        const syncGroupedItemsBtn = document.getElementById('algolia-sync-grouped-items-btn');
+        if (syncGroupedItemsBtn) syncGroupedItemsBtn.addEventListener('click', () => backfillAlgolia('grouped_items'));
     }
 
     function updateActionButtonsState() {
@@ -1654,7 +1657,7 @@ ListopicApp.pageDeveloper = (() => {
         try {
             const functions = firebase.app().functions('europe-west1');
             const backfill = functions.httpsCallable('adminBackfillAlgolia');
-            const collections = collectionName ? [collectionName] : ['lists', 'users', 'places'];
+            const collections = collectionName ? [collectionName] : ['lists', 'users', 'places', 'grouped_items'];
             
             for (const collection of collections) {
                 logContainer.innerHTML += `<p><code>⏳ Sincronizando '${collection}'...</code></p>`;
