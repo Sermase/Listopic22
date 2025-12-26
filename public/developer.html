@@ -593,6 +593,47 @@
                         </div>
                     </div>
                 </section>
+
+                <section class="dev-tool-card" id="dev-tool-tag-migration">
+                    <div class="dev-tool-header">
+                        <div>
+                            <h3><i class="fas fa-tags"></i> Migrar etiquetas</h3>
+                            <p class="dev-tool-subtitle">Reemplaza una etiqueta en listas y/o reseñas para mantenerlas consistentes.</p>
+                        </div>
+                        <span class="dev-tool-tag"><i class="fas fa-tags"></i> Etiquetas</span>
+                    </div>
+                    <div class="dev-tool-form form-grid">
+                        <div>
+                            <label for="dev-tag-old">Etiqueta actual</label>
+                            <input id="dev-tag-old" class="form-input" placeholder="Sin gluten" value="Sin gluten">
+                        </div>
+                        <div>
+                            <label for="dev-tag-new">Nueva etiqueta</label>
+                            <input id="dev-tag-new" class="form-input" placeholder="🚫🌾 Sin gluten" value="🚫🌾 Sin gluten">
+                        </div>
+                        <div>
+                            <label for="dev-tag-targets">Aplicar en</label>
+                            <select id="dev-tag-targets" class="form-input">
+                                <option value="lists-reviews" selected>Listas y reseñas</option>
+                                <option value="lists">Solo listas</option>
+                                <option value="reviews">Solo reseñas</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="dev-tag-dryrun">Modo</label>
+                            <select id="dev-tag-dryrun" class="form-input">
+                                <option value="preview">Solo contar</option>
+                                <option value="apply" selected>Aplicar cambios</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="dev-tool-actions">
+                        <button id="dev-tag-migrate-btn" class="button primary-button"><i class="fas fa-arrows-rotate"></i> Migrar etiqueta</button>
+                        <button id="dev-tag-migrate-clear-btn" class="button secondary-button">Limpiar</button>
+                    </div>
+                    <div id="dev-tag-migrate-results" class="dev-tool-results" aria-live="polite"></div>
+                    <p class="dev-helper-text">La actualización de reseñas recalcula grupos y sincroniza Algolia automáticamente.</p>
+                </section>
             </div>
         </div>
 
@@ -641,7 +682,7 @@
                     </div>
                     <div style="grid-column: 1 / -1;">
                         <label>Etiquetas fijas (separadas por comas)</label>
-                        <textarea id="admin-cat-fixed-tags" class="form-input" rows="2" placeholder="Vegetariano, Sin gluten, Opción para llevar"></textarea>
+                        <textarea id="admin-cat-fixed-tags" class="form-input" rows="2" placeholder="Vegetariano, 🚫🌾 Sin gluten, Opción para llevar"></textarea>
                     </div>
                     <div style="grid-column: 1 / -1;">
                         <label>Default Criteria (JSON)</label>

@@ -2128,6 +2128,90 @@ ListopicApp.pageDeveloper = (() => {
         if (listSaveBtn) listSaveBtn.addEventListener('click', saveListEdits);
         const listCancelBtn = document.getElementById('dev-list-cancel-btn');
         if (listCancelBtn) listCancelBtn.addEventListener('click', () => setElementVisible('dev-list-editor', false));
+
+        const tagMigrateBtn = document.getElementById('dev-tag-migrate-btn');
+        if (tagMigrateBtn) tagMigrateBtn.addEventListener('click', handleTagMigration);
+        const tagMigrateClearBtn = document.getElementById('dev-tag-migrate-clear-btn');
+        if (tagMigrateClearBtn) tagMigrateClearBtn.addEventListener('click', resetTagMigrationForm);
+    }
+
+    function resetTagMigrationForm() {
+        setInputValue('dev-tag-old', 'Sin gluten');
+        setInputValue('dev-tag-new', '🚫🌾 Sin gluten');
+        setInputValue('dev-tag-targets', 'lists-reviews');
+        setInputValue('dev-tag-dryrun', 'apply');
+        const container = document.getElementById('dev-tag-migrate-results');
+        if (container) container.innerHTML = '';
+    }
+
+    function renderTagMigrationResults(result) {
+        const container = document.getElementById('dev-tag-migrate-results');
+        if (!container) return;
+        if (!result) {
+            container.innerHTML = '<p>No se recibieron resultados.</p>';
+            return;
+        }
+        const modeLabel = result.dryRun ? 'Solo contar' : 'Aplicar cambios';
+        const items = [
+            `<li><strong>Modo:</strong> ${escapeHtml(modeLabel)}</li>`,
+            `<li><strong>Listas:</strong> ${escapeHtml(String(result.listsUpdated || 0))} actualizadas (encontradas: ${escapeHtml(String(result.listsMatched || 0))})</li>`,
+            `<li><strong>Reseñas:</strong> ${escapeHtml(String(result.reviewsUpdated || 0))} actualizadas (encontradas: ${escapeHtml(String(result.reviewsMatched || 0))})</li>`
+        ];
+        container.innerHTML = `
+            <div>
+                <p><strong>Resultado de migración</strong></p>
+                <ul>${items.join('')}</ul>
+            </div>
+        `;
+    }
+
+    async function handleTagMigration(event) {
+        event?.preventDefault?.();
+        const fromTag = getInputValue('dev-tag-old');
+        const toTag = getInputValue('dev-tag-new');
+        const targets = getInputValue('dev-tag-targets') || 'lists-reviews';
+        const dryRun = getInputValue('dev-tag-dryrun') === 'preview';
+        const container = document.getElementById('dev-tag-migrate-results');
+        const btn = document.getElementById('dev-tag-migrate-btn');
+
+        if (!fromTag || !toTag) {
+            notify('Indica la etiqueta actual y la nueva.', 'warn');
+            return;
+        }
+        if (fromTag.trim() === toTag.trim()) {
+            notify('Las etiquetas deben ser diferentes.', 'warn');
+            return;
+        }
+        if (!dryRun) {
+            const confirmMsg = `Se reemplazará "${fromTag}" por "${toTag}".\n\n¿Continuar?`;
+            if (!confirm(confirmMsg)) return;
+        }
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ejecutando...';
+        }
+        if (container) {
+            container.innerHTML = '<p><code>Ejecutando migración de etiquetas...</code></p>';
+        }
+
+        try {
+            const callable = firebase.app().functions('europe-west1').httpsCallable('adminReplaceTag');
+            const response = await callable({ fromTag, toTag, targets, dryRun });
+            renderTagMigrationResults(response?.data);
+            notify('Migración completada.', 'success');
+        } catch (error) {
+            console.error('Error al migrar etiquetas:', error);
+            if (container) {
+                container.innerHTML = `<p style="color:var(--danger-color);">${escapeHtml(error?.message || 'No se pudo completar la migración.')}</p>`;
+            }
+            notify(error?.message || 'Error al migrar etiquetas.', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-arrows-rotate"></i> Migrar etiqueta';
+            }
+        }
     }
 
     // --- Reseñas ---
