@@ -192,6 +192,73 @@ function buildFilterEquality(field, value) {
     return needsQuotes ? `${field}:"${escaped}"` : `${field}:${escaped}`;
 }
 
+function normalizeTagArray(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value
+        .filter(isNonEmptyString)
+        .map((tag) => tag.trim())
+        .sort();
+}
+
+function areArraysEqual(left, right) {
+    if (left.length !== right.length) {
+        return false;
+    }
+    for (let i = 0; i < left.length; i += 1) {
+        if (left[i] !== right[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function normalizeListPublic(value) {
+    return value === false ? false : true;
+}
+
+function normalizeString(value) {
+    return isNonEmptyString(value) ? value.trim() : "";
+}
+
+function resolveGroupedListOwnerName(data) {
+    const ownerName = [
+        data?.authorName,
+        data?.ownerName,
+        data?.ownerDisplayName,
+        data?.userDisplayName
+    ].find((value) => isNonEmptyString(value));
+    return ownerName ? ownerName.trim() : "";
+}
+
+function hasGroupedListMetadataChanged(beforeData, afterData) {
+    if (!beforeData || !afterData) {
+        return true;
+    }
+    if (normalizeString(beforeData.name) !== normalizeString(afterData.name)) {
+        return true;
+    }
+    if ((beforeData.categoryId || null) !== (afterData.categoryId || null)) {
+        return true;
+    }
+    if ((beforeData.userId || null) !== (afterData.userId || null)) {
+        return true;
+    }
+    if (normalizeListPublic(beforeData.isPublic) !== normalizeListPublic(afterData.isPublic)) {
+        return true;
+    }
+    const beforeTags = normalizeTagArray(beforeData.availableTags);
+    const afterTags = normalizeTagArray(afterData.availableTags);
+    if (!areArraysEqual(beforeTags, afterTags)) {
+        return true;
+    }
+    if (resolveGroupedListOwnerName(beforeData) !== resolveGroupedListOwnerName(afterData)) {
+        return true;
+    }
+    return false;
+}
+
 function transformListRecord(data, docId) {
     if (!data || data.isPublic === false) {
         return null;
@@ -303,12 +370,7 @@ function mapGroupToAlgoliaRecord(listId, listData, group) {
     const slug = group.objectSlug || `${group.establishmentName || 'item'}__${group.itemName || 'general'}`;
     const objectID = `${listId}__${slug}`;
     const listTags = Array.isArray(listData?.availableTags) ? listData.availableTags.filter(isNonEmptyString) : [];
-    const listOwnerName = [
-        listData?.authorName,
-        listData?.ownerName,
-        listData?.ownerDisplayName,
-        listData?.userDisplayName
-    ].find((value) => isNonEmptyString(value)) || null;
+    const listOwnerName = resolveGroupedListOwnerName(listData) || null;
     const record = {
         objectID,
         entityType: "item",
@@ -362,8 +424,56 @@ function createCollectionHandlers(collectionKey) {
     };
 }
 
+async function clearGroupedItemsForList(listId, indexOverride) {
+    if (!listId) {
+        return null;
+    }
+    const index = indexOverride || await getIndexWithSettings("grouped_items");
+    if (!index) {
+        return null;
+    }
+    try {
+        const filter = buildFilterEquality("listId", listId);
+        const deleteTask = await index.deleteBy({ filters: filter });
+        if (deleteTask?.taskID) {
+            await index.waitTask(deleteTask.taskID);
+        }
+    } catch (error) {
+        logger.error(`Algolia: failed clearing grouped items for list ${listId}`, error);
+    }
+    return null;
+}
+
+async function rebuildGroupedItemsForList(listId) {
+    if (!listId) {
+        return null;
+    }
+    const index = await getIndexWithSettings("grouped_items");
+    if (!index) {
+        return null;
+    }
+    try {
+        const { listData, groupedReviews } = await buildGroupedItemsForList(listId);
+        await clearGroupedItemsForList(listId, index);
+        if (!listData || listData.isPublic === false) {
+            return null;
+        }
+        const records = (groupedReviews || []).map((group) => mapGroupToAlgoliaRecord(listId, listData, group));
+        if (records.length === 0) {
+            return null;
+        }
+        const response = await index.saveObjects(records);
+        if (response?.taskID) {
+            await index.waitTask(response.taskID);
+        }
+    } catch (error) {
+        logger.error(`Algolia: failed syncing grouped items for list ${listId}`, error);
+    }
+    return null;
+}
+
 async function syncCreate(config, snapshot) {
-    if (!algoliaClient || !snapshot) {
+    if (!snapshot) {
         return null;
     }
     const index = await getIndexWithSettings(config.indexName);
@@ -387,7 +497,7 @@ async function syncCreate(config, snapshot) {
 }
 
 async function syncUpdate(config, beforeSnap, afterSnap) {
-    if (!algoliaClient || !afterSnap) {
+    if (!afterSnap) {
         return null;
     }
     const index = await getIndexWithSettings(config.indexName);
@@ -412,7 +522,7 @@ async function syncUpdate(config, beforeSnap, afterSnap) {
 }
 
 async function syncDelete(config, snapshot) {
-    if (!algoliaClient || !snapshot) {
+    if (!snapshot) {
         return null;
     }
     const index = await getIndexWithSettings(config.indexName);
@@ -443,36 +553,26 @@ const { onCreated: onPlaceCreated, onUpdated: onPlaceUpdated, onDeleted: onPlace
 const { onCreated: onUserCreated, onUpdated: onUserUpdated, onDeleted: onUserDeleted } = createCollectionHandlers("users");
 
 const syncGroupedItemsIndex = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
-    if (!algoliaClient) {
+    const listId = event.params.listId;
+    return await rebuildGroupedItemsForList(listId);
+});
+
+const syncGroupedItemsOnListUpdate = onDocumentUpdated("lists/{listId}", async (event) => {
+    const beforeData = event.data?.before?.data();
+    const afterData = event.data?.after?.data();
+    if (!hasGroupedListMetadataChanged(beforeData, afterData)) {
         return null;
     }
     const listId = event.params.listId;
-    const index = await getIndexWithSettings("grouped_items");
-    if (!index) {
-        return null;
+    if (afterData && afterData.isPublic === false) {
+        return await clearGroupedItemsForList(listId);
     }
-    try {
-        const { listData, groupedReviews } = await buildGroupedItemsForList(listId);
-        const filter = buildFilterEquality("listId", listId);
-        const deleteTask = await index.deleteBy({ filters: filter });
-        if (deleteTask?.taskID) {
-            await index.waitTask(deleteTask.taskID);
-        }
-        if (!listData || listData.isPublic === false) {
-            return null;
-        }
-        const records = (groupedReviews || []).map((group) => mapGroupToAlgoliaRecord(listId, listData, group));
-        if (records.length === 0) {
-            return null;
-        }
-        const response = await index.saveObjects(records);
-        if (response?.taskID) {
-            await index.waitTask(response.taskID);
-        }
-    } catch (error) {
-        logger.error(`Algolia: failed syncing grouped items for list ${listId}`, error);
-    }
-    return null;
+    return await rebuildGroupedItemsForList(listId);
+});
+
+const syncGroupedItemsOnListDelete = onDocumentDeleted("lists/{listId}", async (event) => {
+    const listId = event.params.listId;
+    return await clearGroupedItemsForList(listId);
 });
 
 async function backfillStandardCollection(collectionKey) {
@@ -572,6 +672,8 @@ module.exports = {
     onUserUpdated,
     onUserDeleted,
     syncGroupedItemsIndex,
+    syncGroupedItemsOnListUpdate,
+    syncGroupedItemsOnListDelete,
     adminBackfillAlgolia
 };
 

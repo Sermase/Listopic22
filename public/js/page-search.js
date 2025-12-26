@@ -1,4 +1,4 @@
-window.ListopicApp = window.ListopicApp || {};
+﻿window.ListopicApp = window.ListopicApp || {};
 ListopicApp.pageSearch = (() => {
     const INDEX_NAME_BY_ENTITY = {
         lists: "lists",
@@ -18,13 +18,14 @@ ListopicApp.pageSearch = (() => {
 
     const FILTER_DEFINITIONS = {
         lists: [
-            { id: "categories", label: "Categorias", type: "facet", attribute: "categoryId", stateKey: "categories", formatValue: formatCategoryLabel, sortByLabel: true },
+            { id: "categories", label: "Categorias", type: "facet", attribute: "categoryId", stateKey: "categories", formatValue: formatCategoryLabel, sortByLabel: true, icon: "fas fa-layer-group" },
             {
                 id: "reviews",
                 label: "Resenas minimas",
                 type: "numeric",
                 attribute: "reviewCount",
                 stateKey: "minReviews",
+                icon: "fas fa-star",
                 options: [
                     { value: 10, label: "10+" },
                     { value: 25, label: "25+" },
@@ -37,6 +38,7 @@ ListopicApp.pageSearch = (() => {
                 type: "numeric",
                 attribute: "followersCount",
                 stateKey: "minFollowers",
+                icon: "fas fa-users",
                 options: [
                     { value: 100, label: "100+" },
                     { value: 250, label: "250+" },
@@ -45,18 +47,19 @@ ListopicApp.pageSearch = (() => {
             }
         ],
         places: [
-            { id: "cities", label: "Ciudad", type: "facet", attribute: "city", stateKey: "cities" },
-            { id: "provinces", label: "Provincia", type: "facet", attribute: "province", stateKey: "provinces" },
-            { id: "services", label: "Servicios", type: "facet", attribute: "serviceOptions", stateKey: "services" },
-            { id: "accessibility", label: "Accesibilidad", type: "facet", attribute: "accessibility", stateKey: "accessibility" },
-            { id: "priceLevel", label: "Nivel de precios", type: "facet", attribute: "priceLevel", stateKey: "priceLevels" },
-            { id: "placeType", label: "Tipo de lugar", type: "facet", attribute: "types", stateKey: "placeTypes" },
+            { id: "cities", label: "Ciudad", type: "facet", attribute: "city", stateKey: "cities", icon: "fas fa-city" },
+            { id: "provinces", label: "Provincia", type: "facet", attribute: "province", stateKey: "provinces", icon: "fas fa-map" },
+            { id: "services", label: "Servicios", type: "facet", attribute: "serviceOptions", stateKey: "services", icon: "fas fa-concierge-bell" },
+            { id: "accessibility", label: "Accesibilidad", type: "facet", attribute: "accessibility", stateKey: "accessibility", icon: "fas fa-universal-access" },
+            { id: "priceLevel", label: "Nivel de precios", type: "facet", attribute: "priceLevel", stateKey: "priceLevels", icon: "fas fa-wallet" },
+            { id: "placeType", label: "Tipo de lugar", type: "facet", attribute: "types", stateKey: "placeTypes", icon: "fas fa-store" },
             {
                 id: "rating",
                 label: "Valoracion minima",
                 type: "range",
                 attribute: "averageRating",
                 stateKey: "minRating",
+                icon: "fas fa-star",
                 min: 0,
                 max: 10,
                 step: 0.5,
@@ -64,17 +67,18 @@ ListopicApp.pageSearch = (() => {
             }
         ],
         items: [
-            { id: "categories", label: "Categoria", type: "facet", attribute: "listCategoryId", stateKey: "categories", formatValue: formatCategoryLabel, sortByLabel: true },
-            { id: "lists", label: "Listas", type: "listSelector", attribute: "listId", stateKey: "lists" },
-            { id: "baseTags", label: "Etiquetas base", type: "categoryTags", attribute: "listAvailableTags", stateKey: "baseTags" },
-            { id: "cities", label: "Ciudad", type: "facet", attribute: "placeCity", stateKey: "cities" },
-            { id: "provinces", label: "Provincia", type: "facet", attribute: "placeProvince", stateKey: "provinces" },
+            { id: "categories", label: "Categoria", type: "facet", attribute: "listCategoryId", stateKey: "categories", formatValue: formatCategoryLabel, sortByLabel: true, icon: "fas fa-tags" },
+            { id: "lists", label: "Listas", type: "listSelector", attribute: "listId", stateKey: "lists", icon: "fas fa-list" },
+            { id: "baseTags", label: "Etiquetas base", type: "categoryTags", attribute: "listAvailableTags", stateKey: "baseTags", icon: "fas fa-hashtag" },
+            { id: "cities", label: "Ciudad", type: "facet", attribute: "placeCity", stateKey: "cities", icon: "fas fa-city" },
+            { id: "provinces", label: "Provincia", type: "facet", attribute: "placeProvince", stateKey: "provinces", icon: "fas fa-map" },
             {
                 id: "rating",
                 label: "Valoracion minima",
                 type: "range",
                 attribute: "avgGeneralScore",
                 stateKey: "minRating",
+                icon: "fas fa-star",
                 min: 0,
                 max: 10,
                 step: 0.5,
@@ -82,15 +86,16 @@ ListopicApp.pageSearch = (() => {
             }
         ],
         users: [
-            { id: "userType", label: "Tipo de usuario", type: "facet", attribute: "userType", stateKey: "userTypes" },
-            { id: "residence", label: "Residencia", type: "facet", attribute: "residence", stateKey: "residences" },
-            { id: "badges", label: "Insignias", type: "facet", attribute: "badges", stateKey: "badges" },
+            { id: "userType", label: "Tipo de usuario", type: "facet", attribute: "userType", stateKey: "userTypes", icon: "fas fa-id-badge" },
+            { id: "residence", label: "Residencia", type: "facet", attribute: "residence", stateKey: "residences", icon: "fas fa-house" },
+            { id: "badges", label: "Insignias", type: "facet", attribute: "badges", stateKey: "badges", icon: "fas fa-award" },
             {
                 id: "followers",
                 label: "Seguidores minimos",
                 type: "numeric",
                 attribute: "followersCount",
                 stateKey: "minFollowers",
+                icon: "fas fa-users",
                 options: [
                     { value: 10, label: "10+" },
                     { value: 50, label: "50+" },
@@ -135,14 +140,19 @@ ListopicApp.pageSearch = (() => {
 
     const state = {
         currentSearchQuery: "",
+        currentSearchRaw: "",
         currentEntityType: "all",
         isSearching: false,
+        searchRequestId: 0,
+        smartAppliedFilters: [],
         isFiltersPanelOpen: false,
         filters: createInitialFilters(),
         facetCache: {},
         lastFacetQueryByType: {},
         categoriesLoaded: false,
         categoriesLoadingPromise: null,
+        categoryAliasMap: new Map(),
+        categoryEntryByAlias: new Map(),
         listsCacheByCategory: {},
         listsLoadingByCategory: {},
         listNameById: {}
@@ -161,6 +171,10 @@ ListopicApp.pageSearch = (() => {
     let filtersToggleBtn;
     let filtersBackdrop;
     let closeFiltersBtn;
+    let activeFiltersBarEl;
+    let activeFiltersChipsEl;
+    let activeFiltersClearBtn;
+    let searchResultsMetaEl;
     let debouncedSearch;
 
     function cacheDOMElements() {
@@ -175,6 +189,10 @@ ListopicApp.pageSearch = (() => {
         filtersToggleBtn = document.getElementById("filters-toggle-btn");
         filtersBackdrop = document.getElementById("filters-backdrop");
         closeFiltersBtn = document.getElementById("close-filters-btn");
+        activeFiltersBarEl = document.getElementById("active-filters-bar");
+        activeFiltersChipsEl = document.getElementById("active-filters-chips");
+        activeFiltersClearBtn = document.getElementById("active-filters-clear");
+        searchResultsMetaEl = document.getElementById("search-results-meta");
     }
 
     function debounce(func, delay) {
@@ -197,10 +215,185 @@ ListopicApp.pageSearch = (() => {
             .replace(/'/g, "&#39;");
     }
 
+    function normalizeSmartToken(value) {
+        return String(value || "")
+            .trim()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function isNonEmptyString(value) {
+        return typeof value === "string" && value.trim().length > 0;
+    }
+
+    function normalizeCategoryToken(value) {
+        return normalizeSmartToken(value).replace(/[^a-z0-9]+/g, "");
+    }
+
+    function getCategoryAliasKeys(value) {
+        const normalized = normalizeCategoryToken(value);
+        if (!normalized) {
+            return [];
+        }
+        const keys = new Set([normalized]);
+        if (normalized.includes("j")) {
+            keys.add(normalized.replace(/j/g, "h"));
+        }
+        if (normalized.includes("h")) {
+            keys.add(normalized.replace(/h/g, "j"));
+        }
+        return Array.from(keys);
+    }
+
+    function parseSmartNumber(value) {
+        if (value === null || value === undefined) {
+            return null;
+        }
+        const cleaned = String(value).replace(",", ".").match(/-?\d+(\.\d+)?/);
+        if (!cleaned) {
+            return null;
+        }
+        const numericValue = Number(cleaned[0]);
+        return Number.isNaN(numericValue) ? null : numericValue;
+    }
+
+    function getBaseSearchParams() {
+        return {
+            typoTolerance: true,
+            removeWordsIfNoResults: "allOptional",
+            ignorePlurals: true,
+            queryType: "prefixLast"
+        };
+    }
+
     function getCategoryCache() {
         ListopicApp.state = ListopicApp.state || {};
         ListopicApp.state.categoryCache = ListopicApp.state.categoryCache || {};
         return ListopicApp.state.categoryCache;
+    }
+
+    function buildCategoryAliasMap() {
+        const cache = getCategoryCache();
+        const aliasMap = new Map();
+        const entryMap = new Map();
+        Object.values(cache).forEach((entry) => {
+            if (!entry || typeof entry !== "object") {
+                return;
+            }
+            const candidates = [
+                entry.id,
+                entry.name,
+                entry.displayname,
+                entry.displayName,
+                entry.title,
+                entry.label
+            ]
+                .filter(isNonEmptyString)
+                .map((value) => value.trim());
+            if (candidates.length === 0) {
+                return;
+            }
+            candidates.forEach((candidate) => {
+                getCategoryAliasKeys(candidate).forEach((normalized) => {
+                    if (!aliasMap.has(normalized)) {
+                        aliasMap.set(normalized, new Set());
+                    }
+                    const set = aliasMap.get(normalized);
+                    candidates.forEach((value) => set.add(value));
+                    if (!entryMap.has(normalized)) {
+                        entryMap.set(normalized, entry);
+                    }
+                });
+            });
+        });
+        state.categoryAliasMap = aliasMap;
+        state.categoryEntryByAlias = entryMap;
+    }
+
+    function getCategoryAliases(value) {
+        const aliasSet = new Set();
+        if (isNonEmptyString(value)) {
+            aliasSet.add(value.trim());
+        }
+        const aliasMap = state.categoryAliasMap;
+        getCategoryAliasKeys(value).forEach((normalized) => {
+            if (!aliasMap || !aliasMap.has(normalized)) {
+                return;
+            }
+            aliasMap.get(normalized).forEach((alias) => {
+                if (isNonEmptyString(alias)) {
+                    aliasSet.add(alias.trim());
+                }
+            });
+        });
+        return Array.from(aliasSet);
+    }
+
+    function getCategoryEntryByAlias(value) {
+        const cache = getCategoryCache();
+        if (cache[value]) {
+            return cache[value];
+        }
+        const entryMap = state.categoryEntryByAlias;
+        const keys = getCategoryAliasKeys(value);
+        for (const key of keys) {
+            if (entryMap && entryMap.has(key)) {
+                return entryMap.get(key);
+            }
+        }
+        return null;
+    }
+
+    function getListCategoryFilterSet() {
+        const selected = state.filters?.lists?.categories;
+        if (!(selected instanceof Set) || selected.size === 0) {
+            return null;
+        }
+        const allowed = new Set();
+        selected.forEach((value) => {
+            const candidates = [];
+            if (isNonEmptyString(value)) {
+                candidates.push(value);
+            }
+            const entry = getCategoryEntryByAlias(value);
+            if (entry) {
+                if (isNonEmptyString(entry.id)) {
+                    candidates.push(entry.id);
+                }
+                if (isNonEmptyString(entry.name)) {
+                    candidates.push(entry.name);
+                }
+            }
+            getCategoryAliases(value).forEach((alias) => {
+                if (isNonEmptyString(alias)) {
+                    candidates.push(alias);
+                }
+            });
+            candidates.forEach((candidate) => {
+                const normalized = normalizeCategoryToken(candidate);
+                if (normalized) {
+                    allowed.add(normalized);
+                }
+            });
+        });
+        return allowed.size > 0 ? allowed : null;
+    }
+
+    function hasActiveListCategoryFilter() {
+        const allowed = getListCategoryFilterSet();
+        return Boolean(allowed && allowed.size > 0);
+    }
+
+    function filterListHitsByCategory(hits) {
+        const allowed = getListCategoryFilterSet();
+        if (!allowed || allowed.size === 0) {
+            return hits;
+        }
+        return hits.filter((hit) => {
+            const value = normalizeCategoryToken(hit?.categoryId || "");
+            return value ? allowed.has(value) : false;
+        });
     }
 
     function formatCategoryLabel(categoryId) {
@@ -208,7 +401,7 @@ ListopicApp.pageSearch = (() => {
             return categoryId;
         }
         const cache = getCategoryCache();
-        const entry = cache[categoryId];
+        const entry = cache[categoryId] || getCategoryEntryByAlias(categoryId);
         if (!entry) {
             return categoryId;
         }
@@ -233,8 +426,7 @@ ListopicApp.pageSearch = (() => {
 
     async function ensureCategoriesLoaded() {
         const cache = getCategoryCache();
-        if (Object.keys(cache).length > 0) {
-            state.categoriesLoaded = true;
+        if (state.categoriesLoaded) {
             return;
         }
         if (state.categoriesLoadingPromise) {
@@ -258,9 +450,13 @@ ListopicApp.pageSearch = (() => {
                     cache[doc.id] = { id: doc.id, ...data, _baseTags: normalizedTags };
                 });
                 state.categoriesLoaded = true;
+                buildCategoryAliasMap();
             })
             .catch((error) => {
                 console.warn("page-search: no se pudieron cargar las categorias.", error);
+                if (!state.categoriesLoaded && Object.keys(cache).length > 0) {
+                    buildCategoryAliasMap();
+                }
             })
             .finally(() => {
                 state.categoriesLoadingPromise = null;
@@ -273,10 +469,9 @@ ListopicApp.pageSearch = (() => {
         if (!(selected instanceof Set) || selected.size === 0) {
             return [];
         }
-        const cache = getCategoryCache();
         const tagSet = new Set();
         selected.forEach((categoryId) => {
-            const entry = cache[categoryId];
+            const entry = getCategoryEntryByAlias(categoryId);
             if (!entry) {
                 return;
             }
@@ -370,7 +565,7 @@ ListopicApp.pageSearch = (() => {
         }
         const db = ListopicApp.services?.db;
         if (!db) {
-            console.warn("page-search: Firestore no disponible para cargar listas por categoría.");
+            console.warn("page-search: Firestore no disponible para cargar listas por categorÃ­a.");
             return;
         }
         const pendingPromises = categoryIds.map((categoryId) => {
@@ -380,31 +575,45 @@ ListopicApp.pageSearch = (() => {
             if (state.listsLoadingByCategory[categoryId]) {
                 return state.listsLoadingByCategory[categoryId];
             }
-            const query = db
-                .collection("lists")
-                .where("categoryId", "==", categoryId)
-                .where("isPublic", "==", true)
-                .orderBy("followersCount", "desc")
-                .limit(50)
-                .get()
-                .then((snapshot) => {
+            const aliasValues = Array.from(new Set(getCategoryAliases(categoryId)));
+            const targets = aliasValues.length > 0 ? aliasValues : [categoryId];
+            const query = Promise.allSettled(
+                targets.map((value) => db
+                    .collection("lists")
+                    .where("categoryId", "==", value)
+                    .where("isPublic", "==", true)
+                    .orderBy("followersCount", "desc")
+                    .limit(50)
+                    .get())
+            )
+                .then((results) => {
                     const lists = [];
-                    snapshot.forEach((doc) => {
-                        const data = doc.data() || {};
-                        const entry = {
-                            id: doc.id,
-                            name: data.name || "Lista sin nombre",
-                            followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
-                            reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
-                            categoryId
-                        };
-                        state.listNameById[doc.id] = entry.name;
-                        lists.push(entry);
+                    const seen = new Set();
+                    results.forEach((result) => {
+                        if (result.status !== "fulfilled") {
+                            return;
+                        }
+                        result.value.forEach((doc) => {
+                            if (seen.has(doc.id)) {
+                                return;
+                            }
+                            seen.add(doc.id);
+                            const data = doc.data() || {};
+                            const entry = {
+                                id: doc.id,
+                                name: data.name || "Lista sin nombre",
+                                followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
+                                reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
+                                categoryId
+                            };
+                            state.listNameById[doc.id] = entry.name;
+                            lists.push(entry);
+                        });
                     });
                     state.listsCacheByCategory[categoryId] = lists;
                 })
                 .catch((error) => {
-                    console.warn(`page-search: no se pudieron cargar las listas para la categoría ${categoryId}.`, error);
+                    console.warn(`page-search: no se pudieron cargar las listas para la categoria ${categoryId}.`, error);
                     state.listsCacheByCategory[categoryId] = [];
                 })
                 .finally(() => {
@@ -444,6 +653,476 @@ ListopicApp.pageSearch = (() => {
             }
             return followersB - followersA;
         });
+    }
+
+    function resolveTypeAlias(value) {
+        const normalized = normalizeSmartToken(value);
+        if (["usuario", "usuarios", "user", "users"].includes(normalized)) {
+            return "users";
+        }
+        if (["lista", "listas", "list", "lists"].includes(normalized)) {
+            return "lists";
+        }
+        if (["lugar", "lugares", "place", "places", "sitio", "sitios"].includes(normalized)) {
+            return "places";
+        }
+        if (["elemento", "elementos", "item", "items"].includes(normalized)) {
+            return "items";
+        }
+        return null;
+    }
+
+    function parseSmartQuery(rawQuery) {
+        const tokens = typeof rawQuery === "string" ? rawQuery.match(/"[^"]+"|\S+/g) : null;
+        const searchTokens = [];
+        const parsed = {
+            cleanedQuery: "",
+            typeHint: null,
+            filterTokens: []
+        };
+
+        if (!Array.isArray(tokens)) {
+            parsed.cleanedQuery = rawQuery || "";
+            return parsed;
+        }
+
+        tokens.forEach((token) => {
+            if (!token) {
+                return;
+            }
+            if (token.startsWith("@") && token.length > 1) {
+                parsed.typeHint = "users";
+                searchTokens.push(token.slice(1));
+                return;
+            }
+            if (token.startsWith("#") && token.length > 1) {
+                parsed.typeHint = parsed.typeHint || "items";
+                searchTokens.push(token.slice(1));
+                return;
+            }
+            const separatorIndex = token.indexOf(":");
+            if (separatorIndex === -1) {
+                const candidate = token.replace(/^\"|\"$/g, "");
+                if (candidate && getCategoryEntryByAlias(candidate)) {
+                    parsed.filterTokens.push({ key: "category", value: candidate });
+                    return;
+                }
+                searchTokens.push(token);
+                return;
+            }
+            const rawKey = token.slice(0, separatorIndex);
+            const rawValue = token.slice(separatorIndex + 1);
+            if (!rawKey || !rawValue) {
+                searchTokens.push(token);
+                return;
+            }
+            const key = normalizeSmartToken(rawKey);
+            const cleanedValue = rawValue.replace(/^\"|\"$/g, "");
+            if (!cleanedValue) {
+                searchTokens.push(token);
+                return;
+            }
+
+            const typeAlias = resolveTypeAlias(key);
+            if (typeAlias) {
+                parsed.typeHint = typeAlias;
+                searchTokens.push(cleanedValue);
+                return;
+            }
+            if (key === "tipo" || key === "type") {
+                const typeFromValue = resolveTypeAlias(cleanedValue);
+                if (typeFromValue) {
+                    parsed.typeHint = typeFromValue;
+                    return;
+                }
+                parsed.filterTokens.push({ key: "placeType", value: cleanedValue });
+                return;
+            }
+            if (["categoria", "categorias", "category", "categories"].includes(key)) {
+                parsed.filterTokens.push({ key: "category", value: cleanedValue });
+                return;
+            }
+
+            if (["ciudad", "city"].includes(key)) {
+                parsed.filterTokens.push({ key: "city", value: cleanedValue });
+                return;
+            }
+            if (["provincia", "province", "region"].includes(key)) {
+                parsed.filterTokens.push({ key: "province", value: cleanedValue });
+                return;
+            }
+            if (["precio", "price", "precios", "pricelevel"].includes(key)) {
+                parsed.filterTokens.push({ key: "price", value: cleanedValue });
+                return;
+            }
+            if (["servicio", "servicios", "service", "services"].includes(key)) {
+                parsed.filterTokens.push({ key: "service", value: cleanedValue });
+                return;
+            }
+            if (["acceso", "accesibilidad", "access", "accessibility"].includes(key)) {
+                parsed.filterTokens.push({ key: "accessibility", value: cleanedValue });
+                return;
+            }
+            if (["rating", "valoracion", "puntuacion", "nota", "score"].includes(key)) {
+                parsed.filterTokens.push({ key: "rating", value: cleanedValue });
+                return;
+            }
+            if (["seguidores", "followers"].includes(key)) {
+                parsed.filterTokens.push({ key: "followers", value: cleanedValue });
+                return;
+            }
+            if (["resenas", "resena", "reviews"].includes(key)) {
+                parsed.filterTokens.push({ key: "reviews", value: cleanedValue });
+                return;
+            }
+            if (["insignia", "insignias", "badge", "badges"].includes(key)) {
+                parsed.filterTokens.push({ key: "badges", value: cleanedValue });
+                return;
+            }
+            if (["residencia", "residence"].includes(key)) {
+                parsed.filterTokens.push({ key: "residence", value: cleanedValue });
+                return;
+            }
+            if (["tipousuario", "tipo-usuario", "usertype"].includes(key)) {
+                parsed.filterTokens.push({ key: "userType", value: cleanedValue });
+                return;
+            }
+
+            searchTokens.push(token);
+        });
+
+        parsed.cleanedQuery = searchTokens.join(" ").trim();
+        return parsed;
+    }
+
+    function resolveSmartType(parsed, currentType) {
+        if (parsed?.typeHint && ENTITY_TYPES.includes(parsed.typeHint)) {
+            return parsed.typeHint;
+        }
+        if (currentType && currentType !== "all") {
+            return currentType;
+        }
+        const filterKeys = (parsed?.filterTokens || []).map((token) => token.key);
+        const placeSignals = ["city", "province", "price", "service", "accessibility", "placeType", "rating"];
+        if (filterKeys.some((key) => placeSignals.includes(key))) {
+            return "places";
+        }
+        const userSignals = ["badges", "residence", "userType"];
+        if (filterKeys.some((key) => userSignals.includes(key))) {
+            return "users";
+        }
+        if (filterKeys.includes("category")) {
+            if (currentType === "items" || currentType === "lists") {
+                return currentType;
+            }
+            return "lists";
+        }
+        if (filterKeys.includes("reviews")) {
+            return "lists";
+        }
+        if (filterKeys.includes("followers")) {
+            return "users";
+        }
+        return "all";
+    }
+
+    function clearSmartAppliedFilters() {
+        if (!Array.isArray(state.smartAppliedFilters) || state.smartAppliedFilters.length === 0) {
+            return;
+        }
+        state.smartAppliedFilters.forEach(({ type, stateKey, value, kind }) => {
+            const target = state.filters[type];
+            if (!target) {
+                return;
+            }
+            if (kind === "set") {
+                const setValue = target[stateKey];
+                if (setValue instanceof Set) {
+                    setValue.delete(value);
+                }
+            } else if (kind === "numeric") {
+                if (target[stateKey] === value) {
+                    target[stateKey] = null;
+                }
+            }
+        });
+        state.smartAppliedFilters = [];
+    }
+
+    function applySmartFilters(targetType, filterTokens) {
+        if (!targetType || targetType === "all") {
+            return;
+        }
+        const targetFilters = state.filters[targetType];
+        if (!targetFilters || !Array.isArray(filterTokens) || filterTokens.length === 0) {
+            return;
+        }
+
+        const addSetValue = (stateKey, value) => {
+            if (!value) {
+                return;
+            }
+            const setValue = targetFilters[stateKey] instanceof Set ? targetFilters[stateKey] : new Set();
+            targetFilters[stateKey] = setValue;
+            setValue.add(value);
+            state.smartAppliedFilters.push({ type: targetType, stateKey, value, kind: "set" });
+        };
+
+        const setNumericValue = (stateKey, value) => {
+            const numericValue = parseSmartNumber(value);
+            if (numericValue === null) {
+                return;
+            }
+            const definition = getDefinitionByStateKey(targetType, stateKey);
+            let clampedValue = numericValue;
+            if (definition && definition.type === "range") {
+                const min = Number(definition.min ?? 0);
+                const max = Number(definition.max ?? numericValue);
+                clampedValue = Math.min(Math.max(numericValue, min), max);
+            }
+            targetFilters[stateKey] = clampedValue;
+            state.smartAppliedFilters.push({ type: targetType, stateKey, value: clampedValue, kind: "numeric" });
+        };
+
+        filterTokens.forEach((token) => {
+            switch (token.key) {
+                case "city":
+                    if ("cities" in targetFilters) {
+                        addSetValue("cities", token.value);
+                    }
+                    break;
+                case "province":
+                    if ("provinces" in targetFilters) {
+                        addSetValue("provinces", token.value);
+                    }
+                    break;
+                case "price":
+                    if ("priceLevels" in targetFilters) {
+                        addSetValue("priceLevels", token.value);
+                    }
+                    break;
+                case "service":
+                    if ("services" in targetFilters) {
+                        addSetValue("services", token.value);
+                    }
+                    break;
+                case "accessibility":
+                    if ("accessibility" in targetFilters) {
+                        addSetValue("accessibility", token.value);
+                    }
+                    break;
+                case "placeType":
+                    if ("placeTypes" in targetFilters) {
+                        addSetValue("placeTypes", token.value);
+                    }
+                    break;
+                case "rating":
+                    if ("minRating" in targetFilters) {
+                        setNumericValue("minRating", token.value);
+                    }
+                    break;
+                case "category":
+                    if ("categories" in targetFilters) {
+                        const entry = getCategoryEntryByAlias(token.value);
+                        const categoryValue = entry?.id || token.value;
+                        addSetValue("categories", categoryValue);
+                    }
+                    break;
+                case "followers":
+                    if ("minFollowers" in targetFilters) {
+                        setNumericValue("minFollowers", token.value);
+                    }
+                    break;
+                case "reviews":
+                    if ("minReviews" in targetFilters) {
+                        setNumericValue("minReviews", token.value);
+                    }
+                    break;
+                case "badges":
+                    if ("badges" in targetFilters) {
+                        addSetValue("badges", token.value);
+                    }
+                    break;
+                case "residence":
+                    if ("residences" in targetFilters) {
+                        addSetValue("residences", token.value);
+                    }
+                    break;
+                case "userType":
+                    if ("userTypes" in targetFilters) {
+                        addSetValue("userTypes", token.value);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        });
+    }
+
+    function applySmartQueryHints(rawQuery) {
+        const parsed = parseSmartQuery(rawQuery);
+        const resolvedType = resolveSmartType(parsed, state.currentEntityType);
+        if (resolvedType && resolvedType !== state.currentEntityType) {
+            setEntityType(resolvedType, { skipSearch: true, skipPanelClose: true });
+        }
+        clearSmartAppliedFilters();
+        if (resolvedType && resolvedType !== "all") {
+            applySmartFilters(resolvedType, parsed.filterTokens);
+        }
+        return {
+            query: parsed.cleanedQuery,
+            resolvedType
+        };
+    }
+
+    function getDefinitionByStateKey(type, stateKey) {
+        return (FILTER_DEFINITIONS[type] || []).find((definition) => definition.stateKey === stateKey);
+    }
+
+    function removeFilterValue(type, stateKey, rawValue) {
+        if (!type || type === "all") {
+            return;
+        }
+        const definition = getDefinitionByStateKey(type, stateKey);
+        const targetFilters = state.filters[type];
+        if (!definition || !targetFilters) {
+            return;
+        }
+        if (definition.type === "numeric" || definition.type === "range") {
+            targetFilters[stateKey] = null;
+        } else {
+            const setValue = targetFilters[stateKey];
+            if (setValue instanceof Set) {
+                setValue.delete(rawValue);
+            }
+        }
+        performSearch();
+    }
+
+    function renderActiveFilters(type) {
+        if (!activeFiltersBarEl || !activeFiltersChipsEl) {
+            return;
+        }
+        if (type === "all") {
+            activeFiltersBarEl.hidden = true;
+            activeFiltersChipsEl.innerHTML = "";
+            return;
+        }
+
+        const definitions = FILTER_DEFINITIONS[type] || [];
+        const fragment = document.createDocumentFragment();
+        let totalActive = 0;
+
+        const buildChip = (definition, value, label) => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "active-filter-chip";
+            chip.dataset.filterType = type;
+            chip.dataset.stateKey = definition.stateKey;
+            chip.dataset.filterValue = value !== undefined && value !== null ? String(value) : "";
+            const icon = document.createElement("i");
+            icon.className = definition.icon || "fas fa-filter";
+            const text = document.createElement("span");
+            text.textContent = label;
+            const closeIcon = document.createElement("i");
+            closeIcon.className = "fas fa-times";
+            chip.appendChild(icon);
+            chip.appendChild(text);
+            chip.appendChild(closeIcon);
+            chip.setAttribute("aria-label", `Quitar filtro ${label}`);
+            fragment.appendChild(chip);
+        };
+
+        definitions.forEach((definition) => {
+            const currentValue = state.filters[type][definition.stateKey];
+            if ((definition.type === "facet" || definition.type === "categoryTags" || definition.type === "listSelector") && currentValue instanceof Set) {
+                currentValue.forEach((value) => {
+                    const displayValue = definition.type === "listSelector"
+                        ? (state.listNameById[value] || value)
+                        : (typeof definition.formatValue === "function" ? definition.formatValue(value) : value);
+                    const label = `${definition.label}: ${displayValue}`;
+                    buildChip(definition, value, label);
+                    totalActive += 1;
+                });
+            } else if (definition.type === "numeric" && currentValue !== null && currentValue !== undefined) {
+                const option = (definition.options || []).find((entry) => Number(entry.value) === Number(currentValue));
+                const displayValue = option ? option.label : currentValue;
+                const label = `${definition.label}: ${displayValue}`;
+                buildChip(definition, currentValue, label);
+                totalActive += 1;
+            } else if (definition.type === "range" && typeof currentValue === "number" && !Number.isNaN(currentValue)) {
+                const label = `${definition.label}: ${formatRangeValue(currentValue, definition)}`;
+                buildChip(definition, currentValue, label);
+                totalActive += 1;
+            }
+        });
+
+        if (totalActive === 0) {
+            activeFiltersBarEl.hidden = true;
+            activeFiltersChipsEl.innerHTML = "";
+            return;
+        }
+
+        activeFiltersBarEl.hidden = false;
+        activeFiltersChipsEl.innerHTML = "";
+        activeFiltersChipsEl.appendChild(fragment);
+    }
+
+    function updateResultsMeta(meta) {
+        if (!searchResultsMetaEl) {
+            return;
+        }
+        if (!meta || typeof meta.total !== "number") {
+            searchResultsMetaEl.innerHTML = "";
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        const makeChip = (iconClass, text) => {
+            const chip = document.createElement("span");
+            chip.className = "results-meta-chip";
+            const icon = document.createElement("i");
+            icon.className = iconClass;
+            const label = document.createElement("span");
+            label.textContent = text;
+            chip.appendChild(icon);
+            chip.appendChild(label);
+            fragment.appendChild(chip);
+        };
+
+        const totalLabel = meta.total === 1 ? "resultado" : "resultados";
+        makeChip("fas fa-layer-group", `${meta.total} ${totalLabel}`);
+
+        if (state.currentSearchRaw) {
+            makeChip("fas fa-search", state.currentSearchRaw);
+        }
+
+        const activeCount = countActiveFilters(state.currentEntityType);
+        if (state.currentEntityType !== "all" && activeCount > 0) {
+            makeChip("fas fa-filter", `${activeCount} filtros`);
+        }
+
+        if (meta.byType && state.currentEntityType === "all") {
+            const typeMeta = [
+                { key: "lists", label: "Listas", icon: "fas fa-list-alt" },
+                { key: "users", label: "Usuarios", icon: "fas fa-user" },
+                { key: "places", label: "Lugares", icon: "fas fa-map-marker-alt" },
+                { key: "items", label: "Elementos", icon: "fas fa-star" }
+            ];
+            typeMeta.forEach((entry) => {
+                const count = meta.byType[entry.key];
+                if (typeof count === "number" && count > 0) {
+                    makeChip(entry.icon, `${entry.label}: ${count}`);
+                }
+            });
+        }
+
+        searchResultsMetaEl.innerHTML = "";
+        searchResultsMetaEl.appendChild(fragment);
+    }
+
+    function isStaleSearch(requestId) {
+        return requestId !== state.searchRequestId;
     }
 
 
@@ -553,6 +1232,19 @@ ListopicApp.pageSearch = (() => {
         }
     }
 
+    function createFilterTitle(definition) {
+        const title = document.createElement("h3");
+        title.className = "filter-block__title";
+        if (definition?.icon) {
+            const icon = document.createElement("i");
+            icon.className = definition.icon;
+            title.appendChild(icon);
+        }
+        const textNode = document.createTextNode(definition?.label || "");
+        title.appendChild(textNode);
+        return title;
+    }
+
     function formatRangeValue(value, definition) {
         if (value === null || value === undefined || Number.isNaN(Number(value))) {
             return "Cualquiera";
@@ -572,9 +1264,7 @@ ListopicApp.pageSearch = (() => {
         const header = document.createElement("div");
         header.className = "filter-range__header";
 
-        const title = document.createElement("h3");
-        title.className = "filter-block__title";
-        title.textContent = definition.label;
+        const title = createFilterTitle(definition);
         header.appendChild(title);
 
         const valueLabel = document.createElement("span");
@@ -630,25 +1320,46 @@ ListopicApp.pageSearch = (() => {
         return container;
     }
 
-    function updateEntityTypeSelection(button) {
-        if (!button) {
+    function setEntityType(nextType, options = {}) {
+        if (!nextType || !ENTITY_TYPES.includes(nextType)) {
             return;
         }
-        entityTypeButtons.forEach((btn) => btn.classList.remove("active"));
-        button.classList.add("active");
-        state.currentEntityType = button.dataset.type;
+        const { skipSearch = false, skipPanelClose = false } = options;
+        const buttons = Array.from(entityTypeButtons || []);
+        buttons.forEach((btn) => btn.classList.remove("active"));
+        const targetButton = buttons.find((btn) => btn.dataset.type === nextType);
+        if (targetButton) {
+            targetButton.classList.add("active");
+        }
+        state.currentEntityType = nextType;
         if (state.currentEntityType === "lists" || state.currentEntityType === "items") {
             ensureCategoriesLoaded().catch(() => {});
         }
         renderFiltersPanel(state.currentEntityType);
-        performSearch();
-        if (shouldUseMobileFilters() && state.isFiltersPanelOpen) {
+        if (!skipSearch) {
+            performSearch();
+        }
+        if (shouldUseMobileFilters() && state.isFiltersPanelOpen && !skipPanelClose) {
             closeFiltersPanel({ skipFocus: true });
         }
         handleResponsiveFilters();
     }
 
+    function updateEntityTypeSelection(button) {
+        if (!button) {
+            return;
+        }
+        setEntityType(button.dataset.type);
+    }
+
     function buildFacetFilter(attribute, value) {
+        const text = String(value);
+        const needsQuotes = /[^A-Za-z0-9_-]/.test(text);
+        const escaped = text.replace(/"/g, '\\"');
+        return needsQuotes ? `${attribute}:"${escaped}"` : `${attribute}:${escaped}`;
+    }
+
+    function buildFilterEquality(attribute, value) {
         const text = String(value);
         const needsQuotes = /[^A-Za-z0-9_-]/.test(text);
         const escaped = text.replace(/"/g, '\\"');
@@ -665,11 +1376,29 @@ ListopicApp.pageSearch = (() => {
             if (definition.type !== "facet" && definition.type !== "categoryTags" && definition.type !== "listSelector") {
                 return;
             }
+            if (type === "lists" && definition.attribute === "categoryId") {
+                return;
+            }
+            if (type === "items" && definition.attribute === "listCategoryId") {
+                return;
+            }
             const selected = state.filters[type][definition.stateKey];
             if (!(selected instanceof Set) || selected.size === 0) {
                 return;
             }
-            const values = Array.from(selected).map((value) => buildFacetFilter(definition.attribute, value));
+            const valueSet = new Set();
+            Array.from(selected).forEach((value) => {
+                const expandedValues = (definition.attribute === "categoryId" || definition.attribute === "listCategoryId")
+                    ? getCategoryAliases(value)
+                    : [value];
+                expandedValues.forEach((expanded) => {
+                    if (expanded === null || expanded === undefined || expanded === "") {
+                        return;
+                    }
+                    valueSet.add(buildFacetFilter(definition.attribute, expanded));
+                });
+            });
+            const values = Array.from(valueSet);
             if (values.length === 1) {
                 facetFilters.push(values[0]);
             } else if (values.length > 1) {
@@ -677,6 +1406,41 @@ ListopicApp.pageSearch = (() => {
             }
         });
         return facetFilters.length > 0 ? facetFilters : undefined;
+    }
+
+    function buildItemCategoryFilterString() {
+        const selected = state.filters?.items?.categories;
+        if (!(selected instanceof Set) || selected.size === 0) {
+            return null;
+        }
+        const values = new Set();
+        selected.forEach((value) => {
+            if (isNonEmptyString(value)) {
+                values.add(value.trim());
+            }
+            const entry = getCategoryEntryByAlias(value);
+            if (entry) {
+                if (isNonEmptyString(entry.id)) {
+                    values.add(entry.id.trim());
+                }
+                if (isNonEmptyString(entry.name)) {
+                    values.add(entry.name.trim());
+                }
+            }
+            getCategoryAliases(value).forEach((alias) => {
+                if (isNonEmptyString(alias)) {
+                    values.add(alias.trim());
+                }
+            });
+        });
+        const filters = Array.from(values).map((value) => buildFilterEquality("listCategoryId", value));
+        if (filters.length === 0) {
+            return null;
+        }
+        if (filters.length === 1) {
+            return filters[0];
+        }
+        return `(${filters.join(" OR ")})`;
     }
 
     function buildNumericFilterString(type) {
@@ -708,17 +1472,25 @@ ListopicApp.pageSearch = (() => {
         const facets = definitions
             .filter((definition) => definition.type === "facet")
             .map((definition) => definition.attribute);
+        const shouldExpandListHits = type === "lists" && hasActiveListCategoryFilter();
         const params = {
-            hitsPerPage: 20,
-            facets
+            hitsPerPage: shouldExpandListHits ? 200 : 20,
+            facets,
+            ...getBaseSearchParams()
         };
         const facetFilters = buildFacetFilters(type);
         if (facetFilters) {
             params.facetFilters = facetFilters;
         }
-        const numericFilters = buildNumericFilterString(type);
-        if (numericFilters) {
-            params.filters = numericFilters;
+        let filters = buildNumericFilterString(type);
+        if (type === "items") {
+            const categoryFilter = buildItemCategoryFilterString();
+            if (categoryFilter) {
+                filters = filters ? `${filters} AND ${categoryFilter}` : categoryFilter;
+            }
+        }
+        if (filters) {
+            params.filters = filters;
         }
         return params;
     }
@@ -743,7 +1515,7 @@ ListopicApp.pageSearch = (() => {
     }
 
 
-    async function ensureFacetData(type, query) {
+    async function ensureFacetData(type, query, requestId) {
         if (type === "all") {
             return;
         }
@@ -763,6 +1535,9 @@ ListopicApp.pageSearch = (() => {
             const index = searchClient.initIndex(indexName);
             const params = { ...getSearchParams(type), hitsPerPage: 0 };
             const response = await index.search(normalizedQuery, params);
+            if (requestId && isStaleSearch(requestId)) {
+                return;
+            }
             state.facetCache[type] = response.facets || {};
             state.lastFacetQueryByType[type] = normalizedQuery;
         } catch (error) {
@@ -771,15 +1546,23 @@ ListopicApp.pageSearch = (() => {
     }
 
     async function performSearch() {
-        if (state.isSearching) {
-            return;
-        }
+        const requestId = ++state.searchRequestId;
         state.isSearching = true;
         if (executeSearchBtn) {
             executeSearchBtn.disabled = true;
         }
 
-        const query = (mainSearchInput?.value || "").trim();
+        const rawQuery = (mainSearchInput?.value || "").trim();
+        state.currentSearchRaw = rawQuery;
+        if (rawQuery) {
+            try {
+                await ensureCategoriesLoaded();
+            } catch (_) {
+                // Ignorar fallos al precargar categorias para sugerencias
+            }
+        }
+        const smartResult = applySmartQueryHints(rawQuery);
+        const query = smartResult.query;
         state.currentSearchQuery = query;
         const currentType = state.currentEntityType;
 
@@ -811,15 +1594,21 @@ ListopicApp.pageSearch = (() => {
                 searchResultsAreaEl.innerHTML = '<p class="search-placeholder">Introduce tu busqueda para ver resultados.</p>';
             }
             renderFiltersPanel(currentType);
-            state.isSearching = false;
-            if (executeSearchBtn) {
-                executeSearchBtn.disabled = false;
+            updateResultsMeta(null);
+            if (!isStaleSearch(requestId)) {
+                state.isSearching = false;
+                if (executeSearchBtn) {
+                    executeSearchBtn.disabled = false;
+                }
             }
             return;
         }
 
         if (currentType !== "all") {
-            await ensureFacetData(currentType, query);
+            await ensureFacetData(currentType, query, requestId);
+            if (isStaleSearch(requestId)) {
+                return;
+            }
             renderFiltersPanel(currentType);
         }
 
@@ -829,44 +1618,71 @@ ListopicApp.pageSearch = (() => {
 
         try {
             if (currentType === "all") {
+                const baseParams = getBaseSearchParams();
                 const queries = [
-                    { indexName: INDEX_NAME_BY_ENTITY.lists, query, params: { hitsPerPage: 5 } },
-                    { indexName: INDEX_NAME_BY_ENTITY.users, query, params: { hitsPerPage: 5 } },
-                    { indexName: INDEX_NAME_BY_ENTITY.places, query, params: { hitsPerPage: 5 } },
-                    { indexName: INDEX_NAME_BY_ENTITY.items, query, params: { hitsPerPage: 5 } }
+                    { indexName: INDEX_NAME_BY_ENTITY.lists, query, params: { hitsPerPage: 5, ...baseParams } },
+                    { indexName: INDEX_NAME_BY_ENTITY.users, query, params: { hitsPerPage: 5, ...baseParams } },
+                    { indexName: INDEX_NAME_BY_ENTITY.places, query, params: { hitsPerPage: 5, ...baseParams } },
+                    { indexName: INDEX_NAME_BY_ENTITY.items, query, params: { hitsPerPage: 5, ...baseParams } }
                 ];
                 const { results } = await searchClient.multipleQueries(queries);
+                if (isStaleSearch(requestId)) {
+                    return;
+                }
                 const order = ["lists", "users", "places", "items"];
                 const aggregated = [];
+                const byType = {};
+                let totalHits = 0;
                 results.forEach((result, index) => {
                     const entityKey = order[index] || "lists";
                     const resultType = RESULT_TYPE_BY_ENTITY[entityKey] || "list";
-                    result.hits.forEach((hit) => {
+                    const hits = Array.isArray(result.hits) ? result.hits : [];
+                    hits.forEach((hit) => {
                         aggregated.push({ ...hit, type: resultType });
                     });
+                    const count = typeof result.nbHits === "number" ? result.nbHits : hits.length;
+                    byType[entityKey] = count;
+                    totalHits += count;
                 });
                 renderResults(aggregated);
+                updateResultsMeta({ total: totalHits, byType });
             } else {
                 const indexName = INDEX_NAME_BY_ENTITY[currentType];
                 const index = searchClient.initIndex(indexName);
                 const params = getSearchParams(currentType);
                 const response = await index.search(query, params);
+                if (isStaleSearch(requestId)) {
+                    return;
+                }
                 state.facetCache[currentType] = response.facets || {};
                 state.lastFacetQueryByType[currentType] = query || "";
                 renderFiltersPanel(currentType);
                 const resultType = RESULT_TYPE_BY_ENTITY[currentType];
-                const hits = (response.hits || []).map((hit) => ({ ...hit, type: resultType }));
+                let hits = (response.hits || []).map((hit) => ({ ...hit, type: resultType }));
+                if (currentType === "lists") {
+                    hits = filterListHitsByCategory(hits);
+                }
                 renderResults(hits);
+                const rawTotalHits = typeof response.nbHits === "number" ? response.nbHits : hits.length;
+                const totalHits = (currentType === "lists" && hasActiveListCategoryFilter())
+                    ? hits.length
+                    : rawTotalHits;
+                updateResultsMeta({ total: totalHits });
             }
         } catch (error) {
             console.error("Error en la busqueda con Algolia:", error);
-            if (searchResultsAreaEl) {
-                searchResultsAreaEl.innerHTML = '<p class="search-placeholder error-placeholder">Vaya, algo ha fallado al buscar.</p>';
+            if (!isStaleSearch(requestId)) {
+                updateResultsMeta({ total: 0 });
+                if (searchResultsAreaEl) {
+                    searchResultsAreaEl.innerHTML = '<p class="search-placeholder error-placeholder">Vaya, algo ha fallado al buscar.</p>';
+                }
             }
         } finally {
-            state.isSearching = false;
-            if (executeSearchBtn) {
-                executeSearchBtn.disabled = false;
+            if (!isStaleSearch(requestId)) {
+                state.isSearching = false;
+                if (executeSearchBtn) {
+                    executeSearchBtn.disabled = false;
+                }
             }
         }
     }
@@ -924,22 +1740,23 @@ ListopicApp.pageSearch = (() => {
         if (!filtersPanelEl) {
             return;
         }
+        const activeCount = countActiveFilters(type);
         if (filtersHeaderLabel) {
-            const activeCount = countActiveFilters(type);
             filtersHeaderLabel.textContent = activeCount > 0 ? `Filtros (${activeCount})` : "Filtros";
         }
         if (clearFiltersBtn) {
-            const hasFilters = countActiveFilters(type) > 0;
-            clearFiltersBtn.disabled = type === "all" || !hasFilters;
+            clearFiltersBtn.disabled = type === "all" || activeCount === 0;
         }
         if (type === "all") {
             filtersPanelEl.innerHTML = '<p class="filters-placeholder">Selecciona un tipo de contenido para ver filtros.</p>';
+            renderActiveFilters(type);
             return;
         }
         const facetData = state.facetCache[type] || {};
         const definitions = FILTER_DEFINITIONS[type] || [];
         if (definitions.length === 0) {
             filtersPanelEl.innerHTML = '<p class="filters-placeholder">No hay filtros disponibles para este tipo.</p>';
+            renderActiveFilters(type);
             return;
         }
 
@@ -960,15 +1777,14 @@ ListopicApp.pageSearch = (() => {
         });
         filtersPanelEl.innerHTML = "";
         filtersPanelEl.appendChild(fragment);
+        renderActiveFilters(type);
     }
 
     function createFacetSection(type, definition, facetValues) {
         const container = document.createElement("div");
         container.className = "filter-block";
 
-        const title = document.createElement("h3");
-        title.className = "filter-block__title";
-        title.textContent = definition.label;
+        const title = createFilterTitle(definition);
         container.appendChild(title);
 
         if (type === "items" && definition.attribute === "listName") {
@@ -1024,12 +1840,14 @@ ListopicApp.pageSearch = (() => {
             checkbox.type = "checkbox";
             checkbox.value = value;
             checkbox.checked = selectedSet.has(value);
+            option.classList.toggle("filter-option--selected", checkbox.checked);
             checkbox.addEventListener("change", async () => {
                 if (checkbox.checked) {
                     selectedSet.add(value);
                 } else {
                     selectedSet.delete(value);
                 }
+                option.classList.toggle("filter-option--selected", checkbox.checked);
                 if (type === "items") {
                     if (definition.attribute === "listCategoryId") {
                         sanitizeItemBaseTags();
@@ -1039,7 +1857,7 @@ ListopicApp.pageSearch = (() => {
                                 await ensureListsForCategories(categoriesToLoad);
                             }
                         } catch (error) {
-                            console.warn("page-search: no se pudieron actualizar las listas para las categorías seleccionadas.", error);
+                            console.warn("page-search: no se pudieron actualizar las listas para las categorÃ­as seleccionadas.", error);
                         }
                         sanitizeItemLists();
                     } else if (definition.attribute === "listName") {
@@ -1075,9 +1893,7 @@ ListopicApp.pageSearch = (() => {
         const container = document.createElement("div");
         container.className = "filter-block";
 
-        const title = document.createElement("h3");
-        title.className = "filter-block__title";
-        title.textContent = definition.label;
+        const title = createFilterTitle(definition);
         container.appendChild(title);
 
         sanitizeItemBaseTags();
@@ -1125,12 +1941,14 @@ ListopicApp.pageSearch = (() => {
             checkbox.type = "checkbox";
             checkbox.value = tag;
             checkbox.checked = selectedSet.has(tag);
+            option.classList.toggle("filter-option--selected", checkbox.checked);
             checkbox.addEventListener("change", () => {
                 if (checkbox.checked) {
                     selectedSet.add(tag);
                 } else {
                     selectedSet.delete(tag);
                 }
+                option.classList.toggle("filter-option--selected", checkbox.checked);
                 performSearch();
             });
 
@@ -1150,16 +1968,14 @@ ListopicApp.pageSearch = (() => {
         const container = document.createElement("div");
         container.className = "filter-block";
 
-        const title = document.createElement("h3");
-        title.className = "filter-block__title";
-        title.textContent = definition.label;
+        const title = createFilterTitle(definition);
         container.appendChild(title);
 
         const categories = getSelectedItemCategoryIds();
         if (categories.length === 0) {
             const empty = document.createElement("p");
             empty.className = "filter-block__empty";
-            empty.textContent = "Selecciona una categoría para elegir sus listas destacadas.";
+            empty.textContent = "Selecciona una categorÃ­a para elegir sus listas destacadas.";
             container.appendChild(empty);
             return container;
         }
@@ -1189,7 +2005,7 @@ ListopicApp.pageSearch = (() => {
         if (availableLists.length === 0) {
             const empty = document.createElement("p");
             empty.className = "filter-block__empty";
-            empty.textContent = "Todavía no hay listas públicas en las categorías seleccionadas.";
+            empty.textContent = "TodavÃ­a no hay listas pÃºblicas en las categorÃ­as seleccionadas.";
             container.appendChild(empty);
             return container;
         }
@@ -1212,12 +2028,14 @@ ListopicApp.pageSearch = (() => {
             checkbox.type = "checkbox";
             checkbox.value = list.id;
             checkbox.checked = selectedSet.has(list.id);
+            option.classList.toggle("filter-option--selected", checkbox.checked);
             checkbox.addEventListener("change", () => {
                 if (checkbox.checked) {
                     selectedSet.add(list.id);
                 } else {
                     selectedSet.delete(list.id);
                 }
+                option.classList.toggle("filter-option--selected", checkbox.checked);
                 performSearch();
             });
 
@@ -1230,7 +2048,7 @@ ListopicApp.pageSearch = (() => {
             const countSpan = document.createElement("span");
             countSpan.className = "filter-option__count";
             const followers = typeof list.followersCount === "number" ? list.followersCount : 0;
-            countSpan.textContent = followers > 0 ? followers.toLocaleString("es-ES") : "—";
+            countSpan.textContent = followers > 0 ? followers.toLocaleString("es-ES") : "â€”";
 
             option.appendChild(checkbox);
             option.appendChild(labelSpan);
@@ -1245,9 +2063,7 @@ ListopicApp.pageSearch = (() => {
         const container = document.createElement("div");
         container.className = "filter-block";
 
-        const title = document.createElement("h3");
-        title.className = "filter-block__title";
-        title.textContent = definition.label;
+        const title = createFilterTitle(definition);
         container.appendChild(title);
 
         const optionsWrapper = document.createElement("div");
@@ -1264,6 +2080,7 @@ ListopicApp.pageSearch = (() => {
         anyInput.checked = currentValue === null || currentValue === undefined;
         anyInput.addEventListener("change", () => {
             state.filters[type][definition.stateKey] = null;
+            updateRadioSelection();
             performSearch();
         });
         const anyLabel = document.createElement("span");
@@ -1272,6 +2089,15 @@ ListopicApp.pageSearch = (() => {
         anyOption.appendChild(anyInput);
         anyOption.appendChild(anyLabel);
         optionsWrapper.appendChild(anyOption);
+
+        const updateRadioSelection = () => {
+            const optionLabels = optionsWrapper.querySelectorAll(".filter-option--radio");
+            optionLabels.forEach((labelEl) => {
+                const inputEl = labelEl.querySelector("input");
+                const isSelected = Boolean(inputEl && inputEl.checked);
+                labelEl.classList.toggle("filter-option--selected", isSelected);
+            });
+        };
 
         (definition.options || []).forEach((option) => {
             const optionLabel = document.createElement("label");
@@ -1283,6 +2109,7 @@ ListopicApp.pageSearch = (() => {
             radio.checked = Number(currentValue ?? NaN) === Number(option.value);
             radio.addEventListener("change", () => {
                 state.filters[type][definition.stateKey] = Number(option.value);
+                updateRadioSelection();
                 performSearch();
             });
             const labelText = document.createElement("span");
@@ -1292,6 +2119,8 @@ ListopicApp.pageSearch = (() => {
             optionLabel.appendChild(labelText);
             optionsWrapper.appendChild(optionLabel);
         });
+
+        updateRadioSelection();
 
         container.appendChild(optionsWrapper);
         return container;
@@ -1338,6 +2167,12 @@ ListopicApp.pageSearch = (() => {
     function initEventListeners() {
         if (mainSearchInput) {
             mainSearchInput.addEventListener("input", debouncedSearch);
+            mainSearchInput.addEventListener("keydown", (event) => {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    performSearch();
+                }
+            });
         }
         if (executeSearchBtn) {
             executeSearchBtn.addEventListener("click", performSearch);
@@ -1348,6 +2183,21 @@ ListopicApp.pageSearch = (() => {
         if (clearFiltersBtn) {
             clearFiltersBtn.addEventListener("click", resetFiltersForCurrentType);
         }
+        if (activeFiltersClearBtn) {
+            activeFiltersClearBtn.addEventListener("click", resetFiltersForCurrentType);
+        }
+        if (activeFiltersBarEl) {
+            activeFiltersBarEl.addEventListener("click", (event) => {
+                const chip = event.target.closest(".active-filter-chip");
+                if (!chip) {
+                    return;
+                }
+                const type = chip.dataset.filterType;
+                const stateKey = chip.dataset.stateKey;
+                const value = chip.dataset.filterValue;
+                removeFilterValue(type, stateKey, value);
+            });
+        }
         if (filtersToggleBtn) {
             filtersToggleBtn.addEventListener("click", toggleFiltersPanel);
         }
@@ -1357,6 +2207,19 @@ ListopicApp.pageSearch = (() => {
         if (closeFiltersBtn) {
             closeFiltersBtn.addEventListener("click", () => closeFiltersPanel());
         }
+        document.addEventListener("click", (event) => {
+            const hintEl = event.target.closest("[data-search-hint]");
+            if (!hintEl || !mainSearchInput) {
+                return;
+            }
+            const hintValue = hintEl.dataset.searchHint;
+            if (!hintValue) {
+                return;
+            }
+            mainSearchInput.value = hintValue;
+            mainSearchInput.focus();
+            performSearch();
+        });
         document.addEventListener("keydown", handleFiltersKeydown);
     }
 
