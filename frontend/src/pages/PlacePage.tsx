@@ -1,0 +1,425 @@
+import React, { useState, useMemo } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import {
+    ArrowLeft, MapPin, MessageSquare, List as ListIcon, Share2,
+    Bookmark, Heart, Copy, Smartphone, Globe, X,
+    Euro, Accessibility, Utensils, ShoppingBag, Bike
+} from 'lucide-react';
+import { ShareModal } from '../components/ShareModal';
+import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
+import { usePlaceDetails } from '../hooks/usePlaceDetails';
+import { ReviewCard } from '../components/ReviewCard';
+import { MapView } from '../components/MapView';
+
+export const PlacePage: React.FC = () => {
+    const { placeId } = useParams<{ placeId: string }>();
+    const { place, loading, error } = usePlaceDetails(placeId);
+    const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes'>('reviews');
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [isFollowed, setIsFollowed] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+    // --- Dishes Aggregation (Menu Mode: Platos) ---
+    const dishes = useMemo(() => {
+        if (!place?.reviews) return [];
+
+        const dishMap: Record<string, { total: number; count: number; name: string; photos: string[] }> = {};
+
+        place.reviews.forEach(r => {
+            if (!r.itemName) return;
+            const name = r.itemName.trim();
+            const key = name.toLowerCase();
+
+            if (!dishMap[key]) {
+                dishMap[key] = { total: 0, count: 0, name: name, photos: [] };
+            }
+            dishMap[key].total += r.overallRating;
+            dishMap[key].count += 1;
+            if (r.photoUrl) dishMap[key].photos.push(r.photoUrl);
+        });
+
+        return Object.values(dishMap).map(d => ({
+            name: d.name,
+            avg: d.total / d.count,
+            count: d.count,
+            photo: d.photos[0]
+        })).sort((a, b) => b.avg - a.avg);
+    }, [place?.reviews]);
+
+    const handleShare = async (platform: 'clipboard' | 'whatsapp') => {
+        const url = window.location.href;
+        if (platform === 'clipboard') {
+            try {
+                await navigator.clipboard.writeText(url);
+                alert("Enlace copiado");
+                setIsShareModalOpen(false);
+            } catch (err) {
+                console.error("Error", err);
+            }
+        } else if (platform === 'whatsapp') {
+            window.open(`https://wa.me/?text=${encodeURIComponent(`¡Mira este lugar! ${place?.name} ${url}`)}`, '_blank');
+            setIsShareModalOpen(false);
+        }
+    };
+
+    // Helper for Price Level
+    const renderPriceLevel = (level?: number) => {
+        if (!level && level !== 0) return null;
+        // Map 0-4 to € symbols. If string e.g 'PRICE_LEVEL_EXPENSIVE', logic needed. 
+        // Assuming number 0-4 or similar.
+        const count = typeof level === 'number' ? level : 2;
+        return (
+            <div className="flex text-emerald-400 font-bold" title="Nivel de precio">
+                {[...Array(5)].map((_, i) => (
+                    <span key={i} className={i < count ? 'opacity-100' : 'opacity-30 text-gray-500'}>€</span>
+                ))}
+            </div>
+        );
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen pt-32 px-4 flex justify-center bg-[#0b1021]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+            </div>
+        );
+    }
+
+    if (error || !place) {
+        return (
+            <div className="min-h-screen pt-32 px-4 text-center bg-[#0b1021]">
+                <h2 className="text-2xl font-bold text-red-400">Lugar no encontrado</h2>
+                <Link to="/search" className="text-indigo-400 mt-4 inline-block hover:underline">
+                    Volver a buscar
+                </Link>
+            </div>
+        );
+    }
+
+    // Dynamic Color for Score
+    const getScoreColor = (score: number) => {
+        if (score >= 9) return 'text-emerald-400';
+        if (score >= 7) return 'text-indigo-400';
+        if (score >= 5) return 'text-yellow-400';
+        return 'text-red-400';
+    };
+
+    return (
+        <div className="min-h-screen bg-[#0b1021] pb-20">
+            {/* Hero */}
+            <div className="relative h-[250px] sm:h-[400px] w-full overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/30 to-black/30 z-10" />
+
+                {place.photoUrl ? (
+                    <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
+                ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                        <MapPin className="w-20 h-20 text-gray-700" />
+                    </div>
+                )}
+
+                <div className="absolute top-24 left-4 z-20">
+                    <Link to="/search" className="inline-flex items-center text-white/80 hover:text-white transition-colors bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium border border-white/10 hover:border-white/30">
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Volver
+                    </Link>
+                </div>
+
+                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 z-20">
+                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border ${place.avgScore >= 7 ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' : 'border-indigo-500/50 text-indigo-400 bg-indigo-500/10'}`}>
+                                    {place.avgScore >= 9 ? 'Excelencia' : 'Recomendado'}
+                                </span>
+                            </div>
+                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 shadow-sm text-shadow-lg leading-tight line-clamp-2">
+                                {place.name}
+                            </h1>
+                            {place.address && (
+                                <p className="text-gray-200 flex items-center gap-2 text-sm sm:text-lg max-w-2xl font-light line-clamp-1">
+                                    <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
+                                    {place.address}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Content: Flex Col on Mobile (Order control), Grid on Desktop */}
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-8 flex flex-col lg:grid lg:grid-cols-12 gap-8">
+
+                {/* Sidebar (Right on Desktop, Top on Mobile) */}
+                {/* Order-1 on Mobile -> Renders FIRST. lg:order-last -> Renders RIGHT. */}
+                <div className="order-1 lg:col-span-4 lg:order-last space-y-4 sm:space-y-6">
+
+                    {/* 1. Actions Row */}
+                    <div className="bg-[#151b2e] p-3 rounded-xl border border-white/10 grid grid-cols-3 gap-2 sm:gap-3">
+                        <button
+                            onClick={() => setIsSaveModalOpen(true)}
+                            className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                        >
+                            <Bookmark className="w-5 h-5 mb-1" />
+                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Guardar</span>
+                        </button>
+                        <button
+                            onClick={() => setIsFollowed(!isFollowed)}
+                            className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${isFollowed ? 'bg-pink-500/20 border-pink-500 text-pink-400' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}
+                        >
+                            <Heart className={`w-5 h-5 mb-1 ${isFollowed ? 'fill-current' : ''}`} />
+                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{isFollowed ? 'Siguiendo' : 'Seguir'}</span>
+                        </button>
+                        <button
+                            onClick={() => setIsShareModalOpen(true)}
+                            className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                        >
+                            <Share2 className="w-5 h-5 mb-1" />
+                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Compartir</span>
+                        </button>
+                    </div>
+
+                    {/* 2. Map */}
+                    {place.coords && (
+                        <div className="bg-[#151b2e] rounded-xl overflow-hidden border border-white/10 shadow-lg relative group">
+                            <div className="absolute top-3 right-3 z-[400]">
+                                <a
+                                    href={place.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${place.coords.lat},${place.coords.lng}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-lg text-white text-xs font-bold flex items-center gap-2 hover:bg-indigo-600 transition-colors border border-white/10"
+                                >
+                                    <MapPin className="w-3 h-3" />
+                                    Abrir en Google Maps
+                                </a>
+                            </div>
+                            <div className="h-48 sm:h-64 relative z-0">
+                                <MapView items={[{ ...place.reviews[0], lat: place.coords.lat, lng: place.coords.lng }]} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 3. Detailed Info (New Rich Data) */}
+                    <div className="bg-[#151b2e] p-5 rounded-xl border border-white/10 space-y-4">
+                        <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm uppercase tracking-wider">Detalles</h3>
+
+                        {/* Price & Features Grid */}
+                        <div className="grid grid-cols-2 gap-4 pb-4 border-b border-white/5">
+                            {place.priceLevel !== undefined && (
+                                <div>
+                                    <span className="text-xs text-gray-500 block mb-1">Precio</span>
+                                    {renderPriceLevel(place.priceLevel)}
+                                </div>
+                            )}
+
+                            {place.accessibility && (
+                                <div className="col-span-2 sm:col-span-1">
+                                    <span className="text-xs text-gray-500 block mb-1">Accesibilidad</span>
+                                    <div className="space-y-1">
+                                        {place.accessibility.wheelchairAccessibleEntrance && (
+                                            <div className="flex items-center gap-2 text-indigo-400 font-medium text-xs">
+                                                <Accessibility className="w-4 h-4" />
+                                                <span>Entrada adaptada</span>
+                                            </div>
+                                        )}
+                                        {place.accessibility.wheelchairAccessibleRestroom && (
+                                            <div className="flex items-center gap-2 text-indigo-400 font-medium text-xs">
+                                                <Accessibility className="w-4 h-4" />
+                                                <span>Baño adaptado</span>
+                                            </div>
+                                        )}
+                                        {!place.accessibility.wheelchairAccessibleEntrance && !place.accessibility.wheelchairAccessibleRestroom && (
+                                            <span className="text-gray-400 text-xs">-</span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Options Chips */}
+                        <div className="flex flex-wrap gap-2">
+                            {place.options?.delivery && (
+                                <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <Bike className="w-3 h-3" /> Delivery
+                                </span>
+                            )}
+                            {place.options?.takeout && (
+                                <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <ShoppingBag className="w-3 h-3" /> Takeaway
+                                </span>
+                            )}
+                            {place.options?.dineIn && (
+                                <span className="px-3 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <Utensils className="w-3 h-3" /> Restaurante
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Contact Buttons */}
+                        <div className="flex flex-col gap-3 pt-2">
+                            {place.website && (
+                                <a
+                                    href={place.website}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-center gap-2 w-full p-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 group"
+                                >
+                                    <Globe className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                    Visitar Sitio Web
+                                </a>
+                            )}
+                            {place.phone && (
+                                <a
+                                    href={`tel:${place.phone}`}
+                                    className="flex items-center justify-center gap-2 w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-bold text-sm transition-all border border-white/10 group"
+                                >
+                                    <Smartphone className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                    Llamar ({place.phone})
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Left: Content (Tabs) */}
+                {/* Order-2 on Mobile -> Renders SECOND. lg:order-first -> Renders LEFT. */}
+                <div className="order-2 lg:col-span-8 lg:order-first">
+                    {/* Tabs */}
+                    <div className="flex gap-4 sm:gap-8 border-b border-white/10 mb-6 overflow-x-auto scrollbar-hide px-1">
+                        <button
+                            onClick={() => setActiveTab('reviews')}
+                            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap border-b-2 ${activeTab === 'reviews'
+                                ? 'border-indigo-500 text-indigo-400'
+                                : 'border-transparent text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <MessageSquare className="w-4 h-4" /> Opiniones ({place.reviews.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('dishes')}
+                            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap border-b-2 ${activeTab === 'dishes'
+                                ? 'border-indigo-500 text-indigo-400'
+                                : 'border-transparent text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <ListIcon className="w-4 h-4" /> La Carta ({dishes.length || 0})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('lists')}
+                            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap border-b-2 ${activeTab === 'lists'
+                                ? 'border-indigo-500 text-indigo-400'
+                                : 'border-transparent text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <Bookmark className="w-4 h-4" /> Listas ({place.relatedLists?.length || 0})
+                        </button>
+                    </div>
+
+                    {activeTab === 'reviews' && (
+                        <div className="space-y-4 animate-fade-in">
+                            {place.reviews.map(review => (
+                                <ReviewCard key={review.id} review={review} />
+                            ))}
+                        </div>
+                    )}
+
+                    {activeTab === 'dishes' && (
+                        <div className="animate-fade-in bg-[#151b2e] rounded-2xl border border-white/10 p-6 sm:p-8">
+                            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                <ListIcon className="w-5 h-5 text-indigo-400" />
+                                Platos Destacados
+                            </h3>
+
+                            {dishes && dishes.length > 0 ? (
+                                <div className="space-y-4">
+                                    {dishes.map((dish, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
+                                            <Link
+                                                to={`/group/${placeId}/${encodeURIComponent(dish.name)}`}
+                                                className="flex items-center gap-4 flex-1 min-w-0"
+                                            >
+                                                <div className="w-12 h-12 rounded-lg bg-gray-800 overflow-hidden shrink-0">
+                                                    {dish.photo ? (
+                                                        <img src={dish.photo} alt={dish.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-gray-600 font-bold text-xs">
+                                                            IMG
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h4 className="font-bold text-white group-hover:text-indigo-400 transition-colors truncate">{dish.name}</h4>
+                                                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                                                        <span className="font-bold text-emerald-400">{dish.avg.toFixed(1)}</span>
+                                                        <span>• {dish.count} opiniones</span>
+                                                    </div>
+                                                </div>
+                                            </Link>
+
+                                            <button className="px-3 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20">
+                                                Valorar
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 text-gray-500">
+                                    No hay suficientes datos para mostrar la carta.
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'lists' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
+                            {place.relatedLists && place.relatedLists.length > 0 ? (
+                                place.relatedLists.map(list => (
+                                    <Link key={list.id} to={`/list/${list.id}`} className="block group">
+                                        <div className="bg-[#151b2e] border border-white/10 rounded-xl p-4 hover:border-indigo-500/50 transition-colors h-full flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div className="bg-indigo-500/10 p-2 rounded-lg text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                                                        <ListIcon className="w-5 h-5" />
+                                                    </div>
+                                                </div>
+                                                <h3 className="text-white font-bold text-lg mb-1 truncate">{list.name}</h3>
+                                            </div>
+                                            <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                                                <p className="text-sm text-gray-500">Por {list.authorName || 'Anónimo'}</p>
+                                                <span className="text-xs text-indigo-400 font-medium group-hover:underline">Ver Lista</span>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ))
+                            ) : (
+                                <div className="col-span-full py-10 text-center text-gray-500 border border-dashed border-white/10 rounded-xl">
+                                    Este lugar aún no ha sido añadido a otras listas públicas.
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </main>
+
+            <SaveToArchiveModal
+                isOpen={isSaveModalOpen}
+                onClose={() => setIsSaveModalOpen(false)}
+                item={{
+                    itemId: place.placeId,
+                    type: 'place',
+                    name: place.name,
+                    subtitle: place.address,
+                    route: `/place/${place.placeId}`,
+                    photoUrl: place.photoUrl || undefined
+                }}
+            />
+
+            {/* Share Modal */}
+            <ShareModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                title={`Compartir ${place.name}`}
+            />
+        </div>
+    );
+};
