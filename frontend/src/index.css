@@ -101,7 +101,8 @@
     }
 
     /* Legacy SVG Markers - remove default leaflet square bg if any */
-    .legacy-map-marker {
+    .legacy-map-marker,
+    .user-location-marker {
         background: transparent !important;
         border: none !important;
     }

@@ -2,21 +2,69 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { createLegacyMarkerIcon } from '../utils/mapUtils';
+import { useLocation } from '../hooks/useLocation';
+import { Locate } from 'lucide-react';
+import L from 'leaflet';
 
-interface MapViewProps {
-    items: any[]; // Extended ReviewEntity
-    center?: [number, number];
-}
+// Component to handle User Location Marker
+const UserLocationMarker = () => {
+    const { location } = useLocation();
 
-// The DefaultIcon and L.Marker.prototype.options.icon are removed as createLegacyMarkerIcon will be used per marker.
-// let DefaultIcon = L.icon({
-//     iconUrl: icon,
-//     shadowUrl: iconShadow,
-//     iconSize: [25, 41],
-//     iconAnchor: [12, 41]
-// });
+    if (!location) return null;
 
-// L.Marker.prototype.options.icon = DefaultIcon;
+    // Custom Blue Dot Icon using DivIcon
+    const blueDotIcon = L.divIcon({
+        className: 'user-location-marker',
+        html: `<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg relative">
+                 <div class="absolute -inset-2 bg-blue-500/30 rounded-full animate-ping"></div>
+               </div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+    });
+
+    return (
+        <Marker
+            position={[location.latitude, location.longitude]}
+            icon={blueDotIcon}
+            zIndexOffset={1000} // Bring to front
+        >
+            <Popup>
+                <div className="text-sm font-bold text-gray-900">Tu ubicación</div>
+            </Popup>
+        </Marker>
+    );
+};
+
+// Component to handle "Center on Me" button
+const LocateControl = () => {
+    const map = useMap();
+    const { location, requestLocation, loading } = useLocation();
+
+    const handleLocate = (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent map click propagation
+        requestLocation();
+        if (location) {
+            map.flyTo([location.latitude, location.longitude], 15, {
+                animate: true,
+                duration: 1.5
+            });
+        }
+    };
+
+    return (
+        <div className="leaflet-bottom leaflet-right">
+            <div className="leaflet-control leaflet-bar !border-0 !m-4 pointer-events-auto">
+                <button
+                    onClick={handleLocate}
+                    className="bg-white/90 backdrop-blur-sm text-gray-700 hover:text-indigo-600 hover:bg-white p-2 rounded-lg shadow-xl cursor-pointer flex items-center justify-center transition-colors w-10 h-10 border border-black/10"
+                    title="Centrar en mi ubicación"
+                >
+                    <Locate className={`w-5 h-5 ${loading ? 'animate-spin text-indigo-500' : ''}`} />
+                </button>
+            </div>
+        </div>
+    );
+};
 
 interface MapViewProps {
     items: any[]; // Extended ReviewEntity
@@ -33,17 +81,7 @@ function ChangeView({ center }: { center: [number, number] }) {
 }
 
 export const MapView: React.FC<MapViewProps> = ({ items, center = [40.416, -3.703] }) => {
-    // items passed here are likely the "groupedItems" from ListPage.
-    // They have { avgRating, placeName, placeId, ... } 
-    // We need coordinates. If they are not on the group, we might need to find them or they might be missing.
-    // The legacy app likely had coordinates on the 'place' object.
-    // My aggregation logic in ListPage didn't explicitly preserve coordinates, let me check ListPage.tsx aggregation.
-    // ... checking mental model ...
-    // In ListPage.tsx I did: 
-    // const g = groups[key]; ... if (!g.photoUrl && review.photoUrl) g.photoUrl = review.photoUrl;
-    // I DID NOT copy lat/lng! I need to fix that in ListPage.tsx too.
-
-    // Assuming we fix ListPage.tsx to pass lat/lng:
+    // Filter valid items
     const validItems = items.filter(item => item.lat && item.lng);
 
     const mapCenter = validItems.length > 0
@@ -57,7 +95,12 @@ export const MapView: React.FC<MapViewProps> = ({ items, center = [40.416, -3.70
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 />
+
                 <ChangeView center={mapCenter} />
+
+                {/* User Location Features */}
+                <UserLocationMarker />
+                <LocateControl />
 
                 {validItems.map((item) => (
                     <Marker

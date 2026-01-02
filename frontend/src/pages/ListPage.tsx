@@ -236,68 +236,52 @@ export const ListPage: React.FC = () => {
                 <div className="absolute inset-0 z-0">
                     <div className="absolute inset-0 bg-[var(--bg-primary)] opacity-90 z-10 transition-colors duration-300" />
                     {list.photoUrl ? (
-                        <img src={list.photoUrl} className="w-full h-full object-cover blur-2xl opacity-40 scale-110 group-hover:scale-100 transition-transform duration-1000" alt="Cover Blur" />
+                        <img src={list.photoUrl} className="w-full h-full object-cover blur-3xl opacity-30 scale-110" alt="Cover Blur" />
                     ) : (
                         <div className="w-full h-full bg-gradient-to-br from-indigo-900/20 via-[var(--bg-primary)] to-purple-900/20" />
                     )}
                 </div>
 
-                <div className="relative z-10 max-w-4xl mx-auto">
+                <div className="relative z-10 max-w-6xl mx-auto">
                     <Link to="/search" className="inline-flex items-center text-gray-400 hover:text-white mb-8 transition-colors group/back">
                         <ArrowLeft className="w-4 h-4 mr-2 group-hover/back:-translate-x-1 transition-transform" />
                         Volver
                     </Link>
 
-                    <div className="flex flex-col md:flex-row gap-8 items-start">
-                        {/* Cover Image (if exists) or Placeholder Icon */}
-                        <div className="w-full md:w-32 md:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 shrink-0 bg-gray-800 flex items-center justify-center aspect-[2/1] md:aspect-square">
-                            {list.photoUrl ? (
-                                <img src={list.photoUrl} alt={list.name} className="w-full h-full object-cover" />
-                            ) : (
-                                <ListIcon className="w-10 h-10 text-gray-600" />
-                            )}
-                        </div>
-
-                        <div className="flex-1">
-                            <h1 className="text-3xl md:text-5xl font-display font-bold text-[var(--text-primary)] mb-4 leading-tight">
-                                {list.name}
-                            </h1>
-
-                            {list.description && (
-                                <p className="text-lg text-[var(--text-secondary)] mb-6 max-w-2xl leading-relaxed">
-                                    {list.description}
-                                </p>
-                            )}
-
-                            <div className="flex flex-wrap items-center gap-6 text-sm">
-                                <Link to={`/profile/${list.userId}`} className="flex items-center gap-2 group/author">
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 p-[1px]">
-                                        <div className="w-full h-full rounded-full bg-[#151b2e] flex items-center justify-center overflow-hidden">
-                                            {/* We don't have authorPhoto on List yet, maybe add to ListEntity? Using Initial for now */}
-                                            <span className="text-indigo-400 font-bold">{list.authorName?.[0] || "U"}</span>
+                    <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 items-start">
+                        {/* List Main Info */}
+                        <div className="flex flex-col md:flex-row gap-6 items-start lg:col-span-2">
+                            <div className="w-full md:w-40 md:h-40 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 shrink-0 bg-gray-800 flex items-center justify-center aspect-square text-white">
+                                {list.photoUrl ? (
+                                    <img src={list.photoUrl} alt={list.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <ListIcon className="w-16 h-16 text-gray-600" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <h1 className="text-4xl md:text-6xl font-display font-bold text-[var(--text-primary)] mb-4 leading-none tracking-tight">
+                                    {list.name}
+                                </h1>
+                                {list.description && (
+                                    <p className="text-xl text-[var(--text-secondary)] mb-6 max-w-3xl leading-relaxed">
+                                        {list.description}
+                                    </p>
+                                )}
+                                <div className="flex flex-wrap items-center gap-6">
+                                    <Link to={`/profile/${list.userId}`} className="flex items-center gap-2 group/author">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
+                                            <span className="text-indigo-400 font-bold">{list.authorName?.[0] || "?"}</span>
                                         </div>
-                                    </div>
-                                    <span className="text-[var(--text-secondary)] font-medium group-hover/author:text-[var(--text-primary)] transition-colors">By {list.authorName || "Anónimo"}</span>
-                                </Link>
+                                        <span className="text-[var(--text-primary)] font-medium group-hover/author:text-indigo-400 transition-colors">
+                                            Por {list.authorName || "Anónimo"}
+                                        </span>
+                                    </Link>
 
-                                <div className="flex items-center gap-4 border-l border-white/10 pl-6 h-8 text-gray-400">
-                                    <button
-                                        onClick={toggleLike}
-                                        className={`flex items-center gap-1.5 transition-colors group/like ${isLiked ? 'text-pink-500' : 'hover:text-pink-400'}`}
-                                    >
-                                        <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : 'group-hover/like:scale-110 transition-transform'}`} />
-                                        <span className="font-medium">{likeCount || 0}</span>
-                                    </button>
-                                    <span className="flex items-center gap-1.5"><MessageSquare className="w-4 h-4" /> <span className="font-medium">{reviews.length}</span> items</span>
-                                    <button className="flex items-center gap-1.5 hover:text-white transition-colors ml-2">
-                                        <Share2 className="w-4 h-4" /> Compartir
-                                    </button>
-
-                                    {/* Edit Button for Owner */}
+                                    {/* Owner Actions */}
                                     {user && list.userId === user.uid && (
                                         <Link
                                             to={`/list/${list.id}/edit`}
-                                            className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs text-indigo-300 transition-colors"
+                                            className="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-sm font-bold text-indigo-300 transition-colors"
                                         >
                                             Editar Lista
                                         </Link>
@@ -306,6 +290,51 @@ export const ListPage: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col">
+                            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Items</span>
+                            <span className="text-2xl font-bold text-white">{reviews.length}</span>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col">
+                            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Nota Media</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-2xl font-bold text-white">
+                                    {(reviews.reduce((acc, r) => acc + r.overallRating, 0) / (reviews.length || 1)).toFixed(1)}
+                                </span>
+                                <span className="text-yellow-500 text-sm">⭐</span>
+                            </div>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col cursor-pointer hover:bg-white/10 transition-colors" onClick={toggleLike}>
+                            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Likes</span>
+                            <div className="flex items-center gap-2">
+                                <Heart className={`w-5 h-5 ${isLiked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} />
+                                <span className={`text-2xl font-bold ${isLiked ? 'text-pink-500' : 'text-white'}`}>{likeCount}</span>
+                            </div>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col">
+                            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Visitas</span>
+                            <span className="text-2xl font-bold text-white">--</span> {/* Placeholder for now */}
+                        </div>
+                    </div>
+
+                    {/* Photo Carousel (aggregated) */}
+                    {reviews.some(r => r.photoUrl || r.placeMainImage) && (
+                        <div className="mt-8">
+                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Galería</h3>
+                            <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-hide snap-x">
+                                {reviews
+                                    .filter(r => r.photoUrl || r.placeMainImage)
+                                    .slice(0, 10) // Limit to 10 photos
+                                    .map((r, i) => (
+                                        <div key={i} className="flex-shrink-0 w-48 h-32 rounded-lg overflow-hidden border border-white/10 snap-start bg-gray-900">
+                                            <img src={r.photoUrl || r.placeMainImage} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" alt="" />
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

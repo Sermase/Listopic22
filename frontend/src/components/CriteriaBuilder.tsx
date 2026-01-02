@@ -1,0 +1,101 @@
+import React, { useState } from 'react';
+import { Plus, X, Sliders } from 'lucide-react';
+
+export interface Criterion {
+    id: string;
+    label: string;
+    minLabel: string;
+    maxLabel: string;
+    isPonderable: boolean;
+}
+
+interface CriteriaBuilderProps {
+    criteria: Criterion[];
+    onChange: (criteria: Criterion[]) => void;
+}
+
+export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onChange }) => {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    const addCriterion = () => {
+        const newCriterion: Criterion = {
+            id: Date.now().toString(),
+            label: '',
+            minLabel: 'Malo',
+            maxLabel: 'Excelente',
+            isPonderable: true
+        };
+        onChange([...criteria, newCriterion]);
+    };
+
+    const removeCriterion = (id: string) => {
+        onChange(criteria.filter(c => c.id !== id));
+    };
+
+    const updateCriterion = (id: string, field: keyof Criterion, value: any) => {
+        onChange(criteria.map(c =>
+            c.id === id ? { ...c, [field]: value } : c
+        ));
+    };
+
+    return (
+        <div className="space-y-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-indigo-400" />
+                Criterios de Evaluación
+            </h3>
+            <p className="text-sm text-gray-400">
+                Define qué aspectos se valorarán en esta lista (ej. Sabor, Ambiente, Precio).
+            </p>
+
+            <div className="space-y-3">
+                {criteria.map((criterion, index) => (
+                    <div key={criterion.id} className="bg-[#151b2e] p-4 rounded-xl border border-white/5 animate-fade-in relative group">
+                        <button
+                            type="button"
+                            onClick={() => removeCriterion(criterion.id)}
+                            className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Nombre del Criterio</label>
+                                <input
+                                    type="text"
+                                    value={criterion.label}
+                                    onChange={(e) => updateCriterion(criterion.id, 'label', e.target.value)}
+                                    placeholder="Ej: Calidad del Café"
+                                    className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-4 mt-6">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={criterion.isPonderable}
+                                        onChange={(e) => updateCriterion(criterion.id, 'isPonderable', e.target.checked)}
+                                        className="w-4 h-4 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[#0b1021]"
+                                    />
+                                    <span className="text-sm text-gray-300">Afecta al promedio</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Advanced (Min/Max Labels) - Optional or expandable could go here */}
+                    </div>
+                ))}
+            </div>
+
+            <button
+                type="button"
+                onClick={addCriterion}
+                className="w-full py-3 border border-dashed border-white/20 rounded-xl text-gray-400 hover:text-white hover:border-white/40 hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+            >
+                <Plus className="w-4 h-4" /> Agregar Criterio
+            </button>
+        </div>
+    );
+};

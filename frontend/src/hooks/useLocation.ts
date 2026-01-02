@@ -53,5 +53,28 @@ export const useLocation = () => {
         return R * c;
     };
 
-    return { location, error, loading, calculateDistance };
+    const requestLocation = () => {
+        setLoading(true);
+        setError(null);
+        if (!navigator.geolocation) {
+            setError('Geolocalización no soportada');
+            setLoading(false);
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setLocation({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                });
+                setLoading(false);
+            },
+            (err) => {
+                setError(err.message);
+                setLoading(false);
+            }
+        );
+    };
+
+    return { location, error, loading, calculateDistance, requestLocation };
 };

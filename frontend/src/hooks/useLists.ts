@@ -9,14 +9,45 @@ export interface ListEntity {
     userId: string;
     authorName?: string;
     photoUrl?: string; // List cover or icon
+    mainImageUrl?: string; // Legacy/DB field
     createdAt: Timestamp;
-    itemCount?: number;
-    avgScore?: number;
+    updatedAt?: Timestamp;
+
+    // Visibility
+    isPublic: boolean;
+
+    // Counters
+    itemCount?: number; // Keep for compatibility if needed
+    groupedItemsCount: number;
+    viewCount?: number;
+    likes?: number;
+    followersCount: number;
+    commentsCount: number;
+    reviewCount: number;
+    averageRating: number;
+
     // Location for filtering
     lat?: number;
     lng?: number;
-    likes?: number;
-    criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number; ponderable?: boolean }>;
+
+    // Configuration
+    availableTags: string[];
+    fixedTags?: string[];
+    criteriaDefinition?: Record<string, {
+        label: string;
+        labelMin?: string;
+        labelMax?: string;
+        min: number;
+        max: number;
+        step: number;
+        type: string;
+        ponderable: boolean;
+    }>;
+
+    // Stats
+    criteriaAverages: Record<string, number>;
+    criteriaAveragesUpdatedAt?: Timestamp;
+    reactions: Record<string, any>;
 }
 
 export const useLists = (filter: 'recent' | 'top_rated' = 'recent', userId?: string) => {
