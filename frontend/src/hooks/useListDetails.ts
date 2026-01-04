@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, collectionGroup, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collectionGroup, query, where, orderBy, getDocs, Timestamp, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ListEntity } from './useLists';
 
@@ -19,20 +19,29 @@ export interface ReviewEntity {
     scores?: Record<string, number>;
     lat?: number;
     lng?: number;
+    // Aggregates
+    reactionCounts?: {
+        like?: number;
+        love?: number;
+        useful?: number;
+        dislike?: number;
+    };
+    commentCount?: number; // Added for UI
     // Enriched Data
     listName?: string;
     placeName?: string;
     placeAddress?: string;
     placeCity?: string;
     placeMainImage?: string;
+    placeAverageRating?: number;
     criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number; ponderable?: boolean }>;
-    reactionCounts?: { like?: number; dislike?: number };
     authorId?: string; // Legacy compatibility
 }
 
 export const useListDetails = (listId: string | undefined) => {
     const [list, setList] = useState<ListEntity | null>(null);
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
+    const [sublists, setSublists] = useState<ListEntity[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -56,24 +65,32 @@ export const useListDetails = (listId: string | undefined) => {
                 }
 
                 setList({ id: listSnap.id, ...listSnap.data() } as ListEntity);
+                const listData = listSnap.data();
 
                 // 2. Fetch List Items (Reviews)
                 const reviewsRef = collectionGroup(db, 'reviews');
+                let rawReviews: ReviewEntity[] = [];
 
-                // Fetch ALL list reviews once, ordered by creation (newest first default)
-                // Sorting will be handled client-side to allow instant switching without re-fetch.
-                const q = query(
-                    reviewsRef,
-                    where('listId', '==', listId),
-                    orderBy('createdAt', 'desc')
-                );
-
-                const reviewsSnap = await getDocs(q);
-                const rawReviews = reviewsSnap.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                    listId: listId // Ensure listId is present
-                })) as ReviewEntity[];
+                if (listData?.parentListId) {
+                    // Sublist Case: Fetch reviews where sublistId == this list's ID
+                    const q = query(
+                        reviewsRef,
+                        where('sublistId', '==', listId),
+                        orderBy('createdAt', 'desc')
+                    );
+                    const snap = await getDocs(q);
+                    rawReviews = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
+                } else {
+                    // Main List Case: Fetch reviews where listId == this list's ID
+                    // Since we now save ParentID as listId even for sublist items, this query automatically gets EVERYTHING.
+                    const q = query(
+                        reviewsRef,
+                        where('listId', '==', listId),
+                        orderBy('createdAt', 'desc')
+                    );
+                    const snap = await getDocs(q);
+                    rawReviews = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
+                }
 
                 // --- Enrich Data ---
                 // We need Places and Users. Lists are not needed as we have the parent list.
@@ -129,8 +146,11 @@ export const useListDetails = (listId: string | undefined) => {
                         placeAddress: place?.address || place?.formattedAddress || place?.vicinity,
                         placeCity: city,
 
-                        authorName: user?.displayName || user?.username || review.authorName,
-                        authorPhoto: user?.photoUrl || review.authorPhoto,
+                        placeMainImage: place?.mainImageUrl || place?.photos?.[0],
+                        placeAverageRating: place?.rating || place?.avgScore,
+
+                        authorName: user?.displayName || user?.name || user?.username || review.authorName,
+                        authorPhoto: user?.photoUrl || user?.photoURL || review.authorPhoto,
 
                         // Attach Location Data (Map Support)
                         lat: place?.location?.latitude || legacyReview.lat || review.lat,
@@ -139,6 +159,14 @@ export const useListDetails = (listId: string | undefined) => {
                 });
 
                 setReviews(enrichedReviews);
+
+                // 3. Fetch Sublists
+                const listsRef = collection(db, 'lists');
+                const sublistsQ = query(listsRef, where('parentListId', '==', listId));
+                const sublistsSnap = await getDocs(sublistsQ);
+                const sublistsData = sublistsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ListEntity[];
+                setSublists(sublistsData);
+
             } catch (err: any) {
                 console.error("Error fetching list details:", err);
                 setError(err.message);
@@ -150,5 +178,5 @@ export const useListDetails = (listId: string | undefined) => {
         fetchData();
     }, [listId]);
 
-    return { list, reviews, loading, error };
+    return { list, reviews, sublists, loading, error };
 };

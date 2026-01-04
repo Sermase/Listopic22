@@ -1,0 +1,443 @@
+//// CAPITULO 00 - PROPOSITO DEL DOCUMENTO
+**** Alcance
+- Documento operativo con la estructura de datos actual (Firestore + Algolia) y sus relaciones.
+- Sirve para alinear la nueva app con los datos existentes sin romper compatibilidad.
+
+**** Notas de estilo
+- Se usa ASCII (sin tildes) para evitar caracteres especiales.
+- Cada capitulo se marca con "////" y cada subapartado con "****".
+
+//// CAPITULO 01 - CONVENCIONES GLOBALES
+**** Identificadores base
+- userId: UID de Firebase Auth. Se usa como docId en users/{userId}.
+- listId: docId en lists/{listId}.
+- placeId: docId en places/{placeId}. Normalmente es Google Place ID.
+- reviewId: docId en lists/{listId}/reviews/{reviewId} o reviews/{reviewId} (legacy/new app).
+- chatId: docId en chats/{chatId}.
+- archiveId: docId en users/{userId}/archives/{archiveId}.
+- entityKey: clave sintetica para archives (ej: "place:PLACE_ID" o "group:LIST_ID:PLACE_ID:ITEM").
+
+**** Timestamps
+- createdAt, updatedAt, lastGoogleSync, criteriaAveragesUpdatedAt usan serverTimestamp.
+- readAt, followedAt, lastInteractionAt tambien usan serverTimestamp.
+
+**** Relaciones claves
+- lists/{listId}/reviews usa listId + userId + placeId.
+- collectionGroup reviews se usa para feeds, grupos y agregados.
+- places/{placeId} se enlaza por placeId desde reviews, grouped items y archive items.
+- users/{userId} se enlaza por userId desde listas, reviews, followers, chats, notifications.
+
+**** Campos derivados (contadores)
+- reviewCount en lists, places, users.
+- followersCount en lists, places, users.
+- followingCount en users (mezcla listas, lugares y usuarios).
+- commentsCount en lists y reviews.
+- criteriaAverages en lists (derivado de reviews).
+- averageRating en places (derivado de reviews).
+
+//// CAPITULO 02 - COLECCIONES PRINCIPALES (RESUMEN)
+**** Top-level
+- users/{userId}
+- lists/{listId}
+- places/{placeId}
+- categories/{categoryId}
+- chats/{chatId}
+- listForums/{listId}
+- groups/{groupId} (legacy, uso puntual)
+- list_likes/{listId}_{userId} (React app)
+- reviews/{reviewId} (legacy/React app)
+- config/serverSecrets
+- deleted_items (backup admin)
+
+**** Subcolecciones clave
+- lists/{listId}/reviews/{reviewId}
+  - reactions/{userId}
+  - comments/{commentId}
+- lists/{listId}/followers/{userId}
+- places/{placeId}/followers/{userId}
+- users/{userId}/following/{targetId}
+- users/{userId}/followers/{followerId}
+- users/{userId}/followingLists/{listId}
+- users/{userId}/notifications/{notificationId}
+- users/{userId}/archives/{archiveId}/items/{entityKey}
+- users/{userId}/archiveIndex/{entityKey}
+- chats/{chatId}/messages/{messageId}
+- listForums/{listId}/messages/{messageId}
+
+//// CAPITULO 03 - users/{userId}
+**** Campos base (perfil)
+- username: string (alias principal).
+- displayName: string (nombre publico).
+- name: string (nombre real, opcional).
+- surnames: string (apellidos, opcional).
+- email / emailLowerCase: string.
+- photoUrl: string (URL imagen perfil).
+- bio: string.
+- location: string (legacy) / residence: string (filtro).
+- dateOfBirth: timestamp|null.
+- userType: string o array de strings (ej: "basico", "jefe").
+- badges: string[].
+- defaultDistanceKm: number.
+
+**** Contadores
+- followersCount: number.
+- followingCount: number (usuarios + lugares + listas).
+- publicListsCount: number.
+- privateListsCount: number.
+- reviewsCount: number.
+- commentsCount: number.
+- likes: number (React app, opcional).
+
+**** Timestamps
+- createdAt, updatedAt.
+
+**** Subcolecciones
+- following/{targetId}
+  - Para usuarios: docId = userId seguido, campos: followedAt.
+  - Para lugares: docId = placeId, campos: placeId, followedAt.
+  - Nota: se mezcla en la misma subcoleccion.
+- followers/{followerId}
+  - Campos: followedAt.
+- followingLists/{listId}
+  - Campos: listId, followedAt.
+- notifications/{notificationId}
+  - type: "new_follower" | "review_comment" | "review_reaction".
+  - actorId, actorDisplayName, actorPhotoUrl.
+  - followerId / commentSnippet / reactionType segun tipo.
+  - listId, listName, reviewId, itemName, detailUrl, reviewPhotoUrl.
+  - createdAt, read (bool), readAt (timestamp opcional).
+- archives/{archiveId} (ver Capitulo 11).
+- archiveIndex/{entityKey} (ver Capitulo 11).
+
+//// CAPITULO 04 - lists/{listId}
+**** Identidad y ownership
+- name: string.
+- userId: string (owner principal).
+- ownerId / ownerName / ownerUsername / authorName: strings (opcionales, usados en Algolia).
+- isPublic: bool.
+
+**** Categoria y tags
+- categoryId: string.
+- categoryName: string (opcional).
+- availableTags: string[].
+- fixedTags: string[] (opcional).
+- tagsDefinition: { fixed: string[], userAvailable: string[] } (legacy/opcional).
+- categoryGooglePlaceTypes: string[] (opcional).
+- categoryGooglePlaceType: string (opcional).
+- categoryGoogleTypes: string[] (legacy/opcional).
+
+**** Criterios
+- criteriaDefinition: map criterioKey -> {
+    label, ponderable, type, min, max, step, labelMin, labelMax
+  }.
+- criteriaAverages: map criterioKey -> number (calculado).
+- criteriaAveragesUpdatedAt: timestamp.
+
+**** Media y agregados
+- reviewCount: number.
+- followersCount: number.
+- commentsCount: number (foros).
+- averageRating: number|null (promedio general de reviews, opcional).
+
+**** Imagenes
+- mainImageUrl: string.
+- coverImageUrl: string (legacy).
+- imageUrl / previewImage: string (legacy/opcional).
+
+**** Metadatos
+- description, summary: string (opcionales, Algolia).
+- createdAt, updatedAt.
+- parentListId: string (React app, sublistas).
+- likes: number (React app, opcional).
+
+**** Subcolecciones
+- reviews/{reviewId} (ver Capitulo 05).
+- followers/{userId}
+  - Campos: userId, followedAt.
+
+//// CAPITULO 05 - lists/{listId}/reviews/{reviewId}
+**** Campos base (web legacy)
+- userId: string.
+- listId: string.
+- placeId: string.
+- itemName: string.
+- comment: string.
+- scores: map criterioKey -> number.
+- overallRating: number (promedio ponderable).
+- userTags: string[].
+- photoUrl: string.
+- createdAt, updatedAt.
+
+**** Campos opcionales (cache/legacy)
+- establishmentName / placeName: string.
+- placeAddress / placeCity / placeProvince: string.
+- placeLat / placeLng: number.
+- listName: string.
+- criteriaDefinition: map (para render).
+- detailUrl / listCategoryId: string.
+
+**** Campos de engagement
+- reactionCounts: { like: number, dislike: number } (map).
+- commentsCount: number.
+
+**** Subcolecciones
+- reactions/{userId}
+  - reaction: "like" | "dislike".
+  - userId.
+  - createdAt, updatedAt.
+- comments/{commentId}
+  - userId.
+  - userDisplayName.
+  - userPhotoUrl.
+  - message.
+  - createdAt, updatedAt.
+
+//// CAPITULO 06 - reviews/{reviewId} (legacy/React app)
+**** Uso
+- La app React usa reviews en top-level (no anidado).
+- Convive con lists/{listId}/reviews y collectionGroup reviews.
+
+**** Campos tipicos (React app)
+- listId: string (si sublista, apunta a parentListId).
+- sublistId: string|null.
+- userId, authorName, authorPhoto.
+- itemName, comment, overallRating, scores, criteriaDefinition.
+- tags: string[] (equivalente a userTags).
+- photoUrl.
+- createdAt.
+- placeId, placeName, placeAddress, placeLat, placeLng, placeCity.
+
+//// CAPITULO 07 - places/{placeId}
+**** Campos base (Google Place Details)
+- name.
+- name_normalized (lowercase).
+- googlePlaceId (normalmente = docId).
+- address, address_normalized.
+- coordinates { latitude, longitude }.
+- location { latitude, longitude }.
+- city, region, province, country, postalCode.
+- googleMapsUrl.
+- website.
+- phone.
+- priceLevel.
+- googleRating, googleUserRatingsTotal.
+- types: string[].
+
+**** Imagenes
+- mainImageUrl.
+- mainImagePhotoReference.
+
+**** Accesibilidad y servicios
+- accessibility: objeto con flags (true/false) por atributo.
+- serviceOptions: objeto con flags (true/false) por atributo.
+
+**** Agregados
+- followersCount.
+- reviewsCount.
+- averageRating (calculado desde reviews).
+
+**** Metadatos
+- createdByUserId.
+- createdAt, updatedAt, lastGoogleSync.
+
+**** Subcolecciones
+- followers/{userId}
+  - Campos: userId, followedAt.
+
+//// CAPITULO 08 - categories/{categoryId}
+**** Campos base
+- name.
+- displayName / displayname (alias de UI).
+- icon.
+- order (sorting).
+- like, dislike (copys o tags de sentimiento).
+- fixed-tags / fixedTags / fixed_tags: string[].
+- defaultCriteria: map criterioKey -> { label, ponderable, min, max, step, type, labelMin, labelMax }.
+
+**** Campos de places
+- googlePlaceTypes: string[].
+- googlePlaceType: string.
+- placeTypes: string[] (fallback).
+
+//// CAPITULO 09 - chats/{chatId}
+**** Documento chat
+- participants: string[] (uids).
+- participantsHash: string (uids ordenados y unidos).
+- participantProfiles: map uid -> { username, displayName, photoUrl, email }.
+- unreadCounts: map uid -> number.
+- lastMessage: string.
+- lastMessageSenderId: string|null.
+- lastMessageType: string (text, review-share, etc).
+- ownerId: string.
+- isGroup: bool.
+- groupName: string|null.
+- createdAt, updatedAt.
+
+**** Subcoleccion messages/{messageId}
+- text: string.
+- senderId: string.
+- createdAt.
+- readBy: string[] (uids).
+- senderProfile: { username, displayName, photoUrl }.
+- messageType: "text" | "review-share" | "custom".
+- payload: objeto (si custom).
+- sharePayload: objeto (si review-share).
+
+//// CAPITULO 10 - listForums/{listId}/messages/{messageId}
+**** Campos
+- text: string.
+- userId: string.
+- userName: string.
+- timestamp: serverTimestamp.
+
+//// CAPITULO 11 - ARCHIVES (users/{userId}/archives)
+**** archives/{archiveId}
+- name.
+- description.
+- isSystem: bool.
+- systemId: string (ej: WANT_TO_GO, ALREADY_WENT).
+- sortOrder: number.
+- nameLower: string (para sort).
+- itemsCount: number.
+- createdAt, updatedAt.
+
+**** archives/{archiveId}/items/{entityKey}
+- entityType: "place" | "group" | "review" | "item".
+- entityKey: string.
+- placeId, listId, reviewId, itemName (opcionales).
+- title, subtitle, imageUrl.
+- context: objeto (listName, placeName, lastReviewId, lastReviewCreatedAt, etc).
+- createdAt, updatedAt, lastInteractionAt.
+
+**** archiveIndex/{entityKey}
+- entityKey.
+- entityType.
+- archiveIds: string[].
+- title, subtitle, imageUrl.
+- metadata: { placeId, listId, reviewId, itemName, context }.
+- updatedAt.
+
+//// CAPITULO 12 - FOLLOWING / FOLLOWERS (DETALLE)
+**** users/{userId}/following/{targetId}
+- Si targetId es usuario: { followedAt }.
+- Si targetId es lugar: { placeId, followedAt }.
+
+**** users/{userId}/followers/{followerId}
+- { followedAt }.
+
+**** users/{userId}/followingLists/{listId}
+- { listId, followedAt }.
+
+**** lists/{listId}/followers/{userId}
+- { userId, followedAt }.
+
+**** places/{placeId}/followers/{userId}
+- { userId, followedAt }.
+
+//// CAPITULO 13 - list_likes/{listId}_{userId} (React app)
+**** Campos
+- listId: string.
+- userId: string.
+- createdAt: timestamp.
+
+//// CAPITULO 14 - groups/{groupId} (legacy)
+**** Uso
+- Usado por getGroupsForPlace (members array contiene placeId).
+- Campos observados:
+  - name, icon, listId, members: string[].
+- Nota: no es el mismo concepto que grouped_items (Algolia).
+
+//// CAPITULO 15 - config/serverSecrets
+**** Campos
+- googlePlacesApiKey: string.
+
+//// CAPITULO 16 - deleted_items
+**** Uso
+- Backup admin al fusionar o borrar places.
+**** Campos
+- payload original del documento borrado.
+- originalCollection: string (ej: "places").
+- migratedTo: placeId nuevo (si aplica).
+- deletedAt: timestamp.
+
+//// CAPITULO 17 - ALGOLIA (INDICES Y CAMPOS)
+**** lists index
+- objectID = listId.
+- name, description, summary, categoryId.
+- availableTags: string[].
+- reviewCount, followersCount, commentsCount.
+- ownerId, ownerName, ownerUsername.
+- isPublic.
+- createdAtISO, updatedAtISO, updatedAtTimestamp.
+
+**** places index
+- objectID = placeId.
+- name, address, city, province, country, postalCode.
+- averageRating, reviewsCount, priceLevel.
+- serviceOptions, accessibility (arrays de flags true).
+- types: string[].
+- googleMapsUrl, website, phone.
+- _geoloc { lat, lng } si hay coords.
+- updatedAtISO, lastGoogleSyncISO.
+
+**** users index
+- objectID = userId.
+- username, bio.
+- userType: string[].
+- residence, badges.
+- followersCount, followingCount, reviewsCount, commentsCount.
+- createdAtISO, updatedAtISO.
+- photoUrl.
+
+**** grouped_items index
+- objectID = listId__slug.
+- listId, listName, listCategoryId, listAvailableTags.
+- listOwnerId, listOwnerName.
+- establishmentName, itemName.
+- placeId, placeName, placeCity, placeProvince, placeCountry, placeAddress.
+- avgGeneralScore, avgScores, reviewCount, itemCount.
+- groupTags: string[].
+- thumbnailUrl, googleMapsUrl.
+- _geoloc { lat, lng }.
+- updatedAtISO.
+
+//// CAPITULO 18 - AGREGADOS Y PROCESOS AUTOMATICOS
+**** Resenas -> contadores
+- Trigger updateAggregatesOnReviewChange en lists/{listId}/reviews:
+  - Incrementa/decrementa reviewCount en lists.
+  - Incrementa/decrementa reviewsCount en users y places.
+  - Recalcula criteriaAverages en lists.
+
+**** Listas -> contadores de usuario
+- Trigger updateUserStatsOnListChange:
+  - Ajusta publicListsCount / privateListsCount en users.
+
+**** Places -> agregados
+- recalculateAggregatesForPlace:
+  - Calcula averageRating y reviewsCount desde collectionGroup reviews.
+
+**** Follow/unfollow
+- toggleFollowUser: users/{userId}/following y users/{userId}/followers.
+- toggleFollowPlace: places/{placeId}/followers y users/{userId}/following.
+- toggleFollowList: lists/{listId}/followers y users/{userId}/followingLists.
+
+//// CAPITULO 19 - COMPATIBILIDAD Y MIGRACION (PUNTOS CLAVE)
+**** Reviews
+- Legacy web: lists/{listId}/reviews con userTags.
+- React: reviews/ con tags y sublistId.
+- Para unificar, mapear tags -> userTags y sublistId -> listId (parent).
+
+**** Usuarios
+- userType puede ser string o array; normalizar a array en la nueva app.
+- displayName puede faltar; fallback a username o email.
+
+**** Listas
+- ownerId vs userId: usar userId como fuente de verdad.
+- tagsDefinition (fixed/userAvailable) convive con availableTags.
+- categoryGooglePlaceTypes puede estar en list o category; preferir category.
+
+**** Following
+- users/{userId}/following mezcla usuarios y lugares. Diferenciar por:
+  - docId que exista en places o users.
+  - presencia de campo placeId.
+

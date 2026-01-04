@@ -72,8 +72,8 @@ export const Navbar: React.FC = () => {
                             <div className="absolute inset-0 bg-indigo-500 blur-lg opacity-40 group-hover:opacity-60 transition-opacity"></div>
                             <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white font-bold text-lg shadow-inner">
                                 L
+                                <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-400 rounded-full shadow-sm"></div>
                             </div>
-                            <div className="brand-dot absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#0b1021]"></div>
                         </div>
                         <span className="text-xl font-display font-bold tracking-tight text-white group-hover:tracking-wide transition-all">
                             Listopic
@@ -95,7 +95,7 @@ export const Navbar: React.FC = () => {
                             className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-full text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all hover:shadow-indigo-500/40 active:scale-95"
                         >
                             <Plus className="w-4 h-4" />
-                            <span>Crear Lista</span>
+                            <span>Crear Sublista</span>
                         </Link>
 
                         {user ? (
@@ -146,7 +146,7 @@ export const Navbar: React.FC = () => {
                 <div className="fixed inset-0 bg-[#0b1021] z-40 pt-24 px-6 animate-fade-in flex flex-col">
                     <div className="space-y-4">
                         <Link to="/create" className="flex items-center justify-center gap-2 w-full py-4 bg-indigo-600 rounded-xl text-white font-bold text-lg mb-8 shadow-lg shadow-indigo-600/20">
-                            <Plus className="w-6 h-6" /> Crear Lista
+                            <Plus className="w-6 h-6" /> Crear Sublista
                         </Link>
 
                         <div className="space-y-2">

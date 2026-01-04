@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, getDocs, Timestamp, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, Timestamp, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export interface ListEntity {
@@ -24,7 +24,9 @@ export interface ListEntity {
     followersCount: number;
     commentsCount: number;
     reviewCount: number;
+    reviewCount: number;
     averageRating: number;
+    avgScore?: number; // Legacy or alternative name
 
     // Location for filtering
     lat?: number;
@@ -50,49 +52,68 @@ export interface ListEntity {
     reactions: Record<string, any>;
 }
 
-export const useLists = (filter: 'recent' | 'top_rated' = 'recent', userId?: string) => {
+export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', userId?: string) => {
     const [lists, setLists] = useState<ListEntity[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchLists = async () => {
-            setLoading(true); // Reset loading on filter change
+            setLoading(true);
             try {
                 let q;
                 const listsRef = collection(db, 'lists');
 
+                // Case: Fetch Liked/Followed Lists
+                if (filter === 'liked' && userId) {
+                    const likesRef = collection(db, 'list_likes');
+                    // Query likes by this user
+                    const likesQ = query(likesRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+                    const likesSnap = await getDocs(likesQ);
+
+                    if (likesSnap.empty) {
+                        setLists([]);
+                        setLoading(false);
+                        return;
+                    }
+
+                    const listIds = likesSnap.docs.map(d => d.data().listId);
+
+                    // Fetch lists in parallel
+                    const listPromises = listIds.map(id => getDoc(doc(db, 'lists', id)));
+                    const listSnaps = await Promise.all(listPromises);
+
+                    const fetchedLists = listSnaps
+                        .filter(snap => snap.exists())
+                        .map(snap => ({ id: snap.id, ...snap.data() })) as ListEntity[];
+
+                    setLists(fetchedLists);
+                    return; // Done
+                }
+
+                // Normal Cases
+                // Strategy: Fetch a safe batch ordered by createdAt (indexed), then filter/sort in memory.
+                // This avoids "Missing Index" errors for avgScore/averageRating and ensures data visibility.
                 if (userId) {
-                    // Fetch lists for specific user
-                    // Note: This requires composite index (userId + createdAt) usually, 
-                    // but for now simple eq + sort might fail without index. 
-                    // We'll try simple where(userId) and let client sort if index missing, 
-                    // or just use the index link if Firestore complains.
-                    q = query(
-                        listsRef,
-                        where('userId', '==', userId),
-                        orderBy('createdAt', 'desc')
-                    );
-                } else if (filter === 'top_rated') {
-                    q = query(
-                        listsRef,
-                        orderBy('avgScore', 'desc'),
-                        limit(10)
-                    );
+                    q = query(listsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(50));
                 } else {
-                    // Default: Recent
-                    q = query(
-                        listsRef,
-                        orderBy('createdAt', 'desc'),
-                        limit(10)
-                    );
+                    q = query(listsRef, orderBy('createdAt', 'desc'), limit(50));
                 }
 
                 const querySnapshot = await getDocs(q);
-                const fetchedLists = querySnapshot.docs.map(doc => ({
+                let fetchedLists = querySnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 })) as ListEntity[];
+
+                // Client-side Sort for 'top_rated'
+                if (filter === 'top_rated') {
+                    fetchedLists.sort((a, b) => {
+                        const scoreA = a.averageRating || (a as any).avgScore || 0;
+                        const scoreB = b.averageRating || (b as any).avgScore || 0;
+                        return scoreB - scoreA;
+                    });
+                }
 
                 setLists(fetchedLists);
             } catch (err: any) {

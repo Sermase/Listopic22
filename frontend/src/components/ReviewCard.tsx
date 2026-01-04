@@ -1,16 +1,22 @@
+
 import React from 'react';
-import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark } from 'lucide-react';
+import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { type ReviewEntity } from '../hooks/useListDetails';
-
+import { useAuth } from '../context/AuthContext';
 import { ShareModal } from './ShareModal';
 import { SaveToArchiveModal } from './SaveToArchiveModal';
+import { ReviewService } from '../services/ReviewService';
 
 interface ReviewCardProps {
     review: ReviewEntity;
+    onDelete?: (reviewId: string) => void;
 }
 
-export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
+export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete }) => {
+    const { user } = useAuth();
+    const navigate = useNavigate();
+
     // Legacy Score Bubble Colors
     const getScoreColor = (score: number) => {
         if (score >= 9) return 'from-emerald-400 to-teal-500 shadow-emerald-500/50';
@@ -34,10 +40,30 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
     const [liked, setLiked] = React.useState(false);
     const [disliked, setDisliked] = React.useState(false);
     const [likeCount, setLikeCount] = React.useState(review.reactionCounts?.like || 0);
+    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [isShareOpen, setIsShareOpen] = React.useState(false);
     const [isSaveModalOpen, setIsSaveModalOpen] = React.useState(false);
+    const [isDeleting, setIsDeleting] = React.useState(false);
 
-    const navigate = useNavigate();
+    const menuRef = React.useRef<HTMLDivElement>(null);
+
+    // Derived States
+    const isOwner = user?.uid && (user.uid === review.userId || user.uid === review.authorId);
+
+    // Close menu on click outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsMenuOpen(false);
+            }
+        };
+        if (isMenuOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isMenuOpen]);
 
     const handleCardClick = () => {
         if (review.placeId && review.itemName) {
@@ -55,6 +81,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
             if (disliked) setDisliked(false);
             setLikeCount(prev => prev + 1);
         }
+        // TODO: Call API
     };
 
     const handleDislike = (e: React.MouseEvent) => {
@@ -69,13 +96,60 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
     const handleShareClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         setIsShareOpen(true);
+        setIsMenuOpen(false);
     };
+
+    const handleSaveClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsSaveModalOpen(true);
+        setIsMenuOpen(false);
+    };
+
+    const handleEdit = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!review.listId || !review.id) return;
+        // Navigate to dedicated edit route or reusing add-review with param
+        navigate(`/list/${review.listId}/add-item?editId=${review.id}`);
+    };
+
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!review.listId || !review.id) return;
+
+        if (window.confirm("¿Seguro que quieres eliminar esta reseña? Esta acción no se puede deshacer.")) {
+            setIsDeleting(true);
+            try {
+                await ReviewService.deleteReview(review.listId, review.id);
+                if (onDelete) onDelete(review.id);
+                // If no onDelete handler (e.g. in carousel), we might just rely on re-fetch or hide it visually
+                // For now, let's assume parent might refresh or we force a reload if critical.
+                // But generally, UI should update optimistically or via callback.
+            } catch (error) {
+                console.error("Error deleting review:", error);
+                alert("Error al eliminar la reseña.");
+            } finally {
+                setIsDeleting(false);
+            }
+        }
+    };
+
+    const handleCommentClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        // Go to detail view, ideally scrolling to comments
+        if (review.placeId && review.itemName) {
+            navigate(`/group/${review.placeId}/${encodeURIComponent(review.itemName)}`);
+        }
+    };
+
+    if (isDeleting) {
+        return <div className="animate-pulse bg-gray-900/50 h-64 rounded-3xl border border-white/5 mx-auto w-full"></div>;
+    }
 
     return (
         <>
             <article
                 onClick={handleCardClick}
-                className="bg-[#101628] border border-white/5 rounded-3xl overflow-hidden shadow-2xl flex flex-col hover:border-white/10 transition-all duration-300 cursor-pointer group hover:shadow-indigo-500/10"
+                className="bg-[#101628] border border-white/5 rounded-3xl overflow-hidden shadow-2xl flex flex-col hover:border-white/10 transition-all duration-300 cursor-pointer group hover:shadow-indigo-500/10 relative"
             >
                 {/* 1. Header: User, Context, Menu */}
                 <div className="px-4 py-3 flex items-center justify-between">
@@ -125,13 +199,49 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
                         </div>
                     </div>
 
-                    <button className="text-gray-500 hover:text-white transition-colors z-10" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex gap-1">
-                            <div className="w-1 h-1 rounded-full bg-current"></div>
-                            <div className="w-1 h-1 rounded-full bg-current"></div>
-                            <div className="w-1 h-1 rounded-full bg-current"></div>
-                        </div>
-                    </button>
+                    <div className="relative z-20" ref={menuRef}>
+                        <button
+                            className="text-gray-500 hover:text-white transition-colors p-1"
+                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                        >
+                            <MoreHorizontal className="w-5 h-5" />
+                        </button>
+
+                        {isMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right">
+                                <button
+                                    onClick={handleSaveClick}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                >
+                                    <Bookmark className="w-4 h-4" /> Guardar
+                                </button>
+                                <button
+                                    onClick={handleShareClick}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                >
+                                    <Share2 className="w-4 h-4" /> Compartir
+                                </button>
+
+                                {isOwner && (
+                                    <>
+                                        <div className="h-px bg-white/10 my-1"></div>
+                                        <button
+                                            onClick={handleEdit}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                        >
+                                            <Edit className="w-4 h-4" /> Editar reseña
+                                        </button>
+                                        <button
+                                            onClick={handleDelete}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 flex items-center gap-2 transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" /> Eliminar
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* 2. Main Visual: Large Image with Overlay Bubble */}
@@ -219,9 +329,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
                             <ThumbsUp className={`w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5] ${liked ? 'fill-current' : ''}`} />
                             <span className="text-sm font-semibold">{likeCount}</span>
                         </button>
-                        <button className="flex items-center gap-1.5 text-gray-400 hover:text-indigo-400 transition-colors group/btn" onClick={(e) => e.stopPropagation()}>
+                        <button className="flex items-center gap-1.5 text-gray-400 hover:text-indigo-400 transition-colors group/btn" onClick={handleCommentClick}>
                             <MessageCircle className="w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5]" />
-                            <span className="text-sm font-semibold">0</span>
+                            <span className="text-sm font-semibold">{review.commentCount || 0}</span>
                         </button>
                         <button
                             className={`flex items-center gap-1.5 transition-colors group/btn ${disliked ? 'text-rose-500' : 'text-gray-400 hover:text-rose-400'}`}
@@ -274,3 +384,4 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
         </>
     );
 };
+

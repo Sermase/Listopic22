@@ -3,10 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs, doc, getDoc, collectionGroup } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark } from 'lucide-react';
+import { ArrowLeft, MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2 } from 'lucide-react';
 import { ReviewCard } from '../components/ReviewCard';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
+import { ShareModal } from '../components/ShareModal';
 import { type ReviewEntity } from '../hooks/useListDetails';
 
 // Helper for Criteria Colors
@@ -83,6 +84,7 @@ export const GroupPage: React.FC = () => {
     // Logic for "Valorar"
     const [isFlowOpen, setIsFlowOpen] = useState(false);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -420,13 +422,20 @@ export const GroupPage: React.FC = () => {
                 <div className="space-y-6">
 
                     {/* Actions */}
-                    <div className="bg-[#151b2e] p-3 rounded-xl border border-white/10 grid grid-cols-1 gap-2">
+                    <div className="bg-[#151b2e] p-3 rounded-xl border border-white/10 grid grid-cols-2 gap-2">
                         <button
                             onClick={() => setIsSaveModalOpen(true)}
-                            className="flex items-center justify-center p-3 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all gap-2"
+                            className="flex flex-col items-center justify-center p-3 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all gap-1"
                         >
-                            <Bookmark className="w-5 h-5" />
-                            <span className="text-sm font-bold uppercase tracking-wider">Guardar en Archivo</span>
+                            <Bookmark className="w-5 h-5 mb-1" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Guardar</span>
+                        </button>
+                        <button
+                            onClick={() => setIsShareModalOpen(true)}
+                            className="flex flex-col items-center justify-center p-3 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all gap-1"
+                        >
+                            <Share2 className="w-5 h-5 mb-1" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Compartir</span>
                         </button>
                     </div>
 
@@ -492,6 +501,13 @@ export const GroupPage: React.FC = () => {
                     photoUrl: stats?.mainPhoto,
                     placeId: placeId
                 }}
+            />
+
+            <ShareModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                title={`Compartir ${decodedName}`}
+                text={`¡Mira lo que dicen sobre ${decodedName} en ${placeName}!`}
             />
         </div>
     );

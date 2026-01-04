@@ -55,12 +55,14 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' = 
                 // We prioritize filtering over precise sorting if index missing, 
                 // but ideally we ask for both.
                 if (type === 'trending') {
-                    constraints.push(orderBy('overallRating', 'desc'));
+                    // Safe Sort Strategy: Fetch recent (indexed) then sort by rating in memory
+                    // Avoids index issues with 'overallRating'
+                    constraints.push(orderBy('createdAt', 'desc'));
+                    constraints.push(limit(50)); // Fetch larger batch for sorting
                 } else {
                     constraints.push(orderBy('createdAt', 'desc'));
+                    constraints.push(limit(20));
                 }
-
-                constraints.push(limit(20));
 
                 q = query(reviewsRef, ...constraints);
 
@@ -104,10 +106,19 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' = 
                         listName: list?.name,
                         criteriaDefinition: list?.criteriaDefinition, // Critical for charts
                         placeName: place?.name || legacyReview.establishmentName, // Legacy fallback
-                        authorName: user?.displayName || user?.username || review.authorName,
-                        authorPhoto: user?.photoUrl || review.authorPhoto
+                        placeMainImage: place?.mainImageUrl,
+                        placeAverageRating: place?.averageRating,
+                        placeAddress: place?.address,
+                        authorName: user?.displayName || user?.name || user?.username || review.authorName,
+                        authorPhoto: user?.photoUrl || user?.photoURL || review.authorPhoto,
+                        placeLat: place?.location?.latitude || place?.lat || place?.latitude || legacyReview.lat || legacyReview.placeLat,
+                        placeLng: place?.location?.longitude || place?.lng || place?.longitude || legacyReview.lng || legacyReview.placeLng
                     };
                 });
+
+                if (type === 'trending') {
+                    enrichedReviews.sort((a, b) => (b.overallRating || 0) - (a.overallRating || 0));
+                }
 
                 setReviews(enrichedReviews);
             } catch (err: any) {

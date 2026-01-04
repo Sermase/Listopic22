@@ -43,8 +43,30 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
             </div>
 
             <div className="relative group">
+                {/* Scroll Buttons */}
+                {/* Scroll Buttons (Glassmorphism) */}
+                <button
+                    onClick={() => {
+                        document.getElementById(`carousel-${title.replace(/\s+/g, '-')}`)?.scrollBy({ left: -320, behavior: 'smooth' });
+                    }}
+                    className="absolute -left-5 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-indigo-600 hover:scale-110 shadow-xl"
+                >
+                    <ChevronRight className="w-6 h-6 rotate-180" />
+                </button>
+                <button
+                    onClick={() => {
+                        document.getElementById(`carousel-${title.replace(/\s+/g, '-')}`)?.scrollBy({ left: 320, behavior: 'smooth' });
+                    }}
+                    className="absolute -right-5 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-indigo-600 hover:scale-110 shadow-xl"
+                >
+                    <ChevronRight className="w-6 h-6" />
+                </button>
+
                 {/* Scroll Container */}
-                <div className="flex overflow-x-auto gap-4 px-4 pb-4 snap-x snap-mandatory hide-scrollbar">
+                <div
+                    id={`carousel-${title.replace(/\s+/g, '-')}`}
+                    className="flex overflow-x-auto gap-4 px-4 pb-4 snap-x snap-mandatory hide-scrollbar scroll-smooth"
+                >
                     {loading ? (
                         // Skeleton Loaders
                         Array.from({ length: 4 }).map((_, i) => (
@@ -59,8 +81,9 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                     )}
                 </div>
 
-                {/* Fade Edges (Optional visual enhancement) */}
-                <div className="absolute top-0 right-0 bottom-0 w-12 bg-gradient-to-l from-[#0b1021] to-transparent pointer-events-none sm:hidden" />
+                {/* Fade Edges */}
+                <div className="absolute top-0 left-0 bottom-0 w-16 bg-gradient-to-r from-[#0b1021] to-transparent pointer-events-none z-10" />
+                <div className="absolute top-0 right-0 bottom-0 w-16 bg-gradient-to-l from-[#0b1021] to-transparent pointer-events-none z-10" />
             </div>
         </section>
     );

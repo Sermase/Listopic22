@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, where } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, where, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 
@@ -117,10 +117,10 @@ export const useArchives = () => {
         try {
             if (isAdding) {
                 await setDoc(itemRef, { ...item, savedAt: serverTimestamp() });
-                // Increment counter (naive)
-                // In production use Cloud Functions
+                await updateDoc(archiveRef, { itemCount: increment(1) });
             } else {
                 await deleteDoc(itemRef);
+                await updateDoc(archiveRef, { itemCount: increment(-1) });
             }
         } catch (e) {
             console.error("Error toggling item:", e);

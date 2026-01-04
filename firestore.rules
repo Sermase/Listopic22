@@ -202,6 +202,23 @@ service cloud.firestore {
     }
 
     // ===============================================
+    // REGLAS PARA ME GUSTA DE LISTAS (`list_likes`)
+    // ===============================================
+    match /list_likes/{likeId} {
+      // Permitir leer si el usuario está autenticado (necesario para ver si dio like).
+      // Se podría restringir a solo el dueño, pero para contadores o UI a veces se necesita más.
+      // Dado que el ID es compuesto, para leer un doc específico el usuario conoce el ID.
+      // Para listar (ver todos mis likes), se filtra por userId.
+      allow read: if request.auth != null;
+      
+      // Crear: Solo si el userId del documento coincide con el usuario autenticado.
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      
+      // Borrar: Solo si el userId del documento coincide con el usuario autenticado.
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // ===============================================
     // ===============================================
     // REGLAS PARA LUGARES, MEDALLAS Y CATEGORÍAS (MANTENIDAS)
     // ===============================================

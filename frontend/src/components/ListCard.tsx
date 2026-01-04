@@ -22,8 +22,8 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
     return (
         <div className="group relative bg-[#151b2e] rounded-xl overflow-hidden border border-white/5 hover:border-indigo-500/50 transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/20 h-full flex flex-col">
             <Link to={`/list/${list.id}`} className="block h-40 w-full bg-gray-800 relative overflow-hidden">
-                {list.photoUrl ? (
-                    <img src={list.photoUrl} alt={list.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                {(list.mainImageUrl || list.photoUrl) ? (
+                    <img src={list.mainImageUrl || list.photoUrl} alt={list.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 ) : (
                     <div className="w-full h-full bg-gradient-to-br from-indigo-900/50 to-purple-900/50 flex items-center justify-center">
                         <span className="text-4xl">📃</span>
@@ -49,34 +49,51 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
                     </p>
                 </Link>
 
-                {/* Footer Info */}
-                <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/30">
-                            {list.authorName?.[0] || "?"}
-                        </div>
-                        <span className="truncate max-w-[80px]">{list.authorName}</span>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/30">
+                        {list.authorName?.[0] || "?"}
                     </div>
+                    <span className="truncate max-w-[80px]">{list.authorName}</span>
+                </div>
 
-                    <div className="flex items-center gap-3 text-gray-400 text-xs">
-                        <span className="flex items-center gap-1">
-                            <MessageSquare className="w-3 h-3" />
-                            {list.itemCount || 0}
-                        </span>
-                        <button
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                toggleLike();
-                            }}
-                            className={`flex items-center gap-1 transition-colors ${isLiked ? 'text-pink-500' : 'hover:text-pink-400'}`}
-                        >
-                            <Heart className={`w-3 h-3 ${isLiked ? 'fill-current' : ''}`} />
-                            {likeCount}
-                        </button>
+                {/* Tags (if available) - Only top 2 */}
+                {list.availableTags && list.availableTags.length > 0 && (
+                    <div className="flex gap-1 ml-2 overflow-hidden">
+                        {list.availableTags.slice(0, 2).map(tag => (
+                            <Link
+                                key={tag}
+                                to={`/search?q=${tag}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="px-2 py-0.5 rounded-full text-[10px] bg-white/5 border border-white/10 text-gray-400 hover:bg-indigo-500/20 hover:text-indigo-300 hover:border-indigo-500/30 transition-colors whitespace-nowrap"
+                            >
+                                #{tag}
+                            </Link>
+                        ))}
                     </div>
+                )}
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
+
+                <div className="flex items-center gap-3 text-gray-400 text-xs">
+                    <span className="flex items-center gap-1">
+                        <MessageSquare className="w-3 h-3" />
+                        {list.itemCount || 0}
+                    </span>
+                    <button
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleLike();
+                        }}
+                        className={`flex items-center gap-1 transition-colors ${isLiked ? 'text-pink-500' : 'hover:text-pink-400'}`}
+                    >
+                        <Heart className={`w-3 h-3 ${isLiked ? 'fill-current' : ''}`} />
+                        {likeCount}
+                    </button>
                 </div>
             </div>
         </div>
+        </div >
     );
 };

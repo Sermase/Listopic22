@@ -15,6 +15,7 @@ import { ChatsPage } from './pages/ChatsPage';
 import { ProfilePage } from './pages/ProfilePage';
 
 import { CreateListPage } from './pages/CreateListPage';
+import { CreateSublistPage } from './pages/CreateSublistPage';
 import { EditListPage } from './pages/EditListPage';
 import { UsersPage } from './pages/UsersPage';
 import { PlacePage } from './pages/PlacePage';
@@ -43,7 +44,15 @@ function App() {
               <Route path="/search" element={<SearchPage />} />
               <Route path="/list/:listId" element={<ListPage />} />
               <Route path="/list/:listId/edit" element={<EditListPage />} />
-              <Route path="/create" element={<CreateListPage />} />
+
+              {/* Public Sublist Creation Flow */}
+              <Route path="/create" element={<CreateSublistPage />} />
+              <Route path="/create-sublist" element={<CreateSublistPage />} />
+              <Route path="/create-sublist/:parentId" element={<CreateSublistPage />} />
+
+              {/* Secret Admin Route */}
+              <Route path="/secret-admin-create-master" element={<CreateListPage />} />
+
               <Route path="/users" element={<UsersPage />} />
               <Route path="/place/:placeId" element={<PlacePage />} />
               <Route path="/group/:placeId/:itemName" element={<GroupPage />} />

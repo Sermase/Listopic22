@@ -107,6 +107,37 @@
         border: none !important;
     }
 
+    /* Leaflet Popup Overrides for Dark Theme */
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip {
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    .leaflet-popup-content {
+        margin: 0 !important;
+        width: auto !important;
+    }
+
+    .leaflet-container a.leaflet-popup-close-button {
+        display: none;
+        /* Custom close button used instead */
+    }
+
+    /* Utilities for hiding scrollbar but allowing scroll */
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        /* IE and Edge */
+        scrollbar-width: none;
+        /* Firefox */
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
     /* Glassmorphism Utilities */
     .glass-panel {
         @apply bg-[var(--glass-bg)] border border-[var(--glass-border)] backdrop-blur-md;

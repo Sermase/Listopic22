@@ -1,83 +1,107 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, doc, getDoc, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
-import { ArrowLeft, Save, Loader, Image as ImageIcon, X } from 'lucide-react';
+import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
 
-export const CreateListPage: React.FC = () => {
+export const CreateSublistPage: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const { parentId } = useParams<{ parentId: string }>();
 
-    // State
+    // Selection Mode State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [mainLists, setMainLists] = useState<any[]>([]);
+    const [loadingLists, setLoadingLists] = useState(false);
+
+    // Creation Mode State
+    const [parentList, setParentList] = useState<any>(null);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [isPublic, setIsPublic] = useState(true);
-    const [categoryId, setCategoryId] = useState('');
-    const [categories, setCategories] = useState<any[]>([]);
 
     // Image
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const [imageUrl, setImageUrl] = useState('');
 
     // Advanced
-    const [criteria, setCriteria] = useState<Criterion[]>([
-        { id: 'calidad', label: 'Calidad General', minLabel: 'Malo', maxLabel: 'Excelente', isPonderable: true }
-    ]);
+    const [criteria, setCriteria] = useState<Criterion[]>([]);
     const [customTags, setCustomTags] = useState<string[]>([]);
-    const [fixedTags, setFixedTags] = useState<string[]>([]); // From category
+    const [fixedTags, setFixedTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
 
     const [loading, setLoading] = useState(false);
 
-    // Fetch Categories
+    // 1. Fetch Lists for Selection (if no parentId)
     useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                const snapshot = await getDocs(collection(db, 'categories'));
-                if (!snapshot.empty) {
-                    setCategories(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        if (!parentId) {
+            const fetchLists = async () => {
+                setLoadingLists(true);
+                try {
+                    // Fetch top lists or just recent ones to choose from
+                    // Fetch lists - Relaxed query to ensure legacy lists appear
+                    // orderBy('itemCount') excludes docs where that field is missing.
+                    const q = query(collection(db, 'lists'), limit(50));
+                    const snapshot = await getDocs(q);
+                    const docs = snapshot.docs
+                        .map(d => ({ id: d.id, ...d.data() }))
+                        .filter((l: any) => !l.parentListId); // Only show main lists
+                    setMainLists(docs);
+                } catch (e) {
+                    console.error("Error fetching parent lists", e);
+                } finally {
+                    setLoadingLists(false);
                 }
-            } catch (e) {
-                console.error("Error fetching categories", e);
-            }
-        };
-        fetchCategories();
-    }, []);
-
-    // Handle Category Selection -> Prefill defaults
-    useEffect(() => {
-        if (!categoryId) return;
-        const selectedCat = categories.find(c => c.id === categoryId);
-        if (selectedCat) {
-            // 1. Prefill Tags
-            if (selectedCat['fixed-tags'] && Array.isArray(selectedCat['fixed-tags'])) {
-                setFixedTags(selectedCat['fixed-tags']);
-            }
-
-            // 2. Prefill Criteria
-            if (selectedCat.defaultCriteria) {
-                const newCriteria: Criterion[] = [];
-                Object.entries(selectedCat.defaultCriteria).forEach(([key, val]: [string, any]) => {
-                    // Skip 'like'/'dislike' non-slider keys if present
-                    if (val.type === 'slider') {
-                        newCriteria.push({
-                            id: key,
-                            label: val.label,
-                            minLabel: val.labelMin || 'Mina',
-                            maxLabel: val.labelMax || 'Max',
-                            isPonderable: val.ponderable !== false // default true
-                        });
-                    }
-                });
-                if (newCriteria.length > 0) {
-                    setCriteria(newCriteria);
-                }
-            }
+            };
+            fetchLists();
         }
-    }, [categoryId, categories]);
+    }, [parentId]);
+
+    // 2. Fetch Parent List Details (if parentId)
+    useEffect(() => {
+        if (parentId) {
+            const fetchParent = async () => {
+                try {
+                    const docRef = doc(db, 'lists', parentId);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        setParentList({ id: docSnap.id, ...data });
+
+                        // Prefill data
+                        setName(`${data.name} (Mi Versión)`);
+                        setFixedTags(data.availableTags || []);
+
+                        // Prefill criteria
+                        if (data.criteriaDefinition) {
+                            const inheritedCriteria: Criterion[] = [];
+                            Object.entries(data.criteriaDefinition).forEach(([key, val]: [string, any]) => {
+                                if (val.type === 'slider') {
+                                    inheritedCriteria.push({
+                                        id: key,
+                                        label: val.label,
+                                        minLabel: val.labelMin,
+                                        maxLabel: val.labelMax,
+                                        isPonderable: val.ponderable !== false,
+                                        // Mark as inherited to maybe lock them or show visually?
+                                        // For now just standard
+                                    });
+                                }
+                            });
+                            setCriteria(inheritedCriteria);
+                        }
+                    } else {
+                        navigate('/create-sublist'); // Redirect if invalid
+                    }
+                } catch (e) {
+                    console.error("Error fetching parent list", e);
+                }
+            };
+            fetchParent();
+        }
+    }, [parentId, navigate]);
 
     // Image Handlers
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,20 +125,18 @@ export const CreateListPage: React.FC = () => {
             setTagInput('');
         }
     };
-
     const removeTag = (tag: string) => {
         setCustomTags(customTags.filter(t => t !== tag));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user) return;
+        if (!user || !parentList) return;
         setLoading(true);
 
         try {
-            const finalPhotoUrl = imagePreview || imageUrl || '';
+            const finalPhotoUrl = imagePreview || parentList.photoUrl || '';
 
-            // Transform criteria array back to Map/Object for DB
             const criteriaDefinitionMap: Record<string, any> = {};
             criteria.forEach(c => {
                 criteriaDefinitionMap[c.id] = {
@@ -122,7 +144,7 @@ export const CreateListPage: React.FC = () => {
                     label: c.label,
                     min: 0,
                     max: 10,
-                    step: 0.5, // Standard step
+                    step: 0.5,
                     labelMin: c.minLabel,
                     labelMax: c.maxLabel,
                     ponderable: c.isPonderable
@@ -131,104 +153,124 @@ export const CreateListPage: React.FC = () => {
 
             const finalListTags = [...fixedTags, ...customTags];
 
-            // Legacy Structure Match
             const newListData = {
                 name,
                 description,
-                categoryId, // "comida_hmm" etc
+                categoryId: parentList.categoryId,
+                parentListId: parentList.id, // THE KEY LINK
+                isSublist: true,
+
                 userId: user.uid,
                 isPublic,
-
-                // Fields expected by new UI / legacy UI
                 authorName: user.displayName || 'Anónimo',
-                mainImageUrl: finalPhotoUrl, // Legacy name "mainImageUrl", new might use "photoUrl" - let's save both or align
                 photoUrl: finalPhotoUrl,
+                mainImageUrl: finalPhotoUrl, // Legacy compat
 
                 criteriaDefinition: criteriaDefinitionMap,
-                availableTags: finalListTags, // Combined tags
-                fixedTags: fixedTags,
+                availableTags: finalListTags,
 
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
 
-                // Counters
+                // Reset counters
                 itemCount: 0,
-                groupedItemsCount: 0,
                 viewCount: 0,
                 likes: 0,
                 followersCount: 0,
-                commentsCount: 0,
-                reviewCount: 0,
-                averageRating: 0, // Initial average
+                averageRating: 0,
 
-                // New fields for schema alignment
                 criteriaAverages: {},
                 criteriaAveragesUpdatedAt: serverTimestamp(),
-                reactions: {},
             };
 
             const docRef = await addDoc(collection(db, 'lists'), newListData);
-
-            // Update User's listsCount
-            const userRef = doc(db, 'users', user.uid);
-            // We use updateDoc and ignore error if user doc missing (though it should exist)
-            await updateDoc(userRef, {
-                listsCount: increment(1)
-            }).catch(e => console.warn("Could not increment user list count", e));
-
             navigate(`/list/${docRef.id}`);
         } catch (error) {
-            console.error("Error creating list:", error);
-            alert("Error al crear la lista");
+            console.error("Error creating sublist:", error);
+            alert("Error al crear la sublista");
         } finally {
             setLoading(false);
         }
     };
 
+    // RENDER: Selection Mode
+    if (!parentId) {
+        return (
+            <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-24 pb-20 px-4">
+                <div className="max-w-4xl mx-auto">
+                    <h1 className="text-3xl font-bold font-display text-white mb-2">Crear Sublista</h1>
+                    <p className="text-gray-400 mb-8">Selecciona una lista base para personalizarla con tus propios lugares.</p>
+
+                    <div className="relative mb-8">
+                        <Search className="absolute left-4 top-3.5 text-gray-500 w-5 h-5" />
+                        <input
+                            type="text"
+                            placeholder="Buscar listas principales..."
+                            className="w-full bg-[#151b2e] border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+
+                    {loadingLists ? (
+                        <div className="text-center py-20"><Loader className="w-8 h-8 animate-spin mx-auto text-indigo-500" /></div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {mainLists.filter(l => l.name.toLowerCase().includes(searchTerm.toLowerCase())).map(list => (
+                                <div key={list.id}
+                                    onClick={() => navigate(`/create-sublist/${list.id}`)}
+                                    className="bg-[#151b2e] border border-white/10 rounded-xl p-4 hover:border-indigo-500/50 cursor-pointer transition-all hover:translate-x-1 group flex items-center gap-4"
+                                >
+                                    <div className="w-16 h-16 bg-gray-800 rounded-lg overflow-hidden shrink-0">
+                                        {list.photoUrl && <img src={list.photoUrl} alt={list.name} className="w-full h-full object-cover" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-white truncate">{list.name}</h3>
+                                        <p className="text-xs text-gray-500 truncate">{list.itemCount} lugares • Por {list.authorName}</p>
+                                    </div>
+                                    <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-indigo-400" />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // RENDER: Creation Form
+    if (!parentList) {
+        return <div className="min-h-screen bg-[#0b1021] pt-24 flex justify-center"><Loader className="animate-spin text-white" /></div>;
+    }
+
     return (
         <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-24 pb-20 px-4">
             <div className="max-w-3xl mx-auto">
-                <button onClick={() => navigate(-1)} className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors">
-                    <ArrowLeft className="w-4 h-4 mr-2" /> Cancelar
+                <button onClick={() => navigate('/create-sublist')} className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors">
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Volver a selección
                 </button>
 
-                <h1 className="text-3xl font-bold font-display text-white mb-8">Crear Nueva Lista</h1>
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10">
+                        {parentList.photoUrl && <img src={parentList.photoUrl} className="w-full h-full object-cover opacity-50" />}
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold font-display text-white">Nueva Sublista</h1>
+                        <p className="text-gray-400 text-sm">Basada en <span className="text-indigo-400">{parentList.name}</span></p>
+                    </div>
+                </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Basic Info */}
                     <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-6">
-                        <h2 className="text-xl font-bold text-white mb-4">Información Básica</h2>
-
                         <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Nombre de la Lista</label>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">Nombre de tu lista</label>
                             <input
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-                                placeholder="Ej: Mejores Ramen de Madrid"
                                 required
                             />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Categoría</label>
-                            <select
-                                value={categoryId}
-                                onChange={(e) => setCategoryId(e.target.value)}
-                                className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-                                required
-                            >
-                                <option value="">Selecciona una categoría</option>
-                                {categories.map(cat => (
-                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                ))}
-                            </select>
-                            {categoryId && categories.find(c => c.id === categoryId)?.['fixed-tags'] && (
-                                <p className="text-xs text-indigo-400 mt-2">
-                                    Incluye etiquetas automáticas: {categories.find(c => c.id === categoryId)['fixed-tags'].join(', ')}
-                                </p>
-                            )}
                         </div>
 
                         <div>
@@ -237,13 +279,13 @@ export const CreateListPage: React.FC = () => {
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 min-h-[100px]"
-                                placeholder="¿De qué trata esta lista?"
+                                placeholder="Describe tu versión de esta lista..."
                             />
                         </div>
 
                         {/* Image Upload */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Portada de la Lista</label>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">Portada (Opcional)</label>
                             <div className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:bg-white/5 transition-colors relative group">
                                 {imagePreview ? (
                                     <div className="relative h-48 w-full rounded-lg overflow-hidden">
@@ -265,26 +307,21 @@ export const CreateListPage: React.FC = () => {
                                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                         />
                                         <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3 group-hover:text-indigo-500 transition-colors" />
-                                        <p className="text-gray-400 text-sm">Arrastra una imagen o haz clic para subir</p>
-                                        <p className="text-gray-600 text-xs mt-1">PNG, JPG hasta 5MB</p>
+                                        <p className="text-gray-400 text-sm">Usar imagen personalizada</p>
+                                        <p className="text-gray-600 text-xs mt-1">Si no subes nada, se usará la de la lista original</p>
                                     </>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Criteria & Tags */}
                     <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-8">
-                        {/* Criteria Builder Component */}
                         <CriteriaBuilder criteria={criteria} onChange={setCriteria} />
 
                         <div className="border-t border-white/5 pt-6"></div>
 
-                        {/* Tags */}
                         <div>
-                            <h3 className="text-lg font-bold text-white mb-2">Etiquetas (Tags)</h3>
-                            <p className="text-sm text-gray-400 mb-4">Ayuda a otros a filtrar tu lista (ej. #Barato, #Terraza).</p>
-
+                            <h3 className="text-lg font-bold text-white mb-2">Etiquetas (Globales + Tuyas)</h3>
                             <div className="flex flex-wrap gap-2 mb-3">
                                 {fixedTags.map(tag => (
                                     <span key={`fixed-${tag}`} className="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-full text-sm flex items-center gap-1 border border-white/5 cursor-not-allowed">
@@ -298,13 +335,12 @@ export const CreateListPage: React.FC = () => {
                                     </span>
                                 ))}
                             </div>
-
                             <input
                                 type="text"
                                 value={tagInput}
                                 onChange={(e) => setTagInput(e.target.value)}
                                 onKeyDown={addTag}
-                                placeholder="Escribe un tag y presiona Enter..."
+                                placeholder="Añadir más tags..."
                                 className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
                             />
                         </div>
@@ -331,7 +367,7 @@ export const CreateListPage: React.FC = () => {
                         className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        {loading ? 'Guardando Lista...' : 'Guardar Lista'}
+                        {loading ? 'Creando Sublista...' : 'Crear Sublista'}
                     </button>
                 </form>
             </div>

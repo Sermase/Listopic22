@@ -42,93 +42,81 @@ const createViewbox = (lat: number, lng: number, km: number) => {
     return `${minLng},${maxLat},${maxLng},${minLat}`;
 };
 
+import { auth } from '../firebase';
+import { ListopicConfig } from '../config';
+
+const callPlaceFunction = async (functionName: keyof typeof ListopicConfig.FUNCTION_URLS, params: any) => {
+    try {
+        const url = ListopicConfig.FUNCTION_URLS[functionName];
+        if (!url) throw new Error(`Function URL for ${functionName} not configured`);
+
+        const token = await auth.currentUser?.getIdToken();
+        const headers: HeadersInit = {
+            'Content-Type': 'application/json'
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        // Add userId to params if authenticated
+        if (auth.currentUser && !params.userId) {
+            params.userId = auth.currentUser.uid;
+        }
+
+        // Construct query string for GET if needed, or POST?
+        // Prompt says "Endpoint HTTP". Standard Cloud Functions can be GET or POST.
+        // Given params like latitude/longitude/query, usually POST or GET with query params.
+        // Let's assume POST for complex params or GET for search.
+        // Prompt says "parametro query obligatorio" for keys.
+        // Let's use POST to be safe with JSON body, or check if prompt specified method.
+        // "Backend en functions/modules/core.js con endpoints HTTP".
+        // Let's assume POST for body payload.
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(params)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+
+        return await response.json();
+
+    } catch (error) {
+        console.error(`Error calling ${functionName}:`, error);
+        return null;
+    }
+};
+
 export const PlaceService = {
     searchPlaces: async (query: string, userLat?: number, userLng?: number): Promise<PlaceResult[]> => {
         if (!query || query.length < 3) return [];
 
         try {
-            // URL Base
-            const baseUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1`;
-
-            // Strategy: Hybrid 2-Pass Search
-            // Pass 1: Strict Local (~20km) - ensure close things are found
-            // Pass 2: Global (with soft bias ~50km) - find famous things elsewhere
-
-            let p1Promise: Promise<any[]> = Promise.resolve([]);
-            let p2Promise: Promise<any[]> = Promise.resolve([]);
-
+            const params: any = { query };
             if (userLat && userLng) {
-                // Pass 1: Strict Local (20km)
-                const vbLocal = createViewbox(userLat, userLng, 20);
-                p1Promise = fetch(`${baseUrl}&viewbox=${vbLocal}&bounded=1&limit=25`)
-                    .then(r => r.json())
-                    .catch(() => []);
-
-                // Pass 2: Global (Soft Bias 50km)
-                const vbGlobal = createViewbox(userLat, userLng, 50);
-                p2Promise = fetch(`${baseUrl}&viewbox=${vbGlobal}&bounded=0&limit=25`)
-                    .then(r => r.json())
-                    .catch(() => []);
-            } else {
-                // No location? Just global search
-                p2Promise = fetch(`${baseUrl}&limit=50`)
-                    .then(r => r.json())
-                    .catch(() => []);
+                params.latitude = userLat;
+                params.longitude = userLng;
             }
 
-            const [localData, globalData] = await Promise.all([p1Promise, p2Promise]);
+            // Call Backend "placesTextSearch"
+            const data = await callPlaceFunction('placesTextSearch', params);
 
-            // Deduplicate & Merge
-            // Priority: Local Results > Global Results
-            const uniqueMap = new Map();
+            if (!data || !Array.isArray(data)) return [];
 
-            // Process Local First
-            localData.forEach((item: any) => {
-                if (!uniqueMap.has(item.place_id)) {
-                    uniqueMap.set(item.place_id, { ...item, _isLocal: true });
-                }
-            });
-
-            // Process Global Second
-            globalData.forEach((item: any) => {
-                if (!uniqueMap.has(item.place_id)) {
-                    uniqueMap.set(item.place_id, { ...item, _isLocal: false });
-                }
-            });
-
-            let results: PlaceResult[] = Array.from(uniqueMap.values()).map((item: any) => ({
-                id: String(item.place_id),
-                name: item.name || item.display_name.split(',')[0],
-                address: item.display_name,
-                lat: parseFloat(item.lat),
-                lng: parseFloat(item.lon),
-                type: item.type,
-                // Helper internal flag for sorting if needed, though order preservation is enough
-                // _isLocal: item._isLocal 
+            // Map Backend Results to internal PlaceResult
+            return data.map((item: any) => ({
+                id: item.place_id || item.googlePlaceId || item.objectID, // Handle varying IDs (Google vs Local vs Algolia)
+                name: item.name,
+                address: item.formatted_address || item.vicinity || item.address || '',
+                lat: item.geometry?.location?.lat || item.coordinates?.latitude || item._geoloc?.lat || 0,
+                lng: item.geometry?.location?.lng || item.coordinates?.longitude || item._geoloc?.lng || 0,
+                type: (item.types && item.types[0]) ? item.types[0] : 'establishment',
+                distance: item.distance // Backend often explicitly returns distance if calculated
             }));
-
-            // Smart Sort
-            if (userLat && userLng) {
-                // Determine distances
-                results = results.map(place => ({
-                    ...place,
-                    distance: haversineDistance(userLat, userLng, place.lat, place.lng)
-                }));
-
-                // Sort: 
-                // 1. Local results (roughly < 20km) should be first? 
-                //    Actually, if we preserved order (Local Data first), they are already at top.
-                //    But let's sort purely by distance? 
-                //    User wants: "Closest first". 
-                //    However, if I search "Paris", and I am in Madrid, I don't want a "Bar Paris" (10m away) to hide "Paris France". 
-                //    But user explicitly complained "not closest first". 
-                //    Rule: Sort by distance is usually safe for "Place Search" of items/shops. 
-                //    Let's strictly sort by distance. The 2-pass just ensures we actually FETCHED the local ones.
-
-                results.sort((a, b) => (a.distance || 0) - (b.distance || 0));
-            }
-
-            return results;
 
         } catch (error) {
             console.error("Error searching places:", error);
@@ -138,153 +126,221 @@ export const PlaceService = {
 
     searchNearby: async (lat: number, lng: number): Promise<PlaceResult[]> => {
         try {
-            // Strict ~10km bounding box for "Nearby"
-            const viewbox = createViewbox(lat, lng, 10);
+            const params = {
+                latitude: lat,
+                longitude: lng,
+                // Default category/types logic could be here if we had list context
+                // For now, generic nearby
+                categoryId: 'restaurant', // Default fallback as typical "nearby"
+                categoryTypes: 'restaurant,food,establishment'
+            };
 
-            // Expanded categories for a richer "Nearby" discovery like Google Maps
-            const categories = ['restaurant', 'bar', 'cafe', 'pub', 'fast_food', 'ice_cream', 'bakery'];
+            // Call Backend "placesNearbyRestaurants"
+            const data = await callPlaceFunction('placesNearbyRestaurants', params);
 
-            // Execute fetches sequentially to avoid rate limiting (HTTP2 Refused Stream / 429)
-            // Nominatim Policy requests not to flood.
-            const rawData: any[] = [];
-            for (const cat of categories) {
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${cat}&limit=10&lat=${lat}&lon=${lng}&viewbox=${viewbox}&bounded=1&addressdetails=1`);
-                    if (response.ok) {
-                        const json = await response.json();
-                        rawData.push(...json);
-                    }
-                    // Small delay to be polite
-                    await new Promise(r => setTimeout(r, 200));
-                } catch (err) {
-                    // Ignore fail for individual cat
-                }
-            }
+            if (!data || !Array.isArray(data)) return [];
 
-            // Deduplicate by place_id
-            const uniqueMap = new Map();
-            rawData.forEach((item: any) => {
-                if (item && item.place_id && !uniqueMap.has(item.place_id)) {
-                    uniqueMap.set(item.place_id, item);
-                }
-            });
-
-            let results: PlaceResult[] = Array.from(uniqueMap.values()).map((item: any) => ({
-                id: String(item.place_id),
-                name: item.name || item.display_name.split(',')[0],
-                address: item.display_name,
-                lat: parseFloat(item.lat),
-                lng: parseFloat(item.lon),
-                type: item.type,
-                distance: haversineDistance(lat, lng, parseFloat(item.lat), parseFloat(item.lon))
+            return data.map((item: any) => ({
+                id: item.place_id || item.googlePlaceId,
+                name: item.name,
+                address: item.formatted_address || item.vicinity || item.address || '',
+                lat: item.geometry?.location?.lat || item.coordinates?.latitude || 0,
+                lng: item.geometry?.location?.lng || item.coordinates?.longitude || 0,
+                type: (item.types && item.types[0]) ? item.types[0] : 'establishment',
+                distance: item.distance
             }));
-
-            // Strict Sort by Distance to show closest first
-            results.sort((a, b) => (a.distance || 0) - (b.distance || 0));
-
-            return results.slice(0, 40); // larger slice since we have strict bounds
 
         } catch (error) {
             console.error("Error searching nearby places:", error);
             return [];
         }
+    },
+
+    // New helper for detail fetching if we want to be fully compliant
+    getDetails: async (placeId: string): Promise<any> => {
+        return await callPlaceFunction('getPlaceDetailsFromGoogle', { placeid: placeId });
     }
 };
 // Legacy Schema Interface
+// Province Map for Spain (first 2 digits of postal code)
+const PROVINCE_MAP: Record<string, string> = {
+    '01': 'Álava', '02': 'Albacete', '03': 'Alicante', '04': 'Almería', '05': 'Ávila',
+    '06': 'Badajoz', '07': 'Illes Balears', '08': 'Barcelona', '09': 'Burgos', '10': 'Cáceres',
+    '11': 'Cádiz', '12': 'Castellón', '13': 'Ciudad Real', '14': 'Córdoba', '15': 'A Coruña',
+    '16': 'Cuenca', '17': 'Girona', '18': 'Granada', '19': 'Guadalajara', '20': 'Guipúzcoa',
+    '21': 'Huelva', '22': 'Huesca', '23': 'Jaén', '24': 'León', '25': 'Lleida',
+    '26': 'La Rioja', '27': 'Lugo', '28': 'Madrid', '29': 'Málaga', '30': 'Murcia',
+    '31': 'Navarra', '32': 'Ourense', '33': 'Asturias', '34': 'Palencia', '35': 'Las Palmas',
+    '36': 'Pontevedra', '37': 'Salamanca', '38': 'Santa Cruz de Tenerife', '39': 'Cantabria', '40': 'Segovia',
+    '41': 'Sevilla', '42': 'Soria', '43': 'Tarragona', '44': 'Teruel', '45': 'Toledo',
+    '46': 'Valencia', '47': 'Valladolid', '48': 'Vizcaya', '49': 'Zamora', '50': 'Zaragoza',
+    '51': 'Ceuta', '52': 'Melilla'
+};
+
+const getProvinceFromPostalCode = (postalCode: string): string => {
+    if (!postalCode || postalCode.length < 2) return '';
+    const prefix = postalCode.substring(0, 2);
+    return PROVINCE_MAP[prefix] || '';
+};
+
+// Strict Legacy Schema Interface
 export interface LegacyPlace {
-    accessibility: any; // map
-    hearingLoop: null;
-    wheelchairAccessibleEntrance: boolean | null;
-    wheelchairAccessibleParking: boolean | null;
-    wheelchairAccessibleRestroom: any; // null
-    wheelchairAccessibleSeating: any; // null
+    // Identity
+    name: string;
+    name_normalized: string;
+    googlePlaceId: string; // The ID of the document AND the field
+
+    // Address & Location
     address: string;
     address_normalized: string;
-    averageRating: number;
-    city: string;
+    vicinity?: string; // Often used as short address
+    formatted_address?: string; // Google field
     coordinates: {
         latitude: number;
         longitude: number;
     };
-    country: string;
-    followersCount: number;
-    formatted_address: string;
-    googleMapsUrl: string;
-    googlePlaceId: string | null;
-    googleRating: number | null;
-    googleUserRatingsTotal: number | null;
-    lastGoogleSync: any;
-    lastPhotoRefresh: any;
-    location: {
+    location: { // Redundant but required by legacy
         latitude: number;
         longitude: number;
     };
-    mainImagePhotoReference: string | null;
-    mainImageUrl: string | null;
-    name: string;
-    name_normalized: string;
-    phone: string | null;
-    postalCode: string;
-    priceLevel: number | null;
-    province: string;
+
+    // Hierarchy
+    city: string;
     region: string;
-    reviewsCount: number;
-    types: string[];
-    updatedAt: any;
-    vicinity: string;
+    province: string;
+    country: string;
+    postalCode: string;
+
+    // Google Metadata
+    googleMapsUrl: string | null;
     website: string | null;
+    phone: string | null;
+    international_phone_number?: string | null;
+
+    // Stats & Types
+    priceLevel: number | null;
+    googleRating: number | null;
+    googleUserRatingsTotal: number | null;
+    types: string[];
+
+    // Images
+    mainImageUrl: string | null;
+    mainImagePhotoReference: string | null;
+
+    // Accessibility (Legacy Structure)
+    accessibility: any;
+    serviceOptions?: any;
+
+    // Metadata
+    updatedAt: any;
+    lastGoogleSync: any;
+
+    // Internal Stats (initially empty for new places)
+    followersCount: number;
+    reviewsCount: number;
+    averageRating: number | null;
 }
 
-export const transformToLegacyPlace = (place: PlaceResult): LegacyPlace => {
+// Transform Google/OSM result to Strict Legacy Place
+export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: any): LegacyPlace => {
     const now = new Date();
-    // Rough address parsing from display_name if available, usually logic is complex but we do best effort
-    // OSM display_name is "Name, Road, City, County, State, Postcode, Country"
-    const parts = place.address.split(',').map(p => p.trim());
-    const country = parts[parts.length - 1] || '';
-    const postalCode = parts.find(p => /^\d{5}$/.test(p)) || ''; // Simple regex for Spain/US
-    const city = parts.find(p => p !== country && p !== postalCode && isNaN(Number(p))) || ''; // Fallback
+
+    // 1. Data Source Resolution
+    // If we have detailedGoogleData (from getPlaceDetailsFromGoogle), use it primarily.
+    // Otherwise fallback to basic PlaceResult (OSM/partial).
+
+    const isGoogle = !!detailedGoogleData;
+    const src = detailedGoogleData || place;
+
+    // 2. Address Components Extraction (Critical for Legacy)
+    let city = '';
+    let region = '';
+    let country = '';
+    let postalCode = '';
+    let route = '';
+    let streetNumber = '';
+
+    if (isGoogle && src.address_components) {
+        src.address_components.forEach((c: any) => {
+            if (c.types.includes('locality')) city = c.long_name;
+            if (c.types.includes('administrative_area_level_1')) region = c.long_name;
+            if (c.types.includes('country')) country = c.long_name;
+            if (c.types.includes('postal_code')) postalCode = c.long_name;
+            if (c.types.includes('route')) route = c.long_name;
+            if (c.types.includes('street_number')) streetNumber = c.long_name;
+        });
+    } else {
+        // Basic parsing for OSM/Fallback
+        const parts = place.address.split(',').map(p => p.trim());
+        country = parts[parts.length - 1] || '';
+        postalCode = parts.find(p => /^\d{5}$/.test(p)) || '';
+        city = parts.find(p => p !== country && p !== postalCode && isNaN(Number(p))) || '';
+    }
+
+    // 3. Derived Fields
+    const province = getProvinceFromPostalCode(postalCode) || city; // Fallback to city if no postal match
+    const constructedAddress = route ? `${route} ${streetNumber}, ${city}`.trim() : src.formatted_address || place.address;
+
+    // 4. Coordinates
+    const lat = isGoogle ? src.geometry?.location?.lat : place.lat;
+    const lng = isGoogle ? src.geometry?.location?.lng : place.lng;
+
+    // 5. Types
+    const types = src.types || (place.type ? [place.type] : ['establishment']);
+
+    // 6. Id Resolution
+    // Legacy STRICTLY wants 'googlePlaceId' valid. 
+    // If OSM, we fake it or prefix it? 
+    // User said: "el id de lugar debería ser el id de google".
+    // If we only have OSM, we technically violate this unless we mock it or require Google.
+    // For now, if no googlePlaceId, use OSM ID prefixed.
+    const finalId = src.place_id ? String(src.place_id) : `osm_${place.id}`;
 
     return {
-        accessibility: {},
-        hearingLoop: null,
-        wheelchairAccessibleEntrance: null, // Unknown in basic OSM
-        wheelchairAccessibleParking: null,
-        wheelchairAccessibleRestroom: null,
-        wheelchairAccessibleSeating: null,
-        address: place.address,
-        address_normalized: place.address.toLowerCase(),
-        averageRating: 0, // No internal rating yet
-        city: city,
-        coordinates: {
-            latitude: place.lat,
-            longitude: place.lng
-        },
-        country: country,
-        followersCount: 0,
-        formatted_address: place.address,
-        googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`, // Fallback link
-        googlePlaceId: null, // Not a Google Place
-        googleRating: null,
-        googleUserRatingsTotal: null,
-        lastGoogleSync: null,
-        lastPhotoRefresh: null,
-        location: {
-            latitude: place.lat,
-            longitude: place.lng
-        },
-        mainImagePhotoReference: null,
-        mainImageUrl: null,
-        name: place.name,
-        name_normalized: place.name.toLowerCase(),
-        phone: null,
-        postalCode: postalCode,
-        priceLevel: null,
-        province: city, // weak fallback
-        region: city, // weak fallback
-        reviewsCount: 0,
-        types: place.type ? [place.type] : ['establishment'],
+        // Identity
+        googlePlaceId: finalId,
+        name: src.name,
+        name_normalized: src.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+
+        // Location
+        address: constructedAddress,
+        address_normalized: constructedAddress.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+        vicinity: src.vicinity || constructedAddress,
+        formatted_address: src.formatted_address || place.address,
+
+        coordinates: { latitude: typeof lat === 'function' ? lat() : lat, longitude: typeof lng === 'function' ? lng() : lng },
+        location: { latitude: typeof lat === 'function' ? lat() : lat, longitude: typeof lng === 'function' ? lng() : lng },
+
+        city,
+        region,
+        province,
+        country,
+        postalCode,
+
+        // Meta
+        googleMapsUrl: src.url || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+        website: src.website || null,
+        phone: src.formatted_phone_number || src.international_phone_number || null,
+        international_phone_number: src.international_phone_number || null,
+
+        // Stats
+        priceLevel: src.price_level || null,
+        googleRating: src.rating || null,
+        googleUserRatingsTotal: src.user_ratings_total || null,
+        types: types,
+
+        // Images
+        mainImageUrl: src.photos?.[0] ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${src.photos[0].photo_reference}&key=YOUR_API_KEY_HERE` : null, // Note: In frontend we might not have key exposed directly for URL generation without proxy, but strict schema expects a URL.
+        mainImagePhotoReference: src.photos?.[0]?.photo_reference || null,
+
+        // Legacy Fields
+        accessibility: {}, // Would need separate fetch as per prompt
+        serviceOptions: {},
+
         updatedAt: now,
-        vicinity: place.address,
-        website: null
+        lastGoogleSync: now,
+        followersCount: 0,
+        reviewsCount: 0,
+        averageRating: null
     };
 };

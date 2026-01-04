@@ -163,7 +163,7 @@ export const SearchPage: React.FC = () => {
                                     ) : activeTab === 'lists' ? (
                                         <>
                                             <div className="h-40 bg-gray-800 rounded-lg mb-4 overflow-hidden relative">
-                                                {item.photoUrl && <img src={item.photoUrl} className="w-full h-full object-cover" />}
+                                                {(item.mainImageUrl || item.photoUrl) && <img src={item.mainImageUrl || item.photoUrl} className="w-full h-full object-cover" />}
                                                 {item.avgScore && (
                                                     <div className="absolute top-2 right-2 bg-black/60 backdrop-blur px-2 py-0.5 rounded text-xs font-bold text-white">
                                                         ⭐ {item.avgScore.toFixed(1)}
