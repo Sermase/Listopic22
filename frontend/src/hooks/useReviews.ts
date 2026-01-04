@@ -24,14 +24,15 @@ const fetchDocsBatch = async (collectionName: string, ids: string[]) => {
 };
 
 export interface UseReviewsOptions {
-    type?: 'recent' | 'trending';
+    type?: 'recent' | 'trending' | 'following';
     userId?: string;
     listId?: string;
+    followingIds?: string[];
 }
 
-export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' = 'recent') => {
+export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 'following' = 'recent') => {
     // Normalize options
-    const { type = 'recent', userId, listId } = typeof options === 'string' ? { type: options } : options;
+    const { type = 'recent', userId, listId, followingIds } = typeof options === 'string' ? { type: options } : options;
 
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [loading, setLoading] = useState(true);
@@ -41,45 +42,88 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' = 
         const fetchReviews = async () => {
             setLoading(true);
             try {
-                // Use collectionGroup to query all 'reviews' collections
-                const reviewsRef = collectionGroup(db, 'reviews');
-                let q;
-
-                // Build constraints
-                const constraints = [];
-
-                if (userId) constraints.push(where('userId', '==', userId));
-                if (listId) constraints.push(where('listId', '==', listId));
-
-                // Note: Compound queries with orderBy often need indexes.
-                // We prioritize filtering over precise sorting if index missing, 
-                // but ideally we ask for both.
-                if (type === 'trending') {
-                    // Safe Sort Strategy: Fetch recent (indexed) then sort by rating in memory
-                    // Avoids index issues with 'overallRating'
-                    constraints.push(orderBy('createdAt', 'desc'));
-                    constraints.push(limit(50)); // Fetch larger batch for sorting
-                } else {
-                    constraints.push(orderBy('createdAt', 'desc'));
-                    constraints.push(limit(20));
+                // Pre-check for following
+                if (type === 'following') {
+                    if (!followingIds || followingIds.length === 0) {
+                        setReviews([]);
+                        setLoading(false);
+                        return;
+                    }
                 }
 
-                q = query(reviewsRef, ...constraints);
+                let rawReviews: ReviewEntity[] = [];
 
-                const snapshot = await getDocs(q);
-                const rawReviews = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    // Fix parent list ID for subcollections logic if missing
-                    let listId = data.listId;
-                    if (!listId && doc.ref.parent.parent) {
-                        listId = doc.ref.parent.parent.id;
+                if (type === 'following' && followingIds && followingIds.length > 0) {
+                    // Legacy-style Chunking (Firestore 'in' limit 10)
+                    const chunks = [];
+                    for (let i = 0; i < followingIds.length; i += 10) {
+                        chunks.push(followingIds.slice(i, i + 10));
                     }
-                    return {
-                        id: doc.id,
-                        ...data,
-                        listId
-                    };
-                }) as ReviewEntity[];
+
+                    const promises = chunks.map(chunk => {
+                        const q = query(
+                            collectionGroup(db, 'reviews'),
+                            where('userId', 'in', chunk),
+                            orderBy('createdAt', 'desc'),
+                            limit(20) // Fetch top 20 per chunk
+                        );
+                        return getDocs(q);
+                    });
+
+                    const snapshots = await Promise.all(promises);
+                    const allDocs = snapshots.flatMap(s => s.docs);
+
+                    rawReviews = allDocs.map(doc => {
+                        const data = doc.data();
+                        let listId = data.listId;
+                        if (!listId && doc.ref.parent.parent) {
+                            listId = doc.ref.parent.parent.id;
+                        }
+                        return {
+                            id: doc.id,
+                            ...data,
+                            listId
+                        };
+                    }) as ReviewEntity[];
+
+                    // Sort combined results
+                    rawReviews.sort((a, b) => {
+                        const tA = a.createdAt?.seconds || 0;
+                        const tB = b.createdAt?.seconds || 0;
+                        return tB - tA;
+                    });
+
+                } else {
+                    // Standard Logic (Recent / Trending)
+                    const reviewsRef = collectionGroup(db, 'reviews');
+                    const constraints = [];
+
+                    if (userId) constraints.push(where('userId', '==', userId));
+                    if (listId) constraints.push(where('listId', '==', listId));
+
+                    if (type === 'trending') {
+                        constraints.push(orderBy('createdAt', 'desc'));
+                        constraints.push(limit(50));
+                    } else {
+                        constraints.push(orderBy('createdAt', 'desc'));
+                        constraints.push(limit(30));
+                    }
+
+                    const q = query(reviewsRef, ...constraints);
+                    const snapshot = await getDocs(q);
+                    rawReviews = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        let listId = data.listId;
+                        if (!listId && doc.ref.parent.parent) {
+                            listId = doc.ref.parent.parent.id;
+                        }
+                        return {
+                            id: doc.id,
+                            ...data,
+                            listId
+                        };
+                    }) as ReviewEntity[];
+                }
 
                 // --- Enrich Data ---
                 const listIds = uniqueIds(rawReviews.map(r => r.listId));
@@ -130,7 +174,7 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' = 
         };
 
         fetchReviews();
-    }, [type, userId, listId]);
+    }, [type, userId, listId, followingIds]);
 
     return { reviews, loading, error };
 };

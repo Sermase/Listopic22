@@ -1,13 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLists } from '../hooks/useLists';
 import { useUsers } from '../hooks/useUsers';
 import { useReviews } from '../hooks/useReviews';
+import { ReviewCard } from '../components/ReviewCard';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
 import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
+import { collection, query, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 
 /* 
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
@@ -38,13 +41,25 @@ export const HomePage: React.FC = () => {
     };
     const [isMapOpen, setIsMapOpen] = useState(false);
 
+    // Following Logic
+    const [followingIds, setFollowingIds] = useState<string[]>([]);
+    useEffect(() => {
+        if (!user) return;
+        const fetchFollowing = async () => {
+            const q = query(collection(db, 'users', user.uid, 'following'));
+            const snap = await getDocs(q);
+            setFollowingIds(snap.docs.map(d => d.id));
+        };
+        fetchFollowing();
+    }, [user]);
+
     // --- DATA FETCHING (Dynamic based on Tab) ---
-    // Explore -> Top Rated/Trending; News -> Recent
-    const listSort = activeTab === 'explore' ? 'top_rated' : 'recent';
-    const reviewSort = activeTab === 'explore' ? 'trending' : 'recent';
+    // Explore -> Top Rated/Trending; News -> Following
+    const listSort = activeTab === 'explore' ? 'top_rated' : 'recent'; // Lists still use 'recent' for news
+    const reviewSortParam = activeTab === 'explore' ? 'trending' : { type: 'following', followingIds };
 
     const { lists, loading: loadingLists } = useLists(listSort);
-    const { reviews, loading: loadingReviews } = useReviews(reviewSort);
+    const { reviews, loading: loadingReviews } = useReviews(reviewSortParam);
     const { users: topUsers, loading: loadingUsers } = useUsers();
 
     // --- FILTERING LOGIC ---
@@ -245,20 +260,7 @@ export const HomePage: React.FC = () => {
 
                     {/* Filter Chips (Categories) */}
                     <div className="flex flex-wrap justify-between items-center mt-8 gap-4">
-                        <div className="flex gap-2.5 overflow-x-auto hide-scrollbar pb-2">
-                            {['Todo', 'Hmm...', 'Woow!', 'Yujuui!'].map(filter => (
-                                <button
-                                    key={filter}
-                                    onClick={() => setActiveFilter(filter)}
-                                    className={`px-5 py-2 rounded-full text-xs font-bold border backdrop-blur-md transition-all duration-300 whitespace-nowrap shadow-lg ${activeFilter === filter
-                                        ? 'bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border-indigo-400/50 text-white shadow-indigo-500/20 scale-105'
-                                        : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:border-white/20'
-                                        }`}
-                                >
-                                    {filter}
-                                </button>
-                            ))}
-                        </div>
+                        <div className="flex-1"></div>
 
                         <div className="flex items-center gap-3 pl-2 border-l border-white/10">
                             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Rango</span>
@@ -276,125 +278,71 @@ export const HomePage: React.FC = () => {
                 </div>
 
                 {/* Map Collapsible */}
-                <div className="max-w-7xl mx-auto mb-8">
-                    <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
-                        <div
-                            onClick={() => setIsMapOpen(!isMapOpen)}
-                            className="w-full p-3 flex items-center justify-between text-gray-300 hover:bg-white/5 transition-colors cursor-pointer select-none"
-                            role="button"
-                            tabIndex={0}
-                        >
-                            <div className="flex items-center gap-2">
-                                <MapIcon className="w-5 h-5 text-gray-400" />
-                                <span className="font-bold text-sm">Mapa</span>
+                {activeTab === 'explore' && (
+                    <div className="max-w-7xl mx-auto mb-8">
+                        <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
+                            <div
+                                onClick={() => setIsMapOpen(!isMapOpen)}
+                                className="w-full p-3 flex items-center justify-between text-gray-300 hover:bg-white/5 transition-colors cursor-pointer select-none"
+                                role="button"
+                                tabIndex={0}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <MapIcon className="w-5 h-5 text-gray-400" />
+                                    <span className="font-bold text-sm">Mapa</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                                    {isMapOpen ? 'Plegar' : 'Desplegar'}
+                                    <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                                {isMapOpen ? 'Plegar' : 'Desplegar'}
-                                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
-                            </div>
-                        </div>
 
-                        <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isMapOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-                            <div className="overflow-hidden min-h-0">
-                                <div className="h-[400px] border-t border-white/10 relative">
-                                    <MapView items={filteredPlaces} mode="global" range={range} />
+                            <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isMapOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                                <div className="overflow-hidden min-h-0">
+                                    <div className="h-[400px] border-t border-white/10 relative">
+                                        <MapView items={filteredPlaces} mode="global" range={range} />
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 <div className="max-w-[1400px] mx-auto space-y-8">
 
-                    {/* 1. Listas */}
-                    <CardCarousel
-                        title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
-                        items={filteredLists}
-                        loading={loadingLists}
-                        renderItem={(list: any) => (
-                            <Link to={`/list/${list.id}`} className="block relative group h-48 rounded-xl overflow-hidden border border-white/10 bg-gray-900">
-                                {(list.mainImageUrl || list.photoUrl) ? (
-                                    <img src={list.mainImageUrl || list.photoUrl} alt={list.name} className="w-full h-full object-cover opacity-60 group-hover:opacity-40 group-hover:scale-105 transition-all duration-500" />
-                                ) : (
-                                    <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900" />
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-                                <div className="absolute top-2 right-2 bg-gray-900/80 backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold text-gray-300 uppercase">
-                                    {list.itemCount || 0} items
-                                </div>
-                                <div className="absolute top-2 left-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg">
-                                    #{list.ranking || 1}
-                                </div>
-                                <div className="absolute bottom-3 left-3 right-3">
-                                    <h3 className="text-white font-bold text-lg leading-tight mb-1 truncate">{list.name}</h3>
-                                    <div className="flex items-center gap-3 text-xs text-gray-400 font-bold mb-2">
-                                        <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {list.likes || 0}</span>
-                                        <span className="flex items-center gap-1"><ListIcon className="w-3 h-3" /> {list.reviewCount || 0}</span>
-                                    </div>
 
-                                    {/* Tags */}
-                                    {list.availableTags && list.availableTags.length > 0 && (
-                                        <div className="flex gap-1 overflow-hidden">
-                                            {list.availableTags.slice(0, 2).map((tag: string) => (
-                                                <button
-                                                    key={tag}
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        navigate(`/search?q=${tag}`);
-                                                    }}
-                                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 hover:bg-white/20 text-white/80 transition-colors backdrop-blur-sm"
-                                                >
-                                                    #{tag}
-                                                </button>
-                                            ))}
-                                        </div>
+                    {activeTab === 'explore' && (<>
+                        {/* 1. Listas */
+                        }
+                        <CardCarousel
+                            title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
+                            items={filteredLists}
+                            loading={loadingLists}
+                            renderItem={(list: any) => (
+                                <Link to={`/list/${list.id}`} className="block relative group h-48 rounded-xl overflow-hidden border border-white/10 bg-gray-900">
+                                    {(list.mainImageUrl || list.photoUrl) ? (
+                                        <img src={list.mainImageUrl || list.photoUrl} alt={list.name} className="w-full h-full object-cover opacity-60 group-hover:opacity-40 group-hover:scale-105 transition-all duration-500" />
+                                    ) : (
+                                        <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900" />
                                     )}
-                                </div>
-                            </Link>
-                        )}
-                    />
-
-                    {/* 2. Items */}
-                    <CardCarousel
-                        title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos Items"}
-                        items={filteredItems}
-                        loading={loadingReviews}
-                        renderItem={(item: any) => (
-                            <div className="block relative group h-48 rounded-xl overflow-hidden border border-white/10 bg-gray-900">
-                                {item.photoUrl ? (
-                                    <img src={item.photoUrl} alt={item.itemName} className="w-full h-full object-cover opacity-70 group-hover:opacity-50 transition-all duration-500" />
-                                ) : (
-                                    <div className="w-full h-full bg-slate-800" />
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
-                                <div className="absolute top-2 right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-xs font-black text-white shadow-lg border-2 border-white/10">
-                                    {item.overallRating?.toFixed(1) || 9.0}
-                                </div>
-                                <div className="absolute bottom-3 left-3 right-3">
-                                    <h3 className="text-white font-bold text-base mb-0.5 truncate">{item.itemName}</h3>
-                                    <div className="flex items-center text-xs text-gray-400 mb-1.5">
-                                        <MapPin className="w-3 h-3 mr-1" />
-                                        <span className="truncate max-w-[150px]">{item.placeName}</span>
-                                        {item.placeCity && (
-                                            <>
-                                                <span className="mx-1 opacity-50">•</span>
-                                                <span className="text-gray-500 truncate">{item.placeCity}</span>
-                                            </>
-                                        )}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                                    <div className="absolute top-2 right-2 bg-gray-900/80 backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold text-gray-300 uppercase">
+                                        {list.itemCount || 0} items
                                     </div>
-
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] text-gray-500 flex items-center gap-1">
-                                                <ListIcon className="w-3 h-3" /> {item.listName}
-                                            </span>
+                                    <div className="absolute top-2 left-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg">
+                                        #{list.ranking || 1}
+                                    </div>
+                                    <div className="absolute bottom-3 left-3 right-3">
+                                        <h3 className="text-white font-bold text-lg leading-tight mb-1 truncate">{list.name}</h3>
+                                        <div className="flex items-center gap-3 text-xs text-gray-400 font-bold mb-2">
+                                            <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {list.likes || 0}</span>
+                                            <span className="flex items-center gap-1"><ListIcon className="w-3 h-3" /> {list.reviewCount || 0}</span>
                                         </div>
 
                                         {/* Tags */}
-                                        {item.tags && item.tags.length > 0 && (
-                                            <div className="flex gap-1">
-                                                {item.tags.slice(0, 2).map((tag: string) => (
+                                        {list.availableTags && list.availableTags.length > 0 && (
+                                            <div className="flex gap-1 overflow-hidden">
+                                                {list.availableTags.slice(0, 2).map((tag: string) => (
                                                     <button
                                                         key={tag}
                                                         onClick={(e) => {
@@ -410,89 +358,170 @@ export const HomePage: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
-                                </div>
-                            </div>
-                        )}
-                    />
+                                </Link>
+                            )}
+                        />
 
-                    {/* 3. Usuarios activos */}
-                    <CardCarousel
-                        title="Usuarios activos"
-                        items={filteredUsers}
-                        loading={loadingUsers}
-                        renderItem={(user: any) => (
-                            <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 bg-[#151b2e] border border-white/10 p-4 rounded-xl h-24 hover:border-indigo-500/30 transition-colors">
-                                <div className="relative">
-                                    <img src={user.photoUrl || `https://ui-avatars.com/api/?name=${user.displayName}`} alt="User" className="w-14 h-14 rounded-full object-cover border-2 border-indigo-500/20" />
-                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-800 rounded-full flex items-center justify-center text-[10px] font-bold text-white border border-gray-700">
-                                        #1
+                        {/* 2. Items */}
+                        <CardCarousel
+                            title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos Items"}
+                            items={filteredItems}
+                            loading={loadingReviews}
+                            renderItem={(item: any) => (
+                                <div className="block relative group h-48 rounded-xl overflow-hidden border border-white/10 bg-gray-900">
+                                    {item.photoUrl ? (
+                                        <img src={item.photoUrl} alt={item.itemName} className="w-full h-full object-cover opacity-70 group-hover:opacity-50 transition-all duration-500" />
+                                    ) : (
+                                        <div className="w-full h-full bg-slate-800" />
+                                    )}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
+                                    <div className="absolute top-2 right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-xs font-black text-white shadow-lg border-2 border-white/10">
+                                        {item.overallRating?.toFixed(1) || 9.0}
                                     </div>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h4 className="text-white font-bold truncate">{user.displayName}</h4>
-                                    <p className="text-indigo-400 text-xs truncate">@{user.username || 'user'}</p>
-                                    <div className="flex items-center gap-3 mt-1.5 text-[10px] font-bold text-gray-500">
-                                        <span className="flex items-center gap-1"><ListIcon className="w-3 h-3" /> {user.listsCount || 12}</span>
-                                        <span className="flex items-center gap-1">★ {user.rating || 8.0}</span>
-                                        <span className="flex items-center gap-1">♥ {user.likes || 0}</span>
-                                    </div>
-                                </div>
-                            </Link>
-                        )}
-                    />
+                                    <div className="absolute bottom-3 left-3 right-3">
+                                        <h3 className="text-white font-bold text-base mb-0.5 truncate">{item.itemName}</h3>
+                                        <div className="flex items-center text-xs text-gray-400 mb-1.5">
+                                            <MapPin className="w-3 h-3 mr-1" />
+                                            <span className="truncate max-w-[150px]">{item.placeName}</span>
+                                            {item.placeCity && (
+                                                <>
+                                                    <span className="mx-1 opacity-50">•</span>
+                                                    <span className="text-gray-500 truncate">{item.placeCity}</span>
+                                                </>
+                                            )}
+                                        </div>
 
-                    {/* 4. Lugares top */}
-                    <CardCarousel
-                        title={activeTab === 'explore' ? "Lugares top" : "Nuevos Lugares"}
-                        items={filteredPlaces}
-                        loading={loadingReviews}
-                        renderItem={(place: any) => (
-                            <div className="block relative group h-48 rounded-xl overflow-hidden border border-white/10 bg-gray-900">
-                                {place.photoUrl ? (
-                                    <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover opacity-70 group-hover:scale-110 transition-transform duration-700" />
-                                ) : (
-                                    <div className="w-full h-full bg-blue-900/20" />
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                                <div className="absolute top-2 right-2 bg-teal-500 px-2 py-0.5 rounded text-[10px] font-bold text-white">
-                                    {place.rating?.toFixed(1) || 9.5}
-                                </div>
-                                <div className="absolute bottom-3 left-3 right-3 text-shadow">
-                                    <h3 className="text-white font-bold text-base leading-tight mb-1 truncate">{place.name}</h3>
-                                    <p className="text-gray-300 text-xs flex items-center gap-1">
-                                        <MapPin className="w-3 h-3" /> {place.address?.split(',')[0]}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                    />
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                                                    <ListIcon className="w-3 h-3" /> {item.listName}
+                                                </span>
+                                            </div>
 
-                    {/* 5. Resenas que gustan */}
-                    <CardCarousel
-                        title={activeTab === 'explore' ? "Reseñas que gustan" : "Reseñas Recientes"}
-                        items={filteredItems}
-                        loading={loadingReviews}
-                        renderItem={(review: any) => (
-                            <div className="bg-[#191919] border border-white/5 rounded-xl p-4 h-full flex flex-col justify-between">
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <img src={review.authorPhoto || "https://ui-avatars.com/api/?name=User"} className="w-8 h-8 rounded-full" />
-                                        <div className="text-xs">
-                                            <div className="text-white font-bold">{review.authorName}</div>
-                                            <div className="text-gray-500">@{review.authorName}</div>
+                                            {/* Tags */}
+                                            {item.tags && item.tags.length > 0 && (
+                                                <div className="flex gap-1">
+                                                    {item.tags.slice(0, 2).map((tag: string) => (
+                                                        <button
+                                                            key={tag}
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                navigate(`/search?q=${tag}`);
+                                                            }}
+                                                            className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 hover:bg-white/20 text-white/80 transition-colors backdrop-blur-sm"
+                                                        >
+                                                            #{tag}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-500 font-bold text-xs">
-                                        {review.overallRating}
+                                </div>
+                            )}
+                        />
+
+                        {/* 3. Usuarios activos */}
+                        <CardCarousel
+                            title="Usuarios activos"
+                            items={filteredUsers}
+                            loading={loadingUsers}
+                            renderItem={(user: any) => (
+                                <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 bg-[#151b2e] border border-white/10 p-4 rounded-xl h-24 hover:border-indigo-500/30 transition-colors">
+                                    <div className="relative">
+                                        <img src={user.photoUrl || `https://ui-avatars.com/api/?name=${user.displayName}`} alt="User" className="w-14 h-14 rounded-full object-cover border-2 border-indigo-500/20" />
+                                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-800 rounded-full flex items-center justify-center text-[10px] font-bold text-white border border-gray-700">
+                                            #1
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-white font-bold truncate">{user.displayName}</h4>
+                                        <p className="text-indigo-400 text-xs truncate">@{user.username || 'user'}</p>
+                                        <div className="flex items-center gap-3 mt-1.5 text-[10px] font-bold text-gray-500">
+                                            <span className="flex items-center gap-1"><ListIcon className="w-3 h-3" /> {user.listsCount || 12}</span>
+                                            <span className="flex items-center gap-1">★ {user.rating || 8.0}</span>
+                                            <span className="flex items-center gap-1">♥ {user.likes || 0}</span>
+                                        </div>
+                                    </div>
+                                </Link>
+                            )}
+                        />
+
+                        {/* 4. Lugares top */}
+                        <CardCarousel
+                            title={activeTab === 'explore' ? "Lugares top" : "Nuevos Lugares"}
+                            items={filteredPlaces}
+                            loading={loadingReviews}
+                            renderItem={(place: any) => (
+                                <div className="block relative group h-48 rounded-xl overflow-hidden border border-white/10 bg-gray-900">
+                                    {place.photoUrl ? (
+                                        <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover opacity-70 group-hover:scale-110 transition-transform duration-700" />
+                                    ) : (
+                                        <div className="w-full h-full bg-blue-900/20" />
+                                    )}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                                    <div className="absolute top-2 right-2 bg-teal-500 px-2 py-0.5 rounded text-[10px] font-bold text-white">
+                                        {place.rating?.toFixed(1) || 9.5}
+                                    </div>
+                                    <div className="absolute bottom-3 left-3 right-3 text-shadow">
+                                        <h3 className="text-white font-bold text-base leading-tight mb-1 truncate">{place.name}</h3>
+                                        <p className="text-gray-300 text-xs flex items-center gap-1">
+                                            <MapPin className="w-3 h-3" /> {place.address?.split(',')[0]}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="flex-1">
-                                    {review.photoUrl && <div className="h-24 w-full rounded-lg bg-gray-800 mb-2 overflow-hidden"><img src={review.photoUrl} className="w-full h-full object-cover" /></div>}
-                                    <p className="text-gray-300 text-sm line-clamp-2 italic">"{review.comment}"</p>
+                            )}
+                        />
+
+
+                    </>)}
+
+
+                    {/* 5. Resenas / Feed */}
+                    {activeTab === 'news' ? (
+                        <div className="max-w-2xl mx-auto mt-12 pb-20">
+                            {filteredItems.length === 0 ? (
+                                <div className="text-center text-gray-500 py-10 border border-white/5 rounded-xl bg-white/5 mx-4">
+                                    <p className="font-bold text-white mb-2">Tu feed está tranquilo</p>
+                                    <p className="text-sm">No hay actividad reciente de personas que sigues.</p>
+                                    <p className="text-xs mt-4 text-indigo-400">¡Explora y sigue a usuarios para ver sus reseñas aquí!</p>
                                 </div>
-                            </div>
-                        )}
-                    />
+                            ) : (
+                                <div className="space-y-8">
+                                    {filteredItems.map((review: any) => (
+                                        <ReviewCard key={review.id} review={review} />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <CardCarousel
+                            title="Reseñas que gustan"
+                            items={filteredItems}
+                            loading={loadingReviews}
+                            renderItem={(review: any) => (
+                                <div className="bg-[#191919] border border-white/5 rounded-xl p-4 h-full flex flex-col justify-between group hover:border-white/10 transition-colors">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <img src={review.authorPhoto || "https://ui-avatars.com/api/?name=User"} className="w-8 h-8 rounded-full" />
+                                            <div className="text-xs">
+                                                <div className="text-white font-bold">{review.authorName}</div>
+                                                <div className="text-gray-500">@{review.authorName}</div>
+                                            </div>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-500 font-bold text-xs">
+                                            {review.overallRating}
+                                        </div>
+                                    </div>
+                                    <div className="flex-1">
+                                        {review.photoUrl && <div className="h-24 w-full rounded-lg bg-gray-800 mb-2 overflow-hidden"><img src={review.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
+                                        <p className="text-gray-300 text-sm line-clamp-2 italic">"{review.comment}"</p>
+                                    </div>
+                                </div>
+                            )}
+                        />
+                    )}
 
                 </div>
             </div>

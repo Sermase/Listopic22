@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, Share2, Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Share2, Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Utensils } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
 import { ListItemCard } from '../components/ListItemCard';
 import { MapView } from '../components/MapView';
@@ -31,6 +31,7 @@ export const ListPage: React.FC = () => {
         criteriaMin: {}
     });
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+    const [groupingMode, setGroupingMode] = useState<'place' | 'dish'>('dish');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isMapOpen, setIsMapOpen] = useState(false);
@@ -51,14 +52,14 @@ export const ListPage: React.FC = () => {
     };
 
     const toggleRange = () => {
-        if (!location) requestLocation();
-
         let next: number | null = null;
-        if (range === null) next = 1;
-        else if (range === 1) next = 5;
+        if (range === null) next = 2;
+        else if (range === 2) next = 5;
         else if (range === 5) next = 10;
         else if (range === 10) next = 50;
-        else next = null;
+        else if (range === 50) next = 500;
+        else if (range === 500) next = null;
+        else next = null; // Reset if some other value
 
         handleRangeChange(next);
     };
@@ -94,12 +95,20 @@ export const ListPage: React.FC = () => {
         }> = {};
 
         reviews.forEach(review => {
-            const key = review.placeId || review.itemName.trim().toLowerCase();
+            let key = review.placeId || review.itemName.trim().toLowerCase();
+
+            // Grouping Logic
+            if (groupingMode === 'dish') {
+                // Unique key per dish per place
+                key = review.placeId
+                    ? `${review.placeId}_${review.itemName.trim().toLowerCase()}`
+                    : review.itemName.trim().toLowerCase();
+            }
 
             if (!groups[key]) {
                 groups[key] = {
                     id: key,
-                    name: review.placeName || review.itemName,
+                    name: groupingMode === 'dish' ? review.itemName : (review.placeName || review.itemName),
                     placeId: review.placeId,
                     placeName: review.placeName,
                     placeCity: review.placeCity,
@@ -198,7 +207,7 @@ export const ListPage: React.FC = () => {
             return b.avgRating - a.avgRating;
         });
 
-    }, [reviews, list, sortMode]);
+    }, [reviews, list, sortMode, groupingMode]);
 
     // --- Filtering Logic ---
     const filteredItemsAll = useMemo(() => {
@@ -356,6 +365,19 @@ export const ListPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Hero Actions */}
+                        {user && (
+                            <div className="flex items-center gap-3 pb-2 sm:pb-0">
+                                <button
+                                    onClick={() => setIsAddModalOpen(true)}
+                                    className="px-6 py-3 bg-white hover:bg-gray-100 text-indigo-950 font-bold rounded-xl shadow-xl shadow-black/20 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 group/add"
+                                >
+                                    <Plus className="w-5 h-5 text-indigo-600 group-hover/add:rotate-90 transition-transform" />
+                                    <span>Añadir Reseña</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -493,7 +515,18 @@ export const ListPage: React.FC = () => {
                                 </button>
                             </div>
 
-                            {/* View */}
+                            {/* Grouping Toggle */}
+                            <button
+                                onClick={() => setGroupingMode(prev => prev === 'place' ? 'dish' : 'place')}
+                                className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all ${groupingMode === 'place' ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'}`}
+                                title={groupingMode === 'place' ? "Agrupado por Lugar" : "Ver Platos Sueltos"}
+                            >
+                                <Store className="w-4 h-4" />
+                            </button>
+
+                            <div className="h-4 w-px bg-white/10 mx-1"></div>
+
+                            {/* View Toggle */}
                             <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/5">
                                 <button
                                     onClick={() => setViewMode('list')}
@@ -533,7 +566,14 @@ export const ListPage: React.FC = () => {
                         <>
                             <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-3"}>
                                 {filteredItems.map((item, idx) => (
-                                    <ListItemCard key={item.id} item={item} rank={idx + 1} isGrid={viewMode === 'grid'} />
+                                    <ListItemCard
+                                        key={item.id}
+                                        item={item}
+                                        rank={idx + 1}
+                                        isGrid={viewMode === 'grid'}
+                                        groupingMode={groupingMode}
+                                        listId={listId}
+                                    />
                                 ))}
                             </div>
 

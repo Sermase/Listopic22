@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs, doc, getDoc, collectionGroup } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -80,6 +80,20 @@ export const GroupPage: React.FC = () => {
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [placeName, setPlaceName] = useState('');
     const [loading, setLoading] = useState(true);
+
+    // Navigation Context
+    const location = useLocation();
+    const searchParams = new URLSearchParams(location.search);
+    const fromListId = searchParams.get('listId');
+    const [fromListName, setFromListName] = useState('');
+
+    useEffect(() => {
+        if (fromListId) {
+            getDoc(doc(db, 'lists', fromListId)).then(s => {
+                if (s.exists()) setFromListName(s.data().name);
+            });
+        }
+    }, [fromListId]);
 
     // Logic for "Valorar"
     const [isFlowOpen, setIsFlowOpen] = useState(false);
@@ -270,10 +284,16 @@ export const GroupPage: React.FC = () => {
                     <div className="w-full h-full bg-gray-800" />
                 )}
 
-                <div className="absolute top-24 left-4 z-20">
-                    <Link to={`/place/${placeId}`} className="inline-flex items-center text-white/80 hover:text-white transition-colors bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium border border-white/10 hover:border-white/30">
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Volver al Lugar
+                <div className="absolute top-24 left-4 z-20 flex flex-col items-start gap-2">
+                    {fromListId && (
+                        <Link to={`/list/${fromListId}`} className="inline-flex items-center text-white hover:text-white transition-colors bg-indigo-600/90 backdrop-blur-md px-4 py-2 rounded-full text-sm font-bold border border-white/20 hover:scale-105 shadow-xl">
+                            <ArrowLeft className="w-4 h-4 mr-2" />
+                            Volver a {fromListName || 'Lista'}
+                        </Link>
+                    )}
+                    <Link to={`/place/${placeId}`} className={`inline-flex items-center text-white/80 hover:text-white transition-colors bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium border border-white/10 hover:border-white/30 ${fromListId ? 'text-xs py-1.5 px-3 opacity-80' : ''}`}>
+                        {fromListId ? <MapPin className="w-3 h-3 mr-1.5" /> : <ArrowLeft className="w-4 h-4 mr-2" />}
+                        {fromListId ? 'Ver Lugar' : 'Volver al Lugar'}
                     </Link>
                 </div>
 

@@ -70,6 +70,31 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                     return;
                 }
 
+                // 2.5 Enrich with Authors (Fix for missing authors)
+                const userIds = [...new Set(reviews.map(r => r.userId || r.authorId).filter(Boolean))] as string[];
+                const usersMap: Record<string, any> = {};
+
+                if (userIds.length > 0) {
+                    await Promise.all(userIds.slice(0, 20).map(async (uid) => {
+                        try {
+                            const userSnap = await getDoc(doc(db, 'users', uid));
+                            if (userSnap.exists()) {
+                                usersMap[uid] = userSnap.data();
+                            }
+                        } catch (e) { console.warn("Failed fetch user", uid); }
+                    }));
+                }
+
+                const enrichedReviews = reviews.map(r => {
+                    const uid = r.userId || r.authorId;
+                    const user = uid ? usersMap[uid] : null;
+                    return {
+                        ...r,
+                        authorName: user?.displayName || user?.name || user?.username || r.authorName || 'Anónimo',
+                        authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto
+                    };
+                });
+
                 // 3. Fetch Related Lists (Limit 10)
                 const listIds = [...new Set(reviews.map(r => r.listId).filter(Boolean))];
                 const relatedLists: { id: string; name: string; authorName?: string }[] = [];
@@ -129,7 +154,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                     address,
                     avgScore,
                     reviewCount: reviews.length,
-                    reviews,
+                    reviews: enrichedReviews,
                     relatedLists,
                     coords,
                     website,

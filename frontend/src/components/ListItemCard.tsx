@@ -18,9 +18,11 @@ interface ListItemCardProps {
     };
     rank?: number;
     isGrid?: boolean;
+    groupingMode?: 'place' | 'dish';
+    listId?: string;
 }
 
-export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid }) => {
+export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, groupingMode = 'place', listId }) => {
 
     // Helper for score colors (Legacy logic)
     const getScoreColor = (score: number) => {
@@ -41,9 +43,15 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid }
         <article className={`group relative bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-indigo-500/30 rounded-xl overflow-hidden mb-3 transition-all hover:shadow-lg flex shadow-sm ${isGrid ? 'flex-col' : 'flex-col sm:flex-row'}`}>
 
             {/* Rank Badge (Optional) */}
+            {/* Rank Badge (Podium) */}
             {rank && (
-                <div className="absolute top-0 left-0 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-2 py-1 rounded-br-lg z-20 border-r border-b border-white/10">
-                    #{rank}
+                <div className={`absolute top-0 left-0 z-20 px-3 py-1.5 rounded-br-xl font-bold text-sm shadow-lg flex items-center justify-center min-w-[36px]
+                    ${rank === 1 ? 'bg-yellow-400 text-yellow-950 shadow-yellow-500/20' :
+                        rank === 2 ? 'bg-gray-200 text-gray-800 shadow-white/10' :
+                            rank === 3 ? 'bg-orange-400 text-orange-950 shadow-orange-500/20' :
+                                'bg-black/60 backdrop-blur-md text-white border-r border-b border-white/10 text-xs'
+                    }`}>
+                    <span className={rank <= 3 ? "scale-110 block" : ""}>#{rank}</span>
                 </div>
             )}
 
@@ -69,7 +77,16 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid }
                     <div className="min-w-0">
                         <h3 className="font-display font-bold text-lg text-[var(--text-primary)] truncate pr-2 group-hover:text-indigo-500 transition-colors">
                             {item.placeId ? (
-                                <Link to={`/place/${item.placeId}`} className="hover:underline inset-0">{item.name}</Link>
+                                groupingMode === 'dish' ? (
+                                    <Link
+                                        to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`}
+                                        className="hover:underline inset-0"
+                                    >
+                                        {item.name}
+                                    </Link>
+                                ) : (
+                                    <Link to={`/place/${item.placeId}`} className="hover:underline inset-0">{item.name}</Link>
+                                )
                             ) : (
                                 item.name
                             )}

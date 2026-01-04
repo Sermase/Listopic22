@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
-import { Send, MoreVertical, Search, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, UserPlus, X, Users } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 export const ChatsPage: React.FC = () => {
@@ -14,6 +14,11 @@ export const ChatsPage: React.FC = () => {
     const [activeChat, setActiveChat] = useState<string | null>(chatId || null);
     const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Group Creation State
+    const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+    const [newGroupName, setNewGroupName] = useState('');
+    const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
     // Initial load of chats
     useEffect(() => {
@@ -67,8 +72,17 @@ export const ChatsPage: React.FC = () => {
         <div className="min-h-screen bg-[var(--bg-primary)] pt-20 flex h-screen overflow-hidden">
             {/* Chat List Sidebar */}
             <div className={`w-full md:w-80 lg:w-96 bg-[#151b2e] border-r border-white/10 flex flex-col ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
-                <div className="p-4 border-b border-white/10">
-                    <h1 className="text-xl font-bold text-white mb-4">Mensajes</h1>
+                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#151b2e]">
+                    <h1 className="text-xl font-bold text-white">Mensajes</h1>
+                    <button
+                        onClick={() => setIsGroupModalOpen(true)}
+                        className="p-2 bg-indigo-600 rounded-lg text-white hover:bg-indigo-500 transition-colors"
+                        title="Crear Grupo"
+                    >
+                        <UserPlus className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="px-4 pb-4 border-b border-white/10">
                     <div className="relative">
                         <input
                             type="text"
@@ -178,6 +192,56 @@ export const ChatsPage: React.FC = () => {
                     </div>
                 )}
             </div>
-        </div>
+
+            {/* Create Group Modal */}
+            {
+                isGroupModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-[#151b2e] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl overflow-hidden">
+                            <div className="p-4 border-b border-white/5 flex justify-between items-center">
+                                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <Users className="w-5 h-5 text-indigo-400" /> Crear Grupo
+                                </h2>
+                                <button onClick={() => setIsGroupModalOpen(false)} className="text-gray-400 hover:text-white">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-6">
+                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Nombre del Grupo</label>
+                                <input
+                                    type="text"
+                                    value={newGroupName}
+                                    onChange={(e) => setNewGroupName(e.target.value)}
+                                    placeholder="Ej. Amigos de Listopic"
+                                    className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 mb-6"
+                                />
+
+                                <button
+                                    onClick={async () => {
+                                        if (!user || !newGroupName.trim()) return;
+                                        setIsCreatingGroup(true);
+                                        try {
+                                            // Create group with just creator for now. User can add others later (TODO)
+                                            const chatId = await ChatService.createGroupChat(user.uid, newGroupName, []);
+                                            setIsGroupModalOpen(false);
+                                            setNewGroupName('');
+                                            navigate(`/chats/${chatId}`);
+                                        } catch (e) {
+                                            console.error(e);
+                                        } finally {
+                                            setIsCreatingGroup(false);
+                                        }
+                                    }}
+                                    disabled={isCreatingGroup || !newGroupName.trim()}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
+                                >
+                                    {isCreatingGroup ? 'Creando...' : 'Crear Grupo'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };

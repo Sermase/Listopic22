@@ -67,6 +67,21 @@ export const ChatService = {
         return docRef.id;
     },
 
+    createGroupChat: async (creatorId: string, groupName: string, participantIds: string[]) => {
+        const allParticipants = [...new Set([creatorId, ...participantIds])];
+
+        const docRef = await addDoc(collection(db, 'chats'), {
+            participants: allParticipants,
+            type: 'group',
+            groupName,
+            groupPhoto: '',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            unreadCount: allParticipants.reduce((acc, uid) => ({ ...acc, [uid]: 0 }), {})
+        });
+        return docRef.id;
+    },
+
     // Send a message
     sendMessage: async (chatId: string, senderId: string, text: string, type: 'text' | 'image' = 'text') => {
         const messagesRef = collection(db, 'chats', chatId, 'messages');

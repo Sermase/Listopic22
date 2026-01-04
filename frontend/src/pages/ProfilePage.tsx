@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
@@ -8,9 +8,11 @@ import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlu
 import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ReviewCard } from '../components/ReviewCard';
+import { ChatService } from '../services/ChatService';
 
 export const ProfilePage: React.FC = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const { userId: paramUserId } = useParams<{ userId: string }>();
     const [activeTab, setActiveTab] = useState<'lists' | 'reviews'>('reviews');
     const [isFollowing, setIsFollowing] = useState(false);
@@ -60,6 +62,16 @@ export const ProfilePage: React.FC = () => {
         } catch (err) {
             console.error("Error saving preferences:", err);
             alert("Error al guardar preferencias");
+        }
+    };
+
+    const handleMessage = async () => {
+        if (!user || !targetUserId) return;
+        try {
+            const chatId = await ChatService.createPrivateChat(user.uid, targetUserId);
+            navigate(`/chats/${chatId}`);
+        } catch (error) {
+            console.error("Error creating chat:", error);
         }
     };
 
@@ -196,7 +208,10 @@ export const ProfilePage: React.FC = () => {
                                         <><UserPlus className="w-4 h-4" /> Seguir</>
                                     )}
                                 </button>
-                                <button className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10">
+                                <button
+                                    onClick={handleMessage}
+                                    className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors"
+                                >
                                     <MessageCircle className="w-5 h-5" />
                                 </button>
                             </>

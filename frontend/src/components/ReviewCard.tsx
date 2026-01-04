@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import { useAuth } from '../context/AuthContext';
@@ -166,7 +166,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete }) => {
                                     {review.authorPhoto ? (
                                         <img src={review.authorPhoto} alt="User" className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-xs font-bold text-gray-400">?</div>
+                                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                            <User className="w-5 h-5" />
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -179,7 +181,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete }) => {
                                     onClick={(e) => e.stopPropagation()}
                                     className="font-bold text-sm text-gray-100 hover:underline cursor-pointer"
                                 >
-                                    {review.authorName || 'Usuario'}
+                                    {review.authorName || 'Anónimo'}
                                 </Link>
                                 {review.listName && (
                                     <span className="text-sm text-gray-400 flex items-center gap-1">
