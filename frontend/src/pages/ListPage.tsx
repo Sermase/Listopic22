@@ -439,88 +439,92 @@ export const ListPage: React.FC = () => {
             {/* Content List */}
             <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8">
 
-                {/* Toolbar: Stats & Actions */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sticky top-20 z-30 bg-[#0b1021]/95 backdrop-blur-sm p-4 rounded-xl border border-white/5 shadow-xl">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        Items
-                        <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full text-indigo-300 border border-white/5">
-                            {filteredItems.length}
-                        </span>
-                    </h2>
+                {/* Modern Toolbar */}
+                <div className="sticky top-20 z-30 mb-8 mx-auto max-w-4xl">
+                    <div className="bg-[#151b2e]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-300 hover:border-white/20">
 
-                    <div className="flex flex-col sm:flex-row items-stretch gap-3">
-                        {/* Search Bar */}
-                        <div className="relative group/search">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within/search:text-indigo-400 transition-colors" />
-                            <input
-                                type="text"
-                                placeholder="Buscar..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full sm:w-40 bg-[#151b2e] border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all placeholder:text-gray-600"
-                            />
+                        {/* Search & Count */}
+                        <div className="flex items-center flex-1 w-full gap-3 px-2">
+                            <div className="bg-white/5 text-xs px-2.5 py-1 rounded-full text-indigo-300 font-bold border border-white/5 flex-shrink-0">
+                                {filteredItems.length}
+                            </div>
+                            <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block"></div>
+                            <div className="relative flex-1 group/search">
+                                <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within/search:text-indigo-400 transition-colors" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar en esta lista..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-transparent border-none p-0 pl-7 text-sm text-white placeholder:text-gray-600 focus:ring-0 transition-colors"
+                                />
+                            </div>
                         </div>
 
-                        {/* Filter Button */}
-                        <button
-                            onClick={() => setIsFilterModalOpen(true)}
-                            className="bg-[#151b2e] p-2 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:border-indigo-500/50 transition-colors"
-                            title="Filtros avanzados"
-                        >
-                            <ArrowDownWideNarrow className="w-4 h-4 rotate-180" />
-                        </button>
+                        {/* Actions Island */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 border-white/5 pt-2 sm:pt-0">
 
-                        {/* Sort Controls */}
-                        <div className="bg-[#151b2e] p-1 rounded-lg flex border border-white/10 shrink-0">
+                            {/* Filter */}
                             <button
-                                onClick={() => setSortMode('rating')}
-                                className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${sortMode === 'rating' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-                                title="Por Nota"
+                                onClick={() => setIsFilterModalOpen(true)}
+                                className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 hover:text-white transition-all active:scale-95"
+                                title="Filtros"
                             >
-                                <ArrowDownWideNarrow className="w-4 h-4" />
+                                <ArrowDownWideNarrow className="w-4 h-4 rotate-180" />
                             </button>
-                            <button
-                                onClick={() => setSortMode('newest')}
-                                className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${sortMode === 'newest' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-                                title="Recientes"
-                            >
-                                <Clock className="w-4 h-4" />
-                            </button>
+
+                            <div className="h-4 w-px bg-white/10 mx-1"></div>
+
+                            {/* Sort */}
+                            <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/5">
+                                <button
+                                    onClick={() => setSortMode('rating')}
+                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${sortMode === 'rating' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                    title="Tops"
+                                >
+                                    <Heart className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    onClick={() => setSortMode('newest')}
+                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${sortMode === 'newest' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                    title="Nuevos"
+                                >
+                                    <Clock className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+
+                            {/* View */}
+                            <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/5">
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    <ListIcon className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    <div className="w-3.5 h-3.5 grid grid-cols-2 gap-0.5 opacity-80">
+                                        <div className="bg-current rounded-[0.5px]"></div>
+                                        <div className="bg-current rounded-[0.5px]"></div>
+                                        <div className="bg-current rounded-[0.5px]"></div>
+                                        <div className="bg-current rounded-[0.5px]"></div>
+                                    </div>
+                                </button>
+                            </div>
+
+                            {/* Add Actions */}
+                            {user && (
+                                <button
+                                    onClick={() => setIsAddModalOpen(true)}
+                                    className="ml-2 h-9 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 hover:scale-105 transition-all"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">Añadir</span>
+                                </button>
+                            )}
                         </div>
-
-                        {/* View Toggle */}
-                        <div className="bg-[#151b2e] p-1 rounded-lg flex border border-white/10 shrink-0">
-                            <button
-                                onClick={() => setViewMode('list')}
-                                className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-                                title="Ver lista"
-                            >
-                                <ListIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => setViewMode('grid')}
-                                className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-                                title="Ver cuadrícula"
-                            >
-                                <div className="w-4 h-4 grid grid-cols-2 gap-0.5">
-                                    <div className="bg-current rounded-[1px]"></div>
-                                    <div className="bg-current rounded-[1px]"></div>
-                                    <div className="bg-current rounded-[1px]"></div>
-                                    <div className="bg-current rounded-[1px]"></div>
-                                </div>
-                            </button>
-                        </div>
-
-                        {/* Add Button */}
-                        {user && (
-                            <button
-                                onClick={() => setIsAddModalOpen(true)}
-                                className="px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors flex items-center justify-center shrink-0"
-                                title="Añadir reseña"
-                            >
-                                <Plus className="w-5 h-5" />
-                            </button>
-                        )}
                     </div>
                 </div>
 
