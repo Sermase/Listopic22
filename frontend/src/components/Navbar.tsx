@@ -70,15 +70,14 @@ export const Navbar: React.FC = () => {
 
                     {/* Brand */}
                     <Link to="/" className="flex items-center gap-3 group brand-logo relative z-50">
-                        <div className="brand-mark relative">
-                            <div className="absolute inset-0 bg-indigo-500 blur-lg opacity-40 group-hover:opacity-60 transition-opacity"></div>
-                            <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white font-bold text-lg shadow-inner">
-                                L
-                                <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-400 rounded-full shadow-sm"></div>
+                        <div className="relative group-hover:scale-105 group-hover:rotate-6 transition-all duration-300">
+                            <div className="absolute inset-0 bg-blue-600 blur-lg opacity-40 group-hover:opacity-60 transition-opacity rounded-xl"></div>
+                            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+                                <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
                             </div>
                         </div>
-                        <span className="text-xl font-display font-bold tracking-tight text-white group-hover:tracking-wide transition-all">
-                            Listopic
+                        <span className="text-xl font-display font-bold tracking-tight text-white group-hover:text-indigo-200 transition-colors">
+                            LISTOPIC
                         </span>
                     </Link>
 
@@ -87,7 +86,7 @@ export const Navbar: React.FC = () => {
                         <NavItem to="/search" icon={Search} label="Buscar" />
                         <div className="w-px h-4 bg-white/10 mx-1" />
                         <NavItem to="/archive" icon={Archive} label="Archivo" />
-                        <NavItem to="/chats" icon={MessageSquare} label="Chats" badge />
+                        <NavItem to="/chats" icon={MessageSquare} label="Chats" />
                     </nav>
 
                     {/* Right Actions */}

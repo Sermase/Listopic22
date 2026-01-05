@@ -221,50 +221,49 @@ export const HomePage: React.FC = () => {
         <div className="min-h-screen bg-[#0b1021] pb-20 font-sans">
             <div className="pt-24 px-4 pb-6">
 
-                {/* Hero Card */}
-                <div className="max-w-5xl mx-auto mb-8">
-                    <div className="relative bg-[#151b2e] border border-white/5 rounded-3xl p-12 text-center overflow-hidden shadow-2xl">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-indigo-900/20 blur-[100px] rounded-full pointer-events-none" />
-
-                        <h1 className="relative z-10 text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 mb-4 tracking-tight" style={{ fontFamily: '"Inter", sans-serif' }}>
+                {/* Hero Section (Clean) */}
+                <div className="max-w-4xl mx-auto mb-8 text-center pt-4">
+                    <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-3 select-none">
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 drop-shadow-[0_0_25px_rgba(99,102,241,0.4)]">
                             LISTOPIC
-                        </h1>
-                        <p className="relative z-10 text-gray-400 text-lg">
-                            Crea tu lista y entra en el carrusel.
-                        </p>
-                    </div>
+                        </span>
+                    </h1>
+                    <p className="text-lg md:text-xl text-gray-400 font-light tracking-wide max-w-xl mx-auto">
+                        Donde tus ideas cobran <span className="text-indigo-400 font-bold">vida</span> y el mundo las <span className="text-purple-400 font-bold">descubre</span>.
+                    </p>
+                </div>
 
-                    {/* Navigation Pills */}
-                    <div className="flex justify-center mt-8 gap-4">
-                        <div className="inline-flex bg-[#151b2e] p-1 rounded-full border border-white/10">
-                            <button
-                                onClick={() => setActiveTab('explore')}
-                                className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'explore'
-                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
-                                    : 'text-gray-400 hover:text-white'
-                                    }`}
-                            >
-                                Explorar
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('news')}
-                                className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'news'
-                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
-                                    : 'text-gray-400 hover:text-white'
-                                    }`}
-                            >
-                                Novedades
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Filter Chips (Categories) */}
-                    <div className="flex flex-wrap justify-between items-center mt-8 gap-4">
-                        <div className="flex-1"></div>
-
-
+                {/* Navigation Pills */}
+                <div className="flex justify-center mt-8 gap-4">
+                    <div className="inline-flex bg-[#151b2e] p-1 rounded-full border border-white/10">
+                        <button
+                            onClick={() => setActiveTab('explore')}
+                            className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'explore'
+                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                                : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            Explorar
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('news')}
+                            className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'news'
+                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                                : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            Novedades
+                        </button>
                     </div>
                 </div>
+
+                {/* Filter Chips (Categories) */}
+                <div className="flex flex-wrap justify-between items-center mt-8 gap-4">
+                    <div className="flex-1"></div>
+
+
+                </div>
+
 
                 {/* Map Collapsible */}
                 {activeTab === 'explore' && (
@@ -501,6 +500,6 @@ export const HomePage: React.FC = () => {
 
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
