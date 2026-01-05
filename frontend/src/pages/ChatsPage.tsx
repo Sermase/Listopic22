@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
 import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, UserPlus, X, Users } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export const ChatsPage: React.FC = () => {
     const { user } = useAuth();
@@ -19,6 +21,42 @@ export const ChatsPage: React.FC = () => {
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [newGroupName, setNewGroupName] = useState('');
     const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+    const [usersMap, setUsersMap] = useState<Record<string, any>>({});
+
+    // Fetch User Details for Private Chats
+    useEffect(() => {
+        const fetchChatUsers = async () => {
+            if (!user || chats.length === 0) return;
+
+            const userIdsToFetch = new Set<string>();
+            chats.forEach(c => {
+                if (c.type === 'private') {
+                    const targetId = c.participants.find(p => p !== user.uid);
+                    if (targetId && !usersMap[targetId]) {
+                        userIdsToFetch.add(targetId);
+                    }
+                }
+            });
+
+            if (userIdsToFetch.size === 0) return;
+
+            const newUsers: Record<string, any> = {};
+            await Promise.all(Array.from(userIdsToFetch).map(async (uid) => {
+                try {
+                    const snap = await getDoc(doc(db, 'users', uid));
+                    if (snap.exists()) {
+                        newUsers[uid] = snap.data();
+                    }
+                } catch (e) {
+                    console.warn("Failed to fetch user", uid);
+                }
+            }));
+
+            setUsersMap(prev => ({ ...prev, ...newUsers }));
+        };
+
+        fetchChatUsers();
+    }, [chats, user]);
 
     // Initial load of chats
     useEffect(() => {
@@ -63,10 +101,16 @@ export const ChatsPage: React.FC = () => {
     };
 
     const getChatName = (chat: Chat) => {
-        // Logic to get name of OTHER person in 1:1 or group name
-        // Mocking for now as we don't have easy access to other user's profile here without more fetches
-        return chat.type === 'group' ? chat.groupName : `Chat ${chat.id.slice(0, 4)}...`;
+        if (chat.type === 'group') return chat.groupName || 'Grupo sin nombre';
+
+        const targetId = chat.participants.find(p => p !== user?.uid);
+        if (targetId && usersMap[targetId]) {
+            return usersMap[targetId].displayName || usersMap[targetId].name || 'Usuario';
+        }
+        return `Chat`;
     };
+
+    const activeChatObj = chats.find(c => c.id === activeChat);
 
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] pt-20 flex h-screen overflow-hidden">
@@ -133,7 +177,7 @@ export const ChatsPage: React.FC = () => {
                                     <ArrowLeft className="w-6 h-6" />
                                 </button>
                                 <div>
-                                    <h2 className="text-white font-bold">Conversación Activa</h2>
+                                    <h2 className="text-white font-bold">{activeChatObj ? getChatName(activeChatObj) : 'Conversación'}</h2>
                                     <span className="text-xs text-green-500 flex items-center gap-1">
                                         <span className="w-2 h-2 rounded-full bg-green-500 text-green-500 animate-pulse"></span> En línea
                                     </span>

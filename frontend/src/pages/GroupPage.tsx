@@ -140,6 +140,49 @@ export const GroupPage: React.FC = () => {
                     console.log("Fallback: Filtered Matches:", feats.length);
                 }
 
+                // --- Enrichment: Users & Lists (FIX for missing names) ---
+                const userIds = [...new Set(feats.map(r => r.userId || r.authorId).filter(Boolean))] as string[];
+                const usersMap: Record<string, any> = {};
+
+                if (userIds.length > 0) {
+                    await Promise.all(userIds.slice(0, 20).map(async (uid) => {
+                        try {
+                            const userSnap = await getDoc(doc(db, 'users', uid));
+                            if (userSnap.exists()) {
+                                usersMap[uid] = userSnap.data();
+                            }
+                        } catch (e) { console.warn("Failed enrich user", uid); }
+                    }));
+                }
+
+                const listIds = [...new Set(feats.map(r => r.listId).filter(Boolean))] as string[];
+                const listsMap: Record<string, string> = {};
+
+                if (listIds.length > 0) {
+                    await Promise.all(listIds.slice(0, 20).map(async (lid) => {
+                        try {
+                            const lSnap = await getDoc(doc(db, 'lists', lid));
+                            if (lSnap.exists()) {
+                                listsMap[lid] = lSnap.data().name;
+                            }
+                        } catch (e) { console.warn("Failed enrich list", lid); }
+                    }));
+                }
+
+                // Apply Enrichment
+                feats = feats.map(r => {
+                    const uid = r.userId || r.authorId;
+                    const user = uid ? usersMap[uid] : null;
+                    const lName = r.listId ? listsMap[r.listId] : undefined;
+
+                    return {
+                        ...r,
+                        authorName: user?.displayName || user?.name || user?.username || r.authorName || 'Anónimo',
+                        authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
+                        listName: lName || r.listName
+                    };
+                });
+
                 setReviews(feats);
 
                 const pSnap = await getDoc(doc(db, 'places', placeId));
@@ -418,7 +461,7 @@ export const GroupPage: React.FC = () => {
                     </div>
 
                     {reviews.length > 0 ? (
-                        <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {reviews.map(review => (
                                 <ReviewCard key={review.id} review={review} />
                             ))}

@@ -308,52 +308,45 @@ export const HomePage: React.FC = () => {
                     </div>
                 )}
 
-                <div className="max-w-[1400px] mx-auto space-y-8">
+                <div className="max-w-[95%] mx-auto space-y-6">
 
 
                     {activeTab === 'explore' && (<>
                         {/* 1. Listas */
                         }
+                        {/* 1. Listas */}
                         <CardCarousel
                             title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
                             items={filteredLists}
                             loading={loadingLists}
                             renderItem={(list: any) => (
-                                <Link to={`/list/${list.id}`} className="block relative group h-48 rounded-xl overflow-hidden border border-white/10 bg-gray-900">
+                                <Link to={`/list/${list.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
                                     {(list.mainImageUrl || list.photoUrl) ? (
-                                        <img src={list.mainImageUrl || list.photoUrl} alt={list.name} className="w-full h-full object-cover opacity-60 group-hover:opacity-40 group-hover:scale-105 transition-all duration-500" />
+                                        <div className="absolute inset-0">
+                                            <img src={list.mainImageUrl || list.photoUrl} alt={list.name} className="w-full h-full object-cover" />
+                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent" />
+                                        </div>
                                     ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900" />
+                                        <div className="w-full h-full bg-zinc-800" />
                                     )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-                                    <div className="absolute top-2 right-2 bg-gray-900/80 backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold text-gray-300 uppercase">
-                                        {list.itemCount || 0} items
+
+                                    <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white uppercase tracking-wider backdrop-blur-sm">
+                                        {list.itemCount}
                                     </div>
-                                    <div className="absolute top-2 left-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg">
+                                    <div className="absolute top-2 left-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
                                         #{list.ranking || 1}
                                     </div>
-                                    <div className="absolute bottom-3 left-3 right-3">
-                                        <h3 className="text-white font-bold text-lg leading-tight mb-1 truncate">{list.name}</h3>
-                                        <div className="flex items-center gap-3 text-xs text-gray-400 font-bold mb-2">
-                                            <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {list.likes || 0}</span>
-                                            <span className="flex items-center gap-1"><ListIcon className="w-3 h-3" /> {list.reviewCount || 0}</span>
-                                        </div>
 
-                                        {/* Tags */}
+                                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                                        <h3 className="text-white font-bold text-sm leading-tight mb-1 drop-shadow-sm line-clamp-1">{list.name}</h3>
+
+                                        {/* Tags - Tiny & Compact */}
                                         {list.availableTags && list.availableTags.length > 0 && (
-                                            <div className="flex gap-1 overflow-hidden">
+                                            <div className="flex gap-1 overflow-hidden opacity-80 group-hover:opacity-100 transition-opacity">
                                                 {list.availableTags.slice(0, 2).map((tag: string) => (
-                                                    <button
-                                                        key={tag}
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            navigate(`/search?q=${tag}`);
-                                                        }}
-                                                        className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 hover:bg-white/20 text-white/80 transition-colors backdrop-blur-sm"
-                                                    >
+                                                    <span key={tag} className="text-[9px] text-gray-300 font-medium">
                                                         #{tag}
-                                                    </button>
+                                                    </span>
                                                 ))}
                                             </div>
                                         )}
@@ -368,55 +361,31 @@ export const HomePage: React.FC = () => {
                             items={filteredItems}
                             loading={loadingReviews}
                             renderItem={(item: any) => (
-                                <div className="block relative group h-48 rounded-xl overflow-hidden border border-white/10 bg-gray-900">
+                                <div className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
                                     {item.photoUrl ? (
-                                        <img src={item.photoUrl} alt={item.itemName} className="w-full h-full object-cover opacity-70 group-hover:opacity-50 transition-all duration-500" />
+                                        <div className="absolute inset-0">
+                                            <img src={item.photoUrl} alt={item.itemName} className="w-full h-full object-cover" />
+                                            <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/50 to-transparent" />
+                                        </div>
                                     ) : (
-                                        <div className="w-full h-full bg-slate-800" />
+                                        <div className="w-full h-full bg-zinc-800" />
                                     )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
-                                    <div className="absolute top-2 right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-xs font-black text-white shadow-lg border-2 border-white/10">
-                                        {item.overallRating?.toFixed(1) || 9.0}
+
+                                    <div className="absolute top-2 right-2 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
+                                        {item.overallRating?.toFixed(1) || '-'}
                                     </div>
-                                    <div className="absolute bottom-3 left-3 right-3">
-                                        <h3 className="text-white font-bold text-base mb-0.5 truncate">{item.itemName}</h3>
-                                        <div className="flex items-center text-xs text-gray-400 mb-1.5">
-                                            <MapPin className="w-3 h-3 mr-1" />
-                                            <span className="truncate max-w-[150px]">{item.placeName}</span>
-                                            {item.placeCity && (
-                                                <>
-                                                    <span className="mx-1 opacity-50">•</span>
-                                                    <span className="text-gray-500 truncate">{item.placeCity}</span>
-                                                </>
-                                            )}
-                                        </div>
 
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-gray-500 flex items-center gap-1">
-                                                    <ListIcon className="w-3 h-3" /> {item.listName}
-                                                </span>
-                                            </div>
-
-                                            {/* Tags */}
-                                            {item.tags && item.tags.length > 0 && (
-                                                <div className="flex gap-1">
-                                                    {item.tags.slice(0, 2).map((tag: string) => (
-                                                        <button
-                                                            key={tag}
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                navigate(`/search?q=${tag}`);
-                                                            }}
-                                                            className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 hover:bg-white/20 text-white/80 transition-colors backdrop-blur-sm"
-                                                        >
-                                                            #{tag}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
+                                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                                        <h3 className="text-white font-bold text-sm mb-0.5 leading-tight line-clamp-1">{item.itemName}</h3>
+                                        <div className="flex items-center text-[10px] text-gray-400 mb-1">
+                                            <MapPin className="w-3 h-3 mr-1 opacity-70" />
+                                            <span className="truncate max-w-[120px]">{item.placeName}</span>
                                         </div>
+                                        {item.listName && (
+                                            <span className="text-[9px] text-indigo-300 font-medium truncate opacity-90 block">
+                                                en {item.listName}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -428,21 +397,16 @@ export const HomePage: React.FC = () => {
                             items={filteredUsers}
                             loading={loadingUsers}
                             renderItem={(user: any) => (
-                                <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 bg-[#151b2e] border border-white/10 p-4 rounded-xl h-24 hover:border-indigo-500/30 transition-colors">
-                                    <div className="relative">
-                                        <img src={user.photoUrl || `https://ui-avatars.com/api/?name=${user.displayName}`} alt="User" className="w-14 h-14 rounded-full object-cover border-2 border-indigo-500/20" />
-                                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-800 rounded-full flex items-center justify-center text-[10px] font-bold text-white border border-gray-700">
+                                <Link to={`/profile/${user.uid}`} className="flex flex-col items-center gap-2 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
+                                    <div className="relative w-16 h-16 md:w-20 md:h-20">
+                                        <img src={user.photoUrl || `https://ui-avatars.com/api/?name=${user.displayName}`} alt="User" className="w-full h-full rounded-full object-cover border-2 border-transparent group-hover:border-white transition-all" />
+                                        <div className="absolute -bottom-1 -right-0 w-6 h-6 bg-black rounded-full flex items-center justify-center text-[10px] font-bold text-white border border-gray-700">
                                             #1
                                         </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="text-white font-bold truncate">{user.displayName}</h4>
-                                        <p className="text-indigo-400 text-xs truncate">@{user.username || 'user'}</p>
-                                        <div className="flex items-center gap-3 mt-1.5 text-[10px] font-bold text-gray-500">
-                                            <span className="flex items-center gap-1"><ListIcon className="w-3 h-3" /> {user.listsCount || 12}</span>
-                                            <span className="flex items-center gap-1">★ {user.rating || 8.0}</span>
-                                            <span className="flex items-center gap-1">♥ {user.likes || 0}</span>
-                                        </div>
+                                    <div className="text-center w-full">
+                                        <h4 className="text-white font-bold text-xs truncate w-full">{user.displayName}</h4>
+                                        <p className="text-gray-500 text-[10px] truncate">@{user.username || 'user'}</p>
                                     </div>
                                 </Link>
                             )}
@@ -454,19 +418,23 @@ export const HomePage: React.FC = () => {
                             items={filteredPlaces}
                             loading={loadingReviews}
                             renderItem={(place: any) => (
-                                <div className="block relative group h-48 rounded-xl overflow-hidden border border-white/10 bg-gray-900">
+                                <div className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
                                     {place.photoUrl ? (
-                                        <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover opacity-70 group-hover:scale-110 transition-transform duration-700" />
+                                        <div className="absolute inset-0">
+                                            <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover" />
+                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
+                                        </div>
                                     ) : (
                                         <div className="w-full h-full bg-blue-900/20" />
                                     )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                                    <div className="absolute top-2 right-2 bg-teal-500 px-2 py-0.5 rounded text-[10px] font-bold text-white">
+
+                                    <div className="absolute top-2 right-2 bg-teal-600 px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-sm">
                                         {place.rating?.toFixed(1) || 9.5}
                                     </div>
-                                    <div className="absolute bottom-3 left-3 right-3 text-shadow">
-                                        <h3 className="text-white font-bold text-base leading-tight mb-1 truncate">{place.name}</h3>
-                                        <p className="text-gray-300 text-xs flex items-center gap-1">
+
+                                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                                        <h3 className="text-white font-bold text-sm leading-tight mb-1 truncate">{place.name}</h3>
+                                        <p className="text-gray-300 text-[10px] flex items-center gap-1 opacity-80">
                                             <MapPin className="w-3 h-3" /> {place.address?.split(',')[0]}
                                         </p>
                                     </div>

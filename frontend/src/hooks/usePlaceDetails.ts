@@ -85,29 +85,38 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                     }));
                 }
 
+                // 3. Fetch List Info for Context (Fix for missing List Name)
+                const listIds = [...new Set(reviews.map(r => r.listId).filter(Boolean))] as string[];
+                const listsMap: Record<string, string> = {};
+                const relatedLists: { id: string; name: string; authorName?: string }[] = [];
+
+                if (listIds.length > 0) {
+                    await Promise.all(listIds.slice(0, 20).map(async (lid) => {
+                        try {
+                            const listSnap = await getDoc(doc(db, 'lists', lid));
+                            if (listSnap.exists()) {
+                                const d = listSnap.data();
+                                listsMap[lid] = d.name;
+                                if (relatedLists.length < 10) {
+                                    relatedLists.push({ id: lid, name: d.name, authorName: d.authorName });
+                                }
+                            }
+                        } catch (e) { console.warn("Failed fetch list", lid); }
+                    }));
+                }
+
                 const enrichedReviews = reviews.map(r => {
                     const uid = r.userId || r.authorId;
                     const user = uid ? usersMap[uid] : null;
+                    const lName = r.listId ? listsMap[r.listId] : undefined;
+
                     return {
                         ...r,
                         authorName: user?.displayName || user?.name || user?.username || r.authorName || 'Anónimo',
-                        authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto
+                        authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
+                        listName: lName || r.listName // Enrich list name
                     };
                 });
-
-                // 3. Fetch Related Lists (Limit 10)
-                const listIds = [...new Set(reviews.map(r => r.listId).filter(Boolean))];
-                const relatedLists: { id: string; name: string; authorName?: string }[] = [];
-
-                await Promise.all(listIds.slice(0, 10).map(async (lid) => {
-                    try {
-                        const listSnap = await getDoc(doc(db, 'lists', lid));
-                        if (listSnap.exists()) {
-                            const d = listSnap.data();
-                            relatedLists.push({ id: lid, name: d.name, authorName: d.authorName });
-                        }
-                    } catch (e) { console.warn("Failed fetch list", lid); }
-                }));
 
                 // Enrichment
                 const avgScore = reviews.length
