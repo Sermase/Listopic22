@@ -262,18 +262,7 @@ export const HomePage: React.FC = () => {
                     <div className="flex flex-wrap justify-between items-center mt-8 gap-4">
                         <div className="flex-1"></div>
 
-                        <div className="flex items-center gap-3 pl-2 border-l border-white/10">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Rango</span>
-                            <button
-                                onClick={toggleRange}
-                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 shadow-lg ${range !== null
-                                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-emerald-500/20 scale-105'
-                                    : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/5'
-                                    }`}
-                            >
-                                {getRangeLabel()}
-                            </button>
-                        </div>
+
                     </div>
                 </div>
 
@@ -281,19 +270,34 @@ export const HomePage: React.FC = () => {
                 {activeTab === 'explore' && (
                     <div className="max-w-7xl mx-auto mb-8">
                         <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
-                            <div
-                                onClick={() => setIsMapOpen(!isMapOpen)}
-                                className="w-full p-3 flex items-center justify-between text-gray-300 hover:bg-white/5 transition-colors cursor-pointer select-none"
-                                role="button"
-                                tabIndex={0}
-                            >
-                                <div className="flex items-center gap-2">
+                            <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[#1e2538]/50">
+                                <button
+                                    onClick={() => setIsMapOpen(!isMapOpen)}
+                                    className="flex items-center gap-2 hover:text-white transition-colors flex-1 text-left"
+                                >
                                     <MapIcon className="w-5 h-5 text-gray-400" />
                                     <span className="font-bold text-sm">Mapa</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                                    {isMapOpen ? 'Plegar' : 'Desplegar'}
-                                    <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); toggleRange(); }}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
+                                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
+                                            : 'bg-[#0b1021] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
+                                            }`}
+                                    >
+                                        <MapPin className="w-3 h-3" />
+                                        {getRangeLabel()}
+                                    </button>
+
+                                    <button
+                                        onClick={() => setIsMapOpen(!isMapOpen)}
+                                        className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white transition-colors"
+                                    >
+                                        {isMapOpen ? 'Ocultar' : 'Ver Mapa'}
+                                        <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
+                                    </button>
                                 </div>
                             </div>
 
@@ -308,7 +312,7 @@ export const HomePage: React.FC = () => {
                     </div>
                 )}
 
-                <div className="max-w-[95%] mx-auto space-y-6">
+                <div className="max-w-[95%] mx-auto space-y-1">
 
 
                     {activeTab === 'explore' && (<>
@@ -394,10 +398,11 @@ export const HomePage: React.FC = () => {
                         {/* 3. Usuarios activos */}
                         <CardCarousel
                             title="Usuarios activos"
-                            items={filteredUsers}
+                            items={topUsers}
                             loading={loadingUsers}
+                            itemClassName="w-auto mr-3"
                             renderItem={(user: any) => (
-                                <Link to={`/profile/${user.uid}`} className="flex flex-col items-center gap-2 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
+                                <Link to={`/profile/${user.uid}`} className="flex flex-col items-center gap-1 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
                                     <div className="relative w-16 h-16 md:w-20 md:h-20">
                                         <img src={user.photoUrl || `https://ui-avatars.com/api/?name=${user.displayName}`} alt="User" className="w-full h-full rounded-full object-cover border-2 border-transparent group-hover:border-white transition-all" />
                                         <div className="absolute -bottom-1 -right-0 w-6 h-6 bg-black rounded-full flex items-center justify-center text-[10px] font-bold text-white border border-gray-700">
@@ -407,6 +412,9 @@ export const HomePage: React.FC = () => {
                                     <div className="text-center w-full">
                                         <h4 className="text-white font-bold text-xs truncate w-full">{user.displayName}</h4>
                                         <p className="text-gray-500 text-[10px] truncate">@{user.username || 'user'}</p>
+                                        <p className="text-[9px] text-indigo-400 font-medium mt-0.5">
+                                            {user.publicListsCount || 0} Listas • {user.followersCount || 0} Seg.
+                                        </p>
                                     </div>
                                 </Link>
                             )}

@@ -9,6 +9,7 @@ interface CardCarouselProps {
     items: any[];
     renderItem: (item: any) => React.ReactNode;
     loading?: boolean;
+    itemClassName?: string;
 }
 
 export const CardCarousel: React.FC<CardCarouselProps> = ({
@@ -17,10 +18,11 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
     viewAllLink,
     items,
     renderItem,
-    loading
+    loading,
+    itemClassName = "min-w-[200px] md:min-w-[240px]"
 }) => {
     return (
-        <section className="py-6">
+        <section className="py-2">
             <div className="container mx-auto px-4 mb-4 flex items-end justify-between">
                 <div>
                     <h2 className="text-xl md:text-2xl font-display font-bold text-white mb-1">
@@ -65,7 +67,7 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                 {/* Scroll Container */}
                 <div
                     id={`carousel-${title.replace(/\s+/g, '-')}`}
-                    className="flex overflow-x-auto gap-4 px-4 pb-4 snap-x snap-mandatory hide-scrollbar scroll-smooth"
+                    className="flex overflow-x-auto gap-2 px-4 pb-4 snap-x snap-mandatory hide-scrollbar scroll-smooth"
                 >
                     {loading ? (
                         // Skeleton Loaders
@@ -74,7 +76,7 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                         ))
                     ) : (
                         items.map((item, index) => (
-                            <div key={index} className="min-w-[280px] md:min-w-[320px] flex-shrink-0 snap-start">
+                            <div key={index} className={`${itemClassName} flex-shrink-0 snap-start`}>
                                 {renderItem(item)}
                             </div>
                         ))
@@ -82,8 +84,7 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                 </div>
 
                 {/* Fade Edges */}
-                <div className="absolute top-0 left-0 bottom-0 w-16 bg-gradient-to-r from-[#0b1021] to-transparent pointer-events-none z-10" />
-                <div className="absolute top-0 right-0 bottom-0 w-16 bg-gradient-to-l from-[#0b1021] to-transparent pointer-events-none z-10" />
+
             </div>
         </section>
     );

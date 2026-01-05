@@ -4,9 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
-import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle } from 'lucide-react';
+import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power } from 'lucide-react';
 import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
+import { signOut } from 'firebase/auth';
 import { ReviewCard } from '../components/ReviewCard';
 import { ChatService } from '../services/ChatService';
 
@@ -141,6 +142,27 @@ export const ProfilePage: React.FC = () => {
             {/* Header / Banner */}
             <div className={`h-64 relative bg-gradient-to-b from-indigo-900/40 to-[#0b1021] ${profile.photoUrl ? 'bg-cover bg-center' : ''}`} style={profile.photoUrl ? { backgroundImage: `linear-gradient(to bottom, rgba(11,16,33,0.3), #0b1021), url(${profile.photoUrl})` } : {}}>
                 <div className="absolute inset-0 bg-[#0b1021]/60 blur-xl"></div>
+                {isOwnProfile && (
+                    <div className="absolute top-24 right-4 flex items-center gap-2 z-20">
+                        <button
+                            onClick={() => setIsEditing(!isEditing)}
+                            className="p-2 text-white/70 hover:text-white bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-md transition-all border border-white/10"
+                            title="Preferencias"
+                        >
+                            <Settings className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={async () => {
+                                await signOut(auth);
+                                navigate('/login');
+                            }}
+                            className="p-2 text-white/70 hover:text-red-400 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-md transition-all border border-white/10"
+                            title="Cerrar Sesión"
+                        >
+                            <Power className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-32 z-10">
@@ -185,13 +207,8 @@ export const ProfilePage: React.FC = () => {
                     {/* Actions */}
                     <div className="flex gap-3 mb-4 md:mb-2 w-full md:w-auto justify-center">
                         {isOwnProfile ? (
-                            <button
-                                onClick={() => isEditing ? savePreferences() : setIsEditing(true)}
-                                className={`px-6 py-2 rounded-lg text-white border transition-colors flex items-center gap-2 ${isEditing ? 'bg-indigo-600 border-indigo-600 hover:bg-indigo-500' : 'bg-white/5 hover:bg-white/10 border-white/10'}`}
-                            >
-                                <Settings className="w-4 h-4" />
-                                {isEditing ? 'Guardar Preferencias' : 'Preferencias'}
-                            </button>
+                            // Settings moved to top right
+                            null
                         ) : (
                             <>
                                 <button

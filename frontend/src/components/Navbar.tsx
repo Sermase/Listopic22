@@ -35,6 +35,8 @@ export const Navbar: React.FC = () => {
         }
     };
 
+
+
     const NavItem = ({ to, icon: Icon, label, badge }: { to: string; icon: any; label: string; badge?: boolean }) => {
         const isActive = location.pathname === to;
         return (
@@ -162,6 +164,14 @@ export const Navbar: React.FC = () => {
                             <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
                                 <Archive className="w-5 h-5 text-indigo-400" /> Archivo
                             </Link>
+                        </div>
+
+                        <div className="space-y-2 pt-4 border-t border-white/5">
+                            {!user && (
+                                <Link to="/login" className="flex items-center gap-3 p-4 rounded-xl bg-indigo-600 text-white font-bold w-full justify-center">
+                                    Iniciar Sesión
+                                </Link>
+                            )}
                         </div>
                     </div>
 
