@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs, doc, getDoc, collectionGroup } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -75,6 +75,7 @@ const ListSelector = ({ onSelect, onCancel }: { onSelect: (listId: string) => vo
 
 export const GroupPage: React.FC = () => {
     const { placeId, itemName } = useParams<{ placeId: string; itemName: string }>();
+    const navigate = useNavigate();
     const decodedName = decodeURIComponent(itemName || '');
 
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
@@ -133,10 +134,15 @@ export const GroupPage: React.FC = () => {
                     const fallbackSnap = await getDocs(fallbackQ);
                     const allPlaceReviews = fallbackSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
                     console.log("Fallback: All Place Reviews:", allPlaceReviews.length);
-                    // Loose match (ignore case/trim)
+
+                    // Robust normalization for filtering
+                    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                    const targetName = normalize(decodedName);
+
                     feats = allPlaceReviews.filter(r =>
-                        r.itemName?.toLowerCase().trim() === decodedName.toLowerCase().trim()
+                        r.itemName && normalize(r.itemName) === targetName
                     );
+
                     console.log("Fallback: Filtered Matches:", feats.length);
                 }
 
@@ -179,7 +185,8 @@ export const GroupPage: React.FC = () => {
                         ...r,
                         authorName: user?.displayName || user?.name || user?.username || r.authorName || 'Anónimo',
                         authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
-                        listName: lName || r.listName
+                        listName: lName || r.listName,
+                        tags: (r as any).userTags || r.tags || []
                     };
                 });
 
@@ -315,6 +322,32 @@ export const GroupPage: React.FC = () => {
             </div>
         );
     }
+
+
+
+    const handleDeleteReview = (deletedId: string) => {
+        // 1. Remove locally
+        const updated = reviews.filter(r => r.id !== deletedId);
+        setReviews(updated);
+
+        // 2. Refresh stats? (Handled by useMemo)
+
+        // 3. Redirect if empty
+        if (updated.length === 0) {
+            // Try to find where to go.
+            // If we came from a list (URL param), go back there.
+            // If not, try to use the deleted review's listId.
+            const lastReview = reviews.find(r => r.id === deletedId);
+            const targetListId = fromListId || lastReview?.listId;
+
+            if (targetListId) {
+                navigate(`/list/${targetListId}`);
+            } else {
+                // Fallback: Go to place page or home
+                navigate(`/place/${placeId}`);
+            }
+        }
+    };
 
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20">
@@ -463,7 +496,7 @@ export const GroupPage: React.FC = () => {
                     {reviews.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {reviews.map(review => (
-                                <ReviewCard key={review.id} review={review} />
+                                <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} />
                             ))}
                         </div>
                     ) : (

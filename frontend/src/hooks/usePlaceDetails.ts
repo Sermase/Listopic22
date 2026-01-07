@@ -28,6 +28,11 @@ export interface PlaceDetails {
         takeout?: boolean;
         dineIn?: boolean;
         reservable?: boolean;
+        servesBeer?: boolean;
+        servesWine?: boolean;
+        servesBreakfast?: boolean;
+        servesLunch?: boolean;
+        servesDinner?: boolean;
     };
     openingHours?: string[]; // Array of strings if available
 }
@@ -140,18 +145,25 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                 const website = placeData?.websiteUri || placeData?.website;
                 const phone = placeData?.formattedPhoneNumber || placeData?.internationalPhoneNumber;
                 const priceLevel = placeData?.priceLevel; // e.g., PRICE_LEVEL_MODERATE or number
-                const googleMapsUri = placeData?.googleMapsUri;
+                const googleMapsUri = placeData?.googleMapsUrl || placeData?.googleMapsUri;
 
                 const accessibility = placeData?.accessibilityOptions ? {
                     wheelchairAccessibleEntrance: placeData.accessibilityOptions.wheelchairAccessibleEntrance,
                     wheelchairAccessibleRestroom: placeData.accessibilityOptions.wheelchairAccessibleRestroom
-                } : undefined;
+                } : placeData?.accessibility; // Fallback to raw accessibility map if storing legacy structure
 
+                // Map Service Options (from 'serviceOptions' map or root fields fallback)
+                const optsSrc = placeData?.serviceOptions || placeData;
                 const options = {
-                    delivery: placeData?.delivery,
-                    takeout: placeData?.takeout,
-                    dineIn: placeData?.dineIn,
-                    reservable: placeData?.reservable
+                    delivery: optsSrc?.delivery,
+                    takeout: optsSrc?.takeout,
+                    dineIn: optsSrc?.dineIn || optsSrc?.dine_in,
+                    reservable: optsSrc?.reservable,
+                    servesBeer: optsSrc?.servesBeer || optsSrc?.serves_beer,
+                    servesWine: optsSrc?.servesWine || optsSrc?.serves_wine,
+                    servesBreakfast: optsSrc?.servesBreakfast || optsSrc?.serves_breakfast,
+                    servesLunch: optsSrc?.servesLunch || optsSrc?.serves_lunch,
+                    servesDinner: optsSrc?.servesDinner || optsSrc?.serves_dinner
                 };
 
                 const openingHours = placeData?.currentOpeningHours?.weekdayDescriptions || placeData?.openingHours;

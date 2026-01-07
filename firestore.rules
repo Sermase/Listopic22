@@ -73,8 +73,18 @@ service cloud.firestore {
     // ===============================================
     // REGLA PARA COLLECTION GROUP 'reviews' (RESPETA PRIVACIDAD DE LISTAS)
     // ===============================================
+    // ===============================================
+    // REGLA PARA COLLECTION GROUP 'reviews'
+    // ===============================================
     match /{path=**}/reviews/{reviewId} {
       allow read: if true;
+    }
+
+    // Reglas ESPECÍFICAS para la colección raíz 'reviews' (donde se crean ahora)
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
     }
 
     // ===============================================
@@ -153,7 +163,9 @@ service cloud.firestore {
       allow update: if request.auth != null && (
         resource.data.userId == request.auth.uid || 
         isJefe(request.auth.uid) || 
-        (request.writeFields.hasOnly(['likes']) && (request.resource.data.likes is int || request.resource.data.likes is float))
+        (request.writeFields.hasOnly(['likes']) && (request.resource.data.likes is int || request.resource.data.likes is float)) ||
+        // Permitir actualizar contadores al añadir reseña
+        request.writeFields.hasOnly(['reviewCount', 'itemCount', 'updatedAt', 'averageRating', 'lastGoogleSync', 'lastPhotoRefresh'])
       );
 
       match /reviews/{reviewId} {

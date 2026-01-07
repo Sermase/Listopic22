@@ -11,9 +11,10 @@ import { ReviewService } from '../services/ReviewService';
 interface ReviewCardProps {
     review: ReviewEntity;
     onDelete?: (reviewId: string) => void;
+    onEdit?: (reviewId: string) => void;
 }
 
-export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete }) => {
+export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
 
@@ -109,21 +110,22 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete }) => {
         e.stopPropagation();
         if (!review.listId || !review.id) return;
         // Navigate to dedicated edit route or reusing add-review with param
-        navigate(`/list/${review.listId}/add-item?editId=${review.id}`);
+        navigate(`/list/${review.listId}?editId=${review.id}`);
     };
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!review.listId || !review.id) return;
+        if (!review.listId || !review.id) {
+            console.error("Cannot delete review: Missing listId or reviewId", review);
+            alert("No se puede eliminar: Faltan datos de la lista o la reseña");
+            return;
+        }
 
         if (window.confirm("¿Seguro que quieres eliminar esta reseña? Esta acción no se puede deshacer.")) {
             setIsDeleting(true);
             try {
                 await ReviewService.deleteReview(review.listId, review.id);
                 if (onDelete) onDelete(review.id);
-                // If no onDelete handler (e.g. in carousel), we might just rely on re-fetch or hide it visually
-                // For now, let's assume parent might refresh or we force a reload if critical.
-                // But generally, UI should update optimistically or via callback.
             } catch (error) {
                 console.error("Error deleting review:", error);
                 alert("Error al eliminar la reseña.");
@@ -135,7 +137,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete }) => {
 
     const handleCommentClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        // Go to detail view, ideally scrolling to comments
         if (review.placeId && review.itemName) {
             navigate(`/group/${review.placeId}/${encodeURIComponent(review.itemName)}`);
         }
@@ -317,6 +318,17 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete }) => {
                             <p className="text-gray-300 text-sm leading-relaxed italic line-clamp-3">
                                 "{review.comment}"
                             </p>
+                        </div>
+                    )}
+
+                    {/* Tags */}
+                    {review.tags && review.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/5">
+                            {review.tags.map((tag, idx) => (
+                                <span key={idx} className="px-2 py-1 text-[10px] rounded-full bg-white/5 border border-white/10 text-gray-400">
+                                    #{tag}
+                                </span>
+                            ))}
                         </div>
                     )}
                 </div>

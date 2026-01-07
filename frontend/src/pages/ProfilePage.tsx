@@ -28,7 +28,18 @@ export const ProfilePage: React.FC = () => {
     // Hooks
     const { profile, loading: loadingProfile, error: errorProfile } = useUserProfile(targetUserId);
     const { lists, loading: loadingLists } = useLists('recent', targetUserId);
-    const { reviews, loading: loadingReviews } = useReviews({ type: 'recent', userId: targetUserId });
+    const { reviews: fetchedReviews, loading: loadingReviews } = useReviews({ type: 'recent', userId: targetUserId });
+    const [localReviews, setLocalReviews] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (fetchedReviews) {
+            setLocalReviews(fetchedReviews);
+        }
+    }, [fetchedReviews]);
+
+    const handleDeleteReview = (id: string) => {
+        setLocalReviews(prev => prev.filter(r => r.id !== id));
+    };
 
     // Check Follow Status
     useEffect(() => {
@@ -279,7 +290,7 @@ export const ProfilePage: React.FC = () => {
                         className={`pb-4 px-2 font-bold text-sm flex items-center gap-2 transition-colors relative ${activeTab === 'reviews' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
                             }`}
                     >
-                        <Star className="w-4 h-4" /> Reseñas ({reviews.length})
+                        <Star className="w-4 h-4" /> Reseñas ({localReviews.length})
                         {activeTab === 'reviews' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
                     </button>
                 </div>
@@ -350,14 +361,14 @@ export const ProfilePage: React.FC = () => {
                         <>
                             {loadingReviews ? (
                                 <div className="py-20 text-center text-gray-500">Cargando reseñas...</div>
-                            ) : reviews.length === 0 ? (
+                            ) : localReviews.length === 0 ? (
                                 <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-xl">
                                     <p className="text-gray-500">No hay reseñas recientes.</p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {reviews.map(review => (
-                                        <ReviewCard key={review.id} review={review} />
+                                    {localReviews.map(review => (
+                                        <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} />
                                     ))}
                                 </div>
                             )}
@@ -365,6 +376,6 @@ export const ProfilePage: React.FC = () => {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 };

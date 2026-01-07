@@ -20,62 +20,85 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
-    // Legacy-style: Explicit Search
+    useEffect(() => {
+        if (prefillValue) {
+            setQuery(prefillValue);
+        }
+    }, [prefillValue]);
+
+    // Unified Search Handler
     const handleSearch = async () => {
-        if (query.length < 3) {
-            setStatusMessage("Introduce al menos 3 caracteres.");
-            return;
-        }
         setLoading(true);
+        setResults([]);
+        setIsOpen(false);
 
-        // Show context to user if location is missing
-        if (!location && !locLoading) {
-            setStatusMessage("Buscando globalmente (Ubicación no disponible)...");
-        } else if (locLoading) {
-            setStatusMessage("Espera, obteniendo ubicación...");
-            // Optional: wait? No, let's search anyway, user clicked.
-        } else {
-            setStatusMessage("Buscando cerca de ti...");
-        }
+        try {
+            // Case 1: Empty Query -> Search Nearby
+            if (!query.trim()) {
+                if (!location && !navigator.geolocation) {
+                    setStatusMessage("Ubicación necesaria para búsqueda cercana.");
+                    setLoading(false);
+                    return;
+                }
 
-        const data = await PlaceService.searchPlaces(query, location?.latitude, location?.longitude);
-        setResults(data);
-        setLoading(false);
-        if (data.length === 0) {
-            setStatusMessage("No se encontraron resultados.");
-        } else {
-            // clear status if success to reduce noise, or keep "Found X results"
-            setStatusMessage(null);
-            setIsOpen(true);
-        }
-    };
+                setStatusMessage("Obteniendo ubicación...");
 
-    const handleNearby = async () => {
-        if (!navigator.geolocation) {
-            setStatusMessage("Geolocalización no soportada.");
-            return;
-        }
-        setLoading(true);
-        setStatusMessage("Obteniendo tu ubicación precisa...");
+                // Use cached location or fetch fresh
+                const lat = location?.latitude;
+                const lng = location?.longitude;
 
-        navigator.geolocation.getCurrentPosition(async (position) => {
-            try {
-                setStatusMessage("Buscando lugares cercanos...");
-                const data = await PlaceService.searchNearby(position.coords.latitude, position.coords.longitude);
-                setResults(data);
-                if (data.length === 0) setStatusMessage("No se encontraron lugares cercanos.");
-                else setIsOpen(true);
-            } catch (e) {
-                setStatusMessage("Error al buscar cercanos.");
-            } finally {
-                setLoading(false);
+                if (lat && lng) {
+                    setStatusMessage("Buscando lugares cercanos...");
+                    const data = await PlaceService.searchNearby(lat, lng);
+                    setResults(data);
+                    setIsOpen(true);
+                    if (data.length === 0) setStatusMessage("No se encontraron lugares cercanos.");
+                    else setStatusMessage(null);
+                } else {
+                    // Force refresh if hook didn't catch it yet
+                    navigator.geolocation.getCurrentPosition(async (pos) => {
+                        const data = await PlaceService.searchNearby(pos.coords.latitude, pos.coords.longitude);
+                        setResults(data);
+                        setIsOpen(true);
+                        setLoading(false);
+                        if (data.length === 0) setStatusMessage("No se encontraron lugares cercanos.");
+                        else setStatusMessage(null);
+                    }, (err) => {
+                        console.warn("Geo error", err);
+                        setStatusMessage("No se pudo obtener la ubicación.");
+                        setLoading(false);
+                    });
+                    // Return here to wait for callback
+                    return;
+                }
             }
-        }, (err) => {
+            // Case 2: Text Query -> Text Search
+            else {
+                if (query.length < 3) {
+                    setStatusMessage("Introduce al menos 3 caracteres.");
+                    setLoading(false);
+                    return;
+                }
+
+                setStatusMessage(location ? "Buscando..." : "Buscando globalmente...");
+                const data = await PlaceService.searchPlaces(query, location?.latitude, location?.longitude);
+                setResults(data);
+                setIsOpen(true);
+                if (data.length === 0) {
+                    setStatusMessage("No se encontraron resultados.");
+                } else {
+                    setStatusMessage(null);
+                }
+            }
+        } catch (error) {
+            console.error("Search error:", error);
+            setStatusMessage("Error al buscar.");
+        } finally {
             setLoading(false);
-            setStatusMessage("No se pudo obtener ubicación.");
-            console.error(err);
-        });
+        }
     };
+
+    // Removed handleNearby as it is integrated into handleSearch or manual toggle
 
     // Auto-search (Debounce) integration too for modern UX? User asked to replicate "how it works in old version".
     // Old version had explicit buttons but mostly relied on them. I'll keep explicit handlers as primary but maybe allow Enter key.
@@ -147,16 +170,8 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                     disabled={loading}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-lg font-medium transition-colors flex items-center gap-2"
                 >
-                    {loading ? <Loader className="w-4 h-4 animate-spin" /> : "Buscar"}
-                </button>
-                <button
-                    type="button"
-                    onClick={handleNearby}
-                    disabled={loading}
-                    className="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/30 px-4 rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap"
-                >
-                    <Navigation className="w-4 h-4" />
-                    <span className="hidden sm:inline">Cercanos</span>
+                    {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                    <span className="hidden sm:inline">Buscar</span>
                 </button>
             </div>
 

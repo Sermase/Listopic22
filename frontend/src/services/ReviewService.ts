@@ -12,7 +12,15 @@ export const ReviewService = {
             throw new Error("Missing listId or reviewId for deletion");
         }
 
-        const reviewRef = doc(db, 'lists', listId, 'reviews', reviewId);
-        await deleteDoc(reviewRef);
+        const rootRef = doc(db, 'reviews', reviewId);
+        const rootSnap = await import('firebase/firestore').then(m => m.getDoc(rootRef));
+
+        if (rootSnap.exists()) {
+            await deleteDoc(rootRef);
+        } else {
+            // Fallback: Delete from legacy subcollection
+            const subRef = doc(db, 'lists', listId, 'reviews', reviewId);
+            await deleteDoc(subRef);
+        }
     }
 };

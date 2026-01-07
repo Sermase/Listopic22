@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
     ArrowLeft, MapPin, MessageSquare, List as ListIcon, Share2,
     Bookmark, Heart, Copy, Smartphone, Globe, X,
-    Euro, Accessibility, Utensils, ShoppingBag, Bike
+    Euro, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
@@ -251,6 +251,31 @@ export const PlacePage: React.FC = () => {
                             {place.options?.dineIn && (
                                 <span className="px-3 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-full text-xs font-bold flex items-center gap-1">
                                     <Utensils className="w-3 h-3" /> Restaurante
+                                </span>
+                            )}
+                            {place.options?.reservable && (
+                                <span className="px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> Reservas
+                                </span>
+                            )}
+                            {place.options?.servesBreakfast && (
+                                <span className="px-3 py-1 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <Coffee className="w-3 h-3" /> Desayuno
+                                </span>
+                            )}
+                            {place.options?.servesLunch && (
+                                <span className="px-3 py-1 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <Utensils className="w-3 h-3" /> Comida
+                                </span>
+                            )}
+                            {place.options?.servesDinner && (
+                                <span className="px-3 py-1 bg-slate-500/10 text-slate-300 border border-slate-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <Moon className="w-3 h-3" /> Cena
+                                </span>
+                            )}
+                            {(place.options?.servesBeer || place.options?.servesWine) && (
+                                <span className="px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <Wine className="w-3 h-3" /> Alcohol
                                 </span>
                             )}
                         </div>

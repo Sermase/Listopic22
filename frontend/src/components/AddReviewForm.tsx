@@ -10,11 +10,12 @@ interface AddReviewFormProps {
     listId: string;
     prefillPlaceId?: string;
     prefillItemName?: string;
+    editReviewId?: string;
     onClose: () => void;
     onSuccess: () => void;
 }
 
-export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPlaceId, prefillItemName, onClose, onSuccess }) => {
+export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPlaceId, prefillItemName, editReviewId, onClose, onSuccess }) => {
     const { user } = useAuth();
 
     // Core Data
@@ -38,10 +39,145 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
     const [error, setError] = useState<string | null>(null);
 
     const [listData, setListData] = useState<any>(null); // Store full list data for lineage
+    const [reviewPath, setReviewPath] = useState<string | null>(null);
+
+    // Fetch Review Data for Editing
+    useEffect(() => {
+        const fetchReviewData = async () => {
+            if (!editReviewId || !listId) return;
+            try {
+                // Determine collection path. Assuming 'lists/{listId}/reviews/{reviewId}' or global 'reviews'?
+                // The addDoc below writes to 'reviews' collection (root).
+                const reviewRef = doc(db, 'reviews', editReviewId);
+                const snap = await getDoc(reviewRef);
+
+                if (snap.exists()) {
+                    const data = snap.data();
+                    setReviewPath(`reviews/${editReviewId}`); // Set path when found in root
+
+                    setItemName(data.itemName || '');
+                    setComment(data.comment || '');
+                    setOverallRating(data.overallRating || 5);
+                    if (data.scores) setCriteriaScores(data.scores);
+                    if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
+                    if (data.photoUrl) setImagePreview(data.photoUrl);
+
+                    if (data.placeId) {
+                        try {
+                            // Fetch fresh details from Place Service (Google/OSM) to ensure we have the REAL place name/address
+                            const details = await PlaceService.getDetails(data.placeId);
+                            const legacyPlace = transformToLegacyPlace({
+                                id: data.placeId,
+                                name: data.placeName || data.itemName || 'Lugar',
+                                address: data.placeAddress || '',
+                                lat: data.placeLat || 0,
+                                lng: data.placeLng || 0
+                            } as any, details);
+
+                            setSelectedPlace({
+                                id: legacyPlace.googlePlaceId || data.placeId,
+                                name: legacyPlace.name,
+                                address: legacyPlace.address,
+                                lat: legacyPlace.coordinates.latitude,
+                                lng: legacyPlace.coordinates.longitude
+                            });
+                        } catch (e) {
+                            console.warn("Could not refresh place details on edit, using stored data", e);
+                            // Fallback to stored data
+                            setSelectedPlace({
+                                id: data.placeId,
+                                name: data.placeName || data.itemName || 'Lugar',
+                                address: data.placeAddress || '',
+                                lat: data.placeLat || 0,
+                                lng: data.placeLng || 0
+                            });
+                        }
+                    }
+                } else {
+                    // Fallback to subcollection (Legacy)
+                    const subRef = doc(db, 'lists', listId, 'reviews', editReviewId);
+                    const subSnap = await getDoc(subRef);
+
+                    if (subSnap.exists()) {
+                        setReviewPath(`lists/${listId}/reviews/${editReviewId}`);
+                        const data = subSnap.data();
+                        setItemName(data.itemName || '');
+                        setComment(data.comment || '');
+                        setOverallRating(data.overallRating || 5);
+                        if (data.scores) setCriteriaScores(data.scores);
+                        if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
+                        if (data.photoUrl) setImagePreview(data.photoUrl);
+                        if (data.placeId) {
+                            try {
+                                const details = await PlaceService.getDetails(data.placeId);
+                                const legacyPlace = transformToLegacyPlace({
+                                    id: data.placeId,
+                                    name: data.placeName || data.itemName || 'Lugar',
+                                    address: data.placeAddress || '',
+                                    lat: data.placeLat || 0,
+                                    lng: data.placeLng || 0
+                                } as any, details);
+
+                                setSelectedPlace({
+                                    id: legacyPlace.googlePlaceId || data.placeId,
+                                    name: legacyPlace.name,
+                                    address: legacyPlace.address,
+                                    lat: legacyPlace.coordinates.latitude,
+                                    lng: legacyPlace.coordinates.longitude
+                                });
+                            } catch (e) {
+                                // Fallback
+                                setSelectedPlace({
+                                    id: data.placeId,
+                                    name: data.placeName || data.itemName || 'Lugar',
+                                    address: data.placeAddress || '',
+                                    lat: data.placeLat || 0,
+                                    lng: data.placeLng || 0
+                                });
+                            }
+                        }
+                    } else {
+                        console.warn("Review not found for editing in root or subcollection");
+                    }
+                }
+            } catch (e) {
+                console.error("Error fetching review for edit:", e);
+                setError("Error cargando la reseña para editar");
+            }
+        };
+
+        if (editReviewId) {
+            fetchReviewData();
+        }
+    }, [editReviewId, listId]);
+
+    // Recalculate Overall Rating when scores change
+    useEffect(() => {
+        if (Object.keys(criteriaScores).length === 0) return;
+
+        let total = 0;
+        let count = 0;
+
+        Object.keys(criteriaScores).forEach((key) => {
+            const def = criteriaDefinition[key];
+            const val = criteriaScores[key];
+            // Match legacy logic: check ponderable flag (default true)
+            if (def && def.ponderable !== false) {
+                total += val;
+                count++;
+            }
+        });
+
+        if (count > 0) {
+            const avg = total / count;
+            setOverallRating(parseFloat(avg.toFixed(1))); // 1 decimal place like legacy
+        }
+    }, [criteriaScores, criteriaDefinition]);
 
     // Fetch List Metadata
     useEffect(() => {
         const fetchListMetadata = async () => {
+            // ... existing fetch list metadata code ...
             if (!listId) return;
             try {
                 const docRef = doc(db, 'lists', listId);
@@ -50,8 +186,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                     const data = snap.data();
                     setListData(data);
 
-                    // Prefill item name with list name if empty
-                    if (data.name && !itemName && !prefillItemName) {
+                    // Prefill item name with list name if empty ONLY if not editing
+                    if (data.name && !itemName && !prefillItemName && !editReviewId) {
                         setItemName(data.name);
                     }
 
@@ -75,7 +211,10 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                             });
                         }
                         setCriteriaDefinition(defMap);
-                        setCriteriaScores(scores);
+                        // Only set default scores if we are NOT editing (or if edit data didn't have scores)
+                        if (!editReviewId) {
+                            setCriteriaScores(scores);
+                        }
                     }
                     if (data.availableTags && Array.isArray(data.availableTags)) {
                         setListAvailableTags(data.availableTags);
@@ -88,7 +227,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
             }
         };
         fetchListMetadata();
-    }, [listId]);
+    }, [listId, editReviewId]); // Added editReviewId dependency to prevent overwriting fetched review data
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -129,7 +268,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
         }
 
         // Require Place? Maybe optional, but better if required for "Google Maps" feeling
-        if (!selectedPlace && !prefillPlaceId) {
+        if (!selectedPlace && !prefillPlaceId && !editReviewId) {
             setError("Por favor selecciona un lugar (Restaurante, etc.)");
             return;
         }
@@ -138,11 +277,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
         setError(null);
 
         try {
-            const placeId = selectedPlace?.id || prefillPlaceId || 'unknown';
+            // For editing, we reuse existing place details if selectedPlace didn't change
+            // const placeId = selectedPlace?.id || ... (Removed unused var)
             const placeName = selectedPlace?.name || 'Lugar Desconocido';
             const photoUrl = imagePreview || ''; // Mock upload
 
-            // 1a. Ensure Place Exists in "places" collection (Legacy Schema)
             // 1a. Ensure Place Exists in "places" collection (Legacy Schema)
             // We transform FIRST to get the correct ID (e.g. 'osm_123' or 'google_abc')
             let finalPlaceId = prefillPlaceId || 'unknown';
@@ -153,12 +292,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
             if (selectedPlace) {
                 let detailedData = null;
                 try {
-                    // Try to fetch detailed data from Backend (User requested logic: "Click en sugerencia: mostrar loading, llamar getPlaceDetailsFromGoogle...")
-                    // We only attempt this if it looks like a Google Place ID (simple heuristic or just try)
-                    // Or if we just want to ensure we have fresh data.
+                    // Try to fetch detailed data from Backend
                     detailedData = await PlaceService.getDetails(selectedPlace.id);
-                } catch (e) {
-                    console.warn("Could not fetch details, using basic info:", e);
+                } catch (e: any) {
+                    // Ignore CORS/Network errors gracefully
+                    console.warn("Could not fetch details (CORS/Network?), using basic info:", e.message);
                 }
 
                 try {
@@ -186,12 +324,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                 }
             }
 
+
             // SCHEMA CHANGE: User wants listId to ALWAYS be the Main List.
             const isSublist = !!listData?.parentListId;
             const finalListId = isSublist ? listData.parentListId : listId;
             const sublistId = isSublist ? listId : null;
 
-            // 1. Add Review
+            // 1. Add/Update Review
             const reviewData = {
                 listId: finalListId,
                 sublistId: sublistId,
@@ -206,11 +345,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                 criteriaDefinition,
                 tags: customTags,
                 photoUrl,
-                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(), // Always update timestamp
 
                 // Strict Legacy Links
                 placeId: finalPlaceId,
-                placeName, // Keep the display name selected by user
+                placeName: selectedPlace?.name || placeName,
                 placeAddress: finalPlaceAddress,
                 placeLat: finalPlaceLat,
                 placeLng: finalPlaceLng,
@@ -219,32 +358,45 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                 placeCity: selectedPlace ? (transformToLegacyPlace(selectedPlace).city) : '',
             };
 
-            await addDoc(collection(db, 'reviews'), reviewData);
+            if (editReviewId) {
+                // UPDATE
+                // Use the stored path OR fallback to root if for some reason null
+                const reviewRef = doc(db, reviewPath || `reviews/${editReviewId}`);
+                await updateDoc(reviewRef, reviewData as any);
+            } else {
+                await addDoc(collection(db, 'reviews'), {
+                    ...reviewData,
+                    createdAt: serverTimestamp()
+                });
+            }
 
             // 2. Update List Counters (Parent and Sublist)
-            const updates = [];
+            // Only increment if NEW review. If editing, counts don't change (usually).
+            if (!editReviewId) {
+                const updates = [];
 
-            // Always update the Main List (finalListId)
-            if (finalListId) {
-                const mainListRef = doc(db, 'lists', finalListId);
-                updates.push(updateDoc(mainListRef, {
-                    itemCount: increment(1),
-                    reviewCount: increment(1),
-                    updatedAt: serverTimestamp() // Refresh timestamp for 'Recent' sort
-                }));
+                // Always update the Main List (finalListId)
+                if (finalListId) {
+                    const mainListRef = doc(db, 'lists', finalListId);
+                    updates.push(updateDoc(mainListRef, {
+                        itemCount: increment(1),
+                        reviewCount: increment(1),
+                        updatedAt: serverTimestamp() // Refresh timestamp for 'Recent' sort
+                    }));
+                }
+
+                // If it's a sublist, also update the Sublist
+                if (sublistId && sublistId !== finalListId) {
+                    const sublistRef = doc(db, 'lists', sublistId);
+                    updates.push(updateDoc(sublistRef, {
+                        itemCount: increment(1),
+                        reviewCount: increment(1),
+                        updatedAt: serverTimestamp()
+                    }));
+                }
+
+                await Promise.all(updates);
             }
-
-            // If it's a sublist, also update the Sublist
-            if (sublistId && sublistId !== finalListId) {
-                const sublistRef = doc(db, 'lists', sublistId);
-                updates.push(updateDoc(sublistRef, {
-                    itemCount: increment(1),
-                    reviewCount: increment(1),
-                    updatedAt: serverTimestamp()
-                }));
-            }
-
-            await Promise.all(updates);
 
             onSuccess();
             onClose();
@@ -263,7 +415,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
             <div className="bg-[#151b2e] rounded-2xl w-full max-w-lg border border-white/10 shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
                 {/* Header */}
                 <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0b1021]/50">
-                    <h2 className="text-lg font-bold text-white">Añadir Reseña</h2>
+                    <h2 className="text-lg font-bold text-white">{editReviewId ? 'Editar Reseña' : 'Añadir Reseña'}</h2>
                     <button onClick={onClose} className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
                         <X className="w-5 h-5" />
                     </button>
@@ -284,6 +436,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                                 <label className="block text-xs font-bold uppercase text-gray-400 tracking-wider">Lugar</label>
                                 <PlaceSearch
                                     onSelect={setSelectedPlace}
+                                    prefillValue={selectedPlace?.name || prefillItemName}
                                     placeholder="Buscar en el mapa (ej. Starbucks)..."
                                 />
                                 {selectedPlace && (
@@ -468,7 +621,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                             disabled={loading}
                             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 ring-1 ring-white/10"
                         >
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Publicar Reseña"}
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (editReviewId ? "Guardar Cambios" : "Publicar Reseña")}
                         </button>
                     </form>
                 </div>

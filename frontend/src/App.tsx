@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute'; // Import new component
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
 import { SearchPage } from './pages/SearchPage';
@@ -45,26 +46,27 @@ function App() {
               <Route path="/list/:listId" element={<ListPage />} />
               <Route path="/list/:listId/edit" element={<EditListPage />} />
 
-              {/* Public Sublist Creation Flow */}
-              <Route path="/create" element={<CreateSublistPage />} />
-              <Route path="/create-sublist" element={<CreateSublistPage />} />
-              <Route path="/create-sublist/:parentId" element={<CreateSublistPage />} />
+              {/* Public Sublist Creation Flow (Protected) */}
+              <Route path="/create" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
+              <Route path="/create-sublist" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
+              <Route path="/create-sublist/:parentId" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
 
               {/* Secret Admin Route */}
-              <Route path="/secret-admin-create-master" element={<CreateListPage />} />
+              <Route path="/secret-admin-create-master" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
 
               <Route path="/users" element={<UsersPage />} />
               <Route path="/place/:placeId" element={<PlacePage />} />
               <Route path="/group/:placeId/:itemName" element={<GroupPage />} />
               <Route path="/debug" element={<DebugView />} />
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/profile/:userId" element={<ProfilePage />} />
-              <Route path="/archive" element={<ArchivePage />} />
-              <Route path="/chats" element={<ChatsPage />} />
-              <Route path="/chats/:chatId" element={<ChatsPage />} />
-              <Route path="/profile" element={<div className="pt-24 text-center">Perfil de Usuario (Próximamente)</div>} />
-              <Route path="/login" element={<div className="pt-24 text-center">Login (Próximamente)</div>} />
+
+              {/* Protected Profile Pages */}
+              <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+              <Route path="/profile/:userId" element={<ProfilePage />} /> {/* Public if viewing others? Check Page logic */}
+
+              <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
+              <Route path="/chats" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
+              <Route path="/chats/:chatId" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
             </Routes>
           </main>
         </div>

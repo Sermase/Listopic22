@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation as useRouterLocation } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Share2, Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Utensils } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
 import { ListItemCard } from '../components/ListItemCard';
@@ -19,6 +19,7 @@ export interface FilterState {
 
 export const ListPage: React.FC = () => {
     const { listId } = useParams<{ listId: string }>();
+    const routerLocation = useRouterLocation();
     const [sortMode, setSortMode] = useState<'rating' | 'newest' | 'oldest' | 'count'>('rating');
     const { list, reviews, sublists, loading, error } = useListDetails(listId);
     const { user } = useAuth();
@@ -32,7 +33,24 @@ export const ListPage: React.FC = () => {
     });
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [groupingMode, setGroupingMode] = useState<'place' | 'dish'>('dish');
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+    // Check for editId param
+    const queryParams = new URLSearchParams(routerLocation.search);
+    const editId = queryParams.get('editId');
+
+    const [isAddModalOpen, setIsAddModalOpen] = useState(!!editId);
+    const [editingReviewId, setEditingReviewId] = useState<string | undefined>(editId || undefined);
+
+    // Update state if URL changes (e.g. navigation back/forward)
+    React.useEffect(() => {
+        const q = new URLSearchParams(routerLocation.search);
+        const Eid = q.get('editId');
+        if (Eid) {
+            setEditingReviewId(Eid);
+            setIsAddModalOpen(true);
+        }
+    }, [routerLocation.search]);
+
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isMapOpen, setIsMapOpen] = useState(false);
 
@@ -611,7 +629,13 @@ export const ListPage: React.FC = () => {
             {isAddModalOpen && listId && (
                 <AddReviewForm
                     listId={listId}
-                    onClose={() => setIsAddModalOpen(false)}
+                    editReviewId={editingReviewId}
+                    onClose={() => {
+                        setIsAddModalOpen(false);
+                        setEditingReviewId(undefined);
+                        // Clear param without reload
+                        window.history.replaceState({}, '', `/list/${listId}`);
+                    }}
                     onSuccess={() => window.location.reload()}
                 />
             )}

@@ -36,6 +36,7 @@ export interface ReviewEntity {
     placeAverageRating?: number;
     criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number; ponderable?: boolean }>;
     authorId?: string; // Legacy compatibility
+    tags?: string[];
 }
 
 export const useListDetails = (listId: string | undefined) => {
@@ -157,6 +158,9 @@ export const useListDetails = (listId: string | undefined) => {
                         // Attach Location Data (Map Support)
                         lat: place?.location?.latitude || legacyReview.lat || review.lat,
                         lng: place?.location?.longitude || legacyReview.lng || review.lng,
+
+                        // Tags
+                        tags: legacyReview.userTags || review.tags || [],
                     };
                 });
 

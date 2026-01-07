@@ -42,123 +42,133 @@ const createViewbox = (lat: number, lng: number, km: number) => {
     return `${minLng},${maxLat},${maxLng},${minLat}`;
 };
 
-import { auth } from '../firebase';
-import { ListopicConfig } from '../config';
+// Google Maps Global Type Definition (Partial)
+declare global {
+    interface Window {
+        google: any;
+    }
+}
 
-const callPlaceFunction = async (functionName: keyof typeof ListopicConfig.FUNCTION_URLS, params: any) => {
-    try {
-        const url = ListopicConfig.FUNCTION_URLS[functionName];
-        if (!url) throw new Error(`Function URL for ${functionName} not configured`);
-
-        const token = await auth.currentUser?.getIdToken();
-        const headers: HeadersInit = {
-            'Content-Type': 'application/json'
-        };
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        // Add userId to params if authenticated
-        if (auth.currentUser && !params.userId) {
-            params.userId = auth.currentUser.uid;
-        }
-
-        // Construct query string for GET if needed, or POST?
-        // Prompt says "Endpoint HTTP". Standard Cloud Functions can be GET or POST.
-        // Given params like latitude/longitude/query, usually POST or GET with query params.
-        // Let's assume POST for complex params or GET for search.
-        // Prompt says "parametro query obligatorio" for keys.
-        // Let's use POST to be safe with JSON body, or check if prompt specified method.
-        // "Backend en functions/modules/core.js con endpoints HTTP".
-        // Let's assume POST for body payload.
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(params)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Error ${response.status}: ${errorText}`);
-        }
-
-        return await response.json();
-
-    } catch (error) {
-        console.error(`Error calling ${functionName}:`, error);
+// Helper to get Google Places Service
+const getPlacesService = (): any => {
+    if (!window.google || !window.google.maps || !window.google.maps.places) {
+        console.warn("Google Maps API not loaded");
         return null;
     }
+    const mapDiv = document.createElement('div');
+    return new window.google.maps.places.PlacesService(mapDiv);
 };
 
 export const PlaceService = {
     searchPlaces: async (query: string, userLat?: number, userLng?: number): Promise<PlaceResult[]> => {
-        if (!query || query.length < 3) return [];
+        if (!query || query.length < 2) return [];
 
-        try {
-            const params: any = { query };
+        return new Promise((resolve) => {
+            const service = getPlacesService();
+            if (!service) return resolve([]);
+
+            const request: any = {
+                query: query,
+                fields: ['place_id', 'name', 'formatted_address', 'geometry', 'photos', 'types', 'rating', 'user_ratings_total']
+            };
+
+            // Bias towards user location if available
             if (userLat && userLng) {
-                params.latitude = userLat;
-                params.longitude = userLng;
+                request.location = new window.google.maps.LatLng(userLat, userLng);
+                request.radius = 50000; // 50km bias
             }
 
-            // Call Backend "placesTextSearch"
-            const data = await callPlaceFunction('placesTextSearch', params);
-
-            if (!data || !Array.isArray(data)) return [];
-
-            // Map Backend Results to internal PlaceResult
-            return data.map((item: any) => ({
-                id: item.place_id || item.googlePlaceId || item.objectID, // Handle varying IDs (Google vs Local vs Algolia)
-                name: item.name,
-                address: item.formatted_address || item.vicinity || item.address || '',
-                lat: item.geometry?.location?.lat || item.coordinates?.latitude || item._geoloc?.lat || 0,
-                lng: item.geometry?.location?.lng || item.coordinates?.longitude || item._geoloc?.lng || 0,
-                type: (item.types && item.types[0]) ? item.types[0] : 'establishment',
-                distance: item.distance // Backend often explicitly returns distance if calculated
-            }));
-
-        } catch (error) {
-            console.error("Error searching places:", error);
-            return [];
-        }
+            service.textSearch(request, (results: any[], status: any) => {
+                if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+                    const mapped = results.map(item => ({
+                        id: item.place_id,
+                        name: item.name,
+                        address: item.formatted_address || item.vicinity || '',
+                        lat: item.geometry?.location?.lat(),
+                        lng: item.geometry?.location?.lng(),
+                        type: (item.types && item.types[0]) ? item.types[0] : 'establishment',
+                        distance: (userLat && userLng && item.geometry?.location)
+                            ? window.google.maps.geometry.spherical.computeDistanceBetween(
+                                new window.google.maps.LatLng(userLat, userLng),
+                                item.geometry.location
+                            )
+                            : undefined
+                    }));
+                    resolve(mapped);
+                } else {
+                    console.warn("Place Search failed or empty:", status);
+                    resolve([]);
+                }
+            });
+        });
     },
 
     searchNearby: async (lat: number, lng: number): Promise<PlaceResult[]> => {
-        try {
-            const params = {
-                latitude: lat,
-                longitude: lng,
-                // Default category/types logic could be here if we had list context
-                // For now, generic nearby
-                categoryId: 'restaurant', // Default fallback as typical "nearby"
-                categoryTypes: 'restaurant,food,establishment'
+        return new Promise((resolve) => {
+            const service = getPlacesService();
+            if (!service) return resolve([]);
+
+            // Use rankBy DISTANCE requires keyword or name or type.
+            // If we just want "nearby places", often 'establishment' or 'restaurant' is good.
+            const request: any = {
+                location: new window.google.maps.LatLng(lat, lng),
+                rankBy: window.google.maps.places.RankBy.DISTANCE,
+                type: 'restaurant' // Default to restaurants for "Nearby" button as per app theme (food lists)
+                // Keyword is optional but good for filtering
             };
 
-            // Call Backend "placesNearbyRestaurants"
-            const data = await callPlaceFunction('placesNearbyRestaurants', params);
-
-            if (!data || !Array.isArray(data)) return [];
-
-            return data.map((item: any) => ({
-                id: item.place_id || item.googlePlaceId,
-                name: item.name,
-                address: item.formatted_address || item.vicinity || item.address || '',
-                lat: item.geometry?.location?.lat || item.coordinates?.latitude || 0,
-                lng: item.geometry?.location?.lng || item.coordinates?.longitude || 0,
-                type: (item.types && item.types[0]) ? item.types[0] : 'establishment',
-                distance: item.distance
-            }));
-
-        } catch (error) {
-            console.error("Error searching nearby places:", error);
-            return [];
-        }
+            service.nearbySearch(request, (results: any[], status: any) => {
+                if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+                    const mapped = results.slice(0, 20).map(item => ({
+                        id: item.place_id,
+                        name: item.name,
+                        address: item.vicinity || item.formatted_address || '', // nearbySearch returns vicinity mostly
+                        lat: item.geometry?.location?.lat(),
+                        lng: item.geometry?.location?.lng(),
+                        type: (item.types && item.types[0]) ? item.types[0] : 'establishment',
+                        distance: (lat && lng && item.geometry?.location)
+                            ? window.google.maps.geometry.spherical.computeDistanceBetween(
+                                new window.google.maps.LatLng(lat, lng),
+                                item.geometry.location
+                            )
+                            : undefined
+                    }));
+                    resolve(mapped);
+                } else {
+                    console.warn("Nearby Search failed:", status);
+                    resolve([]);
+                }
+            });
+        });
     },
 
-    // New helper for detail fetching if we want to be fully compliant
     getDetails: async (placeId: string): Promise<any> => {
-        return await callPlaceFunction('getPlaceDetailsFromGoogle', { placeid: placeId });
+        return new Promise((resolve, reject) => {
+            const service = getPlacesService();
+            if (!service) return reject("Google Maps not loaded");
+
+            // Needed fields for LegacyPlace transformation
+            const request = {
+                placeId: placeId,
+                fields: [
+                    'place_id', 'name', 'formatted_address', 'address_components',
+                    'geometry', 'formatted_phone_number', 'international_phone_number',
+                    'website', 'url', 'rating', 'user_ratings_total', 'types', 'price_level',
+                    'photos', 'vicinity',
+                    // New Service Options Fields
+                    'delivery', 'dine_in', 'takeout', 'reservable',
+                    'serves_beer', 'serves_wine', 'serves_breakfast', 'serves_lunch', 'serves_dinner'
+                ]
+            };
+
+            service.getDetails(request, (place: any, status: any) => {
+                if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+                    resolve(place);
+                } else {
+                    reject(status);
+                }
+            });
+        });
     }
 };
 // Legacy Schema Interface
@@ -296,6 +306,19 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
     // For now, if no googlePlaceId, use OSM ID prefixed.
     const finalId = src.place_id ? String(src.place_id) : `osm_${place.id}`;
 
+    // 7. Map Service Options
+    const serviceOptions = isGoogle ? {
+        delivery: !!src.delivery,
+        takeout: !!src.takeout,
+        dineIn: !!src.dine_in,
+        reservable: !!src.reservable,
+        servesBeer: !!src.serves_beer,
+        servesWine: !!src.serves_wine,
+        servesBreakfast: !!src.serves_breakfast,
+        servesLunch: !!src.serves_lunch,
+        servesDinner: !!src.serves_dinner
+    } : {};
+
     return {
         // Identity
         googlePlaceId: finalId,
@@ -335,7 +358,7 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
 
         // Legacy Fields
         accessibility: {}, // Would need separate fetch as per prompt
-        serviceOptions: {},
+        serviceOptions: serviceOptions,
 
         updatedAt: now,
         lastGoogleSync: now,
