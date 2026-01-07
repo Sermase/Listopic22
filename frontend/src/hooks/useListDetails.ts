@@ -104,8 +104,10 @@ export const useListDetails = (listId: string | undefined) => {
                         try {
                             const snap = await getDoc(doc(db, collectionName, id));
                             if (snap.exists()) map[id] = snap.data();
-                        } catch (e) {
-                            console.warn(`Failed to fetch ${collectionName} ${id}`, e);
+                        } catch (e: any) {
+                            if (e.code !== 'permission-denied') {
+                                console.warn(`Failed to fetch ${collectionName} ${id}`, e);
+                            }
                         }
                     }));
                     return map;
@@ -168,8 +170,13 @@ export const useListDetails = (listId: string | undefined) => {
                 setSublists(sublistsData);
 
             } catch (err: any) {
-                console.error("Error fetching list details:", err);
-                setError(err.message);
+                if (err.code === 'permission-denied') {
+                    console.debug("Permission denied for list", listId); // Debug level
+                    setError('private'); // Specific error code
+                } else {
+                    console.error("Error fetching list details:", err);
+                    setError(err.message);
+                }
             } finally {
                 setLoading(false);
             }

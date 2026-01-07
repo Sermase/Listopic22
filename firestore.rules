@@ -146,8 +146,15 @@ service cloud.firestore {
       allow list: if request.auth != null && isJefe(request.auth.uid);
       
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      // El dueño de la lista O un jefe pueden actualizar o borrarla.
-      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid)); // <-- CAMBIO: Añadido permiso para jefe.
+      // El dueño de la lista O un jefe pueden borrarla.
+      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
+      
+      // Update: Dueño, Jefe, OR only updating 'likes' (for toggleLike)
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        isJefe(request.auth.uid) || 
+        (request.writeFields.hasOnly(['likes']) && (request.resource.data.likes is int || request.resource.data.likes is float))
+      );
 
       match /reviews/{reviewId} {
         allow read: if true;

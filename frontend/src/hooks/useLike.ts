@@ -28,7 +28,8 @@ export const useLike = (listId: string, initialCount: number = 0) => {
             } catch (err: any) {
                 if (err.code === 'permission-denied') {
                     // Silent fail or warning for permission issues (common if rules are strict)
-                    console.warn(`Permission denied checking like status for list ${listId}. Check Firestore Rules.`);
+                    // Silent fail for permission issues to avoid console spam
+                    // console.debug(`Permission denied checking like status for list ${listId}.`);
                 } else {
                     console.error("Error checking like status:", err);
                 }
