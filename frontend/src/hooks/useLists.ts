@@ -24,7 +24,7 @@ export interface ListEntity {
     followersCount: number;
     commentsCount: number;
     reviewCount: number;
-    reviewCount: number;
+
     averageRating: number;
     avgScore?: number; // Legacy or alternative name
 
@@ -79,8 +79,16 @@ export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', us
 
                     const listIds = likesSnap.docs.map(d => d.data().listId);
 
-                    // Fetch lists in parallel
-                    const listPromises = listIds.map(id => getDoc(doc(db, 'lists', id)));
+                    // Fetch lists in parallel with error handling
+                    const listPromises = listIds.map(async (id) => {
+                        try {
+                            const snap = await getDoc(doc(db, 'lists', id));
+                            return snap;
+                        } catch (e) {
+                            console.warn(`Failed to fetch liked list ${id}`, e);
+                            return null;
+                        }
+                    });
                     const listSnaps = await Promise.all(listPromises);
 
                     const fetchedLists = listSnaps
@@ -95,9 +103,9 @@ export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', us
                 // Strategy: Fetch a safe batch ordered by createdAt (indexed), then filter/sort in memory.
                 // This avoids "Missing Index" errors for avgScore/averageRating and ensures data visibility.
                 if (userId) {
-                    q = query(listsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(50));
+                    q = query(listsRef, where('userId', '==', userId), where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
                 } else {
-                    q = query(listsRef, orderBy('createdAt', 'desc'), limit(50));
+                    q = query(listsRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
                 }
 
                 const querySnapshot = await getDocs(q);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Users, UserPlus } from 'lucide-react';
+import { Users, UserPlus, MessageCircle } from 'lucide-react';
 import { type UserProfileEntity } from '../hooks/useUserProfile';
 
 interface UserCardProps {
@@ -35,6 +35,12 @@ export const UserCard: React.FC<UserCardProps> = ({ user }) => {
                     <Users className="w-3 h-3 text-indigo-400" />
                     {user.followersCount || 0} seguidores
                 </span>
+                {user.reviewsCount !== undefined && (
+                    <span className="flex items-center gap-1.5 border-l border-white/10 pl-4">
+                        <MessageCircle className="w-3 h-3 text-emerald-400" />
+                        {user.reviewsCount} reseñas
+                    </span>
+                )}
             </div>
 
             {/* Bio */}

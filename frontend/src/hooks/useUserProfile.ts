@@ -12,6 +12,7 @@ export interface UserProfileEntity {
     userType: string;
     followersCount: number;
     followingCount: number;
+    reviewsCount?: number;
     createdAt?: Timestamp;
     // Add other fields as needed based on legacy schema
     defaultDistanceKm?: number;

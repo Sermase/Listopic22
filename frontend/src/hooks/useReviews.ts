@@ -156,7 +156,8 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
                         authorName: user?.displayName || user?.name || user?.username || review.authorName,
                         authorPhoto: user?.photoUrl || user?.photoURL || review.authorPhoto,
                         placeLat: place?.location?.latitude || place?.lat || place?.latitude || legacyReview.lat || legacyReview.placeLat,
-                        placeLng: place?.location?.longitude || place?.lng || place?.longitude || legacyReview.lng || legacyReview.placeLng
+                        placeLng: place?.location?.longitude || place?.lng || place?.longitude || legacyReview.lng || legacyReview.placeLng,
+                        placeCity: place?.city || (place?.address ? place.address.split(',').pop()?.trim() : '')
                     };
                 });
 

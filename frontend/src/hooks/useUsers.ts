@@ -10,6 +10,7 @@ export interface UserEntity {
     bio?: string;
     followersCount?: number;
     publicListsCount?: number;
+    reviewsCount?: number;
 }
 
 export const useUsers = () => {

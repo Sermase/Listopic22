@@ -1,17 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Map as MapIcon, Users, List as ListIcon, Loader } from 'lucide-react';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { Search, Map as MapIcon, Users, List as ListIcon, Loader, MessageCircle } from 'lucide-react';
+import { collection, query, where, getDocs, limit, orderBy, collectionGroup } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export const SearchPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const queryParam = searchParams.get('q') || '';
+    const typeParam = searchParams.get('type') as 'lists' | 'users' | 'places' | 'reviews' | null;
+    const sortParam = searchParams.get('sort');
 
     const [searchTerm, setSearchTerm] = useState(queryParam);
-    const [activeTab, setActiveTab] = useState<'lists' | 'users' | 'places'>('lists');
+    const [activeTab, setActiveTab] = useState<'lists' | 'users' | 'places' | 'reviews'>(typeParam || 'lists');
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+
+    // Sync activeTab with URL type param if it changes externally
+    useEffect(() => {
+        if (typeParam && typeParam !== activeTab) {
+            setActiveTab(typeParam);
+        }
+    }, [typeParam]);
+
+    // Update URL when tab changes or search
+    const updateUrl = (term: string, tab: string) => {
+        const params: any = {};
+        if (term) params.q = term;
+        if (tab) params.type = tab;
+        if (sortParam) params.sort = sortParam;
+        setSearchParams(params);
+    };
+
+    const handleTabChange = (tab: 'lists' | 'users' | 'places' | 'reviews') => {
+        setActiveTab(tab);
+        updateUrl(searchTerm, tab);
+    };
 
     // Update URL when local search term changes (debounced ideally, but direct for now)
     const handleSearch = (e: React.FormEvent) => {
@@ -25,31 +48,45 @@ export const SearchPage: React.FC = () => {
             setResults([]);
             try {
                 let q;
-                const dbRef = collection(db, activeTab); // 'lists', 'users', 'places'
+
+                // Base Collection Reference
+                let dbRef;
+                if (activeTab === 'reviews') {
+                    dbRef = collectionGroup(db, 'reviews');
+                } else {
+                    dbRef = collection(db, activeTab);
+                }
 
                 if (!queryParam) {
-                    // Empty state: show recent or popular
-                    // For lists: order by createdAt desc
-                    // For users: order by followersCount desc (if index exists) or simple limit
+                    // Empty state: show recent or popular based on 'sort'
                     if (activeTab === 'lists') {
-                        q = query(dbRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(20));
-                    } else if (activeTab === 'users') {
-                        q = query(dbRef, limit(20)); // Simplest for now
+                        if (sortParam === 'most_reviewed') {
+                            // Ideally needs index: isPublic desc, reviewCount desc
+                            q = query(dbRef, where('isPublic', '==', true), orderBy('reviewCount', 'desc'), limit(20));
+                        } else {
+                            q = query(dbRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(20));
+                        }
+                    } else if (activeTab === 'reviews') {
+                        if (sortParam === 'top_liked') {
+                            // Note: This requires an index on reactionCounts.like DESC
+                            q = query(dbRef, orderBy('reactionCounts.like', 'desc'), limit(20));
+                        } else {
+                            q = query(dbRef, orderBy('createdAt', 'desc'), limit(20));
+                        }
+                    } else if (activeTab === 'places') {
+                        if (sortParam === 'rating') {
+                            q = query(dbRef, orderBy('averageRating', 'desc'), limit(20));
+                        } else {
+                            q = query(dbRef, limit(20));
+                        }
                     } else {
-                        q = query(dbRef, limit(20));
+                        q = query(dbRef, limit(20)); // Users
                     }
                 } else {
                     // Search logic: Prefix match on 'name' or 'username'
-                    // Note: Firestore is case-sensitive and needs exact field names.
-                    // Lists: 'name'
-                    // Users: 'username' or 'displayName' (Tricky without Algolia)
-                    // Places: 'name'
-
-                    const field = activeTab === 'users' ? 'username' : 'name';
-                    const term = queryParam.toLowerCase(); // Assuming data is stored lower or we use a specific normalized field
-                    // Using standard Firestore hack for prefix: startAt(term), endAt(term + '\uf8ff')
-                    // THIS REQUIRED CASE-SENSITIVE MATCHING unless we have normalized fields.
-                    // For this MVP, we will try standard '>=', '<=' on standard fields, appearing case-sensitive.
+                    const field = activeTab === 'users' ? 'username' : (activeTab === 'reviews' ? 'itemName' : 'name');
+                    const term = queryParam.toLowerCase();
+                    // Note: This needs exact match or prefix hack. For real search -> Algolia/Elastic
 
                     q = query(
                         dbRef,
@@ -59,7 +96,6 @@ export const SearchPage: React.FC = () => {
                     );
 
                     if (activeTab === 'lists') {
-                        // Ideally filters for public, but compound query might need index
                         // q = query(q, where('isPublic', '==', true)); 
                     }
                 }
@@ -76,7 +112,7 @@ export const SearchPage: React.FC = () => {
         };
 
         fetchData();
-    }, [queryParam, activeTab]);
+    }, [queryParam, activeTab, sortParam]);
 
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] pb-20 pt-24 px-4">
@@ -100,27 +136,34 @@ export const SearchPage: React.FC = () => {
 
             {/* Tabs */}
             <div className="flex justify-center mb-8">
-                <div className="inline-flex bg-[#151b2e] p-1 rounded-full border border-white/10">
+                <div className="inline-flex bg-[#151b2e] p-1 rounded-full border border-white/10 overflow-x-auto max-w-[90vw]">
                     <button
-                        onClick={() => setActiveTab('lists')}
-                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'lists' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                        onClick={() => handleTabChange('lists')}
+                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'lists' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
                             }`}
                     >
                         <ListIcon className="w-4 h-4" /> Listas
                     </button>
                     <button
-                        onClick={() => setActiveTab('users')}
-                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                        onClick={() => handleTabChange('reviews')}
+                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'reviews' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
                             }`}
                     >
-                        <Users className="w-4 h-4" /> Usuarios
+                        <MessageCircle className="w-4 h-4" /> Reseñas
                     </button>
                     <button
-                        onClick={() => setActiveTab('places')}
-                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'places' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                        onClick={() => handleTabChange('places')}
+                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'places' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
                             }`}
                     >
                         <MapIcon className="w-4 h-4" /> Lugares
+                    </button>
+                    <button
+                        onClick={() => handleTabChange('users')}
+                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <Users className="w-4 h-4" /> Usuarios
                     </button>
                 </div>
             </div>
@@ -140,12 +183,39 @@ export const SearchPage: React.FC = () => {
                         {results.map((item) => (
                             <Link
                                 key={item.id}
-                                to={activeTab === 'users' ? `/profile/${item.uid || item.id}` : activeTab === 'lists' ? `/list/${item.id}` : `/place/${item.id}`}
-                                className="block"
+                                to={
+                                    activeTab === 'users' ? `/profile/${item.uid || item.id}` :
+                                        activeTab === 'lists' ? `/list/${item.id}` :
+                                            activeTab === 'places' ? `/place/${item.id}` :
+                                                item.placeId ? `/group/${item.placeId}/${encodeURIComponent(item.itemName || '')}` : '#'
+                                }
+                                className="block h-full"
                             >
                                 <div className="bg-[#151b2e] border border-white/10 rounded-xl p-4 hover:border-indigo-500/50 transition-all hover:-translate-y-1 h-full flex flex-col">
                                     {/* Conditional Rendering based on Type */}
-                                    {activeTab === 'users' ? (
+                                    {activeTab === 'reviews' ? (
+                                        <>
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <img src={item.authorPhoto || "https://ui-avatars.com/api/?name=User"} className="w-8 h-8 rounded-full bg-gray-700" />
+                                                    <div className="overflow-hidden">
+                                                        <div className="text-white font-bold text-sm truncate">{item.authorName || 'Anónimo'}</div>
+                                                        <div className="text-gray-500 text-xs truncate">@{item.authorName || 'user'}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="px-2 py-0.5 rounded bg-white/10 text-white font-bold text-xs">
+                                                    {item.overallRating?.toFixed(1) || '-'}
+                                                </div>
+                                            </div>
+                                            {item.photoUrl && (
+                                                <div className="h-32 w-full rounded-lg bg-gray-800 mb-3 overflow-hidden">
+                                                    <img src={item.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                </div>
+                                            )}
+                                            <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{item.itemName}</h3>
+                                            <p className="text-gray-400 text-xs line-clamp-2 italic mb-auto">"{item.comment}"</p>
+                                        </>
+                                    ) : activeTab === 'users' ? (
                                         <div className="flex items-center gap-4">
                                             <img
                                                 src={item.photoUrl || `https://ui-avatars.com/api/?name=${item.displayName || 'U'}`}

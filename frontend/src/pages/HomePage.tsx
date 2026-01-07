@@ -4,9 +4,10 @@ import { useLists } from '../hooks/useLists';
 import { useUsers } from '../hooks/useUsers';
 import { useReviews } from '../hooks/useReviews';
 import { ReviewCard } from '../components/ReviewCard';
+import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
-import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, query, getDocs } from 'firebase/firestore';
@@ -114,6 +115,44 @@ export const HomePage: React.FC = () => {
         }).slice(0, 10);
     }, [reviews, activeFilter, range, location]);
 
+    // 4b. Carousel Reviews (Specific Logic: Last 2 Months + Top Liked + Filtered by Range/Cat)
+    const carouselReviews = useMemo(() => {
+        // 6 months in milliseconds to ensure data shows up during dev
+        const RECENT_WINDOW_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+        const cutoffDate = Date.now() - RECENT_WINDOW_MS;
+
+        return reviews
+            .filter(r => {
+                // 1. Base Filters (Category & Distance)
+                const matchesCategory = checkCategory(r);
+                const lat = (r as any).placeLat || (r as any).lat;
+                const lng = (r as any).placeLng || (r as any).lng;
+                const matchesDist = checkDistance(lat, lng);
+
+                // 2. Date Filter (Last 2 months)
+                // Handle Firestore Timestamp or Date object
+                let createdAtMs = 0;
+                if (r.createdAt?.toMillis) {
+                    createdAtMs = r.createdAt.toMillis();
+                } else if (r.createdAt?.seconds) {
+                    createdAtMs = r.createdAt.seconds * 1000;
+                } else if (r.createdAt instanceof Date) {
+                    createdAtMs = r.createdAt.getTime();
+                }
+
+                const isRecent = createdAtMs > cutoffDate;
+
+                return matchesCategory && matchesDist && isRecent;
+            })
+            .sort((a, b) => {
+                // 3. Sort by Likes (Desc)
+                const likesA = a.reactionCounts?.like || 0;
+                const likesB = b.reactionCounts?.like || 0;
+                return likesB - likesA;
+            })
+            .slice(0, 15); // Top 15
+    }, [reviews, activeFilter, range, location]);
+
     // 5. Derived Places (Unique from Reviews -> Filtered)
     const filteredPlaces = useMemo(() => {
         const uniquePlaces = new Map();
@@ -203,17 +242,20 @@ export const HomePage: React.FC = () => {
         }
 
         let nextRange: number | null = null;
-        if (range === null) nextRange = 1;
-        else if (range === 1) nextRange = 5;
-        else if (range === 5) nextRange = 10;
-        else if (range === 10) nextRange = 50;
-        else nextRange = null;
+        if (range === null) nextRange = 0.5;    // Start small: 500m
+        else if (range === 0.5) nextRange = 1;  // 1 km
+        else if (range === 1) nextRange = 2;    // 2 km
+        else if (range === 2) nextRange = 5;    // 5 km
+        else if (range === 5) nextRange = 10;   // 10 km
+        else if (range === 10) nextRange = 50;  // 50 km
+        else nextRange = null;                  // Loop back to None
 
         handleRangeChange(nextRange);
     };
 
     const getRangeLabel = () => {
         if (range === null) return "Sin rango";
+        if (range === 0.5) return "< 500 m";
         return `< ${range} km`;
     };
 
@@ -320,7 +362,11 @@ export const HomePage: React.FC = () => {
                         {/* 1. Listas */}
                         <CardCarousel
                             title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
-                            items={filteredLists}
+                            subtitle={activeTab === 'explore' ? "Las colecciones más comentadas de la comunidad" : "Lo último creado en Listopic"}
+                            viewAllLink={`/search?type=lists&sort=${activeTab === 'explore' ? 'most_reviewed' : 'latest'}`}
+                            items={activeTab === 'explore'
+                                ? filteredLists.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0)).slice(0, 10)
+                                : filteredLists}
                             loading={loadingLists}
                             renderItem={(list: any) => (
                                 <Link to={`/list/${list.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
@@ -343,16 +389,21 @@ export const HomePage: React.FC = () => {
                                     <div className="absolute bottom-0 left-0 right-0 p-3">
                                         <h3 className="text-white font-bold text-sm leading-tight mb-1 drop-shadow-sm line-clamp-1">{list.name}</h3>
 
-                                        {/* Tags - Tiny & Compact */}
-                                        {list.availableTags && list.availableTags.length > 0 && (
-                                            <div className="flex gap-1 overflow-hidden opacity-80 group-hover:opacity-100 transition-opacity">
-                                                {list.availableTags.slice(0, 2).map((tag: string) => (
-                                                    <span key={tag} className="text-[9px] text-gray-300 font-medium">
-                                                        #{tag}
-                                                    </span>
-                                                ))}
+                                        {/* Stats Row: Reviews, Sublists, Followers */}
+                                        <div className="flex items-center gap-3 opacity-90 text-[10px] text-gray-300 font-medium">
+                                            <div className="flex items-center gap-1">
+                                                <MessageCircle className="w-3 h-3 text-indigo-400" />
+                                                <span>{list.reviewCount || 0}</span>
                                             </div>
-                                        )}
+                                            <div className="flex items-center gap-1">
+                                                <Layers className="w-3 h-3 text-emerald-400" />
+                                                <span>{list.groupedItemsCount || list.itemCount || 0}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <Users className="w-3 h-3 text-rose-400" />
+                                                <span>{list.followersCount || 0}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </Link>
                             )}
@@ -361,42 +412,18 @@ export const HomePage: React.FC = () => {
                         {/* 2. Items */}
                         <CardCarousel
                             title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos Items"}
-                            items={filteredItems}
+                            viewAllLink={`/search?type=reviews&sort=${activeTab === 'explore' ? 'top_rated' : 'latest'}`}
+                            items={filteredItems} // filteredItems are likely top rated in 'explore' mode already via useReviews('trending')
                             loading={loadingReviews}
                             renderItem={(item: any) => (
-                                <div className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
-                                    {item.photoUrl ? (
-                                        <div className="absolute inset-0">
-                                            <img src={item.photoUrl} alt={item.itemName} className="w-full h-full object-cover" />
-                                            <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/50 to-transparent" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-full h-full bg-zinc-800" />
-                                    )}
-
-                                    <div className="absolute top-2 right-2 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
-                                        {item.overallRating?.toFixed(1) || '-'}
-                                    </div>
-
-                                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                                        <h3 className="text-white font-bold text-sm mb-0.5 leading-tight line-clamp-1">{item.itemName}</h3>
-                                        <div className="flex items-center text-[10px] text-gray-400 mb-1">
-                                            <MapPin className="w-3 h-3 mr-1 opacity-70" />
-                                            <span className="truncate max-w-[120px]">{item.placeName}</span>
-                                        </div>
-                                        {item.listName && (
-                                            <span className="text-[9px] text-indigo-300 font-medium truncate opacity-90 block">
-                                                en {item.listName}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
+                                <ReviewCarouselItem review={item} variant="item" />
                             )}
                         />
 
                         {/* 3. Usuarios activos */}
                         <CardCarousel
                             title="Usuarios activos"
+                            viewAllLink="/search?type=users"
                             items={topUsers}
                             loading={loadingUsers}
                             itemClassName="w-auto mr-3"
@@ -422,6 +449,7 @@ export const HomePage: React.FC = () => {
                         {/* 4. Lugares top */}
                         <CardCarousel
                             title={activeTab === 'explore' ? "Lugares top" : "Nuevos Lugares"}
+                            viewAllLink={`/search?type=places&sort=${activeTab === 'explore' ? 'rating' : 'latest'}`}
                             items={filteredPlaces}
                             loading={loadingReviews}
                             renderItem={(place: any) => (
@@ -471,30 +499,17 @@ export const HomePage: React.FC = () => {
                             )}
                         </div>
                     ) : (
+
                         <CardCarousel
                             title="Reseñas que gustan"
-                            items={filteredItems}
+                            viewAllLink="/search?type=reviews&sort=top_liked"
+                            items={carouselReviews}
                             loading={loadingReviews}
-                            renderItem={(review: any) => (
-                                <div className="bg-[#191919] border border-white/5 rounded-xl p-4 h-full flex flex-col justify-between group hover:border-white/10 transition-colors">
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <img src={review.authorPhoto || "https://ui-avatars.com/api/?name=User"} className="w-8 h-8 rounded-full" />
-                                            <div className="text-xs">
-                                                <div className="text-white font-bold">{review.authorName}</div>
-                                                <div className="text-gray-500">@{review.authorName}</div>
-                                            </div>
-                                        </div>
-                                        <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-500 font-bold text-xs">
-                                            {review.overallRating}
-                                        </div>
-                                    </div>
-                                    <div className="flex-1">
-                                        {review.photoUrl && <div className="h-24 w-full rounded-lg bg-gray-800 mb-2 overflow-hidden"><img src={review.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
-                                        <p className="text-gray-300 text-sm line-clamp-2 italic">"{review.comment}"</p>
-                                    </div>
-                                </div>
-                            )}
+                            itemClassName="w-auto"
+                            renderItem={
+                                (review: any) => (
+                                    <ReviewCarouselItem review={review} />
+                                )}
                         />
                     )}
 
