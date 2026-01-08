@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, Link, useLocation as useRouterLocation } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, Share2, Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Utensils, Lock } from 'lucide-react';
+import { ArrowLeft, Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
 import { ListItemCard } from '../components/ListItemCard';
 import { MapView } from '../components/MapView';
@@ -23,7 +23,7 @@ export const ListPage: React.FC = () => {
     const [sortMode, setSortMode] = useState<'rating' | 'newest' | 'oldest' | 'count'>('rating');
     const { list, reviews, sublists, loading, error } = useListDetails(listId);
     const { user } = useAuth();
-    const { location, requestLocation, calculateDistance } = useLocation();
+    const { location, calculateDistance } = useLocation();
 
     const [filters, setFilters] = useState<FilterState>({
         minRating: 0,
@@ -112,6 +112,7 @@ export const ListPage: React.FC = () => {
             latestReviewAt: number; // Timestamp for sorting
             userHasReviewed: boolean;
             items: { name: string; score: number }[];
+            photoMaxLikes: number; // Track max likes to pick best photo
         }> = {};
 
         reviews.forEach(review => {
@@ -139,7 +140,8 @@ export const ListPage: React.FC = () => {
                     criteriaSums: {},
                     latestReviewAt: 0,
                     userHasReviewed: false,
-                    items: [] // Store individual items for Map View
+                    items: [], // Store individual items for Map View
+                    photoMaxLikes: -1
                 };
             }
 
@@ -173,15 +175,18 @@ export const ListPage: React.FC = () => {
 
             if (reviewTime > g.latestReviewAt) {
                 g.latestReviewAt = reviewTime;
-                // Logic to prioritize photo
-                if (!g.photoUrl && review.photoUrl) g.photoUrl = review.photoUrl;
-                // If still no photo, try place image
-                if (!g.photoUrl && review.placeMainImage) g.photoUrl = review.placeMainImage;
             }
 
-            // Prioritize photo from review if group has none (fallback)
-            if (!g.photoUrl) {
-                g.photoUrl = review.photoUrl || review.placeMainImage;
+            // Photo Selection Logic: Most Liked Review
+            const currentLikes = review.reactionCounts?.like || 0;
+            // Only update if this review HAS a photo and (either no photo set yet OR has more likes)
+            if (review.photoUrl || review.placeMainImage) {
+                if (currentLikes > g.photoMaxLikes) {
+                    g.photoMaxLikes = currentLikes;
+                    g.photoUrl = review.photoUrl || review.placeMainImage;
+                }
+            } else if (!g.photoUrl) {
+                // Fallback if no photo found yet at all, try to keep finding one
             }
 
             if (review.scores) {
@@ -604,7 +609,7 @@ export const ListPage: React.FC = () => {
                 <div className="animate-fade-in">
                     {filteredItems.length > 0 ? (
                         <>
-                            <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-3"}>
+                            <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col rounded-xl overflow-hidden border border-[var(--border-color)] divide-y divide-[var(--border-color)]"}>
                                 {filteredItems.map((item, idx) => (
                                     <ListItemCard
                                         key={item.id}

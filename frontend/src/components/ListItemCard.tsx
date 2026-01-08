@@ -40,7 +40,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
     };
 
     return (
-        <article className={`group relative bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-indigo-500/30 rounded-xl overflow-hidden mb-3 transition-all hover:shadow-lg flex shadow-sm ${isGrid ? 'flex-col' : 'flex-row'}`}>
+        <article className={`group relative bg-[var(--card-bg)] ${isGrid ? 'border border-[var(--border-color)] rounded-xl mb-3 hover:shadow-lg' : 'hover:bg-white/5'} transition-all overflow-hidden flex shadow-sm ${isGrid ? 'flex-col' : 'flex-row'}`}>
 
             {/* Rank Badge (Optional) */}
             {/* Rank Badge (Podium) */}
@@ -126,16 +126,16 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
 
                 {/* Mini Criteria Bars (Legacy Compact Style) */}
                 {item.criteriaAverages && item.criteriaDefinition && (
-                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1">
+                    <div className={`mt-2 grid ${isGrid ? 'grid-cols-2 gap-x-4' : 'grid-cols-4 gap-x-2'} gap-y-0.5 sm:grid-cols-4`}>
                         {Object.entries(item.criteriaAverages || {}).slice(0, 4).map(([key, score]) => {
                             const label = item.criteriaDefinition?.[key]?.label || key;
                             return (
                                 <div key={key} className="flex flex-col">
-                                    <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-0.5">
-                                        <span className="truncate max-w-[80%] opacity-80">{label}</span>
-                                        <span className="font-mono opacity-100">{score.toFixed(1)}</span>
+                                    <div className="flex justify-between items-end text-[9px] text-[var(--text-secondary)] leading-none mb-0.5">
+                                        <span className="truncate max-w-[70%] opacity-80">{label}</span>
+                                        <span className="font-mono opacity-100 font-bold">{score.toFixed(1)}</span>
                                     </div>
-                                    <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div className="h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                         <div
                                             className={`h-full rounded-full ${getBarColor(score)}`}
                                             style={{ width: `${score * 10}%` }}
