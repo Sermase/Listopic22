@@ -40,7 +40,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
     };
 
     return (
-        <article className={`group relative bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-indigo-500/30 rounded-xl overflow-hidden mb-3 transition-all hover:shadow-lg flex shadow-sm ${isGrid ? 'flex-col' : 'flex-col sm:flex-row'}`}>
+        <article className={`group relative bg-[var(--card-bg)] border border-[var(--border-color)] hover:border-indigo-500/30 rounded-xl overflow-hidden mb-3 transition-all hover:shadow-lg flex shadow-sm ${isGrid ? 'flex-col' : 'flex-row'}`}>
 
             {/* Rank Badge (Optional) */}
             {/* Rank Badge (Podium) */}
@@ -56,7 +56,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
             )}
 
             {/* Image Section */}
-            <div className={`relative shrink-0 bg-gray-800 ${isGrid ? 'w-full h-48' : 'w-full sm:w-32 h-32'}`}>
+            <div className={`relative shrink-0 bg-gray-800 ${isGrid ? 'w-full h-48' : 'w-24 sm:w-32'}`}>
                 {item.photoUrl ? (
                     <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
                 ) : (
@@ -65,17 +65,19 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                     </div>
                 )}
 
-                {/* Mobile Score Overlay */}
-                <div className="absolute bottom-2 right-2 sm:hidden px-2 py-1 rounded-md bg-black/60 backdrop-blur text-white font-bold text-sm border border-white/10">
-                    {item.avgRating.toFixed(1)}
-                </div>
+                {/* Mobile Score Overlay - Only show in Grid Mode on Mobile */}
+                {isGrid && (
+                    <div className="absolute bottom-2 right-2 sm:hidden px-2 py-1 rounded-md bg-black/60 backdrop-blur text-white font-bold text-sm border border-white/10">
+                        {item.avgRating.toFixed(1)}
+                    </div>
+                )}
             </div>
 
             {/* Content Section */}
-            <div className="flex-1 p-3 flex flex-col justify-between">
-                <div className="flex justify-between items-start gap-4">
-                    <div className="min-w-0">
-                        <h3 className="font-display font-bold text-lg text-[var(--text-primary)] truncate pr-2 group-hover:text-indigo-500 transition-colors">
+            <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+                <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                        <h3 className="font-display font-bold text-base sm:text-lg text-[var(--text-primary)] leading-tight line-clamp-2 pr-1 group-hover:text-indigo-500 transition-colors">
                             {item.placeId ? (
                                 groupingMode === 'dish' ? (
                                     <Link
@@ -93,18 +95,18 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                         </h3>
 
                         {/* Improved Subtext: Place Name + City */}
-                        <div className="text-xs text-[var(--text-secondary)] flex items-center flex-wrap gap-2 mt-1">
+                        <div className="text-xs text-[var(--text-secondary)] flex flex-wrap gap-1 mt-1 leading-relaxed">
                             {item.placeName && item.placeName !== item.name && (
-                                <span className="flex items-center gap-1 font-medium text-gray-400">
-                                    <MapPin className="w-3 h-3" />
-                                    <span className="truncate max-w-[150px]">{item.placeName}</span>
+                                <span className="flex items-center gap-1 font-medium text-gray-400 truncate max-w-full">
+                                    <MapPin className="w-3 h-3 shrink-0" />
+                                    <span className="truncate">{item.placeName}</span>
                                 </span>
                             )}
 
                             {(item.placeCity || item.placeAddress) && (
                                 <>
-                                    <span className="text-gray-600">•</span>
-                                    <span className="text-indigo-400/80 font-medium truncate max-w-[150px]">
+                                    <span className="text-gray-600 hidden sm:inline">•</span>
+                                    <span className="text-indigo-400/80 font-medium truncate max-w-full block sm:inline">
                                         {item.placeCity || item.placeAddress}
                                     </span>
                                 </>
@@ -116,9 +118,9 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                         </div>
                     </div>
 
-                    {/* Desktop Score */}
-                    <div className={`hidden sm:flex flex-col items-center justify-center w-12 h-12 rounded-lg ${getScoreColor(item.avgRating)} shadow-lg`}>
-                        <span className="font-display font-bold text-lg text-white">{item.avgRating.toFixed(1)}</span>
+                    {/* Score Box - Visible on Mobile List View now */}
+                    <div className={`${isGrid ? 'hidden sm:flex' : 'flex'} flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg ${getScoreColor(item.avgRating)} shadow-lg shrink-0`}>
+                        <span className="font-display font-bold text-base sm:text-lg text-white">{item.avgRating.toFixed(1)}</span>
                     </div>
                 </div>
 

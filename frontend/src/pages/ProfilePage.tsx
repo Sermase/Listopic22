@@ -246,7 +246,7 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-32 z-10">
-                <div className="flex flex-col md:flex-row items-end gap-6 mb-8">
+                <div className="flex flex-col md:flex-row items-center md:items-end gap-6 mb-8">
                     {/* Avatar */}
                     <div className="w-40 h-40 rounded-full bg-[#0b1021] p-2 shrink-0">
                         <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-4 border-[#151b2e] shadow-2xl relative group">
@@ -358,10 +358,10 @@ export const ProfilePage: React.FC = () => {
                                     {/* Google Option */}
                                     <button
                                         onClick={async () => {
-                                            if (!user.photoURL) return;
+                                            if (!user?.photoURL) return;
                                             try {
-                                                await setDoc(doc(db, 'users', user.uid), {
-                                                    photoUrl: user.photoURL
+                                                await setDoc(doc(db, 'users', user!.uid), {
+                                                    photoUrl: user!.photoURL
                                                 }, { merge: true });
                                                 // Force reload profile by relying on useUserProfile effect or optimistic update
                                                 // Ideally we'd have a refresh function from the hook, but let's just wait for real-time listener or effect
@@ -370,7 +370,7 @@ export const ProfilePage: React.FC = () => {
                                                 console.error("Error setting Google photo", e);
                                             }
                                         }}
-                                        className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${profile.photoUrl === user.photoURL
+                                        className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${profile.photoUrl === user?.photoURL
                                             ? 'bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500'
                                             : 'bg-black/20 border-white/10 hover:border-white/30'
                                             }`}
@@ -387,7 +387,7 @@ export const ProfilePage: React.FC = () => {
 
                                     {/* Custom Option / Drag & Drop Zone */}
                                     <div
-                                        className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all relative overflow-hidden group ${profile.photoUrl !== user.photoURL
+                                        className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all relative overflow-hidden group ${profile.photoUrl !== user?.photoURL
                                             ? 'bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500'
                                             : 'bg-black/20 border-white/10 hover:border-white/30'
                                             } ${dragActive ? 'border-dashed border-indigo-400 bg-indigo-500/10' : ''}`}
