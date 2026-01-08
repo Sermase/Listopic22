@@ -1,268 +1,379 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Map as MapIcon, Users, List as ListIcon, Loader, MessageCircle } from 'lucide-react';
-import { collection, query, where, getDocs, limit, orderBy, collectionGroup } from 'firebase/firestore';
-import { db } from '../firebase';
+import {
+    InstantSearch,
+    Configure,
+    useSearchBox,
+    useInfiniteHits,
+    useRefinementList
+} from 'react-instantsearch';
+import { Search, Map as MapIcon, Users, List as ListIcon, MessageCircle, Filter, X } from 'lucide-react';
+
+import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
+import { SearchQueryParser } from '../services/SearchQueryParser';
+import { ListItemCard } from '../components/ListItemCard';
+import { PlaceCard } from '../components/PlaceCard';
+// Note: You might need to import/create specific card adapters if the data shape differs significantly.
+
+// --- Custom Search Box ---
+const CustomSearchBox = (props: any) => {
+    const { query, refine } = useSearchBox(props);
+    const [inputValue, setInputValue] = useState(query);
+
+    // Sync local input if query changes externally
+    useEffect(() => {
+        if (query !== inputValue) {
+            setInputValue(query);
+        }
+    }, [query]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setInputValue(e.target.value);
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        refine(inputValue);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="relative max-w-2xl mx-auto">
+            <input
+                type="text"
+                value={inputValue}
+                onChange={handleChange}
+                placeholder="Buscar listas, usuarios, cafeterías (@user, #tag)..."
+                className="w-full bg-[#151b2e] border border-white/10 rounded-full py-4 pl-14 pr-6 text-white text-lg focus:outline-none focus:border-indigo-500 shadow-xl placeholder-gray-500"
+            />
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
+            {inputValue && (
+                <button type="button" onClick={() => { setInputValue(''); refine(''); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                    <X className="w-5 h-5" />
+                </button>
+            )}
+        </form>
+    );
+};
+
+// --- Custom Hits ---
+const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
+    // Note: useInfiniteHits doesn't support 'limit' directly in the hook, 
+    // but the parent <Configure hitsPerPage={limit} /> handles it.
+    const { hits, isLastPage, showMore } = useInfiniteHits();
+
+    if (hits.length === 0) {
+        return (
+            <div className="text-center py-10 text-gray-500">
+                No se encontraron resultados en esta categoría.
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {hits.map((hit: any) => {
+                    console.log('Search Hit Debug:', hit);
+                    return (
+                        <div key={hit.objectID}>
+                            {activeTab === 'users' ? (
+                                // User Card Adapter
+                                <Link to={`/profile/${hit.objectID}`} className="block group">
+                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-4 flex items-center gap-4 hover:border-indigo-500/50 transition-all">
+                                        <img src={hit.photoUrl || `https://ui-avatars.com/api/?name=${hit.username}`} className="w-16 h-16 rounded-full object-cover" />
+                                        <div>
+                                            <h3 className="text-white font-bold text-lg group-hover:text-indigo-400 transition-colors">{hit.username}</h3>
+                                            {hit.bio && <p className="text-gray-400 text-sm line-clamp-1">{hit.bio}</p>}
+                                            <div className="flex gap-2 mt-1 text-xs text-gray-500">
+                                                <span>{hit.followersCount} seguidores</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Link>
+                            ) : activeTab === 'places' ? (
+                                // Place Card Adapter - NOW USING RICH LISTITEMCARD
+                                <ListItemCard
+                                    item={{
+                                        id: hit.objectID,
+                                        name: hit.name || hit.itemName,
+                                        photoUrl: hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl || hit.image || hit.coverImage || (hit.photos && hit.photos[0]) || hit.picture,
+                                        avgRating: hit.averageRating || hit.avgScore || 0,
+                                        reviewCount: hit.reviewCount || hit.itemCount || hit.userRatingsTotal || 0,
+                                        placeId: hit.objectID, // For places, the ID is the placeID
+                                        placeName: hit.name,
+                                        placeCity: hit.city || hit.placeCity,
+                                        description: hit.description,
+                                        // No specific author for places usually
+                                    }}
+                                    isGrid={true}
+                                    groupingMode="place"
+                                />
+                            ) : (
+                                // Generic/List Item Adapter
+                                <ListItemCard
+                                    item={{
+                                        id: hit.objectID,
+                                        name: hit.name || hit.itemName,
+                                        photoUrl: hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl || hit.image || hit.coverImage || (hit.photos && hit.photos[0]) || hit.picture,
+                                        avgRating: hit.averageRating || hit.avgScore || 0,
+                                        reviewCount: hit.reviewCount || hit.itemCount || 0,
+                                        placeId: hit.placeId, // For items
+                                        placeName: hit.placeName, // For items
+                                        placeCity: hit.placeCity || hit.city, // For items
+                                        description: hit.description,
+                                        authorName: hit.authorName || hit.ownerName, // For lists
+                                        authorPhoto: hit.authorPhoto || hit.ownerPhoto,
+                                        listName: hit.listName, // For items
+                                        listId: hit.listId, // For items (needed for link)
+                                        followersCount: hit.followersCount, // For lists
+                                        itemCount: hit.itemCount // For lists
+                                    }}
+                                    isGrid={true}
+                                    groupingMode={
+                                        activeTab === 'lists' ? 'list' :
+                                            activeTab === 'grouped_items' ? 'dish' :
+                                                'place'
+                                    }
+                                />
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+            {!isLastPage && (
+                <div className="flex justify-center mt-8">
+                    <button onClick={showMore} className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold transition-colors">
+                        Ver más
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- Federated Search Section Helper ---
+import { Index } from 'react-instantsearch';
+
+const FederatedSection = ({ indexName, title, type, icon: Icon }: any) => {
+    return (
+        <Index indexName={indexName}>
+            <Configure hitsPerPage={3} />
+            <div className="mb-8">
+                <div className="flex items-center gap-2 mb-4 px-1">
+                    <Icon className="w-5 h-5 text-indigo-400" />
+                    <h3 className="text-xl font-bold text-white">{title}</h3>
+                </div>
+                <CustomHits activeTab={type} />
+                <div className="mt-4 text-center lg:text-left">
+                    {/* We can't easily link to the "tab" from here without external state, 
+                         but the user can click the main tabs. 
+                         Ideally, we'd add "Ver todos los usuarios" button here that changes the tab.
+                      */}
+                </div>
+            </div>
+        </Index>
+    );
+};
+
+// --- Custom Refinement List ---
+const CustomRefinementList = (props: any) => {
+    const { items, refine } = useRefinementList(props);
+    if (items.length === 0) return null;
+
+    return (
+        <div className="mb-6">
+            <h4 className="text-white font-bold mb-3 uppercase text-xs tracking-wider">{props.label}</h4>
+            <div className="space-y-2">
+                {items.map((item) => (
+                    <label key={item.label} className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                            type="checkbox"
+                            checked={item.isRefined}
+                            onChange={() => refine(item.value)}
+                            className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-gray-900"
+                        />
+                        <span className={`text-sm ${item.isRefined ? 'text-indigo-400 font-bold' : 'text-gray-400 group-hover:text-gray-300'}`}>
+                            {item.label} <span className="text-gray-600 ml-1">({item.count})</span>
+                        </span>
+                    </label>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 
 export const SearchPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
+
+    // URL Params
     const queryParam = searchParams.get('q') || '';
-    const typeParam = searchParams.get('type') as 'lists' | 'users' | 'places' | 'reviews' | null;
-    const sortParam = searchParams.get('sort');
+    const typeParam = searchParams.get('type') || 'all'; // Default to 'all' now
 
-    const [searchTerm, setSearchTerm] = useState(queryParam);
-    const [activeTab, setActiveTab] = useState<'lists' | 'users' | 'places' | 'reviews'>(typeParam || 'lists');
-    const [results, setResults] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
+    // Internal State
+    const [activeTab, setActiveTab] = useState(typeParam);
+    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
-    // Sync activeTab with URL type param if it changes externally
-    useEffect(() => {
-        if (typeParam && typeParam !== activeTab) {
-            setActiveTab(typeParam);
-        }
-    }, [typeParam]);
+    // Parse Query using Smart Parser
+    const parsedQuery = useMemo(() => SearchQueryParser.parse(queryParam), [queryParam]);
 
-    // Update URL when tab changes or search
-    const updateUrl = (term: string, tab: string) => {
-        const params: any = {};
-        if (term) params.q = term;
-        if (tab) params.type = tab;
-        if (sortParam) params.sort = sortParam;
-        setSearchParams(params);
-    };
-
-    const handleTabChange = (tab: 'lists' | 'users' | 'places' | 'reviews') => {
+    // Handle Tab Change
+    const handleTabChange = (tab: string) => {
         setActiveTab(tab);
-        updateUrl(searchTerm, tab);
+        setSearchParams({ q: queryParam, type: tab });
     };
 
-    // Update URL when local search term changes (debounced ideally, but direct for now)
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        setSearchParams({ q: searchTerm });
-    };
+    // Construct Filters string for Algolia
+    // e.g. "city:Madrid AND priceLevel:2"
+    const algoliaFilters = useMemo(() => {
+        const parts: string[] = [];
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            setResults([]);
-            try {
-                let q;
-
-                // Base Collection Reference
-                let dbRef;
-                if (activeTab === 'reviews') {
-                    dbRef = collectionGroup(db, 'reviews');
-                } else {
-                    dbRef = collection(db, activeTab);
-                }
-
-                if (!queryParam) {
-                    // Empty state: show recent or popular based on 'sort'
-                    if (activeTab === 'lists') {
-                        if (sortParam === 'most_reviewed') {
-                            // Ideally needs index: isPublic desc, reviewCount desc
-                            q = query(dbRef, where('isPublic', '==', true), orderBy('reviewCount', 'desc'), limit(20));
-                        } else {
-                            q = query(dbRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(20));
-                        }
-                    } else if (activeTab === 'reviews') {
-                        if (sortParam === 'top_liked') {
-                            // Note: This requires an index on reactionCounts.like DESC
-                            q = query(dbRef, orderBy('reactionCounts.like', 'desc'), limit(20));
-                        } else {
-                            q = query(dbRef, orderBy('createdAt', 'desc'), limit(20));
-                        }
-                    } else if (activeTab === 'places') {
-                        if (sortParam === 'rating') {
-                            q = query(dbRef, orderBy('averageRating', 'desc'), limit(20));
-                        } else {
-                            q = query(dbRef, limit(20));
-                        }
-                    } else {
-                        q = query(dbRef, limit(20)); // Users
-                    }
-                } else {
-                    // Search logic: Prefix match on 'name' or 'username'
-                    const field = activeTab === 'users' ? 'username' : (activeTab === 'reviews' ? 'itemName' : 'name');
-                    const term = queryParam.toLowerCase();
-                    // Note: This needs exact match or prefix hack. For real search -> Algolia/Elastic
-
-                    q = query(
-                        dbRef,
-                        where(field, '>=', term),
-                        where(field, '<=', term + '\uf8ff'),
-                        limit(20)
-                    );
-
-                    if (activeTab === 'lists') {
-                        // q = query(q, where('isPublic', '==', true)); 
-                    }
-                }
-
-                const snap = await getDocs(q);
-                const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setResults(data);
-
-            } catch (error) {
-                console.error("Search error:", error);
-            } finally {
-                setLoading(false);
+        // Add User Filters from Smart Query
+        Object.entries(parsedQuery.filters).forEach(([key, values]) => {
+            let fieldName = key;
+            // Basic mappings...
+            if (activeTab === 'places') {
+                if (key === 'service') fieldName = 'serviceOptions';
+                if (key === 'price') fieldName = 'priceLevel';
             }
-        };
+            if (activeTab === 'grouped_items') {
+                if (key === 'city') fieldName = 'placeCity';
+            }
 
-        fetchData();
-    }, [queryParam, activeTab, sortParam]);
+            const group = values.map(v => `${fieldName}:"${v}"`).join(' OR ');
+            if (group) parts.push(`(${group})`);
+        });
+
+        if (activeTab === 'lists') {
+            // parts.push('isPublic:true'); 
+        }
+
+        return parts.join(' AND ');
+    }, [parsedQuery, activeTab]);
+
 
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] pb-20 pt-24 px-4">
-            {/* Hero Search */}
-            <div className="max-w-4xl mx-auto mb-8 text-center">
-                <h1 className="text-3xl font-display font-bold text-white mb-6">
-                    Explora todo en <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Listopic</span>
-                </h1>
 
-                <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto">
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Buscar listas, usuarios, cafeterías..."
-                        className="w-full bg-[#151b2e] border border-white/10 rounded-full py-4 pl-14 pr-6 text-white text-lg focus:outline-none focus:border-indigo-500 shadow-xl placeholder-gray-500"
-                    />
-                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
-                </form>
-            </div>
+            <InstantSearch
+                searchClient={algoliaClient}
+                indexName={INDEX_NAMES.lists} // Primary index for 'all' or 'lists', usually lists is fine as base
+                future={{ preserveSharedStateOnUnmount: true }}
+            >
+                {/* Global Configuration for the Main Index (or shared query) */}
+                <Configure
+                    query={parsedQuery.cleanedQuery}
+                    filters={activeTab === 'all' ? '' : algoliaFilters} // Only apply specific filters on tabs for now, or careful handling
+                    hitsPerPage={20}
+                />
 
-            {/* Tabs */}
-            <div className="flex justify-center mb-8">
-                <div className="inline-flex bg-[#151b2e] p-1 rounded-full border border-white/10 overflow-x-auto max-w-[90vw]">
-                    <button
-                        onClick={() => handleTabChange('lists')}
-                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'lists' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <ListIcon className="w-4 h-4" /> Listas
-                    </button>
-                    <button
-                        onClick={() => handleTabChange('reviews')}
-                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'reviews' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <MessageCircle className="w-4 h-4" /> Reseñas
-                    </button>
-                    <button
-                        onClick={() => handleTabChange('places')}
-                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'places' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <MapIcon className="w-4 h-4" /> Lugares
-                    </button>
-                    <button
-                        onClick={() => handleTabChange('users')}
-                        className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <Users className="w-4 h-4" /> Usuarios
-                    </button>
+                {/* Hero Search */}
+                <div className="max-w-4xl mx-auto mb-8 text-center">
+                    <h1 className="text-3xl font-display font-bold text-white mb-6">
+                        Explora todo en <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Listopic</span>
+                    </h1>
+                    <CustomSearchBox />
                 </div>
-            </div>
 
-            {/* Results Grid */}
-            <div className="container mx-auto max-w-6xl">
-                {loading ? (
-                    <div className="flex justify-center py-20">
-                        <Loader className="w-8 h-8 text-indigo-500 animate-spin" />
+                {/* Tabs */}
+                <div className="flex justify-center mb-8">
+                    <div className="inline-flex bg-[#151b2e] p-1 rounded-full border border-white/10 overflow-x-auto max-w-[90vw]">
+                        <button
+                            onClick={() => handleTabChange('all')}
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap capitalize ${activeTab === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <Search className="w-4 h-4" /> Todo
+                        </button>
+                        {Object.keys(INDEX_NAMES).map(key => (
+                            <button
+                                key={key}
+                                onClick={() => handleTabChange(key)}
+                                className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap capitalize ${activeTab === key ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                                    }`}
+                            >
+                                {key === 'lists' && <ListIcon className="w-4 h-4" />}
+                                {key === 'places' && <MapIcon className="w-4 h-4" />}
+                                {key === 'users' && <Users className="w-4 h-4" />}
+                                {key === 'grouped_items' && <MessageCircle className="w-4 h-4" />}
+                                {key === 'grouped_items' ? 'Items' : key}
+                            </button>
+                        ))}
                     </div>
-                ) : results.length === 0 ? (
-                    <div className="text-center py-20 text-gray-500">
-                        No se encontraron resultados para "{queryParam}".
+                </div>
+
+                {/* Content Area */}
+                {activeTab === 'all' ? (
+                    // --- View: ALL (Federated) ---
+                    <div className="container mx-auto max-w-7xl">
+                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas Recomendadas" type="lists" icon={ListIcon} />
+                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} />
+                        <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} />
+                        <FederatedSection indexName={INDEX_NAMES.items} title="Items & Platos" type="grouped_items" icon={MessageCircle} />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {results.map((item) => (
-                            <Link
-                                key={item.id}
-                                to={
-                                    activeTab === 'users' ? `/profile/${item.uid || item.id}` :
-                                        activeTab === 'lists' ? `/list/${item.id}` :
-                                            activeTab === 'places' ? `/place/${item.id}` :
-                                                item.placeId ? `/group/${item.placeId}/${encodeURIComponent(item.itemName || '')}` : '#'
-                                }
-                                className="block h-full"
-                            >
-                                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-4 hover:border-indigo-500/50 transition-all hover:-translate-y-1 h-full flex flex-col">
-                                    {/* Conditional Rendering based on Type */}
-                                    {activeTab === 'reviews' ? (
+                    // --- View: Specific Tab (Sidebar + Grid) ---
+                    <Index indexName={INDEX_NAMES[activeTab as keyof typeof INDEX_NAMES]}>
+                        <div className="container mx-auto max-w-7xl flex flex-col lg:flex-row gap-8">
+                            {/* Filters Sidebar (Desktop) */}
+                            <div className={`lg:w-64 flex-shrink-0 ${isFiltersOpen ? 'block' : 'hidden lg:block'}`}>
+                                <div className="bg-[#151b2e] rounded-xl border border-white/10 p-5 sticky top-24">
+                                    <div className="flex justify-between items-center mb-4 lg:hidden">
+                                        <h3 className="text-white font-bold">Filtros</h3>
+                                        <button onClick={() => setIsFiltersOpen(false)}><X className="text-white" /></button>
+                                    </div>
+
+                                    {/* Facets per Tab */}
+                                    {activeTab === 'lists' && (
                                         <>
-                                            <div className="flex items-start justify-between mb-3">
-                                                <div className="flex items-center gap-2">
-                                                    <img src={item.authorPhoto || "https://ui-avatars.com/api/?name=User"} className="w-8 h-8 rounded-full bg-gray-700" />
-                                                    <div className="overflow-hidden">
-                                                        <div className="text-white font-bold text-sm truncate">{item.authorName || 'Anónimo'}</div>
-                                                        <div className="text-gray-500 text-xs truncate">@{item.authorName || 'user'}</div>
-                                                    </div>
-                                                </div>
-                                                <div className="px-2 py-0.5 rounded bg-white/10 text-white font-bold text-xs">
-                                                    {item.overallRating?.toFixed(1) || '-'}
-                                                </div>
-                                            </div>
-                                            {item.photoUrl && (
-                                                <div className="h-32 w-full rounded-lg bg-gray-800 mb-3 overflow-hidden">
-                                                    <img src={item.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                                </div>
-                                            )}
-                                            <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{item.itemName}</h3>
-                                            <p className="text-gray-400 text-xs line-clamp-2 italic mb-auto">"{item.comment}"</p>
+                                            <CustomRefinementList attribute="availableTags" label="Etiquetas" />
+                                            <CustomRefinementList attribute="categories" label="Categoría" />
+                                            {/* Legacy Facets to add if index supports: minReviews, minFollowers */}
                                         </>
-                                    ) : activeTab === 'users' ? (
-                                        <div className="flex items-center gap-4">
-                                            <img
-                                                src={item.photoUrl || `https://ui-avatars.com/api/?name=${item.displayName || 'U'}`}
-                                                alt="Avatar"
-                                                className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500/20"
-                                            />
-                                            <div>
-                                                <h3 className="font-bold text-white text-lg">{item.displayName || item.username || 'Usuario'}</h3>
-                                                <p className="text-indigo-400 text-sm">@{item.username || 'user'}</p>
-                                                <div className="flex gap-2 mt-2 text-xs text-gray-500">
-                                                    <span>{item.followersCount || 0} Seguidores</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : activeTab === 'lists' ? (
+                                    )}
+                                    {activeTab === 'places' && (
                                         <>
-                                            <div className="h-40 bg-gray-800 rounded-lg mb-4 overflow-hidden relative">
-                                                {(item.mainImageUrl || item.photoUrl) && <img src={item.mainImageUrl || item.photoUrl} className="w-full h-full object-cover" />}
-                                                {item.avgScore && (
-                                                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur px-2 py-0.5 rounded text-xs font-bold text-white">
-                                                        ⭐ {item.avgScore.toFixed(1)}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <h3 className="font-bold text-white text-lg mb-1">{item.name}</h3>
-                                            <p className="text-sm text-gray-400 mb-2 line-clamp-2">{item.description}</p>
-                                            <div className="mt-auto pt-2 border-t border-white/5 flex justify-between items-center text-xs text-gray-500">
-                                                <span>{item.itemCount || 0} items</span>
-                                                <span>{item.authorName}</span>
-                                            </div>
+                                            <CustomRefinementList attribute="city" label="Ciudad" />
+                                            <CustomRefinementList attribute="types" label="Tipo" />
+                                            <CustomRefinementList attribute="priceLevel" label="Precio" />
+                                            <CustomRefinementList attribute="serviceOptions" label="Servicios" />
+                                            <CustomRefinementList attribute="accessibilityOptions" label="Accesibilidad" />
                                         </>
-                                    ) : (
-                                        // Places
+                                    )}
+                                    {activeTab === 'users' && (
                                         <>
-                                            <div className="h-40 bg-gray-800 rounded-lg mb-4 overflow-hidden relative">
-                                                {item.mainImageUrl && <img src={item.mainImageUrl} className="w-full h-full object-cover" />}
-                                            </div>
-                                            <h3 className="font-bold text-white text-lg mb-1">{item.name}</h3>
-                                            <p className="text-sm text-gray-400">{item.address || item.city}</p>
+                                            <CustomRefinementList attribute="userType" label="Tipo Usuario" />
+                                            {/* <CustomRefinementList attribute="badges" label="Insignias" /> */}
+                                        </>
+                                    )}
+                                    {activeTab === 'grouped_items' && (
+                                        <>
+                                            <CustomRefinementList attribute="placeCity" label="Ciudad" />
+                                            <CustomRefinementList attribute="listName" label="Lista" />
+                                            <CustomRefinementList attribute="tags" label="Etiquetas" />
                                         </>
                                     )}
                                 </div>
-                            </Link>
-                        ))}
-                    </div>
+                            </div>
+
+                            {/* Results Area */}
+                            <div className="flex-1">
+                                <div className="flex justify-between items-center mb-4 lg:hidden">
+                                    <button
+                                        onClick={() => setIsFiltersOpen(true)}
+                                        className="flex items-center gap-2 px-4 py-2 bg-[#151b2e] border border-white/10 rounded-lg text-white font-bold text-sm"
+                                    >
+                                        <Filter className="w-4 h-4" /> Filtros
+                                    </button>
+                                </div>
+
+                                <CustomHits activeTab={activeTab} />
+                            </div>
+                        </div>
+                    </Index>
                 )}
-            </div>
+
+            </InstantSearch>
         </div>
     );
 };
