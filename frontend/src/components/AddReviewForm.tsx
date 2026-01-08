@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -41,6 +41,45 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
     const [listData, setListData] = useState<any>(null); // Store full list data for lineage
     const [reviewPath, setReviewPath] = useState<string | null>(null);
 
+    // UX States
+    const [ratingsTouched, setRatingsTouched] = useState(false);
+    const [originalData, setOriginalData] = useState<string>(''); // JSON string for deep comparison
+
+    // Validation Logic
+    const isNew = !editReviewId;
+
+    const isValid = useMemo(() => {
+        // 1. Name is required
+        if (!itemName.trim()) return false;
+
+        // 2. Place is required
+        // If prefillPlaceId exists, it's valid. If editing, we assume place is valid unless cleared? 
+        // But for new reviews, selectedPlace is needed.
+        // Correction: On Edit, selectedPlace might be null if we failed to fetch details, but we have data.placeId?
+        // Let's rely on selectedPlace being set during load.
+        if (!selectedPlace && !prefillPlaceId && !editReviewId) return false;
+
+        // 3. Ratings Touched (Only for NEW reviews)
+        if (isNew && !ratingsTouched) return false;
+
+        return true;
+    }, [itemName, selectedPlace, prefillPlaceId, editReviewId, ratingsTouched, isNew]);
+
+    const isDirty = useMemo(() => {
+        if (isNew) return true; // Always dirty if new (until saved)
+
+        const currentData = JSON.stringify({
+            itemName,
+            comment,
+            criteriaScores,
+            customTags,
+            imagePreview // crude check for photo change
+        });
+
+        return currentData !== originalData;
+    }, [isNew, itemName, comment, criteriaScores, customTags, imagePreview, originalData]);
+
+
     // Fetch Review Data for Editing
     useEffect(() => {
         const fetchReviewData = async () => {
@@ -61,6 +100,15 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                     if (data.scores) setCriteriaScores(data.scores);
                     if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
                     if (data.photoUrl) setImagePreview(data.photoUrl);
+
+                    // Capture Original Data for Dirty Check
+                    setOriginalData(JSON.stringify({
+                        itemName: data.itemName || '',
+                        comment: data.comment || '',
+                        criteriaScores: data.scores || {},
+                        customTags: data.tags || data.userTags || [],
+                        imagePreview: data.photoUrl || null
+                    }));
 
                     if (data.placeId) {
                         try {
@@ -426,29 +474,32 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
     if (initLoading) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[#151b2e] rounded-2xl w-full max-w-lg border border-white/10 shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center sm:p-4 bg-[#151b2e] sm:bg-black/80 sm:backdrop-blur-sm animate-fade-in">
+            <div className="bg-[#151b2e] w-full h-full sm:h-auto sm:max-h-[85vh] sm:rounded-2xl sm:max-w-lg sm:border sm:border-white/10 sm:shadow-2xl relative overflow-hidden flex flex-col">
+
                 {/* Header */}
-                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0b1021]/50">
+                <div className="shrink-0 p-4 border-b border-white/5 flex justify-between items-center bg-[#0b1021]/50 safe-area-top">
                     <h2 className="text-lg font-bold text-white">{editReviewId ? 'Editar Reseña' : 'Añadir Reseña'}</h2>
-                    <button onClick={onClose} className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+                    <button onClick={onClose} className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors hidden sm:block">
                         <X className="w-5 h-5" />
                     </button>
+                    {/* Mobile Cancel (Top Left or Right?) - Let's stick to X or just Cancel in Footer? User asked for Cancel in Footer. */}
                 </div>
 
-                <div className="p-6 overflow-y-auto custom-scrollbar">
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pb-24 sm:pb-6">
                     {error && (
                         <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-200 p-3 rounded-lg text-sm">
                             {error}
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form id="review-form" onSubmit={handleSubmit} className="space-y-6">
 
                         {/* 0. Place Search */}
                         {!prefillPlaceId && (
                             <div className="space-y-2">
-                                <label className="block text-xs font-bold uppercase text-gray-400 tracking-wider">Lugar</label>
+                                <label className="block text-xs font-bold uppercase text-gray-400 tracking-wider">Lugar <span className="text-red-400">*</span></label>
                                 <PlaceSearch
                                     onSelect={setSelectedPlace}
                                     prefillValue={selectedPlace?.name || prefillItemName}
@@ -465,7 +516,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
 
                         {/* 1. Item Name */}
                         <div>
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1 tracking-wider">¿Qué probaste?</label>
+                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1 tracking-wider">¿Qué probaste? <span className="text-red-400">*</span></label>
                             <input
                                 type="text"
                                 value={itemName}
@@ -475,6 +526,62 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                                 className={`w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors ${prefillItemName ? 'opacity-70 cursor-not-allowed' : ''}`}
                             />
                         </div>
+
+                        {/* 3. Overall Rating (Read Only / Auto) */}
+                        <div>
+                            <label className="block text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Nota Global</label>
+                            <div className="flex items-center gap-4 bg-[#151b2e] p-4 rounded-xl border border-white/5">
+                                <div className={`text-4xl font-bold ${overallRating >= 7 ? 'text-green-400' : overallRating >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                    {overallRating}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                    Esta nota se calcula automáticamente basándose en tus puntuaciones.
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 4. Detailed Criteria */}
+                        {Object.keys(criteriaScores).length > 0 && (
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-6">
+                                <h3 className="text-sm font-bold text-gray-300 flex items-center gap-2">
+                                    <ListIcon className="w-4 h-4" /> Detalles <span className="text-red-400">*</span>
+                                </h3>
+                                {Object.keys(criteriaScores).map((key) => {
+                                    const def = criteriaDefinition[key];
+                                    const val = criteriaScores[key];
+                                    const min = def.min ?? 0;
+                                    const max = def.max ?? 10;
+                                    const step = def.step ?? 0.5;
+
+                                    return (
+                                        <div key={key}>
+                                            <div className="flex justify-between items-end mb-2">
+                                                <span className="text-sm font-medium text-gray-200">{def?.label || key}</span>
+                                                <span className="text-indigo-400 font-bold font-mono text-lg">{val}</span>
+                                            </div>
+
+                                            <input
+                                                type="range"
+                                                min={min}
+                                                max={max}
+                                                step={step}
+                                                value={val}
+                                                onChange={(e) => {
+                                                    setCriteriaScores(prev => ({ ...prev, [key]: parseFloat(e.target.value) }));
+                                                    setRatingsTouched(true);
+                                                }}
+                                                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                            />
+
+                                            <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                                                <span>{def.labelMin || min}</span>
+                                                <span>{def.labelMax || max}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
 
                         {/* 2. Photo Upload */}
                         <div>
@@ -504,59 +611,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                                 </div>
                             </div>
                         </div>
-
-                        {/* 3. Overall Rating (Read Only / Auto) */}
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Nota Global (Calculada)</label>
-                            <div className="flex items-center gap-4 bg-[#151b2e] p-4 rounded-xl border border-white/5">
-                                <div className={`text-4xl font-bold ${overallRating >= 7 ? 'text-green-400' : overallRating >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                    {overallRating}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                    Esta nota se calcula automáticamente basándose en tus puntuaciones y la configuración de la lista.
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 4. Detailed Criteria */}
-                        {Object.keys(criteriaScores).length > 0 && (
-                            <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-6">
-                                <h3 className="text-sm font-bold text-gray-300 flex items-center gap-2">
-                                    <ListIcon className="w-4 h-4" /> Detalles
-                                </h3>
-                                {Object.keys(criteriaScores).map((key) => {
-                                    const def = criteriaDefinition[key];
-                                    const val = criteriaScores[key];
-                                    const min = def.min ?? 0;
-                                    const max = def.max ?? 10;
-                                    const step = def.step ?? 0.5;
-
-                                    return (
-                                        <div key={key}>
-                                            <div className="flex justify-between items-end mb-2">
-                                                <span className="text-sm font-medium text-gray-200">{def?.label || key}</span>
-                                                <span className="text-indigo-400 font-bold font-mono text-lg">{val}</span>
-                                            </div>
-
-                                            <input
-                                                type="range"
-                                                min={min}
-                                                max={max}
-                                                step={step}
-                                                value={val}
-                                                onChange={(e) => setCriteriaScores(prev => ({ ...prev, [key]: parseFloat(e.target.value) }))}
-                                                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                                            />
-
-                                            <div className="flex justify-between text-[10px] text-gray-500 mt-1">
-                                                <span>{def.labelMin || min}</span>
-                                                <span>{def.labelMax || max}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
 
                         {/* 5. Tags */}
                         <div>
@@ -594,15 +648,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                                 />
                             </div>
 
-                            {/* Selected Custom Tags (that are not in default list) display ?? 
-                                Actually, customTags state holds ALL selected tags. 
-                                We might want to show the ones we just added if they are not prohibited. 
-                                For now, let's just show all selected tags as pills if we want, OR just rely on the toggle state above for defaults 
-                                and maybe a separate list for pure customs? 
-                                User asked for "predefined tags selectable, yes or no. not fixed". 
-                                Meaning I can add MORE. 
-                                Let's list the selected tags that are NOT in listAvailableTags separately or just trust the array checks.
-                            */}
                             {customTags.filter(t => !listAvailableTags.includes(t)).length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-3 p-3 bg-white/5 rounded-lg border border-white/5">
                                     <span className="text-xs text-gray-500 w-full mb-1">Personalizadas:</span>
@@ -631,14 +676,30 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                             />
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 ring-1 ring-white/10"
-                        >
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (editReviewId ? "Guardar Cambios" : "Publicar Reseña")}
-                        </button>
                     </form>
+                </div>
+
+                {/* Footer (Fixed Actions) */}
+                <div className="shrink-0 p-4 border-t border-white/5 bg-[#0b1021]/80 backdrop-blur-md safe-area-bottom flex gap-3 z-20">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex-1 py-3 bg-[#1e2538] hover:bg-[#2a3449] text-white font-bold rounded-xl transition-colors ring-1 ring-white/10"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            if (loading) return;
+                            // Programmatically submit form
+                            handleSubmit(e as any);
+                        }}
+                        disabled={loading || !isValid || (editReviewId ? !isDirty : false)}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 ring-1 ring-white/10"
+                    >
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (editReviewId ? "Guardar Cambios" : "Publicar Reseña")}
+                    </button>
                 </div>
             </div>
         </div>
