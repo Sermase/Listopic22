@@ -16,6 +16,9 @@ export interface UserProfileEntity {
     createdAt?: Timestamp;
     // Add other fields as needed based on legacy schema
     defaultDistanceKm?: number;
+    followingListsCount?: number;
+    followingUsersCount?: number;
+    followingPlacesCount?: number;
 }
 
 export const useUserProfile = (uid: string | undefined) => {

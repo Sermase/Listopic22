@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, Link, useLocation as useRouterLocation } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, Share2, Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Utensils } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Share2, Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Utensils, Lock } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
 import { ListItemCard } from '../components/ListItemCard';
 import { MapView } from '../components/MapView';
@@ -71,11 +71,13 @@ export const ListPage: React.FC = () => {
 
     const toggleRange = () => {
         let next: number | null = null;
-        if (range === null) next = 2;
+        if (range === null) next = 1;
+        else if (range === 1) next = 2;
         else if (range === 2) next = 5;
         else if (range === 5) next = 10;
         else if (range === 10) next = 50;
-        else if (range === 50) next = 500;
+        else if (range === 50) next = 100;
+        else if (range === 100) next = 500;
         else if (range === 500) next = null;
         else next = null; // Reset if some other value
 
@@ -304,6 +306,26 @@ export const ListPage: React.FC = () => {
     }
 
     if (error || !list) {
+        if (error === 'private') {
+            return (
+                <div className="min-h-screen pt-40 px-4 text-center">
+                    <div className="bg-[#151b2e] border border-white/10 rounded-2xl p-8 max-w-md mx-auto">
+                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Lock className="w-8 h-8 text-gray-400" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white mb-2">Lista Privada</h2>
+                        <p className="text-gray-400 mb-6">
+                            Esta lista es privada y no tienes permisos para verla.
+                        </p>
+                        <Link to="/search" className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors">
+                            <Search className="w-4 h-4" />
+                            Explorar otras listas
+                        </Link>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="min-h-screen pt-24 px-4 text-center">
                 <h2 className="text-2xl font-bold text-red-400 mb-2">Error</h2>

@@ -10,14 +10,84 @@ import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { usePlaceDetails } from '../hooks/usePlaceDetails';
 import { ReviewCard } from '../components/ReviewCard';
 import { MapView } from '../components/MapView';
+import { useAuth } from '../context/AuthContext';
+import { doc, getDoc, setDoc, deleteDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export const PlacePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
     const { place, loading, error } = usePlaceDetails(placeId);
+    const { user } = useAuth(); // Ensure useAuth is imported and used
     const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes'>('reviews');
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [isFollowed, setIsFollowed] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [followLoading, setFollowLoading] = useState(false);
+
+    // Check if place is followed
+    useEffect(() => {
+        if (!user || !placeId) return;
+        const checkFollow = async () => {
+            try {
+                const docRef = doc(db, 'users', user.uid, 'followingPlaces', placeId);
+                const snap = await getDoc(docRef);
+                setIsFollowed(snap.exists());
+            } catch (e) {
+                console.warn("Check follow error", e);
+            }
+        };
+        checkFollow();
+    }, [user, placeId]);
+
+    const handleFollowToggle = async () => {
+        if (!user || !placeId) return; // Prompt login if needed
+
+        // Optimistic UI
+        const prevState = isFollowed;
+        setIsFollowed(!prevState);
+        setFollowLoading(true);
+
+        try {
+            const userRef = doc(db, 'users', user.uid);
+            const followingPlaceRef = doc(db, 'users', user.uid, 'followingPlaces', placeId);
+            const placeRef = doc(db, 'places', placeId);
+
+            if (prevState) {
+                // Unfollow
+                await deleteDoc(followingPlaceRef);
+
+                // Decrement User Stats
+                await updateDoc(userRef, { followingPlacesCount: increment(-1) }).catch(e => console.warn(e));
+
+                // Decrement Place Stats (if place doc exists)
+                await updateDoc(placeRef, { followersCount: increment(-1) }).catch(e => console.warn("Place doc update error (maybe not created yet)", e));
+
+            } else {
+                // Follow
+                await setDoc(followingPlaceRef, {
+                    placeId,
+                    followedAt: serverTimestamp(),
+                    placeName: place?.name || '',
+                    placeAddress: place?.address || '',
+                    placePhoto: place?.photoUrl || ''
+                });
+
+                // Increment User Stats
+                await updateDoc(userRef, { followingPlacesCount: increment(1) }).catch(e => console.warn(e));
+
+                // Increment Place Stats
+                // Note: Place doc might need creation if it strictly relies on 'Add Review' to be created.
+                // Assuming place exists or we accept potential error if strict validation. 
+                // For robustness, usually we check/create place here too, but staying simple for now.
+                await updateDoc(placeRef, { followersCount: increment(1) }).catch(e => console.warn(e));
+            }
+        } catch (error) {
+            console.error("Follow place error:", error);
+            setIsFollowed(prevState); // Revert
+        } finally {
+            setFollowLoading(false);
+        }
+    };
 
     // --- Dishes Aggregation (Menu Mode: Platos) ---
     const dishes = useMemo(() => {
@@ -164,8 +234,9 @@ export const PlacePage: React.FC = () => {
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Guardar</span>
                         </button>
                         <button
-                            onClick={() => setIsFollowed(!isFollowed)}
-                            className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${isFollowed ? 'bg-pink-500/20 border-pink-500 text-pink-400' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}
+                            onClick={handleFollowToggle}
+                            disabled={followLoading}
+                            className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${isFollowed ? 'bg-pink-500/20 border-pink-500 text-pink-400' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'} ${followLoading ? 'opacity-50 cursor-wait' : ''}`}
                         >
                             <Heart className={`w-5 h-5 mb-1 ${isFollowed ? 'fill-current' : ''}`} />
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{isFollowed ? 'Siguiendo' : 'Seguir'}</span>

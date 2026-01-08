@@ -370,28 +370,43 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                 });
             }
 
-            // 2. Update List Counters (Parent and Sublist)
+            // 2. Update Counters (Lists, User, Place)
             // Only increment if NEW review. If editing, counts don't change (usually).
             if (!editReviewId) {
                 const updates = [];
 
-                // Always update the Main List (finalListId)
+                // A. Main List
                 if (finalListId) {
                     const mainListRef = doc(db, 'lists', finalListId);
                     updates.push(updateDoc(mainListRef, {
                         itemCount: increment(1),
                         reviewCount: increment(1),
-                        updatedAt: serverTimestamp() // Refresh timestamp for 'Recent' sort
+                        updatedAt: serverTimestamp()
                     }));
                 }
 
-                // If it's a sublist, also update the Sublist
+                // B. Sublist (if applicable)
                 if (sublistId && sublistId !== finalListId) {
                     const sublistRef = doc(db, 'lists', sublistId);
                     updates.push(updateDoc(sublistRef, {
                         itemCount: increment(1),
                         reviewCount: increment(1),
                         updatedAt: serverTimestamp()
+                    }));
+                }
+
+                // C. User Counters
+                const userRef = doc(db, 'users', user.uid);
+                updates.push(updateDoc(userRef, {
+                    reviewsCount: increment(1)
+                }));
+
+                // D. Place Counters
+                if (finalPlaceId) {
+                    const placeRef = doc(db, 'places', finalPlaceId);
+                    // Ensure update doesn't fail if doc creation was somehow slow (though we awaited it)
+                    updates.push(updateDoc(placeRef, {
+                        reviewsCount: increment(1)
                     }));
                 }
 

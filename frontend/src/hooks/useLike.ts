@@ -54,19 +54,40 @@ export const useLike = (listId: string, initialCount: number = 0) => {
             // Use root collection 'list_likes' pattern
             const likeRef = doc(db, 'list_likes', `${listId}_${user.uid}`);
             const listRef = doc(db, 'lists', listId);
+            const userRef = doc(db, 'users', user.uid); // Reference to current user
+            const followingListRef = doc(db, 'users', user.uid, 'followingLists', listId);
 
             if (previousState) {
                 // Unlike
                 await deleteDoc(likeRef);
+                await deleteDoc(followingListRef); // Remove from profile following
                 await updateDoc(listRef, { likes: increment(-1) });
+                // Decrement user's followingListsCount
+                await updateDoc(userRef, { followingListsCount: increment(-1) }).catch(e => console.warn("Error updating user stats", e));
             } else {
-                // Like
+                // Like - Fetch list details first for denormalization
+                const listSnap = await getDoc(listRef);
+                const listData = listSnap.data() || {};
+
                 await setDoc(likeRef, {
                     listId, // Store listId for querying likes by list if needed
                     userId: user.uid,
                     createdAt: serverTimestamp()
                 });
+
+                // Add to profile following with details
+                await setDoc(followingListRef, {
+                    listId,
+                    name: listData.name || 'Lista sin nombre',
+                    photoUrl: listData.photoUrl || '',
+                    itemCount: listData.itemCount || 0,
+                    ownerName: listData.ownerName || listData.authorName || 'Anónimo',
+                    followedAt: serverTimestamp()
+                });
+
                 await updateDoc(listRef, { likes: increment(1) });
+                // Increment user's followingListsCount
+                await updateDoc(userRef, { followingListsCount: increment(1) }).catch(e => console.warn("Error updating user stats", e));
             }
         } catch (err) {
             console.error("Error toggling like:", err);

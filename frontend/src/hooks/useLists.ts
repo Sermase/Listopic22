@@ -12,6 +12,7 @@ export interface ListEntity {
     mainImageUrl?: string; // Legacy/DB field
     createdAt: Timestamp;
     updatedAt?: Timestamp;
+    parentListId?: string; // For sublists
 
     // Visibility
     isPublic: boolean;
@@ -92,8 +93,8 @@ export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', us
                     const listSnaps = await Promise.all(listPromises);
 
                     const fetchedLists = listSnaps
-                        .filter(snap => snap.exists())
-                        .map(snap => ({ id: snap.id, ...snap.data() })) as ListEntity[];
+                        .filter(snap => snap !== null && snap.exists())
+                        .map(snap => ({ id: snap!.id, ...snap!.data() })) as ListEntity[];
 
                     setLists(fetchedLists);
                     return; // Done

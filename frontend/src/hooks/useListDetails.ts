@@ -167,11 +167,19 @@ export const useListDetails = (listId: string | undefined) => {
                 setReviews(enrichedReviews);
 
                 // 3. Fetch Sublists
-                const listsRef = collection(db, 'lists');
-                const sublistsQ = query(listsRef, where('parentListId', '==', listId));
-                const sublistsSnap = await getDocs(sublistsQ);
-                const sublistsData = sublistsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ListEntity[];
-                setSublists(sublistsData);
+                // Wrap in try/catch to avoid blocking main content if permissions fail (e.g. public list but restrictive list-query rules)
+                try {
+                    const listsRef = collection(db, 'lists');
+                    // Note: If this query fails due to rules, we just show no sublists.
+                    // For public lists to show sublists, the rules must allow 'list' on 'lists' collection given the query constraints.
+                    const sublistsQ = query(listsRef, where('parentListId', '==', listId));
+                    const sublistsSnap = await getDocs(sublistsQ);
+                    const sublistsData = sublistsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ListEntity[];
+                    setSublists(sublistsData);
+                } catch (subErr: any) {
+                    console.warn("Could not fetch sublists (likely permission issue):", subErr.code);
+                    setSublists([]);
+                }
 
             } catch (err: any) {
                 if (err.code === 'permission-denied') {

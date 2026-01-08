@@ -57,7 +57,7 @@ export const HomePage: React.FC = () => {
     // --- DATA FETCHING (Dynamic based on Tab) ---
     // Explore -> Top Rated/Trending; News -> Following
     const listSort = activeTab === 'explore' ? 'top_rated' : 'recent'; // Lists still use 'recent' for news
-    const reviewSortParam = activeTab === 'explore' ? 'trending' : { type: 'following', followingIds };
+    const reviewSortParam = activeTab === 'explore' ? 'trending' : { type: 'following' as const, followingIds };
 
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews } = useReviews(reviewSortParam);
@@ -105,15 +105,18 @@ export const HomePage: React.FC = () => {
     }, [lists, activeFilter, range, location]);
 
     // 4. Derived & Filtered Items (Reviews)
-    const filteredItems = useMemo(() => {
+    // We need the FULL list for calcs, not just the sliced one for display
+    const reviewsInRange = useMemo(() => {
         return reviews.filter(r => {
             const matchesCategory = checkCategory(r);
             const lat = (r as any).placeLat || (r as any).lat;
             const lng = (r as any).placeLng || (r as any).lng;
             const matchesDist = checkDistance(lat, lng);
             return matchesCategory && matchesDist;
-        }).slice(0, 10);
+        });
     }, [reviews, activeFilter, range, location]);
+
+    const filteredItems = useMemo(() => reviewsInRange.slice(0, 10), [reviewsInRange]);
 
     // 4b. Carousel Reviews (Specific Logic: Last 2 Months + Top Liked + Filtered by Range/Cat)
     const carouselReviews = useMemo(() => {
@@ -121,13 +124,9 @@ export const HomePage: React.FC = () => {
         const RECENT_WINDOW_MS = 6 * 30 * 24 * 60 * 60 * 1000;
         const cutoffDate = Date.now() - RECENT_WINDOW_MS;
 
-        return reviews
+        return reviewsInRange
             .filter(r => {
-                // 1. Base Filters (Category & Distance)
-                const matchesCategory = checkCategory(r);
-                const lat = (r as any).placeLat || (r as any).lat;
-                const lng = (r as any).placeLng || (r as any).lng;
-                const matchesDist = checkDistance(lat, lng);
+                // Already filtered by Category & Dist in reviewsInRange
 
                 // 2. Date Filter (Last 2 months)
                 // Handle Firestore Timestamp or Date object
@@ -141,8 +140,7 @@ export const HomePage: React.FC = () => {
                 }
 
                 const isRecent = createdAtMs > cutoffDate;
-
-                return matchesCategory && matchesDist && isRecent;
+                return isRecent;
             })
             .sort((a, b) => {
                 // 3. Sort by Likes (Desc)
@@ -151,89 +149,93 @@ export const HomePage: React.FC = () => {
                 return likesB - likesA;
             })
             .slice(0, 15); // Top 15
-    }, [reviews, activeFilter, range, location]);
+    }, [reviewsInRange]);
 
     // 5. Derived Places (Unique from Reviews -> Filtered)
     const filteredPlaces = useMemo(() => {
         const uniquePlaces = new Map();
-        reviews.forEach(r => {
+        reviewsInRange.forEach(r => {
             if (r.placeId) {
-                const lat = (r as any).placeLat;
-                const lng = (r as any).placeLng;
-
-                if (checkCategory(r) && checkDistance(lat, lng)) {
-                    if (uniquePlaces.has(r.placeId)) {
-                        const existing = uniquePlaces.get(r.placeId);
-                        existing.reviewsCount = (existing.reviewsCount || 0) + 1;
-                        // Prioritize having a photo
-                        if (!existing.photoUrl && (r.placeMainImage || r.photoUrl)) {
-                            existing.photoUrl = r.placeMainImage || r.photoUrl;
-                        }
-                        uniquePlaces.set(r.placeId, existing);
-                    } else {
-                        uniquePlaces.set(r.placeId, {
-                            id: r.placeId,
-                            name: r.placeName || r.itemName,
-                            address: r.placeAddress,
-                            photoUrl: r.placeMainImage || r.photoUrl,
-                            rating: r.placeAverageRating || r.overallRating,
-                            reviewsCount: 1,
-                            lat, lng
-                        });
+                // Coordinates logic handled in reviewsInRange, just need to dedupe
+                if (uniquePlaces.has(r.placeId)) {
+                    const existing = uniquePlaces.get(r.placeId);
+                    existing.reviewsCount = (existing.reviewsCount || 0) + 1;
+                    // Prioritize having a photo
+                    if (!existing.photoUrl && (r.placeMainImage || r.photoUrl)) {
+                        existing.photoUrl = r.placeMainImage || r.photoUrl;
                     }
+                    uniquePlaces.set(r.placeId, existing);
+                } else {
+                    const lat = (r as any).placeLat;
+                    const lng = (r as any).placeLng;
+                    uniquePlaces.set(r.placeId, {
+                        id: r.placeId,
+                        name: r.placeName || r.itemName,
+                        address: r.placeAddress,
+                        photoUrl: r.placeMainImage || r.photoUrl,
+                        rating: r.placeAverageRating || r.overallRating,
+                        reviewsCount: 1,
+                        lat, lng
+                    });
                 }
             }
         });
         return Array.from(uniquePlaces.values());
-    }, [reviews, activeFilter, range, location]);
+    }, [reviewsInRange]);
 
-    // 6. Derived Users (Synthesized from content)
-    const filteredUsers = useMemo(() => {
-        const uniqueUsers = new Map();
+    // 6. Derived Users (Synthesized from content IN RANGE)
+    const activeUsersInRange = useMemo(() => {
+        const userStats = new Map<string, { count: number, user: any }>();
 
-        // Add users from Lists
-        filteredLists.forEach(l => {
-            if (l.userId && !uniqueUsers.has(l.userId)) {
-                uniqueUsers.set(l.userId, {
-                    uid: l.userId,
-                    displayName: l.authorName || 'Usuario',
-                    photoUrl: l.photoUrl, // List might not have user photo, but let's check if we have it or fallback
-                    // ideally list should have authorPhoto, but if not we skip or use generic. 
-                    // Actually lists usually have authorName. 
-                    // Let's rely on what we have.
-                    username: 'user',
-                    followersCount: 0
-                });
-            }
-        });
-
-        // Add users from Reviews (better source as it has authorPhoto)
-        filteredItems.forEach(r => {
+        // Agregate counts from REVIEWS visible in current range
+        reviewsInRange.forEach(r => {
             const uid = r.userId || r.authorId;
-            if (uid && !uniqueUsers.has(uid)) {
-                uniqueUsers.set(uid, {
-                    uid,
-                    displayName: r.authorName || 'Usuario',
-                    photoUrl: r.authorPhoto,
-                    username: 'user',
-                    followersCount: 0
-                });
-            } else if (uid && uniqueUsers.has(uid)) {
-                // Enhance existing if missing photo
-                const existing = uniqueUsers.get(uid);
-                if (!existing.photoUrl && r.authorPhoto) {
-                    existing.photoUrl = r.authorPhoto;
-                    uniqueUsers.set(uid, existing);
+            if (uid) {
+                if (!userStats.has(uid)) {
+                    // Try to find full metadata from topUsers if available, else build minimal
+                    const meta = topUsers.find(u => u.uid === uid) || {
+                        uid,
+                        displayName: r.authorName || 'Usuario',
+                        photoUrl: r.authorPhoto,
+                        username: 'user',
+                        followersCount: 0 // We don't use this for sorting anymore
+                    };
+                    userStats.set(uid, { count: 0, user: meta });
+                }
+
+                const entry = userStats.get(uid)!;
+                entry.count++;
+                // If we found a photo here and didn't have one, update it
+                if (!entry.user.photoUrl && r.authorPhoto) {
+                    entry.user.photoUrl = r.authorPhoto;
                 }
             }
         });
 
-        // If we still want to merge with "topUsers" to get real stats/bio if available:
-        return Array.from(uniqueUsers.values()).map(u => {
-            const realUser = topUsers.find(tu => tu.uid === u.uid);
-            return realUser ? { ...u, ...realUser } : u;
+        // Convert map to array, filter > 0, sort by count desc
+        return Array.from(userStats.values())
+            .filter(item => item.count > 0)
+            .sort((a, b) => b.count - a.count)
+            .map(item => ({
+                ...item.user,
+                reviewsInRangeCount: item.count // Attach the specific count
+            }));
+
+    }, [reviewsInRange, topUsers]);
+
+    // 7. Lists with Range Stats
+    const listsWithRangeStats = useMemo(() => {
+        // Map lists to attach dynamic review count based on reviewsInRange
+        return filteredLists.map(list => {
+            // Count how many reviews in 'reviewsInRange' belong to this list
+            const count = reviewsInRange.filter(r => r.listId === list.id).length;
+            return {
+                ...list,
+                reviewsInRangeCount: count
+            };
         });
-    }, [filteredLists, filteredItems, topUsers]);
+    }, [filteredLists, reviewsInRange]);
+
 
     // Cycle Range Handler
     const toggleRange = () => {
@@ -242,13 +244,15 @@ export const HomePage: React.FC = () => {
         }
 
         let nextRange: number | null = null;
-        if (range === null) nextRange = 0.5;    // Start small: 500m
-        else if (range === 0.5) nextRange = 1;  // 1 km
-        else if (range === 1) nextRange = 2;    // 2 km
-        else if (range === 2) nextRange = 5;    // 5 km
-        else if (range === 5) nextRange = 10;   // 10 km
-        else if (range === 10) nextRange = 50;  // 50 km
-        else nextRange = null;                  // Loop back to None
+        if (range === null) nextRange = 1;
+        else if (range === 1) nextRange = 2;
+        else if (range === 2) nextRange = 5;
+        else if (range === 5) nextRange = 10;
+        else if (range === 10) nextRange = 50;
+        else if (range === 50) nextRange = 100;
+        else if (range === 100) nextRange = 500;
+        else if (range === 500) nextRange = null;
+        else nextRange = null; // Reset if weird value
 
         handleRangeChange(nextRange);
     };
@@ -362,10 +366,9 @@ export const HomePage: React.FC = () => {
                         {/* 1. Listas */}
                         <CardCarousel
                             title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
-                            subtitle={activeTab === 'explore' ? "Las colecciones más comentadas de la comunidad" : "Lo último creado en Listopic"}
                             viewAllLink={`/search?type=lists&sort=${activeTab === 'explore' ? 'most_reviewed' : 'latest'}`}
                             items={activeTab === 'explore'
-                                ? filteredLists.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0)).slice(0, 10)
+                                ? listsWithRangeStats.sort((a, b) => (b.reviewsInRangeCount || 0) - (a.reviewsInRangeCount || 0)).slice(0, 10)
                                 : filteredLists}
                             loading={loadingLists}
                             renderItem={(list: any) => (
@@ -390,17 +393,14 @@ export const HomePage: React.FC = () => {
                                         <h3 className="text-white font-bold text-sm leading-tight mb-1 drop-shadow-sm line-clamp-1">{list.name}</h3>
 
                                         {/* Stats Row: Reviews, Sublists, Followers */}
-                                        <div className="flex items-center gap-3 opacity-90 text-[10px] text-gray-300 font-medium">
-                                            <div className="flex items-center gap-1">
-                                                <MessageCircle className="w-3 h-3 text-indigo-400" />
-                                                <span>{list.reviewCount || 0}</span>
+                                        {/* Stats Row: Reviews, Followers */}
+                                        <div className="flex items-center gap-4 opacity-90 text-xs text-gray-300 font-medium">
+                                            <div className="flex items-center gap-1.5">
+                                                <MessageCircle className="w-3.5 h-3.5 text-indigo-400" />
+                                                <span>{list.reviewsInRangeCount || 0}</span>
                                             </div>
-                                            <div className="flex items-center gap-1">
-                                                <Layers className="w-3 h-3 text-emerald-400" />
-                                                <span>{list.groupedItemsCount || list.itemCount || 0}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <Users className="w-3 h-3 text-rose-400" />
+                                            <div className="flex items-center gap-1.5">
+                                                <Users className="w-3.5 h-3.5 text-rose-400" />
                                                 <span>{list.followersCount || 0}</span>
                                             </div>
                                         </div>
@@ -424,22 +424,19 @@ export const HomePage: React.FC = () => {
                         <CardCarousel
                             title="Usuarios activos"
                             viewAllLink="/search?type=users"
-                            items={topUsers}
-                            loading={loadingUsers}
+                            items={activeUsersInRange}
+                            loading={loadingUsers} // Technically we are deriving this from reviews now, but loadingUsers is still a fine proxy or we could use loadingReviews
                             itemClassName="w-auto mr-3"
                             renderItem={(user: any) => (
                                 <Link to={`/profile/${user.uid}`} className="flex flex-col items-center gap-1 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
                                     <div className="relative w-16 h-16 md:w-20 md:h-20">
                                         <img src={user.photoUrl || `https://ui-avatars.com/api/?name=${user.displayName}`} alt="User" className="w-full h-full rounded-full object-cover border-2 border-transparent group-hover:border-white transition-all" />
-                                        <div className="absolute -bottom-1 -right-0 w-6 h-6 bg-black rounded-full flex items-center justify-center text-[10px] font-bold text-white border border-gray-700">
-                                            #1
-                                        </div>
                                     </div>
                                     <div className="text-center w-full">
                                         <h4 className="text-white font-bold text-xs truncate w-full">{user.displayName}</h4>
                                         <p className="text-gray-500 text-[10px] truncate">@{user.username || 'user'}</p>
                                         <p className="text-[9px] text-indigo-400 font-medium mt-0.5">
-                                            {user.publicListsCount || 0} Listas • {user.followersCount || 0} Seg.
+                                            {user.reviewsInRangeCount ?? 0} Reseñas
                                         </p>
                                     </div>
                                 </Link>
