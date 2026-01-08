@@ -545,36 +545,56 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                                     const val = criteriaScores[key];
                                     const min = def.min ?? 0;
                                     const max = def.max ?? 10;
-                                    const step = def.step ?? 0.5;
+                                    const step = 0.1;
 
-                                    // Visual color logic
+                                    // Metric Calculation
                                     const percentage = ((val - min) / (max - min)) * 100;
-                                    let colorClass = "accent-yellow-500";
+
+                                    // Helper to Interpolate Colors for Thumb
+                                    const getThumbColor = (pct: number) => {
+                                        // Colors: Red (#ef4444), Yellow (#eab308), Green (#22c55e)
+                                        const r1 = 239, g1 = 68, b1 = 68;    // Red
+                                        const r2 = 234, g2 = 179, b2 = 8;    // Yellow
+                                        const r3 = 34, g3 = 197, b3 = 94;    // Green
+
+                                        let r, g, b;
+                                        if (pct < 50) {
+                                            // Red -> Yellow
+                                            const t = pct / 50;
+                                            r = Math.round(r1 + (r2 - r1) * t);
+                                            g = Math.round(g1 + (g2 - g1) * t);
+                                            b = Math.round(b1 + (b2 - b1) * t);
+                                        } else {
+                                            // Yellow -> Green
+                                            const t = (pct - 50) / 50;
+                                            r = Math.round(r2 + (r3 - r2) * t);
+                                            g = Math.round(g2 + (g3 - g2) * t);
+                                            b = Math.round(b2 + (b3 - b2) * t);
+                                        }
+                                        return `rgb(${r}, ${g}, ${b})`;
+                                    };
+
+                                    const thumbColor = getThumbColor(percentage);
+
+                                    // Text classes (keep discrete logic for text readability if preferred, or match?)
+                                    // Keeping discrete for text makes it readable "zones"
                                     let textClass = "text-yellow-400";
                                     let borderClass = "border-yellow-500/30";
-
-                                    if (percentage <= 30) {
-                                        colorClass = "accent-red-500";
-                                        textClass = "text-red-400";
-                                        borderClass = "border-red-500/30";
-                                    } else if (percentage >= 70) {
-                                        colorClass = "accent-green-500";
-                                        textClass = "text-green-400";
-                                        borderClass = "border-green-500/30";
-                                    }
+                                    if (percentage <= 30) { textClass = "text-red-400"; borderClass = "border-red-500/30"; }
+                                    else if (percentage >= 70) { textClass = "text-green-400"; borderClass = "border-green-500/30"; }
 
                                     return (
                                         <div key={key} className="bg-[#0b1021]/50 p-4 rounded-xl border border-white/5">
                                             {/* Header: Title + Big Value */}
                                             <div className="flex justify-between items-center mb-4">
                                                 <span className="text-lg font-bold text-gray-100">{def?.label || key}</span>
-                                                <div className={`flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 border ${borderClass} `}>
-                                                    <span className={`text-xl font-bold font-mono ${textClass}`}>{val}</span>
+                                                <div className={`flex items-center justify-center w-16 h-12 rounded-xl bg-white/5 border ${borderClass} `}>
+                                                    <span className={`text-xl font-bold font-mono ${textClass}`}>{val.toFixed(1)}</span>
                                                 </div>
                                             </div>
 
                                             {/* Interactive Slider Area */}
-                                            <div className="relative h-10 flex items-center">
+                                            <div className="relative h-12 flex items-center">
                                                 <input
                                                     type="range"
                                                     min={min}
@@ -582,10 +602,18 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                                                     step={step}
                                                     value={val}
                                                     onChange={(e) => {
-                                                        setCriteriaScores(prev => ({ ...prev, [key]: parseFloat(e.target.value) }));
+                                                        const newVal = parseFloat(e.target.value);
+                                                        setCriteriaScores(prev => ({ ...prev, [key]: newVal }));
                                                         setRatingsTouched(true);
                                                     }}
-                                                    className={`w-full h-3 rounded-lg appearance-none cursor-pointer ${colorClass} bg-gray-700/50 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50`}
+                                                    className="custom-range-slider"
+                                                    style={{
+                                                        backgroundSize: `${percentage}% 100%`,
+                                                        backgroundImage: `linear-gradient(90deg, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
+                                                        backgroundColor: 'rgba(255,255,255,0.1)', // "se vea un poco más gris" - increased visibility
+                                                        backgroundRepeat: 'no-repeat',
+                                                        '--thumb-color': thumbColor // Pass dynamic color to CSS
+                                                    } as React.CSSProperties}
                                                 />
                                             </div>
 
