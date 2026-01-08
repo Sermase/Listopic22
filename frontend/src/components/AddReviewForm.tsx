@@ -576,11 +576,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
 
                                     const thumbColor = getThumbColor(percentage);
 
-                                    // Text classes (keep discrete logic for text readability if preferred, or match?)
-                                    // Keeping discrete for text makes it readable "zones"
+                                    // Text classes
                                     let textClass = "text-yellow-400";
                                     let borderClass = "border-yellow-500/30";
                                     if (percentage <= 30) { textClass = "text-red-400"; borderClass = "border-red-500/30"; }
+                                    else if (percentage >= 85) { textClass = "text-blue-400"; borderClass = "border-blue-500/30"; } // Blue for excellence
                                     else if (percentage >= 70) { textClass = "text-green-400"; borderClass = "border-green-500/30"; }
 
                                     return (
@@ -609,8 +609,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                                                     className="custom-range-slider"
                                                     style={{
                                                         backgroundSize: `${percentage}% 100%`,
-                                                        backgroundImage: `linear-gradient(90deg, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
-                                                        backgroundColor: 'rgba(255,255,255,0.1)', // "se vea un poco más gris" - increased visibility
+                                                        // Gradient including Blue at the end
+                                                        backgroundImage: `linear-gradient(90deg, #ef4444 0%, #eab308 50%, #22c55e 80%, #3b82f6 100%)`,
+                                                        backgroundColor: 'rgba(255,255,255,0.1)',
                                                         backgroundRepeat: 'no-repeat',
                                                         '--thumb-color': thumbColor // Pass dynamic color to CSS
                                                     } as React.CSSProperties}
