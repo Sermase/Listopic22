@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PlaceService, type PlaceResult } from '../services/PlaceService';
-import { Search, MapPin, Loader, X, Navigation } from 'lucide-react';
+import { Search, MapPin, Loader, X } from 'lucide-react';
 
 import { useLocation } from '../hooks/useLocation';
 
@@ -12,7 +12,7 @@ interface PlaceSearchProps {
 }
 
 export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder = "Ej: La Pizzería Genial", prefillValue, onManualToggle }) => {
-    const { location, loading: locLoading, error: locError } = useLocation();
+    const { location, loading: locLoading } = useLocation();
     const [query, setQuery] = useState(prefillValue || '');
     const [results, setResults] = useState<PlaceResult[]>([]);
     const [loading, setLoading] = useState(false);
@@ -99,14 +99,37 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                 setStatusMessage(location ? "Buscando..." : "Buscando globalmente...");
                 let data = await PlaceService.searchPlaces(query, location?.latitude, location?.longitude);
 
-                // Sort by distance
-                data.sort((a, b) => {
+                // Smart Sort: Prioritize Relevance (Name Match) THEN Distance
+                // 1. Exact/Partial Name Match
+                // 2. Others
+                const normalizedQuery = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+                const exactMatches: PlaceResult[] = [];
+                const others: PlaceResult[] = [];
+
+                data.forEach(item => {
+                    const normalizedName = item.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    // Check if name includes query words (basic relevance)
+                    if (normalizedName.includes(normalizedQuery)) {
+                        exactMatches.push(item);
+                    } else {
+                        others.push(item);
+                    }
+                });
+
+                // Sort both groups by distance
+                const sortByDistance = (a: PlaceResult, b: PlaceResult) => {
                     if (a.distance === undefined) return 1;
                     if (b.distance === undefined) return -1;
                     return a.distance - b.distance;
-                });
+                };
 
-                setResults(data);
+                exactMatches.sort(sortByDistance);
+                others.sort(sortByDistance);
+
+                // Combine: Matches first, then others
+                setResults([...exactMatches, ...others]);
+
                 setIsOpen(true);
                 if (data.length === 0) {
                     setStatusMessage("No se encontraron resultados.");
