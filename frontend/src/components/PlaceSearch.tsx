@@ -49,7 +49,15 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
 
                 if (lat && lng) {
                     setStatusMessage("Buscando lugares cercanos...");
-                    const data = await PlaceService.searchNearby(lat, lng);
+                    let data = await PlaceService.searchNearby(lat, lng);
+
+                    // Sort by distance
+                    data.sort((a, b) => {
+                        if (a.distance === undefined) return 1;
+                        if (b.distance === undefined) return -1;
+                        return a.distance - b.distance;
+                    });
+
                     setResults(data);
                     setIsOpen(true);
                     if (data.length === 0) setStatusMessage("No se encontraron lugares cercanos.");
@@ -57,7 +65,15 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                 } else {
                     // Force refresh if hook didn't catch it yet
                     navigator.geolocation.getCurrentPosition(async (pos) => {
-                        const data = await PlaceService.searchNearby(pos.coords.latitude, pos.coords.longitude);
+                        let data = await PlaceService.searchNearby(pos.coords.latitude, pos.coords.longitude);
+
+                        // Sort by distance
+                        data.sort((a, b) => {
+                            if (a.distance === undefined) return 1;
+                            if (b.distance === undefined) return -1;
+                            return a.distance - b.distance;
+                        });
+
                         setResults(data);
                         setIsOpen(true);
                         setLoading(false);
@@ -81,7 +97,15 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                 }
 
                 setStatusMessage(location ? "Buscando..." : "Buscando globalmente...");
-                const data = await PlaceService.searchPlaces(query, location?.latitude, location?.longitude);
+                let data = await PlaceService.searchPlaces(query, location?.latitude, location?.longitude);
+
+                // Sort by distance
+                data.sort((a, b) => {
+                    if (a.distance === undefined) return 1;
+                    if (b.distance === undefined) return -1;
+                    return a.distance - b.distance;
+                });
+
                 setResults(data);
                 setIsOpen(true);
                 if (data.length === 0) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, X, Image as ImageIcon, Tag } from 'lucide-react';
+import { Loader2, X, Image as ImageIcon } from 'lucide-react';
 import { PlaceSearch } from './PlaceSearch';
 import { PlaceService, type PlaceResult, transformToLegacyPlace } from '../services/PlaceService';
 
@@ -31,7 +31,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
     const [_imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [customTags, setCustomTags] = useState<string[]>([]);
-    const [tagInput, setTagInput] = useState('');
     const [listAvailableTags, setListAvailableTags] = useState<string[]>([]);
 
     const [initLoading, setInitLoading] = useState(true);
@@ -295,17 +294,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
         }
     };
 
-    const addCustomTag = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && tagInput.trim()) {
-            e.preventDefault();
-            const tag = tagInput.trim();
-            if (!customTags.includes(tag)) {
-                setCustomTags([...customTags, tag]);
-            }
-            setTagInput('');
-        }
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !listId) return;
@@ -356,16 +344,19 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                     finalPlaceLat = legacyPlace.coordinates.latitude;
                     finalPlaceLng = legacyPlace.coordinates.longitude;
 
+                    // Attempt to sync with 'places' collection, but don't block review if it fails (security rules)
                     const placeRef = doc(db, 'places', finalPlaceId);
-
-                    // Check existence/Merge
-                    const placeSnap = await getDoc(placeRef);
-
-                    if (!placeSnap.exists()) {
-                        // New Place
-                        await setDoc(placeRef, legacyPlace);
-                    } else {
-                        // Optional: Merge/Update if needed, but preserve existing
+                    try {
+                        const placeSnap = await getDoc(placeRef);
+                        if (!placeSnap.exists()) {
+                            await setDoc(placeRef, legacyPlace);
+                        }
+                    } catch (placeWriteErr) {
+                        console.warn("Permission denied or error writing to 'places', proceeding with review only:", placeWriteErr);
+                        // Start: We can still link the ID, but maybe we shouldn't if we aren't sure it exists?
+                        // Actually, strict legacy links rely on placeId. If the place doesn't exist in 'places', 
+                        // the app should still work via the review's embedded placeName/Address.
+                        // So we KEEP finalPlaceId.
                     }
                 } catch (placeErr) {
                     console.warn("Could not cache Place details:", placeErr);
@@ -453,9 +444,10 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                 if (finalPlaceId) {
                     const placeRef = doc(db, 'places', finalPlaceId);
                     // Ensure update doesn't fail if doc creation was somehow slow (though we awaited it)
-                    updates.push(updateDoc(placeRef, {
-                        reviewsCount: increment(1)
-                    }));
+                    // Wrap this in try/catch too, as increment might fail if place doc doesn't exist or permissions deny
+                    updates.push(
+                        updateDoc(placeRef, { reviewsCount: increment(1) }).catch(e => console.warn("Failed to increment place count", e))
+                    );
                 }
 
                 await Promise.all(updates);
@@ -540,12 +532,14 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                             </div>
                         </div>
 
-                        {/* 4. Detailed Criteria */}
+                        {/* 4. Detailed Criteria - Enhanced Sliders "Heart of Review" */}
                         {Object.keys(criteriaScores).length > 0 && (
-                            <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-6">
-                                <h3 className="text-sm font-bold text-gray-300 flex items-center gap-2">
-                                    <ListIcon className="w-4 h-4" /> Detalles <span className="text-red-400">*</span>
+                            <div className="bg-white/5 p-5 rounded-2xl border border-white/5 space-y-8">
+                                <h3 className="text-base font-bold text-gray-200 flex items-center gap-2 mb-4">
+                                    <ListIcon className="w-5 h-5 text-indigo-400" />
+                                    Valoración Detallada <span className="text-red-400">*</span>
                                 </h3>
+
                                 {Object.keys(criteriaScores).map((key) => {
                                     const def = criteriaDefinition[key];
                                     const val = criteriaScores[key];
@@ -553,27 +547,50 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                                     const max = def.max ?? 10;
                                     const step = def.step ?? 0.5;
 
+                                    // Visual color logic
+                                    const percentage = ((val - min) / (max - min)) * 100;
+                                    let colorClass = "accent-yellow-500";
+                                    let textClass = "text-yellow-400";
+                                    let borderClass = "border-yellow-500/30";
+
+                                    if (percentage <= 30) {
+                                        colorClass = "accent-red-500";
+                                        textClass = "text-red-400";
+                                        borderClass = "border-red-500/30";
+                                    } else if (percentage >= 70) {
+                                        colorClass = "accent-green-500";
+                                        textClass = "text-green-400";
+                                        borderClass = "border-green-500/30";
+                                    }
+
                                     return (
-                                        <div key={key}>
-                                            <div className="flex justify-between items-end mb-2">
-                                                <span className="text-sm font-medium text-gray-200">{def?.label || key}</span>
-                                                <span className="text-indigo-400 font-bold font-mono text-lg">{val}</span>
+                                        <div key={key} className="bg-[#0b1021]/50 p-4 rounded-xl border border-white/5">
+                                            {/* Header: Title + Big Value */}
+                                            <div className="flex justify-between items-center mb-4">
+                                                <span className="text-lg font-bold text-gray-100">{def?.label || key}</span>
+                                                <div className={`flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 border ${borderClass} `}>
+                                                    <span className={`text-xl font-bold font-mono ${textClass}`}>{val}</span>
+                                                </div>
                                             </div>
 
-                                            <input
-                                                type="range"
-                                                min={min}
-                                                max={max}
-                                                step={step}
-                                                value={val}
-                                                onChange={(e) => {
-                                                    setCriteriaScores(prev => ({ ...prev, [key]: parseFloat(e.target.value) }));
-                                                    setRatingsTouched(true);
-                                                }}
-                                                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                                            />
+                                            {/* Interactive Slider Area */}
+                                            <div className="relative h-10 flex items-center">
+                                                <input
+                                                    type="range"
+                                                    min={min}
+                                                    max={max}
+                                                    step={step}
+                                                    value={val}
+                                                    onChange={(e) => {
+                                                        setCriteriaScores(prev => ({ ...prev, [key]: parseFloat(e.target.value) }));
+                                                        setRatingsTouched(true);
+                                                    }}
+                                                    className={`w-full h-3 rounded-lg appearance-none cursor-pointer ${colorClass} bg-gray-700/50 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50`}
+                                                />
+                                            </div>
 
-                                            <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                                            {/* Min / Max Labels - More visible */}
+                                            <div className="flex justify-between text-xs font-semibold uppercase tracking-wider text-gray-500 mt-1 px-1">
                                                 <span>{def.labelMin || min}</span>
                                                 <span>{def.labelMax || max}</span>
                                             </div>
@@ -583,7 +600,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                             </div>
                         )}
 
-                        {/* 2. Photo Upload */}
+                        {/* 2. Photo Upload - Enhanced limit to camera/gallery */}
                         <div>
                             <label className="block text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Foto</label>
                             <div className="flex items-center gap-4">
@@ -601,8 +618,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                                 ) : (
                                     <label className="h-24 w-24 border-2 border-dashed border-white/10 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 transition-colors text-gray-500 hover:text-indigo-400">
                                         <ImageIcon className="w-6 h-6 mb-1" />
-                                        <span className="text-[10px]">Subir</span>
-                                        <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                                        <span className="text-[10px]">Cámara/Galería</span>
+                                        {/* capture="environment" prefers rear camera on mobile */}
+                                        <input type="file" accept="image/*" capture="environment" onChange={handleImageChange} className="hidden" />
                                     </label>
                                 )}
                                 <div className="text-xs text-gray-500 flex-1">
@@ -612,58 +630,59 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                             </div>
                         </div>
 
-                        {/* 5. Tags */}
+                        {/* 5. Tags - Restricted & Clean */}
                         <div>
                             <label className="block text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Etiquetas</label>
 
-                            {/* Available Tags */}
-                            {listAvailableTags.length > 0 && (
+                            <div className="text-xs text-gray-500 mb-3">
+                                Selecciona las etiquetas que mejor describan tu experiencia.
+                            </div>
+
+                            {/* Available Tags - Selection Only */}
+                            {listAvailableTags.length > 0 ? (
                                 <div className="flex flex-wrap gap-2 mb-3">
                                     {listAvailableTags.map(tag => (
                                         <button
                                             key={tag}
                                             type="button"
                                             onClick={() => toggleTag(tag)}
-                                            className={`px-3 py-1 text-xs rounded-full border transition-all ${customTags.includes(tag)
-                                                ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300'
-                                                : 'bg-[#0b1021] border-white/10 text-gray-400 hover:border-white/30'
+                                            className={`px-4 py-2 text-sm rounded-full border transition-all duration-200 ${customTags.includes(tag)
+                                                ? 'bg-indigo-500 border-indigo-500 text-white font-medium shadow-lg shadow-indigo-500/20'
+                                                : 'bg-[#0b1021] border-white/10 text-gray-400 hover:border-white/30 hover:bg-white/5'
                                                 }`}
                                         >
-                                            #{tag}
+                                            {/* No '#' prefix as requested */}
+                                            {tag}
                                         </button>
                                     ))}
                                 </div>
+                            ) : (
+                                <div className="text-sm text-gray-500 italic">No hay etiquetas disponibles para esta lista.</div>
                             )}
 
-                            {/* Custom Tag Input */}
-                            <div className="relative">
-                                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                                <input
-                                    type="text"
-                                    value={tagInput}
-                                    onChange={e => setTagInput(e.target.value)}
-                                    onKeyDown={addCustomTag}
-                                    placeholder="Añadir etiqueta personalizada (Enter)..."
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                />
-                            </div>
+                            {/* REMOVED Custom Tag Input as requested */}
 
+                            {/* Previously selected custom tags */}
                             {customTags.filter(t => !listAvailableTags.includes(t)).length > 0 && (
-                                <div className="flex flex-wrap gap-2 mt-3 p-3 bg-white/5 rounded-lg border border-white/5">
-                                    <span className="text-xs text-gray-500 w-full mb-1">Personalizadas:</span>
-                                    {customTags.filter(t => !listAvailableTags.includes(t)).map(tag => (
-                                        <button
-                                            key={tag}
-                                            type="button"
-                                            onClick={() => toggleTag(tag)}
-                                            className="px-3 py-1 text-xs rounded-full bg-purple-500/20 border border-purple-500 text-purple-300 hover:bg-red-500/20 hover:border-red-500 transition-colors group"
-                                        >
-                                            #{tag} <X className="inline w-3 h-3 ml-1 group-hover:text-red-400" />
-                                        </button>
-                                    ))}
+                                <div className="mt-4 border-t border-white/5 pt-4">
+                                    <span className="text-xs text-gray-500 block mb-2">Otras etiquetas (Legacy):</span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {customTags.filter(t => !listAvailableTags.includes(t)).map(tag => (
+                                            <button
+                                                key={tag}
+                                                type="button"
+                                                onClick={() => toggleTag(tag)}
+                                                className="px-3 py-1 text-xs rounded-full bg-white/5 border border-white/10 text-gray-400 hover:bg-red-500/20 hover:border-red-500 transition-colors group"
+                                            >
+                                                {tag} <X className="inline w-3 h-3 ml-1 group-hover:text-red-400" />
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
+
+
 
                         {/* 6. Comment */}
                         <div>
@@ -701,8 +720,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
                         {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (editReviewId ? "Guardar Cambios" : "Publicar Reseña")}
                     </button>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 
