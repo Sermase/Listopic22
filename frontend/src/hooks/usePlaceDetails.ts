@@ -13,6 +13,8 @@ export interface PlaceDetails {
     reviews: ReviewEntity[];
     relatedLists: { id: string; name: string; authorName?: string; }[];
     coords?: { lat: number; lng: number };
+    googleRating?: number;
+    googleUserRatingCount?: number;
     // Rich Data Fields
     website?: string;
     phone?: string;
@@ -168,6 +170,9 @@ export const usePlaceDetails = (placeId: string | undefined) => {
 
                 const openingHours = placeData?.currentOpeningHours?.weekdayDescriptions || placeData?.openingHours;
 
+                const googleRating = placeData?.googleRating || placeData?.rating;
+                const googleUserRatingCount = placeData?.userRatingCount || placeData?.user_ratings_total;
+
                 setPlace({
                     placeId,
                     name,
@@ -184,7 +189,9 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                     googleMapsUri,
                     accessibility,
                     options,
-                    openingHours
+                    openingHours,
+                    googleRating,
+                    googleUserRatingCount
                 });
 
             } catch (err: any) {

@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
     ArrowLeft, MapPin, MessageSquare, List as ListIcon, Share2,
     Bookmark, Heart, Copy, Smartphone, Globe, X,
-    Euro, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon
+    Euro, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
@@ -198,8 +198,31 @@ export const PlacePage: React.FC = () => {
                 <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 z-20">
                     <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
                         <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border ${place.avgScore >= 7 ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' : 'border-indigo-500/50 text-indigo-400 bg-indigo-500/10'}`}>
+
+                            <div className="flex items-center gap-3 mb-2">
+                                {/* Listopic Rating */}
+                                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border backdrop-blur-md ${place.avgScore >= 7
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                    : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
+                                    }`}>
+                                    <Star className="w-4 h-4 fill-current" />
+                                    <span>{place.avgScore.toFixed(1)}</span>
+                                </div>
+
+                                {/* Google Rating */}
+                                {place.googleRating && (
+                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold bg-white/10 border border-white/10 text-white backdrop-blur-md">
+                                        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current text-white" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .533 5.333.533 12S5.867 24 12.48 24c3.44 0 6.053-1.147 8.16-3.293 2.133-2.133 2.827-5.28 2.827-7.893 0-.693-.053-1.52-.16-2.16h-10.827z" />
+                                        </svg>
+                                        <span>{place.googleRating.toFixed(1)}</span>
+                                        {place.googleUserRatingCount && (
+                                            <span className="text-xs text-gray-400 font-normal ml-0.5">({place.googleUserRatingCount})</span>
+                                        )}
+                                    </div>
+                                )}
+
+                                <span className={`hidden sm:inline-block px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border ${place.avgScore >= 7 ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' : 'border-indigo-500/50 text-indigo-400 bg-indigo-500/10'}`}>
                                     {place.avgScore >= 9 ? 'Excelencia' : 'Recomendado'}
                                 </span>
                             </div>
