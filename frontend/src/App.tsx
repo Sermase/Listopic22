@@ -46,13 +46,13 @@ function App() {
               <Route path="/list/:listId" element={<ListPage />} />
               <Route path="/list/:listId/edit" element={<EditListPage />} />
 
-              {/* Public Sublist Creation Flow (Protected) */}
-              <Route path="/create" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
+              {/* List Creation Flow (Protected) */}
+              <Route path="/create" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
+              <Route path="/create-list" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
+
+              {/* Sublist Creation Flow */}
               <Route path="/create-sublist" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
               <Route path="/create-sublist/:parentId" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
-
-              {/* Secret Admin Route */}
-              <Route path="/secret-admin-create-master" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
 
               <Route path="/users" element={<UsersPage />} />
               <Route path="/place/:placeId" element={<PlacePage />} />

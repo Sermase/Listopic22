@@ -416,13 +416,13 @@ export const ProfilePage: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-3 mb-4 md:mb-2 w-full md:w-auto justify-center">
+                    {/* Actions - Moved to Top Right of Container */}
+                    <div className="absolute top-4 right-4 sm:top-8 sm:right-6 flex gap-3 z-20">
                         {isOwnProfile ? (
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setIsEditing(!isEditing)}
-                                    className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                                    className="p-2.5 rounded-xl bg-[#151b2e]/80 backdrop-blur-md border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
                                     title="Configuración"
                                 >
                                     <Settings className="w-5 h-5" />
@@ -432,7 +432,7 @@ export const ProfilePage: React.FC = () => {
                                         await signOut(auth);
                                         navigate('/login');
                                     }}
-                                    className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                    className="p-2.5 rounded-xl bg-[#151b2e]/80 backdrop-blur-md border border-white/10 text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                                     title="Cerrar Sesión"
                                 >
                                     <Power className="w-5 h-5" />
@@ -443,8 +443,8 @@ export const ProfilePage: React.FC = () => {
                                 <button
                                     onClick={handleFollowToggle}
                                     disabled={followLoading}
-                                    className={`px-6 py-2 rounded-lg border font-bold transition-all flex items-center gap-2 ${isFollowing
-                                        ? 'bg-transparent border-white/20 text-white hover:border-red-500 hover:text-red-500'
+                                    className={`px-6 py-2 rounded-lg border font-bold transition-all flex items-center gap-2 shadow-lg ${isFollowing
+                                        ? 'bg-[#151b2e]/80 backdrop-blur-md border-white/20 text-white hover:border-red-500 hover:text-red-500'
                                         : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
                                         }`}
                                 >
@@ -456,13 +456,14 @@ export const ProfilePage: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={handleMessage}
-                                    className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors"
+                                    className="px-4 py-2 rounded-lg bg-[#151b2e]/80 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 transition-colors shadow-lg"
                                 >
                                     <MessageCircle className="w-5 h-5" />
                                 </button>
                             </>
                         )}
                     </div>
+
                 </div>
 
                 {/* Preferences Form */}

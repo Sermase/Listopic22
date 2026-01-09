@@ -340,7 +340,15 @@ export const GroupPage: React.FC = () => {
 
                                     {/* Add Review Button */}
                                     <button
-                                        onClick={() => setIsFlowOpen(true)}
+                                        onClick={() => {
+                                            if (fromListId) {
+                                                setSelectedListId(fromListId);
+                                                setIsFlowOpen(true);
+                                            } else {
+                                                setSelectedListId(null);
+                                                setIsFlowOpen(true);
+                                            }
+                                        }}
                                         className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
                                     >
                                         <Plus className="w-4 h-4" />

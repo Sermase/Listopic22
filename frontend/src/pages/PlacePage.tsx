@@ -224,7 +224,15 @@ export const PlacePage: React.FC = () => {
 
                                 {/* Add Review Button (New) */}
                                 <button
-                                    onClick={() => setIsFlowOpen(true)}
+                                    onClick={() => {
+                                        if (fromListId) {
+                                            setSelectedListId(fromListId);
+                                            setIsFlowOpen(true);
+                                        } else {
+                                            setSelectedListId(null);
+                                            setIsFlowOpen(true);
+                                        }
+                                    }}
                                     className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
                                 >
                                     <Plus className="w-4 h-4" />
@@ -583,26 +591,23 @@ export const PlacePage: React.FC = () => {
             />
 
             {/* Review Creation Flow */}
-            {isFlowOpen && !selectedListId && (
-                <ListSelector
-                    onSelect={(lid) => setSelectedListId(lid)}
-                    onCancel={() => setIsFlowOpen(false)}
-                    preselectedId={fromListId}
-                />
-            )}
-            {isFlowOpen && selectedListId && (
+            {/* Direct access to Form - internal list selection if needed */}
+            {isFlowOpen && (
                 <AddReviewForm
                     listId={selectedListId}
-                    prefillPlaceId={place.placeId} // Prefill Place only
-                    prefillItemName="" // No item name
+                    onListChange={setSelectedListId}
+                    prefillPlaceId={place.placeId}
                     onClose={() => {
                         setIsFlowOpen(false);
                         setSelectedListId(null);
                     }}
-                    onSuccess={() => window.location.reload()}
+                    onSuccess={() => {
+                        setIsFlowOpen(false);
+                        setSelectedListId(null);
+                        // Maybe refresh reviews? Realtime updates handle it.
+                    }}
                 />
             )}
-
             {/* Share Modal */}
             <ShareModal
                 isOpen={isShareModalOpen}

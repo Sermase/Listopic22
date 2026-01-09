@@ -108,6 +108,11 @@ service cloud.firestore {
         allow create, delete: if request.auth != null && request.auth.uid == userId;
       }
 
+      match /followingPlaces/{placeId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+
       // Permitir al propio usuario leer sus listas seguidas
       match /followingLists/{listId} {
         allow read: if request.auth != null && request.auth.uid == userId;
@@ -163,7 +168,12 @@ service cloud.firestore {
                         isFollowingList(listId) ||
                         isListFollower(listId)
                       ));
-      allow list: if request.auth != null && isJefe(request.auth.uid);
+      allow list: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.isPublic == true || 
+        (resource.data.editors is list && resource.data.editors.hasAny([request.auth.uid])) ||
+        isJefe(request.auth.uid)
+      );
       
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       // El dueño de la lista O un jefe pueden borrarla.

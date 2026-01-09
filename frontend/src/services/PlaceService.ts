@@ -5,6 +5,7 @@ export interface PlaceResult {
     lat: number;
     lng: number;
     type?: string;
+    types?: string[];
     distance?: number; // Distance in meters
 }
 
@@ -62,6 +63,7 @@ export const PlaceService = {
                 lat: place.location?.lat() || 0,
                 lng: place.location?.lng() || 0,
                 type: (place.types && place.types[0]) ? place.types[0] : 'establishment',
+                types: place.types || [],
                 distance: (userLat && userLng && place.location)
                     ? window.google.maps.geometry.spherical.computeDistanceBetween(
                         new window.google.maps.LatLng(userLat, userLng),
@@ -103,6 +105,7 @@ export const PlaceService = {
                 lat: place.location?.lat() || 0,
                 lng: place.location?.lng() || 0,
                 type: (place.types && place.types[0]) ? place.types[0] : 'establishment',
+                types: place.types || [],
                 distance: (place.location)
                     ? window.google.maps.geometry.spherical.computeDistanceBetween(
                         new window.google.maps.LatLng(lat, lng),
