@@ -7,7 +7,7 @@ interface CardCarouselProps {
     subtitle?: string;
     viewAllLink?: string;
     items: any[];
-    renderItem: (item: any) => React.ReactNode;
+    renderItem: (item: any, index: number) => React.ReactNode;
     loading?: boolean;
     itemClassName?: string;
 }
@@ -77,7 +77,7 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                     ) : (
                         items.map((item, index) => (
                             <div key={index} className={`${itemClassName} flex-shrink-0 snap-start`}>
-                                {renderItem(item)}
+                                {renderItem(item, index)}
                             </div>
                         ))
                     )}

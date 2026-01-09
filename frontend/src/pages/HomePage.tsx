@@ -371,7 +371,7 @@ export const HomePage: React.FC = () => {
                                 ? listsWithRangeStats.sort((a, b) => (b.reviewsInRangeCount || 0) - (a.reviewsInRangeCount || 0)).slice(0, 10)
                                 : filteredLists}
                             loading={loadingLists}
-                            renderItem={(list: any) => (
+                            renderItem={(list: any, index: number) => (
                                 <Link to={`/list/${list.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
                                     {(list.mainImageUrl || list.photoUrl) ? (
                                         <div className="absolute inset-0">
@@ -386,7 +386,7 @@ export const HomePage: React.FC = () => {
                                         {list.itemCount}
                                     </div>
                                     <div className="absolute top-2 left-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
-                                        #{list.ranking || 1}
+                                        #{index + 1}
                                     </div>
 
                                     <div className="absolute bottom-0 left-0 right-0 p-3">
