@@ -198,6 +198,44 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
         }
     }, [editReviewId, listId]);
 
+    // Hydrate Place from PREFILL (Group Page Context)
+    useEffect(() => {
+        const hydratePrefillPlace = async () => {
+            if (prefillPlaceId && !editReviewId && !selectedPlace) {
+                try {
+                    // Try to get from 'places' collection first (fastest/cheapest)
+                    const placeRef = doc(db, 'places', prefillPlaceId);
+                    const snap = await getDoc(placeRef);
+
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        setSelectedPlace({
+                            id: data.id || data.googlePlaceId || prefillPlaceId,
+                            name: data.name,
+                            address: data.address,
+                            lat: data.location?.latitude || data.lat || 0,
+                            lng: data.location?.longitude || data.lng || 0
+                        });
+                    } else {
+                        // Fallback: Use simple ID structure if doc missing. 
+                        // Note: If we really wanted to be robust, we'd call PlaceService here too, 
+                        // but usually GroupPage implies we have the place in DB.
+                        setSelectedPlace({
+                            id: prefillPlaceId,
+                            name: 'Lugar Seleccionado', // Placeholder until real data
+                            address: '',
+                            lat: 0,
+                            lng: 0
+                        });
+                    }
+                } catch (e) {
+                    console.warn("Error hydrating prefill place", e);
+                }
+            }
+        };
+        hydratePrefillPlace();
+    }, [prefillPlaceId, editReviewId]);
+
     // Recalculate Overall Rating when scores change
     useEffect(() => {
         if (Object.keys(criteriaScores).length === 0) return;
@@ -225,7 +263,10 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
     useEffect(() => {
         const fetchListMetadata = async () => {
             // ... existing fetch list metadata code ...
-            if (!listId) return;
+            if (!listId) {
+                setInitLoading(false);
+                return;
+            }
             try {
                 const docRef = doc(db, 'lists', listId);
                 const snap = await getDoc(docRef);
@@ -369,10 +410,15 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, prefillPla
             const finalListId = isSublist ? listData.parentListId : listId;
             const sublistId = isSublist ? listId : null;
 
+            // Determine Visibility
+            // Default to 'public'. If list is explicitly private, mark review as private.
+            const visibility = listData?.visibility === 'private' ? 'private' : 'public';
+
             // 1. Add/Update Review
             const reviewData = {
                 listId: finalListId,
                 sublistId: sublistId,
+                visibility, // Persist visibility on review for easier filtering
 
                 userId: user.uid,
                 authorName: user.displayName || 'Anónimo',

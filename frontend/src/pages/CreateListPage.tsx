@@ -14,13 +14,12 @@ export const CreateListPage: React.FC = () => {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [isPublic, setIsPublic] = useState(true);
+    const [publicAccess, setPublicAccess] = useState<'reader' | 'writer'>('reader');
     const [categoryId, setCategoryId] = useState('');
     const [categories, setCategories] = useState<any[]>([]);
 
     // Image
-    const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const [imageUrl, setImageUrl] = useState('');
 
     // Advanced
     const [criteria, setCriteria] = useState<Criterion[]>([
@@ -83,7 +82,6 @@ export const CreateListPage: React.FC = () => {
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setImageFile(file);
             const reader = new FileReader();
             reader.onloadend = () => setImagePreview(reader.result as string);
             reader.readAsDataURL(file);
@@ -112,7 +110,7 @@ export const CreateListPage: React.FC = () => {
         setLoading(true);
 
         try {
-            const finalPhotoUrl = imagePreview || imageUrl || '';
+            const finalPhotoUrl = imagePreview || '';
 
             // Transform criteria array back to Map/Object for DB
             const criteriaDefinitionMap: Record<string, any> = {};
@@ -138,6 +136,7 @@ export const CreateListPage: React.FC = () => {
                 categoryId, // "comida_hmm" etc
                 userId: user.uid,
                 isPublic,
+                publicAccess: isPublic ? publicAccess : 'reader', // Reset to reader if private just in case
 
                 // Fields expected by new UI / legacy UI
                 authorName: user.displayName || 'Anónimo',
@@ -324,6 +323,43 @@ export const CreateListPage: React.FC = () => {
                             <span className="block text-xs text-gray-500">Visible en tu perfil y resultados de búsqueda.</span>
                         </label>
                     </div>
+
+                    {/* Public Access Level */}
+                    {isPublic && (
+                        <div className="bg-[#151b2e] p-4 rounded-xl border border-white/10 animate-fade-in">
+                            <label className="block text-sm font-medium text-gray-400 mb-3">Permisos Públicos</label>
+                            <div className="space-y-3">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="publicAccess"
+                                        value="reader"
+                                        checked={publicAccess === 'reader'}
+                                        onChange={() => setPublicAccess('reader')}
+                                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 bg-[#0b1021] border-gray-600"
+                                    />
+                                    <div>
+                                        <span className="block text-sm font-medium text-white">Solo Lectura</span>
+                                        <span className="block text-xs text-gray-500">Los visitantes pueden ver la lista pero solo tú (y editores) pueden añadir reseñas.</span>
+                                    </div>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="publicAccess"
+                                        value="writer"
+                                        checked={publicAccess === 'writer'}
+                                        onChange={() => setPublicAccess('writer')}
+                                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 bg-[#0b1021] border-gray-600"
+                                    />
+                                    <div>
+                                        <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>
+                                        <span className="block text-xs text-gray-500">Cualquier usuario puede añadir sus propias reseñas a esta lista.</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    )}
 
                     <button
                         type="submit"

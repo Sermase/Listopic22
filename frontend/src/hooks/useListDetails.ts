@@ -68,6 +68,20 @@ export const useListDetails = (listId: string | undefined) => {
                 setList({ id: listSnap.id, ...listSnap.data() } as ListEntity);
                 const listData = listSnap.data();
 
+                // 1.1 Fetch Parent List Name if applicable
+                if (listData?.parentListId) {
+                    try {
+                        const parentSnap = await getDoc(doc(db, 'lists', listData.parentListId));
+                        if (parentSnap.exists()) {
+                            (listData as any).parentListName = parentSnap.data().name;
+                            // Update the state as well
+                            setList(prev => prev ? ({ ...prev, parentListName: parentSnap.data().name }) : null);
+                        }
+                    } catch (e) {
+                        console.warn("Failed to fetch parent list name", e);
+                    }
+                }
+
                 // 2. Fetch List Items (Reviews)
                 const reviewsRef = collectionGroup(db, 'reviews');
                 let rawReviews: ReviewEntity[] = [];
@@ -90,7 +104,9 @@ export const useListDetails = (listId: string | undefined) => {
                         orderBy('createdAt', 'desc')
                     );
                     const snap = await getDocs(q);
-                    rawReviews = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
+                    rawReviews = snap.docs
+                        .map(d => ({ id: d.id, ...d.data() }))
+                        .filter((r: any) => r.visibility !== 'private') as ReviewEntity[];
                 }
 
                 // --- Enrich Data ---

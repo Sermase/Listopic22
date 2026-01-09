@@ -16,6 +16,11 @@ export interface ListEntity {
 
     // Visibility
     isPublic: boolean;
+    visibility?: 'public' | 'private';
+    publicAccess?: 'reader' | 'writer';
+    guests?: string[];
+    editors?: string[]; // Writers/Collaborators
+    parentListName?: string;
 
     // Counters
     itemCount?: number; // Keep for compatibility if needed
@@ -53,7 +58,7 @@ export interface ListEntity {
     reactions: Record<string, any>;
 }
 
-export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', userId?: string) => {
+export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', userId?: string, includePrivate = false) => {
     const [lists, setLists] = useState<ListEntity[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -104,7 +109,13 @@ export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', us
                 // Strategy: Fetch a safe batch ordered by createdAt (indexed), then filter/sort in memory.
                 // This avoids "Missing Index" errors for avgScore/averageRating and ensures data visibility.
                 if (userId) {
-                    q = query(listsRef, where('userId', '==', userId), where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
+                    if (includePrivate) {
+                        // User viewing their own profile: fetch ALL their lists
+                        q = query(listsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(50));
+                    } else {
+                        // Viewing someone else: Public only
+                        q = query(listsRef, where('userId', '==', userId), where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
+                    }
                 } else {
                     q = query(listsRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
                 }
@@ -134,7 +145,7 @@ export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', us
         };
 
         fetchLists();
-    }, [filter, userId]);
+    }, [filter, userId, includePrivate]);
 
     return { lists, loading, error };
 };

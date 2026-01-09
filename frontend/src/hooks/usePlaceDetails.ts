@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, collectionGroup, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collectionGroup, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 
@@ -11,7 +11,7 @@ export interface PlaceDetails {
     avgScore: number;
     reviewCount: number;
     reviews: ReviewEntity[];
-    relatedLists: { id: string; name: string; authorName?: string; }[];
+    relatedLists: { id: string; name: string; authorName?: string; parentListId?: string; photoUrl?: string; }[];
     coords?: { lat: number; lng: number };
     googleRating?: number;
     googleUserRatingCount?: number;
@@ -95,7 +95,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                 // 3. Fetch List Info for Context (Fix for missing List Name)
                 const listIds = [...new Set(reviews.map(r => r.listId).filter(Boolean))] as string[];
                 const listsMap: Record<string, string> = {};
-                const relatedLists: { id: string; name: string; authorName?: string }[] = [];
+                const relatedLists: { id: string; name: string; authorName?: string; parentListId?: string; photoUrl?: string; }[] = [];
 
                 if (listIds.length > 0) {
                     await Promise.all(listIds.slice(0, 20).map(async (lid) => {
@@ -105,7 +105,13 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                                 const d = listSnap.data();
                                 listsMap[lid] = d.name;
                                 if (relatedLists.length < 10) {
-                                    relatedLists.push({ id: lid, name: d.name, authorName: d.authorName });
+                                    relatedLists.push({
+                                        id: lid,
+                                        name: d.name,
+                                        authorName: d.authorName,
+                                        parentListId: d.parentListId,
+                                        photoUrl: d.photoUrl
+                                    });
                                 }
                             }
                         } catch (e) { console.warn("Failed fetch list", lid); }

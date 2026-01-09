@@ -1,9 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import {
-    ArrowLeft, MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Copy, Smartphone, Globe, X,
-    Euro, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star
+    MapPin, MessageSquare, List as ListIcon, Share2,
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, X
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
@@ -11,18 +10,29 @@ import { usePlaceDetails } from '../hooks/usePlaceDetails';
 import { ReviewCard } from '../components/ReviewCard';
 import { MapView } from '../components/MapView';
 import { useAuth } from '../context/AuthContext';
-import { doc, getDoc, setDoc, deleteDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, updateDoc, increment, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { AddReviewForm } from '../components/AddReviewForm'; // Add Import
+
+import { ListSelector } from '../components/ListSelector';
 
 export const PlacePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
     const { place, loading, error } = usePlaceDetails(placeId);
     const { user } = useAuth(); // Ensure useAuth is imported and used
+    const location = useLocation();
+    const searchParams = new URLSearchParams(location.search);
+    const fromListId = searchParams.get('listId');
+
     const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes'>('reviews');
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [isFollowed, setIsFollowed] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
+
+    // Review Creation State
+    const [isFlowOpen, setIsFlowOpen] = useState(false);
+    const [selectedListId, setSelectedListId] = useState<string | null>(null);
 
     // Check if place is followed
     useEffect(() => {
@@ -76,10 +86,8 @@ export const PlacePage: React.FC = () => {
                 await updateDoc(userRef, { followingPlacesCount: increment(1) }).catch(e => console.warn(e));
 
                 // Increment Place Stats
-                // Note: Place doc might need creation if it strictly relies on 'Add Review' to be created.
-                // Assuming place exists or we accept potential error if strict validation. 
-                // For robustness, usually we check/create place here too, but staying simple for now.
-                await updateDoc(placeRef, { followersCount: increment(1) }).catch(e => console.warn(e));
+                // Use setDoc with merge to ensure place exists if it was just found via API
+                await setDoc(placeRef, { followersCount: increment(1) }, { merge: true });
             }
         } catch (error) {
             console.error("Follow place error:", error);
@@ -116,21 +124,7 @@ export const PlacePage: React.FC = () => {
         })).sort((a, b) => b.avg - a.avg);
     }, [place?.reviews]);
 
-    const handleShare = async (platform: 'clipboard' | 'whatsapp') => {
-        const url = window.location.href;
-        if (platform === 'clipboard') {
-            try {
-                await navigator.clipboard.writeText(url);
-                alert("Enlace copiado");
-                setIsShareModalOpen(false);
-            } catch (err) {
-                console.error("Error", err);
-            }
-        } else if (platform === 'whatsapp') {
-            window.open(`https://wa.me/?text=${encodeURIComponent(`¡Mira este lugar! ${place?.name} ${url}`)}`, '_blank');
-            setIsShareModalOpen(false);
-        }
-    };
+
 
     // Helper for Price Level
     const renderPriceLevel = (level?: number) => {
@@ -167,43 +161,45 @@ export const PlacePage: React.FC = () => {
     }
 
     // Dynamic Color for Score
-    const getScoreColor = (score: number) => {
-        if (score >= 9) return 'text-emerald-400';
-        if (score >= 7) return 'text-indigo-400';
-        if (score >= 5) return 'text-yellow-400';
-        return 'text-red-400';
-    };
+
 
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20">
             {/* Hero */}
-            <div className="relative h-[250px] sm:h-[400px] w-full overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/30 to-black/30 z-10" />
+            <div className="relative h-[40vh] min-h-[300px] w-full overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
 
                 {place.photoUrl ? (
-                    <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
+                    <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" />
                 ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                        <MapPin className="w-20 h-20 text-gray-700" />
+                    <div className="w-full h-full bg-gradient-to-br from-indigo-900 to-gray-900 flex items-center justify-center">
+                        <MapPin className="w-20 h-20 text-white/20" />
                     </div>
                 )}
 
-                <div className="absolute top-24 left-4 z-20">
-                    <Link to="/search" className="inline-flex items-center text-white/80 hover:text-white transition-colors bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium border border-white/10 hover:border-white/30">
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Volver
-                    </Link>
-                </div>
+                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 z-20 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-transparent pt-20">
+                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6">
 
-                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 z-20">
-                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
+                        {/* Title & Info */}
                         <div className="flex-1">
+                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 shadow-sm text-shadow-lg leading-tight line-clamp-2">
+                                {place.name}
+                            </h1>
+                            {place.address && (
+                                <p className="text-gray-200 flex items-center gap-2 text-sm sm:text-lg max-w-2xl font-light line-clamp-1">
+                                    <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
+                                    {place.address}
+                                </p>
+                            )}
+                        </div>
 
-                            <div className="flex items-center gap-3 mb-2">
+                        {/* Ratings & Awards Row */}
+                        <div className="flex flex-col items-start md:items-end gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {/* Listopic Rating */}
                                 <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border backdrop-blur-md ${place.avgScore >= 7
-                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                                    : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
+                                    ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                                    : 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
                                     }`}>
                                     <Star className="w-4 h-4 fill-current" />
                                     <span>{place.avgScore.toFixed(1)}</span>
@@ -217,24 +213,24 @@ export const PlacePage: React.FC = () => {
                                         </svg>
                                         <span>{place.googleRating.toFixed(1)}</span>
                                         {place.googleUserRatingCount && (
-                                            <span className="text-xs text-gray-400 font-normal ml-0.5">({place.googleUserRatingCount})</span>
+                                            <span className="text-xs text-gray-400 font-normal ml-0.5 opacity-70">({place.googleUserRatingCount})</span>
                                         )}
                                     </div>
                                 )}
 
-                                <span className={`hidden sm:inline-block px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border ${place.avgScore >= 7 ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' : 'border-indigo-500/50 text-indigo-400 bg-indigo-500/10'}`}>
-                                    {place.avgScore >= 9 ? 'Excelencia' : 'Recomendado'}
-                                </span>
+                                {
+                                    /* Awards removed */
+                                }
+
+                                {/* Add Review Button (New) */}
+                                <button
+                                    onClick={() => setIsFlowOpen(true)}
+                                    className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    <span>Añadir Reseña</span>
+                                </button>
                             </div>
-                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 shadow-sm text-shadow-lg leading-tight line-clamp-2">
-                                {place.name}
-                            </h1>
-                            {place.address && (
-                                <p className="text-gray-200 flex items-center gap-2 text-sm sm:text-lg max-w-2xl font-light line-clamp-1">
-                                    <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
-                                    {place.address}
-                                </p>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -253,7 +249,7 @@ export const PlacePage: React.FC = () => {
                             onClick={() => setIsSaveModalOpen(true)}
                             className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
                         >
-                            <Bookmark className="w-5 h-5 mb-1" />
+                            <Bookmark className="w-5 h-5 mb-1 text-indigo-400" />
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Guardar</span>
                         </button>
                         <button
@@ -268,7 +264,7 @@ export const PlacePage: React.FC = () => {
                             onClick={() => setIsShareModalOpen(true)}
                             className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
                         >
-                            <Share2 className="w-5 h-5 mb-1" />
+                            <Share2 className="w-5 h-5 mb-1 text-indigo-400" />
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Compartir</span>
                         </button>
                     </div>
@@ -490,31 +486,84 @@ export const PlacePage: React.FC = () => {
                     )}
 
                     {activeTab === 'lists' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
-                            {place.relatedLists && place.relatedLists.length > 0 ? (
-                                place.relatedLists.map(list => (
-                                    <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                                        <div className="bg-[#151b2e] border border-white/10 rounded-xl p-4 hover:border-indigo-500/50 transition-colors h-full flex flex-col justify-between">
-                                            <div>
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div className="bg-indigo-500/10 p-2 rounded-lg text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
-                                                        <ListIcon className="w-5 h-5" />
-                                                    </div>
-                                                </div>
-                                                <h3 className="text-white font-bold text-lg mb-1 truncate">{list.name}</h3>
-                                            </div>
-                                            <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                                                <p className="text-sm text-gray-500">Por {list.authorName || 'Anónimo'}</p>
-                                                <span className="text-xs text-indigo-400 font-medium group-hover:underline">Ver Lista</span>
-                                            </div>
+                        <div className="space-y-8 animate-fade-in">
+                            {(() => {
+                                const mainLists = place.relatedLists?.filter(l => !l.parentListId) || [];
+                                const subLists = place.relatedLists?.filter(l => !!l.parentListId) || [];
+
+                                if (mainLists.length === 0 && subLists.length === 0) {
+                                    return (
+                                        <div className="py-10 text-center text-gray-500 border border-dashed border-white/10 rounded-xl">
+                                            Este lugar aún no ha sido añadido a otras listas públicas.
                                         </div>
-                                    </Link>
-                                ))
-                            ) : (
-                                <div className="col-span-full py-10 text-center text-gray-500 border border-dashed border-white/10 rounded-xl">
-                                    Este lugar aún no ha sido añadido a otras listas públicas.
-                                </div>
-                            )}
+                                    );
+                                }
+
+                                return (
+                                    <>
+                                        {mainLists.length > 0 && (
+                                            <div>
+                                                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                                                    <ListIcon className="w-5 h-5 text-indigo-400" />
+                                                    Listas ({mainLists.length})
+                                                </h3>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    {mainLists.map(list => (
+                                                        <Link key={list.id} to={`/list/${list.id}`} className="block group">
+                                                            <div className="bg-[#151b2e] border border-white/10 rounded-xl p-4 hover:border-indigo-500/50 transition-colors h-full flex flex-col justify-between">
+                                                                <div>
+                                                                    <div className="flex items-start justify-between mb-2">
+                                                                        <div className="bg-indigo-500/10 p-2 rounded-lg text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                                                                            <ListIcon className="w-5 h-5" />
+                                                                        </div>
+                                                                    </div>
+                                                                    <h3 className="text-white font-bold text-lg mb-1 truncate">{list.name}</h3>
+                                                                </div>
+                                                                <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                                                                    <p className="text-sm text-gray-500">Por {list.authorName || 'Anónimo'}</p>
+                                                                    <span className="text-xs text-indigo-400 font-medium group-hover:underline">Ver Lista</span>
+                                                                </div>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {subLists.length > 0 && (
+                                            <div>
+                                                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                                                    <div className="p-1 bg-purple-500/20 rounded text-purple-400"><ListIcon className="w-4 h-4" /></div>
+                                                    Sublistas ({subLists.length})
+                                                </h3>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    {subLists.map(list => (
+                                                        <Link key={list.id} to={`/list/${list.id}`} className="block group">
+                                                            <div className="bg-[#151b2e] border border-white/10 rounded-xl p-4 hover:border-purple-500/50 transition-colors h-full flex flex-col justify-between relative overflow-hidden">
+                                                                <div className="absolute top-0 right-0 p-2 opacity-50">
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">Sublista</span>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="flex items-start justify-between mb-2">
+                                                                        <div className="bg-purple-500/10 p-2 rounded-lg text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                                                                            <ListIcon className="w-5 h-5" />
+                                                                        </div>
+                                                                    </div>
+                                                                    <h3 className="text-white font-bold text-lg mb-1 truncate pr-16">{list.name}</h3>
+                                                                </div>
+                                                                <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                                                                    <p className="text-sm text-gray-500">Por {list.authorName || 'Anónimo'}</p>
+                                                                    <span className="text-xs text-purple-400 font-medium group-hover:underline">Ver Sublista</span>
+                                                                </div>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>
@@ -532,6 +581,27 @@ export const PlacePage: React.FC = () => {
                     photoUrl: place.photoUrl || undefined
                 }}
             />
+
+            {/* Review Creation Flow */}
+            {isFlowOpen && !selectedListId && (
+                <ListSelector
+                    onSelect={(lid) => setSelectedListId(lid)}
+                    onCancel={() => setIsFlowOpen(false)}
+                    preselectedId={fromListId}
+                />
+            )}
+            {isFlowOpen && selectedListId && (
+                <AddReviewForm
+                    listId={selectedListId}
+                    prefillPlaceId={place.placeId} // Prefill Place only
+                    prefillItemName="" // No item name
+                    onClose={() => {
+                        setIsFlowOpen(false);
+                        setSelectedListId(null);
+                    }}
+                    onSuccess={() => window.location.reload()}
+                />
+            )}
 
             {/* Share Modal */}
             <ShareModal

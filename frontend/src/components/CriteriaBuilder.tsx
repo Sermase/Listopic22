@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Plus, X, Sliders } from 'lucide-react';
 
 export interface Criterion {
@@ -12,10 +12,10 @@ export interface Criterion {
 interface CriteriaBuilderProps {
     criteria: Criterion[];
     onChange: (criteria: Criterion[]) => void;
+    lockedIds?: string[];
 }
 
-export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onChange }) => {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onChange, lockedIds = [] }) => {
 
     const addCriterion = () => {
         const newCriterion: Criterion = {
@@ -29,10 +29,12 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
     };
 
     const removeCriterion = (id: string) => {
+        if (lockedIds.includes(id)) return;
         onChange(criteria.filter(c => c.id !== id));
     };
 
     const updateCriterion = (id: string, field: keyof Criterion, value: any) => {
+        if (lockedIds.includes(id)) return; // Strictly prevent ANY update to locked criteria
         onChange(criteria.map(c =>
             c.id === id ? { ...c, [field]: value } : c
         ));
@@ -49,44 +51,58 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
             </p>
 
             <div className="space-y-3">
-                {criteria.map((criterion, index) => (
-                    <div key={criterion.id} className="bg-[#151b2e] p-4 rounded-xl border border-white/5 animate-fade-in relative group">
-                        <button
-                            type="button"
-                            onClick={() => removeCriterion(criterion.id)}
-                            className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
+                {criteria.map((criterion) => {
+                    const isLocked = lockedIds.includes(criterion.id);
+                    return (
+                        <div key={criterion.id} className={`bg-[#151b2e] p-4 rounded-xl border ${isLocked ? 'border-indigo-500/30' : 'border-white/5'} animate-fade-in relative group`}>
+                            {!isLocked && (
+                                <button
+                                    type="button"
+                                    onClick={() => removeCriterion(criterion.id)}
+                                    className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                            {isLocked && (
+                                <div className="absolute top-2 right-2 px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[10px] font-bold rounded border border-indigo-500/30">
+                                    Heredado
+                                </div>
+                            )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Nombre del Criterio</label>
-                                <input
-                                    type="text"
-                                    value={criterion.label}
-                                    onChange={(e) => updateCriterion(criterion.id, 'label', e.target.value)}
-                                    placeholder="Ej: Calidad del Café"
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
-                                />
-                            </div>
-
-                            <div className="flex items-center gap-4 mt-6">
-                                <label className="flex items-center gap-2 cursor-pointer">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-400 mb-1">
+                                        Nombre del Criterio {isLocked && '(Heredado)'}
+                                    </label>
                                     <input
-                                        type="checkbox"
-                                        checked={criterion.isPonderable}
-                                        onChange={(e) => updateCriterion(criterion.id, 'isPonderable', e.target.checked)}
-                                        className="w-4 h-4 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[#0b1021]"
+                                        type="text"
+                                        value={criterion.label}
+                                        onChange={(e) => updateCriterion(criterion.id, 'label', e.target.value)}
+                                        placeholder="Ej: Calidad del Café"
+                                        disabled={isLocked}
+                                        className={`w-full bg-[#0b1021] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     />
-                                    <span className="text-sm text-gray-300">Afecta al promedio</span>
-                                </label>
-                            </div>
-                        </div>
+                                </div>
 
-                        {/* Advanced (Min/Max Labels) - Optional or expandable could go here */}
-                    </div>
-                ))}
+                                <div className="flex items-center gap-4 mt-6">
+                                    <label className={`flex items-center gap-2 ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={criterion.isPonderable}
+                                            onChange={(e) => updateCriterion(criterion.id, 'isPonderable', e.target.checked)}
+                                            disabled={isLocked}
+                                            className={`w-4 h-4 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[#0b1021] ${isLocked ? 'cursor-not-allowed' : ''}`}
+                                        />
+                                        <span className="text-sm text-gray-300">Afecta al promedio {isLocked && '(Fijo)'}</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Advanced (Min/Max Labels) - Optional or expandable could go here */}
+                        </div>
+                    );
+                })}
             </div>
 
             <button

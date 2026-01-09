@@ -1,0 +1,42 @@
+# Funcionamiento de Sublistas en Listopic
+
+Las sublistas permiten a los usuarios crear versiones derivadas de una lista principal, manteniendo la coherencia de los criterios de evaluación pero permitiendo personalización y control de acceso.
+
+## 1. Concepto General
+Una sublista es una lista que "hereda" de una lista padre (`parentListId`). 
+- **Herencia**: La sublista adopta automáticamente los **Criterios** y **Etiquetas** de la lista principal. Estos son fijos y obligatorios.
+- **Personalización**: El creador de la sublista puede añadir **nuevos criterios** y **nuevas etiquetas** específicos para su sublista. También define su propio nombre, imagen y descripción.
+
+## 2. Creación
+Cualquier usuario puede crear una sublista a partir de una lista existente pública.
+Al crearla, el sistema:
+1. Copia la referencia a la lista padre.
+2. Bloquea la edición de los criterios/etiquetas heredados.
+3. Permite añadir campos adicionales.
+
+## 3. Privacidad y Acceso
+El creador decide quién puede ver y colaborar en la sublista:
+
+### A. Sublista Pública
+- **Visibilidad**: Visible para todos. Aparece en los resultados de búsqueda globales.
+- **Participación**: El creador decide si la comunidad puede crear reseñas ("Abierta") o si solo él y sus invitados pueden hacerlo ("Restringida").
+
+### B. Sublista Privada
+- **Visibilidad**: Oculta. No aparece en búsquedas. Solo accesible por el Propietario e Invitados.
+- **Participación**: Solo el Propietario y los Invitados con permiso de escritura pueden crear reseñas.
+
+### Gestión de Invitados
+El propietario puede invitar a otros usuarios (por email o username) con dos roles:
+- **Lector**: Puede ver la lista (útil si es privada).
+- **Colaborador**: Puede ver y crear reseñas en la lista.
+
+### 4. Integración con la Lista Principal
+Dado que las sublistas comparten los criterios base:
+- Las reseñas creadas en una sublista **PÚBLICA** cuentan para la lista principal y son visibles en ella.
+- Las reseñas creadas en una sublista **PRIVADA** NO aparecen en la lista principal pública. Solo son visibles dentro de propia sublista para el propietario y los invitados. Esto permite el uso de "reseñas privadas".
+- Visibilidad: Al visualizar la lista principal, se muestran las reseñas directas y las de sublistas públicas.
+
+## 5. Datos Adicionales
+- Una sublista puede tener el mismo nombre y apariencia que la lista padre (útil para gestionar "mi versión" de una lista popular).
+- **Base de Datos**: Se guardan en la colección `lists`. Tienen campos `parentListId`, `visibility` ('public'|'private'), `guests` (array de uids).
+- **Indices**: Requiere índices compuestos en Firestore para consultar reseñas por `sublistId` ordenadas por fecha y para filtrar por privacidad en la lista principal.

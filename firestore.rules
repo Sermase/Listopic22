@@ -141,6 +141,16 @@ service cloud.firestore {
       }
     }
 
+    // Helper: comprobar si el usuario puede escribir en una lista
+    function canWriteToList(listId) {
+      let list = get(/databases/$(database)/documents/lists/$(listId)).data;
+      return list != null && (
+        list.userId == request.auth.uid ||
+        (list.editors is list && list.editors.hasAny([request.auth.uid])) ||
+        (list.isPublic == true && list.publicAccess == 'writer')
+      );
+    }
+
     // ===============================================
     // REGLAS PARA LISTAS (`lists`) (ACTUALIZADAS)
     // ===============================================
@@ -170,8 +180,12 @@ service cloud.firestore {
 
       match /reviews/{reviewId} {
         allow read: if true;
-        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // El autor o un jefe pueden editar; otros solo contadores de reacciones/comentarios.
+        // CREATE: Validar que tenga permiso de ESCRITURA en la lista
+        allow create: if request.auth != null 
+                         && request.resource.data.userId == request.auth.uid
+                         && canWriteToList(listId);
+        
+        // UPDATE/DELETE: El autor o un jefe puede hacerlo.
         allow update: if request.auth != null && (
                         resource.data.userId == request.auth.uid ||
                         isJefe(request.auth.uid) ||

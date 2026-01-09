@@ -1,14 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation as useRouterLocation } from 'react-router-dom';
-import { ArrowLeft, Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock } from 'lucide-react';
+import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
 import { ListItemCard } from '../components/ListItemCard';
 import { MapView } from '../components/MapView';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { FilterModal } from '../components/FilterModal';
+import { ShareListModal } from '../components/ShareListModal';
+import { SublistsModal } from '../components/SublistsModal';
 import { useAuth } from '../context/AuthContext';
 import { useLike } from '../hooks/useLike';
 import { useLocation } from '../hooks/useLocation';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export interface FilterState {
     minRating: number;
@@ -24,6 +28,14 @@ export const ListPage: React.FC = () => {
     const { list, reviews, sublists, loading, error } = useListDetails(listId);
     const { user } = useAuth();
     const { location, calculateDistance } = useLocation();
+
+    const canAddReview = useMemo(() => {
+        if (!user || !list) return false;
+        if (list.userId === user.uid) return true;
+        if (list.editors?.includes(user.uid)) return true;
+        if (list.isPublic && (list as any).publicAccess === 'writer') return true;
+        return false;
+    }, [user, list]);
 
     const [filters, setFilters] = useState<FilterState>({
         minRating: 0,
@@ -53,6 +65,8 @@ export const ListPage: React.FC = () => {
 
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isMapOpen, setIsMapOpen] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isSublistsModalOpen, setIsSublistsModalOpen] = useState(false);
 
     // Range State
     const [range, setRange] = useState<number | null>(() => {
@@ -91,6 +105,24 @@ export const ListPage: React.FC = () => {
 
     // Filter & Search State
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Parent List Name (for Sublists)
+    const [parentListName, setParentListName] = useState<string | null>(null);
+    useEffect(() => {
+        const fetchParentName = async () => {
+            if (list?.parentListId) {
+                try {
+                    const snap = await getDoc(doc(db, 'lists', list.parentListId));
+                    if (snap.exists()) {
+                        setParentListName(snap.data().name);
+                    }
+                } catch (e) {
+                    console.error("Error fetching parent list name", e);
+                }
+            }
+        };
+        fetchParentName();
+    }, [list?.parentListId]);
 
     // --- Aggregation Logic (Legacy "Ranked List" View) ---
     const groupedItems = useMemo(() => {
@@ -205,7 +237,12 @@ export const ListPage: React.FC = () => {
         // Convert to Array and Average
         return Object.values(groups).map(g => {
             const criteriaAverages: Record<string, number> = {};
+            const allowedCriteria = list?.criteriaDefinition ? Object.keys(list.criteriaDefinition) : null;
+
             Object.keys(g.criteriaSums).forEach(k => {
+                // Filter out criteria that are NOT in the current list definition (e.g. from sublists)
+                if (allowedCriteria && !allowedCriteria.includes(k)) return;
+
                 criteriaAverages[k] = g.criteriaSums[k] / g.count;
             });
 
@@ -345,84 +382,167 @@ export const ListPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20 transition-colors duration-300">
             {/* Hero Section */}
-            <div className="relative h-[250px] sm:h-[400px] w-full overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/30 to-black/30 z-10" />
+            {/* Hero Section */}
+            <div className={`relative w-full ${list.mainImageUrl || list.photoUrl ? 'h-[40vh] min-h-[300px]' : 'h-[30vh] min-h-[250px]'} transition-all duration-700 overflow-hidden group`}>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
 
+                {/* Background Image & Overlay */}
                 {(list.mainImageUrl || list.photoUrl) ? (
-                    <img src={list.mainImageUrl || list.photoUrl} alt={list.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
+                    <img
+                        src={list.mainImageUrl || list.photoUrl}
+                        alt={list.name}
+                        className="w-full h-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
+                    />
                 ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center">
-                        <ListIcon className="w-20 h-20 text-white/20" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-[#0b1021] to-[#0b1021]">
+                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
                     </div>
                 )}
 
-                <div className="absolute top-24 left-4 z-20">
-                    <Link to="/search" className="inline-flex items-center text-white/80 hover:text-white transition-colors bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium border border-white/10 hover:border-white/30">
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Volver
-                    </Link>
-                </div>
+                <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-8 z-10 max-w-7xl mx-auto w-full">
+                    <div className="flex flex-col md:flex-row gap-6 md:items-end md:justify-between">
+                        {/* Left Column: Title & Author */}
+                        <div className="flex-1 space-y-4">
+                            <div>
+                                {list.parentListId && (
+                                    <Link to={`/list/${list.parentListId}`} className="inline-flex items-center gap-1 text-indigo-300 hover:text-white text-xs font-bold uppercase tracking-wider mb-2 transition-colors">
+                                        <ArrowLeft className="w-4 h-4" />
+                                        Volver a {parentListName || 'Lista Principal'}
+                                    </Link>
+                                )}
+                                <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 leading-tight shadow-sm text-shadow-lg">
+                                    {list.name}
+                                </h1>
+                                {list.description && (
+                                    <p className="text-gray-300 text-sm sm:text-base max-w-2xl line-clamp-2 md:line-clamp-3 leading-relaxed drop-shadow-md">
+                                        {list.description}
+                                    </p>
+                                )}
+                            </div>
 
-                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 z-20">
-                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
-                        <div className="flex-1">
-                            {user && list.userId === user.uid && (
-                                <Link
-                                    to={`/list/${list.id}/edit`}
-                                    className="inline-flex items-center gap-2 px-3 py-1 mb-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-full text-xs font-bold text-white transition-colors"
-                                >
-                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                                    Editar Lista
-                                </Link>
-                            )}
-                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 shadow-sm text-shadow-lg leading-tight line-clamp-2">
-                                {list.name}
-                            </h1>
-                            {list.description && (
-                                <p className="text-gray-200 text-sm sm:text-lg max-w-2xl font-light line-clamp-2 mb-4">
-                                    {list.description}
-                                </p>
-                            )}
-
-                            <div className="flex flex-wrap items-center gap-4 text-sm">
-                                <Link to={`/profile/${list.userId}`} className="flex items-center gap-2 group/author bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/10 hover:bg-black/50 transition-colors">
-                                    <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30 overflow-hidden">
-                                        {list.authorName?.[0] ? (
-                                            <span className="text-indigo-400 font-bold text-xs">{list.authorName[0]}</span>
-                                        ) : (
-                                            <MapIcon className="w-3 h-3 text-indigo-400" />
-                                        )}
+                            <div className="flex flex-wrap items-center gap-4">
+                                {/* Author Badge */}
+                                <Link to={`/profile/${list.userId}`} className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 hover:bg-black/50 transition-colors group/author">
+                                    <div className="w-5 h-5 rounded-full bg-indigo-500 overflow-hidden flex items-center justify-center text-[10px] text-white font-bold border border-white/20">
+                                        {list.authorName?.[0] ? list.authorName[0].toUpperCase() : '?'}
                                     </div>
-                                    <span className="text-white font-medium">
-                                        {list.authorName || "Anónimo"}
+                                    <span className="text-sm font-medium text-white/90 group-hover/author:text-white">
+                                        {list.authorName || 'Usuario'}
                                     </span>
                                 </Link>
 
-                                <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-1.5 text-white bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/10">
-                                        <span className="font-bold">{reviews.length}</span>
-                                        <span className="text-gray-400 text-xs uppercase">Items</span>
-                                    </div>
-                                    <button onClick={toggleLike} className="flex items-center gap-1.5 text-white bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/10 hover:bg-black/50 transition-colors">
-                                        <Heart className={`w-4 h-4 ${isLiked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} />
-                                        <span className={`font-bold ${isLiked ? 'text-pink-500' : 'text-white'}`}>{likeCount}</span>
-                                    </button>
+                                {/* Stats/Likes Badge */}
+                                <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-pink-500 font-bold text-sm">
+                                    <Heart className={`w-3.5 h-3.5 ${user && (list as any).isLiked ? 'fill-current' : ''}`} />
+                                    <span>{likeCount}</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Hero Actions */}
-                        {user && (
-                            <div className="flex items-center gap-3 pb-2 sm:pb-0">
-                                <button
-                                    onClick={() => setIsAddModalOpen(true)}
-                                    className="px-6 py-3 bg-white hover:bg-gray-100 text-indigo-950 font-bold rounded-xl shadow-xl shadow-black/20 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 group/add"
-                                >
-                                    <Plus className="w-5 h-5 text-indigo-600 group-hover/add:rotate-90 transition-transform" />
-                                    <span>Añadir Reseña</span>
-                                </button>
+                        {/* Right Column: Status Badges & Actions */}
+                        <div className="flex flex-col gap-3 items-start md:items-end">
+                            {/* Badges Row - Moved to Right */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                {/* Type Badge */}
+                                <span className={`px-2.5 py-0.5 rounded-md border text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm ${list.parentListId ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'}`}>
+                                    {list.parentListId ? 'Sublista' : 'Lista'}
+                                </span>
+
+                                {list.isPublic ? (
+                                    <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                        Pública
+                                    </span>
+                                ) : (
+                                    <span className="px-2.5 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm flex items-center gap-1">
+                                        <Lock className="w-3 h-3" /> Privada
+                                    </span>
+                                )}
+
+                                {/* Role Bubbles - ONLY for Sublists or Specific Cases */}
+                                {list.parentListId && user?.uid === list.userId && (
+                                    <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                        Propietario
+                                    </span>
+                                )}
+                                {list.parentListId && !user && list.isPublic && (
+                                    <span className="px-2.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                        Visitante
+                                    </span>
+                                )}
+                                {(list.parentListId || (list.editors && list.editors.includes(user?.uid || ''))) && user && user.uid !== list.userId && (
+                                    <>
+                                        {list.editors?.includes(user?.uid) ? (
+                                            <span className="px-2.5 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                                Editor
+                                            </span>
+                                        ) : (list as any).publicAccess === 'writer' ? (
+                                            <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                                Colaborador
+                                            </span>
+                                        ) : (
+                                            <span className="px-2.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                                Lector
+                                            </span>
+                                        )}
+                                    </>
+                                )}
                             </div>
-                        )}
+
+                            {/* Action Buttons Row */}
+                            <div className="flex items-center gap-2">
+                                {user && list.userId === user.uid && (
+                                    <Link
+                                        to={`/list/${list.id}/edit`}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all"
+                                    >
+                                        <Edit3 className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Editar</span>
+                                    </Link>
+                                )}
+
+                                <button
+                                    onClick={() => setIsShareModalOpen(true)}
+                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white text-sm font-bold rounded-xl border border-white/10 backdrop-blur-md flex items-center gap-2 transition-all"
+                                >
+                                    <Share2 className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Compartir</span>
+                                </button>
+
+                                {/* Like/Follow Button (if not owner) */}
+                                {user && list.userId !== user.uid && (
+                                    <button
+                                        onClick={toggleLike}
+                                        className={`px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all ${isLiked
+                                            ? 'bg-transparent border-white/20 text-white hover:border-pink-500 hover:text-pink-500'
+                                            : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
+                                            }`}
+                                    >
+                                        {isLiked ? (
+                                            <>
+                                                <Heart className="w-4 h-4 fill-current" />
+                                                <span className="hidden sm:inline">Guardada</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Heart className="w-4 h-4" />
+                                                <span className="hidden sm:inline">Guardar</span>
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+
+                                {/* Add Review Button (Primary Action) */}
+                                {canAddReview && (
+                                    <button
+                                        onClick={() => setIsAddModalOpen(true)}
+                                        className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        <span>Añadir Reseña</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -437,7 +557,6 @@ export const ListPage: React.FC = () => {
                         >
                             <MapIcon className="w-5 h-5 text-gray-400" />
                             <span className="font-bold text-sm">Mapa de la Lista</span>
-                            <span className="text-xs text-gray-500 font-normal ml-2">({filteredItems.filter(i => i.lat).length} de {filteredItemsAll.length})</span>
                         </button>
 
                         <div className="flex items-center gap-3">
@@ -470,38 +589,28 @@ export const ListPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Sublists Viewer (if any) */}
-            {sublists && sublists.length > 0 && (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8">
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <ListIcon className="w-4 h-4" /> Sublistas
-                    </h3>
-                    <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide snap-x">
-                        {sublists.map(sublist => (
-                            <Link key={sublist.id} to={`/list/${sublist.id}`} className="block group flex-shrink-0 snap-start">
-                                <div className="w-64 bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all flex flex-col h-full">
-                                    <div className="h-32 bg-gray-800 relative">
-                                        {sublist.photoUrl ? (
-                                            <img src={sublist.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                                <ListIcon className="w-8 h-8 text-gray-600" />
-                                            </div>
-                                        )}
-                                        <div className="absolute top-2 right-2 bg-black/60 px-2 py-0.5 rounded text-[10px] font-bold text-white">
-                                            {sublist.itemCount} items
-                                        </div>
-                                    </div>
-                                    <div className="p-3">
-                                        <h4 className="text-white font-bold text-sm mb-1 truncate">{sublist.name}</h4>
-                                        <p className="text-gray-500 text-[10px] line-clamp-2">{sublist.description || "Sin descripción"}</p>
-                                    </div>
-                                </div>
-                            </Link>
-                        ))}
+            {/* Sublists Viewer (Modal Trigger) */}
+            {
+                sublists && (
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8">
+                        <button
+                            onClick={() => setIsSublistsModalOpen(true)}
+                            className="w-full sm:w-auto px-5 py-3 bg-[#151b2e] hover:bg-[#1e2538] border border-white/10 rounded-xl flex items-center justify-between sm:justify-start gap-4 transition-all group hover:border-indigo-500/30"
+                        >
+                            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                                <ListIcon className="w-5 h-5" />
+                            </div>
+                            <div className="text-left">
+                                <h3 className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">
+                                    Ver {sublists.length} Sublistas
+                                </h3>
+                                <p className="text-xs text-gray-500">Versiones de la comunidad</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-indigo-400 ml-2" />
+                        </button>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Content List */}
             <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8">
@@ -593,7 +702,7 @@ export const ListPage: React.FC = () => {
                             </div>
 
                             {/* Add Actions */}
-                            {user && (
+                            {canAddReview && (
                                 <button
                                     onClick={() => setIsAddModalOpen(true)}
                                     className="ml-2 h-9 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 hover:scale-105 transition-all"
@@ -639,7 +748,7 @@ export const ListPage: React.FC = () => {
                             <p className="text-gray-400 mb-4 text-lg">
                                 {searchQuery ? 'No hay resultados para tu búsqueda.' : 'Esta lista está vacía o no hay elementos cerca.'}
                             </p>
-                            {user && !searchQuery && (
+                            {canAddReview && !searchQuery && (
                                 <button
                                     onClick={() => setIsAddModalOpen(true)}
                                     className="text-indigo-400 hover:text-indigo-300 font-bold hover:underline"
@@ -653,19 +762,53 @@ export const ListPage: React.FC = () => {
             </main>
 
             {/* Add Modal */}
-            {isAddModalOpen && listId && (
-                <AddReviewForm
-                    listId={listId}
-                    editReviewId={editingReviewId}
-                    onClose={() => {
-                        setIsAddModalOpen(false);
-                        setEditingReviewId(undefined);
-                        // Clear param without reload
-                        window.history.replaceState({}, '', `/list/${listId}`);
-                    }}
-                    onSuccess={() => window.location.reload()}
-                />
-            )}
+            {
+                isAddModalOpen && listId && (
+                    <AddReviewForm
+                        listId={listId}
+                        editReviewId={editingReviewId}
+                        onClose={() => {
+                            setIsAddModalOpen(false);
+                            setEditingReviewId(undefined);
+                            // Clear param without reload
+                            window.history.replaceState({}, '', `/list/${listId}`);
+                        }}
+                        onSuccess={() => window.location.reload()}
+                    />
+                )
+            }
+
+            {/* Share Modal */}
+            {
+                isShareModalOpen && list && user && (
+                    <ShareListModal
+                        isOpen={isShareModalOpen}
+                        onClose={() => setIsShareModalOpen(false)}
+                        listId={listId!}
+                        listName={list.name}
+                        currentGuests={list.guests || []}
+                        currentEditors={list.editors || []}
+                        ownerId={list.userId}
+                        onUpdate={() => {
+                            // No reload needed for UI, but if we want to refresh 'list' data in background we can.
+                            // For now, we rely on local Modal state updates.
+                            // window.location.reload() 
+                        }}
+                    />
+                )
+            }
+
+            {/* Sublists Modal */}
+            {
+                isSublistsModalOpen && sublists && (
+                    <SublistsModal
+                        isOpen={isSublistsModalOpen}
+                        onClose={() => setIsSublistsModalOpen(false)}
+                        sublists={sublists}
+                        parentListName={list.name}
+                    />
+                )
+            }
 
             <FilterModal
                 isOpen={isFilterModalOpen}
@@ -674,6 +817,6 @@ export const ListPage: React.FC = () => {
                 setFilters={setFilters}
                 criteriaDefinition={list?.criteriaDefinition}
             />
-        </div>
+        </div >
     );
 };

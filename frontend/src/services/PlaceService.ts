@@ -1,5 +1,5 @@
 export interface PlaceResult {
-    id: string; // OSM ID
+    id: string; // Google Place ID
     name: string;
     address: string;
     lat: number;
@@ -8,169 +8,143 @@ export interface PlaceResult {
     distance?: number; // Distance in meters
 }
 
-const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371e3; // Radius of Earth in meters
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-        Math.cos(φ1) * Math.cos(φ2) *
-        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Distance in meters
-};
-
-const createViewbox = (lat: number, lng: number, km: number) => {
-    // 1 deg lat = ~111km. 1 deg lng = ~111km * cos(lat)
-    const deltaLat = km / 111;
-    const deltaLng = km / (111 * Math.cos(lat * Math.PI / 180));
-
-    // viewbox=left,top,right,bottom (lng1,lat2,lng2,lat1)
-    // NOTE: Nominatim expects: <x1>,<y1>,<x2>,<y2> (left,top,right,bottom) 
-    // OR <x1>,<y2>,<x2>,<y1> ? 
-    // Docs say: viewbox=<x1>,<y1>,<x2>,<y2>. (Left, Top, Right, Bottom)
-    // But usually it's minLon, maxLat, maxLon, minLat.
-
-    const minLng = lng - deltaLng;
-    const maxLng = lng + deltaLng;
-    const minLat = lat - deltaLat;
-    const maxLat = lat + deltaLat;
-
-    return `${minLng},${maxLat},${maxLng},${minLat}`;
-};
-
-// Google Maps Global Type Definition (Partial)
+// Google Maps Global Type Definition (Partial for View)
 declare global {
     interface Window {
         google: any;
     }
 }
 
-// Helper to get Google Places Service
-const getPlacesService = (): any => {
-    if (!window.google || !window.google.maps || !window.google.maps.places) {
-        console.warn("Google Maps API not loaded");
-        return null;
+// Cache the library promise
+let placesLibPromise: Promise<any> | null = null;
+
+const getPlacesLib = (): Promise<any> => {
+    if (!window.google || !window.google.maps) {
+        return Promise.reject("Google Maps API not loaded");
     }
-    const mapDiv = document.createElement('div');
-    return new window.google.maps.places.PlacesService(mapDiv);
+    if (!placesLibPromise) {
+        placesLibPromise = window.google.maps.importLibrary("places");
+    }
+    return placesLibPromise as Promise<any>;
 };
 
 export const PlaceService = {
     searchPlaces: async (query: string, userLat?: number, userLng?: number): Promise<PlaceResult[]> => {
         if (!query || query.length < 2) return [];
 
-        return new Promise((resolve) => {
-            const service = getPlacesService();
-            if (!service) return resolve([]);
-
-            const request: any = {
-                query: query,
-                fields: ['place_id', 'name', 'formatted_address', 'geometry', 'photos', 'types', 'rating', 'user_ratings_total']
-            };
+        try {
+            const { Place } = await getPlacesLib();
 
             // Bias towards user location if available
+            const request: any = {
+                textQuery: query,
+                fields: ['id', 'displayName', 'formattedAddress', 'location', 'types', 'photos', 'rating', 'userRatingCount'],
+                maxResultCount: 10,
+            };
+
             if (userLat && userLng) {
-                request.location = new window.google.maps.LatLng(userLat, userLng);
-                request.radius = 50000; // 50km bias
+                // Determine implicit bias via locationBias if needed, but 'locationBias' 
+                // in new API is often handled by 'locationBias' field with CircularBounds etc.
+                // For simplicity/compatibility, we can let Google handle relevance or add bias if critical.
+                // request.locationBias = { center: { lat: userLat, lng: userLng }, radius: 50000 };
+                // NOTE: structure might differ in V3, omitting specific bias helper for now to rely on query relevance + viewport if map context existed. 
+                // However, simple text search usually works well.
             }
 
-            service.textSearch(request, (results: any[], status: any) => {
-                if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-                    const mapped = results.map(item => ({
-                        id: item.place_id,
-                        name: item.name,
-                        address: item.formatted_address || item.vicinity || '',
-                        lat: item.geometry?.location?.lat(),
-                        lng: item.geometry?.location?.lng(),
-                        type: (item.types && item.types[0]) ? item.types[0] : 'establishment',
-                        distance: (userLat && userLng && item.geometry?.location)
-                            ? window.google.maps.geometry.spherical.computeDistanceBetween(
-                                new window.google.maps.LatLng(userLat, userLng),
-                                item.geometry.location
-                            )
-                            : undefined
-                    }));
-                    resolve(mapped);
-                } else {
-                    console.warn("Place Search failed or empty:", status);
-                    resolve([]);
-                }
-            });
-        });
+            const { places } = await Place.searchByText(request);
+
+            if (!places) return [];
+
+            return places.map((place: any) => ({
+                id: place.id,
+                name: place.displayName || '',
+                address: place.formattedAddress || '',
+                lat: place.location?.lat() || 0,
+                lng: place.location?.lng() || 0,
+                type: (place.types && place.types[0]) ? place.types[0] : 'establishment',
+                distance: (userLat && userLng && place.location)
+                    ? window.google.maps.geometry.spherical.computeDistanceBetween(
+                        new window.google.maps.LatLng(userLat, userLng),
+                        place.location
+                    )
+                    : undefined
+            }));
+
+        } catch (error) {
+            console.warn("Place Search failed", error);
+            return [];
+        }
     },
 
     searchNearby: async (lat: number, lng: number): Promise<PlaceResult[]> => {
-        return new Promise((resolve) => {
-            const service = getPlacesService();
-            if (!service) return resolve([]);
+        try {
+            const { Place } = await getPlacesLib();
 
-            // Use rankBy DISTANCE requires keyword or name or type.
-            // If we just want "nearby places", often 'establishment' or 'restaurant' is good.
             const request: any = {
-                location: new window.google.maps.LatLng(lat, lng),
-                rankBy: window.google.maps.places.RankBy.DISTANCE,
-                type: 'restaurant' // Default to restaurants for "Nearby" button as per app theme (food lists)
-                // Keyword is optional but good for filtering
+                fields: ['id', 'displayName', 'formattedAddress', 'location', 'types'],
+                locationRestriction: {
+                    // New API uses bounds or circle for restriction
+                    center: { lat, lng },
+                    radius: 1000 // 1km radius for "nearby" usually implies close
+                },
+                maxResultCount: 20,
+                rankPreference: window.google.maps.places.SearchNearbyRankPreference.DISTANCE,
+                includedPrimaryTypes: ['restaurant', 'food', 'bar', 'cafe', 'bakery'] // Filter for food items
             };
 
-            service.nearbySearch(request, (results: any[], status: any) => {
-                if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-                    const mapped = results.slice(0, 20).map(item => ({
-                        id: item.place_id,
-                        name: item.name,
-                        address: item.vicinity || item.formatted_address || '', // nearbySearch returns vicinity mostly
-                        lat: item.geometry?.location?.lat(),
-                        lng: item.geometry?.location?.lng(),
-                        type: (item.types && item.types[0]) ? item.types[0] : 'establishment',
-                        distance: (lat && lng && item.geometry?.location)
-                            ? window.google.maps.geometry.spherical.computeDistanceBetween(
-                                new window.google.maps.LatLng(lat, lng),
-                                item.geometry.location
-                            )
-                            : undefined
-                    }));
-                    resolve(mapped);
-                } else {
-                    console.warn("Nearby Search failed:", status);
-                    resolve([]);
-                }
-            });
-        });
+            const { places } = await Place.searchNearby(request);
+
+            if (!places) return [];
+
+            return places.map((place: any) => ({
+                id: place.id,
+                name: place.displayName || '',
+                address: place.formattedAddress || '', // vicinity not always available in new object same way
+                lat: place.location?.lat() || 0,
+                lng: place.location?.lng() || 0,
+                type: (place.types && place.types[0]) ? place.types[0] : 'establishment',
+                distance: (place.location)
+                    ? window.google.maps.geometry.spherical.computeDistanceBetween(
+                        new window.google.maps.LatLng(lat, lng),
+                        place.location
+                    )
+                    : undefined
+            }));
+
+        } catch (error) {
+            console.warn("Nearby Search failed", error);
+            return [];
+        }
     },
 
     getDetails: async (placeId: string): Promise<any> => {
-        return new Promise((resolve, reject) => {
-            const service = getPlacesService();
-            if (!service) return reject("Google Maps not loaded");
+        try {
+            const { Place } = await getPlacesLib();
 
-            // Needed fields for LegacyPlace transformation
-            const request = {
-                placeId: placeId,
+            // Create Place instance
+            const place = new Place({ id: placeId });
+
+            // Fetch fields
+            await place.fetchFields({
                 fields: [
-                    'place_id', 'name', 'formatted_address', 'address_components',
-                    'geometry', 'formatted_phone_number', 'international_phone_number',
-                    'website', 'url', 'rating', 'user_ratings_total', 'types', 'price_level',
-                    'photos', 'vicinity',
-                    // New Service Options Fields
-                    'delivery', 'dine_in', 'takeout', 'reservable',
-                    'serves_beer', 'serves_wine', 'serves_breakfast', 'serves_lunch', 'serves_dinner'
+                    'id', 'displayName', 'formattedAddress', 'addressComponents',
+                    'location', 'nationalPhoneNumber', 'internationalPhoneNumber',
+                    'websiteUri', 'rating', 'userRatingCount', 'types', 'priceLevel',
+                    'photos',
+                    // Service Options - Boolean fields
+                    'delivery', 'dineIn', 'takeout', 'reservable',
+                    'servesBeer', 'servesWine', 'servesBreakfast', 'servesLunch', 'servesDinner'
                 ]
-            };
-
-            service.getDetails(request, (place: any, status: any) => {
-                if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-                    resolve(place);
-                } else {
-                    reject(status);
-                }
             });
-        });
+
+            return place;
+        } catch (error) {
+            console.error("Get Details failed", error);
+            throw error;
+        }
     }
 };
+
 // Legacy Schema Interface
 // Province Map for Spain (first 2 digits of postal code)
 const PROVINCE_MAP: Record<string, string> = {
@@ -198,18 +172,18 @@ export interface LegacyPlace {
     // Identity
     name: string;
     name_normalized: string;
-    googlePlaceId: string; // The ID of the document AND the field
+    googlePlaceId: string;
 
     // Address & Location
     address: string;
     address_normalized: string;
-    vicinity?: string; // Often used as short address
-    formatted_address?: string; // Google field
+    vicinity?: string;
+    formatted_address?: string;
     coordinates: {
         latitude: number;
         longitude: number;
     };
-    location: { // Redundant but required by legacy
+    location: {
         latitude: number;
         longitude: number;
     };
@@ -245,24 +219,24 @@ export interface LegacyPlace {
     updatedAt: any;
     lastGoogleSync: any;
 
-    // Internal Stats (initially empty for new places)
+    // Internal Stats
     followersCount: number;
     reviewsCount: number;
     averageRating: number | null;
 }
 
-// Transform Google/OSM result to Strict Legacy Place
+// Transform Google Result to Strict Legacy Place
 export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: any): LegacyPlace => {
     const now = new Date();
 
-    // 1. Data Source Resolution
-    // If we have detailedGoogleData (from getPlaceDetailsFromGoogle), use it primarily.
-    // Otherwise fallback to basic PlaceResult (OSM/partial).
+    // detailedGoogleData is likely a google.maps.places.Place instance now
+    const src = detailedGoogleData || {};
 
-    const isGoogle = !!detailedGoogleData;
-    const src = detailedGoogleData || place;
+    // Fallback/Hybrid logic
+    // src.displayName is strict in new API, but PlaceResult has .name
+    const name = src.displayName || place.name || '';
 
-    // 2. Address Components Extraction (Critical for Legacy)
+    // Address Components Extraction
     let city = '';
     let region = '';
     let country = '';
@@ -270,17 +244,17 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
     let route = '';
     let streetNumber = '';
 
-    if (isGoogle && src.address_components) {
-        src.address_components.forEach((c: any) => {
-            if (c.types.includes('locality')) city = c.long_name;
-            if (c.types.includes('administrative_area_level_1')) region = c.long_name;
-            if (c.types.includes('country')) country = c.long_name;
-            if (c.types.includes('postal_code')) postalCode = c.long_name;
-            if (c.types.includes('route')) route = c.long_name;
-            if (c.types.includes('street_number')) streetNumber = c.long_name;
+    if (src.addressComponents) {
+        src.addressComponents.forEach((c: any) => {
+            if (c.types.includes('locality')) city = c.longText || c.shortText;
+            if (c.types.includes('administrative_area_level_1')) region = c.longText || c.shortText;
+            if (c.types.includes('country')) country = c.longText || c.long_name;
+            if (c.types.includes('postal_code')) postalCode = c.longText || c.long_name;
+            if (c.types.includes('route')) route = c.longText || c.long_name;
+            if (c.types.includes('street_number')) streetNumber = c.longText || c.long_name;
         });
     } else {
-        // Basic parsing for OSM/Fallback
+        // Fallback parsing
         const parts = place.address.split(',').map(p => p.trim());
         country = parts[parts.length - 1] || '';
         postalCode = parts.find(p => /^\d{5}$/.test(p)) || '';
@@ -288,51 +262,65 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
     }
 
     // 3. Derived Fields
-    const province = getProvinceFromPostalCode(postalCode) || city; // Fallback to city if no postal match
-    const constructedAddress = route ? `${route} ${streetNumber}, ${city}`.trim() : src.formatted_address || place.address;
+    const province = getProvinceFromPostalCode(postalCode) || city;
+    const constructedAddress = route ? `${route} ${streetNumber}, ${city}`.trim() : (src.formattedAddress || place.address);
 
     // 4. Coordinates
-    const lat = isGoogle ? src.geometry?.location?.lat : place.lat;
-    const lng = isGoogle ? src.geometry?.location?.lng : place.lng;
+    const lat = src.location?.lat() || place.lat;
+    const lng = src.location?.lng() || place.lng;
 
     // 5. Types
     const types = src.types || (place.type ? [place.type] : ['establishment']);
 
     // 6. Id Resolution
-    // Legacy STRICTLY wants 'googlePlaceId' valid. 
-    // If OSM, we fake it or prefix it? 
-    // User said: "el id de lugar debería ser el id de google".
-    // If we only have OSM, we technically violate this unless we mock it or require Google.
-    // For now, if no googlePlaceId, use OSM ID prefixed.
-    const finalId = src.place_id ? String(src.place_id) : `osm_${place.id}`;
+    const finalId = src.id || place.id;
 
-    // 7. Map Service Options
-    const serviceOptions = isGoogle ? {
+    // 7. Map Service Options (New API fields are direct booleans on the Place object mostly)
+    const serviceOptions = {
         delivery: !!src.delivery,
         takeout: !!src.takeout,
-        dineIn: !!src.dine_in,
+        dineIn: !!src.dineIn,
         reservable: !!src.reservable,
-        servesBeer: !!src.serves_beer,
-        servesWine: !!src.serves_wine,
-        servesBreakfast: !!src.serves_breakfast,
-        servesLunch: !!src.serves_lunch,
-        servesDinner: !!src.serves_dinner
-    } : {};
+        servesBeer: !!src.servesBeer,
+        servesWine: !!src.servesWine,
+        servesBreakfast: !!src.servesBreakfast,
+        servesLunch: !!src.servesLunch,
+        servesDinner: !!src.servesDinner
+    };
+
+    // 8. Photos
+    // src.photos in new API is array of google.maps.places.Photo
+    // p.getURI({maxWidth})
+    let mainImageUrl = null;
+    let mainImagePhotoReference = null;
+
+    if (src.photos && src.photos.length > 0) {
+        const p = src.photos[0];
+        // Ensure getURI exists (New API calls it getURI, old was getUrl)
+        if (typeof p.getURI === 'function') {
+            mainImageUrl = p.getURI({ maxWidth: 800 });
+        } else if (typeof p.getUrl === 'function') {
+            // Fallback if mixed types
+            mainImageUrl = p.getUrl({ maxWidth: 800 });
+        }
+        // References might not be exposed transparently in new objects but we can try
+        mainImagePhotoReference = (p as any).name || null; // 'name' resource name often holds reference
+    }
 
     return {
         // Identity
         googlePlaceId: finalId,
-        name: src.name,
-        name_normalized: src.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+        name: name,
+        name_normalized: name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
 
         // Location
         address: constructedAddress,
         address_normalized: constructedAddress.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
-        vicinity: src.vicinity || constructedAddress,
-        formatted_address: src.formatted_address || place.address,
+        vicinity: constructedAddress, // New API deprecates vicinity
+        formatted_address: src.formattedAddress || place.address,
 
-        coordinates: { latitude: typeof lat === 'function' ? lat() : lat, longitude: typeof lng === 'function' ? lng() : lng },
-        location: { latitude: typeof lat === 'function' ? lat() : lat, longitude: typeof lng === 'function' ? lng() : lng },
+        coordinates: { latitude: lat, longitude: lng },
+        location: { latitude: lat, longitude: lng },
 
         city,
         region,
@@ -341,23 +329,23 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
         postalCode,
 
         // Meta
-        googleMapsUrl: src.url || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
-        website: src.website || null,
-        phone: src.formatted_phone_number || src.international_phone_number || null,
-        international_phone_number: src.international_phone_number || null,
+        googleMapsUrl: src.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+        website: src.websiteUri || null,
+        phone: src.nationalPhoneNumber || src.internationalPhoneNumber || null,
+        international_phone_number: src.internationalPhoneNumber || null,
 
         // Stats
-        priceLevel: src.price_level || null,
+        priceLevel: src.priceLevel || null, // PriceLevel enum logic might be needed
         googleRating: src.rating || null,
-        googleUserRatingsTotal: src.user_ratings_total || null,
+        googleUserRatingsTotal: src.userRatingCount || null,
         types: types,
 
         // Images
-        mainImageUrl: src.photos?.[0] ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${src.photos[0].photo_reference}&key=YOUR_API_KEY_HERE` : null, // Note: In frontend we might not have key exposed directly for URL generation without proxy, but strict schema expects a URL.
-        mainImagePhotoReference: src.photos?.[0]?.photo_reference || null,
+        mainImageUrl: mainImageUrl,
+        mainImagePhotoReference: mainImagePhotoReference,
 
         // Legacy Fields
-        accessibility: {}, // Would need separate fetch as per prompt
+        accessibility: {},
         serviceOptions: serviceOptions,
 
         updatedAt: now,

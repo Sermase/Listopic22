@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, serverTimestamp, getDocs, doc, getDoc, query, orderBy, limit } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, doc, getDoc, query, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
@@ -23,7 +23,7 @@ export const CreateSublistPage: React.FC = () => {
     const [isPublic, setIsPublic] = useState(true);
 
     // Image
-    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [_imageFile, setImageFile] = useState<File | null>(null); // Prefix with _ or remove if truly unused. used in handler but state never read.
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
     // Advanced
@@ -129,6 +129,25 @@ export const CreateSublistPage: React.FC = () => {
         setCustomTags(customTags.filter(t => t !== tag));
     };
 
+    // Guests State
+    const [guests, setGuests] = useState<string[]>([]);
+    const [guestInput, setGuestInput] = useState('');
+
+    const handleAddGuest = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && guestInput.trim()) {
+            e.preventDefault();
+            const val = guestInput.trim();
+            if (!guests.includes(val)) {
+                setGuests([...guests, val]);
+            }
+            setGuestInput('');
+        }
+    };
+
+    const removeGuest = (email: string) => {
+        setGuests(guests.filter(g => g !== email));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !parentList) return;
@@ -161,7 +180,10 @@ export const CreateSublistPage: React.FC = () => {
                 isSublist: true,
 
                 userId: user.uid,
-                isPublic,
+                isPublic, // Legacy boolean
+                visibility: isPublic ? 'public' : 'private', // New explicit field
+                guests, // Array of strings (emails/usernames)
+
                 authorName: user.displayName || 'Anónimo',
                 photoUrl: finalPhotoUrl,
                 mainImageUrl: finalPhotoUrl, // Legacy compat
@@ -346,19 +368,60 @@ export const CreateSublistPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Visibility */}
-                    <div className="bg-[#151b2e] p-4 rounded-xl border border-white/10 flex items-center gap-3">
-                        <input
-                            type="checkbox"
-                            id="isPublic"
-                            checked={isPublic}
-                            onChange={(e) => setIsPublic(e.target.checked)}
-                            className="w-5 h-5 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[#0b1021]"
-                        />
-                        <label htmlFor="isPublic" className="text-sm cursor-pointer">
-                            <span className="block font-medium text-white">Lista Pública</span>
-                            <span className="block text-xs text-gray-500">Visible en tu perfil y resultados de búsqueda.</span>
-                        </label>
+                    {/* Permission & Visibility */}
+                    <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-6">
+                        <h3 className="text-lg font-bold text-white">Privacidad y Acceso</h3>
+
+                        {/* Visibility Toggle */}
+                        <div className="flex items-center gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setIsPublic(true)}
+                                className={`flex-1 p-4 rounded-xl border transition-all ${isPublic
+                                    ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                                    : 'bg-[#0b1021] border-white/10 text-gray-400 hover:bg-white/5'}`}
+                            >
+                                <span className="block font-bold">Pública</span>
+                                <span className="text-xs opacity-70">Visible para todos</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsPublic(false)}
+                                className={`flex-1 p-4 rounded-xl border transition-all ${!isPublic
+                                    ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                                    : 'bg-[#0b1021] border-white/10 text-gray-400 hover:bg-white/5'}`}
+                            >
+                                <span className="block font-bold">Privada</span>
+                                <span className="text-xs opacity-70">Solo invitados</span>
+                            </button>
+                        </div>
+
+                        {/* Guest Management (Only relevant if Private usually, but technically can have guests on public too?) 
+                            The prompt implies guests for private lists mostly. */}
+                        {!isPublic && (
+                            <div className="animate-fade-in space-y-3">
+                                <label className="block text-sm font-medium text-gray-400">Invitados (Emails o Usuarios)</label>
+                                <div className="flex flex-wrap gap-2 mb-2 p-2 bg-[#0b1021] rounded-lg border border-white/10 min-h-[50px]">
+                                    {guests.map(g => (
+                                        <span key={g} className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-xs flex items-center gap-1">
+                                            {g}
+                                            <button type="button" onClick={() => removeGuest(g)} className="hover:text-white"><X className="w-3 h-3" /></button>
+                                        </span>
+                                    ))}
+                                    <input
+                                        type="text"
+                                        value={guestInput}
+                                        onChange={(e) => setGuestInput(e.target.value)}
+                                        onKeyDown={handleAddGuest}
+                                        placeholder="Escribe y pulsa Enter..."
+                                        className="bg-transparent text-white text-sm focus:outline-none min-w-[150px] flex-1"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                    Los invitados podrán ver la lista y añadir reseñas (si se habilita).
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     <button
