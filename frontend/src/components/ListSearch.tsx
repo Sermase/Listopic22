@@ -38,7 +38,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
             if (!user) return;
             try {
                 // Fetch Owned
-                const qOwned = query(collection(db, 'lists'), where('ownerId', '==', user.uid));
+                const qOwned = query(collection(db, 'lists'), where('userId', '==', user.uid));
                 // Fetch Edited
                 const qEdited = query(collection(db, 'lists'), where('editors', 'array-contains', user.uid));
 

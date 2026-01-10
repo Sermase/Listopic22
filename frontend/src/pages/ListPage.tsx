@@ -34,6 +34,9 @@ export const ListPage: React.FC = () => {
         if (list.userId === user.uid) return true;
         if (list.editors?.includes(user.uid)) return true;
         if (list.isPublic && (list as any).publicAccess === 'writer') return true;
+        if (list.userId === user.uid) return true;
+        if (list.editors?.includes(user.uid)) return true;
+        if (list.isPublic) return true; // Open to public (authenticated)
         return false;
     }, [user, list]);
 
@@ -421,17 +424,19 @@ export const ListPage: React.FC = () => {
                             </div>
 
                             <div className="flex flex-wrap items-center gap-4">
-                                {/* Author Badge */}
-                                <Link to={`/profile/${list.userId}`} className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 hover:bg-black/50 transition-colors group/author">
-                                    <div className="w-5 h-5 rounded-full bg-indigo-500 overflow-hidden flex items-center justify-center text-[10px] text-white font-bold border border-white/20">
-                                        {list.authorName?.[0] ? list.authorName[0].toUpperCase() : '?'}
-                                    </div>
-                                    <span className="text-sm font-medium text-white/90 group-hover/author:text-white">
-                                        {list.authorName || 'Usuario'}
-                                    </span>
-                                </Link>
-
-                                {/* Stats/Likes Badge */}
+                                {
+                                    /* Author Badge - Only for Sublists */
+                                }
+                                {list.parentListId && (
+                                    <Link to={`/profile/${list.userId}`} className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 hover:bg-black/50 transition-colors group/author">
+                                        <div className="w-5 h-5 rounded-full bg-indigo-500 overflow-hidden flex items-center justify-center text-[10px] text-white font-bold border border-white/20">
+                                            {list.authorName?.[0] ? list.authorName[0].toUpperCase() : '?'}
+                                        </div>
+                                        <span className="text-sm font-medium text-white/90 group-hover/author:text-white">
+                                            {list.authorName || 'Usuario'}
+                                        </span>
+                                    </Link>
+                                )}
                                 <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-pink-500 font-bold text-sm">
                                     <Heart className={`w-3.5 h-3.5 ${user && (list as any).isLiked ? 'fill-current' : ''}`} />
                                     <span>{likeCount}</span>
@@ -767,6 +772,7 @@ export const ListPage: React.FC = () => {
                     <AddReviewForm
                         listId={listId}
                         editReviewId={editingReviewId}
+                        lockList={true} // Always lock list on ListPage
                         onClose={() => {
                             setIsAddModalOpen(false);
                             setEditingReviewId(undefined);

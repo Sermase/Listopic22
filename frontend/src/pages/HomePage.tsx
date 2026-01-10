@@ -180,7 +180,7 @@ export const HomePage: React.FC = () => {
                 }
             }
         });
-        return Array.from(uniquePlaces.values());
+        return Array.from(uniquePlaces.values()).sort((a, b) => (b.rating || 0) - (a.rating || 0));
     }, [reviewsInRange]);
 
     // 6. Derived Users (Synthesized from content IN RANGE)
@@ -450,7 +450,7 @@ export const HomePage: React.FC = () => {
                             items={filteredPlaces}
                             loading={loadingReviews}
                             renderItem={(place: any) => (
-                                <div className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
+                                <Link to={`/place/${place.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
                                     {place.photoUrl ? (
                                         <div className="absolute inset-0">
                                             <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover" />
@@ -470,7 +470,7 @@ export const HomePage: React.FC = () => {
                                             <MapPin className="w-3 h-3" /> {place.address?.split(',')[0]}
                                         </p>
                                     </div>
-                                </div>
+                                </Link>
                             )}
                         />
 

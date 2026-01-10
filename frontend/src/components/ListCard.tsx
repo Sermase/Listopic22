@@ -94,6 +94,6 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
                 </div>
             </div>
         </div>
-        </div >
+
     );
 };

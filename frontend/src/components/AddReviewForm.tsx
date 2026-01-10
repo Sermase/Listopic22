@@ -13,11 +13,12 @@ interface AddReviewFormProps {
     prefillPlaceId?: string;
     prefillItemName?: string;
     editReviewId?: string;
+    lockList?: boolean;
     onClose: () => void;
     onSuccess: () => void;
 }
 
-export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, onClose, onSuccess }) => {
+export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, lockList = false, onClose, onSuccess }) => {
     const { user } = useAuth();
 
     // Core Data
@@ -424,8 +425,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     }
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[#0b1021] w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-white/10">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4">
+            <div className="bg-[#0b1021] w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-none md:border border-white/10">
 
                 {/* Header */}
                 <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#151b2e]">
@@ -440,13 +441,24 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 <div className="overflow-y-auto flex-1 custom-scrollbar relative">
                     {/* List Selector Picker */}
                     <div className="p-6 pb-0 space-y-2">
-                        <label className="block text-xs font-bold uppercase text-gray-400 tracking-wider">Guardar en Lista <span className="text-red-400">*</span></label>
-                        <ListSearch
-                            onSelect={(id) => onListChange && onListChange(id)}
-                            selectedListId={listId}
-                            placeName={selectedPlace?.name || itemName} // Use place name or item name for smart search
-                            placeTypes={selectedPlace?.types} // Smart search by type
-                        />
+                        {(!lockList && !editReviewId) ? (
+                            <>
+                                <label className="block text-xs font-bold uppercase text-gray-400 tracking-wider">Guardar en Lista <span className="text-red-400">*</span></label>
+                                <ListSearch
+                                    onSelect={(id) => onListChange && onListChange(id)}
+                                    selectedListId={listId}
+                                    placeName={selectedPlace?.name || itemName} // Use place name or item name for smart search
+                                    placeTypes={selectedPlace?.types} // Smart search by type
+                                />
+                            </>
+                        ) : listId ? (
+                            <div className="bg-[#151b2e] border border-white/10 p-3 rounded-lg flex justify-between items-center">
+                                <span className="text-sm text-gray-300">
+                                    Guardando en: <span className="text-indigo-400 font-bold">{listData?.name || 'Lista'}</span>
+                                </span>
+                                <Lock className="w-4 h-4 text-gray-500" />
+                            </div>
+                        ) : null}
                     </div>
 
                     <form id="review-form" onSubmit={handleSubmit} className="space-y-6 p-6">
@@ -535,20 +547,35 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                             <label className="text-sm text-gray-300 font-medium">{key}</label>
                                             <span className={`text-sm font-bold ${criteriaScores[key] >= 7 ? 'text-green-400' : 'text-yellow-400'}`}>{criteriaScores[key]}</span>
                                         </div>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="10"
-                                            step="0.5"
-                                            value={criteriaScores[key]}
-                                            onChange={(e) => {
-                                                const val = parseFloat(e.target.value);
-                                                const newScores = { ...criteriaScores, [key]: val };
-                                                setCriteriaScores(newScores);
-                                                setRatingsTouched(true);
-                                            }}
-                                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                                        />
+                                        <div className="relative w-full h-6 flex items-center">
+                                            {/* Track Background & Fill */}
+                                            <div className="absolute left-0 right-0 h-2 bg-gray-700/50 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full transition-all duration-300 ${criteriaScores[key] >= 7 ? 'bg-gradient-to-r from-emerald-400 to-green-500' :
+                                                            criteriaScores[key] >= 4 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' :
+                                                                'bg-gradient-to-r from-red-400 to-pink-600'
+                                                        }`}
+                                                    style={{ width: `${(criteriaScores[key] / 10) * 100}%` }}
+                                                />
+                                            </div>
+
+                                            {/* Interactive Input with Custom Thumb */}
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="10"
+                                                step="0.5"
+                                                value={criteriaScores[key]}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value);
+                                                    const newScores = { ...criteriaScores, [key]: val };
+                                                    setCriteriaScores(newScores);
+                                                    setRatingsTouched(true);
+                                                }}
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-indigo-500"
+                                                style={{ opacity: 1, background: 'transparent', WebkitAppearance: 'none' }}
+                                            />
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -610,8 +637,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         key={tag}
                                         onClick={() => toggleTag(tag)}
                                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${customTags.includes(tag)
-                                                ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
-                                                : 'bg-[#1e2538] text-gray-400 hover:bg-white/5'
+                                            ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                                            : 'bg-[#1e2538] text-gray-400 hover:bg-white/5'
                                             }`}
                                     >
                                         #{tag}

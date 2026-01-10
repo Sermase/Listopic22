@@ -116,7 +116,7 @@ export const ProfilePage: React.FC = () => {
                 // For simplicity, we show Public ones, or ones where viewer has access.
                 // But since 'editors' implies write access, it's significant.
                 // We'll filter strictly by isPublic for visitors.
-                const validGuest = isOwnProfile ? fetchedGuest : fetchedGuest.filter(l => l.isPublic);
+                const validGuest = isOwnProfile ? fetchedGuest : (fetchedGuest as any[]).filter(l => l.isPublic);
                 setGuestLists(validGuest);
 
                 // 2. Followed Lists (From 'followingLists' subcollection)
@@ -498,7 +498,7 @@ export const ProfilePage: React.FC = () => {
                                             }`}
                                     >
                                         <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10">
-                                            {user.photoURL ? (
+                                            {user?.photoURL ? (
                                                 <img src={user.photoURL} alt="Google" className="w-full h-full object-cover" />
                                             ) : (
                                                 <div className="w-full h-full bg-gray-700"></div>

@@ -506,20 +506,13 @@ export const GroupPage: React.FC = () => {
 
             {/* Modals */}
             {
-                isFlowOpen && !selectedListId && (
-                    <ListSelector
-                        onSelect={(lid) => setSelectedListId(lid)}
-                        onCancel={() => setIsFlowOpen(false)}
-                        preselectedId={fromListId}
-                    />
-                )
-            }
-            {
-                isFlowOpen && selectedListId && (
+                isFlowOpen && (
                     <AddReviewForm
                         listId={selectedListId}
+                        onListChange={setSelectedListId}
                         prefillPlaceId={placeId}
                         prefillItemName={decodedName}
+                        lockList={!!selectedListId} // Lock if we pre-selected a list
                         onClose={() => {
                             setIsFlowOpen(false);
                             setSelectedListId(null);

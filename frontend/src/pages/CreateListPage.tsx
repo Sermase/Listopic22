@@ -249,7 +249,7 @@ export const CreateListPage: React.FC = () => {
                                         <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                                         <button
                                             type="button"
-                                            onClick={() => { setImagePreview(null); setImageFile(null); }}
+                                            onClick={() => { setImagePreview(null); }}
                                             className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-red-500 transition-colors"
                                         >
                                             <X className="w-4 h-4" />

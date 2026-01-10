@@ -280,7 +280,7 @@ export const PlacePage: React.FC = () => {
                     {/* 2. Map */}
                     {place.coords && (
                         <div className="bg-[#151b2e] rounded-xl overflow-hidden border border-white/10 shadow-lg relative group">
-                            <div className="absolute top-3 right-3 z-[400]">
+                            <div className="absolute top-3 right-3 z-10">
                                 <a
                                     href={place.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${place.coords.lat},${place.coords.lng}`}
                                     target="_blank"

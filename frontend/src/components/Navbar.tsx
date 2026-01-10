@@ -92,7 +92,7 @@ export const Navbar: React.FC = () => {
                     {/* Right Actions */}
                     <div className="hidden md:flex items-center gap-4">
                         <Link
-                            to="/create"
+                            to="/create-sublist"
                             className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-full text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all hover:shadow-indigo-500/40 active:scale-95"
                         >
                             <Plus className="w-4 h-4" />
@@ -144,9 +144,9 @@ export const Navbar: React.FC = () => {
 
             {/* Mobile Menu Overlay */}
             {isMenuOpen && (
-                <div className="fixed inset-0 bg-[#0b1021]/98 backdrop-blur-xl z-40 pt-24 px-6 animate-fade-in flex flex-col">
+                <div className="fixed inset-0 bg-[#0b1021] z-40 pt-24 px-6 animate-fade-in flex flex-col">
                     <div className="space-y-4">
-                        <Link to="/create" className="flex items-center justify-center gap-2 w-full py-4 bg-indigo-600 rounded-xl text-white font-bold text-lg mb-8 shadow-lg shadow-indigo-600/20">
+                        <Link to="/create-sublist" className="flex items-center justify-center gap-2 w-full py-4 bg-indigo-600 rounded-xl text-white font-bold text-lg mb-8 shadow-lg shadow-indigo-600/20">
                             <Plus className="w-6 h-6" /> Crear Sublista
                         </Link>
 
@@ -157,8 +157,8 @@ export const Navbar: React.FC = () => {
                             <Link to="/explore" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
                                 <Compass className="w-5 h-5 text-indigo-400" /> Explorar
                             </Link>
-                            <Link to="/users" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
-                                <Users className="w-5 h-5 text-indigo-400" /> Comunidad
+                            <Link to="/chats" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
+                                <MessageSquare className="w-5 h-5 text-indigo-400" /> Chats
                             </Link>
                             <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
                                 <Archive className="w-5 h-5 text-indigo-400" /> Archivo

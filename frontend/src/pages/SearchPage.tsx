@@ -102,7 +102,7 @@ const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
                                         placeId: hit.objectID, // For places, the ID is the placeID
                                         placeName: hit.name,
                                         placeCity: hit.city || hit.placeCity,
-                                        description: hit.description,
+                                        // description: hit.description,
                                         // No specific author for places usually
                                     }}
                                     isGrid={true}
@@ -120,7 +120,7 @@ const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
                                         placeId: hit.placeId, // For items
                                         placeName: hit.placeName, // For items
                                         placeCity: hit.placeCity || hit.city, // For items
-                                        description: hit.description,
+                                        // description: hit.description,
                                         authorName: hit.authorName || hit.ownerName, // For lists
                                         authorPhoto: hit.authorPhoto || hit.ownerPhoto,
                                         listName: hit.listName, // For items

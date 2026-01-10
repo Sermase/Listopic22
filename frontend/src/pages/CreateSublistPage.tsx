@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, serverTimestamp, getDocs, doc, getDoc, query, limit } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, doc, getDoc, query, limit, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
@@ -21,6 +21,7 @@ export const CreateSublistPage: React.FC = () => {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [isPublic, setIsPublic] = useState(true);
+    const [isPublicWritable, setIsPublicWritable] = useState(false);
 
     // Image
     const [_imageFile, setImageFile] = useState<File | null>(null); // Prefix with _ or remove if truly unused. used in handler but state never read.
@@ -43,7 +44,12 @@ export const CreateSublistPage: React.FC = () => {
                     // Fetch top lists or just recent ones to choose from
                     // Fetch lists - Relaxed query to ensure legacy lists appear
                     // orderBy('itemCount') excludes docs where that field is missing.
-                    const q = query(collection(db, 'lists'), limit(50));
+                    // Fetch lists - must filter by public to satisfy security rules
+                    const q = query(
+                        collection(db, 'lists'),
+                        where('isPublic', '==', true),
+                        limit(50)
+                    );
                     const snapshot = await getDocs(q);
                     const docs = snapshot.docs
                         .map(d => ({ id: d.id, ...d.data() }))
@@ -182,6 +188,7 @@ export const CreateSublistPage: React.FC = () => {
                 userId: user.uid,
                 isPublic, // Legacy boolean
                 visibility: isPublic ? 'public' : 'private', // New explicit field
+                publicAccess: isPublic && isPublicWritable ? 'writer' : 'reader', // Consistent with EditListPage
                 guests, // Array of strings (emails/usernames)
 
                 authorName: user.displayName || 'Anónimo',
@@ -395,6 +402,27 @@ export const CreateSublistPage: React.FC = () => {
                                 <span className="text-xs opacity-70">Solo invitados</span>
                             </button>
                         </div>
+
+                        {/* Public Write Access Toggle */}
+                        {isPublic && (
+                            <div className="animate-fade-in mt-4 p-4 bg-[#0b1021]/50 rounded-xl border border-white/5 flex items-center justify-between">
+                                <div>
+                                    <h4 className="text-sm font-bold text-gray-200">Permitir Colaboración Pública</h4>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Si activas esto, cualquier usuario podrá añadir lugares a esta lista.
+                                    </p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={isPublicWritable}
+                                        onChange={(e) => setIsPublicWritable(e.target.checked)}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                        )}
 
                         {/* Guest Management (Only relevant if Private usually, but technically can have guests on public too?) 
                             The prompt implies guests for private lists mostly. */}

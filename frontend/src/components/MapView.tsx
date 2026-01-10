@@ -81,16 +81,16 @@ const CustomLocateControl = () => {
     );
 };
 
+// Add placeId to MapItem interface (Line 85)
 export interface MapItem {
     id: string;
+    placeId?: string; // Added field
     lat?: number;
     lng?: number;
     name: string;
-    photoUrl?: string; // Main image
-    rating?: number; // Score to display on the pin/card
+    photoUrl?: string;
+    rating?: number;
     reviewsCount?: number;
-
-    // For List Mode grouping
     items?: {
         name: string;
         score: number;
@@ -98,21 +98,17 @@ export interface MapItem {
 }
 
 interface MapViewProps {
-    items: any[]; // Accepts raw data, we normalize inside or expect MapItem-like
-    mode?: 'global' | 'list'; // 'global' = one pin per place (Home), 'list' = pin shows aggregated list items
+    items: any[];
+    mode?: 'global' | 'list';
     center?: [number, number];
     range?: number | null;
 }
 
-// Component to recenter map when items change
-// Component to handle View Updates (Zoom/Center)
 function MapUpdater({ center, items, range, location }: { center: [number, number], items: any[], range: number | null, location: any }) {
     const map = useMap();
 
     useEffect(() => {
         if (range !== null && location) {
-            // If Range Mode: Center on User & Zoom to Range circle
-            // 1km ~ 15, 5km ~ 13, 10km ~ 12, 50km ~ 9/10
             let zoom = 12;
             if (range <= 1) zoom = 15;
             else if (range <= 5) zoom = 13;
@@ -121,7 +117,6 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
 
             map.flyTo([location.latitude, location.longitude], zoom, { duration: 1.5 });
         } else if (items.length > 0) {
-            // No Range: Fit Bounds of ALL items
             if (items.length === 1 && items[0].lat && items[0].lng) {
                 map.flyTo([items[0].lat, items[0].lng], 14, { duration: 1.5 });
             } else {
@@ -131,7 +126,6 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
                 }
             }
         } else {
-            // Default Fallback
             map.flyTo(center, 10, { duration: 1.5 });
         }
     }, [range, items, center, location, map]);
@@ -148,13 +142,14 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
         .filter(item => (item.lat || item.latitude) && (item.lng || item.longitude))
         .map(item => ({
             id: item.id || item.placeId,
+            placeId: item.placeId, // Preserve placeId
             lat: item.lat || item.latitude,
             lng: item.lng || item.longitude,
             name: item.name || item.placeName || 'Lugar desconocido',
             photoUrl: item.photoUrl || item.placeMainImage || item.mainImageUrl,
             rating: item.rating || item.placeAverageRating || item.overallRating || item.avgRating || 0,
             reviewsCount: item.reviewsCount || item.reviewCount || item.count || 0,
-            items: item.items // Only present if pre-grouped for list mode
+            items: item.items
         }));
 
     // Determine Initial Map Center (Fallback)
@@ -234,7 +229,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                                     ) : null}
 
                                     <Link
-                                        to={`/place/${item.id}`}
+                                        to={`/place/${item.placeId || item.id}`}
                                         className="block w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-center text-sm font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/25 active:scale-95 border border-indigo-500/50"
                                     >
                                         Ver detalles

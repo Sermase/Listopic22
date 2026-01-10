@@ -84,7 +84,7 @@ export const Home: React.FC = () => {
 
                         <UserCarousel
                             title="✨ Creadores Destacados"
-                            users={topUsers}
+                            users={topUsers as any}
                             loading={usersLoading}
                         />
 

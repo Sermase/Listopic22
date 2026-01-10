@@ -5,7 +5,7 @@ import { UserCard } from '../components/UserCard';
 
 export const UsersPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
-    const { users, loading, error } = useUsers(searchTerm);
+    const { users, loading } = useUsers();
 
     return (
         <div className="min-h-screen bg-[#0b1021] pt-24 pb-20 px-4 sm:px-6">
@@ -37,14 +37,10 @@ export const UsersPage: React.FC = () => {
                     <div className="flex justify-center items-center py-20">
                         <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
                     </div>
-                ) : error ? (
-                    <div className="text-center py-12">
-                        <p className="text-red-400">{error}</p>
-                    </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                         {users.map(user => (
-                            <UserCard key={user.uid} user={user} />
+                            <UserCard key={user.uid} user={user as any} />
                         ))}
 
                         {users.length === 0 && (

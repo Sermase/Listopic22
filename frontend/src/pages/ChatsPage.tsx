@@ -46,9 +46,14 @@ export const ChatsPage: React.FC = () => {
                     const snap = await getDoc(doc(db, 'users', uid));
                     if (snap.exists()) {
                         newUsers[uid] = snap.data();
+                    } else {
+                        // Fallback for deleted/missing users to prevent infinite refetch
+                        newUsers[uid] = { displayName: 'Usuario Eliminado', name: 'Usuario Eliminado' };
                     }
                 } catch (e) {
                     console.warn("Failed to fetch user", uid);
+                    // On error, also set placeholder to avoid loop, or leave empty to retry
+                    newUsers[uid] = { displayName: 'Usuario Desconocido' };
                 }
             }));
 
@@ -107,6 +112,10 @@ export const ChatsPage: React.FC = () => {
         if (targetId && usersMap[targetId]) {
             return usersMap[targetId].displayName || usersMap[targetId].name || 'Usuario';
         }
+
+        // If we have a target ID but no data yet, it's loading or failed
+        if (targetId) return 'Usuario...';
+
         return `Chat`;
     };
 
