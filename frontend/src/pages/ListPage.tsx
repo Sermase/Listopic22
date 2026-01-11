@@ -445,7 +445,7 @@ export const ListPage: React.FC = () => {
                         </div>
 
                         {/* Right Column: Status Badges & Actions */}
-                        <div className="flex flex-col gap-3 items-start md:items-end">
+                        <div className="flex flex-col gap-3 items-end w-full md:w-auto">
                             {/* Badges Row - Moved to Right */}
                             <div className="flex flex-wrap items-center gap-2">
                                 {/* Type Badge */}
@@ -536,6 +536,20 @@ export const ListPage: React.FC = () => {
                                     </button>
                                 )}
 
+                                {/* Sublists Button (New Location) */}
+                                <button
+                                    onClick={() => setIsSublistsModalOpen(true)}
+                                    className="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-sm font-bold rounded-xl backdrop-blur-md flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-indigo-500/10"
+                                >
+                                    <ListIcon className="w-4 h-4" />
+                                    <span>Sublistas</span>
+                                    {sublists && sublists.length > 0 && (
+                                        <span className="bg-indigo-500/20 px-1.5 py-0.5 rounded text-[10px] ml-1 border border-indigo-500/30 text-indigo-200">
+                                            {sublists.length}
+                                        </span>
+                                    )}
+                                </button>
+
                                 {/* Add Review Button (Primary Action) */}
                                 {canAddReview && (
                                     <button
@@ -594,28 +608,8 @@ export const ListPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Sublists Viewer (Modal Trigger) */}
-            {
-                sublists && (
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8">
-                        <button
-                            onClick={() => setIsSublistsModalOpen(true)}
-                            className="w-full sm:w-auto px-5 py-3 bg-[#151b2e] hover:bg-[#1e2538] border border-white/10 rounded-xl flex items-center justify-between sm:justify-start gap-4 transition-all group hover:border-indigo-500/30"
-                        >
-                            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
-                                <ListIcon className="w-5 h-5" />
-                            </div>
-                            <div className="text-left">
-                                <h3 className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">
-                                    Ver {sublists.length} Sublistas
-                                </h3>
-                                <p className="text-xs text-gray-500">Versiones de la comunidad</p>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-indigo-400 ml-2" />
-                        </button>
-                    </div>
-                )
-            }
+            {/* Sublists Viewer - Moved to Header */}
+
 
             {/* Content List */}
             <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8">
@@ -811,7 +805,8 @@ export const ListPage: React.FC = () => {
                         isOpen={isSublistsModalOpen}
                         onClose={() => setIsSublistsModalOpen(false)}
                         sublists={sublists}
-                        parentListName={list.name}
+                        listId={list.id}
+                        listName={list.name}
                     />
                 )
             }

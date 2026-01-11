@@ -545,17 +545,23 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     <div key={key}>
                                         <div className="flex justify-between mb-2">
                                             <label className="text-sm text-gray-300 font-medium">{key}</label>
-                                            <span className={`text-sm font-bold ${criteriaScores[key] >= 7 ? 'text-green-400' : 'text-yellow-400'}`}>{criteriaScores[key]}</span>
+                                            <span
+                                                className="text-sm font-bold transition-colors duration-300"
+                                                style={{ color: `hsl(${criteriaScores[key] * 12}, 90%, 50%)` }}
+                                            >
+                                                {criteriaScores[key]}
+                                            </span>
                                         </div>
                                         <div className="relative w-full h-6 flex items-center">
                                             {/* Track Background & Fill */}
                                             <div className="absolute left-0 right-0 h-2 bg-gray-700/50 rounded-full overflow-hidden">
                                                 <div
-                                                    className={`h-full transition-all duration-300 ${criteriaScores[key] >= 7 ? 'bg-gradient-to-r from-emerald-400 to-green-500' :
-                                                            criteriaScores[key] >= 4 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' :
-                                                                'bg-gradient-to-r from-red-400 to-pink-600'
-                                                        }`}
-                                                    style={{ width: `${(criteriaScores[key] / 10) * 100}%` }}
+                                                    className="h-full transition-all duration-300 rounded-full"
+                                                    style={{
+                                                        width: `${(criteriaScores[key] / 10) * 100}%`,
+                                                        background: `hsl(${criteriaScores[key] * 12}, 90%, 50%)`,
+                                                        boxShadow: `0 0 10px hsl(${criteriaScores[key] * 12}, 90%, 50%, 0.5)`
+                                                    }}
                                                 />
                                             </div>
 
