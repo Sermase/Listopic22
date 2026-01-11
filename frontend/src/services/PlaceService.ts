@@ -1,3 +1,5 @@
+import { serverTimestamp } from 'firebase/firestore';
+
 export interface PlaceResult {
     id: string; // Google Place ID
     name: string;
@@ -87,11 +89,11 @@ export const PlaceService = {
                 locationRestriction: {
                     // New API uses bounds or circle for restriction
                     center: { lat, lng },
-                    radius: 1000 // 1km radius for "nearby" usually implies close
+                    radius: 500 // 500m radius as requested by user
                 },
                 maxResultCount: 20,
-                rankPreference: window.google.maps.places.SearchNearbyRankPreference.DISTANCE,
-                includedPrimaryTypes: ['restaurant', 'food', 'bar', 'cafe', 'bakery'] // Filter for food items
+                // restaurant, cafe, bar, bakery, store, supermarket, park, lodging, museum, tourist_attraction
+                includedPrimaryTypes: ['restaurant', 'cafe', 'bar', 'bakery', 'store', 'supermarket', 'park', 'lodging', 'museum', 'tourist_attraction']
             };
 
             const { places } = await Place.searchNearby(request);
@@ -136,7 +138,9 @@ export const PlaceService = {
                     'photos',
                     // Service Options - Boolean fields
                     'delivery', 'dineIn', 'takeout', 'reservable',
-                    'servesBeer', 'servesWine', 'servesBreakfast', 'servesLunch', 'servesDinner'
+                    'servesBeer', 'servesWine', 'servesBreakfast', 'servesLunch', 'servesDinner',
+                    // Accessibility
+                    'accessibilityOptions'
                 ]
             });
 
@@ -291,6 +295,17 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
         servesDinner: !!src.servesDinner
     };
 
+    // 7b. Map Accessibility (From accessibilityOptions array)
+    // Google V3 API returns strings like "WHEELCHAIR_ACCESSIBLE_ENTRANCE"
+    const accOptions = (src.accessibilityOptions || []).map((o: string) => o.toUpperCase());
+    const accessibility = {
+        wheelchairAccessibleEntrance: accOptions.includes('WHEELCHAIR_ACCESSIBLE_ENTRANCE'),
+        wheelchairAccessibleParking: accOptions.includes('WHEELCHAIR_ACCESSIBLE_PARKING'),
+        wheelchairAccessibleRestroom: accOptions.includes('WHEELCHAIR_ACCESSIBLE_RESTROOM'),
+        wheelchairAccessibleSeating: accOptions.includes('WHEELCHAIR_ACCESSIBLE_SEATING'),
+        hearingLoop: accOptions.includes('HEARING_LOOP')
+    };
+
     // 8. Photos
     // src.photos in new API is array of google.maps.places.Photo
     // p.getURI({maxWidth})
@@ -310,20 +325,25 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
         mainImagePhotoReference = (p as any).name || null; // 'name' resource name often holds reference
     }
 
+    // Normalizations: Lowercase ONLY (User Request)
+    const nameNormalized = name.toLowerCase();
+    const addressNormalized = constructedAddress.toLowerCase();
+
     return {
         // Identity
         googlePlaceId: finalId,
         name: name,
-        name_normalized: name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+        name_normalized: nameNormalized,
 
         // Location
         address: constructedAddress,
-        address_normalized: constructedAddress.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+        address_normalized: addressNormalized,
         vicinity: constructedAddress, // New API deprecates vicinity
         formatted_address: src.formattedAddress || place.address,
 
-        coordinates: { latitude: lat, longitude: lng },
-        location: { latitude: lat, longitude: lng },
+        coordinates: { latitude: lat, longitude: lng }, // Legacy: nested object
+        location: { latitude: lat, longitude: lng },    // Legacy: often duplicated as 'location' geopoint in firestore, but here mapped as object. 
+        // Note: If Firestore uses GeoPoint, the save logic usually converts it. We keep object here.
 
         city,
         region,
@@ -348,11 +368,13 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
         mainImagePhotoReference: mainImagePhotoReference,
 
         // Legacy Fields
-        accessibility: {},
+        accessibility: accessibility,
         serviceOptions: serviceOptions,
 
-        updatedAt: now,
-        lastGoogleSync: now,
+        updatedAt: serverTimestamp(),
+        lastGoogleSync: serverTimestamp(),
+
+        // Initial Counters for new places
         followersCount: 0,
         reviewsCount: 0,
         averageRating: null

@@ -9,7 +9,9 @@ import {
     doc,
     updateDoc,
     getDocs,
-    limit
+    limit,
+    getDoc,
+    arrayUnion
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -134,5 +136,27 @@ export const ChatService = {
             })) as Message[];
             callback(messages);
         });
+    },
+
+    addParticipant: async (chatId: string, newUserId: string) => {
+        const chatRef = doc(db, 'chats', chatId);
+        const chatSnap = await getDoc(chatRef);
+
+        if (!chatSnap.exists()) return;
+        const data = chatSnap.data();
+
+        const updates: any = {
+            participants: arrayUnion(newUserId),
+            [`unreadCount.${newUserId}`]: 0,
+            updatedAt: serverTimestamp()
+        };
+
+        // Convert private to group if adding 3rd person
+        if (data.type === 'private') {
+            updates.type = 'group';
+            updates.groupName = 'Nuevo Grupo'; // UI should provide this ideally, but auto-convert default
+        }
+
+        await updateDoc(chatRef, updates);
     }
 };

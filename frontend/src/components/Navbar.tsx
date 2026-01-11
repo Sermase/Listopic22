@@ -144,8 +144,8 @@ export const Navbar: React.FC = () => {
 
             {/* Mobile Menu Overlay */}
             {isMenuOpen && (
-                <div className="fixed inset-0 bg-[#0b1021] z-40 pt-24 px-6 animate-fade-in flex flex-col">
-                    <div className="space-y-4">
+                <div className="fixed inset-0 bg-[#0b1021]/95 z-40 pt-24 px-6 animate-fade-in flex flex-col backdrop-blur-3xl">
+                    <div className="space-y-4 bg-[#0b1021] p-6 rounded-3xl border border-white/10 shadow-2xl">
                         <Link to="/create-sublist" className="flex items-center justify-center gap-2 w-full py-4 bg-indigo-600 rounded-xl text-white font-bold text-lg mb-8 shadow-lg shadow-indigo-600/20">
                             <Plus className="w-6 h-6" /> Crear Sublista
                         </Link>

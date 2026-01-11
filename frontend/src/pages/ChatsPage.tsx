@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
-import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, UserPlus, X, Users } from 'lucide-react';
+import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, UserPlus, X, Users, User, Plus } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 
 export const ChatsPage: React.FC = () => {
     const { user } = useAuth();
@@ -22,6 +23,38 @@ export const ChatsPage: React.FC = () => {
     const [newGroupName, setNewGroupName] = useState('');
     const [isCreatingGroup, setIsCreatingGroup] = useState(false);
     const [usersMap, setUsersMap] = useState<Record<string, any>>({});
+
+    const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+    const [participantInput, setParticipantInput] = useState('');
+    const [addingParticipant, setAddingParticipant] = useState(false);
+
+    // Search State
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+
+    // Debounced Search Effect
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (!participantInput.trim() || participantInput.length < 2) {
+                setSearchResults([]);
+                return;
+            }
+
+            setIsSearching(true);
+            try {
+                const response = await algoliaClient.search({
+                    requests: [{ indexName: INDEX_NAMES.users, query: participantInput, hitsPerPage: 5 }]
+                });
+                setSearchResults((response.results[0] as any).hits);
+            } catch (error) {
+                console.error("Search error:", error);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [participantInput]);
 
     // Fetch User Details for Private Chats
     useEffect(() => {
@@ -110,13 +143,23 @@ export const ChatsPage: React.FC = () => {
 
         const targetId = chat.participants.find(p => p !== user?.uid);
         if (targetId && usersMap[targetId]) {
-            return usersMap[targetId].displayName || usersMap[targetId].name || 'Usuario';
+            return usersMap[targetId].displayName || usersMap[targetId].username || usersMap[targetId].name || 'Usuario';
         }
 
         // If we have a target ID but no data yet, it's loading or failed
         if (targetId) return 'Usuario...';
 
         return `Chat`;
+    };
+
+    const getChatPhoto = (chat: Chat) => {
+        if (chat.type === 'group') return chat.groupPhoto || null; // Return null to show default icon
+
+        const targetId = chat.participants.find(p => p !== user?.uid);
+        if (targetId && usersMap[targetId]) {
+            return usersMap[targetId].photoUrl || null;
+        }
+        return null; // Default
     };
 
     const activeChatObj = chats.find(c => c.id === activeChat);
@@ -159,16 +202,28 @@ export const ChatsPage: React.FC = () => {
                                 onClick={() => navigate(`/chats/${chat.id}`)}
                                 className={`p-4 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors ${activeChat === chat.id ? 'bg-indigo-900/20 border-l-4 border-l-indigo-500' : ''}`}
                             >
-                                <div className="flex justify-between items-start mb-1">
-                                    <h3 className="font-bold text-white text-sm truncate">{getChatName(chat)}</h3>
-                                    {chat.lastMessageTimestamp && (
-                                        <span className="text-xs text-gray-500">
-                                            {/* Minimal timestamp format */}
-                                            {new Date(chat.lastMessageTimestamp?.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    )}
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-gray-700 border border-white/10 relative">
+                                        {getChatPhoto(chat) ? (
+                                            <img src={getChatPhoto(chat)!} alt="Chat" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-indigo-900/50 text-indigo-200 font-bold text-lg">
+                                                {getChatName(chat).charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-start mb-0.5">
+                                            <h3 className="font-bold text-white text-sm truncate">{getChatName(chat)}</h3>
+                                            {chat.lastMessageTimestamp && (
+                                                <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">
+                                                    {new Date(chat.lastMessageTimestamp?.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-gray-400 text-xs truncate">{chat.lastMessage || 'Nueva conversación'}</p>
+                                    </div>
                                 </div>
-                                <p className="text-gray-400 text-sm truncate">{chat.lastMessage || 'Nueva conversación'}</p>
                             </div>
                         ))
                     )}
@@ -181,18 +236,37 @@ export const ChatsPage: React.FC = () => {
                     <>
                         {/* Header */}
                         <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 bg-[#151b2e]">
-                            <div className="flex items-center">
-                                <button onClick={() => navigate('/chats')} className="md:hidden mr-3 text-gray-400 hover:text-white">
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => navigate('/chats')} className="md:hidden text-gray-400 hover:text-white">
                                     <ArrowLeft className="w-6 h-6" />
                                 </button>
+
+                                {/* Avatar */}
+                                <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden flex-shrink-0 border border-white/10">
+                                    {activeChatObj && getChatPhoto(activeChatObj) ? (
+                                        <img src={getChatPhoto(activeChatObj)!} alt="Chat" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-indigo-900/50">
+                                            {activeChatObj?.type === 'group' ? <Users className="w-5 h-5 text-indigo-300" /> : <User className="w-5 h-5 text-indigo-300" />}
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div>
-                                    <h2 className="text-white font-bold">{activeChatObj ? getChatName(activeChatObj) : 'Conversación'}</h2>
-                                    <span className="text-xs text-green-500 flex items-center gap-1">
-                                        <span className="w-2 h-2 rounded-full bg-green-500 text-green-500 animate-pulse"></span> En línea
-                                    </span>
+                                    <h2 className="text-white font-bold text-sm md:text-base">{activeChatObj ? getChatName(activeChatObj) : 'Conversación'}</h2>
+                                    {activeChatObj?.type === 'group' ? (
+                                        <span className="text-xs text-gray-500">{activeChatObj.participants.length} participantes</span>
+                                    ) : (
+                                        <span className="text-xs text-green-500 flex items-center gap-1">
+                                            <span className="w-2 h-2 rounded-full bg-green-500 text-green-500 animate-pulse"></span> En línea
+                                        </span>
+                                    )}
                                 </div>
                             </div>
-                            <button className="text-gray-400 hover:text-white">
+                            <button
+                                onClick={() => setIsInfoModalOpen(true)}
+                                className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-full transition-colors"
+                            >
                                 <MoreVertical className="w-5 h-5" />
                             </button>
                         </div>
@@ -295,6 +369,116 @@ export const ChatsPage: React.FC = () => {
                     </div>
                 )
             }
+
+
+            {/* Chat Info Modal */}
+            {
+                isInfoModalOpen && activeChatObj && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-[#151b2e] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden">
+                            <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0b1021]/50">
+                                <h2 className="text-lg font-bold text-white">Info. del Chat</h2>
+                                <button onClick={() => setIsInfoModalOpen(false)} className="text-gray-400 hover:text-white">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="p-6 text-center">
+                                <div className="w-20 h-20 rounded-full bg-gray-700 overflow-hidden border-2 border-indigo-500/30 mx-auto mb-4 relative group">
+                                    {getChatPhoto(activeChatObj) ? (
+                                        <img src={getChatPhoto(activeChatObj)!} alt="Chat" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-indigo-900/50">
+                                            {activeChatObj.type === 'group' ? <Users className="w-8 h-8 text-indigo-300" /> : <User className="w-8 h-8 text-indigo-300" />}
+                                        </div>
+                                    )}
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-1">{getChatName(activeChatObj)}</h3>
+                                <p className="text-sm text-gray-500 mb-6 capitalize">{activeChatObj.type === 'private' ? 'Chat Privado' : 'Grupo'}</p>
+
+                                <div className="text-left mb-6">
+                                    <h4 className="text-xs font-bold uppercase text-gray-400 mb-3 tracking-wider">Participantes ({activeChatObj.participants.length})</h4>
+                                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                                        {activeChatObj.participants.map(pid => {
+                                            const p = usersMap[pid] || { displayName: 'Usuario...' };
+                                            return (
+                                                <div key={pid} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-700 overflow-hidden">
+                                                        {p.photoUrl ? <img src={p.photoUrl} className="w-full h-full object-cover" /> : <User className="w-4 h-4 m-2 text-gray-400" />}
+                                                    </div>
+                                                    <span className="text-sm text-gray-200">{pid === user?.uid ? 'Tú' : (p.displayName || p.username || p.name)}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="border-t border-white/5 pt-4">
+                                    <h4 className="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider text-left">Añadir participante</h4>
+                                    <div className="relative">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={participantInput}
+                                                onChange={(e) => setParticipantInput(e.target.value)}
+                                                placeholder="Buscar usuario (nombre, email)..."
+                                                className="flex-1 bg-[#0b1021] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                                            />
+                                        </div>
+
+                                        {/* Search Results Dropdown */}
+                                        {(searchResults.length > 0 || isSearching) && participantInput.length >= 2 && (
+                                            <div className="absolute bottom-full mb-2 left-0 right-0 bg-[#0b1021] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 max-h-48 overflow-y-auto">
+                                                {isSearching ? (
+                                                    <div className="p-3 text-center text-xs text-gray-500">Buscando...</div>
+                                                ) : (
+                                                    searchResults.map((hit: any) => (
+                                                        <button
+                                                            key={hit.objectID}
+                                                            onClick={async () => {
+                                                                if (activeChatObj.participants.includes(hit.objectID)) {
+                                                                    alert("Este usuario ya está en el chat");
+                                                                    return;
+                                                                }
+
+                                                                setAddingParticipant(true);
+                                                                try {
+                                                                    await ChatService.addParticipant(activeChatObj.id, hit.objectID);
+                                                                    setParticipantInput('');
+                                                                    setSearchResults([]);
+                                                                    // Optional: Close modal or show success feedback
+                                                                } catch (e) {
+                                                                    console.error(e);
+                                                                    alert("Error al añadir participante");
+                                                                } finally {
+                                                                    setAddingParticipant(false);
+                                                                }
+                                                            }}
+                                                            className="w-full text-left p-3 hover:bg-white/5 flex items-center gap-3 transition-colors border-b border-white/5 last:border-0"
+                                                            disabled={addingParticipant}
+                                                        >
+                                                            <img src={hit.photoUrl || hit.image || `https://ui-avatars.com/api/?name=${hit.username}`} className="w-8 h-8 rounded-full object-cover" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-bold text-white truncate">{hit.username || hit.name}</p>
+                                                                <p className="text-xs text-gray-500 truncate">{hit.bio || 'Sin biografía'}</p>
+                                                            </div>
+                                                            {activeChatObj.participants.includes(hit.objectID) && <span className="text-xs text-indigo-400">En chat</span>}
+                                                        </button>
+                                                    ))
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {activeChatObj.type === 'private' && (
+                                        <p className="text-[10px] text-gray-500 mt-2 text-left">
+                                            * Añadir a alguien convertirá este chat en un grupo.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
         </div >
     );
 };
