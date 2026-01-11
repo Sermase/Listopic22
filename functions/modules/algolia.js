@@ -282,56 +282,7 @@ function transformListRecord(data, docId) {
         availableTags: tags,
         reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
         followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
-        commentsCount: typeof data.commentsCount === "number" ? data.commentsCount : 0,
-        ownerId: data.userId || null,
-        authorName: ownerName || undefined,
-        ownerName: ownerName || undefined,
-        ownerUsername: ownerUsername || undefined,
-        isPublic: true,
-        createdAtISO: toIsoString(data.createdAt),
-        updatedAtISO: toIsoString(data.updatedAt),
-        updatedAtTimestamp: toUnixSeconds(data.updatedAt)
-    };
-    if (record.categoryId === null) {
-        delete record.categoryId;
-    }
-    return compactRecord(record);
-}
 
-function transformPlaceRecord(data, docId) {
-    if (!data) {
-        return null;
-    }
-    const serviceOptions = extractTrueKeys(data.serviceOptions);
-    const accessibility = extractTrueKeys(data.accessibility);
-    const geoloc = extractGeolocFromData(data);
-    const record = {
-        objectID: docId,
-        entityType: "place",
-        name: data.name || "",
-        address: data.address || data.formatted_address || "",
-        city: data.city || null,
-        province: data.province || data.region || null,
-        country: data.country || null,
-        postalCode: data.postalCode || null,
-        averageRating: typeof data.averageRating === "number" ? data.averageRating : (typeof data.googleRating === "number" ? data.googleRating : 0),
-        reviewsCount: typeof data.reviewsCount === "number" ? data.reviewsCount : (typeof data.googleUserRatingsTotal === "number" ? data.googleUserRatingsTotal : 0),
-        priceLevel: data.priceLevel ?? null,
-        serviceOptions,
-        accessibility,
-        types: Array.isArray(data.types) ? data.types : [],
-        googleMapsUrl: data.googleMapsUrl || data.url || null,
-        website: data.website || null,
-        phone: data.phone || null,
-        _geoloc: geoloc || undefined,
-        updatedAtISO: toIsoString(data.updatedAt),
-        lastGoogleSyncISO: toIsoString(data.lastGoogleSync)
-    };
-    if (!record._geoloc) {
-        delete record._geoloc;
-    }
-    if (!record.province) {
-        delete record.province;
     }
     if (!record.country) {
         delete record.country;

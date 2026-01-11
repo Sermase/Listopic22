@@ -1,0 +1,635 @@
+﻿//// CAPITULO 00 - PROPOSITO DEL DOCUMENTO
+**** Alcance
+- Documento operativo para describir en detalle cada pagina y flujo actual de Listopic.
+- Basado en los HTML de public/, los modulos JS page-*.js y estilos en public/style.css.
+- Pretende servir como prompt base para una version mejorada sin perder funcionalidades.
+
+**** Notas de estilo del documento
+- Se usa ASCII (sin tildes) para evitar caracteres especiales.
+- Cada capitulo se marca con "////" y cada subapartado con "****".
+
+//// CAPITULO 01 - MODELO DE DATOS Y CONCEPTOS
+**** Entidades principales
+- Lista: id, name, categoryId, isPublic, criteriaDefinition, availableTags, reviewCount, followersCount, commentsCount, images.
+- Resena: userId, listId, placeId, itemName, scores (por criterio), overallRating, userTags, photoUrl, timestamps.
+- Grupo (item agrupado): agrupacion por listId + placeId + itemName; incluye avgGeneralScore, itemCount, place info.
+- Lugar: name, location (lat/lng), averageRating, reviewsCount, mainImageUrl, google data, accessibility, serviceOptions.
+- Usuario: username, displayName, name, photoUrl, bio, location, defaultDistanceKm, counts de listas y seguidores.
+- Archivo: coleccion users/{uid}/archives con subcoleccion items.
+- Chat: conversaciones y mensajes en colecciones (via services), con participants y unreadCounts.
+
+**** Identificadores y normalizaciones
+- El itemName se normaliza en algunos flujos (lowercase) para agrupar.
+- Las categorias tienen alias (id, name, displayName) y normalizacion de tokens (sin acentos).
+- Links internos usan listId, placeId, itemName como parametros.
+
+//// CAPITULO 02 - NAVEGACION GLOBAL Y UI COMUN
+**** Header y navegacion
+- Brand logo con mark + dot, link a index.html.
+- Nav principal: Buscar, Archivo, Chats, Alertas, Perfil, toggle de tema.
+- Badges en chats y alertas con estado oculto/visible.
+
+**** Tema
+- ThemeManager alterna light/dark y emite evento themeChanged.
+- Mapas Leaflet escuchan themeChanged para cambiar tiles.
+
+**** Utilidades UI (referencias de uso)
+- uiUtils.escapeHtml: sanitiza strings en cards y popups.
+- uiUtils.enrichReviews: agrega datos de author/place/list a resenas.
+- uiUtils.createListCard, createUserCard, createPlaceCard, createGroupedItemCard.
+- uiUtils.createListViewGroupCard para modo grid en list-view.
+- uiUtils.renderCriteriaSliders: sliders por criterios en review-form.
+- uiUtils.buildGroupedDetailUrl: genera links agrupados.
+- uiUtils.getRatingHexColor: color por score.
+- uiUtils.getCategoryLabel, getCategoryCache, ensureCategoryCached.
+
+//// CAPITULO 03 - SERVICIOS GLOBALES
+**** Firebase/Servicios
+- firebaseService.js: inicializa app y servicios (auth, db, storage, functions).
+- authService.js: estado de autenticacion, helpers de redirect.
+- archiveService.js: gestiona guardados; openSaveModal, isEntitySaved, setEntityArchiveMembership.
+- places-service.js: busqueda y lugares cercanos (usado en review-form).
+- main.js: orquestador de inicializacion de paginas.
+
+//// CAPITULO 10 - public/index.html (Home / Descubrir)
+**** Objetivo
+- Discovery de listas, grupos, usuarios, lugares y resenas.
+- Feed de novedades de usuarios seguidos.
+
+**** Entradas y parametros URL
+- gmap=1, glat, glng, gzoom: abre panel de mapa global y restaura vista.
+
+**** Secciones UI
+- Hero con titulo y subtitulo dinamico.
+- Tabs: Explorar y Novedades.
+- Filtros Explore: chips de categoria y selector de distancia.
+- Carruseles (rails): listas top, grupos top, usuarios activos, lugares top, resenas populares, nuevas listas.
+- Mapa global en acordeon con boton para centrar ubicacion.
+- Footer corporativo humoristico.
+
+**** Interacciones y eventos
+- Tabs: cambia panel activo y recalcula overflow de carruseles.
+- Chips de categoria: multi-select; chip "Todo" limpia seleccion.
+- Mood chips (si existen en DOM): wow/hmm/all alteran filtros por score.
+- Selector de distancia: actualiza filtro y solicita geolocalizacion.
+- Rail nav: botones izquierda/derecha hacen scroll horizontal por ancho del rail.
+
+**** Datos y queries (Firestore/Functions)
+- categories: se cargan ids, se cachean en ui.getCategoryCache.
+- lists (isPublic, orderBy reviewCount/createdAt).
+- places (orderBy averageRating) + reviewsCount.
+- collectionGroup reviews para top grupos, hot reviews y top users.
+- getPlacesForList (cloud function) para hero de lista si no tiene imagen.
+
+**** Algoritmos y reglas
+- Filtro mood:
+  - wow: score >= 4.
+  - hmm: 0 < score <= 3.2.
+  - all: sin filtro.
+- Filtro por categoria: compara categoryId de lista o categoryId de resena.
+- Filtro distancia:
+  - buildDistanceChecker usa lat/lng del usuario y L.latLng.distanceTo.
+  - Si no hay geolocalizacion, se desactiva el filtro.
+- Top grupos:
+  - Enriquecimiento de resenas.
+  - Agrupa por listId + placeId + itemName (normalizado).
+  - Calcula avgScore y count.
+  - Dedup por place+item para evitar repetidos.
+- Top usuarios:
+  - Agrupa por userId y calcula count + avgScore.
+  - Complementa con doc user (avatar, username, followers).
+
+**** Mapa global
+- Leaflet con tiles claros/oscuros segun theme.
+- Marcadores con icono custom por score.
+- Popup con imagen, score, resenas y CTA a place-detail.
+- Circulo de distancia (si filtro activo).
+- setGlobalMapParamsInUrl persiste estado en URL.
+
+**** Feed Novedades
+- Requiere usuario autenticado.
+- Lee following de users/{uid}/following.
+- Query collectionGroup reviews con where in (chunks de 10).
+- Filtra resenas de listas privadas.
+- Lazy load por batches con uiUtils.setupLazyReviewList.
+
+**** Persistencia
+- defaultDistanceKm en localStorage y users/{uid}.
+- Estado del mapa en URL (gmap params).
+
+**** Estados y errores
+- Placeholders en rails y feed.
+- Mensajes cuando no hay seguidos o no hay resenas.
+- Warning si geolocalizacion no disponible.
+
+**** Salidas
+- Links a list-view, grouped-detail-view, place-detail, profile, search.
+
+//// CAPITULO 11 - public/search.html (Buscar)
+**** Objetivo
+- Busqueda global con filtros avanzados y atajos semanticos.
+
+**** Entradas y parametros URL
+- q= o tag=: precarga query.
+- type=: fuerza tipo (all, lists, places, users, items).
+
+**** UI
+- Hero con titulo.
+- Input principal + boton buscar.
+- Botones de tipo de entidad.
+- Panel de filtros lateral (colapsable en mobile).
+- Barra de filtros activos con chips removibles.
+
+**** Interacciones clave
+- Input con debounce (300ms); Enter dispara busqueda.
+- Chips de atajo rellenan el input y disparan busqueda.
+- Boton filtros abre panel en mobile (backdrop + close).
+- Escape cierra panel.
+
+**** Smart tokens y parsing
+- @usuario: sugiere type=users y busca sin @.
+- #tag: sugiere type=items y busca sin #.
+- key:value soporta: tipo/type, categoria, ciudad, provincia, precio, servicios, accesibilidad, rating, seguidores, resenas, badges, residencia, userType.
+- Si token coincide con categoria conocida, se convierte en filtro category.
+- Normaliza tokens (lowercase, sin acentos).
+
+**** Filtros por entidad
+- lists: categoryId (facet), minReviews, minFollowers.
+- places: city, province, serviceOptions, accessibility, priceLevel, types, minRating.
+- items: listCategoryId, listId (selector), listAvailableTags (baseTags), placeCity, placeProvince, minRating.
+- users: userType, residence, badges, minFollowers.
+
+**** Datos y queries
+- Algolia indexes: lists, places, users, grouped_items.
+- Facets se precargan por query y se cachean por type.
+- categories (Firestore) para alias de categorias y fixed-tags.
+- lists por categoria (Firestore) para selector de listas de items.
+
+**** Reglas y detalles
+- En type=all se ejecuta multipleQueries con 5 hits por index.
+- En type especifico, hitsPerPage 20; facets segun definiciones.
+- Para lists con filtro de categoria, se filtra client-side por alias.
+- En items, baseTags solo aparece si hay categorias seleccionadas.
+- listSelector solo aparece si hay categorias y se han cargado listas.
+
+**** Active filters bar
+- Renderiza chips con icono y label.
+- Click en chip elimina filtro y dispara busqueda.
+- Boton Limpiar resetea filtros del tipo actual.
+
+**** Estados
+- Placeholder inicial si no hay query.
+- Loading spinner durante busqueda.
+- Empty state si no hay resultados.
+- Error placeholder en fallo de Algolia.
+
+**** Salidas
+- Cards a list-view, profile, place-detail, grouped-detail.
+
+//// CAPITULO 12 - public/list-form.html (Crear/Editar lista)
+**** Objetivo
+- Crear listas con criterios y tags; editar listas existentes.
+
+**** Entradas URL
+- editListId= activa modo edicion.
+
+**** UI
+- Form con nombre, categoria, toggle publico.
+- Imagen con drag/drop, file, URL, preview, borrar.
+- Criterios dinamicos con labels y ponderable.
+- Modal de opciones avanzadas para min/max/step/type.
+- Tags fijas por categoria + tags custom.
+
+**** Carga de datos
+- categories desde Firestore para poblar selector y fixed-tags.
+- list doc si editListId.
+
+**** Criterios (detalle)
+- createCriterionItem crea inputs y hidden fields:
+  - criteria_label_*, criteria_labelMin_*, criteria_labelMax_*, criteria_isPonderable_*
+  - hidden: criteria_min_*, criteria_max_*, criteria_step_*, criteria_type_*
+- Boton Opciones abre modal y escribe hidden fields.
+- Remove elimina el criterio.
+- Se agrega un criterio vacio adicional por defecto.
+
+**** Tags
+- fixed-tags: checkboxes generados desde categoria.
+- custom tags: input dinamico con add/remove.
+- Al guardar: combina fixed + custom y deduplica.
+
+**** Imagen
+- Drop area detecta imagenes; valida mime.
+- compressImage reduce peso y crea preview.
+- URL input limpia file seleccionado.
+- listImageTouched indica si el usuario cambio la imagen.
+
+**** Submit
+- Requiere auth.
+- Payload incluye name, categoryId, isPublic, criteriaDefinition, availableTags.
+- Create: createListWithValidation; luego upload a Storage si hay file.
+- Update: updateListWithValidation; mantiene counters existentes.
+- Redirect a list-view.html?listId=.
+
+**** Estados
+- Notificaciones de exito/error.
+- Placeholder en criterios si categoria no define ninguno.
+
+//// CAPITULO 13 - public/list-view.html (Ranking de lista)
+**** Objetivo
+- Mostrar ranking por item y permitir filtrar/ordenar/mapa/foro.
+
+**** Entradas URL
+- listId= obligatorio.
+- map=1 + mlat/mlng/mzoom para restaurar mapa.
+
+**** UI
+- Hero con categoria, stats, titulo.
+- Acciones: add review, follow list, mapa, foro.
+- Search interno + filtro distancia.
+- Toggle vista grid/list.
+- Select orden.
+- Modal filtros avanzados.
+- Modal mapa.
+- Grid/list de items con paginacion.
+- Acciones de owner: editar/eliminar.
+
+**** Carga de datos
+- list doc para name, categoryId, counters.
+- groupedReviews (FUNCTION_URLS.groupedReviews) para grouped items.
+- places docs para extra filters (accessibility/serviceOptions).
+
+**** Filtros
+- Texto: searchInput filtra item/place.
+- Distancia: usa geolocalizacion; persiste en localStorage y users/{uid}.
+- Score range: min/max con sliders + presets.
+- Tags: multi-select.
+- Criterios: min por criterio (ponderados/no ponderados).
+- Extra filters: wheelchairEntrance, wheelchairSeating, outdoor, dinein, delivery, takeout, curbside.
+
+**** Ordenacion
+- score, reviews, place, item (asc/desc).
+- criterions: crit:key:asc/desc.
+
+**** Render items
+- List view: fila con imagen, place, item, city, score, count, acciones mapa/valorar.
+- Grid view: card con stats y badges.
+- Fallback si imagen falla: icono de lista.
+
+**** Mapa
+- Leaflet con tiles segun theme.
+- Marcadores por lugar con score max.
+- Popup con top items y CTA.
+- Persiste estado en URL.
+
+**** Foro
+- listForums/{listId}/messages con onSnapshot.
+- Envio de mensajes con timestamp.
+- Delete solo owner/admin.
+
+**** Follow list
+- toggleFollowList via Cloud Function.
+- Actualiza UI y contador de seguidores.
+
+**** Estados
+- Error si no hay listId.
+- Empty state si no hay items.
+- Warning si no hay geolocalizacion para distancia.
+
+//// CAPITULO 14 - public/review-form.html (Crear/Editar resena)
+**** Objetivo
+- Crear o editar resenas con criterios, tags y multimedia.
+
+**** Entradas URL
+- listId obligatorio.
+- placeId, itemName opcionales.
+- editId para editar.
+- fromGrouped/fromEstablishment/fromItem para back button.
+
+**** UI
+- Hero con CTA back + ayuda.
+- Seccion info principal (busqueda lugar, itemName).
+- Seccion ubicacion manual (toggle).
+- Seccion criterios.
+- Seccion extras (foto, tags, comentario).
+- Modales ayuda y confirmacion.
+
+**** Place search
+- searchRestaurantsByName y fetchNearbyRestaurantsWithContext.
+- UI status en input (info/loading/success/error).
+
+**** Foto
+- Drag/drop y file input.
+- Camera capture (input capture env).
+- URL preview.
+- compressImage antes de subir.
+
+**** Validacion
+- placeId requerido.
+- itemName vacio => confirm modal.
+
+**** Submit
+- Construye payload con scores y tags.
+- overallRating promedio de criterios ponderables.
+- Upload a Storage si hay archivo.
+- Update o create en lists/{listId}/reviews.
+- Archive auto si nuevo.
+- Redirect a list-view.
+
+//// CAPITULO 15 - public/grouped-detail-view.html (Detalle item)
+**** Objetivo
+- Detalle de un item agrupado con radar y galeria.
+
+**** Entradas
+- listId, placeId, item.
+
+**** UI
+- Hero con tag de lista y score chip.
+- Card de lugar con ratings.
+- Radar chart de criterios.
+- Galeria + lightbox.
+- Lista de resenas individuales.
+
+**** Logica
+- Carga list + place en paralelo.
+- Normaliza criterios y orden.
+- Query reviews por listId + placeId y filtra por item.
+- Calcula avgScore y avgCriteria.
+- Radar compara item vs media de lista.
+- lightbox con prev/next y close.
+- Save to archive con estado visual.
+
+//// CAPITULO 16 - public/place-detail.html (Detalle lugar)
+**** Objetivo
+- Ficha completa de lugar con ratings, reviews y grupos.
+
+**** Entradas
+- placeId.
+
+**** UI
+- Hero con chips (reviews, google rating, followers, listopic score).
+- Card con foto y datos basicos.
+- Atributos de accesibilidad y servicios.
+- Tabs: reviews y groups.
+- Acciones: maps, save, follow, add review.
+
+**** Logica
+- getPlaceDetails devuelve placeInfo, groups, latestReviews.
+- refreshPlacePhotoIfNeeded si URL legacy.
+- renderReviews usa uiUtils.enrichReviews + lazy list.
+- renderGroups crea cards con tags y CTA.
+- Follow place via toggleFollowPlace.
+- Save to archive con estado.
+- Global add review elige listId frecuente.
+
+//// CAPITULO 17 - public/profile.html (Perfil)
+**** Objetivo
+- Perfil propio o publico con listas y resenas.
+
+**** Entradas
+- viewUserId.
+
+**** UI
+- Hero con avatar, stats y CTA.
+- Tabs: resenas y listas.
+- Modales: editar perfil, foto ampliada, conexiones.
+
+**** Logica
+- Auth gate.
+- checkFollowStatus si perfil ajeno.
+- toggleFollowUser para follow/unfollow.
+- Direct message via createChatWithParticipants.
+- fetchUserLists (solo publicas si ajeno).
+- fetchUserReviews con collectionGroup.
+- saveProfileChanges actualiza Firestore + auth profile.
+
+//// CAPITULO 18 - public/chats.html (Mensajeria)
+**** Objetivo
+- Chat 1:1 y grupos con UI responsive.
+
+**** Entradas
+- chatId (precarga).
+
+**** UI
+- Panel list + panel mensajes.
+- Mobile modal para lista.
+- Modales: crear grupo, info chat.
+
+**** Logica
+- listenToUserChats para lista realtime.
+- selectChat subscribe a mensajes y marca como leidos.
+- sendChatMessage en submit.
+- review-share messageType renderiza shared card.
+- Group modal permite crear o agregar participantes.
+
+//// CAPITULO 19 - public/archive.html (Archivo)
+**** Objetivo
+- Guardar y organizar items (place, group, review).
+
+**** UI
+- Secciones collapsible por archivo.
+- Cards con imagen, badges y acciones.
+
+**** Logica
+- Auth gate.
+- fetchArchivesWithItems con subcollection items.
+- resolveItemLink segun entityType.
+- Gestionar abre openSaveModal.
+- Quitar actualiza membership.
+
+//// CAPITULO 20 - public/auth.html (Autenticacion)
+**** Objetivo
+- Login, registro, reset y Google sign-in.
+
+**** Logica
+- Toggle login/register.
+- sendPasswordResetEmail.
+- createUserInAuthAndFirestore en registro.
+- signInWithPopup Google con linking.
+
+//// CAPITULO 21 - public/developer.html (Admin)
+**** Objetivo
+- Panel interno con data viewer y tools.
+
+**** Acceso
+- userType incluye "jefe".
+
+**** Modulos
+- Data Viewer: filtros, resumenes, tabla, JSON edit, export.
+- Tools: search y edit de reviews/groups/places/lists.
+- Tag migration: reemplazo masivo.
+- Algolia sync: reindex.
+- Categorias: CRUD + fixed-tags + defaultCriteria.
+
+//// CAPITULO 22 - FRONTEND VITE
+**** frontend/index.html
+- Entry root para app React (no UI en public).
+
+//// CAPITULO 23 - LEGACY
+**** public/Cambios/index (1).html
+- Home legacy con buscador, tags y mapa modal.
+
+//// CAPITULO 24 - ESTILO VISUAL (resumen)
+**** Paleta
+- Dark navy + acentos indigo/coral/menta/azul/oro.
+
+**** Tipografia
+- Manrope/Poppins en texto; Space Grotesk en marca.
+
+**** Logo
+- Brand mark cuadrado con dot; wordmark Listopic.
+
+//// CAPITULO 25 - PROMPT BASE PARA MEJORA
+**** Lineas guia
+- Mantener funcionalidades actuales.
+- Clarificar flujos y estados vacios.
+- Unificar microcopy y consistencia de filtros.
+- Mejorar experiencia mobile sin perder densidad.
+
+//// CAPITULO 26 - PROMPT PARA IA (TOMA DE DATOS DE LUGARES Y BUSQUEDA)
+**** Objetivo
+- Prompt listo para copiar para que otra IA implemente la toma de datos de lugares y la busqueda global igual que la version actual.
+
+**** Prompt sugerido (copiar tal cual)
+PROMPT PARA IA:
+Eres un ingeniero de software. Debes reproducir EXACTAMENTE la toma de datos de lugares y la busqueda global de Listopic. Respeta nombres de modulos, funciones, endpoints, campos y elementos DOM. No renombres ni simplifiques. Sigue estas instrucciones detalladas:
+
+A) Estructura y dependencias
+- Frontend en namespace global ListopicApp.
+- Modulos clave: public/js/places-service.js, public/js/page-review-form.js, public/js/uiUtils.js, public/js/page-search.js.
+- Backend en functions/modules/core.js con endpoints HTTP y funciones callable.
+- Config: ListopicApp.config.FUNCTION_URLS (getPlaceDetails, getPlaceDetailsFromGoogle, placesTextSearch, placesNearbyRestaurants, refreshPlaceMainImage) y ListopicApp.config.ALGOLIA_APP_ID / ListopicApp.config.ALGOLIA_SEARCH_KEY.
+- Colecciones Firestore: places, lists, categories, collectionGroup reviews.
+
+B) Toma de datos de lugares - UI de review-form
+- Inputs y elementos exactos: #restaurant-name-search-input, #search-by-name-btn, #find-nearby-btn, #restaurant-suggestions.
+- Al escribir: limpia seleccion previa (dataset placeSelected) y clases place-found / place-status-*; si input vacio, ocultar sugerencias.
+- Enter en input dispara click en buscar.
+- Focus sin lugar seleccionado muestra status info con setPlaceSelectionStatus.
+- Boton buscar llama ListopicApp.placesService.searchRestaurantsByName(query).
+- Boton cercanos llama ListopicApp.placesService.fetchNearbyRestaurantsWithContext().
+- Caja de sugerencias: lista UL con items que muestran place.name + (vicinity o formatted_address). Cada item tiene icono plus.
+- Click en sugerencia: mostrar loading, llamar getPlaceDetailsFromGoogle via placesService, y usar uiUtils.updateReviewFormWithPlace(detailedPlace). En error mostrar mensaje y status error. Cerrar sugerencias tras 2s.
+- updateReviewFormWithPlace rellena inputs: #establishment-name, #location-display-name, #location-address-manual, #location-region-manual, #location-google-maps-url-manual, #location-latitude, #location-longitude, #location-googlePlaceId, #location-city-g, #location-postalCode-g, #location-country-g. Marca dataset placeSelected=true y clases de exito.
+- Si la URL trae placeId, precarga desde Firestore places/{placeId} y llama updateReviewFormWithPlace.
+
+C) places-service (frontend)
+- Implementa callPlaceFunction(functionName, params):
+  - Resuelve URL desde ListopicApp.config.FUNCTION_URLS. Si functionName == "getPlaceDetailsFromGoogle" y no hay URL, usa FUNCTION_URLS["getPlaceDetails"] como fallback.
+  - Requiere usuario autenticado y adjunta Authorization: Bearer {idToken}.
+  - Agrega userId al query string si no viene en params.
+  - Maneja errores HTTP con mensaje JSON o status.
+- fetchNearbyRestaurantsWithContext():
+  - Obtiene geolocalizacion (timeout 10s). Guarda en ListopicApp.state.userLatitude/Longitude.
+  - Usa listId actual y categoryId de la lista. Si no esta en state, consulta Firestore lists/{listId} para categoryId y categoryGooglePlaceTypes o categoryGooglePlaceType.
+  - Llama endpoint "placesNearbyRestaurants" con latitude, longitude, categoryId y categoryTypes (CSV) si existen.
+- searchRestaurantsByName(query):
+  - Valida query. Muestra status loading con highlight.
+  - Intenta geolocalizacion rapida (timeout 5s) si no hay coords en state.
+  - Incluye latitude/longitude si existen, categoryId y categoryTypes si estan en state.
+  - Llama endpoint "placesTextSearch".
+- refreshMainImage(placeId, options):
+  - Llama FUNCTION_URLS.refreshPlaceMainImage con query params force/maxWidth.
+
+D) placesNearbyRestaurants (backend HTTP)
+- Requiere auth por request (Bearer token).
+- Parametros requeridos: latitude, longitude, categoryId. categoryTypes opcional.
+- Resuelve categoryTypes con resolveCategoryPlaceTypes(categoryId, rawCategoryTypes) y allowedTypesSet con buildAllowedTypesSet.
+- Busca primero en datos locales: fetchLocalPlacesByTypes(categoryTypes, { userLat, userLon, limit: MAX_PLACES_SUGGESTIONS, maxDistanceKm: MAX_LOCAL_NEARBY_DISTANCE_KM }).
+- Si hay suficientes resultados locales (>= MIN_LOCAL_RESULTS_THRESHOLD), devuelve solo locales.
+- Si no hay API key, devuelve locales si hay, si no error 500.
+- Si necesita Google: usa Nearby Search con rankby=distance y type=primer categoryType o point_of_interest.
+- Filtra resultados Google por allowedTypesSet, anota distancia (annotateGoogleResult), y mezcla con locales (mergePlaceResults) con limite MAX_PLACES_SUGGESTIONS.
+
+E) placesTextSearch (backend HTTP)
+- Requiere auth. Parametro query obligatorio.
+- Opcional latitude/longitude y categoryId/categoryTypes.
+- Busca locales primero: searchListopicPlacesByName(trimmedQuery, { userLat, userLon, limit: MAX_PLACES_SUGGESTIONS, categoryTypes }).
+- Si hay suficientes locales, devuelve locales.
+- Si no hay API key, devuelve locales si hay, si no error 500.
+- Si necesita Google: usa Text Search con query, language=es, type=primer categoryType o establishment, y si hay coords agrega location + radius=40000.
+- Filtra, anota, mezcla con locales y limita.
+
+F) getPlaceDetailsFromGoogle (backend HTTP)
+- Requiere auth. Parametro placeid obligatorio.
+- Llama Google Place Details con fields: name, place_id, formatted_address, geometry, url, photos, price_level, website, international_phone_number, address_components, rating, user_ratings_total, types.
+- Extrae city (locality), region (administrative_area_level_1), country, postalCode. Deriva province por los 2 primeros digitos del postalCode usando provinceMap.
+- Obtiene accesibilidad con fetchPlaceAccessibilityOptions(place_id, apiKey) y combina con resolveAccessibilityPayload.
+- Resuelve mainImageUrl desde la primera photo_reference (800px) si existe, si no conserva el valor previo.
+- Guarda en Firestore places/{place_id} con merge:true y campos:
+  - name, name_normalized, googlePlaceId, address, address_normalized,
+  - coordinates {latitude, longitude} y location {latitude, longitude},
+  - city, region, province, country, postalCode,
+  - googleMapsUrl, website, phone,
+  - priceLevel, googleRating, googleUserRatingsTotal, types,
+  - mainImageUrl, mainImagePhotoReference,
+  - accessibility, serviceOptions,
+  - updatedAt, lastGoogleSync.
+- Si es nuevo: createdByUserId, createdAt, followersCount=0, reviewsCount=0, averageRating=null.
+- Responde el documento guardado con id.
+
+G) Mantenimiento de imagenes
+- uiUtils.refreshPlacePhotoIfNeeded(place) llama placesService.refreshMainImage si mainImageUrl es legacy de Google; cachea promesas por placeId en ListopicApp.state.pendingPlacePhotoRefreshes.
+
+H) Busqueda global (frontend Algolia)
+- Pagina search usa page-search.js con estado interno (currentSearchQuery, currentEntityType, filters, facetCache, etc).
+- Input #main-search-input con debounce 300ms. Enter ejecuta busqueda. Boton #execute-search-btn ejecuta busqueda.
+- Botones de tipo .entity-type-btn (data-type). Seleccionar actualiza filtros y resultados. Tipos: all, lists, places, users, items.
+- Panel filtros: #search-filters-panel, #filters-panel-content, #filters-toggle-btn, #filters-backdrop, #close-filters-btn. Barra de filtros activos: #active-filters-bar y #active-filters-chips. Botones limpiar: #clear-filters-btn y #active-filters-clear.
+- Placeholder si query vacio y sin filtros en type=all. Spinner durante busqueda. Error placeholder si falla Algolia.
+
+I) Indices y parametros Algolia
+- INDEX_NAME_BY_ENTITY: lists, places, users, grouped_items.
+- RESULT_TYPE_BY_ENTITY: list, place, user, item.
+- Base params: typoTolerance=true, removeWordsIfNoResults=allOptional, ignorePlurals=true, queryType=prefixLast.
+- type=all: multipleQueries con hitsPerPage=5 por index. Orden de secciones: lists, users, places, items. totalHits suma de nbHits.
+- type especifico: hitsPerPage=20 (o 200 en lists si hay filtro de categoria activo). Include facets y facetFilters. Numeric filters se aplican con "attribute >= value". Para items, agrega OR de listCategoryId en filters.
+
+J) Definicion de filtros (exactos)
+- lists:
+  - categories facet attribute=categoryId stateKey=categories icon=fas fa-layer-group (render label via formatCategoryLabel).
+  - minReviews numeric attribute=reviewCount stateKey=minReviews.
+  - minFollowers numeric attribute=followersCount stateKey=minFollowers.
+- places:
+  - cities facet attribute=city stateKey=cities.
+  - provinces facet attribute=province stateKey=provinces.
+  - services facet attribute=serviceOptions stateKey=services.
+  - accessibility facet attribute=accessibility stateKey=accessibility.
+  - priceLevel facet attribute=priceLevel stateKey=priceLevels.
+  - placeType facet attribute=types stateKey=placeTypes.
+  - minRating range attribute=averageRating stateKey=minRating min=0 max=10 step=0.5 displaySuffix=/10.
+- items:
+  - categories facet attribute=listCategoryId stateKey=categories.
+  - lists listSelector attribute=listId stateKey=lists.
+  - baseTags categoryTags attribute=listAvailableTags stateKey=baseTags.
+  - cities facet attribute=placeCity stateKey=cities.
+  - provinces facet attribute=placeProvince stateKey=provinces.
+  - minRating range attribute=avgGeneralScore stateKey=minRating min=0 max=10 step=0.5 displaySuffix=/10.
+- users:
+  - userType facet attribute=userType stateKey=userTypes.
+  - residence facet attribute=residence stateKey=residences.
+  - badges facet attribute=badges stateKey=badges.
+  - minFollowers numeric attribute=followersCount stateKey=minFollowers.
+
+K) Smart tokens y normalizacion
+- Tokeniza query con /\"[^\"]+\"|\\S+/g.
+- @usuario: typeHint=users y elimina el @ del termino de busqueda.
+- #tag: typeHint=items (si no hay otro) y elimina # del termino.
+- key:value admite alias de tipo (tipo/type/usuario/lista/lugar/item) y filtros: categoria, ciudad, provincia, precio, servicio, accesibilidad, rating, seguidores, resenas, badges, residencia, userType.
+- Si un token sin ":" coincide con alias de categoria, se mueve a filtro category.
+- Normaliza tokens: lowercase, trim, NFD remove diacritics. Para categoria, elimina no alfanumericos y trata j<->h como equivalentes.
+- resolveSmartType: usa typeHint si existe; si no, deduce por filtros (place signals, user signals, category, reviews, followers).
+- applySmartFilters: agrega valores a sets o numeric min; registra en smartAppliedFilters y los limpia en cada busqueda.
+
+L) Categorias y listas para filtros de items
+- Precarga categories desde Firestore categories y cachea en ListopicApp.state.categoryCache.
+- Construye alias map con id/name/displayName/displayname/title/label.
+- Extrae fixed-tags/fixedTags/fixed_tags y guarda _baseTags.
+- BaseTags solo se muestran si hay categorias seleccionadas; si cambian, sanitizar seleccion.
+- List selector: cuando hay categorias, cargar lists por categoria desde Firestore (lists donde categoryId==alias, isPublic==true, orderBy followersCount desc, limit 50). Cachear por categoria y ordenar combinadas por followersCount (y reviewCount como desempate).
+
+M) Render de resultados
+- Usa uiUtils.createListCard, createUserCard, createPlaceCard, createGroupedItemCard.
+- Agrupa por tipo y renderiza titulos: Listas, Usuarios, Lugares, Elementos.
+- Si no hay resultados, mostrar empty state.
+
+Fin del prompt.

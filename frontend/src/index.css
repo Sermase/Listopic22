@@ -1,0 +1,291 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap');
+
+@theme {
+    --font-sans: 'Manrope', sans-serif;
+    --font-display: 'Space Grotesk', sans-serif;
+
+    --color-brand-navy: #0b1021;
+    --color-brand-indigo: #5C7CFA;
+    --color-brand-coral: #FF715B;
+    --color-brand-mint: #3DD598;
+    --color-brand-blue: #24A3FF;
+    --color-brand-gold: #F2C94C;
+
+    --animate-fade-in: fade-in 0.4s ease-out forwards;
+    --animate-scale-in: scale-in 0.3s ease-out forwards;
+    --animate-blob: blob 6s ease-in-out infinite, float 6s ease-in-out infinite;
+
+    @keyframes fade-in {
+        0% {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes scale-in {
+        0% {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+}
+
+@layer base {
+    body {
+        @apply bg-[#0b1021] text-[var(--text-primary)] font-sans;
+        background-attachment: fixed;
+        /* Subtle global gradient using new accents */
+        background-image:
+            radial-gradient(circle at 15% 15%, rgba(92, 124, 250, 0.08), transparent 35%),
+            /* Indigo */
+            radial-gradient(circle at 85% 15%, rgba(255, 113, 91, 0.06), transparent 30%),
+            /* Coral */
+            radial-gradient(circle at 50% 50%, rgba(36, 163, 255, 0.04), transparent 45%),
+            /* Blue */
+            radial-gradient(circle at 85% 85%, rgba(61, 213, 152, 0.05), transparent 35%);
+        /* Mint */
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        @apply font-display tracking-tight;
+    }
+}
+
+@layer utilities {
+    @keyframes blob {
+        0% {
+            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+        }
+
+        50% {
+            border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+        }
+
+        100% {
+            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+        }
+    }
+
+    .animate-blob {
+        animation: blob 6s ease-in-out infinite, float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0% {
+            transform: translateY(0px) rotate(0deg);
+        }
+
+        50% {
+            transform: translateY(-3px) rotate(2deg);
+        }
+
+        100% {
+            transform: translateY(0px) rotate(0deg);
+        }
+    }
+
+    /* Legacy SVG Markers - remove default leaflet square bg if any */
+    .legacy-map-marker,
+    .user-location-marker {
+        background: transparent !important;
+        border: none !important;
+    }
+
+    /* Leaflet Popup Overrides for Dark Theme */
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip {
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    .leaflet-popup-content {
+        margin: 0 !important;
+        width: auto !important;
+    }
+
+    .leaflet-container a.leaflet-popup-close-button {
+        display: none;
+        /* Custom close button used instead */
+    }
+
+    /* Utilities for hiding scrollbar but allowing scroll */
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        /* IE and Edge */
+        scrollbar-width: none;
+        /* Firefox */
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Glassmorphism Utilities */
+    .glass-panel {
+        @apply bg-[var(--glass-bg)] border border-[var(--glass-border)] backdrop-blur-md;
+    }
+
+    .glass-panel-hover {
+        @apply hover:bg-[var(--glass-bg-hover)] hover:border-[var(--glass-border-hover)] transition-all duration-300;
+    }
+
+    .glass-button {
+        @apply bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-sm transition-all active:scale-95;
+    }
+
+    /* Custom Range Slider */
+    .custom-range-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 12px;
+        /* Track height */
+        border-radius: 9999px;
+        cursor: pointer;
+        /* Background is handled in JS for progress effect */
+        @apply transition-transform active:scale-[1.01];
+    }
+
+    /* Thumb Styling */
+    .custom-range-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--thumb-color, #ffffff);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+        border: 4px solid white;
+        /* Thicker white ring for contrast */
+        margin-top: -8px;
+        @apply transition-transform duration-150 ease-out;
+    }
+
+    .custom-range-slider:active::-webkit-slider-thumb {
+        transform: scale(1.15);
+    }
+
+    .custom-range-slider::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 12px;
+        cursor: pointer;
+        background: transparent;
+        /* Essential for input background to show */
+        border-radius: 9999px;
+        border: none;
+    }
+}
+
+/* Light Mode Variables */
+/* Light Mode Variables */
+:root {
+    /* Base */
+    --bg-primary: #0b1021;
+    --text-primary: #f8fafc;
+    /* slate-50 */
+    --text-secondary: #94a3b8;
+    /* slate-400 */
+
+    /* Accents */
+    --accent-indigo: #5C7CFA;
+    --accent-coral: #FF715B;
+    --accent-mint: #3DD598;
+    --accent-blue: #24A3FF;
+    --accent-gold: #F2C94C;
+
+    /* Components */
+    --card-bg: rgba(21, 27, 46, 0.7);
+    /* translucent navy */
+    --border-color: rgba(255, 255, 255, 0.08);
+
+    /* Glass Token System */
+    --glass-bg: rgba(21, 27, 46, 0.6);
+    --glass-bg-hover: rgba(30, 41, 59, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-border-hover: rgba(92, 124, 250, 0.3);
+    /* indigo hint */
+}
+
+/* Light Mode Variables ("Moradito" Tints) */
+.light-mode {
+    /* Base */
+    --bg-primary: #f0f2f5;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+
+    /* Components */
+    --card-bg: rgba(255, 255, 255, 0.85);
+    --border-color: rgba(99, 102, 241, 0.15);
+
+    /* Glass Token System */
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-bg-hover: rgba(255, 255, 255, 0.9);
+    --glass-border: rgba(99, 102, 241, 0.15);
+    --glass-border-hover: rgba(99, 102, 241, 0.4);
+}
+
+/* Legacy Brand Logo CSS (User Provided) */
+.brand-logo .brand-mark {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.brand-logo:hover .brand-mark {
+    transform: rotate(15deg) scale(1.05);
+}
+
+.brand-mark {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--accent-color-primary), var(--accent-color-secondary));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(92, 124, 250, 0.3);
+    flex-shrink: 0;
+}
+
+.brand-dot {
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+    .brand-mark {
+        width: 35px;
+        height: 35px;
+    }
+}
+
+@media (max-width: 430px) {
+    .brand-mark {
+        width: 32px;
+        height: 32px;
+    }
+
+    .brand-dot {
+        width: 12px;
+        height: 12px;
+    }
+}

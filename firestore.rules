@@ -73,8 +73,18 @@ service cloud.firestore {
     // ===============================================
     // REGLA PARA COLLECTION GROUP 'reviews' (RESPETA PRIVACIDAD DE LISTAS)
     // ===============================================
+    // ===============================================
+    // REGLA PARA COLLECTION GROUP 'reviews'
+    // ===============================================
     match /{path=**}/reviews/{reviewId} {
       allow read: if true;
+    }
+
+    // Reglas ESPECÍFICAS para la colección raíz 'reviews' (donde se crean ahora)
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
     }
 
     // ===============================================
@@ -96,6 +106,11 @@ service cloud.firestore {
       match /following/{followId} {
         allow read: if request.auth != null;
         allow create, delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /followingPlaces/{placeId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if request.auth != null && request.auth.uid == userId;
       }
 
       // Permitir al propio usuario leer sus listas seguidas
@@ -131,6 +146,16 @@ service cloud.firestore {
       }
     }
 
+    // Helper: comprobar si el usuario puede escribir en una lista
+    function canWriteToList(listId) {
+      let list = get(/databases/$(database)/documents/lists/$(listId)).data;
+      return list != null && (
+        list.userId == request.auth.uid ||
+        (list.editors is list && list.editors.hasAny([request.auth.uid])) ||
+        (list.isPublic == true && list.publicAccess == 'writer')
+      );
+    }
+
     // ===============================================
     // REGLAS PARA LISTAS (`lists`) (ACTUALIZADAS)
     // ===============================================
@@ -143,16 +168,34 @@ service cloud.firestore {
                         isFollowingList(listId) ||
                         isListFollower(listId)
                       ));
-      allow list: if request.auth != null && isJefe(request.auth.uid);
+      allow list: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.isPublic == true || 
+        (resource.data.editors is list && resource.data.editors.hasAny([request.auth.uid])) ||
+        isJefe(request.auth.uid)
+      );
       
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      // El dueño de la lista O un jefe pueden actualizar o borrarla.
-      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid)); // <-- CAMBIO: Añadido permiso para jefe.
+      // El dueño de la lista O un jefe pueden borrarla.
+      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
+      
+      // Update: Dueño, Jefe, OR only updating 'likes' (for toggleLike)
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        isJefe(request.auth.uid) || 
+        (request.writeFields.hasOnly(['likes']) && (request.resource.data.likes is int || request.resource.data.likes is float)) ||
+        // Permitir actualizar contadores al añadir reseña
+        request.writeFields.hasOnly(['reviewCount', 'itemCount', 'updatedAt', 'averageRating', 'lastGoogleSync', 'lastPhotoRefresh'])
+      );
 
       match /reviews/{reviewId} {
         allow read: if true;
-        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // El autor o un jefe pueden editar; otros solo contadores de reacciones/comentarios.
+        // CREATE: Validar que tenga permiso de ESCRITURA en la lista
+        allow create: if request.auth != null 
+                         && request.resource.data.userId == request.auth.uid
+                         && canWriteToList(listId);
+        
+        // UPDATE/DELETE: El autor o un jefe puede hacerlo.
         allow update: if request.auth != null && (
                         resource.data.userId == request.auth.uid ||
                         isJefe(request.auth.uid) ||
@@ -199,6 +242,23 @@ service cloud.firestore {
                                     || isJefe(request.auth.uid)
                                   );
       }
+    }
+
+    // ===============================================
+    // REGLAS PARA ME GUSTA DE LISTAS (`list_likes`)
+    // ===============================================
+    match /list_likes/{likeId} {
+      // Permitir leer si el usuario está autenticado (necesario para ver si dio like).
+      // Se podría restringir a solo el dueño, pero para contadores o UI a veces se necesita más.
+      // Dado que el ID es compuesto, para leer un doc específico el usuario conoce el ID.
+      // Para listar (ver todos mis likes), se filtra por userId.
+      allow read: if request.auth != null;
+      
+      // Crear: Solo si el userId del documento coincide con el usuario autenticado.
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      
+      // Borrar: Solo si el userId del documento coincide con el usuario autenticado.
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
     // ===============================================
