@@ -282,7 +282,7 @@ function transformListRecord(data, docId) {
         availableTags: tags,
         reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
         followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
-        delete record.province;
+
     }
     if (!record.country) {
         delete record.country;
