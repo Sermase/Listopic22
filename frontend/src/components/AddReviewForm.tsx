@@ -335,15 +335,35 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
             if (selectedPlace) {
                 // Transform Place Data
-                finalPlaceId = selectedPlace.id; // Or mapping if needed
-                // Simplifying: assume 'selectedPlace.id' is what we want.
-                // The legacy code used transformToLegacyPlace here excessively, let's keep it simple if possible,
-                // or replicate if strict adherence is needed.
-                // Replicating basic assignment:
                 finalPlaceId = selectedPlace.id;
                 finalPlaceAddress = selectedPlace.address || '';
                 finalPlaceLat = selectedPlace.lat || 0;
                 finalPlaceLng = selectedPlace.lng || 0;
+
+                // CRITICAL: Ensure Place exists via Legacy Backend Sync
+                // This forces the backend to fetch details from Google (Legacy API), normalize them, and SAVE them.
+                try {
+                    console.log(`Ensuring place ${finalPlaceId} exists via backend...`);
+                    const idToken = await user.getIdToken();
+                    const syncedPlace = await PlaceService.ensurePlaceSyncedWithBackend(finalPlaceId, idToken);
+
+                    if (syncedPlace) {
+                        console.log("Place synced successfully:", syncedPlace.name);
+                        // Update local snapshot vars with the authoritative data from backend
+                        finalPlaceAddress = syncedPlace.address || syncedPlace.formatted_address || finalPlaceAddress;
+
+                        // Use location (object) or coordinates (object) or fallback to lat/lng if available
+                        if (syncedPlace.location && typeof syncedPlace.location === 'object') {
+                            finalPlaceLat = syncedPlace.location.latitude;
+                            finalPlaceLng = syncedPlace.location.longitude;
+                        } else if (syncedPlace.coordinates && typeof syncedPlace.coordinates === 'object') {
+                            finalPlaceLat = syncedPlace.coordinates.latitude;
+                            finalPlaceLng = syncedPlace.coordinates.longitude;
+                        }
+                    }
+                } catch (placeErr) {
+                    console.error("Failed to sync place with backend via new logic:", placeErr);
+                }
             }
 
             const isSublist = !!listData?.parentListId;

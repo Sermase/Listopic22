@@ -32,6 +32,34 @@ const getPlacesLib = (): Promise<any> => {
 };
 
 export const PlaceService = {
+    ensurePlaceSyncedWithBackend: async (placeId: string, idToken: string): Promise<LegacyPlace> => {
+        const url = `https://getplacedetailsfromgoogle-jz4x2l2cfq-ew.a.run.app?placeid=${placeId}`;
+        console.log(`[PlaceService] Syncing place ${placeId} with backend...`);
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${idToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                // If it already exists (which shouldn't happen with GET but maybe logic differs), handle gracefully?
+                // Actually 200 OK returns the doc. 
+                throw new Error(`Backend sync failed: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+
+            const data = await response.json();
+            return data as LegacyPlace;
+        } catch (error) {
+            console.error("Error syncing place with backend:", error);
+            throw error;
+        }
+    },
+
     searchPlaces: async (query: string, userLat?: number, userLng?: number): Promise<PlaceResult[]> => {
         if (!query || query.length < 2) return [];
 
