@@ -647,7 +647,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                             : 'bg-[#1e2538] text-gray-400 hover:bg-white/5'
                                             }`}
                                     >
-                                        #{tag}
+                                        {tag}
                                     </button>
                                 ))}
                                 {listAvailableTags.length === 0 && (
@@ -681,7 +681,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         {isNew ? 'Publicar Reseña' : 'Guardar Cambios'}
                     </button>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };

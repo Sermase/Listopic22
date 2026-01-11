@@ -8,12 +8,16 @@ import { type ListEntity } from '../hooks/useLists';
 
 interface CreateListFormProps {
     parentListId?: string; // If creating a sublist
+    parentListName?: string; // Name of parent list for display
+    parentListImage?: string; // Image of parent list for display
+    parentCriteria?: Record<string, any>; // Criteria from parent list
+    parentTags?: string[]; // Tags from parent list
     initialData?: Partial<ListEntity>; // For editing in the future
     onSuccess: (newListId: string) => void;
     onCancel: () => void;
 }
 
-export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, initialData, onSuccess, onCancel }) => {
+export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, parentListName, parentListImage, parentCriteria, parentTags, initialData, onSuccess, onCancel }) => {
     const { user } = useAuth();
 
     // State
@@ -30,11 +34,36 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, in
     const [imagePreview, setImagePreview] = useState<string | null>(initialData?.photoUrl || initialData?.mainImageUrl || null);
 
     // Advanced
-    const [criteria, setCriteria] = useState<Criterion[]>([
-        { id: 'calidad', label: 'Calidad General', minLabel: 'Malo', maxLabel: 'Excelente', isPonderable: true }
-    ]);
+    // Advanced
+    const [criteria, setCriteria] = useState<Criterion[]>(() => {
+        if (parentCriteria) {
+            // Convert parent map to array
+            const inherited: Criterion[] = [];
+            Object.entries(parentCriteria).forEach(([key, val]: [string, any]) => {
+                if (val.type === 'slider') {
+                    inherited.push({
+                        id: key,
+                        label: val.label,
+                        minLabel: val.labelMin,
+                        maxLabel: val.labelMax,
+                        isPonderable: val.ponderable !== false
+                    });
+                }
+            });
+            return inherited;
+        }
+        return [
+            { id: 'calidad', label: 'Calidad General', minLabel: 'Malo', maxLabel: 'Excelente', isPonderable: true }
+        ];
+    });
+
+    // Calculate locked IDs
+    const lockedCriteriaIds = React.useMemo(() => {
+        return parentCriteria ? Object.keys(parentCriteria) : [];
+    }, [parentCriteria]);
+
     const [customTags, setCustomTags] = useState<string[]>(initialData?.availableTags || []);
-    const [fixedTags, setFixedTags] = useState<string[]>(initialData?.fixedTags || []);
+    const [fixedTags, setFixedTags] = useState<string[]>(parentTags || initialData?.fixedTags || []);
     const [tagInput, setTagInput] = useState('');
 
     const [loading, setLoading] = useState(false);
@@ -195,8 +224,26 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, in
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Info */}
+            {parentListId && parentListName ? (
+                <div className="flex items-center gap-4 mb-2">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10 shrink-0">
+                        {parentListImage ? (
+                            <img src={parentListImage} className="w-full h-full object-cover opacity-80" alt={parentListName} />
+                        ) : (
+                            <div className="w-full h-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-xs">
+                                {parentListName[0]}
+                            </div>
+                        )}
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold font-display text-white">Nueva Sublista</h2>
+                        <p className="text-gray-400 text-sm">Basada en <span className="text-indigo-400">{parentListName}</span></p>
+                    </div>
+                </div>
+            ) : null}
+
             <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-6">
-                <h2 className="text-xl font-bold text-white mb-4">Información Básica</h2>
+                {!parentListId && <h2 className="text-xl font-bold text-white mb-4">Información Básica</h2>}
 
                 <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">Nombre de la Lista</label>
@@ -275,7 +322,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, in
             {/* Criteria & Tags */}
             <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-8">
                 {/* Criteria Builder Component */}
-                <CriteriaBuilder criteria={criteria} onChange={setCriteria} />
+                <CriteriaBuilder criteria={criteria} onChange={setCriteria} lockedIds={lockedCriteriaIds} />
 
                 <div className="border-t border-white/5 pt-6"></div>
 
@@ -287,12 +334,12 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, in
                     <div className="flex flex-wrap gap-2 mb-3">
                         {fixedTags.map(tag => (
                             <span key={`fixed-${tag}`} className="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-full text-sm flex items-center gap-1 border border-white/5 cursor-not-allowed">
-                                #{tag}
+                                {tag}
                             </span>
                         ))}
                         {customTags.map(tag => (
                             <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-sm flex items-center gap-1">
-                                #{tag}
+                                {tag}
                                 <button type="button" onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
                             </span>
                         ))}

@@ -354,12 +354,12 @@ export const CreateSublistPage: React.FC = () => {
                             <div className="flex flex-wrap gap-2 mb-3">
                                 {fixedTags.map(tag => (
                                     <span key={`fixed-${tag}`} className="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-full text-sm flex items-center gap-1 border border-white/5 cursor-not-allowed">
-                                        #{tag}
+                                        {tag}
                                     </span>
                                 ))}
                                 {customTags.map(tag => (
                                     <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-sm flex items-center gap-1">
-                                        #{tag}
+                                        {tag}
                                         <button type="button" onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
                                     </span>
                                 ))}

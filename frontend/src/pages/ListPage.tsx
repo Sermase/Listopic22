@@ -807,6 +807,8 @@ export const ListPage: React.FC = () => {
                         sublists={sublists}
                         listId={list.id}
                         listName={list.name}
+                        parentCriteria={list.criteriaDefinition}
+                        parentTags={list.availableTags}
                     />
                 )
             }

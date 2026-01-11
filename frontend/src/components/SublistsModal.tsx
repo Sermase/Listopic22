@@ -12,9 +12,11 @@ interface SublistsModalProps {
     isOpen: boolean;
     onClose: () => void;
     sublists?: ListEntity[] | null;
+    parentCriteria?: Record<string, any>; // Criteria from parent list
+    parentTags?: string[]; // Tags from parent list
 }
 
-export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, isOpen, onClose, sublists: initialSublists }) => {
+export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, isOpen, onClose, sublists: initialSublists, parentCriteria, parentTags }) => {
     const [view, setView] = useState<'list' | 'create'>('list');
     const [sublists, setSublists] = useState<ListEntity[]>([]);
     const [loading, setLoading] = useState(true);
@@ -140,6 +142,9 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                     ) : (
                         <CreateListForm
                             parentListId={listId}
+                            parentListName={listName}
+                            parentCriteria={parentCriteria}
+                            parentTags={parentTags}
                             onSuccess={handleCreateSuccess}
                             onCancel={() => setView('list')}
                             initialData={{
