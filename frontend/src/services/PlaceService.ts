@@ -162,11 +162,11 @@ export const PlaceService = {
                 fields: [
                     'id', 'displayName', 'formattedAddress', 'addressComponents',
                     'location', 'nationalPhoneNumber', 'internationalPhoneNumber',
-                    'websiteUri', 'rating', 'userRatingCount', 'types', 'priceLevel',
+                    'websiteURI', 'rating', 'userRatingCount', 'types', 'priceLevel',
                     'photos',
                     // Service Options - Boolean fields
-                    'delivery', 'dineIn', 'takeout', 'reservable',
-                    'servesBeer', 'servesWine', 'servesBreakfast', 'servesLunch', 'servesDinner',
+                    // 'delivery', 'dineIn', 'takeout', 'reservable',
+                    // 'servesBeer', 'servesWine', 'servesBreakfast', 'servesLunch', 'servesDinner',
                     // Accessibility
                     'accessibilityOptions'
                 ]
