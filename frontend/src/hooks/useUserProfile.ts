@@ -19,6 +19,7 @@ export interface UserProfileEntity {
     followingListsCount?: number;
     followingUsersCount?: number;
     followingPlacesCount?: number;
+    badges?: string[];
 }
 
 export const useUserProfile = (uid: string | undefined) => {

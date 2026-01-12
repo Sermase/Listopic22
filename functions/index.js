@@ -8,12 +8,15 @@ admin.initializeApp();
 setGlobalOptions({ region: "europe-west1" });
 
 // --- CARGA DE MÓDULOS DE FUNCIONES ---
+// --- CARGA DE MÓDULOS DE FUNCIONES ---
 const algoliaFunctions = require('./modules/algolia');
 const coreFunctions = require('./modules/core'); // <-- Cargamos el nuevo módulo
+const gamificationFunctions = require('./modules/gamification');
 
 // --- EXPORTACIÓN DE TODAS LAS FUNCIONES PARA FIREBASE ---
 module.exports = {
     ...algoliaFunctions,
     ...coreFunctions, // <-- Las añadimos a la exportación final
+    ...gamificationFunctions,
 };
 // Force redeploy

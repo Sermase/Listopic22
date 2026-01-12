@@ -2591,7 +2591,7 @@ async function fetchReviewDocsByTag(tag) {
   }
 }
 
-const adminReplaceTag = onCall(async (request) => {
+const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: "1GiB" }, async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) {
     throw new HttpsError('unauthenticated', 'Debes estar autenticado.');

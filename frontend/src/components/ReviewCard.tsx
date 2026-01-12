@@ -203,24 +203,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {/* NO PHOTO MODE: Inject Bubbles Here */}
-                        {!review.photoUrl && (
-                            <div className="flex items-center gap-2 mr-2">
-                                {/* City Bubble (Header) */}
-                                {(review as any).placeCity && (
-                                    <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-gray-300">
-                                        <MapPin className="w-3 h-3" />
-                                        <span className="uppercase tracking-wide">{(review as any).placeCity}</span>
-                                    </div>
-                                )}
-                                {/* Score Bubble (Header) */}
-                                <div className={`flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br ${bubbleColor} shadow-lg border border-white/10`}>
-                                    <span className="text-white font-bold text-sm">
-                                        {review.overallRating?.toFixed(1) || '-'}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
+
 
                         <div className="relative z-20" ref={menuRef}>
                             <button

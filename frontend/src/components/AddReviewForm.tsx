@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, X, Image as ImageIcon, MapPin as MapPinIcon, Lock } from 'lucide-react';
+import { Loader2, X, Image as ImageIcon, MapPin as MapPinIcon, Lock, Trash2 } from 'lucide-react';
 import { PlaceSearch } from './PlaceSearch';
 import { PlaceService, type PlaceResult, transformToLegacyPlace } from '../services/PlaceService';
 import { ListSearch } from './ListSearch';
@@ -340,8 +341,31 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 finalPlaceLat = selectedPlace.lat || 0;
                 finalPlaceLng = selectedPlace.lng || 0;
 
-                // CRITICAL: Ensure Place exists via Legacy Backend Sync
-                // This forces the backend to fetch details from Google (Legacy API), normalize them, and SAVE them.
+                // Handle Image Upload
+                let finalPhotoUrl = photoUrl;
+                if (_imageFile) {
+                    try {
+                        const fileExt = _imageFile.name.split('.').pop();
+                        const fileName = `${user.uid}_${Date.now()}.${fileExt}`;
+                        const storageRef = ref(storage, `reviews/${user.uid}/${fileName}`);
+
+                        console.log("Uploading review image...", fileName);
+                        const snapshot = await uploadBytes(storageRef, _imageFile);
+                        finalPhotoUrl = await getDownloadURL(snapshot.ref);
+                        console.log("Upload success:", finalPhotoUrl);
+                    } catch (uploadErr) {
+                        console.error("Upload failed", uploadErr);
+                        setError("Error al subir la imagen. Intenta de nuevo.");
+                        setLoading(false);
+                        return;
+                    }
+                } else if (imagePreview && imagePreview.startsWith('http')) {
+                    // Keep existing info if it was already a URL (edit mode)
+                    finalPhotoUrl = imagePreview;
+                } else {
+                    finalPhotoUrl = '';
+                }
+
                 try {
                     console.log(`Ensuring place ${finalPlaceId} exists via backend...`);
                     const idToken = await user.getIdToken();
@@ -384,7 +408,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 scores: criteriaScores,
                 criteriaDefinition,
                 tags: customTags,
-                photoUrl,
+                photoUrl: finalPhotoUrl,
                 updatedAt: serverTimestamp(),
                 placeId: finalPlaceId,
                 placeName: selectedPlace?.name || placeName,
@@ -628,29 +652,61 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         {/* 6. Photo */}
                         <div>
                             <label className="block text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Foto</label>
-                            <div className="flex items-center gap-4">
-                                {imagePreview ? (
-                                    <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-white/10 group">
-                                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setImageFile(null);
-                                                setImagePreview(null);
-                                            }}
-                                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <X className="w-6 h-6 text-white" />
-                                        </button>
+
+                            {imagePreview ? (
+                                <div className="relative w-full h-48 rounded-xl overflow-hidden border border-white/10 group">
+                                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setImageFile(null);
+                                            setImagePreview(null);
+                                        }}
+                                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <div className="bg-red-500/80 p-2 rounded-full text-white">
+                                            <Trash2 className="w-6 h-6" />
+                                        </div>
+                                    </button>
+                                </div>
+                            ) : (
+                                <div
+                                    className="w-full h-48 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all group"
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        e.currentTarget.classList.add('border-indigo-500', 'bg-indigo-500/10');
+                                    }}
+                                    onDragLeave={(e) => {
+                                        e.preventDefault();
+                                        e.currentTarget.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+                                    }}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        e.currentTarget.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+                                        const file = e.dataTransfer.files?.[0];
+                                        if (file && file.type.startsWith('image/')) {
+                                            setImageFile(file);
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => setImagePreview(reader.result as string);
+                                            reader.readAsDataURL(file);
+                                        }
+                                    }}
+                                    onClick={() => document.getElementById('review-photo-upload')?.click()}
+                                >
+                                    <div className="bg-white/5 p-4 rounded-full mb-3 group-hover:scale-110 transition-transform">
+                                        <ImageIcon className="w-8 h-8 text-indigo-400" />
                                     </div>
-                                ) : (
-                                    <label className="w-24 h-24 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-colors">
-                                        <ImageIcon className="w-6 h-6 text-gray-500 mb-1" />
-                                        <span className="text-[10px] text-gray-500 uppercase">Subir</span>
-                                        <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
-                                    </label>
-                                )}
-                            </div>
+                                    <p className="text-sm font-bold text-gray-300">Arrastra tu foto o haz clic</p>
+                                    <p className="text-xs text-gray-500 mt-1">Soporta JPG, PNG, WEBP</p>
+                                    <input
+                                        id="review-photo-upload"
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleImageChange}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         {/* 7. Tags */}

@@ -12,6 +12,7 @@ import { signOut } from 'firebase/auth';
 import { ReviewCard } from '../components/ReviewCard';
 import { ChatService } from '../services/ChatService';
 import { FollowingSection } from '../components/profile/FollowingSection';
+import { BadgeDisplay } from '../components/profile/BadgeDisplay';
 import { collection, query, where, getDocs, limit, documentId, FieldPath } from 'firebase/firestore';
 
 // Helper Component for List Cards
@@ -371,6 +372,46 @@ export const ProfilePage: React.FC = () => {
                         <p className="text-gray-400 mb-6 max-w-lg mx-auto md:mx-0 leading-relaxed">
                             {profile.bio || "Sin biografía..."}
                         </p>
+
+                        {/* Level & XP Bar */}
+                        <div className="mb-6 max-w-sm mx-auto md:mx-0">
+                            {(() => {
+                                const xp = profile.xp || 0;
+                                const level = Math.floor(Math.sqrt(xp / 50)) + 1;
+                                const nextLevelXp = 50 * Math.pow(level, 2);
+                                const currentLevelBaseXp = 50 * Math.pow(level - 1, 2);
+                                const progress = Math.min(100, Math.max(0, ((xp - currentLevelBaseXp) / (nextLevelXp - currentLevelBaseXp)) * 100));
+
+                                return (
+                                    <div className="bg-[#151b2e] border border-white/5 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden group">
+                                        {/* Level Badge */}
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-bold text-white text-lg shadow-lg relative z-10 border-2 border-[#151b2e]">
+                                            {level}
+                                        </div>
+
+                                        <div className="flex-1 z-10">
+                                            <div className="flex justify-between items-end mb-1">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nivel {level}</span>
+                                                <span className="text-[10px] text-amber-500 font-mono">{Math.floor(xp)} / {nextLevelXp} XP</span>
+                                            </div>
+                                            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000 ease-out"
+                                                    style={{ width: `${progress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Background Glow */}
+                                        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        <div className="mb-6 flex justify-center md:justify-start">
+                            <BadgeDisplay earnedBadgeIds={profile.badges} />
+                        </div>
 
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-gray-400">
                             {/* Followers */}
