@@ -107,30 +107,22 @@ export const DeveloperPage: React.FC = () => {
     };
 
     const runAlgoliaSync = async (target: string | null) => {
-        if (!window.confirm(`¿Estás seguro de que quieres sincronizar ${target || 'TODO'} con Algolia?`)) return;
+        const collections = target ? [target] : ['lists', 'places', 'users', 'grouped_items'];
+        if (!window.confirm(`¿Estás seguro de que quieres sincronizar ${target || 'TODO (lists, places, users, grouped_items)'} con Algolia?`)) return;
 
         setProcessingAlgolia(true);
-        setAlgoliaLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando sync de ${target || 'TODO'}...`, ...prev]);
+        const functions = getFunctions(undefined, FUNCTIONS_REGION);
+        const adminBackfillAlgolia = httpsCallable(functions, 'adminBackfillAlgolia');
 
         try {
-            const functions = getFunctions(undefined, FUNCTIONS_REGION);
-            const adminBackfillAlgolia = httpsCallable(functions, 'adminBackfillAlgolia');
+            for (const col of collections) {
+                setAlgoliaLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando sync de ${col}...`, ...prev]);
 
-            // Note: The legacy code passed `null` for all, or string for specific.
-            // Check if backend expects { collection: '...' } or just '...'?
-            // Legacy: `backfillAlgolia(null)` -> calls function.
-            // We assume the cloud function takes an object or string. Usually callable takes an object.
-            // Let's assume { collection: target } based on standard practices, or verify legacy implementation if possible.
-            // Legacy `page-developer.js` calls it with `collectionName` maybe? 
-            // Line 652 legacy used 'adminGetCollection' with object. 
-            // But for algolia sync it just says `backfillAlgolia('lists')`.
-            // Let's try passing { collection: target }.
+                const result = await adminBackfillAlgolia({ collectionName: col });
+                const data: any = result.data;
 
-            const result = await adminBackfillAlgolia({ collection: target });
-            const data: any = result.data;
-
-            setAlgoliaLog(prev => [`[${new Date().toLocaleTimeString()}] Éxito: ${JSON.stringify(data)}`, ...prev]);
-
+                setAlgoliaLog(prev => [`[${new Date().toLocaleTimeString()}] Éxito ${col}: ${JSON.stringify(data)}`, ...prev]);
+            }
         } catch (err: any) {
             setAlgoliaLog(prev => [`[${new Date().toLocaleTimeString()}] Error: ${err.message}`, ...prev]);
         } finally {

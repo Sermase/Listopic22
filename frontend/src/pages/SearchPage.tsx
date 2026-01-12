@@ -5,7 +5,8 @@ import {
     Configure,
     useSearchBox,
     useInfiniteHits,
-    useRefinementList
+    useRefinementList,
+    Index
 } from 'react-instantsearch';
 import { Search, Map as MapIcon, Users, List as ListIcon, MessageCircle, Filter, X } from 'lucide-react';
 
@@ -15,7 +16,7 @@ import { ListItemCard } from '../components/ListItemCard';
 import { PlaceCard } from '../components/PlaceCard';
 // Note: You might need to import/create specific card adapters if the data shape differs significantly.
 
-// --- Custom Search Box ---
+// --- Custom Search Box (Real-time) ---
 const CustomSearchBox = (props: any) => {
     const { query, refine } = useSearchBox(props);
     const [inputValue, setInputValue] = useState(query);
@@ -26,6 +27,17 @@ const CustomSearchBox = (props: any) => {
             setInputValue(query);
         }
     }, [query]);
+
+    // Debounced Refinement
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (inputValue !== query) {
+                refine(inputValue);
+            }
+        }, 300); // 300ms debounce
+
+        return () => clearTimeout(timer);
+    }, [inputValue, refine, query]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setInputValue(e.target.value);
@@ -57,11 +69,26 @@ const CustomSearchBox = (props: any) => {
 
 // --- Custom Hits ---
 const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
+
     // Note: useInfiniteHits doesn't support 'limit' directly in the hook, 
     // but the parent <Configure hitsPerPage={limit} /> handles it.
     const { hits, isLastPage, showMore } = useInfiniteHits();
 
-    if (hits.length === 0) {
+    // Filter Items by Image Requirement
+    const filteredHits = useMemo(() => {
+        if (activeTab === 'grouped_items' || activeTab === 'items') {
+            return hits.filter((hit: any) =>
+                hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl || hit.image || hit.coverImage || (hit.photos && hit.photos[0]) || hit.picture
+            );
+        }
+        return hits;
+    }, [hits, activeTab]);
+
+    if (filteredHits.length === 0) {
+        // For specific tabs, show "No results". For Federated (handled by parent logic typically, but here we can return null if we want strict emptiness)
+        // If this is used inside FederatedSectionContent, returning null/message is handled there?
+        // No, current logic returns message.
+        if (activeTab === 'all') return null; // Should be handled by parent, but safe here.
         return (
             <div className="text-center py-10 text-gray-500">
                 No se encontraron resultados en esta categoría.
@@ -72,8 +99,8 @@ const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {hits.map((hit: any) => {
-                    console.log('Search Hit Debug:', hit);
+                {filteredHits.map((hit: any) => {
+                    // Removed Console Log
                     return (
                         <div key={hit.objectID}>
                             {activeTab === 'users' ? (
@@ -151,26 +178,44 @@ const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
     );
 };
 
-// --- Federated Search Section Helper ---
-import { Index } from 'react-instantsearch';
+// --- Federated Section Content ---
+// Separated to access useHits/useInfiniteHits context
+const FederatedSectionContent = ({ title, type, icon: Icon }: any) => {
+    const { hits } = useInfiniteHits();
+
+    // Check if there are any hits AFTER filtering rules (e.g. images for items)
+    // We replicate the filter logic here or ensure CustomHits handles empty return gracefully.
+    // If CustomHits returns null/empty when filteredHits is 0, we can just check hits length here?
+    // WARNING: useInfiniteHits gives raw hits. If we suppress items without images in UI but they exist in hits,
+    // we might render a header with empty content if ALL hits are image-less.
+    // Let's apply valid hits check.
+
+    const validHits = type === 'grouped_items'
+        ? hits.filter((h: any) => h.mainImageUrl || h.photoUrl || h.thumbnailUrl || h.image || h.coverImage || (h.photos && h.photos[0]) || h.picture)
+        : hits;
+
+    if (validHits.length === 0) return null;
+
+    return (
+        <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4 px-1">
+                <Icon className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-xl font-bold text-white">{title}</h3>
+            </div>
+            <CustomHits activeTab={type} />
+            <div className="mt-4 text-center lg:text-left">
+                {/* Link to tab could go here */}
+            </div>
+        </div>
+    );
+};
+
 
 const FederatedSection = ({ indexName, title, type, icon: Icon }: any) => {
     return (
         <Index indexName={indexName}>
             <Configure hitsPerPage={3} />
-            <div className="mb-8">
-                <div className="flex items-center gap-2 mb-4 px-1">
-                    <Icon className="w-5 h-5 text-indigo-400" />
-                    <h3 className="text-xl font-bold text-white">{title}</h3>
-                </div>
-                <CustomHits activeTab={type} />
-                <div className="mt-4 text-center lg:text-left">
-                    {/* We can't easily link to the "tab" from here without external state, 
-                         but the user can click the main tabs. 
-                         Ideally, we'd add "Ver todos los usuarios" button here that changes the tab.
-                      */}
-                </div>
-            </div>
+            <FederatedSectionContent title={title} type={type} icon={Icon} />
         </Index>
     );
 };

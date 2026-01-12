@@ -127,7 +127,8 @@ export const ListPage: React.FC = () => {
         fetchParentName();
     }, [list?.parentListId]);
 
-    // --- Aggregation Logic (Legacy "Ranked List" View & Map Data) ---
+
+    // --- Aggregation Logic (Ranked List View & Map Data) ---
     const groupedItems = useMemo(() => {
         if (!reviews.length) return [];
 
@@ -149,36 +150,25 @@ export const ListPage: React.FC = () => {
             items: { name: string; score: number }[];
             photoMaxLikes: number;
             maxScore: number; // Track max score for the pin
+            allTags: string[]; // For consensus calculation
+            tags: string[]; // Final consensus tags
         }> = {};
 
         reviews.forEach(review => {
-            let key = review.placeId || review.itemName.trim().toLowerCase();
+            let key = review.placeId || (review.itemName ? review.itemName.trim().toLowerCase() : 'unknown');
 
-            // Grouping Logic for "List Display" (Map needs Place Grouping always, we'll handle Map prep separately or force it)
-            // Ideally, we compute "PlaceGroups" separately or derived. 
-            // For now, let's keep this logic but ensure we capture "items" array correctly for popup.
-            // Wait, if groupingMode is 'dish', we split rows. But Map needs Places. 
-            // So we really need TWO memos: one for List/Grid view (follows groupingMode), one for Map (always by Place).
-
-            // Let's refactor: Calculate "PlaceGroups" (always by PlaceId) for Map & "Place Mode".
-            // Then calculate "DishGroups" if needed.
-
-            // Actually, keep this big memo for "View Data", and we'll add a new memo for "Map Data".
-            // BUT the legacy request implies the List View itself might want this data? 
-            // The request says: "En listview, en las etiqeutas querría que apàreciera el nombre del lugar... y que la nota de la chincheta fuera la del plato con más nota."
-            // This refers to the MAP POPUP (etiqeutas matches popup description).
-            // So I should create a dedicated "mapItems" memo that groups by Place.
-
+            // Grouping Mode Logic
             if (groupingMode === 'dish') {
                 key = review.placeId
-                    ? `${review.placeId}_${review.itemName.trim().toLowerCase()}`
-                    : review.itemName.trim().toLowerCase();
+                    ? `${review.placeId}_${(review.itemName || '').trim().toLowerCase()}`
+                    : (review.itemName || '').trim().toLowerCase();
             }
 
             if (!groups[key]) {
+                const itemName = review.itemName ? review.itemName : (review.placeName || 'Item sin nombre');
                 groups[key] = {
                     id: key,
-                    name: groupingMode === 'dish' ? review.itemName : (review.placeName || review.itemName),
+                    name: groupingMode === 'dish' ? itemName : (review.placeName || itemName),
                     placeId: review.placeId,
                     placeName: review.placeName,
                     placeCity: review.placeCity,
@@ -191,16 +181,18 @@ export const ListPage: React.FC = () => {
                     userHasReviewed: false,
                     items: [],
                     photoMaxLikes: -1,
-                    maxScore: 0
+                    maxScore: 0,
+                    allTags: [],
+                    tags: []
                 };
             }
 
             const g = groups[key];
-            g.totalRating += review.overallRating;
+            g.totalRating += review.overallRating || 0;
             g.count += 1;
 
-            if (review.overallRating > g.maxScore) {
-                g.maxScore = review.overallRating;
+            if ((review.overallRating || 0) > g.maxScore) {
+                g.maxScore = review.overallRating || 0;
             }
 
             if (user && (review.userId === user.uid || review.authorId === user.uid)) {
@@ -208,10 +200,11 @@ export const ListPage: React.FC = () => {
             }
 
             g.items.push({
-                name: review.itemName,
-                score: review.overallRating
+                name: review.itemName || 'Item',
+                score: review.overallRating || 0
             });
 
+            // Handle Review Time for sorting
             const createdAt = review.createdAt as any;
             let reviewTime = 0;
             if (createdAt?.toMillis) {
@@ -225,6 +218,7 @@ export const ListPage: React.FC = () => {
                 g.latestReviewAt = reviewTime;
             }
 
+            // Handle Photo
             const currentLikes = review.reactionCounts?.like || 0;
             if (review.photoUrl || review.placeMainImage) {
                 if (currentLikes > g.photoMaxLikes) {
@@ -233,10 +227,16 @@ export const ListPage: React.FC = () => {
                 }
             }
 
+            // Handle Criteria
             if (review.scores) {
                 Object.entries(review.scores).forEach(([k, v]) => {
                     g.criteriaSums[k] = (g.criteriaSums[k] || 0) + v;
                 });
+            }
+
+            // Handle Tags
+            if (review.tags && Array.isArray(review.tags)) {
+                g.allTags.push(...review.tags);
             }
 
             if ((!g.lat || !g.lng) && review.lat && review.lng) {
@@ -245,6 +245,7 @@ export const ListPage: React.FC = () => {
             }
         });
 
+        // Finalize Groups (Averages + Tags Consensus)
         return Object.values(groups).map(g => {
             const criteriaAverages: Record<string, number> = {};
             const allowedCriteria = list?.criteriaDefinition ? Object.keys(list.criteriaDefinition) : null;
@@ -254,27 +255,60 @@ export const ListPage: React.FC = () => {
                 criteriaAverages[k] = g.criteriaSums[k] / g.count;
             });
 
+            // 50% Rule for Tags
+            const tagCounts: Record<string, number> = {};
+            g.allTags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+            const minThreshold = Math.ceil(g.count / 2);
+            /* Logic: "Al menos en la mitad". So >= g.count / 2.
+               Math.ceil(20/2) = 10. 15/20 >= 10 -> OK. 2/20 >= 10 -> No.
+               Math.ceil(1/2) = 1. 1/1 >= 1 -> OK.
+            */
+            const consensusTags = Object.entries(tagCounts)
+                .filter(([_, count]) => count >= minThreshold)
+                .map(([tag]) => tag).sort();
+
             return {
                 ...g,
                 avgRating: g.totalRating / g.count,
                 reviewCount: g.count,
                 items: g.items.sort((a, b) => b.score - a.score),
                 criteriaAverages,
-                criteriaDefinition: list?.criteriaDefinition
+                criteriaDefinition: list?.criteriaDefinition,
+                tags: consensusTags // Use calculated tags
             };
         }).sort((a, b) => {
             if (sortMode === 'rating') {
                 if (b.avgRating !== a.avgRating) return b.avgRating - a.avgRating;
                 return b.reviewCount - a.reviewCount;
             }
+            if (sortMode === 'count') {
+                return b.reviewCount - a.reviewCount;
+            }
             if (sortMode === 'newest' || sortMode === 'oldest') {
                 const diff = b.latestReviewAt - a.latestReviewAt;
                 return sortMode === 'newest' ? diff : -diff;
             }
-            return b.avgRating - a.avgRating;
+            return 0;
         });
+    }, [reviews, list, groupingMode, sortMode, user]);
 
-    }, [reviews, list, sortMode, groupingMode]);
+    // Unique Tags for Filter UI
+    const availableGroupTags = useMemo(() => {
+        const set = new Set<string>();
+        groupedItems.forEach(g => g.tags.forEach(t => set.add(t)));
+        return Array.from(set).sort();
+    }, [groupedItems]);
+
+    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+    // Filter Items
+    // Filter Items by Tag
+    const filteredByTagItems = useMemo(() => {
+        if (selectedTags.length === 0) return groupedItems;
+        return groupedItems.filter(item => item.tags.some(t => selectedTags.includes(t)));
+    }, [groupedItems, selectedTags]);
+
+
 
     // Map Specific Data - Always grouped by Place, always has Items list
     const mapItems = useMemo(() => {
@@ -328,8 +362,9 @@ export const ListPage: React.FC = () => {
     }, [reviews]);
 
     // --- Filtering Logic ---
+    // --- Filtering Logic ---
     const filteredItemsAll = useMemo(() => {
-        let result = groupedItems;
+        let result = filteredByTagItems;
 
         // 1. Apply Smart Filters
         if (filters.minRating > 0) {
@@ -375,7 +410,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [groupedItems, searchQuery, filters, range, location]);
+    }, [filteredByTagItems, searchQuery, filters, range, location]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -551,7 +586,7 @@ export const ListPage: React.FC = () => {
                                     </span>
                                 )}
 
-                                {/* Role Bubbles - ONLY for Sublists or Specific Cases */}
+                                {/* Role Bubbles */}
                                 {list.parentListId && user?.uid === list.userId && (
                                     <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
                                         Propietario
@@ -601,7 +636,7 @@ export const ListPage: React.FC = () => {
                                     <span className="hidden sm:inline">Compartir</span>
                                 </button>
 
-                                {/* Like/Follow Button (if not owner) */}
+                                {/* Like/Follow Button */}
                                 {user && list.userId !== user.uid && (
                                     <button
                                         onClick={toggleLike}
@@ -624,7 +659,7 @@ export const ListPage: React.FC = () => {
                                     </button>
                                 )}
 
-                                {/* Sublists Button (New Location) */}
+                                {/* Sublists Button */}
                                 <button
                                     onClick={() => setIsSublistsModalOpen(true)}
                                     className="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-sm font-bold rounded-xl backdrop-blur-md flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-indigo-500/10"
@@ -638,7 +673,7 @@ export const ListPage: React.FC = () => {
                                     )}
                                 </button>
 
-                                {/* Add Review Button (Primary Action) */}
+                                {/* Add Review Button */}
                                 {canAddReview && (
                                     <button
                                         onClick={() => setIsAddModalOpen(true)}
@@ -737,24 +772,6 @@ export const ListPage: React.FC = () => {
                             </button>
 
                             <div className="h-4 w-px bg-white/10 mx-1"></div>
-
-                            {/* Sort */}
-                            <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/5">
-                                <button
-                                    onClick={() => setSortMode('rating')}
-                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${sortMode === 'rating' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
-                                    title="Tops"
-                                >
-                                    <Heart className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                    onClick={() => setSortMode('newest')}
-                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${sortMode === 'newest' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
-                                    title="Nuevos"
-                                >
-                                    <Clock className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
 
                             {/* Grouping Toggle */}
                             <button
@@ -907,6 +924,11 @@ export const ListPage: React.FC = () => {
                 filters={filters}
                 setFilters={setFilters}
                 criteriaDefinition={list?.criteriaDefinition}
+                sortMode={sortMode}
+                setSortMode={setSortMode}
+                availableTags={availableGroupTags}
+                selectedTags={selectedTags}
+                setSelectedTags={setSelectedTags}
             />
         </div >
     );

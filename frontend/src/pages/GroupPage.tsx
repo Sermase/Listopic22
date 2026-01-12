@@ -148,14 +148,16 @@ export const GroupPage: React.FC = () => {
     const stats = useMemo(() => {
         if (!reviews.length) return null;
 
-        const total = reviews.reduce((acc, r) => acc + (r.overallRating || 0), 0);
-
-        // Aggregate Criteria Scores
+        let totalRating = 0;
         const criteriaSums: Record<string, number> = {};
         const criteriaCounts: Record<string, number> = {};
         const labels: Record<string, string> = {};
+        const tagCounts: Record<string, number> = {};
 
         reviews.forEach(r => {
+            totalRating += (r.overallRating || 0);
+
+            // Aggregate Criteria
             if (r.scores) {
                 Object.entries(r.scores).forEach(([k, v]) => {
                     criteriaSums[k] = (criteriaSums[k] || 0) + v;
@@ -163,8 +165,19 @@ export const GroupPage: React.FC = () => {
                     if (r.criteriaDefinition?.[k]?.label) labels[k] = r.criteriaDefinition[k].label;
                 });
             }
+
+            // Aggregate Tags
+            const tags = (r as any).userTags || r.tags || [];
+            if (Array.isArray(tags)) {
+                tags.forEach((t: string) => {
+                    if (t) tagCounts[t] = (tagCounts[t] || 0) + 1;
+                });
+            }
         });
 
+        const avg = totalRating / reviews.length;
+
+        // Process Criteria
         const criteria = Object.keys(criteriaSums).map(k => ({
             key: k,
             label: labels[k] || k,
@@ -172,15 +185,22 @@ export const GroupPage: React.FC = () => {
             count: criteriaCounts[k]
         })).sort((a, b) => b.avg - a.avg);
 
+        // Process Tags (50% Rule)
+        const minThreshold = Math.ceil(reviews.length / 2);
+        const consensusTags = Object.entries(tagCounts)
+            .filter(([_, count]) => count >= minThreshold)
+            .map(([tag]) => tag).sort();
+
         // Collect Photos
         const photos = reviews.map(r => r.photoUrl).filter(Boolean) as string[];
 
         return {
-            avg: total / reviews.length,
+            avg,
             count: reviews.length,
-            mainPhoto: photos[0],
-            photos, // All photos
-            criteria
+            mainPhoto: photos[0] || null,
+            photos,
+            criteria,
+            tags: consensusTags
         };
     }, [reviews]);
 
@@ -355,6 +375,17 @@ export const GroupPage: React.FC = () => {
                                         <span>Añadir Reseña</span>
                                     </button>
                                 </div>
+
+                                {/* Tags Row */}
+                                {stats.tags && stats.tags.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-2 mt-2 md:justify-end">
+                                        {stats.tags.map(tag => (
+                                            <span key={tag} className="px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-white/90 text-xs font-medium backdrop-blur-md">
+                                                #{tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -483,7 +514,7 @@ export const GroupPage: React.FC = () => {
 
                     {/* Reviews Grid */}
                     {reviews.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                        <div className="grid grid-cols-1 gap-6 animate-fade-in">
                             {reviews.map(review => (
                                 <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} />
                             ))}
@@ -531,7 +562,7 @@ export const GroupPage: React.FC = () => {
                     name: decodedName,
                     subtitle: placeName,
                     route: `/group/${placeId}/${encodeURIComponent(decodedName)}`,
-                    photoUrl: stats?.mainPhoto,
+                    photoUrl: stats?.mainPhoto || undefined,
                     placeId: placeId
                 }}
             />

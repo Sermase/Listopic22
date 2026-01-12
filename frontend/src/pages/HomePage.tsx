@@ -423,7 +423,7 @@ export const HomePage: React.FC = () => {
                             title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
                             viewAllLink={`/search?type=lists&sort=${activeTab === 'explore' ? 'most_reviewed' : 'latest'}`}
                             items={activeTab === 'explore'
-                                ? listsWithRangeStats.sort((a, b) => (b.reviewsInRangeCount || 0) - (a.reviewsInRangeCount || 0)).slice(0, 10)
+                                ? listsWithRangeStats.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0)).slice(0, 10)
                                 : filteredLists}
                             loading={loadingLists}
                             renderItem={(list: any, index: number) => (
@@ -452,7 +452,7 @@ export const HomePage: React.FC = () => {
                                         <div className="flex items-center gap-4 opacity-90 text-xs text-gray-300 font-medium">
                                             <div className="flex items-center gap-1.5">
                                                 <MessageCircle className="w-3.5 h-3.5 text-indigo-400" />
-                                                <span>{list.reviewsInRangeCount || 0}</span>
+                                                <span>{list.reviewCount || 0}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <Users className="w-3.5 h-3.5 text-rose-400" />
