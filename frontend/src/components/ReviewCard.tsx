@@ -268,36 +268,45 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     </div>
                 </div>
 
-                {/* 2. Main Visual: Large Image with Overlay Bubble (ONLY IF PHOTO EXISTS) */}
-                {review.photoUrl && (
-                    <div className="relative aspect-[4/3] w-full bg-gray-900 overflow-hidden">
+                {/* 2. Main Visual: Large Image with Overlay Bubble (Also for fallback) */}
+                <div className={`relative w-full bg-gray-900 overflow-hidden ${review.photoUrl ? 'aspect-[4/3]' : 'h-32 sm:h-40'}`}>
+                    {review.photoUrl ? (
                         <img src={review.photoUrl} alt={review.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    ) : (
+                        review.placeMainImage ? (
+                            <img src={review.placeMainImage} alt={review.placeName} className="w-full h-full object-cover object-center opacity-60 group-hover:scale-105 transition-transform duration-700" />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
+                                <MapPin className="w-8 h-8 mb-1 opacity-20" />
+                            </div>
+                        )
+                    )}
 
-                        {/* Overlay Bubbles Container */}
-                        <div className="absolute top-4 right-4 flex items-center gap-3 z-10">
+                    {/* Overlay Bubbles Container - Always visible now if we have fallback image or legitimate image */}
+                    <div className={`absolute ${review.photoUrl ? 'top-4 right-4' : 'top-1/2 -translate-y-1/2 right-4'} flex items-center gap-3 z-10`}>
 
-                            {/* City Bubble (Overlay) */}
-                            {(review as any).placeCity && (
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md shadow-lg transform transition-transform group-hover:scale-105">
-                                    <MapPin className="w-3.5 h-3.5 text-white/90" />
-                                    <span className="text-white font-bold text-xs uppercase tracking-wide">{(review as any).placeCity}</span>
-                                </div>
-                            )}
+                        {/* City Bubble (Overlay) */}
+                        {(review as any).placeCity && (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md shadow-lg transform transition-transform group-hover:scale-105">
+                                <MapPin className="w-3.5 h-3.5 text-white/90" />
+                                <span className="text-white font-bold text-xs uppercase tracking-wide">{(review as any).placeCity}</span>
+                            </div>
+                        )}
 
-                            {/* The "Living" Score Bubble */}
-                            <div className={`relative w-16 h-16 flex items-center justify-center animate-blob transition-all duration-500 group-hover:scale-110`}>
-                                {/* Inner Gradient Blob */}
-                                <div className={`absolute inset-0 bg-gradient-to-br ${bubbleColor} opacity-90 blur-sm rounded-full`} />
-                                {/* Core Bubble */}
-                                <div className={`relative w-full h-full bg-gradient-to-br ${bubbleColor} flex items-center justify-center shadow-lg border-2 border-white/10 backdrop-blur-sm rounded-full`}>
-                                    <span className="text-white font-display font-bold text-2xl drop-shadow-md">
-                                        {review.overallRating?.toFixed(1) || '-'}
-                                    </span>
-                                </div>
+                        {/* The "Living" Score Bubble */}
+                        <div className={`relative w-16 h-16 flex items-center justify-center animate-blob transition-all duration-500 group-hover:scale-110`}>
+                            {/* Inner Gradient Blob */}
+                            <div className={`absolute inset-0 bg-gradient-to-br ${bubbleColor} opacity-90 blur-sm rounded-full`} />
+                            {/* Core Bubble */}
+                            <div className={`relative w-full h-full bg-gradient-to-br ${bubbleColor} flex items-center justify-center shadow-lg border-2 border-white/10 backdrop-blur-sm rounded-full`}>
+                                <span className="text-white font-display font-bold text-2xl drop-shadow-md">
+                                    {review.overallRating?.toFixed(1) || '-'}
+                                </span>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
+
 
                 {/* 3. Content Body */}
                 <div className="p-4 pt-3 space-y-3 flex-1">
@@ -400,7 +409,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         </button>
                     </div>
                 </div>
-            </article>
+            </article >
 
             <SaveToArchiveModal
                 isOpen={isSaveModalOpen}

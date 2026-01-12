@@ -33,6 +33,7 @@ export const PlacePage: React.FC = () => {
     // Review Creation State
     const [isFlowOpen, setIsFlowOpen] = useState(false);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
+    const [selectedDishName, setSelectedDishName] = useState<string | null>(null);
 
     // Check if place is followed
     useEffect(() => {
@@ -101,7 +102,7 @@ export const PlacePage: React.FC = () => {
     const dishes = useMemo(() => {
         if (!place?.reviews) return [];
 
-        const dishMap: Record<string, { total: number; count: number; name: string; photos: string[] }> = {};
+        const dishMap: Record<string, { total: number; count: number; name: string; photos: string[]; listId?: string }> = {};
 
         place.reviews.forEach(r => {
             if (!r.itemName) return;
@@ -109,18 +110,21 @@ export const PlacePage: React.FC = () => {
             const key = name.toLowerCase();
 
             if (!dishMap[key]) {
-                dishMap[key] = { total: 0, count: 0, name: name, photos: [] };
+                dishMap[key] = { total: 0, count: 0, name: name, photos: [], listId: r.listId };
             }
             dishMap[key].total += r.overallRating;
             dishMap[key].count += 1;
             if (r.photoUrl) dishMap[key].photos.push(r.photoUrl);
+            // Update listId fallback if missing
+            if (!dishMap[key].listId && r.listId) dishMap[key].listId = r.listId;
         });
 
         return Object.values(dishMap).map(d => ({
             name: d.name,
             avg: d.total / d.count,
             count: d.count,
-            photo: d.photos[0]
+            photo: d.photos[0],
+            listId: d.listId
         })).sort((a, b) => b.avg - a.avg);
     }, [place?.reviews]);
 
@@ -479,7 +483,18 @@ export const PlacePage: React.FC = () => {
                                                 </div>
                                             </Link>
 
-                                            <button className="px-3 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20">
+                                            <button
+                                                onClick={() => {
+                                                    if (dish.listId) {
+                                                        setSelectedListId(dish.listId);
+                                                        setSelectedDishName(dish.name);
+                                                        setIsFlowOpen(true);
+                                                    } else {
+                                                        alert("No se pudo identificar la lista asociada a este plato.");
+                                                    }
+                                                }}
+                                                className="px-3 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
+                                            >
                                                 Valorar
                                             </button>
                                         </div>
@@ -575,7 +590,7 @@ export const PlacePage: React.FC = () => {
                         </div>
                     )}
                 </div>
-            </main>
+            </main >
 
             <SaveToArchiveModal
                 isOpen={isSaveModalOpen}
@@ -592,28 +607,34 @@ export const PlacePage: React.FC = () => {
 
             {/* Review Creation Flow */}
             {/* Direct access to Form - internal list selection if needed */}
-            {isFlowOpen && (
-                <AddReviewForm
-                    listId={selectedListId}
-                    onListChange={setSelectedListId}
-                    prefillPlaceId={place.placeId}
-                    onClose={() => {
-                        setIsFlowOpen(false);
-                        setSelectedListId(null);
-                    }}
-                    onSuccess={() => {
-                        setIsFlowOpen(false);
-                        setSelectedListId(null);
-                        // Maybe refresh reviews? Realtime updates handle it.
-                    }}
-                />
-            )}
+            {
+                isFlowOpen && (
+                    <AddReviewForm
+                        listId={selectedListId}
+                        onListChange={setSelectedListId}
+                        prefillPlaceId={place.placeId}
+                        prefillItemName={selectedDishName || undefined}
+                        lockList={!!selectedListId}
+                        onClose={() => {
+                            setIsFlowOpen(false);
+                            setSelectedListId(null);
+                            setSelectedDishName(null);
+                        }}
+                        onSuccess={() => {
+                            setIsFlowOpen(false);
+                            setSelectedListId(null);
+                            setSelectedDishName(null);
+                            // Maybe refresh reviews? Realtime updates handle it.
+                        }}
+                    />
+                )
+            }
             {/* Share Modal */}
             <ShareModal
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
                 title={`Compartir ${place.name}`}
             />
-        </div>
+        </div >
     );
 };
