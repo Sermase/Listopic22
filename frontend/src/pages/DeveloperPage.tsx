@@ -4,7 +4,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Database, CloudLightning, Tag, Search, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Terminal, Database, CloudLightning, Tag, Search, AlertCircle, CheckCircle, RefreshCw, List as ListIcon } from 'lucide-react';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -20,7 +20,7 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance'>('console');
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     // Console State
@@ -35,6 +35,12 @@ export const DeveloperPage: React.FC = () => {
     // Algolia State
     const [algoliaLog, setAlgoliaLog] = useState<string[]>([]);
     const [processingAlgolia, setProcessingAlgolia] = useState(false);
+
+    // Maintenance State
+    const [targetListId, setTargetListId] = useState('');
+    const [targetPlaceId, setTargetPlaceId] = useState('');
+    const [maintenanceLog, setMaintenanceLog] = useState<string[]>([]);
+    const [processingMaintenance, setProcessingMaintenance] = useState(false);
 
     useEffect(() => {
         if (!loadingProfile && profile) {
@@ -132,6 +138,57 @@ export const DeveloperPage: React.FC = () => {
         }
     };
 
+    const handleRecalculateList = async () => {
+        if (!targetListId) return;
+        setProcessingMaintenance(true);
+        setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando recálculo para lista: ${targetListId}...`, ...prev]);
+
+        try {
+            const functions = getFunctions(undefined, FUNCTIONS_REGION);
+            // Call both to be safe: averages and aggregates
+            const recalculateAverages = httpsCallable(functions, 'adminRecalculateListAverages');
+            const updateAggregates = httpsCallable(functions, 'adminUpdateSingleListAggregates');
+
+            setMaintenanceLog(prev => [`... Llamando adminRecalculateListAverages...`, ...prev]);
+            const res1: any = await recalculateAverages({ listId: targetListId });
+            setMaintenanceLog(prev => [`✅ Averages: ${JSON.stringify(res1.data)}`, ...prev]);
+
+            setMaintenanceLog(prev => [`... Llamando adminUpdateSingleListAggregates...`, ...prev]);
+            const res2: any = await updateAggregates({ listId: targetListId });
+            setMaintenanceLog(prev => [`✅ Aggregates: ${JSON.stringify(res2.data)}`, ...prev]);
+
+            setMaintenanceLog(prev => [`✨ COMPLETADO para ${targetListId}`, ...prev]);
+
+        } catch (error: any) {
+            console.error('Error recalculating list:', error);
+            setMaintenanceLog(prev => [`❌ Error: ${error.message}`, ...prev]);
+        } finally {
+            setProcessingMaintenance(false);
+        }
+    };
+
+    const handleRecalculatePlace = async () => {
+        if (!targetPlaceId) return;
+        setProcessingMaintenance(true);
+        setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando recálculo para lugar: ${targetPlaceId}...`, ...prev]);
+
+        try {
+            const functions = getFunctions(undefined, FUNCTIONS_REGION);
+            const recalculatePlace = httpsCallable(functions, 'adminRecalculatePlaceStats');
+
+            setMaintenanceLog(prev => [`... Llamando adminRecalculatePlaceStats...`, ...prev]);
+            const res: any = await recalculatePlace({ placeId: targetPlaceId });
+            setMaintenanceLog(prev => [`✅ Resultado: ${JSON.stringify(res.data)}`, ...prev]);
+            setMaintenanceLog(prev => [`✨ COMPLETADO para lugar ${targetPlaceId}`, ...prev]);
+
+        } catch (error: any) {
+            console.error('Error recalculating place:', error);
+            setMaintenanceLog(prev => [`❌ Error: ${error.message}`, ...prev]);
+        } finally {
+            setProcessingMaintenance(false);
+        }
+    };
+
     if (loadingProfile || isAuthorized === null) {
         return <div className="min-h-screen pt-40 text-center text-gray-500">Verificando permisos...</div>;
     }
@@ -160,215 +217,283 @@ export const DeveloperPage: React.FC = () => {
                 </header>
 
                 {/* Tabs */}
-                <div className="flex gap-4 border-b border-white/10 mb-8">
-                    <button
-                        onClick={() => setActiveTab('console')}
-                        className={`pb-4 px-4 font-bold flex items-center gap-2 transition-colors relative ${activeTab === 'console' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <Database className="w-4 h-4" /> Data Viewer
-                        {activeTab === 'console' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('algolia')}
-                        className={`pb-4 px-4 font-bold flex items-center gap-2 transition-colors relative ${activeTab === 'algolia' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <CloudLightning className="w-4 h-4" /> Algolia Sync
-                        {activeTab === 'algolia' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
-                    </button>
-                </div>
-
-                {/* Content */}
-                {activeTab === 'console' && (
-                    <div className="space-y-6">
-                        {/* Search Bar */}
-                        <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
-                                <div className="col-span-1">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Colección</label>
-                                    <select
-                                        value={consoleParams.collection}
-                                        onChange={(e) => setConsoleParams({ ...consoleParams, collection: e.target.value })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
-                                    >
-                                        <option value="lists">Listas</option>
-                                        <option value="places">Lugares</option>
-                                        <option value="users">Usuarios</option>
-                                        <option value="categories">Categorías</option>
-                                        <option value="listForums">Foros</option>
-                                    </select>
-                                </div>
-                                <div className="col-span-1">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Doc ID</label>
-                                    <input
-                                        placeholder="Exact Match"
-                                        value={consoleParams.id || ''}
-                                        onChange={(e) => setConsoleParams({ ...consoleParams, id: e.target.value })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
-                                    />
-                                </div>
-                                <div className="col-span-1">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">User ID / Email</label>
-                                    <input
-                                        placeholder="Owner ID"
-                                        value={consoleParams.user || ''}
-                                        onChange={(e) => setConsoleParams({ ...consoleParams, user: e.target.value })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
-                                    />
-                                </div>
-                                <div className="col-span-1">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre (Contiene)</label>
-                                    <input
-                                        placeholder="Client Filter"
-                                        value={consoleParams.nameContains || ''}
-                                        onChange={(e) => setConsoleParams({ ...consoleParams, nameContains: e.target.value })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
-                                    />
-                                </div>
-                                <div className="col-span-1">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Google Place ID</label>
-                                    <input
-                                        placeholder="ChIJ..."
-                                        value={consoleParams.googleId || ''}
-                                        onChange={(e) => setConsoleParams({ ...consoleParams, googleId: e.target.value })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
-                                    />
-                                </div>
-                                <div className="col-span-1">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Límite</label>
-                                    <input
-                                        type="number"
-                                        value={consoleParams.limit}
-                                        onChange={(e) => setConsoleParams({ ...consoleParams, limit: parseInt(e.target.value) || 50 })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-3">
-                                <button
-                                    onClick={() => setConsoleParams({ collection: 'lists', limit: 100 })}
-                                    className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-colors"
-                                >
-                                    Limpiar
-                                </button>
-                                <button
-                                    onClick={handleConsoleSearch}
-                                    disabled={loadingConsole}
-                                    className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors flex items-center gap-2"
-                                >
-                                    {loadingConsole ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                                    Buscar
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Results */}
-                        {consoleError && (
-                            <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400">
-                                Error: {consoleError}
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 gap-4">
-                            <div className="flex justify-between items-center text-gray-400 text-sm">
-                                <span>Resultados: {consoleResults.length}</span>
-                            </div>
-                            <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden overflow-x-auto">
-                                <table className="w-full text-left text-sm text-gray-300">
-                                    <thead className="bg-white/5 text-gray-100 font-bold uppercase text-xs">
-                                        <tr>
-                                            <th className="p-4">ID</th>
-                                            <th className="p-4">Name / Title</th>
-                                            <th className="p-4">User</th>
-                                            <th className="p-4">Created</th>
-                                            <th className="p-4">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {consoleResults.map(item => (
-                                            <tr key={item.id} className="hover:bg-white/5 transition-colors">
-                                                <td className="p-4 font-mono text-xs text-indigo-400">{item.id}</td>
-                                                <td className="p-4 font-medium">{item.name || item.displayName || item.title || '-'}</td>
-                                                <td className="p-4 text-xs">{item.userId || item.ownerId || item.email || '-'}</td>
-                                                <td className="p-4 text-xs font-mono">
-                                                    {item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : '-'}
-                                                </td>
-                                                <td className="p-4">
-                                                    <button
-                                                        onClick={() => {
-                                                            alert(JSON.stringify(item, null, 2));
-                                                        }}
-                                                        className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded hover:bg-indigo-500/30"
-                                                    >
-                                                        JSON
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {consoleResults.length === 0 && !loadingConsole && (
-                                            <tr>
-                                                <td colSpan={5} className="p-8 text-center text-gray-500">
-                                                    Sin resultados
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'algolia' && (
-                    <div className="space-y-6">
-                        <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
-                            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                <CloudLightning className="w-5 h-5 text-yellow-400" /> Sincronización Manual
-                            </h3>
-                            <p className="text-gray-400 mb-6">Fuerza la re-indexación de datos en Algolia. Úsalo con precaución.</p>
-
-                            <div className="flex flex-wrap gap-4">
-                                <button
-                                    onClick={() => runAlgoliaSync(null)}
-                                    disabled={processingAlgolia}
-                                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
-                                >
-                                    Sincronizar TODO
-                                </button>
-                                <button
-                                    onClick={() => runAlgoliaSync('lists')}
-                                    disabled={processingAlgolia}
-                                    className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
-                                >
-                                    Sync Lists
-                                </button>
-                                <button
-                                    onClick={() => runAlgoliaSync('places')}
-                                    disabled={processingAlgolia}
-                                    className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
-                                >
-                                    Sync Places
-                                </button>
-                                <button
-                                    onClick={() => runAlgoliaSync('users')}
-                                    disabled={processingAlgolia}
-                                    className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
-                                >
-                                    Sync Users
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs h-96 overflow-y-auto">
-                            <div className="text-gray-500 mb-2 border-b border-white/5 pb-2">Logs de actividad...</div>
-                            {algoliaLog.map((log, i) => (
-                                <div key={i} className="text-gray-300 py-1">{log}</div>
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
+            <div className="flex gap-4 border-b border-white/10 mb-8">
+                <button
+                    onClick={() => setActiveTab('console')}
+                    className={`pb-4 px-4 font-bold flex items-center gap-2 transition-colors relative ${activeTab === 'console' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
+                        }`}
+                >
+                    <Database className="w-4 h-4" /> Data Viewer
+                    {activeTab === 'console' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
+                </button>
+                <button
+                    onClick={() => setActiveTab('maintenance')}
+                    className={`pb-4 px-4 font-bold flex items-center gap-2 transition-colors relative ${activeTab === 'maintenance' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
+                        }`}
+                >
+                    <ListIcon className="w-4 h-4" /> Mantenimiento
+                    {activeTab === 'maintenance' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
+                </button>
+                <button
+                    onClick={() => setActiveTab('algolia')}
+                    className={`pb-4 px-4 font-bold flex items-center gap-2 transition-colors relative ${activeTab === 'algolia' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
+                        }`}
+                >
+                    <CloudLightning className="w-4 h-4" /> Algolia Sync
+                    {activeTab === 'algolia' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
+                </button>
+            </div>
+
+            {/* Content */}
+            {activeTab === 'console' && (
+                <div className="space-y-6">
+                    {/* Search Bar */}
+                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Colección</label>
+                                <select
+                                    value={consoleParams.collection}
+                                    onChange={(e) => setConsoleParams({ ...consoleParams, collection: e.target.value })}
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                >
+                                    <option value="lists">Listas</option>
+                                    <option value="places">Lugares</option>
+                                    <option value="users">Usuarios</option>
+                                    <option value="categories">Categorías</option>
+                                    <option value="listForums">Foros</option>
+                                </select>
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Doc ID</label>
+                                <input
+                                    placeholder="Exact Match"
+                                    value={consoleParams.id || ''}
+                                    onChange={(e) => setConsoleParams({ ...consoleParams, id: e.target.value })}
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">User ID / Email</label>
+                                <input
+                                    placeholder="Owner ID"
+                                    value={consoleParams.user || ''}
+                                    onChange={(e) => setConsoleParams({ ...consoleParams, user: e.target.value })}
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre (Contiene)</label>
+                                <input
+                                    placeholder="Client Filter"
+                                    value={consoleParams.nameContains || ''}
+                                    onChange={(e) => setConsoleParams({ ...consoleParams, nameContains: e.target.value })}
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Google Place ID</label>
+                                <input
+                                    placeholder="ChIJ..."
+                                    value={consoleParams.googleId || ''}
+                                    onChange={(e) => setConsoleParams({ ...consoleParams, googleId: e.target.value })}
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Límite</label>
+                                <input
+                                    type="number"
+                                    value={consoleParams.limit}
+                                    onChange={(e) => setConsoleParams({ ...consoleParams, limit: parseInt(e.target.value) || 50 })}
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setConsoleParams({ collection: 'lists', limit: 100 })}
+                                className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-colors"
+                            >
+                                Limpiar
+                            </button>
+                            <button
+                                onClick={handleConsoleSearch}
+                                disabled={loadingConsole}
+                                className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors flex items-center gap-2"
+                            >
+                                {loadingConsole ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                                Buscar
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Results */}
+                    {consoleError && (
+                        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400">
+                            Error: {consoleError}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="flex justify-between items-center text-gray-400 text-sm">
+                            <span>Resultados: {consoleResults.length}</span>
+                        </div>
+                        <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden overflow-x-auto">
+                            <table className="w-full text-left text-sm text-gray-300">
+                                <thead className="bg-white/5 text-gray-100 font-bold uppercase text-xs">
+                                    <tr>
+                                        <th className="p-4">ID</th>
+                                        <th className="p-4">Name / Title</th>
+                                        <th className="p-4">User</th>
+                                        <th className="p-4">Created</th>
+                                        <th className="p-4">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {consoleResults.map(item => (
+                                        <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                                            <td className="p-4 font-mono text-xs text-indigo-400">{item.id}</td>
+                                            <td className="p-4 font-medium">{item.name || item.displayName || item.title || '-'}</td>
+                                            <td className="p-4 text-xs">{item.userId || item.ownerId || item.email || '-'}</td>
+                                            <td className="p-4 text-xs font-mono">
+                                                {item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : '-'}
+                                            </td>
+                                            <td className="p-4">
+                                                <button
+                                                    onClick={() => {
+                                                        alert(JSON.stringify(item, null, 2));
+                                                    }}
+                                                    className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded hover:bg-indigo-500/30"
+                                                >
+                                                    JSON
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {consoleResults.length === 0 && !loadingConsole && (
+                                        <tr>
+                                            <td colSpan={5} className="p-8 text-center text-gray-500">
+                                                Sin resultados
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'algolia' && (
+                <div className="space-y-6">
+                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <CloudLightning className="w-5 h-5 text-yellow-400" /> Sincronización Manual
+                        </h3>
+                        <p className="text-gray-400 mb-6">Fuerza la re-indexación de datos en Algolia. Úsalo con precaución.</p>
+
+                        <div className="flex flex-wrap gap-4">
+                            <button
+                                onClick={() => runAlgoliaSync(null)}
+                                disabled={processingAlgolia}
+                                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
+                            >
+                                Sincronizar TODO
+                            </button>
+                            <button
+                                onClick={() => runAlgoliaSync('lists')}
+                                disabled={processingAlgolia}
+                                className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
+                            >
+                                Sync Lists
+                            </button>
+                            <button
+                                onClick={() => runAlgoliaSync('places')}
+                                disabled={processingAlgolia}
+                                className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
+                            >
+                                Sync Places
+                            </button>
+                            <button
+                                onClick={() => runAlgoliaSync('users')}
+                                disabled={processingAlgolia}
+                                className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
+                            >
+                                Sync Users
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs h-96 overflow-y-auto">
+                        <div className="text-gray-500 mb-2 border-b border-white/5 pb-2">Logs de actividad...</div>
+                        {algoliaLog.map((log, i) => (
+                            <div key={i} className="text-gray-300 py-1">{log}</div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+
+            {activeTab === 'maintenance' && (
+                <div className="space-y-6">
+                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <ListIcon className="w-5 h-5 text-purple-400" /> Mantenimiento de Listas
+                        </h3>
+                        <p className="text-gray-400 mb-6">Herramientas para recalcular contadores y estadísticas de listas desincronizadas.</p>
+
+                        <div className="flex gap-4 items-end max-w-2xl">
+                            <div className="flex-1">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">List ID</label>
+                                <input
+                                    type="text"
+                                    value={targetListId}
+                                    onChange={(e) => setTargetListId(e.target.value)}
+                                    placeholder="Paste List ID here..."
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500 font-mono"
+                                />
+                            </div>
+                            <button
+                                onClick={handleRecalculateList}
+                                disabled={processingMaintenance || !targetListId}
+                                className="px-6 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
+                            >
+                                {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                Recalcular Lista
+                            </button>
+                        </div>
+                        <div className="flex gap-4 items-end max-w-2xl mt-4 border-t border-white/5 pt-4">
+                            <div className="flex-1">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Place ID</label>
+                                <input
+                                    type="text"
+                                    value={targetPlaceId || ''}
+                                    onChange={(e) => setTargetPlaceId(e.target.value)}
+                                    placeholder="Paste Place ID here..."
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500 font-mono"
+                                />
+                            </div>
+                            <button
+                                onClick={handleRecalculatePlace}
+                                disabled={processingMaintenance || !targetPlaceId}
+                                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
+                            >
+                                {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                Recalcular Lugar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs h-96 overflow-y-auto">
+                        <div className="text-gray-500 mb-2 border-b border-white/5 pb-2">Logs de mantenimiento...</div>
+                        {maintenanceLog.map((log, i) => (
+                            <div key={i} className="text-gray-300 py-1">{log}</div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -127,7 +127,7 @@ export const ListPage: React.FC = () => {
         fetchParentName();
     }, [list?.parentListId]);
 
-    // --- Aggregation Logic (Legacy "Ranked List" View) ---
+    // --- Aggregation Logic (Legacy "Ranked List" View & Map Data) ---
     const groupedItems = useMemo(() => {
         if (!reviews.length) return [];
 
@@ -147,15 +147,29 @@ export const ListPage: React.FC = () => {
             latestReviewAt: number; // Timestamp for sorting
             userHasReviewed: boolean;
             items: { name: string; score: number }[];
-            photoMaxLikes: number; // Track max likes to pick best photo
+            photoMaxLikes: number;
+            maxScore: number; // Track max score for the pin
         }> = {};
 
         reviews.forEach(review => {
             let key = review.placeId || review.itemName.trim().toLowerCase();
 
-            // Grouping Logic
+            // Grouping Logic for "List Display" (Map needs Place Grouping always, we'll handle Map prep separately or force it)
+            // Ideally, we compute "PlaceGroups" separately or derived. 
+            // For now, let's keep this logic but ensure we capture "items" array correctly for popup.
+            // Wait, if groupingMode is 'dish', we split rows. But Map needs Places. 
+            // So we really need TWO memos: one for List/Grid view (follows groupingMode), one for Map (always by Place).
+
+            // Let's refactor: Calculate "PlaceGroups" (always by PlaceId) for Map & "Place Mode".
+            // Then calculate "DishGroups" if needed.
+
+            // Actually, keep this big memo for "View Data", and we'll add a new memo for "Map Data".
+            // BUT the legacy request implies the List View itself might want this data? 
+            // The request says: "En listview, en las etiqeutas querría que apàreciera el nombre del lugar... y que la nota de la chincheta fuera la del plato con más nota."
+            // This refers to the MAP POPUP (etiqeutas matches popup description).
+            // So I should create a dedicated "mapItems" memo that groups by Place.
+
             if (groupingMode === 'dish') {
-                // Unique key per dish per place
                 key = review.placeId
                     ? `${review.placeId}_${review.itemName.trim().toLowerCase()}`
                     : review.itemName.trim().toLowerCase();
@@ -175,8 +189,9 @@ export const ListPage: React.FC = () => {
                     criteriaSums: {},
                     latestReviewAt: 0,
                     userHasReviewed: false,
-                    items: [], // Store individual items for Map View
-                    photoMaxLikes: -1
+                    items: [],
+                    photoMaxLikes: -1,
+                    maxScore: 0
                 };
             }
 
@@ -184,44 +199,38 @@ export const ListPage: React.FC = () => {
             g.totalRating += review.overallRating;
             g.count += 1;
 
-            // Check if current user has reviewed this item
+            if (review.overallRating > g.maxScore) {
+                g.maxScore = review.overallRating;
+            }
+
             if (user && (review.userId === user.uid || review.authorId === user.uid)) {
                 g.userHasReviewed = true;
             }
 
-            // Add item details for Map Popup
             g.items.push({
                 name: review.itemName,
                 score: review.overallRating
             });
 
-            // Capture latest timestamp for "Newest" sort
             const createdAt = review.createdAt as any;
             let reviewTime = 0;
-
             if (createdAt?.toMillis) {
                 reviewTime = createdAt.toMillis();
             } else if (createdAt instanceof Date) {
                 reviewTime = createdAt.getTime();
             } else if (createdAt) {
-                // Fallback for string or timestamp-like objects
                 reviewTime = new Date(createdAt).getTime();
             }
-
             if (reviewTime > g.latestReviewAt) {
                 g.latestReviewAt = reviewTime;
             }
 
-            // Photo Selection Logic: Most Liked Review
             const currentLikes = review.reactionCounts?.like || 0;
-            // Only update if this review HAS a photo and (either no photo set yet OR has more likes)
             if (review.photoUrl || review.placeMainImage) {
                 if (currentLikes > g.photoMaxLikes) {
                     g.photoMaxLikes = currentLikes;
                     g.photoUrl = review.photoUrl || review.placeMainImage;
                 }
-            } else if (!g.photoUrl) {
-                // Fallback if no photo found yet at all, try to keep finding one
             }
 
             if (review.scores) {
@@ -230,22 +239,18 @@ export const ListPage: React.FC = () => {
                 });
             }
 
-            // Capture coordinates if available (prioritize those with data)
             if ((!g.lat || !g.lng) && review.lat && review.lng) {
                 g.lat = review.lat;
                 g.lng = review.lng;
             }
         });
 
-        // Convert to Array and Average
         return Object.values(groups).map(g => {
             const criteriaAverages: Record<string, number> = {};
             const allowedCriteria = list?.criteriaDefinition ? Object.keys(list.criteriaDefinition) : null;
 
             Object.keys(g.criteriaSums).forEach(k => {
-                // Filter out criteria that are NOT in the current list definition (e.g. from sublists)
                 if (allowedCriteria && !allowedCriteria.includes(k)) return;
-
                 criteriaAverages[k] = g.criteriaSums[k] / g.count;
             });
 
@@ -260,19 +265,67 @@ export const ListPage: React.FC = () => {
         }).sort((a, b) => {
             if (sortMode === 'rating') {
                 if (b.avgRating !== a.avgRating) return b.avgRating - a.avgRating;
-                return b.reviewCount - a.reviewCount; // Tie-breaker: popularity
+                return b.reviewCount - a.reviewCount;
             }
             if (sortMode === 'newest' || sortMode === 'oldest') {
                 const diff = b.latestReviewAt - a.latestReviewAt;
                 return sortMode === 'newest' ? diff : -diff;
             }
-            // if (sortMode === 'count') return b.reviewCount - a.reviewCount;
-
-            // Default
             return b.avgRating - a.avgRating;
         });
 
     }, [reviews, list, sortMode, groupingMode]);
+
+    // Map Specific Data - Always grouped by Place, always has Items list
+    const mapItems = useMemo(() => {
+        if (!reviews.length) return [];
+        const placeGroups: Record<string, any> = {};
+
+        reviews.forEach(review => {
+            if (!review.placeId) return; // Skip items without placeId for map
+
+            if (!placeGroups[review.placeId]) {
+                placeGroups[review.placeId] = {
+                    id: review.placeId,
+                    placeId: review.placeId,
+                    name: review.placeName || review.itemName,
+                    lat: review.lat,
+                    lng: review.lng,
+                    photoUrl: review.placeMainImage || review.photoUrl,
+                    maxScore: 0,
+                    items: [],
+                    reviewsCount: 0
+                };
+            }
+
+            const g = placeGroups[review.placeId];
+            // Accumulate Items
+            g.items.push({ name: review.itemName, score: review.overallRating });
+            g.reviewsCount++;
+
+            if (review.overallRating > g.maxScore) {
+                g.maxScore = review.overallRating;
+            }
+
+            // Ensure coords
+            if ((!g.lat || !g.lng) && review.lat && review.lng) {
+                g.lat = review.lat;
+                g.lng = review.lng;
+            }
+
+            // Ensure photo (naive)
+            if (!g.photoUrl && (review.placeMainImage || review.photoUrl)) {
+                g.photoUrl = review.placeMainImage || review.photoUrl;
+            }
+        });
+
+        // Format for MapView
+        return Object.values(placeGroups).map(g => ({
+            ...g,
+            rating: g.maxScore, // Override rating for Pin Color with Max Score
+            items: g.items.sort((a: any, b: any) => b.score - a.score) // Sort items descending
+        }));
+    }, [reviews]);
 
     // --- Filtering Logic ---
     const filteredItemsAll = useMemo(() => {
@@ -323,6 +376,41 @@ export const ListPage: React.FC = () => {
 
         return result;
     }, [groupedItems, searchQuery, filters, range, location]);
+
+    const filteredMapItems = useMemo(() => {
+        // Filter mapItems based on the SAME criteria as the list (or at least search/range)
+        // Since mapItems are aggregated differently, we might need to filter differently.
+        // Simplest approach: If mapItem's placeID is present in ANY of the filteredItemsAll, keep it?
+        // Or re-apply filters (Search, Range, Rating).
+
+        let result = mapItems;
+
+        if (filters.minRating > 0) {
+            // Check if maxScore meets it? Or average? Assuming Max Score for now as it's the pin rating.
+            result = result.filter(item => item.maxScore >= filters.minRating);
+        }
+
+        if (filters.hasPhoto) {
+            result = result.filter(item => !!item.photoUrl);
+        }
+
+        if (searchQuery) {
+            const lowerQ = searchQuery.toLowerCase();
+            result = result.filter(item =>
+                item.name.toLowerCase().includes(lowerQ)
+            ); // Map items are places, so searching by name is usually enough. Items names are also in the 'items' array if we wanted deep search.
+        }
+
+        if (range !== null && location) {
+            result = result.filter(item => {
+                if (!item.lat || !item.lng) return false;
+                const dist = calculateDistance(item.lat, item.lng);
+                return dist !== null && dist <= range;
+            });
+        }
+
+        return result;
+    }, [mapItems, searchQuery, filters, range, location]);
 
     // Pagination
     const PAGE_SIZE = 24;
@@ -602,7 +690,7 @@ export const ListPage: React.FC = () => {
 
                     <div className={`transition-all duration-500 ease-in-out ${isMapOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
                         <div className="h-[400px] w-full relative z-0">
-                            {isMapOpen && <MapView items={filteredItems} mode="list" range={range} />}
+                            {isMapOpen && <MapView items={filteredMapItems} mode="list" range={range} />}
                         </div>
                     </div>
                 </div>

@@ -10,7 +10,7 @@ import { MapView } from '../components/MapView';
 import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
-import { collection, query, getDocs } from 'firebase/firestore';
+import { collection, query, getDocs, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 
 /* 
@@ -151,16 +151,58 @@ export const HomePage: React.FC = () => {
             .slice(0, 15); // Top 15
     }, [reviewsInRange]);
 
-    // 5. Derived Places (Unique from Reviews -> Filtered)
+
+
+    // --- MAP DATA ENRICHMENT ---
+    // Fetch actual places from 'places' collection to populate Map beyond just Feed items
+    const [extraPlaces, setExtraPlaces] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchExtraPlaces = async () => {
+            try {
+                // Fetch top rated and recent places to ensure map is populated
+                // Note: Real geo-querying would be better, but for now we fetch a healthy batch
+                const q = query(collection(db, 'places'), limit(100)); // Simple fetch
+                const snap = await getDocs(q);
+
+                const mapped = snap.docs.map(d => {
+                    const data = d.data();
+                    const lat = data.location?.latitude || data.coordinates?.latitude || data.lat;
+                    const lng = data.location?.longitude || data.coordinates?.longitude || data.lng;
+                    return {
+                        id: d.id,
+                        placeId: d.id,
+                        name: data.name,
+                        address: data.address || data.formatted_address,
+                        photoUrl: data.mainImageUrl || data.photoUrl,
+                        rating: data.averageRating || data.googleRating || 0,
+                        reviewsCount: data.reviewsCount || 0,
+                        lat, lng,
+                        items: [] // No specific items for these unless we fetch subcollections
+                    };
+                }).filter(p => p.lat && p.lng && p.reviewsCount > 0); // Only places with location AND reviews
+
+                setExtraPlaces(mapped);
+            } catch (e) {
+                console.error("Error fetching map places:", e);
+            }
+        };
+
+        if (activeTab === 'explore') {
+            fetchExtraPlaces();
+        }
+    }, [activeTab]);
+
+    // 5. Derived Places (Unique from Reviews -> Filtered) + Extra Places
     const filteredPlaces = useMemo(() => {
         const uniquePlaces = new Map();
+
+        // 1. Add places from Reviews (High priority - have rich item data)
         reviewsInRange.forEach(r => {
             if (r.placeId) {
-                // Coordinates logic handled in reviewsInRange, just need to dedupe
                 if (uniquePlaces.has(r.placeId)) {
                     const existing = uniquePlaces.get(r.placeId);
                     existing.reviewsCount = (existing.reviewsCount || 0) + 1;
-                    // Prioritize having a photo
                     if (!existing.photoUrl && (r.placeMainImage || r.photoUrl)) {
                         existing.photoUrl = r.placeMainImage || r.photoUrl;
                     }
@@ -170,18 +212,31 @@ export const HomePage: React.FC = () => {
                     const lng = (r as any).placeLng;
                     uniquePlaces.set(r.placeId, {
                         id: r.placeId,
+                        placeId: r.placeId,
                         name: r.placeName || r.itemName,
                         address: r.placeAddress,
                         photoUrl: r.placeMainImage || r.photoUrl,
                         rating: r.placeAverageRating || r.overallRating,
                         reviewsCount: 1,
-                        lat, lng
+                        lat, lng,
+                        items: [] // Can populate if needed
                     });
                 }
             }
         });
+
+        // 2. Add Extra Places (if not already present)
+        extraPlaces.forEach(p => {
+            if (!uniquePlaces.has(p.id)) {
+                // Check distance filter for these too!
+                if (checkDistance(p.lat, p.lng)) {
+                    uniquePlaces.set(p.id, p);
+                }
+            }
+        });
+
         return Array.from(uniquePlaces.values()).sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    }, [reviewsInRange]);
+    }, [reviewsInRange, extraPlaces, range, location, activeFilter]);
 
     // 6. Derived Users (Synthesized from content IN RANGE)
     const activeUsersInRange = useMemo(() => {

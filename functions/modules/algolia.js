@@ -259,6 +259,28 @@ function hasGroupedListMetadataChanged(beforeData, afterData) {
     return false;
 }
 
+function transformPlaceRecord(data, docId) {
+    if (!data) return null;
+    const record = {
+        objectID: docId,
+        entityType: "place",
+        name: data.name || "",
+        address: data.address || data.formatted_address || "",
+        city: data.city || "",
+        province: data.province || "",
+        country: data.country || "",
+        types: Array.isArray(data.types) ? data.types : [],
+        averageRating: typeof data.averageRating === "number" ? data.averageRating : 0,
+        reviewsCount: typeof data.reviewsCount === "number" ? data.reviewsCount : 0,
+        priceLevel: typeof data.priceLevel === "number" ? data.priceLevel : null,
+        mainImageUrl: data.mainImageUrl || null,
+        _geoloc: data.location && isNumber(data.location.latitude) && isNumber(data.location.longitude)
+            ? { lat: data.location.latitude, lng: data.location.longitude }
+            : undefined
+    };
+    return compactRecord(record);
+}
+
 function transformListRecord(data, docId) {
     if (!data || data.isPublic === false) {
         return null;
