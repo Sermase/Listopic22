@@ -3948,6 +3948,88 @@ const adminRecalculatePlaceStats = onCall(async (request) => {
   }
 });
 
+// --- Bulk Operations ---
+const adminRecalculateAllLists = onCall({ timeoutSeconds: 540, memory: '1GB' }, async (request) => {
+  const contextAuth = request.auth;
+  if (!contextAuth) throw new HttpsError('unauthenticated', 'Auth required.');
+
+  try {
+    const userProfile = await db.collection('users').doc(contextAuth.uid).get();
+    if (!userProfile.exists || !userProfile.data().userType?.includes('jefe')) {
+      throw new HttpsError('permission-denied', 'Admin only.');
+    }
+  } catch (e) {
+    throw new HttpsError('permission-denied', e.message);
+  }
+
+  const listsSnap = await db.collection('lists').get();
+  const results = { total: listsSnap.size, success: 0, failed: 0, errors: [] };
+
+  for (const doc of listsSnap.docs) {
+    try {
+      const listId = doc.id;
+      const reviewsSnap = await db.collection('lists').doc(listId).collection('reviews').get();
+      const reviews = reviewsSnap.docs.map(r => r.data());
+
+      let totalScore = 0;
+      let count = 0;
+      reviews.forEach(r => {
+        if (typeof r.overallRating === 'number') {
+          totalScore += r.overallRating;
+          count++;
+        }
+      });
+      const avgScore = count > 0 ? parseFloat((totalScore / count).toFixed(1)) : 0;
+
+      const uniqueItems = new Set();
+      reviews.forEach(r => {
+        const key = r.placeId ? `${r.placeId}_${r.itemName || ''}` : r.id;
+        uniqueItems.add(key);
+      });
+
+      await db.collection('lists').doc(listId).update({
+        avgScore,
+        reviewCount: count,
+        itemCount: uniqueItems.size
+      });
+
+      results.success++;
+    } catch (error) {
+      results.failed++;
+      results.errors.push({ id: doc.id, error: error.message });
+    }
+  }
+
+  return results;
+});
+
+const adminRecalculateAllPlaces = onCall({ timeoutSeconds: 540, memory: '1GB' }, async (request) => {
+  const contextAuth = request.auth;
+  if (!contextAuth) throw new HttpsError('unauthenticated', 'Auth required.');
+  try {
+    const userProfile = await db.collection('users').doc(contextAuth.uid).get();
+    if (!userProfile.exists || !userProfile.data().userType?.includes('jefe')) {
+      throw new HttpsError('permission-denied', 'Admin only.');
+    }
+  } catch (e) {
+    throw new HttpsError('permission-denied', e.message);
+  }
+
+  const placesSnap = await db.collection('places').get();
+  const results = { total: placesSnap.size, success: 0, failed: 0, errors: [] };
+
+  for (const doc of placesSnap.docs) {
+    try {
+      await recalculateAggregatesForPlace(doc.id);
+      results.success++;
+    } catch (e) {
+      results.failed++;
+      results.errors.push({ id: doc.id, error: e.message });
+    }
+  }
+  return results;
+});
+
 module.exports = {
   groupedReviews,
   placesNearbyRestaurants,
@@ -3978,6 +4060,8 @@ module.exports = {
   adminUpdateSingleListAggregates,
   adminRecalculateListAverages,
   adminRecalculatePlaceStats,
+  adminRecalculateAllLists,
+  adminRecalculateAllPlaces,
   refreshPlaceMainImage,
   refreshStalePlacePhotos,
   updateAggregatesOnForumMessageChange,

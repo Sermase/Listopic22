@@ -13,6 +13,20 @@ export const ListView: React.FC = () => {
     const [maxDistance, setMaxDistance] = useState<number>(50); // km
     const [enableLocationFilter, setEnableLocationFilter] = useState(false);
 
+    const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+    // Derived state: Unique Tags from available lists
+    const uniqueTags = useMemo(() => {
+        if (!lists) return [];
+        const tags = new Set<string>();
+        lists.forEach(list => {
+            list.availableTags?.forEach((tag: string) => {
+                if (tag) tags.add(tag);
+            });
+        });
+        return Array.from(tags).sort();
+    }, [lists]);
+
     // Derived state: Filter lists
     const filteredLists = useMemo(() => {
         if (!lists) return [];
@@ -21,6 +35,11 @@ export const ListView: React.FC = () => {
             // Text Search
             const matchesSearch = list.name.toLowerCase().includes(searchTerm.toLowerCase());
             if (!matchesSearch) return false;
+
+            // Tag Filter
+            if (selectedTag && (!list.availableTags || !list.availableTags.includes(selectedTag))) {
+                return false;
+            }
 
             // Location Filter
             if (enableLocationFilter && location) {
@@ -33,7 +52,7 @@ export const ListView: React.FC = () => {
 
             return true;
         });
-    }, [lists, searchTerm, enableLocationFilter, maxDistance, location]);
+    }, [lists, searchTerm, enableLocationFilter, maxDistance, location, selectedTag]);
 
     return (
         <div className="min-h-screen pt-20 pb-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -65,6 +84,29 @@ export const ListView: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Tags Scrollbar */}
+            {!loading && uniqueTags.length > 0 && (
+                <div className="mb-6 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    <button
+                        onClick={() => setSelectedTag(null)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                            ${!selectedTag ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-[#151b2e] border-white/10 text-gray-400 hover:border-white/20'}`}
+                    >
+                        Todos
+                    </button>
+                    {uniqueTags.map(tag => (
+                        <button
+                            key={tag}
+                            onClick={() => setSelectedTag(tag === selectedTag ? null : tag)} // Toggle
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                ${selectedTag === tag ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-[#151b2e] border-white/10 text-gray-400 hover:border-white/20'}`}
+                        >
+                            #{tag}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {/* Range Slider (donditional) */}
             {enableLocationFilter && (

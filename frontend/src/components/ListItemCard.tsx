@@ -92,7 +92,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                     </div>
 
                     {/* Mobile View (Thumbnail Left) - Visible Only on Mobile */}
-                    <div className="md:hidden w-28 sm:w-32 shrink-0 relative bg-gray-800">
+                    <div className="md:hidden w-28 h-28 shrink-0 relative bg-gray-800">
                         {item.photoUrl ? (
                             <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
                         ) : (
@@ -224,7 +224,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                     )}
 
                     {/* Image Section */}
-                    <div className="relative shrink-0 bg-gray-800 w-24 sm:w-32">
+                    <div className="relative shrink-0 bg-gray-800 w-24 h-24 sm:w-32 sm:h-32">
                         {item.photoUrl ? (
                             <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
                         ) : (

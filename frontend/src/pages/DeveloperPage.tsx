@@ -4,7 +4,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Database, CloudLightning, Tag, Search, AlertCircle, CheckCircle, RefreshCw, List as ListIcon } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle } from 'lucide-react';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -184,6 +184,29 @@ export const DeveloperPage: React.FC = () => {
         } catch (error: any) {
             console.error('Error recalculating place:', error);
             setMaintenanceLog(prev => [`❌ Error: ${error.message}`, ...prev]);
+        } finally {
+            setProcessingMaintenance(false);
+        }
+    };
+
+    const handleGlobalRecalculate = async (type: 'lists' | 'places') => {
+        setProcessingMaintenance(true);
+        setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando recálculo GLOBAL para: ${type.toUpperCase()}...`, ...prev]);
+
+        try {
+            const functions = getFunctions(undefined, FUNCTIONS_REGION);
+            // Decide function based on type
+            const fnName = type === 'lists' ? 'adminRecalculateAllLists' : 'adminRecalculateAllPlaces';
+            const bulkFn = httpsCallable(functions, fnName);
+
+            setMaintenanceLog(prev => [`... Llamando ${fnName} ...`, ...prev]);
+            const res: any = await bulkFn();
+            setMaintenanceLog(prev => [`✅ Resultado Global: ${JSON.stringify(res.data)}`, ...prev]);
+            setMaintenanceLog(prev => [`✨ MANTENIMIENTO GLOBAL COMPLETADO para ${type}`, ...prev]);
+
+        } catch (error: any) {
+            console.error(`Error filtering ${type}:`, error);
+            setMaintenanceLog(prev => [`❌ Error Global: ${error.message}`, ...prev]);
         } finally {
             setProcessingMaintenance(false);
         }
@@ -443,6 +466,34 @@ export const DeveloperPage: React.FC = () => {
                             <ListIcon className="w-5 h-5 text-purple-400" /> Mantenimiento de Listas
                         </h3>
                         <p className="text-gray-400 mb-6">Herramientas para recalcular contadores y estadísticas de listas desincronizadas.</p>
+
+                        {/* Global Maintenance */}
+                        <div className="mb-8 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+                            <h4 className="text-sm font-bold text-indigo-300 uppercase mb-3 flex items-center gap-2">
+                                <Database className="w-4 h-4" /> Mantenimiento Global
+                            </h4>
+                            <div className="flex gap-4 flex-wrap">
+                                <button
+                                    onClick={() => handleGlobalRecalculate('lists')}
+                                    disabled={processingMaintenance}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                >
+                                    {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
+                                    Recalcular TODAS las Listas
+                                </button>
+                                <button
+                                    onClick={() => handleGlobalRecalculate('places')}
+                                    disabled={processingMaintenance}
+                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                >
+                                    {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                                    Recalcular TODOS los Lugares
+                                </button>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                                ⚠️ Estas operaciones pueden tardar varios minutos. No cierres la pestaña.
+                            </p>
+                        </div>
 
                         <div className="flex gap-4 items-end max-w-2xl">
                             <div className="flex-1">
