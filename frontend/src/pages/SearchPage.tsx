@@ -5,7 +5,8 @@ import {
     Configure,
     useSearchBox,
     useInfiniteHits,
-    useRefinementList
+    useRefinementList,
+    Index
 } from 'react-instantsearch';
 import { Search, Map as MapIcon, Users, List as ListIcon, MessageCircle, Filter, X } from 'lucide-react';
 

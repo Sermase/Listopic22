@@ -562,7 +562,7 @@ export const GroupPage: React.FC = () => {
                     name: decodedName,
                     subtitle: placeName,
                     route: `/group/${placeId}/${encodeURIComponent(decodedName)}`,
-                    photoUrl: stats?.mainPhoto,
+                    photoUrl: stats?.mainPhoto || undefined,
                     placeId: placeId
                 }}
             />
