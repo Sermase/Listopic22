@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
-import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon } from 'lucide-react';
+import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug } from 'lucide-react';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
@@ -420,6 +420,15 @@ export const ProfilePage: React.FC = () => {
                     <div className="absolute top-4 right-4 sm:top-8 sm:right-6 flex gap-3 z-20">
                         {isOwnProfile ? (
                             <div className="flex items-center gap-2">
+                                {((Array.isArray(profile.userType) && profile.userType.includes('jefe')) || profile.userType === 'jefe') && (
+                                    <Link
+                                        to="/developer"
+                                        className="p-2.5 rounded-xl bg-[#151b2e]/80 backdrop-blur-md border border-white/10 text-gray-300 hover:text-yellow-400 hover:bg-yellow-500/10 transition-colors"
+                                        title="Modo Desarrollador"
+                                    >
+                                        <Bug className="w-5 h-5" />
+                                    </Link>
+                                )}
                                 <button
                                     onClick={() => setIsEditing(!isEditing)}
                                     className="p-2.5 rounded-xl bg-[#151b2e]/80 backdrop-blur-md border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"

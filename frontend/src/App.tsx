@@ -22,6 +22,7 @@ import { UsersPage } from './pages/UsersPage';
 import { PlacePage } from './pages/PlacePage';
 import { GroupPage } from './pages/GroupPage';
 import { ArchivePage } from './pages/ArchivePage';
+import { DeveloperPage } from './pages/DeveloperPage';
 
 import { useLocation } from './hooks/useLocation';
 
@@ -58,6 +59,7 @@ function App() {
               <Route path="/place/:placeId" element={<PlacePage />} />
               <Route path="/group/:placeId/:itemName" element={<GroupPage />} />
               <Route path="/debug" element={<DebugView />} />
+              <Route path="/developer" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />
               <Route path="/login" element={<LoginPage />} />
 
               {/* Protected Profile Pages */}

@@ -9,7 +9,7 @@ export interface UserProfileEntity {
     email: string;
     bio?: string;
     photoUrl?: string;
-    userType: string;
+    userType: string | string[];
     followersCount: number;
     followingCount: number;
     reviewsCount?: number;
