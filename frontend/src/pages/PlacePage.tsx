@@ -439,7 +439,7 @@ export const PlacePage: React.FC = () => {
                     </div>
 
                     {activeTab === 'reviews' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                        <div className="grid grid-cols-1 gap-6 animate-fade-in">
                             {place.reviews.map(review => (
                                 <ReviewCard key={review.id} review={review} />
                             ))}

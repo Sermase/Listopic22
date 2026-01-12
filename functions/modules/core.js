@@ -1619,8 +1619,33 @@ async function recalculateListReviewMetrics(listId) {
     return null;
   }
 
+  // Use the aggregator to get grouped items and tags
+  // This ensures consistency between "Group Page" logic and "List Stats"
+  let groupedResult = null;
+  try {
+    groupedResult = await buildGroupedItemsForList(listId);
+  } catch (e) {
+    logger.error(`Error building grouped items for list ${listId}`, e);
+  }
+
+  // Calculate Aggregates from Groups (Preferred) or fall back to raw reviews
+  let availableTags = new Set();
+  let itemCount = 0;
+
+  if (groupedResult && groupedResult.groupedReviews) {
+    groupedResult.groupedReviews.forEach(group => {
+      if (Array.isArray(group.groupTags)) {
+        group.groupTags.forEach(tag => availableTags.add(tag));
+      }
+    });
+    itemCount = groupedResult.groupedReviews.length;
+  }
+
   const listRef = db.collection('lists').doc(listId);
   const reviewsSnap = await listRef.collection('reviews').get();
+
+  // existing logic for averages (keep it for historical consistency or replace with groupedResult averages?)
+  // For now, keep existing logic for scores to be safe, but use groupedResult for Tags and ItemCount
   const criteriaTotals = {};
   const criteriaCounts = {};
   let totalOverall = 0;
@@ -1660,16 +1685,19 @@ async function recalculateListReviewMetrics(listId) {
     averageRating,
     criteriaAverages,
     criteriaAveragesUpdatedAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp()
+    updatedAt: FieldValue.serverTimestamp(),
+    availableTags: Array.from(availableTags).sort(), // Save Tags!
+    itemCount: itemCount > 0 ? itemCount : undefined // Update item count from groups if available
   };
 
   await listRef.update(updateData);
-  logger.info(`recalculateListReviewMetrics: ${listId} => r:${updateData.reviewCount} avg:${averageRating}`);
+  logger.info(`recalculateListReviewMetrics: ${listId} => r:${updateData.reviewCount} avg:${averageRating} tags:${updateData.availableTags?.length}`);
 
   return {
     reviewCount: reviewsSnap.size,
     averageRating,
     criteriaAverages,
+    availableTags: updateData.availableTags
   };
 }
 

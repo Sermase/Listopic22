@@ -94,15 +94,23 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
                     {review.itemName}
                 </h3>
 
-                <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                <div className="flex items-center gap-1 text-[10px] text-gray-400 mb-1">
                     <MapPin className="w-3 h-3 flex-shrink-0" />
                     <span className="truncate">
                         {review.placeName}
                     </span>
                 </div>
 
-                {/* Likes/Social indicator (Optional, requested "lo que sale en la foto" - usually location is key, maybe likes count?) */}
-                {/* If the photo showed extra details, we can add them. For now Location + Title is standard. */}
+                {/* Tags (New) */}
+                {review.tags && review.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                        {review.tags.slice(0, 2).map((tag, idx) => (
+                            <span key={idx} className="px-1.5 py-0.5 text-[9px] rounded-full bg-white/10 border border-white/10 text-gray-300">
+                                {tag}
+                            </span>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Full Card Link */}

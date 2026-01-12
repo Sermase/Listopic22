@@ -136,7 +136,8 @@ async function buildGroupedItemsForList(listId) {
                 placeProvince: placeInfo && typeof placeInfo.province === 'string' ? placeInfo.province : (placeInfo && typeof placeInfo.region === 'string' ? placeInfo.region : null),
                 placeCountry: placeInfo && typeof placeInfo.country === 'string' ? placeInfo.country : null,
                 placeAddress: placeInfo && (placeInfo.address || placeInfo.formatted_address) ? (placeInfo.address || placeInfo.formatted_address) : null,
-                geoloc
+                geoloc,
+                thumbnailMaxLikes: -1 // Track max likes for thumbnail selection
             };
             groups.set(key, group);
         }
@@ -145,8 +146,14 @@ async function buildGroupedItemsForList(listId) {
         if (typeof review.overallRating === 'number') {
             group.totalGeneralScore += review.overallRating;
         }
-        if (review.photoUrl && !group.thumbnailUrl) {
-            group.thumbnailUrl = review.photoUrl;
+
+        // Thumbnail Logic: Pick image with most likes
+        if (review.photoUrl) {
+            const currentRecLikes = (review.reactionCounts && review.reactionCounts.like) || review.likes || 0;
+            if (!group.thumbnailUrl || currentRecLikes > group.thumbnailMaxLikes) {
+                group.thumbnailUrl = review.photoUrl;
+                group.thumbnailMaxLikes = currentRecLikes;
+            }
         }
         if (Array.isArray(review.userTags)) {
             group.allTags.push(...review.userTags.filter(tag => typeof tag === 'string'));

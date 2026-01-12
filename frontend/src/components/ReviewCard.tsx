@@ -175,21 +175,21 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             </div>
                         </Link>
 
-                        <div className="flex flex-col leading-tight z-10">
+                        <div className="flex flex-col leading-tight z-10 max-w-[120px] sm:max-w-none">
                             <div className="flex items-baseline gap-1.5 flex-wrap">
                                 <Link
                                     to={review.userId ? `/profile/${review.userId}` : '#'}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="font-bold text-sm text-gray-100 hover:underline cursor-pointer"
+                                    className="font-bold text-sm text-gray-100 hover:underline cursor-pointer truncate"
                                 >
                                     {review.authorName || 'Anónimo'}
                                 </Link>
                                 {review.listName && (
-                                    <span className="text-sm text-gray-400 flex items-center gap-1">
+                                    <span className="text-sm text-gray-400 flex items-center gap-1 truncate max-w-full">
                                         en <Link
                                             to={review.listId ? `/list/${review.listId}` : '#'}
                                             onClick={(e) => e.stopPropagation()}
-                                            className="font-semibold text-gray-200 hover:text-indigo-400 transition-colors"
+                                            className="font-semibold text-gray-200 hover:text-indigo-400 transition-colors truncate"
                                         >
                                             {review.listName}
                                         </Link>
@@ -202,74 +202,102 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         </div>
                     </div>
 
-                    <div className="relative z-20" ref={menuRef}>
-                        <button
-                            className="text-gray-500 hover:text-white transition-colors p-1"
-                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
-                        >
-                            <MoreHorizontal className="w-5 h-5" />
-                        </button>
-
-                        {isMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right">
-                                <button
-                                    onClick={handleSaveClick}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                >
-                                    <Bookmark className="w-4 h-4" /> Guardar
-                                </button>
-                                <button
-                                    onClick={handleShareClick}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                >
-                                    <Share2 className="w-4 h-4" /> Compartir
-                                </button>
-
-                                {isOwner && (
-                                    <>
-                                        <div className="h-px bg-white/10 my-1"></div>
-                                        <button
-                                            onClick={handleEdit}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                        >
-                                            <Edit className="w-4 h-4" /> Editar reseña
-                                        </button>
-                                        <button
-                                            onClick={handleDelete}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 flex items-center gap-2 transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" /> Eliminar
-                                        </button>
-                                    </>
+                    <div className="flex items-center gap-2">
+                        {/* NO PHOTO MODE: Inject Bubbles Here */}
+                        {!review.photoUrl && (
+                            <div className="flex items-center gap-2 mr-2">
+                                {/* City Bubble (Header) */}
+                                {(review as any).placeCity && (
+                                    <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-gray-300">
+                                        <MapPin className="w-3 h-3" />
+                                        <span className="uppercase tracking-wide">{(review as any).placeCity}</span>
+                                    </div>
                                 )}
+                                {/* Score Bubble (Header) */}
+                                <div className={`flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br ${bubbleColor} shadow-lg border border-white/10`}>
+                                    <span className="text-white font-bold text-sm">
+                                        {review.overallRating?.toFixed(1) || '-'}
+                                    </span>
+                                </div>
                             </div>
                         )}
+
+                        <div className="relative z-20" ref={menuRef}>
+                            <button
+                                className="text-gray-500 hover:text-white transition-colors p-1"
+                                onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                            >
+                                <MoreHorizontal className="w-5 h-5" />
+                            </button>
+
+                            {isMenuOpen && (
+                                <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right z-50">
+                                    <button
+                                        onClick={handleSaveClick}
+                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                    >
+                                        <Bookmark className="w-4 h-4" /> Guardar
+                                    </button>
+                                    <button
+                                        onClick={handleShareClick}
+                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                    >
+                                        <Share2 className="w-4 h-4" /> Compartir
+                                    </button>
+
+                                    {isOwner && (
+                                        <>
+                                            <div className="h-px bg-white/10 my-1"></div>
+                                            <button
+                                                onClick={handleEdit}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                            >
+                                                <Edit className="w-4 h-4" /> Editar reseña
+                                            </button>
+                                            <button
+                                                onClick={handleDelete}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 flex items-center gap-2 transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" /> Eliminar
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* 2. Main Visual: Large Image with Overlay Bubble */}
-                <div className="relative aspect-[4/3] w-full bg-gray-900 overflow-hidden">
-                    {review.photoUrl ? (
+                {/* 2. Main Visual: Large Image with Overlay Bubble (ONLY IF PHOTO EXISTS) */}
+                {review.photoUrl && (
+                    <div className="relative aspect-[4/3] w-full bg-gray-900 overflow-hidden">
                         <img src={review.photoUrl} alt={review.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                    ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
-                            <MapPin className="w-12 h-12 mb-2 opacity-20" />
-                            <span className="text-sm opacity-50">Sin foto</span>
-                        </div>
-                    )}
 
-                    {/* The "Living" Bubble - Top Right Overlay */}
-                    <div className={`absolute top-4 right-4 w-16 h-16 flex items-center justify-center z-10 animate-blob transition-all duration-500 group-hover:scale-110`}>
-                        {/* Inner Gradient Blob */}
-                        <div className={`absolute inset-0 bg-gradient-to-br ${bubbleColor} opacity-90 blur-sm rounded-full`} />
-                        {/* Core Bubble */}
-                        <div className={`relative w-full h-full bg-gradient-to-br ${bubbleColor} flex items-center justify-center shadow-lg border-2 border-white/10 backdrop-blur-sm`} style={{ borderRadius: 'inherit' }}>
-                            <span className="text-white font-display font-bold text-2xl drop-shadow-md">
-                                {review.overallRating?.toFixed(1) || '-'}
-                            </span>
+                        {/* Overlay Bubbles Container */}
+                        <div className="absolute top-4 right-4 flex items-center gap-3 z-10">
+
+                            {/* City Bubble (Overlay) */}
+                            {(review as any).placeCity && (
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md shadow-lg transform transition-transform group-hover:scale-105">
+                                    <MapPin className="w-3.5 h-3.5 text-white/90" />
+                                    <span className="text-white font-bold text-xs uppercase tracking-wide">{(review as any).placeCity}</span>
+                                </div>
+                            )}
+
+                            {/* The "Living" Score Bubble */}
+                            <div className={`relative w-16 h-16 flex items-center justify-center animate-blob transition-all duration-500 group-hover:scale-110`}>
+                                {/* Inner Gradient Blob */}
+                                <div className={`absolute inset-0 bg-gradient-to-br ${bubbleColor} opacity-90 blur-sm rounded-full`} />
+                                {/* Core Bubble */}
+                                <div className={`relative w-full h-full bg-gradient-to-br ${bubbleColor} flex items-center justify-center shadow-lg border-2 border-white/10 backdrop-blur-sm rounded-full`}>
+                                    <span className="text-white font-display font-bold text-2xl drop-shadow-md">
+                                        {review.overallRating?.toFixed(1) || '-'}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* 3. Content Body */}
                 <div className="p-4 pt-3 space-y-3 flex-1">
