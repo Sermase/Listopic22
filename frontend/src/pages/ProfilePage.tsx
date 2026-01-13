@@ -510,52 +510,51 @@ export const ProfilePage: React.FC = () => {
                         )}
                     </div>
 
-                    {/* STATS + LEVEL ROW */}
-                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-12 pt-4 border-t border-white/5">
-                        {/* Stats */}
-                        <div className="flex items-center gap-6 md:gap-10">
+                    {/* DASHBOARD CARD: STATS + LEVEL */}
+                    <div className="bg-[#151b2e] border border-white/5 rounded-2xl p-4 md:p-6 mb-6">
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-4 gap-2 md:gap-8 mb-4 md:mb-6">
                             {[
                                 { label: 'Seguidores', value: profile.followersCount || 0 },
                                 { label: 'Reseñas', value: profile.reviewsCount || 0 },
                                 { label: 'Usuarios', value: profile.followingUsersCount || profile.followingCount || 0, icon: UsersIcon },
                                 { label: 'Listas', value: profile.followingListsCount || 0, icon: ListIcon }
                             ].map((stat, i) => (
-                                <div key={i} className="flex flex-col items-center md:items-start text-gray-400">
-                                    <span className="text-white font-bold text-lg md:text-xl">{stat.value}</span>
-                                    <span className="text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
-                                        {stat.icon && <stat.icon className="w-3 h-3" />} {stat.label}
+                                <div key={i} className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/5 md:bg-transparent md:p-0">
+                                    <span className="text-white font-bold text-lg md:text-2xl mb-1">{stat.value}</span>
+                                    <span className="text-[9px] md:text-xs text-gray-400 uppercase tracking-wider text-center flex flex-col md:flex-row items-center gap-1">
+                                        {stat.icon && <stat.icon className="w-3 h-3 md:w-4 md:h-4 mb-0.5 md:mb-0" />}
+                                        {stat.label}
                                     </span>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Level Bar (Compact) */}
-                        <div className="w-full md:w-auto md:max-w-xs flex-1">
-                            {(() => {
-                                const xp = profile.xp || 0;
-                                const level = Math.floor(Math.sqrt(xp / 50)) + 1;
-                                const nextLevelXp = 50 * Math.pow(level, 2);
-                                const currentLevelBaseXp = 50 * Math.pow(level - 1, 2);
-                                const progress = Math.min(100, Math.max(0, ((xp - currentLevelBaseXp) / (nextLevelXp - currentLevelBaseXp)) * 100));
+                        {/* Level Bar (Full Width in Card) */}
+                        {(() => {
+                            const xp = profile.xp || 0;
+                            const level = Math.floor(Math.sqrt(xp / 50)) + 1;
+                            const nextLevelXp = 50 * Math.pow(level, 2);
+                            const currentLevelBaseXp = 50 * Math.pow(level - 1, 2);
+                            const progress = Math.min(100, Math.max(0, ((xp - currentLevelBaseXp) / (nextLevelXp - currentLevelBaseXp)) * 100));
 
-                                return (
-                                    <div className="bg-[#151b2e] border border-white/5 rounded-lg p-2.5 flex items-center gap-3 relative overflow-hidden">
-                                        <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-bold text-white text-sm shadow-lg border border-[#151b2e] z-10">
-                                            {level}
+                            return (
+                                <div className="flex items-center gap-3 relative">
+                                    <div className="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-bold text-white text-sm shadow-lg border border-[#151b2e] z-10">
+                                        {level}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-end mb-1.5">
+                                            <span className="text-[10px] font-bold text-gray-400 tracking-wider">NIVEL {level}</span>
+                                            <span className="text-[10px] text-amber-500 font-mono font-bold">{Math.floor(xp)} / {nextLevelXp} XP</span>
                                         </div>
-                                        <div className="flex-1 z-10 min-w-0">
-                                            <div className="flex justify-between items-end mb-1">
-                                                <span className="text-[10px] font-bold text-gray-400">NIVEL {level}</span>
-                                                <span className="text-[10px] text-amber-500 font-mono">{Math.floor(xp)} / {nextLevelXp} XP</span>
-                                            </div>
-                                            <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
-                                                <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500" style={{ width: `${progress}%` }} />
-                                            </div>
+                                        <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                            <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" style={{ width: `${progress}%` }} />
                                         </div>
                                     </div>
-                                );
-                            })()}
-                        </div>
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     {/* BADGES SECTION */}
