@@ -48,9 +48,7 @@ export const DeveloperPage: React.FC = () => {
     const [maintenanceLog, setMaintenanceLog] = useState<string[]>([]);
     const [processingMaintenance, setProcessingMaintenance] = useState(false);
 
-    // Reports State
-    const [reports, setReports] = useState<any[]>([]);
-    const [loadingReports, setLoadingReports] = useState(false);
+    // Reports State Removed (Duplicate)
 
     // Badge Management State
     const [badges, setBadges] = useState<any[]>([]);

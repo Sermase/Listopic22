@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { Search, Archive, MessageSquare, User, Moon, Sun, Menu, X, Plus, Compass, Users, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { NotificationModal } from './NotificationModal';
 export const Navbar: React.FC = () => {
     const { user } = useAuth();
@@ -19,7 +21,7 @@ export const Navbar: React.FC = () => {
             collection(db, 'users', user.uid, 'notifications'),
             where('read', '==', false)
         );
-        const unsubscribe = onSnapshot(q, (snap) => {
+        const unsubscribe = onSnapshot(q, (snap: any) => {
             setUnreadCount(snap.size);
         });
         return () => unsubscribe();
@@ -62,9 +64,9 @@ export const Navbar: React.FC = () => {
             collection(db, 'chats'),
             where('participants', 'array-contains', user.uid)
         );
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribe = onSnapshot(q, (snapshot: any) => {
             let total = 0;
-            snapshot.docs.forEach(doc => {
+            snapshot.docs.forEach((doc: any) => {
                 const data = doc.data();
                 if (data.unreadCount && typeof data.unreadCount[user.uid] === 'number') {
                     total += data.unreadCount[user.uid];
