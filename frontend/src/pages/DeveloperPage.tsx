@@ -659,6 +659,32 @@ export const DeveloperPage: React.FC = () => {
                                                 {loadingBadges ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Layers className="w-5 h-5" />}
                                                 Recalcular TODO (Niveles y Medallas)
                                             </button>
+
+                                            <button
+                                                onClick={async () => {
+                                                    const code = prompt("🚨 PELIGRO: Esto pondrá XP=0 y Nivel=1 a TODOS los usuarios.\nEscribe 'RESET TOTAL' para confirmar.");
+                                                    if (code !== 'RESET TOTAL') return;
+
+                                                    setLoadingBadges(true);
+                                                    setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ☢️ INICIANDO RESET GLOBAL...`, ...prev]);
+                                                    try {
+                                                        const functions = getFunctions(undefined, FUNCTIONS_REGION);
+                                                        const resetFn = httpsCallable(functions, 'adminResetAllGamification');
+                                                        const res: any = await resetFn();
+                                                        if (res.data.logs) setMaintenanceLog(prev => [...res.data.logs.reverse(), ...prev]);
+                                                        setMaintenanceLog(prev => [`✅ RESET GLOBAL COMPLETADO`, ...prev]);
+                                                    } catch (e: any) {
+                                                        console.error(e);
+                                                        setMaintenanceLog(prev => [`❌ Error Backend: ${e.message}`, ...prev]);
+                                                    } finally {
+                                                        setLoadingBadges(false);
+                                                    }
+                                                }}
+                                                disabled={loadingBadges}
+                                                className="w-full py-2 bg-red-900/20 border border-red-500/50 text-red-500 hover:bg-red-600 hover:text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
+                                            >
+                                                ☢️ Resetear TODO a Cero
+                                            </button>
                                         </div>
 
                                         {/* Single User Tools */}
@@ -688,6 +714,23 @@ export const DeveloperPage: React.FC = () => {
                                                     className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded text-sm font-bold"
                                                 >
                                                     Recalcular
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        const uid = (document.getElementById('gamificationUserId') as HTMLInputElement).value;
+                                                        if (!uid) return alert("Pon un ID");
+                                                        if (!confirm(`¿RESETEAR A CERO al usuario ${uid}?`)) return;
+                                                        try {
+                                                            const functions = getFunctions(undefined, FUNCTIONS_REGION);
+                                                            const fn = httpsCallable(functions, 'adminResetUserGamification');
+                                                            setMaintenanceLog(prev => [`Reseteando usuario ${uid}...`, ...prev]);
+                                                            await fn({ userId: uid });
+                                                            setMaintenanceLog(prev => [`✅ Usuario ${uid} reseteado`, ...prev]);
+                                                        } catch (e: any) { alert(e.message); }
+                                                    }}
+                                                    className="bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded text-sm font-bold"
+                                                >
+                                                    Reset
                                                 </button>
                                             </div>
                                             <div className="flex gap-2">

@@ -301,6 +301,14 @@ service cloud.firestore {
     }
 
     // ==================================================================
+    // REGLAS PARA REPORTES (`reports`) (NUEVA)
+    // ==================================================================
+    match /reports/{reportId} {
+        allow create: if request.auth != null; // Cualquiera puede reportar
+        allow read, list, update, delete: if request.auth != null && isJefe(request.auth.uid);
+    }
+
+    // ==================================================================
     // REGLAS PARA FOROS (`listForums`) (MANTENIDAS)
     // ==================================================================
     match /listForums/{listId} {

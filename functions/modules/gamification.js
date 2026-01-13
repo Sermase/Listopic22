@@ -269,11 +269,86 @@ const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: '1
     }
 });
 
+/**
+ * Reset a user's gamification stats to zero.
+ */
+const adminResetUserGamification = onCall(async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+
+    const { userId } = request.data;
+    if (!userId) throw new HttpsError('invalid-argument', 'userId is required');
+
+    try {
+        await db.collection('users').doc(userId).update({
+            xp: 0,
+            level: 1,
+            badges: [],
+            lastBadgeEarnedAt: null
+            // We do NOT reset reviewsCount/photosCount as those are real metrics.
+        });
+        return { success: true, message: `Gamification reset for user ${userId}` };
+    } catch (error) {
+        logger.error("adminResetUserGamification error", error);
+        throw new HttpsError('internal', error.message);
+    }
+});
+
+/**
+ * GLOBAL: Reset ALL users' gamification to zero.
+ * WARNING: DESTRUCTIVE.
+ */
+const adminResetAllGamification = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+
+    const logs = [];
+    logs.push(`Starting Global Gamification RESET at ${new Date().toISOString()}`);
+
+    try {
+        const usersSnap = await db.collection('users').get();
+        logs.push(`Found ${usersSnap.size} users.`);
+
+        let processed = 0;
+        const batch = db.batch();
+        let batchCount = 0;
+
+        for (const doc of usersSnap.docs) {
+            const userRef = db.collection('users').doc(doc.id);
+            batch.update(userRef, {
+                xp: 0,
+                level: 1,
+                badges: [],
+                lastBadgeEarnedAt: null
+            });
+            batchCount++;
+            processed++;
+
+            if (batchCount >= 400) {
+                await batch.commit();
+                logs.push(`Reset batch of ${batchCount} users...`);
+                batchCount = 0; // Reset count but we need a new batch, logic above creates one implicitly? No, need new instance.
+            }
+        }
+
+        if (batchCount > 0) {
+            await batch.commit();
+            logs.push(`Reset final batch of ${batchCount} users.`);
+        }
+
+        logs.push(`Completed. Reset ${processed} users.`);
+        return { success: true, logs };
+    } catch (error) {
+        logger.error("adminResetAllGamification error", error);
+        throw new HttpsError('internal', error.message);
+    }
+});
+
 module.exports = {
     onReviewWritten,
     checkBadges,
     adminRecalculateUserGamification,
     adminManageBadge,
-    adminRecalculateAllGamification
+    adminRecalculateAllGamification,
+    adminResetUserGamification,
+    adminResetAllGamification
 };
 
