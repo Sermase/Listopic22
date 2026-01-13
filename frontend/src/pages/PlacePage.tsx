@@ -659,8 +659,9 @@ export const PlacePage: React.FC = () => {
             <ReportModal
                 isOpen={showReportModal}
                 onClose={() => setShowReportModal(false)}
-                placeId={place.placeId}
-                placeName={place.name}
+                targetId={place.placeId}
+                targetName={place.name}
+                targetType="place"
             />
         </div >
     );

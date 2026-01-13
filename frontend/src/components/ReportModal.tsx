@@ -2,19 +2,22 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { AlertTriangle, X, Send, MapPin, AlertCircle } from 'lucide-react';
+import { AlertTriangle, X, Send, MapPin, AlertCircle, FileText, List, Users } from 'lucide-react';
+
+export type ReportTargetType = 'place' | 'review' | 'list' | 'group' | 'user' | 'other';
 
 interface ReportModalProps {
     isOpen: boolean;
     onClose: () => void;
-    placeId: string;
-    placeName: string;
-    itemName?: string; // Optional if reporting specific item
+    targetId: string;
+    targetName: string;
+    targetType: ReportTargetType;
+    itemName?: string; // Optional context (e.g. item name if target is generic item) or sub-detail
 }
 
-export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, placeId, placeName, itemName }) => {
+export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targetId, targetName, targetType, itemName }) => {
     const { user } = useAuth();
-    const [issueType, setIssueType] = useState('place_closed');
+    const [issueType, setIssueType] = useState('inappropriate'); // Default to a generic one
     const [description, setDescription] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -28,12 +31,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, place
             await addDoc(collection(db, 'reports'), {
                 userId: user?.uid || 'anonymous',
                 userName: user?.displayName || 'Anónimo',
-                placeId,
-                placeName,
-                itemName: itemName || null,
-                issueType, // place_closed, item_missing, inappropriate
+                targetId,
+                targetName,
+                targetType,
+                itemName: itemName || null, // Keeping for backward compatibility or extra context
+                issueType,
                 description,
-                status: 'pending', // pending, resolved, rejected
+                status: 'pending', // pending, resolved, rejected, discarded
                 createdAt: serverTimestamp()
             });
             alert("Reporte enviado. Gracias por ayudar a mejorar la comunidad.");
@@ -43,6 +47,26 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, place
             alert("Error al enviar reporte.");
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const getIcon = () => {
+        switch (targetType) {
+            case 'place': return <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />;
+            case 'review': return <FileText className="w-4 h-4 text-pink-400 shrink-0" />;
+            case 'list': return <List className="w-4 h-4 text-emerald-400 shrink-0" />;
+            case 'group': return <Users className="w-4 h-4 text-amber-400 shrink-0" />;
+            default: return <AlertCircle className="w-4 h-4 text-gray-400 shrink-0" />;
+        }
+    };
+
+    const getTypeLabel = () => {
+        switch (targetType) {
+            case 'place': return 'Lugar';
+            case 'review': return 'Reseña';
+            case 'list': return 'Lista';
+            case 'group': return 'Grupo';
+            default: return 'Contenido';
         }
     };
 
@@ -58,32 +82,38 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, place
                         <AlertTriangle className="w-5 h-5 text-red-500" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-white">Reportar Incidencia</h2>
-                        <p className="text-sm text-gray-400">Ayúdanos a mantener la información actualizada.</p>
+                        <h2 className="text-xl font-bold text-white">Reportar {getTypeLabel()}</h2>
+                        <p className="text-sm text-gray-400">Ayúdanos a mantener la comunidad segura.</p>
                     </div>
                 </div>
 
                 <div className="bg-white/5 rounded-lg p-3 mb-6 flex items-center gap-3">
-                    <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
+                    {getIcon()}
                     <div>
-                        <p className="text-sm font-bold text-white">{placeName}</p>
-                        {itemName && <p className="text-xs text-gray-400">Item: {itemName}</p>}
+                        <p className="text-sm font-bold text-white line-clamp-1">{targetName}</p>
+                        {itemName && <p className="text-xs text-gray-400">Contexto: {itemName}</p>}
                     </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5">Tipo de Problema</label>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5">Motivo del reporte</label>
                         <select
                             value={issueType}
                             onChange={(e) => setIssueType(e.target.value)}
                             className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white outline-none focus:border-red-500 transition-colors appearance-none"
                         >
-                            <option value="place_closed">El lugar ha cerrado</option>
-                            <option value="item_missing">El plato/item ya no existe</option>
-                            <option value="inappropriate">Contenido inapropiado</option>
-                            <option value="duplicate">Lugar duplicado</option>
-                            <option value="other">Otro error en la información</option>
+                            <option value="inappropriate">Contenido inapropiado / ofensivo</option>
+                            <option value="spam">Spam / Publicidad no deseada</option>
+                            <option value="fake">Información falsa / engañosa</option>
+                            {(targetType === 'place' || targetType === 'review') && (
+                                <>
+                                    <option value="place_closed">El lugar ha cerrado</option>
+                                    <option value="item_missing">El item ya no existe</option>
+                                    <option value="duplicate">Lugar duplicado</option>
+                                </>
+                            )}
+                            <option value="other">Otro motivo</option>
                         </select>
                     </div>
 

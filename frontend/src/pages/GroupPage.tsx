@@ -3,7 +3,8 @@ import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs, doc, getDoc, collectionGroup } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2 } from 'lucide-react';
+import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, MoreVertical, Flag } from 'lucide-react';
+import { ReportModal } from '../components/ReportModal';
 import { ReviewCard } from '../components/ReviewCard';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
@@ -39,6 +40,8 @@ export const GroupPage: React.FC = () => {
     const [isFlowOpen, setIsFlowOpen] = useState(false);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -329,7 +332,34 @@ export const GroupPage: React.FC = () => {
                     </div>
                 )}
 
-                {/* Top Actions removed (moved to sidebar) */}
+                {/* Top Actions Menu */}
+                <div className="absolute top-4 right-4 z-30">
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className="p-2 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-sm transition-colors"
+                        >
+                            <MoreVertical className="w-5 h-5" />
+                        </button>
+
+                        {isMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right">
+                                <button
+                                    onClick={() => { setIsMenuOpen(false); setIsShareModalOpen(true); }}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                >
+                                    <Share2 className="w-4 h-4" /> Compartir
+                                </button>
+                                <button
+                                    onClick={() => { setIsMenuOpen(false); setShowReportModal(true); }}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                >
+                                    <Flag className="w-4 h-4" /> Reportar
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
 
                 <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 z-20 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-transparent pt-20">
                     <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6">
@@ -572,6 +602,15 @@ export const GroupPage: React.FC = () => {
                 onClose={() => setIsShareModalOpen(false)}
                 title={`Compartir ${decodedName}`}
                 text={`¡Mira lo que dicen sobre ${decodedName} en ${placeName}!`}
+            />
+
+            <ReportModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                targetId={`${placeId}_${decodedName}`}
+                targetName={decodedName}
+                itemName={placeName}
+                targetType="group"
             />
         </div >
     );

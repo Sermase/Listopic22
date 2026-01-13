@@ -5,7 +5,7 @@ import { db, functions, storage } from '../firebase'; // Ensure export in fireba
 import { collection, getDocs, doc, writeBatch, Timestamp, addDoc, serverTimestamp, setDoc, query, where, getDoc, limit as firestoreLimit, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare } from 'lucide-react';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -36,6 +36,7 @@ export const DeveloperPage: React.FC = () => {
     // Reports State
     const [reports, setReports] = useState<any[]>([]);
     const [loadingReports, setLoadingReports] = useState(false);
+    const [reportFilter, setReportFilter] = useState<'pending' | 'resolved' | 'rejected'>('pending');
 
     // Algolia State
     const [algoliaLog, setAlgoliaLog] = useState<string[]>([]);
@@ -996,25 +997,37 @@ export const DeveloperPage: React.FC = () => {
                                     <Flag className="w-6 h-6 text-red-500" /> Reportes de Usuarios
                                 </h2>
 
+                                <div className="flex gap-4 mb-6 border-b border-white/10">
+                                    <button onClick={() => setReportFilter('pending')} className={`pb-2 px-1 font-bold text-sm border-b-2 transition-colors ${reportFilter === 'pending' ? 'border-amber-500 text-amber-500' : 'border-transparent text-gray-400 hover:text-white'}`}>Pendientes</button>
+                                    <button onClick={() => setReportFilter('resolved')} className={`pb-2 px-1 font-bold text-sm border-b-2 transition-colors ${reportFilter === 'resolved' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-gray-400 hover:text-white'}`}>Resueltos</button>
+                                    <button onClick={() => setReportFilter('rejected')} className={`pb-2 px-1 font-bold text-sm border-b-2 transition-colors ${reportFilter === 'rejected' ? 'border-red-500 text-red-500' : 'border-transparent text-gray-400 hover:text-white'}`}>Descartados</button>
+                                </div>
+
                                 {loadingReports ? (
                                     <div className="text-center py-12 text-gray-500">Cargando reportes...</div>
                                 ) : (
                                     <div className="grid grid-cols-1 gap-4">
-                                        {reports.map(report => (
+                                        {reports.filter(r => r.status === reportFilter).map(report => (
                                             <div key={report.id} className="bg-[#151b2e] border border-white/10 rounded-xl p-4 flex flex-col sm:flex-row gap-4">
                                                 <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 shrink-0">
-                                                    <AlertCircle className="w-6 h-6 text-red-500" />
+                                                    {report.targetType === 'review' ? <MessageSquare className="w-6 h-6 text-pink-500" /> :
+                                                        report.targetType === 'place' ? <MapPin className="w-6 h-6 text-indigo-500" /> :
+                                                            report.targetType === 'list' ? <ListIcon className="w-6 h-6 text-emerald-500" /> :
+                                                                <AlertCircle className="w-6 h-6 text-red-500" />}
                                                 </div>
                                                 <div className="flex-1">
                                                     <div className="flex items-center justify-between mb-1">
-                                                        <h3 className="font-bold text-white text-lg">{report.placeName}</h3>
-                                                        <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${report.status === 'resolved' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
+                                                        <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                                                            {report.targetName || report.placeName}
+                                                            <span className="text-xs px-2 py-0.5 bg-white/10 rounded text-gray-300 font-normal uppercase">{report.targetType || 'lugar'}</span>
+                                                        </h3>
+                                                        <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${report.status === 'resolved' ? 'bg-emerald-500/10 text-emerald-400' : report.status === 'rejected' ? 'bg-red-500/10 text-red-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
                                                             {report.status}
                                                         </span>
                                                     </div>
                                                     <p className="text-sm text-gray-300 mb-2">
                                                         <span className="font-bold text-red-400 uppercase text-xs tracking-wider">{report.issueType}</span>
-                                                        {report.itemName && <span className="text-gray-500"> • Item: {report.itemName}</span>}
+                                                        {report.itemName && <span className="text-gray-500"> • Contexto: {report.itemName}</span>}
                                                     </p>
                                                     {report.description && (
                                                         <p className="bg-black/20 p-3 rounded-lg text-sm text-gray-400 italic border border-white/5 mb-2">
@@ -1025,29 +1038,34 @@ export const DeveloperPage: React.FC = () => {
                                                         <span>Reportado por: {report.userName}</span>
                                                         <span>{report.createdAt?.toDate ? report.createdAt.toDate().toLocaleString() : 'Fecha desconocida'}</span>
                                                         <span className="font-mono">{report.id}</span>
+                                                        {report.userId && <span className="font-mono text-gray-600">UID: {report.userId}</span>}
                                                     </div>
                                                 </div>
-                                                <div className="flex flex-col gap-2 justify-center">
+                                                <div className="flex flex-col gap-2 justify-center shrink-0">
                                                     {report.status !== 'resolved' && (
                                                         <button
                                                             onClick={() => handleUpdateReportStatus(report.id, 'resolved')}
-                                                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg transition-colors"
+                                                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                                            title="Marcar como solucionado"
                                                         >
-                                                            Marcar Resuelto
+                                                            <CheckCircle className="w-4 h-4" /> Resolver
                                                         </button>
                                                     )}
-                                                    <button
-                                                        onClick={() => handleUpdateReportStatus(report.id, 'rejected')} // Or delete
-                                                        className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-sm font-bold rounded-lg transition-colors border border-white/10"
-                                                    >
-                                                        Descartar
-                                                    </button>
+                                                    {report.status !== 'rejected' && (
+                                                        <button
+                                                            onClick={() => handleUpdateReportStatus(report.id, 'rejected')}
+                                                            className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-sm font-bold rounded-lg transition-colors border border-white/10 flex items-center justify-center gap-2"
+                                                            title="Descartar reporte"
+                                                        >
+                                                            <X className="w-4 h-4" /> Descartar
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
-                                        {reports.length === 0 && (
+                                        {reports.filter(r => r.status === reportFilter).length === 0 && (
                                             <div className="text-center py-12 text-gray-500 border border-dashed border-white/10 rounded-xl">
-                                                No hay reportes pendientes. ¡Buen trabajo!
+                                                No hay reportes en la bandeja de {reportFilter === 'pending' ? 'pendientes' : reportFilter === 'resolved' ? 'resueltos' : 'descartados'}.
                                             </div>
                                         )}
                                     </div>

@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
-import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug } from 'lucide-react';
+import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical } from 'lucide-react';
+import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
@@ -75,6 +76,8 @@ export const ProfilePage: React.FC = () => {
     const [editRange, setEditRange] = useState<string>('50'); // Default to 50 if undefined
     const [uploading, setUploading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
 
     // Determine target user ID
     const targetUserId = paramUserId || user?.uid;
@@ -107,17 +110,25 @@ export const ProfilePage: React.FC = () => {
             try {
                 // 1. Guest Lists (Where I am an editor)
                 // Note: 'editors' array-contains query
-                const qGuest = query(collection(db, 'lists'), where('editors', 'array-contains', targetUserId), limit(20));
-                const snapGuest = await getDocs(qGuest);
-                const fetchedGuest = snapGuest.docs.map(d => ({ id: d.id, ...d.data() }));
+                let qGuest;
+                if (isOwnProfile) {
+                    qGuest = query(collection(db, 'lists'), where('editors', 'array-contains', targetUserId), limit(20));
+                } else {
+                    // For others, we MUST filter by isPublic to satisfy security rules
+                    // Note: This requires a composite index 'editors' + 'isPublic'
+                    qGuest = query(collection(db, 'lists'), where('editors', 'array-contains', targetUserId), where('isPublic', '==', true), limit(20));
+                }
 
-                // Filter Guest Lists for Privacy if not own profile
-                // If I am viewing another user's profile, should I see lists they are a guest on?
-                // Probably yes, if those lists are public OR if I am also a participant.
-                // For simplicity, we show Public ones, or ones where viewer has access.
-                // But since 'editors' implies write access, it's significant.
-                // We'll filter strictly by isPublic for visitors.
-                const validGuest = isOwnProfile ? fetchedGuest : (fetchedGuest as any[]).filter(l => l.isPublic);
+                // If the index is missing, this inner try/catch will catch it and we can proceed without guest lists
+                let fetchedGuest: any[] = [];
+                try {
+                    const snapGuest = await getDocs(qGuest);
+                    fetchedGuest = snapGuest.docs.map(d => ({ id: d.id, ...d.data() }));
+                } catch (guestError) {
+                    console.warn("Guest lists query failed (likely missing index or permission)", guestError);
+                }
+                // Since we filtered in method (or fetch failed), we use result directly
+                const validGuest = fetchedGuest;
                 setGuestLists(validGuest);
 
                 // 2. Followed Lists (From 'followingLists' subcollection)
@@ -349,30 +360,177 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-32 z-10">
-                <div className="flex flex-col md:flex-row items-center md:items-end gap-6 mb-8">
-                    {/* Avatar */}
-                    <div className="w-40 h-40 rounded-full bg-[#0b1021] p-2 shrink-0">
-                        <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-4 border-[#151b2e] shadow-2xl relative group">
-                            <img
-                                src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || 'User'}`}
-                                alt={profile.username}
-                                className="w-full h-full object-cover"
-                            />
+                {/* TOP SECTION: Avatar + Identity + Desktop Actions */}
+                <div className="flex flex-row items-end gap-4 md:gap-8 mb-6">
+                    {/* Avatar (Left) */}
+                    <div className="group relative shrink-0">
+                        <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
+                            <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-4 border-[#151b2e] shadow-2xl relative">
+                                <img
+                                    src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || 'User'}`}
+                                    alt={profile.username}
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    {/* Info */}
-                    <div className="flex-1 w-full text-center md:text-left mb-2">
-                        <h1 className="text-3xl font-bold text-white mb-2 flex flex-col md:flex-row items-center md:items-end gap-2 md:gap-4">
-                            {profile.displayName || profile.username || 'Usuario'}
-                            <span className="text-lg text-indigo-400 font-normal">@{profile.username || 'user'}</span>
-                        </h1>
-                        <p className="text-gray-400 mb-6 max-w-lg mx-auto md:mx-0 leading-relaxed">
-                            {profile.bio || "Sin biografía..."}
-                        </p>
+                    {/* Identity (Right of Avatar) */}
+                    <div className="flex-1 min-w-0 pb-1 md:pb-4 flex flex-col justify-end">
+                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                            <div>
+                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight flex flex-col md:flex-row md:items-end gap-1 md:gap-3">
+                                    <span className="truncate">{profile.displayName || profile.username || 'Usuario'}</span>
+                                    {profile.username && <span className="text-base sm:text-lg text-indigo-400 font-normal truncate">@{profile.username}</span>}
+                                </h1>
+                            </div>
 
-                        {/* Level & XP Bar */}
-                        <div className="mb-6 max-w-sm mx-auto md:mx-0">
+                            {/* DESKTOP ACTIONS */}
+                            <div className="hidden md:flex items-center gap-3">
+                                {isOwnProfile ? (
+                                    <div className="flex items-center gap-2">
+                                        {((Array.isArray(profile.userType) && profile.userType.includes('jefe')) || profile.userType === 'jefe') && (
+                                            <Link to="/developer" className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+                                                <Bug className="w-5 h-5" />
+                                            </Link>
+                                        )}
+                                        <button onClick={() => setIsEditing(!isEditing)} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors">
+                                            <Settings className="w-5 h-5" />
+                                        </button>
+                                        <button onClick={async () => { await signOut(auth); navigate('/login'); }} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                                            <Power className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={handleFollowToggle}
+                                            disabled={followLoading}
+                                            className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${isFollowing
+                                                ? 'bg-[#151b2e] border border-white/20 text-white hover:border-red-500 hover:text-red-500'
+                                                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20'
+                                                }`}
+                                        >
+                                            {isFollowing ? <><UserCheck className="w-4 h-4" /> Siguiendo</> : <><UserPlus className="w-4 h-4" /> Seguir</>}
+                                        </button>
+                                        <button
+                                            onClick={handleMessage}
+                                            className="px-4 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-white hover:bg-white/10 transition-colors shadow-lg"
+                                        >
+                                            <MessageCircle className="w-5 h-5" />
+                                        </button>
+
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                                className="px-3 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                                            >
+                                                <MoreVertical className="w-5 h-5" />
+                                            </button>
+                                            {isMenuOpen && (
+                                                <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in z-50 origin-top-right">
+                                                    <button
+                                                        onClick={() => { setIsMenuOpen(false); setShowReportModal(true); }}
+                                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <Flag className="w-4 h-4" /> Reportar
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* BIO + MOBILE ACTIONS + STATS */}
+                <div className="space-y-6 md:space-y-8">
+                    {/* Bio */}
+                    {profile.bio && (
+                        <p className="text-gray-400 text-sm max-w-2xl leading-relaxed">
+                            {profile.bio}
+                        </p>
+                    )}
+
+                    {/* MOBILE ACTIONS */}
+                    <div className="md:hidden flex items-center gap-3">
+                        {isOwnProfile ? (
+                            <div className="flex items-center gap-2 w-full">
+                                {((Array.isArray(profile.userType) && profile.userType.includes('jefe')) || profile.userType === 'jefe') && (
+                                    <Link to="/developer" className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-indigo-400">
+                                        <Bug className="w-5 h-5" />
+                                    </Link>
+                                )}
+                                <button onClick={() => setIsEditing(!isEditing)} className="flex-1 p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 text-sm font-bold">
+                                    Editar Perfil
+                                </button>
+                                <button onClick={async () => { await signOut(auth); navigate('/login'); }} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 text-red-400">
+                                    <Power className="w-5 h-5" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 w-full">
+                                <button
+                                    onClick={handleFollowToggle}
+                                    disabled={followLoading}
+                                    className={`flex-1 px-4 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${isFollowing
+                                        ? 'bg-[#151b2e] border border-white/20 text-white'
+                                        : 'bg-indigo-600 text-white'
+                                        }`}
+                                >
+                                    {isFollowing ? 'Siguiendo' : 'Seguir'}
+                                </button>
+                                <button
+                                    onClick={handleMessage}
+                                    className="px-4 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-white shadow-lg"
+                                >
+                                    <MessageCircle className="w-5 h-5" />
+                                </button>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                        className="px-3 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-400"
+                                    >
+                                        <MoreVertical className="w-5 h-5" />
+                                    </button>
+                                    {isMenuOpen && (
+                                        <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 z-50">
+                                            <button
+                                                onClick={() => { setIsMenuOpen(false); setShowReportModal(true); }}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-300 flex items-center gap-2"
+                                            >
+                                                <Flag className="w-4 h-4" /> Reportar
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* STATS + LEVEL ROW */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-12 pt-4 border-t border-white/5">
+                        {/* Stats */}
+                        <div className="flex items-center gap-6 md:gap-10">
+                            {[
+                                { label: 'Seguidores', value: profile.followersCount || 0 },
+                                { label: 'Reseñas', value: profile.reviewsCount || 0 },
+                                { label: 'Usuarios', value: profile.followingUsersCount || profile.followingCount || 0, icon: UsersIcon },
+                                { label: 'Listas', value: profile.followingListsCount || 0, icon: ListIcon }
+                            ].map((stat, i) => (
+                                <div key={i} className="flex flex-col items-center md:items-start text-gray-400">
+                                    <span className="text-white font-bold text-lg md:text-xl">{stat.value}</span>
+                                    <span className="text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
+                                        {stat.icon && <stat.icon className="w-3 h-3" />} {stat.label}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Level Bar (Compact) */}
+                        <div className="w-full md:w-auto md:max-w-xs flex-1">
                             {(() => {
                                 const xp = profile.xp || 0;
                                 const level = Math.floor(Math.sqrt(xp / 50)) + 1;
@@ -381,138 +539,43 @@ export const ProfilePage: React.FC = () => {
                                 const progress = Math.min(100, Math.max(0, ((xp - currentLevelBaseXp) / (nextLevelXp - currentLevelBaseXp)) * 100));
 
                                 return (
-                                    <div className="bg-[#151b2e] border border-white/5 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden group">
-                                        {/* Level Badge */}
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-bold text-white text-lg shadow-lg relative z-10 border-2 border-[#151b2e]">
+                                    <div className="bg-[#151b2e] border border-white/5 rounded-lg p-2.5 flex items-center gap-3 relative overflow-hidden">
+                                        <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-bold text-white text-sm shadow-lg border border-[#151b2e] z-10">
                                             {level}
                                         </div>
-
-                                        <div className="flex-1 z-10">
+                                        <div className="flex-1 z-10 min-w-0">
                                             <div className="flex justify-between items-end mb-1">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nivel {level}</span>
+                                                <span className="text-[10px] font-bold text-gray-400">NIVEL {level}</span>
                                                 <span className="text-[10px] text-amber-500 font-mono">{Math.floor(xp)} / {nextLevelXp} XP</span>
                                             </div>
-                                            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000 ease-out"
-                                                    style={{ width: `${progress}%` }}
-                                                />
+                                            <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+                                                <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500" style={{ width: `${progress}%` }} />
                                             </div>
                                         </div>
-
-                                        {/* Background Glow */}
-                                        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </div>
                                 );
                             })()}
                         </div>
-
-                        <div className="mb-6 flex justify-center md:justify-start">
-                            <BadgeDisplay earnedBadgeIds={profile.badges} />
-                        </div>
-
-                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-gray-400">
-                            {/* Followers */}
-                            <div className="flex flex-col items-center md:items-start">
-                                <span className="text-white font-bold text-lg">{profile.followersCount || 0}</span>
-                                <span className="text-xs">Seguidores</span>
-                            </div>
-
-                            <div className="w-px h-8 bg-white/10 mx-2"></div>
-
-                            {/* Reviews */}
-                            <div className="flex flex-col items-center md:items-start">
-                                <span className="text-white font-bold text-lg">{profile.reviewsCount || 0}</span>
-                                <span className="text-xs">Reseñas</span>
-                            </div>
-
-                            <div className="w-px h-8 bg-white/10 mx-2"></div>
-
-                            {/* Following Groups */}
-                            <div className="flex gap-6">
-                                <div className="flex flex-col items-center md:items-start" title="Usuarios seguidos">
-                                    <span className="text-white font-bold text-lg">{profile.followingUsersCount || profile.followingCount || 0}</span>
-                                    <span className="text-xs flex items-center gap-1"><UsersIcon className="w-3 h-3" /> Usuarios seguidos</span>
-                                </div>
-                                <div className="flex flex-col items-center md:items-start" title="Listas seguidas">
-                                    <span className="text-white font-bold text-lg">{profile.followingListsCount || 0}</span>
-                                    <span className="text-xs flex items-center gap-1"><ListIcon className="w-3 h-3" /> Listas seguidas</span>
-                                </div>
-                                <div className="flex flex-col items-center md:items-start" title="Lugares guardados/seguidos">
-                                    <span className="text-white font-bold text-lg">{profile.followingPlacesCount || 0}</span>
-                                    <span className="text-xs flex items-center gap-1"><MapPinIcon className="w-3 h-3" /> Lugares seguidos</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {profile.createdAt && (
-                            <div className="mt-4 flex justify-center md:justify-start text-xs text-gray-500">
-                                <span className="flex items-center gap-2">
-                                    <Calendar className="w-3 h-3" />
-                                    Miembro desde {new Date((profile.createdAt as any).seconds * 1000).getFullYear()}
-                                </span>
-                            </div>
-                        )}
                     </div>
 
-                    {/* Actions - Moved to Top Right of Container */}
-                    <div className="absolute top-4 right-4 sm:top-8 sm:right-6 flex gap-3 z-20">
-                        {isOwnProfile ? (
-                            <div className="flex items-center gap-2">
-                                {((Array.isArray(profile.userType) && profile.userType.includes('jefe')) || profile.userType === 'jefe') && (
-                                    <Link
-                                        to="/developer"
-                                        className="p-2.5 rounded-xl bg-[#151b2e]/80 backdrop-blur-md border border-white/10 text-gray-300 hover:text-yellow-400 hover:bg-yellow-500/10 transition-colors"
-                                        title="Modo Desarrollador"
-                                    >
-                                        <Bug className="w-5 h-5" />
-                                    </Link>
-                                )}
-                                <button
-                                    onClick={() => setIsEditing(!isEditing)}
-                                    className="p-2.5 rounded-xl bg-[#151b2e]/80 backdrop-blur-md border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
-                                    title="Configuración"
-                                >
-                                    <Settings className="w-5 h-5" />
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        await signOut(auth);
-                                        navigate('/login');
-                                    }}
-                                    className="p-2.5 rounded-xl bg-[#151b2e]/80 backdrop-blur-md border border-white/10 text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                                    title="Cerrar Sesión"
-                                >
-                                    <Power className="w-5 h-5" />
-                                </button>
-                            </div>
-                        ) : (
-                            <>
-                                <button
-                                    onClick={handleFollowToggle}
-                                    disabled={followLoading}
-                                    className={`px-6 py-2 rounded-lg border font-bold transition-all flex items-center gap-2 shadow-lg ${isFollowing
-                                        ? 'bg-[#151b2e]/80 backdrop-blur-md border-white/20 text-white hover:border-red-500 hover:text-red-500'
-                                        : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
-                                        }`}
-                                >
-                                    {isFollowing ? (
-                                        <><UserCheck className="w-4 h-4" /> Siguiendo</>
-                                    ) : (
-                                        <><UserPlus className="w-4 h-4" /> Seguir</>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={handleMessage}
-                                    className="px-4 py-2 rounded-lg bg-[#151b2e]/80 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 transition-colors shadow-lg"
-                                >
-                                    <MessageCircle className="w-5 h-5" />
-                                </button>
-                            </>
-                        )}
-                    </div>
+                    {/* BADGES SECTION */}
+                    {profile.badges && profile.badges.length > 0 && (
+                        <div className="pt-2">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <Star className="w-3 h-3 text-amber-500" /> Medallas
+                            </h3>
+                            <BadgeDisplay earnedBadgeIds={profile.badges?.map((b: any) => typeof b === 'string' ? b : b.id) || []} />
+                        </div>
+                    )}
 
+                    {profile.createdAt && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <Calendar className="w-3 h-3" />
+                            Miembro desde {new Date((profile.createdAt as any).seconds * 1000).getFullYear()}
+                        </div>
+                    )}
                 </div>
+
 
                 {/* Preferences Form */}
                 {isEditing && isOwnProfile && (
@@ -768,6 +831,16 @@ export const ProfilePage: React.FC = () => {
                     )}
                 </div>
             </div>
+
+
+            <ReportModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                targetId={targetUserId!}
+                targetName={profile.displayName || profile.username || 'Usuario'}
+                targetType="user"
+                itemName="Perfil de Usuario"
+            />
         </div >
     );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User, Heart, MessageSquare } from 'lucide-react';
+import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User, Heart, MessageSquare, Flag } from 'lucide-react';
 import { ReviewComments } from './ReviewComments';
 import { doc, setDoc, deleteDoc, getDoc, collection, onSnapshot, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { ShareModal } from './ShareModal';
 import { SaveToArchiveModal } from './SaveToArchiveModal';
 import { ReviewService } from '../services/ReviewService';
+import { ReportModal } from './ReportModal';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '../firebase';
@@ -33,6 +34,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
     const menuRef = useRef<HTMLDivElement>(null);
@@ -158,6 +160,12 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         }
     };
 
+    const handleReportClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowReportModal(true);
+        setIsMenuOpen(false);
+    };
+
     const handleCommentToggle = (e: React.MouseEvent) => {
         e.stopPropagation();
         setShowComments(!showComments);
@@ -266,7 +274,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                     <Share2 className="w-4 h-4" /> Compartir
                                 </button>
 
-                                {isOwner && (
+                                {isOwner ? (
                                     <>
                                         <div className="h-px bg-white/10 my-1"></div>
                                         <button
@@ -280,6 +288,16 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                             className="w-full text-left px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 flex items-center gap-2 transition-colors"
                                         >
                                             <Trash2 className="w-4 h-4" /> Eliminar
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="h-px bg-white/10 my-1"></div>
+                                        <button
+                                            onClick={handleReportClick}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                        >
+                                            <Flag className="w-4 h-4" /> Reportar
                                         </button>
                                     </>
                                 )}
@@ -469,6 +487,15 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 title={`Compartir Reseña`}
                 url={`${window.location.origin}/group/${review.placeId}/${encodeURIComponent(review.itemName || '')}`}
                 text={`¡Mira esta reseña de ${review.itemName} en ${review.placeName}!`}
+            />
+
+            <ReportModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                targetId={review.id || ''}
+                targetName={review.itemName || 'Reseña'}
+                itemName={review.placeName}
+                targetType="review"
             />
         </>
     );
