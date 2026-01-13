@@ -312,6 +312,7 @@ function resolvePlaceLocation(result, existingData) {
   return null;
 }
 
+
 function extractAddressFields(addressComponents) {
   const output = {
     city: null,
@@ -2591,7 +2592,7 @@ async function fetchReviewDocsByTag(tag) {
   }
 }
 
-const adminReplaceTag = onCall(async (request) => {
+const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: "1GiB" }, async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) {
     throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
@@ -3977,7 +3978,7 @@ const adminRecalculatePlaceStats = onCall(async (request) => {
 });
 
 // --- Bulk Operations ---
-const adminRecalculateAllLists = onCall({ timeoutSeconds: 540, memory: '1GB' }, async (request) => {
+const adminRecalculateAllLists = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) throw new HttpsError('unauthenticated', 'Auth required.');
 
@@ -4031,7 +4032,7 @@ const adminRecalculateAllLists = onCall({ timeoutSeconds: 540, memory: '1GB' }, 
   return results;
 });
 
-const adminRecalculateAllPlaces = onCall({ timeoutSeconds: 540, memory: '1GB' }, async (request) => {
+const adminRecalculateAllPlaces = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) throw new HttpsError('unauthenticated', 'Auth required.');
   try {

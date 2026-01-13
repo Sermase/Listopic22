@@ -15,6 +15,7 @@ export interface ReviewEntity {
     authorName?: string;
     authorPhoto?: string;
     createdAt: Timestamp;
+    updatedAt?: Timestamp; // Added field
     // Dynamic criteria scores
     scores?: Record<string, number>;
     lat?: number;
