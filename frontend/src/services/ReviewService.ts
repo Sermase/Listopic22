@@ -75,5 +75,30 @@ export const ReviewService = {
             console.error("Error in deleteReview service:", error);
             throw error;
         }
+    },
+
+    /**
+     * Toggles a reaction (like) for a review.
+     * Writes to: reviews/{reviewId}/reactions/{userId}
+     * Structure: { reaction: 'like', userId: string, createdAt: timestamp }
+     */
+    toggleReaction: async (listId: string, reviewId: string, userId: string): Promise<boolean> => {
+        if (!listId || !reviewId || !userId) throw new Error("Missing params");
+
+        const reactionRef = doc(db, 'lists', listId, 'reviews', reviewId, 'reactions', userId);
+        const reactionSnap = await import('firebase/firestore').then(m => m.getDoc(reactionRef));
+
+        if (reactionSnap.exists()) {
+            await deleteDoc(reactionRef);
+            return false; // Removed
+        } else {
+            const { setDoc, serverTimestamp } = await import('firebase/firestore');
+            await setDoc(reactionRef, {
+                reaction: 'like',
+                userId,
+                createdAt: serverTimestamp()
+            });
+            return true; // Added
+        }
     }
 };

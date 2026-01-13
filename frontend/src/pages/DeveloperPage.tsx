@@ -33,6 +33,11 @@ export const DeveloperPage: React.FC = () => {
     const [loadingConsole, setLoadingConsole] = useState(false);
     const [consoleError, setConsoleError] = useState<string | null>(null);
 
+    // Reports State
+    const [reports, setReports] = useState<any[]>([]);
+    const [loadingReports, setLoadingReports] = useState(false);
+    const [reportFilter, setReportFilter] = useState<'pending' | 'resolved' | 'rejected'>('pending');
+
     // Algolia State
     const [algoliaLog, setAlgoliaLog] = useState<string[]>([]);
     const [processingAlgolia, setProcessingAlgolia] = useState(false);

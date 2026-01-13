@@ -13,6 +13,7 @@
     "@types/leaflet": "^1.9.21",
     "algoliasearch": "^5.46.2",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "firebase": "^12.7.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.562.0",

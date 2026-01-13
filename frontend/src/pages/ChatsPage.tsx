@@ -123,8 +123,14 @@ export const ChatsPage: React.FC = () => {
             setMessages(data);
             setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         });
+
+        // Mark as read when opening
+        if (user) {
+            ChatService.markChatAsRead(activeChat, user.uid).catch(console.error);
+        }
+
         return () => unsubscribe();
-    }, [activeChat]);
+    }, [activeChat, user]);
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -216,9 +222,16 @@ export const ChatsPage: React.FC = () => {
                                         <div className="flex justify-between items-start mb-0.5">
                                             <h3 className="font-bold text-white text-sm truncate">{getChatName(chat)}</h3>
                                             {chat.lastMessageTimestamp && (
-                                                <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">
-                                                    {new Date(chat.lastMessageTimestamp?.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">
+                                                        {new Date(chat.lastMessageTimestamp?.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                    {(chat.unreadCount?.[user?.uid || ''] || 0) > 0 && (
+                                                        <span className="mt-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                                            {chat.unreadCount?.[user?.uid || ''] || 0}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                         <p className="text-gray-400 text-xs truncate">{chat.lastMessage || 'Nueva conversación'}</p>

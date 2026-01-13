@@ -158,5 +158,12 @@ export const ChatService = {
         }
 
         await updateDoc(chatRef, updates);
+    },
+
+    markChatAsRead: async (chatId: string, userId: string) => {
+        const chatRef = doc(db, 'chats', chatId);
+        await updateDoc(chatRef, {
+            [`unreadCount.${userId}`]: 0
+        });
     }
 };

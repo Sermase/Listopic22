@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, X
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, X, AlertTriangle
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
@@ -12,14 +12,15 @@ import { MapView } from '../components/MapView';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, setDoc, deleteDoc, updateDoc, increment, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { AddReviewForm } from '../components/AddReviewForm'; // Add Import
+import { AddReviewForm } from '../components/AddReviewForm';
+import { ReportModal } from '../components/ReportModal';
 
 import { ListSelector } from '../components/ListSelector';
 
 export const PlacePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
     const { place, loading, error } = usePlaceDetails(placeId);
-    const { user } = useAuth(); // Ensure useAuth is imported and used
+    const { user } = useAuth();
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const fromListId = searchParams.get('listId');
@@ -29,11 +30,29 @@ export const PlacePage: React.FC = () => {
     const [isFollowed, setIsFollowed] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
 
     // Review Creation State
     const [isFlowOpen, setIsFlowOpen] = useState(false);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
     const [selectedDishName, setSelectedDishName] = useState<string | null>(null);
+
+    const [reactionConfig, setReactionConfig] = useState<{ like?: string; dislike?: string } | null>(null);
+
+    // Fetch Category Configuration for Reactions
+    useEffect(() => {
+        if (!place?.category) return;
+        import('../services/CategoryService').then(({ CategoryService }) => {
+            CategoryService.getCategory(place.category!).then(cat => {
+                if (cat?.defaultCriteria?.rangos) {
+                    setReactionConfig(cat.defaultCriteria.rangos);
+                }
+            });
+        });
+    }, [place?.category]);
+
+    // ... (rest of the file remains similar until render)
+
 
     // Check if place is followed
     useEffect(() => {
@@ -59,22 +78,17 @@ export const PlacePage: React.FC = () => {
         setFollowLoading(true);
 
         try {
-            const userRef = doc(db, 'users', user.uid);
             const followingPlaceRef = doc(db, 'users', user.uid, 'followingPlaces', placeId);
-            const placeRef = doc(db, 'places', placeId);
+
+            // Backend Trigger 'onPlaceFollowingWrite' in 'social.js' handles:
+            // 1. Updating user.followingPlacesCount
+            // 2. Updating place.followersCount (and ensuring place doc exists)
 
             if (prevState) {
-                // Unfollow
+                // Unfollow (Trigger delete)
                 await deleteDoc(followingPlaceRef);
-
-                // Decrement User Stats
-                await updateDoc(userRef, { followingPlacesCount: increment(-1) }).catch(e => console.warn(e));
-
-                // Decrement Place Stats (if place doc exists)
-                await updateDoc(placeRef, { followersCount: increment(-1) }).catch(e => console.warn("Place doc update error (maybe not created yet)", e));
-
             } else {
-                // Follow
+                // Follow (Trigger create)
                 await setDoc(followingPlaceRef, {
                     placeId,
                     followedAt: serverTimestamp(),
@@ -82,13 +96,6 @@ export const PlacePage: React.FC = () => {
                     placeAddress: place?.address || '',
                     placePhoto: place?.photoUrl || ''
                 });
-
-                // Increment User Stats
-                await updateDoc(userRef, { followingPlacesCount: increment(1) }).catch(e => console.warn(e));
-
-                // Increment Place Stats
-                // Use setDoc with merge to ensure place exists if it was just found via API
-                await setDoc(placeRef, { followersCount: increment(1) }, { merge: true });
             }
         } catch (error) {
             console.error("Follow place error:", error);
@@ -256,7 +263,7 @@ export const PlacePage: React.FC = () => {
                 <div className="order-1 lg:col-span-4 lg:order-last space-y-4 sm:space-y-6">
 
                     {/* 1. Actions Row */}
-                    <div className="bg-[#151b2e] p-3 rounded-xl border border-white/10 grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="bg-[#151b2e] p-3 rounded-xl border border-white/10 grid grid-cols-4 gap-2 sm:gap-3">
                         <button
                             onClick={() => setIsSaveModalOpen(true)}
                             className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
@@ -270,7 +277,7 @@ export const PlacePage: React.FC = () => {
                             className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${isFollowed ? 'bg-pink-500/20 border-pink-500 text-pink-400' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'} ${followLoading ? 'opacity-50 cursor-wait' : ''}`}
                         >
                             <Heart className={`w-5 h-5 mb-1 ${isFollowed ? 'fill-current' : ''}`} />
-                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{isFollowed ? 'Siguiendo' : 'Seguir'}</span>
+                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{isFollowed ? 'Seguido' : 'Seguir'}</span>
                         </button>
                         <button
                             onClick={() => setIsShareModalOpen(true)}
@@ -278,6 +285,13 @@ export const PlacePage: React.FC = () => {
                         >
                             <Share2 className="w-5 h-5 mb-1 text-indigo-400" />
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Compartir</span>
+                        </button>
+                        <button
+                            onClick={() => setShowReportModal(true)}
+                            className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-all group/report"
+                        >
+                            <AlertTriangle className="w-5 h-5 mb-1 text-red-500/50 group-hover/report:text-red-500 transition-colors" />
+                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Reportar</span>
                         </button>
                     </div>
 
@@ -442,10 +456,16 @@ export const PlacePage: React.FC = () => {
                         </button>
                     </div>
 
+
+
                     {activeTab === 'reviews' && (
                         <div className="grid grid-cols-1 gap-6 animate-fade-in">
                             {place.reviews.map(review => (
-                                <ReviewCard key={review.id} review={review} />
+                                <ReviewCard
+                                    key={review.id}
+                                    review={review}
+                                    reactionConfig={reactionConfig || undefined}
+                                />
                             ))}
                         </div>
                     )}
@@ -634,6 +654,14 @@ export const PlacePage: React.FC = () => {
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
                 title={`Compartir ${place.name}`}
+            />
+
+            <ReportModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                targetId={place.placeId}
+                targetName={place.name}
+                targetType="place"
             />
         </div >
     );
