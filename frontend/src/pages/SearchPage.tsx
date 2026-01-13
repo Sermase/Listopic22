@@ -158,7 +158,7 @@ const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
                                     isGrid={true}
                                     groupingMode={
                                         activeTab === 'lists' ? 'list' :
-                                            activeTab === 'grouped_items' ? 'dish' :
+                                            (activeTab === 'grouped_items' || activeTab === 'items') ? 'dish' :
                                                 'place'
                                     }
                                 />
@@ -281,7 +281,7 @@ export const SearchPage: React.FC = () => {
                 if (key === 'service') fieldName = 'serviceOptions';
                 if (key === 'price') fieldName = 'priceLevel';
             }
-            if (activeTab === 'grouped_items') {
+            if (activeTab === 'grouped_items' || activeTab === 'items') {
                 if (key === 'city') fieldName = 'placeCity';
             }
 
@@ -341,7 +341,7 @@ export const SearchPage: React.FC = () => {
                                 {key === 'places' && <MapIcon className="w-4 h-4" />}
                                 {key === 'users' && <Users className="w-4 h-4" />}
                                 {key === 'grouped_items' && <MessageCircle className="w-4 h-4" />}
-                                {key === 'grouped_items' ? 'Items' : key}
+                                {key === 'items' ? 'Items' : key}
                             </button>
                         ))}
                     </div>
@@ -391,7 +391,7 @@ export const SearchPage: React.FC = () => {
                                             {/* <CustomRefinementList attribute="badges" label="Insignias" /> */}
                                         </>
                                     )}
-                                    {activeTab === 'grouped_items' && (
+                                    {(activeTab === 'grouped_items' || activeTab === 'items') && (
                                         <>
                                             <CustomRefinementList attribute="placeCity" label="Ciudad" />
                                             <CustomRefinementList attribute="listName" label="Lista" />

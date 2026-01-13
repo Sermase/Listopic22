@@ -467,7 +467,7 @@ export const HomePage: React.FC = () => {
                         {/* 2. Items */}
                         <CardCarousel
                             title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos Items"}
-                            viewAllLink={`/search?type=reviews&sort=${activeTab === 'explore' ? 'top_rated' : 'latest'}`}
+                            viewAllLink={`/search?type=items&sort=${activeTab === 'explore' ? 'top_rated' : 'latest'}`}
                             items={filteredItems} // filteredItems are likely top rated in 'explore' mode already via useReviews('trending')
                             loading={loadingReviews}
                             renderItem={(item: any) => (
@@ -554,7 +554,7 @@ export const HomePage: React.FC = () => {
 
                         <CardCarousel
                             title="Reseñas que gustan"
-                            viewAllLink="/search?type=reviews&sort=top_liked"
+                            viewAllLink="/search?type=items&sort=top_liked"
                             items={carouselReviews}
                             loading={loadingReviews}
                             itemClassName="w-auto"
