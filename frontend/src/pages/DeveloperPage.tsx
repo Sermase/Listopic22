@@ -274,54 +274,79 @@ export const DeveloperPage: React.FC = () => {
         if (activeTab === 'reports') fetchReports();
     }, [activeTab]);
 
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        if (!isAuthorized && !loadingProfile) {
+            // Optional: redirect or just show the unauthorized message
+        }
+    }, [isAuthorized, loadingProfile]);
+
+    // Update active tab logic if needed
+
     if (loadingProfile || isAuthorized === null) {
-        return <div className="min-h-screen pt-40 text-center text-gray-500">Verificando permisos...</div>;
+        return <div className="min-h-screen pt-24 text-center text-gray-500">Verificando permisos...</div>;
     }
 
     return (
         <>
             {!isAuthorized ? (
-                <div className="flex flex-col items-center justify-center h-[calc(100vh-80px)] p-6 text-center">
+                <div className="flex flex-col items-center justify-center h-[calc(100vh-80px)] p-6 text-center pt-24">
                     <AlertCircle className="w-16 h-16 text-red-500 mb-4 opacity-80" />
                     <h2 className="text-2xl font-bold text-white mb-2">Acceso Restringido</h2>
                     <p className="text-gray-500 max-w-md">Esta área es exclusiva para administradores del sistema.</p>
                 </div>
             ) : (
-                <div className="flex h-[calc(100vh-73px)] overflow-hidden">
+                <div className="flex h-screen overflow-hidden pt-16"> {/* Added pt-16 for header spacing */}
+                    {/* Mobile Sidebar Toggle */}
+                    <button
+                        className="fixed top-20 left-4 z-50 p-2 bg-[#151b2e] border border-white/10 rounded-lg text-white md:hidden shadow-xl"
+                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    >
+                        {isSidebarOpen ? <X className="w-6 h-6" /> : <ListIcon className="w-6 h-6" />}
+                    </button>
+
                     {/* Sidebar Nav */}
-                    <nav className="w-64 bg-[#121624] border-r border-white/5 flex flex-col pt-6 shrink-0">
+                    <nav className={`
+                        fixed md:static inset-y-0 left-0 z-40 w-64 bg-[#121624] border-r border-white/5 flex flex-col pt-20 md:pt-6 shrink-0 transition-transform duration-300 ease-in-out
+                        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+                    `}>
+                        <div className="px-6 mb-6 md:hidden">
+                            <h2 className="text-xl font-bold text-white">Menú Dev</h2>
+                        </div>
+
                         <button
-                            onClick={() => setActiveTab('console')}
+                            onClick={() => { setActiveTab('console'); setIsSidebarOpen(false); }}
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'console' ? 'border-indigo-500 bg-indigo-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Database className="w-5 h-5" /> Consola de Datos
                         </button>
                         <button
-                            onClick={() => setActiveTab('algolia')}
+                            onClick={() => { setActiveTab('algolia'); setIsSidebarOpen(false); }}
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'algolia' ? 'border-cyan-500 bg-cyan-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <CloudLightning className="w-5 h-5" /> Algolia Sync
                         </button>
                         <button
-                            onClick={() => setActiveTab('maintenance')}
+                            onClick={() => { setActiveTab('maintenance'); setIsSidebarOpen(false); }}
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'maintenance' ? 'border-emerald-500 bg-emerald-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <RefreshCw className="w-5 h-5" /> Mantenimiento
                         </button>
                         <button
-                            onClick={() => setActiveTab('gamification')}
+                            onClick={() => { setActiveTab('gamification'); setIsSidebarOpen(false); }}
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'gamification' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Tag className="w-5 h-5" /> Gamificación
                         </button>
                         <button
-                            onClick={() => setActiveTab('reports')}
+                            onClick={() => { setActiveTab('reports'); setIsSidebarOpen(false); }}
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'reports' ? 'border-red-500 bg-red-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Flag className="w-5 h-5" /> Reportes
                         </button>
                         <button
-                            onClick={() => setActiveTab('branding')}
+                            onClick={() => { setActiveTab('branding'); setIsSidebarOpen(false); }}
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'branding' ? 'border-indigo-500 bg-indigo-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Palette className="w-5 h-5" /> Marca & SEO
@@ -471,343 +496,351 @@ export const DeveloperPage: React.FC = () => {
                                         </table>
                                     </div>
                                 </div>
-                            </div>
+                            </div >
                         )}
 
-                        {activeTab === 'algolia' && (
-                            <div className="space-y-6">
-                                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
-                                    <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                        <CloudLightning className="w-5 h-5 text-yellow-400" /> Sincronización Manual
-                                    </h3>
-                                    <p className="text-gray-400 mb-6">Fuerza la re-indexación de datos en Algolia. Úsalo con precaución.</p>
+                        {
+                            activeTab === 'algolia' && (
+                                <div className="space-y-6">
+                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                            <CloudLightning className="w-5 h-5 text-yellow-400" /> Sincronización Manual
+                                        </h3>
+                                        <p className="text-gray-400 mb-6">Fuerza la re-indexación de datos en Algolia. Úsalo con precaución.</p>
 
-                                    <div className="flex flex-wrap gap-4">
-                                        <button
-                                            onClick={() => runAlgoliaSync(null)}
-                                            disabled={processingAlgolia}
-                                            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
-                                        >
-                                            Sincronizar TODO
-                                        </button>
-                                        <button
-                                            onClick={() => runAlgoliaSync('lists')}
-                                            disabled={processingAlgolia}
-                                            className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
-                                        >
-                                            Sync Lists
-                                        </button>
-                                        <button
-                                            onClick={() => runAlgoliaSync('places')}
-                                            disabled={processingAlgolia}
-                                            className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
-                                        >
-                                            Sync Places
-                                        </button>
-                                        <button
-                                            onClick={() => runAlgoliaSync('users')}
-                                            disabled={processingAlgolia}
-                                            className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
-                                        >
-                                            Sync Users
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs h-96 overflow-y-auto">
-                                    <div className="text-gray-500 mb-2 border-b border-white/5 pb-2">Logs de actividad...</div>
-                                    {algoliaLog.map((log, i) => (
-                                        <div key={i} className="text-gray-300 py-1">{log}</div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-
-                        {activeTab === 'maintenance' && (
-                            <div className="space-y-6">
-                                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
-                                    <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                        <ListIcon className="w-5 h-5 text-purple-400" /> Mantenimiento de Listas
-                                    </h3>
-                                    <p className="text-gray-400 mb-6">Herramientas para recalcular contadores y estadísticas de listas desincronizadas.</p>
-
-                                    {/* Global Maintenance */}
-                                    <div className="mb-8 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-                                        <h4 className="text-sm font-bold text-indigo-300 uppercase mb-3 flex items-center gap-2">
-                                            <Database className="w-4 h-4" /> Mantenimiento Global
-                                        </h4>
-                                        <div className="flex gap-4 flex-wrap">
+                                        <div className="flex flex-wrap gap-4">
                                             <button
-                                                onClick={() => handleGlobalRecalculate('lists')}
-                                                disabled={processingMaintenance}
-                                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                                onClick={() => runAlgoliaSync(null)}
+                                                disabled={processingAlgolia}
+                                                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
                                             >
-                                                {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
-                                                Recalcular TODAS las Listas
+                                                Sincronizar TODO
                                             </button>
                                             <button
-                                                onClick={() => handleGlobalRecalculate('places')}
-                                                disabled={processingMaintenance}
-                                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                                onClick={() => runAlgoliaSync('lists')}
+                                                disabled={processingAlgolia}
+                                                className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
                                             >
-                                                {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
-                                                Recalcular TODOS los Lugares
+                                                Sync Lists
+                                            </button>
+                                            <button
+                                                onClick={() => runAlgoliaSync('places')}
+                                                disabled={processingAlgolia}
+                                                className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
+                                            >
+                                                Sync Places
+                                            </button>
+                                            <button
+                                                onClick={() => runAlgoliaSync('users')}
+                                                disabled={processingAlgolia}
+                                                className="px-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white font-bold rounded-lg border border-white/10"
+                                            >
+                                                Sync Users
                                             </button>
                                         </div>
-                                        <p className="text-xs text-gray-500 mt-2">
-                                            ⚠️ Estas operaciones pueden tardar varios minutos. No cierres la pestaña.
-                                        </p>
                                     </div>
 
-                                    <div className="flex gap-4 items-end max-w-2xl">
-                                        <div className="flex-1">
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">List ID</label>
-                                            <input
-                                                type="text"
-                                                value={targetListId}
-                                                onChange={(e) => setTargetListId(e.target.value)}
-                                                placeholder="Paste List ID here..."
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500 font-mono"
-                                            />
-                                        </div>
-                                        <button
-                                            onClick={handleRecalculateList}
-                                            disabled={processingMaintenance || !targetListId}
-                                            className="px-6 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
-                                        >
-                                            {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                                            Recalcular Lista
-                                        </button>
-                                    </div>
-                                    <div className="flex gap-4 items-end max-w-2xl mt-4 border-t border-white/5 pt-4">
-                                        <div className="flex-1">
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Place ID</label>
-                                            <input
-                                                type="text"
-                                                value={targetPlaceId || ''}
-                                                onChange={(e) => setTargetPlaceId(e.target.value)}
-                                                placeholder="Paste Place ID here..."
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500 font-mono"
-                                            />
-                                        </div>
-                                        <button
-                                            onClick={handleRecalculatePlace}
-                                            disabled={processingMaintenance || !targetPlaceId}
-                                            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
-                                        >
-                                            {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                                            Recalcular Lugar
-                                        </button>
+                                    <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs h-96 overflow-y-auto">
+                                        <div className="text-gray-500 mb-2 border-b border-white/5 pb-2">Logs de actividad...</div>
+                                        {algoliaLog.map((log, i) => (
+                                            <div key={i} className="text-gray-300 py-1">{log}</div>
+                                        ))}
                                     </div>
                                 </div>
+                            )
+                        }
 
-                                <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs h-96 overflow-y-auto">
-                                    <div className="text-gray-500 mb-2 border-b border-white/5 pb-2">Logs de mantenimiento...</div>
-                                    {maintenanceLog.map((log, i) => (
-                                        <div key={i} className="text-gray-300 py-1">{log}</div>
-                                    ))}
+
+                        {
+                            activeTab === 'maintenance' && (
+                                <div className="space-y-6">
+                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                            <ListIcon className="w-5 h-5 text-purple-400" /> Mantenimiento de Listas
+                                        </h3>
+                                        <p className="text-gray-400 mb-6">Herramientas para recalcular contadores y estadísticas de listas desincronizadas.</p>
+
+                                        {/* Global Maintenance */}
+                                        <div className="mb-8 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+                                            <h4 className="text-sm font-bold text-indigo-300 uppercase mb-3 flex items-center gap-2">
+                                                <Database className="w-4 h-4" /> Mantenimiento Global
+                                            </h4>
+                                            <div className="flex gap-4 flex-wrap">
+                                                <button
+                                                    onClick={() => handleGlobalRecalculate('lists')}
+                                                    disabled={processingMaintenance}
+                                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                                >
+                                                    {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
+                                                    Recalcular TODAS las Listas
+                                                </button>
+                                                <button
+                                                    onClick={() => handleGlobalRecalculate('places')}
+                                                    disabled={processingMaintenance}
+                                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                                >
+                                                    {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                                                    Recalcular TODOS los Lugares
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-2">
+                                                ⚠️ Estas operaciones pueden tardar varios minutos. No cierres la pestaña.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex gap-4 items-end max-w-2xl">
+                                            <div className="flex-1">
+                                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">List ID</label>
+                                                <input
+                                                    type="text"
+                                                    value={targetListId}
+                                                    onChange={(e) => setTargetListId(e.target.value)}
+                                                    placeholder="Paste List ID here..."
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500 font-mono"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={handleRecalculateList}
+                                                disabled={processingMaintenance || !targetListId}
+                                                className="px-6 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
+                                            >
+                                                {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                                Recalcular Lista
+                                            </button>
+                                        </div>
+                                        <div className="flex gap-4 items-end max-w-2xl mt-4 border-t border-white/5 pt-4">
+                                            <div className="flex-1">
+                                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Place ID</label>
+                                                <input
+                                                    type="text"
+                                                    value={targetPlaceId || ''}
+                                                    onChange={(e) => setTargetPlaceId(e.target.value)}
+                                                    placeholder="Paste Place ID here..."
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500 font-mono"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={handleRecalculatePlace}
+                                                disabled={processingMaintenance || !targetPlaceId}
+                                                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
+                                            >
+                                                {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                                Recalcular Lugar
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs h-96 overflow-y-auto">
+                                        <div className="text-gray-500 mb-2 border-b border-white/5 pb-2">Logs de mantenimiento...</div>
+                                        {maintenanceLog.map((log, i) => (
+                                            <div key={i} className="text-gray-300 py-1">{log}</div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )
+                        }
 
                         {activeTab === 'branding' && <BrandingManager />}
 
-                        {activeTab === 'gamification' && (
-                            <div className="max-w-6xl mx-auto">
-                                <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-6">
-                                    <Tag className="w-6 h-6 text-amber-500" /> Gamificación Avanzada
-                                </h2>
+                        {
+                            activeTab === 'gamification' && (
+                                <div className="max-w-6xl mx-auto">
+                                    <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-6">
+                                        <Tag className="w-6 h-6 text-amber-500" /> Gamificación Avanzada
+                                    </h2>
 
-                                {/* --- BULK & GLOBAL OPERATIONS --- */}
-                                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 mb-8 relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                        <CloudLightning className="w-32 h-32 text-amber-500" />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-white mb-4 relative z-10 flex items-center gap-2">
-                                        <CloudLightning className="w-5 h-5 text-amber-400" /> Operaciones Globales
-                                    </h3>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                                        {/* Global Recalc */}
-                                        <div className="space-y-3">
-                                            <p className="text-gray-400 text-sm">Recalcular estadísticas, medallas y niveles para <strong>TODOS</strong> los usuarios del sistema.</p>
-                                            <button
-                                                onClick={async () => {
-                                                    if (!confirm("⚠️ ¿Estás seguro? Esto recorrerá toda la base de datos de usuarios.")) return;
-                                                    setLoadingBadges(true);
-                                                    setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando Recálculo Masivo de Gamificación...`, ...prev]);
-                                                    try {
-                                                        const functions = getFunctions(undefined, FUNCTIONS_REGION);
-                                                        const bulkFn = httpsCallable(functions, 'adminRecalculateAllGamification');
-                                                        const res: any = await bulkFn();
-                                                        if (res.data.logs) {
-                                                            setMaintenanceLog(prev => [...res.data.logs.reverse(), ...prev]);
-                                                        }
-                                                        setMaintenanceLog(prev => [`✅ Proceso masivo completado`, ...prev]);
-                                                    } catch (e: any) {
-                                                        console.error(e);
-                                                        setMaintenanceLog(prev => [`❌ Error Backend: ${e.message}`, ...prev]);
-                                                    } finally {
-                                                        setLoadingBadges(false);
-                                                    }
-                                                }}
-                                                disabled={loadingBadges}
-                                                className="w-full py-3 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
-                                            >
-                                                {loadingBadges ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Layers className="w-5 h-5" />}
-                                                Recalcular TODO (Niveles y Medallas)
-                                            </button>
+                                    {/* --- BULK & GLOBAL OPERATIONS --- */}
+                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 mb-8 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                            <CloudLightning className="w-32 h-32 text-amber-500" />
                                         </div>
+                                        <h3 className="text-lg font-bold text-white mb-4 relative z-10 flex items-center gap-2">
+                                            <CloudLightning className="w-5 h-5 text-amber-400" /> Operaciones Globales
+                                        </h3>
 
-                                        {/* Single User Tools */}
-                                        <div className="bg-black/20 rounded-lg p-4 border border-white/5">
-                                            <h4 className="text-sm font-bold text-gray-300 mb-2 uppercase">Herramientas por Usuario</h4>
-                                            <div className="flex gap-2 mb-3">
-                                                <input
-                                                    type="text"
-                                                    placeholder="ID de Usuario"
-                                                    className="flex-1 bg-black/40 border border-white/10 rounded px-3 py-1.5 text-sm text-white"
-                                                    id="gamificationUserId" // Quick hook
-                                                />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                                            {/* Global Recalc */}
+                                            <div className="space-y-3">
+                                                <p className="text-gray-400 text-sm">Recalcular estadísticas, medallas y niveles para <strong>TODOS</strong> los usuarios del sistema.</p>
                                                 <button
                                                     onClick={async () => {
-                                                        const uid = (document.getElementById('gamificationUserId') as HTMLInputElement).value;
-                                                        if (!uid) return alert("Pon un ID");
+                                                        if (!confirm("⚠️ ¿Estás seguro? Esto recorrerá toda la base de datos de usuarios.")) return;
+                                                        setLoadingBadges(true);
+                                                        setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando Recálculo Masivo de Gamificación...`, ...prev]);
                                                         try {
                                                             const functions = getFunctions(undefined, FUNCTIONS_REGION);
-                                                            const fn = httpsCallable(functions, 'adminRecalculateUserGamification');
-                                                            setMaintenanceLog(prev => [`Recalculando usuario ${uid}...`, ...prev]);
-                                                            await fn({ userId: uid });
-                                                            setMaintenanceLog(prev => [`✅ Usuario ${uid} actualizado`, ...prev]);
+                                                            const bulkFn = httpsCallable(functions, 'adminRecalculateAllGamification');
+                                                            const res: any = await bulkFn();
+                                                            if (res.data.logs) {
+                                                                setMaintenanceLog(prev => [...res.data.logs.reverse(), ...prev]);
+                                                            }
+                                                            setMaintenanceLog(prev => [`✅ Proceso masivo completado`, ...prev]);
                                                         } catch (e: any) {
-                                                            alert(e.message);
+                                                            console.error(e);
+                                                            setMaintenanceLog(prev => [`❌ Error Backend: ${e.message}`, ...prev]);
+                                                        } finally {
+                                                            setLoadingBadges(false);
                                                         }
                                                     }}
-                                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded text-sm font-bold"
+                                                    disabled={loadingBadges}
+                                                    className="w-full py-3 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
                                                 >
-                                                    Recalcular
+                                                    {loadingBadges ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Layers className="w-5 h-5" />}
+                                                    Recalcular TODO (Niveles y Medallas)
                                                 </button>
                                             </div>
-                                        </div>
-                                    </div>
 
-                                    {/* Log Output */}
-                                    {maintenanceLog.length > 0 && activeTab === 'gamification' && (
-                                        <div className="mt-6 bg-black/50 border border-white/10 rounded-lg p-3 max-h-40 overflow-y-auto font-mono text-xs text-emerald-300">
-                                            {maintenanceLog.map((l, i) => <div key={i}>{l}</div>)}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center justify-between mb-8">
-                                    <h2 className="text-xl font-bold text-gray-400 flex items-center gap-2">
-                                        <Database className="w-5 h-5" /> Definición de Medallas
-                                    </h2>
-                                    <button
-                                        onClick={fetchBadges}
-                                        className="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white"
-                                    >
-                                        <RefreshCw className={`w-4 h-4 ${loadingBadges ? 'animate-spin' : ''}`} />
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {badges.map(badge => (
-                                        <div key={badge.id} className="bg-[#151b2e] border border-white/10 rounded-xl p-6 relative group hover:border-amber-500/50 transition-all">
-                                            <div className="absolute top-4 right-4 text-xs font-mono text-gray-500">{badge.id}</div>
-
-                                            <div className="flex items-center gap-4 mb-4">
-                                                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-600 to-yellow-400 flex items-center justify-center text-2xl shadow-lg">
-                                                    {badge.icon || '🏅'}
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-bold text-white text-lg">{badge.name}</h3>
-                                                    <span className="text-xs text-amber-400 font-bold uppercase tracking-wider">{badge.category || 'GENERAL'}</span>
+                                            {/* Single User Tools */}
+                                            <div className="bg-black/20 rounded-lg p-4 border border-white/5">
+                                                <h4 className="text-sm font-bold text-gray-300 mb-2 uppercase">Herramientas por Usuario</h4>
+                                                <div className="flex gap-2 mb-3">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="ID de Usuario"
+                                                        className="flex-1 bg-black/40 border border-white/10 rounded px-3 py-1.5 text-sm text-white"
+                                                        id="gamificationUserId" // Quick hook
+                                                    />
+                                                    <button
+                                                        onClick={async () => {
+                                                            const uid = (document.getElementById('gamificationUserId') as HTMLInputElement).value;
+                                                            if (!uid) return alert("Pon un ID");
+                                                            try {
+                                                                const functions = getFunctions(undefined, FUNCTIONS_REGION);
+                                                                const fn = httpsCallable(functions, 'adminRecalculateUserGamification');
+                                                                setMaintenanceLog(prev => [`Recalculando usuario ${uid}...`, ...prev]);
+                                                                await fn({ userId: uid });
+                                                                setMaintenanceLog(prev => [`✅ Usuario ${uid} actualizado`, ...prev]);
+                                                            } catch (e: any) {
+                                                                alert(e.message);
+                                                            }
+                                                        }}
+                                                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded text-sm font-bold"
+                                                    >
+                                                        Recalcular
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <p className="text-gray-400 text-sm mb-4 line-clamp-2">{badge.description}</p>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
 
-                        {activeTab === 'reports' && (
-                            <div className="max-w-6xl mx-auto space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                                        <Flag className="w-6 h-6 text-red-500" /> Centro de Reportes
-                                    </h2>
-                                    <button onClick={fetchReports} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white">
-                                        <RefreshCw className={`w-4 h-4 ${loadingReports ? 'animate-spin' : ''}`} />
-                                    </button>
-                                </div>
+                                        {/* Log Output */}
+                                        {maintenanceLog.length > 0 && activeTab === 'gamification' && (
+                                            <div className="mt-6 bg-black/50 border border-white/10 rounded-lg p-3 max-h-40 overflow-y-auto font-mono text-xs text-emerald-300">
+                                                {maintenanceLog.map((l, i) => <div key={i}>{l}</div>)}
+                                            </div>
+                                        )}
+                                    </div>
 
-                                <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden">
-                                    <table className="w-full text-left text-sm text-gray-300">
-                                        <thead className="bg-white/5 text-gray-100 font-bold uppercase text-xs">
-                                            <tr>
-                                                <th className="p-4">Estado</th>
-                                                <th className="p-4">Tipo</th>
-                                                <th className="p-4">Target</th>
-                                                <th className="p-4">Mensaje</th>
-                                                <th className="p-4">Reportado Por</th>
-                                                <th className="p-4">Fecha</th>
-                                                <th className="p-4">Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/5">
-                                            {reports.map(report => (
-                                                <tr key={report.id} className="hover:bg-white/5 transition-colors">
-                                                    <td className="p-4">
-                                                        <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${report.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                            report.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
-                                                                'bg-yellow-500/20 text-yellow-400'
-                                                            }`}>
-                                                            {report.status || 'pending'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-4 capitalize text-white">{report.targetType} - {report.issueType}</td>
-                                                    <td className="p-4 text-xs font-mono text-gray-500">
-                                                        {report.targetId} <br />
-                                                        <span className="text-indigo-400">{report.targetName}</span>
-                                                    </td>
-                                                    <td className="p-4 max-w-xs truncate" title={report.description}>{report.description || '-'}</td>
-                                                    <td className="p-4 text-xs">{report.reportedByUserId}</td>
-                                                    <td className="p-4 text-xs">{report.createdAt?.seconds ? new Date(report.createdAt.seconds * 1000).toLocaleDateString() : '-'}</td>
-                                                    <td className="p-4 flex gap-2">
-                                                        {report.status !== 'resolved' && (
-                                                            <button
-                                                                onClick={() => handleUpdateReportStatus(report.id, 'resolved')}
-                                                                className="p-1 hover:bg-emerald-500/20 text-emerald-500 rounded" title="Resolver"
-                                                            >
-                                                                <CheckCircle className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-                                                        {report.status !== 'rejected' && (
-                                                            <button
-                                                                onClick={() => handleUpdateReportStatus(report.id, 'rejected')}
-                                                                className="p-1 hover:bg-red-500/20 text-red-500 rounded" title="Rechazar"
-                                                            >
-                                                                <X className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            {reports.length === 0 && !loadingReports && (
+                                    <div className="flex items-center justify-between mb-8">
+                                        <h2 className="text-xl font-bold text-gray-400 flex items-center gap-2">
+                                            <Database className="w-5 h-5" /> Definición de Medallas
+                                        </h2>
+                                        <button
+                                            onClick={fetchBadges}
+                                            className="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white"
+                                        >
+                                            <RefreshCw className={`w-4 h-4 ${loadingBadges ? 'animate-spin' : ''}`} />
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {badges.map(badge => (
+                                            <div key={badge.id} className="bg-[#151b2e] border border-white/10 rounded-xl p-6 relative group hover:border-amber-500/50 transition-all">
+                                                <div className="absolute top-4 right-4 text-xs font-mono text-gray-500">{badge.id}</div>
+
+                                                <div className="flex items-center gap-4 mb-4">
+                                                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-600 to-yellow-400 flex items-center justify-center text-2xl shadow-lg">
+                                                        {badge.icon || '🏅'}
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-bold text-white text-lg">{badge.name}</h3>
+                                                        <span className="text-xs text-amber-400 font-bold uppercase tracking-wider">{badge.category || 'GENERAL'}</span>
+                                                    </div>
+                                                </div>
+                                                <p className="text-gray-400 text-sm mb-4 line-clamp-2">{badge.description}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )
+                        }
+
+                        {
+                            activeTab === 'reports' && (
+                                <div className="max-w-6xl mx-auto space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                            <Flag className="w-6 h-6 text-red-500" /> Centro de Reportes
+                                        </h2>
+                                        <button onClick={fetchReports} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white">
+                                            <RefreshCw className={`w-4 h-4 ${loadingReports ? 'animate-spin' : ''}`} />
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden">
+                                        <table className="w-full text-left text-sm text-gray-300">
+                                            <thead className="bg-white/5 text-gray-100 font-bold uppercase text-xs">
                                                 <tr>
-                                                    <td colSpan={7} className="p-8 text-center text-gray-500">No hay reportes recientes.</td>
+                                                    <th className="p-4">Estado</th>
+                                                    <th className="p-4">Tipo</th>
+                                                    <th className="p-4">Target</th>
+                                                    <th className="p-4">Mensaje</th>
+                                                    <th className="p-4">Reportado Por</th>
+                                                    <th className="p-4">Fecha</th>
+                                                    <th className="p-4">Acciones</th>
                                                 </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5">
+                                                {reports.map(report => (
+                                                    <tr key={report.id} className="hover:bg-white/5 transition-colors">
+                                                        <td className="p-4">
+                                                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${report.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                                report.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                                                                    'bg-yellow-500/20 text-yellow-400'
+                                                                }`}>
+                                                                {report.status || 'pending'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 capitalize text-white">{report.targetType} - {report.issueType}</td>
+                                                        <td className="p-4 text-xs font-mono text-gray-500">
+                                                            {report.targetId} <br />
+                                                            <span className="text-indigo-400">{report.targetName}</span>
+                                                        </td>
+                                                        <td className="p-4 max-w-xs truncate" title={report.description}>{report.description || '-'}</td>
+                                                        <td className="p-4 text-xs">{report.reportedByUserId}</td>
+                                                        <td className="p-4 text-xs">{report.createdAt?.seconds ? new Date(report.createdAt.seconds * 1000).toLocaleDateString() : '-'}</td>
+                                                        <td className="p-4 flex gap-2">
+                                                            {report.status !== 'resolved' && (
+                                                                <button
+                                                                    onClick={() => handleUpdateReportStatus(report.id, 'resolved')}
+                                                                    className="p-1 hover:bg-emerald-500/20 text-emerald-500 rounded" title="Resolver"
+                                                                >
+                                                                    <CheckCircle className="w-4 h-4" />
+                                                                </button>
+                                                            )}
+                                                            {report.status !== 'rejected' && (
+                                                                <button
+                                                                    onClick={() => handleUpdateReportStatus(report.id, 'rejected')}
+                                                                    className="p-1 hover:bg-red-500/20 text-red-500 rounded" title="Rechazar"
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {reports.length === 0 && !loadingReports && (
+                                                    <tr>
+                                                        <td colSpan={7} className="p-8 text-center text-gray-500">No hay reportes recientes.</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </main>
-                </div>
+                            )
+                        }
+                    </main >
+                </div >
             )}
         </>
     );
