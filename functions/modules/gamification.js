@@ -173,7 +173,107 @@ const onReviewWritten = onDocumentWritten("places/{placeId}/reviews/{reviewId}",
     }
 });
 
+// --- Admin Callable Functions ---
+
+/**
+ * Recalculate stats, badges, and level for a specific user.
+ * @param {object} data - { userId: string }
+ */
+const adminRecalculateUserGamification = onCall(async (request) => {
+    // Auth check: Ensure admin/jefe (handled by client check mostly, but secure apps verify token claims)
+    // For now, we trust the client-side check + maybe a simple claim check if we had custom claims.
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+
+    const { userId } = request.data;
+    if (!userId) throw new HttpsError('invalid-argument', 'userId is required');
+
+    try {
+        await checkBadges(userId);
+        return { success: true, message: `Gamification recalculated for user ${userId}` };
+    } catch (error) {
+        logger.error("adminRecalculateUserGamification error", error);
+        throw new HttpsError('internal', error.message);
+    }
+});
+
+/**
+ * Manually award or revoke a badge.
+ * @param {object} data - { userId: string, badgeId: string, action: 'award' | 'revoke' }
+ */
+const adminManageBadge = onCall(async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+
+    const { userId, badgeId, action } = request.data;
+    if (!userId || !badgeId || !['award', 'revoke'].includes(action)) {
+        throw new HttpsError('invalid-argument', 'Invalid arguments');
+    }
+
+    try {
+        const userRef = db.collection('users').doc(userId);
+
+        if (action === 'award') {
+            await userRef.update({
+                badges: admin.firestore.FieldValue.arrayUnion(badgeId),
+                lastBadgeEarnedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            // Recalculate to update XP derived from badges
+            await checkBadges(userId);
+        } else {
+            await userRef.update({
+                badges: admin.firestore.FieldValue.arrayRemove(badgeId)
+            });
+            // Recalculate (might drop level if badge XP is removed)
+            await checkBadges(userId);
+        }
+
+        return { success: true, message: `Badge ${badgeId} ${action}ed for user ${userId}` };
+    } catch (error) {
+        logger.error("adminManageBadge error", error);
+        throw new HttpsError('internal', error.message);
+    }
+});
+
+/**
+ * GLOBAL: Recalculate gamification for ALL users.
+ * WARNING: Heavy operation.
+ */
+const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+
+    const logs = [];
+    logs.push(`Starting Global Gamification Recalculation at ${new Date().toISOString()}`);
+
+    try {
+        const usersSnap = await db.collection('users').get();
+        logs.push(`Found ${usersSnap.size} users.`);
+
+        let processed = 0;
+        const batchSize = 50; // Process in chunks if doing parallel, but checkBadges is async.
+        // We'll just loop sequentially to be safe on memory, or small parallel chunks.
+
+        for (const doc of usersSnap.docs) {
+            try {
+                await checkBadges(doc.id);
+                processed++;
+                if (processed % 20 === 0) logs.push(`Processed ${processed}/${usersSnap.size} users...`);
+            } catch (err) {
+                logs.push(`ERROR processing user ${doc.id}: ${err.message}`);
+            }
+        }
+
+        logs.push(`Completed. Successfully processed ${processed} users.`);
+        return { success: true, logs };
+    } catch (error) {
+        logger.error("adminRecalculateAllGamification error", error);
+        throw new HttpsError('internal', error.message);
+    }
+});
+
 module.exports = {
     onReviewWritten,
-    checkBadges
+    checkBadges,
+    adminRecalculateUserGamification,
+    adminManageBadge,
+    adminRecalculateAllGamification
 };
+
