@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Search, Archive, MessageSquare, User, Moon, Sun, Menu, X, Plus, Compass, Users, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { NotificationModal } from './NotificationModal';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
-
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { NotificationModal } from './NotificationModal';
 export const Navbar: React.FC = () => {
     const { user } = useAuth();
+    const config = useAppConfig();
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
@@ -20,7 +21,7 @@ export const Navbar: React.FC = () => {
             collection(db, 'users', user.uid, 'notifications'),
             where('read', '==', false)
         );
-        const unsubscribe = onSnapshot(q, (snap) => {
+        const unsubscribe = onSnapshot(q, (snap: any) => {
             setUnreadCount(snap.size);
         });
         return () => unsubscribe();
@@ -63,9 +64,9 @@ export const Navbar: React.FC = () => {
             collection(db, 'chats'),
             where('participants', 'array-contains', user.uid)
         );
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribe = onSnapshot(q, (snapshot: any) => {
             let total = 0;
-            snapshot.docs.forEach(doc => {
+            snapshot.docs.forEach((doc: any) => {
                 const data = doc.data();
                 if (data.unreadCount && typeof data.unreadCount[user.uid] === 'number') {
                     total += data.unreadCount[user.uid];
@@ -117,15 +118,22 @@ export const Navbar: React.FC = () => {
 
                     {/* Brand */}
                     <Link to="/" className="flex items-center gap-3 group brand-logo relative z-50">
-                        <div className="relative group-hover:scale-105 group-hover:rotate-6 transition-all duration-300">
-                            <div className="absolute inset-0 bg-blue-600 blur-lg opacity-40 group-hover:opacity-60 transition-opacity rounded-xl"></div>
-                            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
-                                <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
+                        {config.logoType === 'image' && config.logoUrl ? (
+                            <img src={config.logoUrl} alt={config.appName} className="max-h-12 w-auto object-contain transition-transform group-hover:scale-105" />
+                        ) : (
+                            // Default CSS Logo
+                            <div className="flex items-center gap-3">
+                                <div className="relative group-hover:scale-105 group-hover:rotate-6 transition-all duration-300">
+                                    <div className="absolute inset-0 bg-blue-600 blur-lg opacity-40 group-hover:opacity-60 transition-opacity rounded-xl"></div>
+                                    <div className="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+                                        <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
+                                    </div>
+                                </div>
+                                <span className="text-xl font-display font-bold tracking-tight text-white group-hover:text-indigo-200 transition-colors">
+                                    {config.appName}
+                                </span>
                             </div>
-                        </div>
-                        <span className="text-xl font-display font-bold tracking-tight text-white group-hover:text-indigo-200 transition-colors">
-                            LISTOPIC
-                        </span>
+                        )}
                     </Link>
 
                     {/* Desktop Navigation */}

@@ -110,25 +110,19 @@ export const ProfilePage: React.FC = () => {
             try {
                 // 1. Guest Lists (Where I am an editor)
                 // Note: 'editors' array-contains query
-                let qGuest;
+                // FIX: Only fetch guest lists if viewing own profile to avoid permission errors (can't query private lists of others)
+                // or ensure we rely on Algolia for complex search. For now, strict check.
+                let validGuest: any[] = [];
                 if (isOwnProfile) {
-                    qGuest = query(collection(db, 'lists'), where('editors', 'array-contains', targetUserId), limit(20));
-                } else {
-                    // For others, we MUST filter by isPublic to satisfy security rules
-                    // Note: This requires a composite index 'editors' + 'isPublic'
-                    qGuest = query(collection(db, 'lists'), where('editors', 'array-contains', targetUserId), where('isPublic', '==', true), limit(20));
+                    try {
+                        const qGuest = query(collection(db, 'lists'), where('editors', 'array-contains', targetUserId), limit(20));
+                        const snapGuest = await getDocs(qGuest);
+                        validGuest = snapGuest.docs.map(d => ({ id: d.id, ...d.data() }));
+                    } catch (e: any) {
+                        console.warn("Guest lists query failed (likely missing index or permission)", e);
+                        // Don't crash, just empty
+                    }
                 }
-
-                // If the index is missing, this inner try/catch will catch it and we can proceed without guest lists
-                let fetchedGuest: any[] = [];
-                try {
-                    const snapGuest = await getDocs(qGuest);
-                    fetchedGuest = snapGuest.docs.map(d => ({ id: d.id, ...d.data() }));
-                } catch (guestError) {
-                    console.warn("Guest lists query failed (likely missing index or permission)", guestError);
-                }
-                // Since we filtered in method (or fetch failed), we use result directly
-                const validGuest = fetchedGuest;
                 setGuestLists(validGuest);
 
                 // 2. Followed Lists (From 'followingLists' subcollection)

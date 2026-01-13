@@ -168,12 +168,11 @@ service cloud.firestore {
                         isFollowingList(listId) ||
                         isListFollower(listId)
                       ));
-      allow list: if request.auth != null && (
+      allow list: if resource.data.isPublic == true || (request.auth != null && (
         resource.data.userId == request.auth.uid || 
-        resource.data.isPublic == true || 
         (resource.data.editors is list && resource.data.editors.hasAny([request.auth.uid])) ||
         isJefe(request.auth.uid)
-      );
+      ));
       
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       // El dueño de la lista O un jefe pueden borrarla.
@@ -259,6 +258,11 @@ service cloud.firestore {
       
       // Borrar: Solo si el userId del documento coincide con el usuario autenticado.
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    match /reports/{reportId} {
+        allow read, list, update: if request.auth != null && isJefe(request.auth.uid);
+        allow create: if request.auth != null;
     }
 
     // ===============================================
@@ -354,6 +358,11 @@ service cloud.firestore {
                        && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]);
         allow delete: if false;
       }
+    }
+
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if request.auth != null && isJefe(request.auth.uid);
     }
   }
 }

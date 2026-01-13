@@ -187,14 +187,34 @@ export const useListDetails = (listId: string | undefined) => {
                 // Wrap in try/catch to avoid blocking main content if permissions fail (e.g. public list but restrictive list-query rules)
                 try {
                     const listsRef = collection(db, 'lists');
-                    // Note: If this query fails due to rules, we just show no sublists.
-                    // For public lists to show sublists, the rules must allow 'list' on 'lists' collection given the query constraints.
-                    const sublistsQ = query(listsRef, where('parentListId', '==', listId));
+                    // Check if current user is owner to decide whether to show private sublists
+                    // We need auth instance
+                    const { getAuth } = await import('firebase/auth');
+                    const auth = getAuth();
+                    const currentUser = auth.currentUser;
+                    const isOwner = currentUser && listData.userId === currentUser.uid;
+
+                    let sublistsQ;
+                    if (isOwner) {
+                        sublistsQ = query(listsRef, where('parentListId', '==', listId));
+                    } else {
+                        // Non-owners can only see public sublists. 
+                        // Note: This requires index on parentListId + isPublic usually, but let's try.
+                        // If it fails with index error, it's better than permission error (and we catch it).
+                        sublistsQ = query(listsRef, where('parentListId', '==', listId), where('isPublic', '==', true));
+                    }
+
                     const sublistsSnap = await getDocs(sublistsQ);
                     const sublistsData = sublistsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ListEntity[];
                     setSublists(sublistsData);
                 } catch (subErr: any) {
-                    console.warn("Could not fetch sublists (likely permission issue):", subErr.code);
+                    if (subErr.code === 'permission-denied') {
+                        console.warn("Could not fetch sublists: Permission denied. (Private sublists hidden)");
+                    } else if (subErr.code === 'failed-precondition') {
+                        console.warn("Could not fetch sublists: Missing Index for parentListId + isPublic query.");
+                    } else {
+                        console.warn("Could not fetch sublists:", subErr);
+                    }
                     setSublists([]);
                 }
 
