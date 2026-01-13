@@ -18,5 +18,9 @@ module.exports = {
     ...algoliaFunctions,
     ...coreFunctions, // <-- Las añadimos a la exportación final
     ...gamificationFunctions,
+    ...gamificationFunctions,
+    ...require('./modules/notifications'),
+    ...require('./modules/chat'),
+    ...require('./modules/social'), // <-- Social Graph Consistency
 };
 // Force redeploy

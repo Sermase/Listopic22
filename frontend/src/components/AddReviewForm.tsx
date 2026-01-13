@@ -329,10 +329,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             const placeName = selectedPlace?.name || 'Lugar Desconocido';
             const photoUrl = imagePreview || ''; // Mock
 
-            let finalPlaceId = prefillPlaceId || 'unknown';
-            let finalPlaceAddress = '';
-            let finalPlaceLat = 0;
-            let finalPlaceLng = 0;
+            // New logic: Only use the selected/synced place for ID and address.
+            // DO NOT create a new place document here. PlaceService handles that.
+            let finalPlaceId = selectedPlace?.id || prefillPlaceId || 'unknown';
+            let finalPlaceAddress = selectedPlace?.address || '';
+            let finalPlaceLat = selectedPlace?.lat || 0;
+            let finalPlaceLng = selectedPlace?.lng || 0;
+            let finalPhotoUrl = ''; // Declared here
 
             if (selectedPlace) {
                 // Transform Place Data
@@ -342,7 +345,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 finalPlaceLng = selectedPlace.lng || 0;
 
                 // Handle Image Upload
-                let finalPhotoUrl = photoUrl;
+                finalPhotoUrl = photoUrl;
                 if (_imageFile) {
                     try {
                         const fileExt = _imageFile.name.split('.').pop();

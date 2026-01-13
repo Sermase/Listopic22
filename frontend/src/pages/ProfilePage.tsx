@@ -136,9 +136,20 @@ export const ProfilePage: React.FC = () => {
 
                     let allFollowedDetails: any[] = [];
                     for (const chunk of chunks) {
-                        const qDetails = query(collection(db, 'lists'), where(documentId(), 'in', chunk));
-                        const capsShot = await getDocs(qDetails);
-                        allFollowedDetails.push(...capsShot.docs.map(d => ({ id: d.id, ...d.data() })));
+                        try {
+                            // Only fetch PUBLIC lists to avoid permission errors.
+                            // If a user follows a private list, it won't be shown here, which is standard behavior
+                            // unless we implement a specific 'sharedWithMe' check.
+                            const qDetails = query(
+                                collection(db, 'lists'),
+                                where(documentId(), 'in', chunk),
+                                where('isPublic', '==', true)
+                            );
+                            const capsShot = await getDocs(qDetails);
+                            allFollowedDetails.push(...capsShot.docs.map(d => ({ id: d.id, ...d.data() })));
+                        } catch (chunkError) {
+                            console.warn("Error fetching chunk of lists", chunkError);
+                        }
                     }
 
                     // Filter Privacy
@@ -275,42 +286,29 @@ export const ProfilePage: React.FC = () => {
         setFollowLoading(true);
         try {
             const followingRef = doc(db, 'users', user.uid, 'following', targetUserId);
-            const followerRef = doc(db, 'users', targetUserId, 'followers', user.uid);
-
-            const currentUserRef = doc(db, 'users', user.uid);
-            const targetUserRef = doc(db, 'users', targetUserId);
+            // We do NOT write to the target user's 'followers' collection nor update their counts client-side.
+            // This is now handled by the backend trigger 'onUserFollowingWrite' in 'functions/modules/social.js'
+            // to ensure security and consistency.
 
             if (isFollowing) {
+                // 1. Unfollow (Trigger delete)
                 await deleteDoc(followingRef);
-                await deleteDoc(followerRef); // Should ideally be server-side for security/consistency
-
-                // Decrement counters
-                await updateDoc(currentUserRef, { followingCount: increment(-1) });
-                await updateDoc(targetUserRef, { followersCount: increment(-1) });
-
                 setIsFollowing(false);
             } else {
+                // 1. Follow (Trigger create)
                 await setDoc(followingRef, {
                     uid: targetUserId,
                     followedAt: new Date(),
-                    // Store basic info to avoid extra fetches on feed
+                    // Optional: Store snapshot for optimistic feed rendering
                     displayName: profile?.displayName || profile?.username,
                     photoUrl: profile?.photoUrl
                 });
-                await setDoc(followerRef, {
-                    uid: user.uid,
-                    followedAt: new Date()
-                });
-
-                // Increment counters
-                await updateDoc(currentUserRef, { followingCount: increment(1) });
-                await updateDoc(targetUserRef, { followersCount: increment(1) });
-
                 setIsFollowing(true);
             }
         } catch (error) {
             console.error("Follow error:", error);
             alert("Error al seguir/dejar de seguir. Inténtalo de nuevo.");
+            setIsFollowing(!isFollowing); // Revert optimistic UI if failed
         } finally {
             setFollowLoading(false);
         }

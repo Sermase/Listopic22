@@ -37,6 +37,7 @@ export interface PlaceDetails {
         servesDinner?: boolean;
     };
     openingHours?: string[]; // Array of strings if available
+    category?: string;
 }
 
 export const usePlaceDetails = (placeId: string | undefined) => {
@@ -178,6 +179,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
 
                 const googleRating = placeData?.googleRating || placeData?.rating;
                 const googleUserRatingCount = placeData?.userRatingCount || placeData?.user_ratings_total;
+                const category = placeData?.category || placeData?.types?.[0]; // Fallback to first type
 
                 setPlace({
                     placeId,
@@ -197,7 +199,8 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                     options,
                     openingHours,
                     googleRating,
-                    googleUserRatingCount
+                    googleUserRatingCount,
+                    category
                 });
 
             } catch (err: any) {

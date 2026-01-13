@@ -1,13 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Archive, MessageSquare, User, Moon, Sun, Menu, X, Plus, Compass, Users } from 'lucide-react';
+import { Search, Archive, MessageSquare, User, Moon, Sun, Menu, X, Plus, Compass, Users, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { NotificationModal } from './NotificationModal';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export const Navbar: React.FC = () => {
     const { user } = useAuth();
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        if (!user) return;
+        const q = query(
+            collection(db, 'users', user.uid, 'notifications'),
+            where('read', '==', false)
+        );
+        const unsubscribe = onSnapshot(q, (snap) => {
+            setUnreadCount(snap.size);
+        });
+        return () => unsubscribe();
+    }, [user]);
 
     // Initial theme state (force dark for Navy Theme)
     const [isDark, setIsDark] = useState(true);
@@ -37,7 +54,29 @@ export const Navbar: React.FC = () => {
 
 
 
-    const NavItem = ({ to, icon: Icon, label, badge }: { to: string; icon: any; label: string; badge?: boolean }) => {
+    // --- Unread Chats Logic ---
+    const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+    useEffect(() => {
+        if (!user) return;
+        const q = query(
+            collection(db, 'chats'),
+            where('participants', 'array-contains', user.uid)
+        );
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            let total = 0;
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (data.unreadCount && typeof data.unreadCount[user.uid] === 'number') {
+                    total += data.unreadCount[user.uid];
+                }
+            });
+            setUnreadChatCount(total);
+        });
+        return () => unsubscribe();
+    }, [user]);
+
+    const NavItem = ({ to, icon: Icon, label, badge, count }: { to: string; icon: any; label: string; badge?: boolean; count?: number }) => {
         const isActive = location.pathname === to;
         return (
             <Link
@@ -50,7 +89,15 @@ export const Navbar: React.FC = () => {
             >
                 <div className="relative">
                     <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'group-hover:text-indigo-400 transition-colors'}`} />
+                    {/* Generic Badge (boolean) */}
                     {badge && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]" />}
+
+                    {/* Count Badge (number) */}
+                    {count !== undefined && count > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1 min-w-[16px] h-4 rounded-full flex items-center justify-center border border-[#0b1021]">
+                            {count > 9 ? '9+' : count}
+                        </span>
+                    )}
                 </div>
                 <span className="text-sm">{label}</span>
             </Link>
@@ -86,7 +133,7 @@ export const Navbar: React.FC = () => {
                         <NavItem to="/search" icon={Search} label="Buscar" />
                         <div className="w-px h-4 bg-white/10 mx-1" />
                         <NavItem to="/archive" icon={Archive} label="Archivo" />
-                        <NavItem to="/chats" icon={MessageSquare} label="Chats" />
+                        <NavItem to="/chats" icon={MessageSquare} label="Chats" count={unreadChatCount} />
                     </nav>
 
                     {/* Right Actions */}
@@ -98,6 +145,28 @@ export const Navbar: React.FC = () => {
                             <Plus className="w-4 h-4" />
                             <span>Crear Sublista</span>
                         </Link>
+
+                        {/* NOTIFICATIONS BELL */}
+                        {user && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowNotifications(!showNotifications)}
+                                    className={`p-2.5 rounded-full transition-all duration-300 relative ${unreadCount > 0
+                                        ? 'text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20'
+                                        : 'text-gray-400 hover:text-white hover:bg-white/10'
+                                        }`}
+                                >
+                                    <Bell className="w-5 h-5" />
+                                    {unreadCount > 0 && (
+                                        <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
+                                    )}
+                                </button>
+
+                                {showNotifications && (
+                                    <NotificationModal onClose={() => setShowNotifications(false)} />
+                                )}
+                            </div>
+                        )}
 
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-3 ml-2 group">
@@ -157,8 +226,15 @@ export const Navbar: React.FC = () => {
                             <Link to="/explore" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
                                 <Compass className="w-5 h-5 text-indigo-400" /> Explorar
                             </Link>
-                            <Link to="/chats" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
-                                <MessageSquare className="w-5 h-5 text-indigo-400" /> Chats
+                            <Link to="/chats" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200 justify-between">
+                                <div className="flex items-center gap-3">
+                                    <MessageSquare className="w-5 h-5 text-indigo-400" /> Chats
+                                </div>
+                                {unreadChatCount > 0 && (
+                                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                        {unreadChatCount}
+                                    </span>
+                                )}
                             </Link>
                             <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
                                 <Archive className="w-5 h-5 text-indigo-400" /> Archivo

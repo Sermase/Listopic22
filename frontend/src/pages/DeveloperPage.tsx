@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { db, functions, storage } from '../firebase'; // Ensure export in firebase.ts
-import { collection, getDocs, doc, writeBatch, Timestamp, addDoc, serverTimestamp, setDoc, query, where, getDoc, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, Timestamp, addDoc, serverTimestamp, setDoc, query, where, getDoc, limit as firestoreLimit, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag } from 'lucide-react';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -21,7 +21,7 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports'>('console');
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     // Console State
@@ -32,6 +32,10 @@ export const DeveloperPage: React.FC = () => {
     const [consoleResults, setConsoleResults] = useState<any[]>([]);
     const [loadingConsole, setLoadingConsole] = useState(false);
     const [consoleError, setConsoleError] = useState<string | null>(null);
+
+    // Reports State
+    const [reports, setReports] = useState<any[]>([]);
+    const [loadingReports, setLoadingReports] = useState(false);
 
     // Algolia State
     const [algoliaLog, setAlgoliaLog] = useState<string[]>([]);
@@ -225,8 +229,37 @@ export const DeveloperPage: React.FC = () => {
         }
     };
 
+    // Fetch Reports
+    const fetchReports = async () => {
+        setLoadingReports(true);
+        try {
+            const q = query(collection(db, 'reports'), where('status', '!=', 'resolved'), firestoreLimit(50));
+            // Note: Compound queries might need index. If status!=resolved is simple, it's fine.
+            // If strictly needed, we can just fetch all and filter or order by createdAt desc
+            // Let's try simple orderBy if possible, but Firestore requires index for inequality + sort.
+            // Simplified: just get recent reports.
+            const snap = await getDocs(query(collection(db, 'reports'), firestoreLimit(50)));
+            setReports(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => b.createdAt?.seconds - a.createdAt?.seconds));
+        } catch (error) {
+            console.error("Error fetching reports:", error);
+        } finally {
+            setLoadingReports(false);
+        }
+    };
+
+    const handleUpdateReportStatus = async (reportId: string, newStatus: string) => {
+        try {
+            await updateDoc(doc(db, 'reports', reportId), { status: newStatus });
+            fetchReports();
+        } catch (error) {
+            console.error("Error updating report:", error);
+            alert("Error al actualizar reporte");
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'gamification') fetchBadges();
+        if (activeTab === 'reports') fetchReports();
     }, [activeTab]);
 
     const handleSaveBadge = async (badgeData: any) => {
@@ -301,6 +334,12 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'gamification' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Tag className="w-5 h-5" /> Gamificación
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('reports')}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'reports' ? 'border-red-500 bg-red-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <Flag className="w-5 h-5" /> Reportes
                         </button>
                     </nav>
 
@@ -796,9 +835,76 @@ export const DeveloperPage: React.FC = () => {
                                 )}
                             </div>
                         )}
+
+                        {/* --- REPORTS TAB --- */}
+                        {activeTab === 'reports' && (
+                            <div className="max-w-6xl mx-auto space-y-6">
+                                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                                    <Flag className="w-6 h-6 text-red-500" /> Reportes de Usuarios
+                                </h2>
+
+                                {loadingReports ? (
+                                    <div className="text-center py-12 text-gray-500">Cargando reportes...</div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {reports.map(report => (
+                                            <div key={report.id} className="bg-[#151b2e] border border-white/10 rounded-xl p-4 flex flex-col sm:flex-row gap-4">
+                                                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 shrink-0">
+                                                    <AlertCircle className="w-6 h-6 text-red-500" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <h3 className="font-bold text-white text-lg">{report.placeName}</h3>
+                                                        <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${report.status === 'resolved' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
+                                                            {report.status}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm text-gray-300 mb-2">
+                                                        <span className="font-bold text-red-400 uppercase text-xs tracking-wider">{report.issueType}</span>
+                                                        {report.itemName && <span className="text-gray-500"> • Item: {report.itemName}</span>}
+                                                    </p>
+                                                    {report.description && (
+                                                        <p className="bg-black/20 p-3 rounded-lg text-sm text-gray-400 italic border border-white/5 mb-2">
+                                                            "{report.description}"
+                                                        </p>
+                                                    )}
+                                                    <div className="flex items-center text-xs text-gray-500 gap-4 mt-2">
+                                                        <span>Reportado por: {report.userName}</span>
+                                                        <span>{report.createdAt?.toDate ? report.createdAt.toDate().toLocaleString() : 'Fecha desconocida'}</span>
+                                                        <span className="font-mono">{report.id}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col gap-2 justify-center">
+                                                    {report.status !== 'resolved' && (
+                                                        <button
+                                                            onClick={() => handleUpdateReportStatus(report.id, 'resolved')}
+                                                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg transition-colors"
+                                                        >
+                                                            Marcar Resuelto
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleUpdateReportStatus(report.id, 'rejected')} // Or delete
+                                                        className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-sm font-bold rounded-lg transition-colors border border-white/10"
+                                                    >
+                                                        Descartar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {reports.length === 0 && (
+                                            <div className="text-center py-12 text-gray-500 border border-dashed border-white/10 rounded-xl">
+                                                No hay reportes pendientes. ¡Buen trabajo!
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </main>
-                </div>
+                </div >
+
             )}
-        </div>
+        </div >
     );
 };

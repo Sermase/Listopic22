@@ -1,24 +1,49 @@
-
-import React from 'react';
-import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User, Heart, MessageSquare } from 'lucide-react';
+import { ReviewComments } from './ReviewComments';
+import { doc, setDoc, deleteDoc, getDoc, collection, onSnapshot, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import { useAuth } from '../context/AuthContext';
 import { ShareModal } from './ShareModal';
 import { SaveToArchiveModal } from './SaveToArchiveModal';
 import { ReviewService } from '../services/ReviewService';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { db } from '../firebase';
 
 interface ReviewCardProps {
     review: ReviewEntity;
-    onDelete?: (reviewId: string) => void;
-    onEdit?: (reviewId: string) => void;
+    onDelete?: (id: string) => void;
+    onEdit?: (review: ReviewEntity) => void;
+    reactionConfig?: { like?: string; dislike?: string }; // Text for animation (e.g. "ñam!")
 }
 
-export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit }) => {
+
+export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
 
-    // Legacy Score Bubble Colors
+    // Visual States
+    const [liked, setLiked] = useState(false);
+    const [likeCount, setLikeCount] = useState(review.reactionCounts?.like || 0); // Placeholder count
+    const [showComments, setShowComments] = useState(false);
+    const [showAnimation, setShowAnimation] = useState(false); // For "ñam!" animation
+
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isShareOpen, setIsShareOpen] = useState(false);
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    // Derived States
+    const isOwner = user?.uid && (user.uid === review.userId || user.uid === review.authorId);
+
+    // Config Defaults
+    const likeText = reactionConfig?.like || "¡Me gusta!";
+
+    // ... (Score Logic Omitted for Brevity - keeping existing) ...
     const getScoreColor = (score: number) => {
         if (score >= 9) return 'from-emerald-400 to-teal-500 shadow-emerald-500/50';
         if (score >= 7) return 'from-indigo-400 to-blue-500 shadow-indigo-500/50';
@@ -26,33 +51,38 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         return 'from-red-400 to-rose-500 shadow-red-500/50';
     };
 
-    const bubbleColor = getScoreColor(review.overallRating || 0);
+    const bubbleColor = review.overallRating && review.overallRating >= 7 ? 'from-emerald-500 to-teal-500' :
+        review.overallRating && review.overallRating >= 5 ? 'from-yellow-400 to-orange-500' :
+            'from-red-500 to-pink-500';
 
     // Extract Criteria for Visualization
     const criteriaList = review.criteriaDefinition && review.scores
-        ? Object.entries(review.criteriaDefinition).map(([key, def]) => ({
-            label: def.label,
-            score: review.scores?.[key] || 0
-        })).filter(c => c.score > 0)
+        ? Object.entries(review.criteriaDefinition).map(([key, def]) => ({ label: def.label, score: review.scores?.[key] || 0 }))
         : [];
 
-
-    // Local Interaction State
-    const [liked, setLiked] = React.useState(false);
-    const [disliked, setDisliked] = React.useState(false);
-    const [likeCount, setLikeCount] = React.useState(review.reactionCounts?.like || 0);
-    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-    const [isShareOpen, setIsShareOpen] = React.useState(false);
-    const [isSaveModalOpen, setIsSaveModalOpen] = React.useState(false);
-    const [isDeleting, setIsDeleting] = React.useState(false);
-
-    const menuRef = React.useRef<HTMLDivElement>(null);
-
-    // Derived States
-    const isOwner = user?.uid && (user.uid === review.userId || user.uid === review.authorId);
+    // Check if Liked (Graceful Error Handling)
+    useEffect(() => {
+        if (!user || !review.id || !review.listId) return;
+        const checkLike = async () => {
+            try {
+                // Correct path: lists/{listId}/reviews/{reviewId}/reactions/{userId}
+                const reactionRef = doc(db, 'lists', review.listId, 'reviews', review.id, 'reactions', user.uid);
+                const reactionSnap = await getDoc(reactionRef);
+                if (reactionSnap.exists()) {
+                    setLiked(true);
+                }
+            } catch (e: any) {
+                // Ignore permission errors to prevent console spam
+                if (e.code !== 'permission-denied') {
+                    console.warn("Error checking like status:", e);
+                }
+            }
+        };
+        checkLike();
+    }, [user, review.id, review.listId]);
 
     // Close menu on click outside
-    React.useEffect(() => {
+    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setIsMenuOpen(false);
@@ -72,25 +102,27 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         }
     };
 
-    const handleLike = (e: React.MouseEvent) => {
+    const handleLike = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (liked) {
-            setLiked(false);
-            setLikeCount(prev => prev - 1);
-        } else {
-            setLiked(true);
-            if (disliked) setDisliked(false);
-            setLikeCount(prev => prev + 1);
-        }
-        // TODO: Call API
-    };
+        if (!user || !review.id || !review.listId) return;
 
-    const handleDislike = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setDisliked(!disliked);
-        if (!disliked && liked) {
-            setLiked(false);
-            setLikeCount(prev => prev - 1);
+        const newLiked = !liked;
+
+        // Optimistic UI
+        setLiked(newLiked);
+        setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
+
+        if (newLiked) {
+            setShowAnimation(true);
+            setTimeout(() => setShowAnimation(false), 2000);
+        }
+
+        try {
+            await ReviewService.toggleReaction(review.listId, review.id, user.uid);
+        } catch (error) {
+            console.error("Failed to toggle reaction", error);
+            setLiked(!newLiked); // Revert
+            setLikeCount(prev => !newLiked ? prev + 1 : prev - 1);
         }
     };
 
@@ -108,43 +140,44 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
     const handleEdit = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!review.listId || !review.id) return;
-        // Navigate to dedicated edit route or reusing add-review with param
-        navigate(`/list/${review.listId}?editId=${review.id}`);
+        if (onEdit) onEdit(review);
+        setIsMenuOpen(false);
     };
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!review.listId || !review.id) {
-            console.error("Cannot delete review: Missing listId or reviewId", review);
-            alert("No se puede eliminar: Faltan datos de la lista o la reseña");
-            return;
-        }
-
-        if (window.confirm("¿Seguro que quieres eliminar esta reseña? Esta acción no se puede deshacer.")) {
+        if (window.confirm("¿Eliminar reseña?")) {
             setIsDeleting(true);
             try {
                 await ReviewService.deleteReview(review.listId, review.id);
                 if (onDelete) onDelete(review.id);
             } catch (error) {
-                console.error("Error deleting review:", error);
-                alert("Error al eliminar la reseña.");
-            } finally {
+                console.error(error);
                 setIsDeleting(false);
             }
         }
     };
 
-    const handleCommentClick = (e: React.MouseEvent) => {
+    const handleCommentToggle = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (review.placeId && review.itemName) {
-            navigate(`/group/${review.placeId}/${encodeURIComponent(review.itemName)}`);
-        }
+        setShowComments(!showComments);
     };
 
     if (isDeleting) {
-        return <div className="animate-pulse bg-gray-900/50 h-64 rounded-3xl border border-white/5 mx-auto w-full"></div>;
+        return <div className="animate-pulse bg-[#151b2e] h-64 rounded-3xl border border-white/5 mx-auto w-full"></div>;
     }
+
+    // Local count for optimistic updates
+    const [commentCount, setCommentCount] = useState(review.commentCount || 0);
+
+    // Sync state with props if they change (e.g. after a fresh fetch)
+    useEffect(() => {
+        setCommentCount(review.commentCount || 0);
+    }, [review.commentCount]);
+
+    const handleCommentChange = (increment: number) => {
+        setCommentCount(prev => Math.max(0, prev + increment));
+    };
 
     return (
         <>
@@ -153,6 +186,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 className="bg-[#101628] border border-white/5 rounded-3xl overflow-hidden shadow-2xl flex flex-col hover:border-white/10 transition-all duration-300 cursor-pointer group hover:shadow-indigo-500/10 relative"
             >
                 {/* 1. Header: User, Context, Menu */}
+                {/* ... (Header code unchanged) ... */}
                 <div className="px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {/* Living Avatar Ring */}
@@ -175,7 +209,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             </div>
                         </Link>
 
-                        <div className="flex flex-col leading-tight z-10 max-w-[120px] sm:max-w-none">
+                        <div className="flex flex-col leading-tight z-10 max-w-[150px] sm:max-w-none">
                             <div className="flex items-baseline gap-1.5 flex-wrap">
                                 <Link
                                     to={review.userId ? `/profile/${review.userId}` : '#'}
@@ -184,123 +218,134 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                 >
                                     {review.authorName || 'Anónimo'}
                                 </Link>
-                                {review.listName && (
+                                {(review.listName || review.placeName) && (
                                     <span className="text-sm text-gray-400 flex items-center gap-1 truncate max-w-full">
                                         en <Link
                                             to={review.listId ? `/list/${review.listId}` : '#'}
                                             onClick={(e) => e.stopPropagation()}
                                             className="font-semibold text-gray-200 hover:text-indigo-400 transition-colors truncate"
                                         >
-                                            {review.listName}
+                                            {review.listName || review.placeName}
                                         </Link>
                                     </span>
                                 )}
                             </div>
                             <span className="text-xs text-gray-500">
-                                {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'Reciente'}
+                                {(() => {
+                                    const date = review.createdAt;
+                                    let dateObj: Date | null = null;
+                                    if (date && typeof date.toDate === 'function') dateObj = date.toDate();
+                                    else if (date instanceof Date) dateObj = date;
+                                    else if (typeof date === 'string' || typeof date === 'number') dateObj = new Date(date);
+                                    return dateObj ? formatDistanceToNow(dateObj, { locale: es }) : 'Reciente';
+                                })()}
                             </span>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="relative z-20" ref={menuRef}>
+                        <button
+                            className="text-gray-500 hover:text-white transition-colors p-1"
+                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                        >
+                            <MoreHorizontal className="w-5 h-5" />
+                        </button>
 
+                        {isMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right z-50">
+                                <button
+                                    onClick={handleSaveClick}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                >
+                                    <Bookmark className="w-4 h-4" /> Guardar
+                                </button>
+                                <button
+                                    onClick={handleShareClick}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                >
+                                    <Share2 className="w-4 h-4" /> Compartir
+                                </button>
 
-                        <div className="relative z-20" ref={menuRef}>
-                            <button
-                                className="text-gray-500 hover:text-white transition-colors p-1"
-                                onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
-                            >
-                                <MoreHorizontal className="w-5 h-5" />
-                            </button>
-
-                            {isMenuOpen && (
-                                <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right z-50">
-                                    <button
-                                        onClick={handleSaveClick}
-                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                    >
-                                        <Bookmark className="w-4 h-4" /> Guardar
-                                    </button>
-                                    <button
-                                        onClick={handleShareClick}
-                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                    >
-                                        <Share2 className="w-4 h-4" /> Compartir
-                                    </button>
-
-                                    {isOwner && (
-                                        <>
-                                            <div className="h-px bg-white/10 my-1"></div>
-                                            <button
-                                                onClick={handleEdit}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                            >
-                                                <Edit className="w-4 h-4" /> Editar reseña
-                                            </button>
-                                            <button
-                                                onClick={handleDelete}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 flex items-center gap-2 transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" /> Eliminar
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                                {isOwner && (
+                                    <>
+                                        <div className="h-px bg-white/10 my-1"></div>
+                                        <button
+                                            onClick={handleEdit}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                        >
+                                            <Edit className="w-4 h-4" /> Editar
+                                        </button>
+                                        <button
+                                            onClick={handleDelete}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 flex items-center gap-2 transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" /> Eliminar
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* 2. Main Visual: Large Image with Overlay Bubble (Also for fallback) */}
-                <div className={`relative w-full bg-gray-900 overflow-hidden ${review.photoUrl ? 'aspect-[4/3]' : 'h-32 sm:h-40'}`}>
-                    {review.photoUrl ? (
-                        <img src={review.photoUrl} alt={review.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                    ) : (
-                        review.placeMainImage ? (
-                            <img src={review.placeMainImage} alt={review.placeName} className="w-full h-full object-cover object-center opacity-60 group-hover:scale-105 transition-transform duration-700" />
-                        ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
-                                <MapPin className="w-8 h-8 mb-1 opacity-20" />
+                {/* 2. Main Visual: Large Image with Overlay Bubble */}
+                <div className={`relative w-full bg-gray-900 overflow-hidden ${review.photoUrl ? 'aspect-[4/3]' : review.placeMainImage ? 'aspect-[2.5/1]' : 'h-32 sm:h-40'}`}>
+
+                    {/* "Ñam!" Animation Overlay */}
+                    {showAnimation && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+                            <div className="bg-black/60 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 shadow-2xl animate-bounce-in">
+                                <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 drop-shadow-sm filter">
+                                    {likeText}
+                                </span>
                             </div>
-                        )
+                        </div>
                     )}
 
-                    {/* Overlay Bubbles Container - Always visible now if we have fallback image or legitimate image */}
-                    <div className={`absolute ${review.photoUrl ? 'top-4 right-4' : 'top-1/2 -translate-y-1/2 right-4'} flex items-center gap-3 z-10`}>
+                    {/* Image (With Fallback) */}
+                    {review.photoUrl || review.placeMainImage ? (
+                        <img
+                            src={review.photoUrl || review.placeMainImage}
+                            alt={review.itemName || review.placeName}
+                            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
+                            <MapPin className="w-8 h-8 mb-1 opacity-20" />
+                        </div>
+                    )}
 
-                        {/* City Bubble (Overlay) */}
-                        {(review as any).placeCity && (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md shadow-lg transform transition-transform group-hover:scale-105">
-                                <MapPin className="w-3.5 h-3.5 text-white/90" />
-                                <span className="text-white font-bold text-xs uppercase tracking-wide">{(review as any).placeCity}</span>
-                            </div>
-                        )}
-
+                    {/* Overlay Bubbles Container */}
+                    <div className={`absolute ${review.photoUrl || review.placeMainImage ? 'top-4 right-4' : 'top-4 right-4'} flex flex-col items-end gap-2 z-10`}>
                         {/* The "Living" Score Bubble */}
                         <div className={`relative w-16 h-16 flex items-center justify-center animate-blob transition-all duration-500 group-hover:scale-110`}>
-                            {/* Inner Gradient Blob */}
                             <div className={`absolute inset-0 bg-gradient-to-br ${bubbleColor} opacity-90 blur-sm rounded-full`} />
-                            {/* Core Bubble */}
                             <div className={`relative w-full h-full bg-gradient-to-br ${bubbleColor} flex items-center justify-center shadow-lg border-2 border-white/10 backdrop-blur-sm rounded-full`}>
                                 <span className="text-white font-display font-bold text-2xl drop-shadow-md">
                                     {review.overallRating?.toFixed(1) || '-'}
                                 </span>
                             </div>
                         </div>
+
+                        {/* City Bubble (Restored) */}
+                        {review.placeCity && (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md shadow-lg transform transition-transform group-hover:scale-105">
+                                <MapPin className="w-3 h-3 text-white/90" />
+                                <span className="text-white font-bold text-[10px] uppercase tracking-wide">{review.placeCity}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-
                 {/* 3. Content Body */}
                 <div className="p-4 pt-3 space-y-3 flex-1">
-
-                    {/* Location & Title */}
+                    {/* Title & Item */}
                     <div>
                         {review.placeName && (
                             <Link
                                 to={`/place/${review.placeId}`}
                                 onClick={(e) => e.stopPropagation()}
-                                className="block font-display font-bold text-xl text-gray-100 hover:text-indigo-400 transition-colors leading-tight mb-1"
+                                className="block font-display font-bold text-lg sm:text-xl text-gray-100 hover:text-indigo-400 transition-colors leading-tight mb-1"
                             >
                                 {review.placeName}
                             </Link>
@@ -310,7 +355,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         </h3>
                     </div>
 
-                    {/* Criteria Bars (The "Superetiquetas") Used for Novedades too */}
+                    {/* Criteria Bars */}
                     {criteriaList.length > 0 && (
                         <div className="py-2 grid grid-cols-2 gap-x-4 gap-y-1">
                             {criteriaList.map((crit, idx) => (
@@ -341,11 +386,11 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         </div>
                     )}
 
-                    {/* Tags */}
+                    {/* Tags (Restored below comment) */}
                     {review.tags && review.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/5">
-                            {review.tags.map((tag, idx) => (
-                                <span key={idx} className="px-2 py-1 text-[10px] rounded-full bg-white/5 border border-white/10 text-gray-400">
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {review.tags.map((tag, i) => (
+                                <span key={i} className="text-[10px] text-gray-400 bg-white/5 px-2 py-0.5 rounded border border-white/5">
                                     #{tag}
                                 </span>
                             ))}
@@ -361,17 +406,14 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             onClick={handleLike}
                         >
                             <ThumbsUp className={`w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5] ${liked ? 'fill-current' : ''}`} />
-                            <span className="text-sm font-semibold">{likeCount}</span>
-                        </button>
-                        <button className="flex items-center gap-1.5 text-gray-400 hover:text-indigo-400 transition-colors group/btn" onClick={handleCommentClick}>
-                            <MessageCircle className="w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5]" />
-                            <span className="text-sm font-semibold">{review.commentCount || 0}</span>
+                            <span className="text-sm font-semibold">{likeCount > 0 ? likeCount : ''}</span>
                         </button>
                         <button
-                            className={`flex items-center gap-1.5 transition-colors group/btn ${disliked ? 'text-rose-500' : 'text-gray-400 hover:text-rose-400'}`}
-                            onClick={handleDislike}
+                            className={`flex items-center gap-1.5 transition-colors group/btn ${showComments ? 'text-indigo-400' : 'text-gray-400 hover:text-indigo-400'}`}
+                            onClick={handleCommentToggle}
                         >
-                            <ThumbsDown className={`w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5] ${disliked ? 'fill-current' : ''}`} />
+                            <MessageCircle className="w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5]" />
+                            <span className="text-sm font-semibold">{commentCount > 0 ? commentCount : ''}</span>
                         </button>
                     </div>
 
@@ -392,19 +434,30 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         </button>
                     </div>
                 </div>
-            </article >
 
+                {/* Inline Comments Section */}
+                {showComments && review.listId && review.id && (
+                    <div className="border-t border-white/10 bg-[#0b1021]/50 p-4" onClick={e => e.stopPropagation()}>
+                        <ReviewComments
+                            listId={review.listId}
+                            reviewId={review.id}
+                            onCommentChange={handleCommentChange}
+                        />
+                    </div>
+                )}
+            </article>
+
+            {/* Modals */}
             <SaveToArchiveModal
                 isOpen={isSaveModalOpen}
                 onClose={() => setIsSaveModalOpen(false)}
                 item={{
-                    itemId: review.id,
+                    itemId: review.id || '',
+                    placeId: review.placeId || '',
+                    name: review.itemName || review.placeName || '',
                     type: 'review',
-                    name: review.itemName,
-                    subtitle: review.placeName,
-                    route: `/group/${review.placeId}/${encodeURIComponent(review.itemName)}`,
-                    photoUrl: review.photoUrl,
-                    placeId: review.placeId
+                    route: review.placeId && review.itemName ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}` : '',
+                    photoUrl: review.photoUrl
                 }}
             />
 
@@ -418,4 +471,3 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         </>
     );
 };
-
