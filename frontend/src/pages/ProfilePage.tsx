@@ -106,17 +106,19 @@ export const ProfilePage: React.FC = () => {
             try {
                 // 1. Guest Lists (Where I am an editor)
                 // Note: 'editors' array-contains query
-                const qGuest = query(collection(db, 'lists'), where('editors', 'array-contains', targetUserId), limit(20));
-                const snapGuest = await getDocs(qGuest);
-                const fetchedGuest = snapGuest.docs.map(d => ({ id: d.id, ...d.data() }));
-
-                // Filter Guest Lists for Privacy if not own profile
-                // If I am viewing another user's profile, should I see lists they are a guest on?
-                // Probably yes, if those lists are public OR if I am also a participant.
-                // For simplicity, we show Public ones, or ones where viewer has access.
-                // But since 'editors' implies write access, it's significant.
-                // We'll filter strictly by isPublic for visitors.
-                const validGuest = isOwnProfile ? fetchedGuest : (fetchedGuest as any[]).filter(l => l.isPublic);
+                // FIX: Only fetch guest lists if viewing own profile to avoid permission errors (can't query private lists of others)
+                // or ensure we rely on Algolia for complex search. For now, strict check.
+                let validGuest: any[] = [];
+                if (isOwnProfile) {
+                    try {
+                        const qGuest = query(collection(db, 'lists'), where('editors', 'array-contains', targetUserId), limit(20));
+                        const snapGuest = await getDocs(qGuest);
+                        validGuest = snapGuest.docs.map(d => ({ id: d.id, ...d.data() }));
+                    } catch (e: any) {
+                        console.warn("Guest lists query failed (likely missing index or permission)", e);
+                        // Don't crash, just empty
+                    }
+                }
                 setGuestLists(validGuest);
 
                 // 2. Followed Lists (From 'followingLists' subcollection)
