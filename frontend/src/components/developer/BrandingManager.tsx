@@ -12,6 +12,7 @@ export const BrandingManager: React.FC = () => {
 
     // Form State (initialize with current config)
     const [logoType, setLogoType] = useState<'default' | 'image'>(config.logoType);
+    const [faviconType, setFaviconType] = useState<'default' | 'image'>(config.faviconType || 'default');
     const [appName, setAppName] = useState(config.appName);
     const [appDescription, setAppDescription] = useState(config.appDescription);
     const [logoPreview, setLogoPreview] = useState<string | null>(config.logoUrl || null);
@@ -28,7 +29,10 @@ export const BrandingManager: React.FC = () => {
         const reader = new FileReader();
         reader.onload = (ev) => {
             if (type === 'logo') setLogoPreview(ev.target?.result as string);
-            else setFaviconPreview(ev.target?.result as string);
+            else {
+                setFaviconPreview(ev.target?.result as string);
+                setFaviconType('image'); // Auto-switch to image when uploading
+            }
         };
         reader.readAsDataURL(file);
     };
@@ -60,6 +64,7 @@ export const BrandingManager: React.FC = () => {
             // Save Config to Firestore
             await setDoc(doc(db, 'config', 'app'), {
                 logoType,
+                faviconType,
                 appName,
                 appDescription,
                 logoUrl: newLogoUrl || null,
@@ -166,29 +171,54 @@ export const BrandingManager: React.FC = () => {
                         <Globe className="w-5 h-5 text-indigo-400" /> Favicon (Navegador)
                     </h3>
 
+                    {/* Type Selection */}
+                    <div className="flex gap-4 p-1 bg-black/20 rounded-lg">
+                        <button
+                            onClick={() => setFaviconType('default')}
+                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${faviconType === 'default' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            Default (Logo)
+                        </button>
+                        <button
+                            onClick={() => setFaviconType('image')}
+                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${faviconType === 'image' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            Imagen Personalizada
+                        </button>
+                    </div>
+
                     <div className="flex items-center gap-6">
                         <div className="w-20 h-20 bg-black/40 rounded-xl border border-dashed border-white/10 flex items-center justify-center shrink-0 relative group">
-                            {faviconPreview ? (
-                                <img src={faviconPreview} className="w-10 h-10 object-contain" />
+                            {faviconType === 'default' ? (
+                                <img src="/default_favicon.svg" className="w-10 h-10 object-contain" alt="Default Favicon" />
                             ) : (
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center">
-                                    <div className="w-4 h-4 bg-white rounded-full" />
-                                </div>
+                                faviconPreview ? (
+                                    <img src={faviconPreview} className="w-10 h-10 object-contain" alt="Custom Favicon" />
+                                ) : (
+                                    <span className="text-gray-500 text-xs text-center px-2">Sin imagen</span>
+                                )
                             )}
 
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
-                                <button
-                                    onClick={() => faviconInputRef.current?.click()}
-                                    className="p-2 bg-white text-black rounded-lg"
-                                >
-                                    <Upload className="w-4 h-4" />
-                                </button>
-                            </div>
+                            {faviconType === 'image' && (
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
+                                    <button
+                                        onClick={() => faviconInputRef.current?.click()}
+                                        className="p-2 bg-white text-black rounded-lg"
+                                    >
+                                        <Upload className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         <div className="flex-1">
                             <p className="text-sm text-gray-300 mb-2">Icono de pestaña</p>
                             <p className="text-xs text-gray-500">
-                                Aparece en la pestaña del navegador. Se recomienda 64x64px o SVG.
+                                {faviconType === 'default'
+                                    ? 'Usa el logotipo degradado de la aplicación.'
+                                    : 'Sube tu propia imagen (64x64px o SVG recomendado).'
+                                }
                             </p>
                         </div>
                     </div>
@@ -196,7 +226,7 @@ export const BrandingManager: React.FC = () => {
                         type="file"
                         ref={faviconInputRef}
                         className="hidden"
-                        accept="image/png,image/x-icon,image/svg+xml"
+                        accept="image/png,image/x-icon,image/svg+xml,image/jpeg"
                         onChange={(e) => handleFileChange(e, 'favicon')}
                     />
                 </div>

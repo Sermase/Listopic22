@@ -163,6 +163,7 @@ service cloud.firestore {
       allow read: if resource.data.isPublic == true ||
                       (request.auth != null && (
                         resource.data.userId == request.auth.uid ||
+                        (resource.data.editors is list && resource.data.editors.hasAny([request.auth.uid])) ||
                         isJefe(request.auth.uid) ||
                         isFollowingUser(resource.data.userId) ||
                         isFollowingList(listId) ||

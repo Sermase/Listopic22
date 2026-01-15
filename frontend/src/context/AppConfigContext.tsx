@@ -5,6 +5,7 @@ import { db } from '../firebase';
 export interface AppConfig {
     logoType: 'default' | 'image';
     logoUrl?: string; // For 'image' type
+    faviconType: 'default' | 'image';
     faviconUrl?: string;
     appName: string;
     appDescription: string;
@@ -13,6 +14,7 @@ export interface AppConfig {
 
 const defaultConfig: AppConfig = {
     logoType: 'default',
+    faviconType: 'default',
     appName: 'Listopic',
     appDescription: 'Comparte y descubre listas de tus lugares favoritos.',
     keywords: 'listas, lugares, recomendaciones, social, mapas'
@@ -31,7 +33,8 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     ...defaultConfig, // Fallback defaults
                     ...data,
                     // Ensure valid types if needed
-                    logoType: data.logoType === 'image' ? 'image' : 'default'
+                    logoType: data.logoType === 'image' ? 'image' : 'default',
+                    faviconType: data.faviconType === 'image' ? 'image' : 'default'
                 } as AppConfig);
             }
         }, (error) => {
