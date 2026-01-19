@@ -106,7 +106,11 @@ export const HomePage: React.FC = () => {
         });
     }, [reviews, activeFilter, range, location]);
 
-    const filteredItems = useMemo(() => reviewsInRange.slice(0, 10), [reviewsInRange]);
+    const filteredItems = useMemo(() => {
+        return [...reviewsInRange]
+            .sort((a, b) => (b.reactionCounts?.like || 0) - (a.reactionCounts?.like || 0))
+            .slice(0, 10);
+    }, [reviewsInRange]);
 
     // 4b. Carousel Reviews (Specific Logic: Last 2 Months + Top Liked + Filtered by Range/Cat)
     const carouselReviews = useMemo(() => {
@@ -139,6 +143,16 @@ export const HomePage: React.FC = () => {
                 return likesB - likesA;
             })
             .slice(0, 15); // Top 15
+    }, [reviewsInRange]);
+
+    // 4c. Recent Reviews (Derived from same pool, but sorted by date)
+    const recentReviewsInRange = useMemo(() => {
+        return [...reviewsInRange].sort((a, b) => {
+            // Sort by Date Descending
+            const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+            const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+            return dateB - dateA;
+        }).slice(0, 15);
     }, [reviewsInRange]);
 
 
@@ -272,14 +286,23 @@ export const HomePage: React.FC = () => {
     const listsWithRangeStats = useMemo(() => {
         // Map lists to attach dynamic review count based on reviewsInRange
         return filteredLists.map(list => {
-            // Count how many reviews in 'reviewsInRange' belong to this list
+            // If Range is NULL (Infinite), use the static total count from DB to be accurate
+            // regardless of how many reviews we have loaded in memory.
+            if (range === null) {
+                return {
+                    ...list,
+                    reviewsInRangeCount: list.reviewCount || 0
+                };
+            }
+
+            // Otherwise, calculate based on loaded reviews (best effort for specific range)
             const count = reviewsInRange.filter(r => r.listId === list.id).length;
             return {
                 ...list,
                 reviewsInRangeCount: count
             };
         });
-    }, [filteredLists, reviewsInRange]);
+    }, [filteredLists, reviewsInRange, range]);
 
 
     const handleToggleRange = () => {
@@ -408,7 +431,7 @@ export const HomePage: React.FC = () => {
                                         <div className="w-full h-full bg-zinc-800" />
                                     )}
 
-                                    <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white uppercase tracking-wider backdrop-blur-sm">
+                                    <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white uppercase tracking-wider backdrop-blur-sm" title="Total de lugares en la lista">
                                         {list.itemCount}
                                     </div>
                                     <div className="absolute top-2 left-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
@@ -420,11 +443,11 @@ export const HomePage: React.FC = () => {
 
                                         {/* Stats Row: Reviews, Followers */}
                                         <div className="flex items-center gap-4 opacity-90 text-xs text-gray-300 font-medium">
-                                            <div className="flex items-center gap-1.5">
+                                            <div className="flex items-center gap-1.5" title="Reseñas dentro de tu rango de distancia">
                                                 <MessageCircle className="w-3.5 h-3.5 text-indigo-400" />
                                                 <span>{list.reviewsInRangeCount !== undefined ? list.reviewsInRangeCount : (list.reviewCount || 0)}</span>
                                             </div>
-                                            <div className="flex items-center gap-1.5">
+                                            <div className="flex items-center gap-1.5" title="Seguidores de la lista">
                                                 <Users className="w-3.5 h-3.5 text-rose-400" />
                                                 <span>{list.followersCount || 0}</span>
                                             </div>
@@ -442,6 +465,17 @@ export const HomePage: React.FC = () => {
                             loading={loadingReviews}
                             renderItem={(item: any) => (
                                 <ReviewCarouselItem review={item} variant="item" />
+                            )}
+                        />
+
+                        {/* 3. NEW: Reseñas Recientes (Strictly by Date) */}
+                        <CardCarousel
+                            title="Reseñas recientes"
+                            viewAllLink="/search?type=items&sort=latest"
+                            items={recentReviewsInRange}
+                            loading={loadingReviews}
+                            renderItem={(item: any) => (
+                                <ReviewCarouselItem review={item} variant="review" />
                             )}
                         />
 

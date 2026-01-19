@@ -33,18 +33,17 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Fetch user preference on load
     useEffect(() => {
         if (!user) {
-            // If logout, maybe reset? Or keep session? keeping session is usually fine.
+            // User logged out: Clear session storage to ensure fresh start next time
+            sessionStorage.removeItem('sessionRange');
+            setRangeState(null); // Reset internal state
             return;
         }
 
         const fetchUserPreferences = async () => {
             try {
-                // Only override if session storage is empty OR we effectively want profile to be the "start" default
-                // The requirement: "rango predeterminado cuando se inicia una sesión ... sea ese"
-                // If I have sessionStorage, it means I ALREADY changed it or it persisted from a reload.
-                // So session storage takes precedence if it exists.
-                // BUT, if this is the FIRST load and sessionStorage is empty, use profile.
-
+                // If we already have a session value, we respect it (persistence during session).
+                // Unless the user explicitly wants to reset on every reload? 
+                // For now, we assume reloading the page is "continuing the session".
                 if (sessionStorage.getItem('sessionRange')) {
                     setHasLoadedProfile(true);
                     return;

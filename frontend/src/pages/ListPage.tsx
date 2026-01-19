@@ -83,6 +83,13 @@ export const ListPage: React.FC = () => {
         toggleRange();
     };
 
+    // Ensure location is requested if a range is active, to prevent showing ALL items by default
+    useEffect(() => {
+        if (range !== null && !location) {
+            requestLocation();
+        }
+    }, [range, location]);
+
     // list.likes might be undefined initially, defaulting to 0
     const { isLiked, likeCount, toggleLike } = useLike(listId || '', list?.likes || 0);
 

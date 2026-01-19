@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
+import { useFilters } from '../context/FilterContext'; // Import Filter Context
 import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical } from 'lucide-react';
 import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
@@ -258,16 +259,22 @@ export const ProfilePage: React.FC = () => {
         }
     };
 
+    const { setRange } = useFilters(); // Get setRange from context
+
     const savePreferences = async () => {
         if (!user) return;
         try {
             const val = parseInt(editRange);
+            const newRange = isNaN(val) ? 50 : (val >= 999999 ? null : val);
+
             await setDoc(doc(db, 'users', user.uid), {
                 defaultDistanceKm: isNaN(val) ? 50 : val
             }, { merge: true });
 
             // Update session too if generic
+            // And CRUCIALLY update the context immediately so the UI reflects it without reload
             sessionStorage.removeItem('sessionRange');
+            setRange(newRange);
 
             setIsEditing(false);
         } catch (err) {

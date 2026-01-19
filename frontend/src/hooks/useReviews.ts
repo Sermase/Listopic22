@@ -103,10 +103,10 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
 
                     if (type === 'trending') {
                         constraints.push(orderBy('createdAt', 'desc'));
-                        constraints.push(limit(50));
+                        constraints.push(limit(200));
                     } else {
                         constraints.push(orderBy('createdAt', 'desc'));
-                        constraints.push(limit(30));
+                        constraints.push(limit(100)); // Increased from 30 to 100 for better coverage
                     }
 
                     const q = query(reviewsRef, ...constraints);
