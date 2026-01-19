@@ -4,15 +4,18 @@ import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, writeBat
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import { NotificationHistoryModal } from './NotificationHistoryModal';
 
 interface NotificationModalProps {
     onClose: () => void;
+    onOpenHistory: () => void;
 }
 
-export const NotificationModal: React.FC<NotificationModalProps> = ({ onClose }) => {
+export const NotificationModal: React.FC<NotificationModalProps> = ({ onClose, onOpenHistory }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    // showHistory removed, controlled by parent
 
     useEffect(() => {
         if (!user) return;
@@ -109,6 +112,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ onClose })
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-gray-200 leading-snug">
+                                            {notification.senderName && <span className="font-bold text-white">{notification.senderName} </span>}
                                             {notification.message || 'Nueva notificación'}
                                         </p>
                                         <span className="text-xs text-gray-500 mt-1 block">
@@ -126,9 +130,12 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ onClose })
             </div>
 
             <div className="p-2 border-t border-white/10 bg-black/20 text-center">
-                <Link to="/notifications" className="text-xs text-gray-400 hover:text-white transition-colors">
+                <button
+                    onClick={onOpenHistory}
+                    className="text-xs text-gray-400 hover:text-white transition-colors w-full py-1"
+                >
                     Ver todas
-                </Link>
+                </button>
             </div>
         </div>
     );

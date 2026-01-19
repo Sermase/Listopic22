@@ -171,8 +171,12 @@ export const PlacePage: React.FC = () => {
         );
     }
 
+
     // Dynamic Color for Score
 
+    const handleShareClick = () => {
+        setIsShareModalOpen(true);
+    };
 
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20">
@@ -280,8 +284,8 @@ export const PlacePage: React.FC = () => {
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{isFollowed ? 'Seguido' : 'Seguir'}</span>
                         </button>
                         <button
-                            onClick={() => setIsShareModalOpen(true)}
-                            className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                            onClick={handleShareClick}
+                            className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all active:scale-95 active:bg-indigo-500/20 active:border-indigo-500/50"
                         >
                             <Share2 className="w-5 h-5 mb-1 text-indigo-400" />
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Compartir</span>
@@ -654,6 +658,7 @@ export const PlacePage: React.FC = () => {
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
                 title={`Compartir ${place.name}`}
+                place={place}
             />
 
             <ReportModal

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { BrandingManager } from '../components/developer/BrandingManager';
 import { db, functions, storage } from '../firebase';
-import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette } from 'lucide-react';
 
@@ -648,121 +648,409 @@ export const DeveloperPage: React.FC = () => {
                         {
                             activeTab === 'gamification' && (
                                 <div className="max-w-6xl mx-auto">
-                                    <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-6">
-                                        <Tag className="w-6 h-6 text-amber-500" /> Gamificación Avanzada
-                                    </h2>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                            <Tag className="w-6 h-6 text-amber-500" /> Gamificación Avanzada
+                                        </h2>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    setEditingBadge({}); // Empty object for new badge
+                                                    setBadgeModalOpen(true);
+                                                }}
+                                                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-amber-900/20"
+                                            >
+                                                <div className="text-lg leading-none">+</div> Nueva Medalla
+                                            </button>
+                                            <button
+                                                onClick={fetchBadges}
+                                                className="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white"
+                                            >
+                                                <RefreshCw className={`w-4 h-4 ${loadingBadges ? 'animate-spin' : ''}`} />
+                                            </button>
+                                        </div>
+                                    </div>
 
-                                    {/* --- BULK & GLOBAL OPERATIONS --- */}
-                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 mb-8 relative overflow-hidden group">
-                                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                            <CloudLightning className="w-32 h-32 text-amber-500" />
+                                    {/* --- MANUAL ASSIGNMENT TOOL --- */}
+                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 mb-8 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 p-4 opacity-5">
+                                            <CheckCircle className="w-32 h-32 text-indigo-500" />
                                         </div>
                                         <h3 className="text-lg font-bold text-white mb-4 relative z-10 flex items-center gap-2">
-                                            <CloudLightning className="w-5 h-5 text-amber-400" /> Operaciones Globales
+                                            <CheckCircle className="w-5 h-5 text-indigo-400" /> Asignación Manual
                                         </h3>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                                            {/* Global Recalc */}
-                                            <div className="space-y-3">
-                                                <p className="text-gray-400 text-sm">Recalcular estadísticas, medallas y niveles para <strong>TODOS</strong> los usuarios del sistema.</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10 items-end">
+                                            <div className="col-span-1">
+                                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">User ID</label>
+                                                <input
+                                                    id="manualAssignUserId"
+                                                    placeholder="User UID"
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                                />
+                                            </div>
+                                            <div className="col-span-1">
+                                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Badge ID</label>
+                                                <select
+                                                    id="manualAssignBadgeId"
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                                >
+                                                    <option value="">Seleccionar Medalla...</option>
+                                                    {badges.map(b => (
+                                                        <option key={b.id} value={b.id}>{b.name} ({b.id})</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="col-span-1 flex gap-2">
                                                 <button
                                                     onClick={async () => {
-                                                        if (!confirm("⚠️ ¿Estás seguro? Esto recorrerá toda la base de datos de usuarios.")) return;
-                                                        setLoadingBadges(true);
-                                                        setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando Recálculo Masivo de Gamificación...`, ...prev]);
+                                                        const uid = (document.getElementById('manualAssignUserId') as HTMLInputElement).value;
+                                                        const badgeId = (document.getElementById('manualAssignBadgeId') as HTMLSelectElement).value;
+                                                        if (!uid || !badgeId) return alert("Faltan datos");
+                                                        if (!confirm(`¿Asignar ${badgeId} a ${uid}?`)) return;
+
                                                         try {
-                                                            const functions = getFunctions(undefined, FUNCTIONS_REGION);
-                                                            const bulkFn = httpsCallable(functions, 'adminRecalculateAllGamification');
-                                                            const res: any = await bulkFn();
-                                                            if (res.data.logs) {
-                                                                setMaintenanceLog(prev => [...res.data.logs.reverse(), ...prev]);
-                                                            }
-                                                            setMaintenanceLog(prev => [`✅ Proceso masivo completado`, ...prev]);
+                                                            await setDoc(doc(db, `users/${uid}/obtainedBadges/${badgeId}`), {
+                                                                obtainedAt: new Date(),
+                                                                assignedBy: 'admin',
+                                                                reason: 'Manual Assignment via Console'
+                                                            });
+                                                            alert("✅ Medalla Asignada");
                                                         } catch (e: any) {
-                                                            console.error(e);
-                                                            setMaintenanceLog(prev => [`❌ Error Backend: ${e.message}`, ...prev]);
-                                                        } finally {
-                                                            setLoadingBadges(false);
+                                                            alert("Error: " + e.message);
                                                         }
                                                     }}
-                                                    disabled={loadingBadges}
-                                                    className="w-full py-3 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                                                    className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors"
                                                 >
-                                                    {loadingBadges ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Layers className="w-5 h-5" />}
-                                                    Recalcular TODO (Niveles y Medallas)
+                                                    Asignar
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        const uid = (document.getElementById('manualAssignUserId') as HTMLInputElement).value;
+                                                        const badgeId = (document.getElementById('manualAssignBadgeId') as HTMLSelectElement).value;
+                                                        if (!uid || !badgeId) return alert("Faltan datos");
+                                                        if (!confirm(`¿REVOCAR ${badgeId} a ${uid}?`)) return;
+
+                                                        try {
+                                                            await deleteDoc(doc(db, `users/${uid}/obtainedBadges/${badgeId}`)); // Requires import deleteDoc
+                                                            alert("🗑️ Medalla Revocada");
+                                                        } catch (e: any) {
+                                                            alert("Error: " + e.message);
+                                                        }
+                                                    }}
+                                                    className="px-4 py-2 bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white font-bold rounded-lg transition-colors border border-red-600/30"
+                                                >
+                                                    Revocar
                                                 </button>
                                             </div>
+                                        </div>
+                                    </div>
 
-                                            {/* Single User Tools */}
-                                            <div className="bg-black/20 rounded-lg p-4 border border-white/5">
-                                                <h4 className="text-sm font-bold text-gray-300 mb-2 uppercase">Herramientas por Usuario</h4>
-                                                <div className="flex gap-2 mb-3">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="ID de Usuario"
-                                                        className="flex-1 bg-black/40 border border-white/10 rounded px-3 py-1.5 text-sm text-white"
-                                                        id="gamificationUserId" // Quick hook
-                                                    />
+                                    {/* --- BADGE LIST --- */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                                        {badges.map(badge => (
+                                            <div key={badge.id} className="bg-[#151b2e] border border-white/10 rounded-xl p-6 relative group hover:border-amber-500/50 transition-all">
+                                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => { setEditingBadge(badge); setBadgeModalOpen(true); }}
+                                                        className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white"
+                                                    >
+                                                        <Palette className="w-4 h-4" /> {/* Edit Icon */}
+                                                    </button>
                                                     <button
                                                         onClick={async () => {
-                                                            const uid = (document.getElementById('gamificationUserId') as HTMLInputElement).value;
-                                                            if (!uid) return alert("Pon un ID");
-                                                            try {
-                                                                const functions = getFunctions(undefined, FUNCTIONS_REGION);
-                                                                const fn = httpsCallable(functions, 'adminRecalculateUserGamification');
-                                                                setMaintenanceLog(prev => [`Recalculando usuario ${uid}...`, ...prev]);
-                                                                await fn({ userId: uid });
-                                                                setMaintenanceLog(prev => [`✅ Usuario ${uid} actualizado`, ...prev]);
-                                                            } catch (e: any) {
-                                                                alert(e.message);
+                                                            if (confirm(`¿ELIMINAR DEFINITIVAMENTE la medalla ${badge.name}? Esto no la quita de los usuarios que ya la tienen.`)) {
+                                                                try {
+                                                                    await deleteDoc(doc(db, 'badges', badge.id));
+                                                                    fetchBadges();
+                                                                } catch (e) { console.error(e); alert("Error eliminando"); }
                                                             }
                                                         }}
-                                                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded text-sm font-bold"
+                                                        className="p-1 hover:bg-red-500/20 rounded text-gray-400 hover:text-red-500"
                                                     >
-                                                        Recalcular
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                                <div className="absolute top-4 left-4 text-xs font-mono text-gray-600 select-all">{badge.id}</div>
+
+                                                <div className="flex items-center gap-4 mb-4 mt-6">
+                                                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-600 to-yellow-400 flex items-center justify-center text-3xl shadow-lg relative overflow-hidden">
+                                                        {badge.imageUrl ? (
+                                                            <img src={badge.imageUrl} alt={badge.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <span>{badge.icon || '🏅'}</span>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-bold text-white text-lg leading-tight">{badge.name}</h3>
+                                                        <span className="text-[10px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded border border-amber-500/20 font-bold uppercase tracking-wider">
+                                                            {badge.category || 'GENERAL'}
+                                                        </span>
+                                                        {badge.active === false && <span className="ml-2 text-[10px] bg-red-500/10 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold uppercase">INACTIVA</span>}
+                                                    </div>
+                                                </div>
+                                                <p className="text-gray-400 text-sm mb-3 line-clamp-2 min-h-[40px]">{badge.description}</p>
+
+                                                <div className="flex flex-wrap gap-2 text-xs font-mono text-gray-500">
+                                                    <span className="bg-black/20 px-2 py-1 rounded border border-white/5">Type: {badge.type}</span>
+                                                    {badge.threshold > 0 && <span className="bg-black/20 px-2 py-1 rounded border border-white/5">Thres: {badge.threshold}</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* --- BULK OPERATIONS (Moved to bottom) --- */}
+                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 opacity-60 hover:opacity-100 transition-opacity">
+                                        <h3 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2">
+                                            <CloudLightning className="w-4 h-4" /> Zona de Peligro / Global
+                                        </h3>
+                                        <div className="flex gap-4">
+                                            <button
+                                                onClick={async () => {
+                                                    if (!confirm("⚠️ RECALCULAR GAMIFICACIÓN GLOBAL: ¿Estás seguro?")) return;
+                                                    setLoadingBadges(true);
+                                                    setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] GLOBAL SYNC START...`, ...prev]);
+                                                    try {
+                                                        const functions = getFunctions(undefined, FUNCTIONS_REGION);
+                                                        const bulkFn = httpsCallable(functions, 'adminRecalculateAllGamification');
+                                                        const res: any = await bulkFn();
+                                                        if (res.data.logs) setMaintenanceLog(prev => [...res.data.logs.reverse(), ...prev]);
+                                                        setMaintenanceLog(prev => [`✅ DONE`, ...prev]);
+                                                    } catch (e: any) {
+                                                        setMaintenanceLog(prev => [`❌ ERROR: ${e.message}`, ...prev]);
+                                                    } finally {
+                                                        setLoadingBadges(false);
+                                                    }
+                                                }}
+                                                disabled={loadingBadges}
+                                                className="px-4 py-2 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white rounded-lg text-xs font-bold transition-all"
+                                            >
+                                                Recalcular TODO
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* --- EDIT MODAL --- */}
+                                    {badgeModalOpen && (
+                                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setBadgeModalOpen(false)}>
+                                            <div className="bg-[#151b2e] rounded-2xl w-full max-w-2xl border border-white/10 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                                                <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#1a2036]">
+                                                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                                        {editingBadge?.id ? <Palette className="w-5 h-5 text-amber-500" /> : <Tag className="w-5 h-5 text-green-500" />}
+                                                        {editingBadge?.id ? 'Editar Medalla' : 'Nueva Medalla'}
+                                                    </h3>
+                                                    <button onClick={() => setBadgeModalOpen(false)} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+                                                </div>
+
+                                                <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                                                    <div className="space-y-5">
+
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div>
+                                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">ID (Slug)</label>
+                                                                <input
+                                                                    disabled={!!editingBadge?.id} // Cannot change ID of existing
+                                                                    className={`w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-amber-500 font-mono ${editingBadge?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    value={editingBadge?.id || editingBadge?.newId || ''}
+                                                                    onChange={e => !editingBadge?.id && setEditingBadge({ ...editingBadge, newId: e.target.value })}
+                                                                    placeholder="ej: early_adopter"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Categoría</label>
+                                                                <select
+                                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-amber-500"
+                                                                    value={editingBadge?.category || 'GENERAL'}
+                                                                    onChange={e => setEditingBadge({ ...editingBadge, category: e.target.value })}
+                                                                >
+                                                                    <option value="GENERAL">General</option>
+                                                                    <option value="EXPERT">Expert</option>
+                                                                    <option value="SPECIAL">Special</option>
+                                                                    <option value="HIDDEN">Hidden</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nombre</label>
+                                                            <input
+                                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-amber-500"
+                                                                value={editingBadge?.name || ''}
+                                                                onChange={e => setEditingBadge({ ...editingBadge, name: e.target.value })}
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Descripción Pública</label>
+                                                            <textarea
+                                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-amber-500 h-20"
+                                                                value={editingBadge?.description || ''}
+                                                                onChange={e => setEditingBadge({ ...editingBadge, description: e.target.value })}
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Lógica (Interna/Notas)</label>
+                                                            <textarea
+                                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-amber-200 outline-none focus:border-amber-500 h-16 font-mono text-xs"
+                                                                value={editingBadge?.logicNotes || ''}
+                                                                onChange={e => setEditingBadge({ ...editingBadge, logicNotes: e.target.value })}
+                                                                placeholder="Notas para devs sobre cómo se gana..."
+                                                            />
+                                                        </div>
+
+                                                        <div className="grid grid-cols-3 gap-4">
+                                                            <div className="col-span-1">
+                                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Tipo</label>
+                                                                <select
+                                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-amber-500"
+                                                                    value={editingBadge?.type || 'custom'}
+                                                                    onChange={e => setEditingBadge({ ...editingBadge, type: e.target.value })}
+                                                                >
+                                                                    <option value="custom">Custom (Manual)</option>
+                                                                    <option value="review_count">Contador Reseñas</option>
+                                                                    <option value="place_count">Contador Lugares</option>
+                                                                </select>
+                                                            </div>
+                                                            <div className="col-span-1">
+                                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Umbral</label>
+                                                                <input
+                                                                    type="number"
+                                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-amber-500"
+                                                                    value={editingBadge?.threshold || 0}
+                                                                    onChange={e => setEditingBadge({ ...editingBadge, threshold: parseInt(e.target.value) })}
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-1">
+                                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Icono (Emoji)</label>
+                                                                <input
+                                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-amber-500 text-center"
+                                                                    value={editingBadge?.icon || ''}
+                                                                    onChange={e => setEditingBadge({ ...editingBadge, icon: e.target.value })}
+                                                                    placeholder="🏆"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Imagen URL (Upload)</label>
+
+                                                            <div className="flex flex-col gap-3">
+                                                                {/* URL Input */}
+                                                                <input
+                                                                    type="text"
+                                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-amber-500 text-xs font-mono"
+                                                                    value={editingBadge?.imageUrl || ''}
+                                                                    onChange={e => setEditingBadge({ ...editingBadge, imageUrl: e.target.value })}
+                                                                    placeholder="https://..."
+                                                                />
+
+                                                                {/* Drag & Drop Zone */}
+                                                                <div
+                                                                    className="relative group border-2 border-dashed border-white/10 hover:border-amber-500/50 bg-black/20 hover:bg-black/30 rounded-xl p-6 transition-all cursor-pointer text-center"
+                                                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                                    onDrop={async (e) => {
+                                                                        e.preventDefault(); e.stopPropagation();
+                                                                        const file = e.dataTransfer.files?.[0];
+                                                                        if (!file) return;
+
+                                                                        // Reuse upload logic
+                                                                        const badgeId = editingBadge?.id || editingBadge?.newId;
+                                                                        if (!badgeId) return alert("Primero define un ID para la medalla");
+
+                                                                        try {
+                                                                            const { ref: sRef, uploadBytes, getDownloadURL } = await import('firebase/storage');
+                                                                            const storageRef = sRef(storage, `badges/${badgeId}/${Date.now()}_icon`);
+
+                                                                            // Show temp loading state visually if needed, but for now just blocking
+                                                                            const snap = await uploadBytes(storageRef, file);
+                                                                            const url = await getDownloadURL(snap.ref);
+                                                                            setEditingBadge((prev: any) => ({ ...prev, imageUrl: url }));
+                                                                        } catch (err: any) {
+                                                                            console.error(err);
+                                                                            alert("Error subiendo icono: " + err.message);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <input
+                                                                        type="file"
+                                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                                        accept="image/*"
+                                                                        onChange={async (e) => {
+                                                                            const file = e.target.files?.[0];
+                                                                            const badgeId = editingBadge?.id || editingBadge?.newId;
+                                                                            if (file && badgeId) {
+                                                                                try {
+                                                                                    const { ref: sRef, uploadBytes, getDownloadURL } = await import('firebase/storage');
+                                                                                    const storageRef = sRef(storage, `badges/${badgeId}/${Date.now()}_icon`);
+                                                                                    const snap = await uploadBytes(storageRef, file);
+                                                                                    const url = await getDownloadURL(snap.ref);
+                                                                                    setEditingBadge((prev: any) => ({ ...prev, imageUrl: url }));
+                                                                                } catch (err: any) {
+                                                                                    console.error(err);
+                                                                                    alert("Error subiendo icono: " + err.message);
+                                                                                }
+                                                                            } else if (file) {
+                                                                                alert("Primero define un ID para la medalla");
+                                                                            }
+                                                                        }}
+                                                                    />
+
+                                                                    <div className="flex flex-col items-center gap-2 pointer-events-none">
+                                                                        {editingBadge?.imageUrl ? (
+                                                                            <img src={editingBadge.imageUrl} className="w-16 h-16 object-contain mb-2 rounded-lg bg-black/50" />
+                                                                        ) : (
+                                                                            <Upload className="w-8 h-8 text-gray-500 group-hover:text-amber-500 transition-colors" />
+                                                                        )}
+                                                                        <span className="text-sm font-bold text-gray-400 group-hover:text-white">
+                                                                            {editingBadge?.imageUrl ? 'Arrastra para cambiar imagen' : 'Arrastra imagen o click para subir'}
+                                                                        </span>
+                                                                        <span className="text-xs text-gray-600">Max 2MB (PNG/JPG)</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2 pt-2">
+                                                            <input
+                                                                type="checkbox"
+                                                                id="activeCheck"
+                                                                checked={editingBadge?.active !== false}
+                                                                onChange={e => setEditingBadge({ ...editingBadge, active: e.target.checked })}
+                                                                className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-amber-600 focus:ring-amber-500"
+                                                            />
+                                                            <label htmlFor="activeCheck" className="text-sm text-gray-300 select-none font-bold">Medalla Activa</label>
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+
+                                                <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-[#151b2e]">
+                                                    <button
+                                                        onClick={() => setBadgeModalOpen(false)}
+                                                        className="px-4 py-2 text-gray-400 hover:text-white font-bold transition-colors"
+                                                    >
+                                                        Cancelar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const finalData = { ...editingBadge };
+                                                            // Use newId if creating
+                                                            if (!finalData.id && finalData.newId) {
+                                                                finalData.id = finalData.newId;
+                                                                delete finalData.newId;
+                                                            }
+                                                            if (!finalData.id) return alert("Falta ID");
+
+                                                            handleSaveBadge(finalData);
+                                                        }}
+                                                        className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold shadow-lg shadow-amber-900/20 transition-all hover:scale-105"
+                                                    >
+                                                        Guardar Medalla
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
-
-                                        {/* Log Output */}
-                                        {maintenanceLog.length > 0 && activeTab === 'gamification' && (
-                                            <div className="mt-6 bg-black/50 border border-white/10 rounded-lg p-3 max-h-40 overflow-y-auto font-mono text-xs text-emerald-300">
-                                                {maintenanceLog.map((l, i) => <div key={i}>{l}</div>)}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex items-center justify-between mb-8">
-                                        <h2 className="text-xl font-bold text-gray-400 flex items-center gap-2">
-                                            <Database className="w-5 h-5" /> Definición de Medallas
-                                        </h2>
-                                        <button
-                                            onClick={fetchBadges}
-                                            className="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white"
-                                        >
-                                            <RefreshCw className={`w-4 h-4 ${loadingBadges ? 'animate-spin' : ''}`} />
-                                        </button>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {badges.map(badge => (
-                                            <div key={badge.id} className="bg-[#151b2e] border border-white/10 rounded-xl p-6 relative group hover:border-amber-500/50 transition-all">
-                                                <div className="absolute top-4 right-4 text-xs font-mono text-gray-500">{badge.id}</div>
-
-                                                <div className="flex items-center gap-4 mb-4">
-                                                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-600 to-yellow-400 flex items-center justify-center text-2xl shadow-lg">
-                                                        {badge.icon || '🏅'}
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-white text-lg">{badge.name}</h3>
-                                                        <span className="text-xs text-amber-400 font-bold uppercase tracking-wider">{badge.category || 'GENERAL'}</span>
-                                                    </div>
-                                                </div>
-                                                <p className="text-gray-400 text-sm mb-4 line-clamp-2">{badge.description}</p>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    )}
                                 </div>
                             )
                         }

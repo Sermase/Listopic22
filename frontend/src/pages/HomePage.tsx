@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useFilters } from '../context/FilterContext';
 import { useLists } from '../hooks/useLists';
 import { useUsers } from '../hooks/useUsers';
 import { useReviews } from '../hooks/useReviews';
@@ -25,21 +26,10 @@ export const HomePage: React.FC = () => {
     // UI State
     const [activeTab, setActiveTab] = useState<'explore' | 'news'>('explore');
     const [activeFilter, setActiveFilter] = useState('Todo'); // Category Filter
-    // Distance Range State (Persisted in Session)
-    const [range, setRange] = useState<number | null>(() => {
-        const saved = sessionStorage.getItem('sessionRange');
-        return saved ? Number(saved) : null;
-    });
 
-    // Valid Ranges: 1, 5, 10, 50, null (Infinite)
-    const handleRangeChange = (newRange: number | null) => {
-        setRange(newRange);
-        if (newRange) {
-            sessionStorage.setItem('sessionRange', String(newRange));
-        } else {
-            sessionStorage.removeItem('sessionRange');
-        }
-    };
+    // Global Distance Range State
+    const { range, toggleRange, getRangeLabel } = useFilters();
+
     const [isMapOpen, setIsMapOpen] = useState(false);
 
     // Following Logic
@@ -292,30 +282,11 @@ export const HomePage: React.FC = () => {
     }, [filteredLists, reviewsInRange]);
 
 
-    // Cycle Range Handler
-    const toggleRange = () => {
+    const handleToggleRange = () => {
         if (!location) {
             requestLocation();
         }
-
-        let nextRange: number | null = null;
-        if (range === null) nextRange = 1;
-        else if (range === 1) nextRange = 2;
-        else if (range === 2) nextRange = 5;
-        else if (range === 5) nextRange = 10;
-        else if (range === 10) nextRange = 50;
-        else if (range === 50) nextRange = 100;
-        else if (range === 100) nextRange = 500;
-        else if (range === 500) nextRange = null;
-        else nextRange = null; // Reset if weird value
-
-        handleRangeChange(nextRange);
-    };
-
-    const getRangeLabel = () => {
-        if (range === null) return "Sin rango";
-        if (range === 0.5) return "< 500 m";
-        return `< ${range} km`;
+        toggleRange();
     };
 
     return (
@@ -381,7 +352,7 @@ export const HomePage: React.FC = () => {
 
                                 <div className="flex items-center gap-3">
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); toggleRange(); }}
+                                        onClick={(e) => { e.stopPropagation(); handleToggleRange(); }}
                                         className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
                                             ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
                                             : 'bg-[#0b1021] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
@@ -423,7 +394,7 @@ export const HomePage: React.FC = () => {
                             title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
                             viewAllLink={`/search?type=lists&sort=${activeTab === 'explore' ? 'most_reviewed' : 'latest'}`}
                             items={activeTab === 'explore'
-                                ? listsWithRangeStats.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0)).slice(0, 10)
+                                ? listsWithRangeStats.sort((a, b) => (b.reviewsInRangeCount ?? b.reviewCount ?? 0) - (a.reviewsInRangeCount ?? a.reviewCount ?? 0)).slice(0, 10)
                                 : filteredLists}
                             loading={loadingLists}
                             renderItem={(list: any, index: number) => (
@@ -447,12 +418,11 @@ export const HomePage: React.FC = () => {
                                     <div className="absolute bottom-0 left-0 right-0 p-3">
                                         <h3 className="text-white font-bold text-sm leading-tight mb-1 drop-shadow-sm line-clamp-1">{list.name}</h3>
 
-                                        {/* Stats Row: Reviews, Sublists, Followers */}
                                         {/* Stats Row: Reviews, Followers */}
                                         <div className="flex items-center gap-4 opacity-90 text-xs text-gray-300 font-medium">
                                             <div className="flex items-center gap-1.5">
                                                 <MessageCircle className="w-3.5 h-3.5 text-indigo-400" />
-                                                <span>{list.reviewCount || 0}</span>
+                                                <span>{list.reviewsInRangeCount !== undefined ? list.reviewsInRangeCount : (list.reviewCount || 0)}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <Users className="w-3.5 h-3.5 text-rose-400" />

@@ -8,7 +8,7 @@ import { db } from '../firebase';
 
 export const ArchivePage: React.FC = () => {
     const { user } = useAuth();
-    const { archives, fetchArchives, toggleItemInArchive } = useArchives();
+    const { archives, fetchArchives, toggleItemInArchive, createArchive, deleteArchive } = useArchives();
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
     const [archiveItems, setArchiveItems] = useState<Record<string, SavedItemEntity[]>>({});
     const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({});
@@ -119,6 +119,28 @@ export const ArchivePage: React.FC = () => {
         await fetchItemsForArchive(archiveId);
     };
 
+    const handleCreateArchive = async () => {
+        const name = prompt("Nombre de la nueva colección:");
+        if (name && name.trim()) {
+            try {
+                await createArchive(name.trim());
+            } catch (e) {
+                alert("Error al crear la colección.");
+            }
+        }
+    };
+
+    const handleDeleteArchive = async (e: React.MouseEvent, id: string, name: string) => {
+        e.stopPropagation();
+        if (confirm(`¿Eliminar la colección "${name}"? Esta acción no se puede deshacer.`)) {
+            try {
+                await deleteArchive(id);
+            } catch (error) {
+                alert("Error al eliminar.");
+            }
+        }
+    };
+
     const getFilteredItems = (items: SavedItemEntity[]) => {
         if (filterType === 'all') return items;
         return items.filter(i => i.type === filterType);
@@ -129,28 +151,36 @@ export const ArchivePage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[#0b1021] pt-24 pb-20 px-4 sm:px-6">
             <div className="max-w-4xl mx-auto">
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold text-white mb-4">Mi Archivo</h1>
-                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                        {[
-                            { id: 'all', label: 'Todo' },
-                            { id: 'place', label: 'Lugares' },
-                            { id: 'list', label: 'Listas' },
-                            { id: 'group', label: 'Elementos' },
-                            { id: 'review', label: 'Reseñas' },
-                        ].map(f => (
-                            <button
-                                key={f.id}
-                                onClick={() => setFilterType(f.id as any)}
-                                className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors border ${filterType === f.id
+                <header className="mb-8 flex justify-between items-end">
+                    <div>
+                        <h1 className="text-3xl font-bold text-white mb-4">Mi Archivo</h1>
+                        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                            {[
+                                { id: 'all', label: 'Todo' },
+                                { id: 'place', label: 'Lugares' },
+                                { id: 'list', label: 'Listas' },
+                                { id: 'group', label: 'Elementos' },
+                                { id: 'review', label: 'Reseñas' },
+                            ].map(f => (
+                                <button
+                                    key={f.id}
+                                    onClick={() => setFilterType(f.id as any)}
+                                    className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors border ${filterType === f.id
                                         ? 'bg-indigo-600 border-indigo-500 text-white'
                                         : 'bg-[#151b2e] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
-                                    }`}
-                            >
-                                {f.label}
-                            </button>
-                        ))}
+                                        }`}
+                                >
+                                    {f.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
+                    <button
+                        onClick={handleCreateArchive}
+                        className="mb-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-bold rounded-xl border border-white/10 transition-colors"
+                    >
+                        + Nueva
+                    </button>
                 </header>
 
                 <div className="space-y-4">
@@ -164,7 +194,7 @@ export const ArchivePage: React.FC = () => {
                         archives.map(arch => (
                             <div
                                 key={arch.id}
-                                className="bg-[#151b2e] rounded-xl border border-white/10 overflow-hidden transition-colors"
+                                className="bg-[#151b2e] rounded-xl border border-white/10 overflow-hidden transition-colors relative group/archive"
                                 onDragOver={handleDragOver}
                                 onDrop={(e) => handleDrop(e, arch.id)}
                             >
@@ -188,6 +218,15 @@ export const ArchivePage: React.FC = () => {
                                         </div>
                                     </div>
                                     {expandedIds.includes(arch.id) ? <ChevronDown className="text-gray-500" /> : <ChevronRight className="text-gray-500" />}
+                                </button>
+
+                                {/* Delete Archive Button */}
+                                <button
+                                    onClick={(e) => handleDeleteArchive(e, arch.id, arch.name)}
+                                    className="absolute top-4 right-12 p-2 text-gray-600 hover:text-red-500 opacity-0 group-hover/archive:opacity-100 transition-opacity"
+                                    title="Eliminar colección"
+                                >
+                                    <Trash2 className="w-4 h-4" />
                                 </button>
 
                                 {expandedIds.includes(arch.id) && (
