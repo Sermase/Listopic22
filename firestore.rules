@@ -142,7 +142,13 @@ service cloud.firestore {
       match /notifications/{notificationId} {
         allow read, list, update: if request.auth != null && request.auth.uid == userId;
         allow create: if request.auth != null && request.auth.uid == userId;
-        allow delete: if false;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Regla para las medallas obtenidas
+      match /obtainedBadges/{badgeId} {
+        allow read: if true;
+        allow write: if request.auth != null; 
       }
     }
 

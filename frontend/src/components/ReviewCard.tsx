@@ -487,6 +487,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 title={`Compartir Reseña`}
                 url={`${window.location.origin}/group/${review.placeId}/${encodeURIComponent(review.itemName || '')}`}
                 text={`¡Mira esta reseña de ${review.itemName} en ${review.placeName}!`}
+                review={review}
             />
 
             <ReportModal

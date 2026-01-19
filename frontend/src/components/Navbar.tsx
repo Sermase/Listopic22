@@ -6,6 +6,8 @@ import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { NotificationModal } from './NotificationModal';
+import { NotificationHistoryModal } from './NotificationHistoryModal';
+
 export const Navbar: React.FC = () => {
     const { user } = useAuth();
     const config = useAppConfig();
@@ -13,6 +15,7 @@ export const Navbar: React.FC = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [showHistory, setShowHistory] = useState(false); // New state lifted
     const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
@@ -171,9 +174,20 @@ export const Navbar: React.FC = () => {
                                 </button>
 
                                 {showNotifications && (
-                                    <NotificationModal onClose={() => setShowNotifications(false)} />
+                                    <NotificationModal
+                                        onClose={() => setShowNotifications(false)}
+                                        onOpenHistory={() => {
+                                            setShowNotifications(false);
+                                            setShowHistory(true);
+                                        }}
+                                    />
                                 )}
                             </div>
+                        )}
+
+                        {/* History Modal rendered outside the relative container to avoid clipping/nesting issues */}
+                        {showHistory && (
+                            <NotificationHistoryModal onClose={() => setShowHistory(false)} />
                         )}
 
                         {user ? (

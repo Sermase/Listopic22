@@ -47,12 +47,23 @@ const onFollowUser = onDocumentWritten("users/{uid}/followers/{followerId}", asy
 
     // Only on create
     if (!event.data.before.exists && event.data.after.exists) {
-        const followerData = event.data.after.data(); // Contains uid, displayName, photoUrl usually
+        // Fetch FRESH follower data (don't rely on the follower subcollection doc which might be stale copy)
+        // OR if the subcollection is just an ID, we MUST fetch. 
+        // Assuming subcollection might have minimal data.
+
+        let followerName = "Un usuario";
+        let followerPhoto = null;
+
+        const userSnap = await db.collection("users").doc(followerId).get();
+        if (userSnap.exists) {
+            followerName = userSnap.data().displayName || "Un usuario";
+            followerPhoto = userSnap.data().photoUrl || null;
+        }
 
         await sendNotification(targetUserId, 'new_follower', {
             senderId: followerId,
-            senderName: followerData.displayName || "Un usuario",
-            senderPhoto: followerData.photoUrl || null,
+            senderName: followerName,
+            senderPhoto: followerPhoto,
             message: "te ha empezado a seguir.",
             link: `/profile/${followerId}`
         });
@@ -135,16 +146,23 @@ const onReviewComment = onDocumentWritten("lists/{listId}/reviews/{reviewId}/com
             // Don't notify self-comments
             if (authorId === commenterId) return;
 
+            // Fetch FRESH commenter info
+            let commenterName = commentData.userName || "Alguien";
+            let commenterPhoto = commentData.userPhoto || null;
+
+            const commenterSnap = await db.collection("users").doc(commenterId).get();
+            if (commenterSnap.exists) {
+                const cData = commenterSnap.data();
+                commenterName = cData.displayName || commenterName;
+                commenterPhoto = cData.photoUrl || commenterPhoto;
+            }
+
             await sendNotification(authorId, 'review_comment', {
                 senderId: commenterId,
-                senderName: commentData.userName || "Alguien",
-                senderPhoto: commentData.userPhoto || null,
+                senderName: commenterName,
+                senderPhoto: commenterPhoto,
                 message: "comentó en tu reseña.",
-                link: `/list/${listId}?reviewId=${reviewId}`, // Update link to ListPage? or Place/Group? 
-                // Context: The user likely wants to see the review. 
-                // If it's a place review, /group/placeId/itemName is best? 
-                // But we don't always have placeId/itemName here easily without fetching.
-                // ReviewData should have it.
+                link: `/list/${listId}?reviewId=${reviewId}`,
                 placeName: reviewData.placeName || "un lugar",
                 preview: commentData.text ? (commentData.text.substring(0, 50) + "...") : ""
             });

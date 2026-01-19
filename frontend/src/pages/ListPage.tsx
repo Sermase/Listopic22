@@ -9,6 +9,7 @@ import { FilterModal } from '../components/FilterModal';
 import { ShareListModal } from '../components/ShareListModal';
 import { SublistsModal } from '../components/SublistsModal';
 import { useAuth } from '../context/AuthContext';
+import { useFilters } from '../context/FilterContext';
 import { useLike } from '../hooks/useLike';
 import { useLocation } from '../hooks/useLocation';
 import { doc, getDoc } from 'firebase/firestore';
@@ -27,7 +28,7 @@ export const ListPage: React.FC = () => {
     const [sortMode, setSortMode] = useState<'rating' | 'newest' | 'oldest' | 'count'>('rating');
     const { list, reviews, sublists, loading, error } = useListDetails(listId);
     const { user } = useAuth();
-    const { location, calculateDistance } = useLocation();
+    const { location, calculateDistance, requestLocation } = useLocation();
 
     const canAddReview = useMemo(() => {
         if (!user || !list) return false;
@@ -71,37 +72,23 @@ export const ListPage: React.FC = () => {
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isSublistsModalOpen, setIsSublistsModalOpen] = useState(false);
 
-    // Range State
-    const [range, setRange] = useState<number | null>(() => {
-        const saved = sessionStorage.getItem('sessionRange');
-        return saved ? Number(saved) : null;
-    });
 
-    const handleRangeChange = (newRange: number | null) => {
-        setRange(newRange);
-        if (newRange) {
-            sessionStorage.setItem('sessionRange', String(newRange));
-        } else {
-            sessionStorage.removeItem('sessionRange');
+    // Range State from Context
+    const { range, toggleRange, getRangeLabel } = useFilters();
+
+    const handleToggleRange = () => {
+        if (!location) {
+            requestLocation();
         }
+        toggleRange();
     };
 
-    const toggleRange = () => {
-        let next: number | null = null;
-        if (range === null) next = 1;
-        else if (range === 1) next = 2;
-        else if (range === 2) next = 5;
-        else if (range === 5) next = 10;
-        else if (range === 10) next = 50;
-        else if (range === 50) next = 100;
-        else if (range === 100) next = 500;
-        else if (range === 500) next = null;
-        else next = null; // Reset if some other value
-
-        handleRangeChange(next);
-    };
-
-    const getRangeLabel = () => range === null ? "Sin rango" : `< ${range} km`;
+    // Ensure location is requested if a range is active, to prevent showing ALL items by default
+    useEffect(() => {
+        if (range !== null && !location) {
+            requestLocation();
+        }
+    }, [range, location]);
 
     // list.likes might be undefined initially, defaulting to 0
     const { isLiked, likeCount, toggleLike } = useLike(listId || '', list?.likes || 0);
@@ -703,7 +690,7 @@ export const ListPage: React.FC = () => {
 
                         <div className="flex items-center gap-3">
                             <button
-                                onClick={toggleRange}
+                                onClick={handleToggleRange}
                                 className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
                                     ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
                                     : 'bg-[#0b1021] border-white/10 text-gray-400 hover:text-white hover:border-white/30'

@@ -76,6 +76,21 @@ export const useArchives = () => {
         }
     };
 
+    // Delete an archive
+    const deleteArchive = async (archiveId: string) => {
+        if (!user) return;
+        try {
+            await deleteDoc(doc(db, 'users', user.uid, 'archives', archiveId));
+            // Note: This leaves subcollection items orphaned in Firestore unless we use a Cloud Function to clean them up.
+            // For now, this is acceptable for the MVP or we can strictly delete items if we had them loaded.
+            // Client-side cleanup of subcollections is expensive.
+            await fetchArchives(); // Refresh
+        } catch (error) {
+            console.error("Error deleting archive:", error);
+            throw error;
+        }
+    };
+
     // Check if item is saved in any archive (returns list of archive IDs)
     const checkItemSavedStatus = async (itemId: string) => {
         if (!user) return [];
@@ -132,6 +147,7 @@ export const useArchives = () => {
         loading,
         fetchArchives,
         createArchive,
+        deleteArchive,
         checkItemSavedStatus,
         toggleItemInArchive
     };

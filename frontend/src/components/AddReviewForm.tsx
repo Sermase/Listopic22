@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { db, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
@@ -310,7 +310,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !listId) return;
+        if (!user || !listId) {
+            // START AUTOMATION LOGIC: If no list selected, or even if selected, check for automation
+            // If listId IS present, we respect it. But we must also check if we are fulfilling a "Quiero ir" item.
+        }
+        if (!user) return; // Safety
 
         if (!itemName.trim()) {
             setError("El nombre del item es obligatorio");
@@ -326,6 +330,89 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         setError(null);
 
         try {
+            // --- AUTOMATION: "Quiero ir" -> "Ya fui" (ARCHIVES) ---
+            // Requirement: "si hacemos una reseña de ... elemento en Quiero ir, se pase automáticamente a ya fui" (in Archives)
+
+            // 1. Ensure "Ya fui" archive exists
+            let yaFuiArchiveId: string | null = null;
+            let quieroIrArchiveId: string | null = null;
+
+            try {
+                // Determine user archive IDs
+                const qArchives = query(collection(db, 'users', user.uid, 'archives'));
+                const snapArchives = await getDocs(qArchives);
+
+                snapArchives.forEach(doc => {
+                    const data = doc.data();
+                    if (data.name === 'Ya fui') yaFuiArchiveId = doc.id;
+                    if (data.name === 'Quiero ir') quieroIrArchiveId = doc.id;
+                });
+
+                // Auto-create "Ya fui" if missing
+                if (!yaFuiArchiveId) {
+                    const newRef = await addDoc(collection(db, 'users', user.uid, 'archives'), {
+                        name: 'Ya fui',
+                        createdAt: serverTimestamp(),
+                        itemCount: 0
+                    });
+                    yaFuiArchiveId = newRef.id;
+                }
+                // Auto-create "Quiero ir" if missing (for consistency)
+                if (!quieroIrArchiveId) {
+                    const newRef = await addDoc(collection(db, 'users', user.uid, 'archives'), {
+                        name: 'Quiero ir',
+                        createdAt: serverTimestamp(),
+                        itemCount: 0
+                    });
+                    quieroIrArchiveId = newRef.id;
+                }
+
+                // 2. Check if the current place is in "Quiero ir"
+                // Place ID is critical here.
+                let finalPlaceId = selectedPlace?.id || prefillPlaceId || 'unknown';
+                if (selectedPlace) finalPlaceId = selectedPlace.id; // Correct preference
+
+                if (quieroIrArchiveId && finalPlaceId !== 'unknown') {
+                    // Check items subcollection
+                    const qItem = query(collection(db, 'users', user.uid, 'archives', quieroIrArchiveId, 'items'), where('placeId', '==', finalPlaceId));
+                    const snapItem = await getDocs(qItem);
+
+                    if (!snapItem.empty) {
+                        console.log("Found in 'Quiero ir' archive. Moving to 'Ya fui'...");
+                        // Move logic:
+                        // A. Delete from Quiero ir
+                        await deleteDoc(snapItem.docs[0].ref);
+                        await updateDoc(doc(db, 'users', user.uid, 'archives', quieroIrArchiveId!), { itemCount: increment(-1) });
+
+                        // B. Add to Ya fui (As a Place Item)
+                        const placeName = selectedPlace?.name || prefillItemName || 'Lugar';
+                        const subtitle = selectedPlace?.address || '';
+                        const photo = imagePreview || '';
+
+                        // We use the Place ID as the doc ID in the new archive for uniqueness
+                        await setDoc(doc(db, 'users', user.uid, 'archives', yaFuiArchiveId!, 'items', finalPlaceId), {
+                            itemId: finalPlaceId,
+                            placeId: finalPlaceId,
+                            type: 'place',
+                            name: placeName,
+                            subtitle: subtitle,
+                            photoUrl: photo,
+                            savedAt: serverTimestamp(),
+                            route: `/place/${finalPlaceId}`
+                        });
+                        await updateDoc(doc(db, 'users', user.uid, 'archives', yaFuiArchiveId!), { itemCount: increment(1) });
+                    }
+                }
+
+            } catch (autoErr) {
+                console.error("Archive automation error:", autoErr);
+                // Non-blocking
+            }
+
+            // --- END AUTOMATION ---
+
+
+
             const placeName = selectedPlace?.name || 'Lugar Desconocido';
             const photoUrl = imagePreview || ''; // Mock
 
@@ -392,6 +479,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     console.error("Failed to sync place with backend via new logic:", placeErr);
                 }
             }
+
+
+
+            const listDataLocal = listData || {}; // might need to refetch if we switched listId? 
+            // If we relied on listId prop, it's fine.
 
             const isSublist = !!listData?.parentListId;
             const finalListId = isSublist ? listData.parentListId : listId;
