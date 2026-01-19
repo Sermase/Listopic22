@@ -486,8 +486,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             // If we relied on listId prop, it's fine.
 
             const isSublist = !!listData?.parentListId;
-            const finalListId = isSublist ? listData.parentListId : targetListId;
-            const sublistId = isSublist ? targetListId : null;
+            const finalListId = isSublist ? listData.parentListId : listId;
+            const sublistId = isSublist ? listId : null;
             const visibility = listData?.visibility === 'private' ? 'private' : 'public';
 
             const reviewData = {
