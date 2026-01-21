@@ -4059,6 +4059,58 @@ const adminRecalculateAllPlaces = onCall({ timeoutSeconds: 540, memory: '1GiB' }
   return results;
 });
 
+async function recalculateAggregatesForUser(userId) {
+  const reviewsSnap = await db.collectionGroup('reviews').where('userId', '==', userId).get();
+  const reviewCount = reviewsSnap.size;
+
+  const listsSnap = await db.collection('lists').where('userId', '==', userId).get();
+  const listCount = listsSnap.size;
+
+  const followersSnap = await db.collection('users').doc(userId).collection('followers').get();
+  const followersCount = followersSnap.size;
+
+  const followingSnap = await db.collection('users').doc(userId).collection('following').get();
+  const followingCount = followingSnap.size;
+
+  await db.collection('users').doc(userId).update({
+    reviewCount,
+    listCount,
+    followersCount,
+    followingCount,
+    lastStatsRecalc: FieldValue.serverTimestamp()
+  });
+
+  return { reviewCount, listCount, followersCount, followingCount };
+}
+
+const adminRecalculateAllUsers = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
+  const contextAuth = request.auth;
+  if (!contextAuth) throw new HttpsError('unauthenticated', 'Resulta que necesitas estar logueado.');
+
+  try {
+    const userProfile = await db.collection('users').doc(contextAuth.uid).get();
+    if (!userProfile.exists || !userProfile.data().userType?.includes('jefe')) {
+      throw new HttpsError('permission-denied', 'Solo los jefes pueden hacer esto.');
+    }
+  } catch (e) {
+    throw new HttpsError('permission-denied', e.message);
+  }
+
+  const usersSnap = await db.collection('users').get();
+  const results = { total: usersSnap.size, success: 0, failed: 0, errors: [] };
+
+  for (const doc of usersSnap.docs) {
+    try {
+      await recalculateAggregatesForUser(doc.id);
+      results.success++;
+    } catch (e) {
+      results.failed++;
+      results.errors.push({ id: doc.id, error: e.message });
+    }
+  }
+  return results;
+});
+
 module.exports = {
   groupedReviews,
   placesNearbyRestaurants,
@@ -4091,6 +4143,7 @@ module.exports = {
   adminRecalculatePlaceStats,
   adminRecalculateAllLists,
   adminRecalculateAllPlaces,
+  adminRecalculateAllUsers,
   refreshPlaceMainImage,
   refreshStalePlacePhotos,
   updateAggregatesOnForumMessageChange,

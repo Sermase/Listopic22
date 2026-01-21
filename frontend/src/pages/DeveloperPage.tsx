@@ -5,7 +5,7 @@ import { BrandingManager } from '../components/developer/BrandingManager';
 import { db, functions, storage } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users } from 'lucide-react';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -196,19 +196,23 @@ export const DeveloperPage: React.FC = () => {
         }
     };
 
-    const handleGlobalRecalculate = async (type: 'lists' | 'places') => {
+    const handleGlobalRecalculate = async (type: 'lists' | 'places' | 'users') => {
         setProcessingMaintenance(true);
         setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando recálculo GLOBAL para: ${type.toUpperCase()}...`, ...prev]);
 
         try {
             const functions = getFunctions(undefined, FUNCTIONS_REGION);
             // Decide function based on type
-            const fnName = type === 'lists' ? 'adminRecalculateAllLists' : 'adminRecalculateAllPlaces';
+            let fnName = '';
+            if (type === 'lists') fnName = 'adminRecalculateAllLists';
+            else if (type === 'places') fnName = 'adminRecalculateAllPlaces';
+            else if (type === 'users') fnName = 'adminRecalculateAllUsers';
+
             const bulkFn = httpsCallable(functions, fnName);
 
             setMaintenanceLog(prev => [`... Llamando ${fnName} ...`, ...prev]);
             const res: any = await bulkFn();
-            setMaintenanceLog(prev => [`✅ Resultado Global: ${JSON.stringify(res.data)}`, ...prev]);
+            setMaintenanceLog(prev => [`✅ Resultado Global (${type}): ${JSON.stringify(res.data)}`, ...prev]);
             setMaintenanceLog(prev => [`✨ MANTENIMIENTO GLOBAL COMPLETADO para ${type}`, ...prev]);
 
         } catch (error: any) {
@@ -217,6 +221,17 @@ export const DeveloperPage: React.FC = () => {
         } finally {
             setProcessingMaintenance(false);
         }
+    };
+
+    const handleRecalculateEverything = async () => {
+        if (!confirm("¿Estás seguro de que quieres recalcular TODO (Listas, Lugares y Usuarios)? Esto puede tardar un rato.")) return;
+
+        // Chain them sequentially
+        await handleGlobalRecalculate('lists');
+        await handleGlobalRecalculate('places');
+        await handleGlobalRecalculate('users');
+
+        setMaintenanceLog(prev => [`🎉🎉 MANTENIMIENTO TOTAL COMPLETADO 🎉🎉`, ...prev]);
     };
 
 
@@ -570,6 +585,15 @@ export const DeveloperPage: React.FC = () => {
                                             </h4>
                                             <div className="flex gap-4 flex-wrap">
                                                 <button
+                                                    onClick={handleRecalculateEverything}
+                                                    disabled={processingMaintenance}
+                                                    className="px-6 py-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-all shadow-lg shadow-purple-900/40"
+                                                >
+                                                    {processingMaintenance ? <RefreshCw className="w-5 h-5 animate-spin" /> : <CloudLightning className="w-5 h-5" />}
+                                                    ACTUALIZAR TODO (MASTER)
+                                                </button>
+                                                <div className="w-full h-px bg-white/5 my-2"></div>
+                                                <button
                                                     onClick={() => handleGlobalRecalculate('lists')}
                                                     disabled={processingMaintenance}
                                                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
@@ -584,6 +608,14 @@ export const DeveloperPage: React.FC = () => {
                                                 >
                                                     {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
                                                     Recalcular TODOS los Lugares
+                                                </button>
+                                                <button
+                                                    onClick={() => handleGlobalRecalculate('users')}
+                                                    disabled={processingMaintenance}
+                                                    className="px-4 py-2 bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                                >
+                                                    {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+                                                    Recalcular TODOS los Usuarios
                                                 </button>
                                             </div>
                                             <p className="text-xs text-gray-500 mt-2">

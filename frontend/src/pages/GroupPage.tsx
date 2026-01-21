@@ -43,109 +43,116 @@ export const GroupPage: React.FC = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
+    const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+
+    const handleEditReview = (review: ReviewEntity) => {
+        setEditingReviewId(review.id);
+        setIsFlowOpen(true);
+    };
+
+    const fetchData = React.useCallback(async () => {
+        if (!placeId || !decodedName) return;
+        setLoading(true);
+        try {
+            console.log("Fetching Group Data for:", { placeId, decodedName });
+
+            // Try strict query first
+            let feats: ReviewEntity[] = [];
+            try {
+                const q = query(
+                    collectionGroup(db, 'reviews'),
+                    where('placeId', '==', placeId),
+                    where('itemName', '==', decodedName),
+                    orderBy('createdAt', 'desc')
+                );
+                const snap = await getDocs(q);
+                feats = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
+                console.log("Strict Query Results:", feats.length);
+            } catch (idxError) {
+                console.warn("Strict query failed (possible missing index), falling back to client-side filter", idxError);
+            }
+
+            // Fallback: If strict query gave 0 or failed, fetch all reviews for place and filter
+            if (feats.length === 0) {
+                const fallbackQ = query(
+                    collectionGroup(db, 'reviews'),
+                    where('placeId', '==', placeId)
+                );
+                const fallbackSnap = await getDocs(fallbackQ);
+                const allPlaceReviews = fallbackSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
+                console.log("Fallback: All Place Reviews:", allPlaceReviews.length);
+
+                // Robust normalization for filtering
+                const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                const targetName = normalize(decodedName);
+
+                feats = allPlaceReviews.filter(r =>
+                    r.itemName && normalize(r.itemName) === targetName
+                );
+
+                console.log("Fallback: Filtered Matches:", feats.length);
+            }
+
+            // --- Enrichment: Users & Lists (FIX for missing names) ---
+            const userIds = [...new Set(feats.map(r => r.userId || r.authorId).filter(Boolean))] as string[];
+            const usersMap: Record<string, any> = {};
+
+            if (userIds.length > 0) {
+                await Promise.all(userIds.slice(0, 20).map(async (uid) => {
+                    try {
+                        const userSnap = await getDoc(doc(db, 'users', uid));
+                        if (userSnap.exists()) {
+                            usersMap[uid] = userSnap.data();
+                        }
+                    } catch (e) { console.warn("Failed enrich user", uid); }
+                }));
+            }
+
+            const listIds = [...new Set(feats.map(r => r.listId).filter(Boolean))] as string[];
+            const listsMap: Record<string, string> = {};
+
+            if (listIds.length > 0) {
+                await Promise.all(listIds.slice(0, 20).map(async (lid) => {
+                    try {
+                        const lSnap = await getDoc(doc(db, 'lists', lid));
+                        if (lSnap.exists()) {
+                            listsMap[lid] = lSnap.data().name;
+                        }
+                    } catch (e) { console.warn("Failed enrich list", lid); }
+                }));
+            }
+
+            // Apply Enrichment
+            feats = feats.map(r => {
+                const uid = r.userId || r.authorId;
+                const user = uid ? usersMap[uid] : null;
+                const lName = r.listId ? listsMap[r.listId] : undefined;
+
+                return {
+                    ...r,
+                    authorName: user?.displayName || user?.name || user?.username || r.authorName || 'Anónimo',
+                    authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
+                    listName: lName || r.listName,
+                    tags: (r as any).userTags || r.tags || []
+                };
+            });
+
+            setReviews(feats);
+
+            const pSnap = await getDoc(doc(db, 'places', placeId));
+            if (pSnap.exists()) {
+                setPlaceName(pSnap.data().name);
+            }
+        } catch (error) {
+            console.error("Error fetching group data", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [placeId, decodedName]); // Dependencies for callback
 
     useEffect(() => {
-        const fetchData = async () => {
-            if (!placeId || !decodedName) return;
-            setLoading(true);
-            try {
-                console.log("Fetching Group Data for:", { placeId, decodedName });
-
-                // Try strict query first
-                let feats: ReviewEntity[] = [];
-                try {
-                    const q = query(
-                        collectionGroup(db, 'reviews'),
-                        where('placeId', '==', placeId),
-                        where('itemName', '==', decodedName),
-                        orderBy('createdAt', 'desc')
-                    );
-                    const snap = await getDocs(q);
-                    feats = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
-                    console.log("Strict Query Results:", feats.length);
-                } catch (idxError) {
-                    console.warn("Strict query failed (possible missing index), falling back to client-side filter", idxError);
-                }
-
-                // Fallback: If strict query gave 0 or failed, fetch all reviews for place and filter
-                if (feats.length === 0) {
-                    const fallbackQ = query(
-                        collectionGroup(db, 'reviews'),
-                        where('placeId', '==', placeId)
-                    );
-                    const fallbackSnap = await getDocs(fallbackQ);
-                    const allPlaceReviews = fallbackSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
-                    console.log("Fallback: All Place Reviews:", allPlaceReviews.length);
-
-                    // Robust normalization for filtering
-                    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                    const targetName = normalize(decodedName);
-
-                    feats = allPlaceReviews.filter(r =>
-                        r.itemName && normalize(r.itemName) === targetName
-                    );
-
-                    console.log("Fallback: Filtered Matches:", feats.length);
-                }
-
-                // --- Enrichment: Users & Lists (FIX for missing names) ---
-                const userIds = [...new Set(feats.map(r => r.userId || r.authorId).filter(Boolean))] as string[];
-                const usersMap: Record<string, any> = {};
-
-                if (userIds.length > 0) {
-                    await Promise.all(userIds.slice(0, 20).map(async (uid) => {
-                        try {
-                            const userSnap = await getDoc(doc(db, 'users', uid));
-                            if (userSnap.exists()) {
-                                usersMap[uid] = userSnap.data();
-                            }
-                        } catch (e) { console.warn("Failed enrich user", uid); }
-                    }));
-                }
-
-                const listIds = [...new Set(feats.map(r => r.listId).filter(Boolean))] as string[];
-                const listsMap: Record<string, string> = {};
-
-                if (listIds.length > 0) {
-                    await Promise.all(listIds.slice(0, 20).map(async (lid) => {
-                        try {
-                            const lSnap = await getDoc(doc(db, 'lists', lid));
-                            if (lSnap.exists()) {
-                                listsMap[lid] = lSnap.data().name;
-                            }
-                        } catch (e) { console.warn("Failed enrich list", lid); }
-                    }));
-                }
-
-                // Apply Enrichment
-                feats = feats.map(r => {
-                    const uid = r.userId || r.authorId;
-                    const user = uid ? usersMap[uid] : null;
-                    const lName = r.listId ? listsMap[r.listId] : undefined;
-
-                    return {
-                        ...r,
-                        authorName: user?.displayName || user?.name || user?.username || r.authorName || 'Anónimo',
-                        authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
-                        listName: lName || r.listName,
-                        tags: (r as any).userTags || r.tags || []
-                    };
-                });
-
-                setReviews(feats);
-
-                const pSnap = await getDoc(doc(db, 'places', placeId));
-                if (pSnap.exists()) {
-                    setPlaceName(pSnap.data().name);
-                }
-            } catch (error) {
-                console.error("Error fetching group data", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchData();
-    }, [placeId, decodedName]);
+    }, [fetchData]);
 
     // Aggregate Stats (Overall + Criteria)
     const stats = useMemo(() => {
@@ -546,7 +553,7 @@ export const GroupPage: React.FC = () => {
                     {reviews.length > 0 ? (
                         <div className="grid grid-cols-1 gap-6 animate-fade-in">
                             {reviews.map(review => (
-                                <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} />
+                                <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
                             ))}
                         </div>
                     ) : (
@@ -573,12 +580,14 @@ export const GroupPage: React.FC = () => {
                         onListChange={setSelectedListId}
                         prefillPlaceId={placeId}
                         prefillItemName={decodedName}
+                        editReviewId={editingReviewId || undefined}
                         lockList={!!selectedListId} // Lock if we pre-selected a list
                         onClose={() => {
                             setIsFlowOpen(false);
                             setSelectedListId(null);
+                            setEditingReviewId(null);
                         }}
-                        onSuccess={() => window.location.reload()}
+                        onSuccess={() => fetchData()}
                     />
                 )
             }

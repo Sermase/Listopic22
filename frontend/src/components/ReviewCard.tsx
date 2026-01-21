@@ -39,6 +39,14 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
     const menuRef = useRef<HTMLDivElement>(null);
 
+    // Local count for optimistic updates
+    const [commentCount, setCommentCount] = useState(review.commentCount || 0);
+
+    // Sync state with props if they change (e.g. after a fresh fetch)
+    useEffect(() => {
+        setCommentCount(review.commentCount || 0);
+    }, [review.commentCount]);
+
     // Derived States
     const isOwner = user?.uid && (user.uid === review.userId || user.uid === review.authorId);
 
@@ -175,13 +183,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         return <div className="animate-pulse bg-[#151b2e] h-64 rounded-3xl border border-white/5 mx-auto w-full"></div>;
     }
 
-    // Local count for optimistic updates
-    const [commentCount, setCommentCount] = useState(review.commentCount || 0);
 
-    // Sync state with props if they change (e.g. after a fresh fetch)
-    useEffect(() => {
-        setCommentCount(review.commentCount || 0);
-    }, [review.commentCount]);
 
     const handleCommentChange = (increment: number) => {
         setCommentCount(prev => Math.max(0, prev + increment));

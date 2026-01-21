@@ -19,7 +19,7 @@ import { ListSelector } from '../components/ListSelector';
 
 export const PlacePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
-    const { place, loading, error } = usePlaceDetails(placeId);
+    const { place, loading, error, refresh } = usePlaceDetails(placeId);
     const { user } = useAuth();
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
@@ -36,6 +36,12 @@ export const PlacePage: React.FC = () => {
     const [isFlowOpen, setIsFlowOpen] = useState(false);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
     const [selectedDishName, setSelectedDishName] = useState<string | null>(null);
+    const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+
+    const handleEditReview = (review: any) => {
+        setEditingReviewId(review.id);
+        setIsFlowOpen(true);
+    };
 
     const [reactionConfig, setReactionConfig] = useState<{ like?: string; dislike?: string } | null>(null);
 
@@ -469,6 +475,7 @@ export const PlacePage: React.FC = () => {
                                     key={review.id}
                                     review={review}
                                     reactionConfig={reactionConfig || undefined}
+                                    onEdit={handleEditReview}
                                 />
                             ))}
                         </div>
@@ -638,17 +645,20 @@ export const PlacePage: React.FC = () => {
                         onListChange={setSelectedListId}
                         prefillPlaceId={place.placeId}
                         prefillItemName={selectedDishName || undefined}
+                        editReviewId={editingReviewId || undefined}
                         lockList={!!selectedListId}
                         onClose={() => {
                             setIsFlowOpen(false);
                             setSelectedListId(null);
                             setSelectedDishName(null);
+                            setEditingReviewId(null);
                         }}
                         onSuccess={() => {
                             setIsFlowOpen(false);
                             setSelectedListId(null);
                             setSelectedDishName(null);
                             // Maybe refresh reviews? Realtime updates handle it.
+                            if (refresh) refresh();
                         }}
                     />
                 )

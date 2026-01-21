@@ -22,10 +22,10 @@ export const useFilters = () => useContext(FilterContext);
 export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
 
-    // Initialize from session storage if available, otherwise null (will be updated by user profile)
+    // Initialize from session storage if available, otherwise default to 2km (per user request)
     const [range, setRangeState] = useState<number | null>(() => {
         const saved = sessionStorage.getItem('sessionRange');
-        return saved ? Number(saved) : null;
+        return saved ? Number(saved) : 2; // Default 2km if new session
     });
 
     const [hasLoadedProfile, setHasLoadedProfile] = useState(false);
@@ -60,6 +60,9 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         } else {
                             setRangeState(pref);
                         }
+                    } else {
+                        // No profile preference found -> default 2km
+                        setRangeState(2);
                     }
                 }
             } catch (e) {
