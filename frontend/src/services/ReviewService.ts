@@ -7,9 +7,9 @@ export const ReviewService = {
      * Note: Backend triggers (functions/index.js) will automatically 
      * update aggregate counts (reviewsCount, etc.) on the list, place, and user.
      */
-    deleteReview: async (listId: string, reviewId: string): Promise<void> => {
-        if (!listId || !reviewId) {
-            throw new Error("Missing listId or reviewId for deletion");
+    deleteReview: async (listId: string | undefined | null, reviewId: string): Promise<void> => {
+        if (!reviewId) {
+            throw new Error("Missing reviewId for deletion");
         }
 
         try {
@@ -21,8 +21,8 @@ export const ReviewService = {
 
             if (rootSnap.exists()) {
                 reviewData = rootSnap.data();
-            } else {
-                // Fallback: Delete from legacy subcollection
+            } else if (listId) {
+                // Fallback: Delete from legacy subcollection ONLY if listId is provided
                 const subRef = doc(db, 'lists', listId, 'reviews', reviewId);
                 const subSnap = await import('firebase/firestore').then(m => m.getDoc(subRef));
                 if (subSnap.exists()) {
@@ -32,6 +32,9 @@ export const ReviewService = {
                     console.warn(`Review ${reviewId} not found for deletion.`);
                     return;
                 }
+            } else {
+                console.warn(`Review ${reviewId} not found and no listId provided for legacy lookup.`);
+                return;
             }
 
             // Perform Deletion
@@ -41,9 +44,12 @@ export const ReviewService = {
             // Update Counters (Best effort)
             const updates = [];
 
+            // Resolve List ID
+            const finalListId = listId || reviewData.listId;
+
             // 1. List Counters
-            if (listId) {
-                const listRef = doc(db, 'lists', listId);
+            if (finalListId) {
+                const listRef = doc(db, 'lists', finalListId);
                 updates.push(updateDoc(listRef, {
                     reviewCount: increment(-1),
                     itemCount: increment(-1),

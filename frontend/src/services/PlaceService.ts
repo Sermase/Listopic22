@@ -36,14 +36,19 @@ export const PlaceService = {
         const url = `https://getplacedetailsfromgoogle-jz4x2l2cfq-ew.a.run.app?placeid=${placeId}`;
         console.log(`[PlaceService] Syncing place ${placeId} with backend...`);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+
         try {
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${idToken}`,
                     'Content-Type': 'application/json'
-                }
+                },
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -54,7 +59,12 @@ export const PlaceService = {
 
             const data = await response.json();
             return data as LegacyPlace;
-        } catch (error) {
+        } catch (error: any) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                console.error("Backend sync timed out after 15s");
+                throw new Error("Backend sync timed out");
+            }
             console.error("Error syncing place with backend:", error);
             throw error;
         }

@@ -169,7 +169,7 @@ service cloud.firestore {
       allow read: if resource.data.isPublic == true ||
                       (request.auth != null && (
                         resource.data.userId == request.auth.uid ||
-                        (resource.data.editors is list && resource.data.editors.hasAny([request.auth.uid])) ||
+                        (resource.data.get('editors', []).hasAny([request.auth.uid])) ||
                         isJefe(request.auth.uid) ||
                         isFollowingUser(resource.data.userId) ||
                         isFollowingList(listId) ||
@@ -177,7 +177,7 @@ service cloud.firestore {
                       ));
       allow list: if resource.data.isPublic == true || (request.auth != null && (
         resource.data.userId == request.auth.uid || 
-        (resource.data.editors is list && resource.data.editors.hasAny([request.auth.uid])) ||
+        (resource.data.get('editors', []).hasAny([request.auth.uid])) ||
         isJefe(request.auth.uid)
       ));
       
@@ -234,45 +234,17 @@ service cloud.firestore {
                                     );
         }
       }
-
-      match /comments/{commentId} {
-        allow read: if canReadListById(listId);
-        allow create: if request.auth != null
-                       && canReadListById(listId)
-                       && request.resource.data.userId == request.auth.uid;
-        allow update, delete: if request.auth != null
-                               && canReadListById(listId)
-                               && (
-                                    resource.data.userId == request.auth.uid
-                                    || isListOwner(listId)
-                                    || isJefe(request.auth.uid)
-                                  );
-      }
     }
 
     // ===============================================
     // REGLAS PARA ME GUSTA DE LISTAS (`list_likes`)
     // ===============================================
     match /list_likes/{likeId} {
-      // Permitir leer si el usuario está autenticado (necesario para ver si dio like).
-      // Se podría restringir a solo el dueño, pero para contadores o UI a veces se necesita más.
-      // Dado que el ID es compuesto, para leer un doc específico el usuario conoce el ID.
-      // Para listar (ver todos mis likes), se filtra por userId.
       allow read: if request.auth != null;
-      
-      // Crear: Solo si el userId del documento coincide con el usuario autenticado.
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      
-      // Borrar: Solo si el userId del documento coincide con el usuario autenticado.
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
-    match /reports/{reportId} {
-        allow read, list, update: if request.auth != null && isJefe(request.auth.uid);
-        allow create: if request.auth != null;
-    }
-
-    // ===============================================
     // ===============================================
     // REGLAS PARA LUGARES, MEDALLAS Y CATEGORÍAS (MANTENIDAS)
     // ===============================================
@@ -280,7 +252,12 @@ service cloud.firestore {
         allow read: if true;
         allow list: if request.auth != null && isJefe(request.auth.uid);
         allow create: if request.auth != null;
-        allow update, delete: if request.auth != null && isJefe(request.auth.uid);
+        // Permitir update si es Jefe O si solo está actualizando contadores/métricas específicas
+        allow update: if request.auth != null && (
+            isJefe(request.auth.uid) ||
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviewsCount', 'averageRating', 'lastGoogleSync', 'lastPhotoRefresh'])
+        );
+        allow delete: if request.auth != null && isJefe(request.auth.uid);
 
         // Subcolección de seguidores de un lugar
         match /followers/{userId} {

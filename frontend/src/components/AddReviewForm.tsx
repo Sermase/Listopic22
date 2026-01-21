@@ -44,9 +44,16 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [listData, setListData] = useState<any>(null); // Store full list data for lineage
     const [reviewPath, setReviewPath] = useState<string | null>(null);
 
+    const [internalListId, setInternalListId] = useState<string | null>(listId);
+
     // UX States
     const [ratingsTouched, setRatingsTouched] = useState(false);
     const [originalData, setOriginalData] = useState<string>(''); // JSON string for deep comparison
+
+    // Update internalListId if prop changes
+    useEffect(() => {
+        if (listId) setInternalListId(listId);
+    }, [listId]);
 
     // Validation Logic
     const isNew = !editReviewId;
@@ -58,14 +65,15 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         // 2. Name is required
         if (!itemName.trim()) return false;
 
-        // 3. List is required
-        if (!listId) return false;
+        // 3. List is required (use internal state)
+        if (!internalListId) return false;
 
         // 4. Ratings Touched (Only for NEW reviews)
+        // If editing, we assume valid unless cleared (which isn't possible here easily)
         if (isNew && !ratingsTouched) return false;
 
         return true;
-    }, [selectedPlace, itemName, listId, ratingsTouched, isNew]);
+    }, [selectedPlace, itemName, internalListId, ratingsTouched, isNew]);
 
     const isDirty = useMemo(() => {
         if (isNew) return true; // Always dirty if new (until saved)
@@ -76,8 +84,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             customTags,
             imagePreview // crude check for photo change
         });
-        return currentData !== originalData;
-    }, [isNew, itemName, comment, criteriaScores, customTags, imagePreview, originalData]);
+        // Check if list changed? 
+        return currentData !== originalData || internalListId !== (JSON.parse(originalData || '{}').listId);
+    }, [isNew, itemName, comment, criteriaScores, customTags, imagePreview, originalData, internalListId]);
 
     // Fetch Review Data for Editing
     useEffect(() => {
@@ -101,6 +110,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     if (data.scores) setCriteriaScores(data.scores);
                     if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
                     if (data.photoUrl) setImagePreview(data.photoUrl);
+                    if (data.listId) setInternalListId(data.listId); // <--- HYDRATE LIST ID
 
                     // Capture Original Data for Dirty Check
                     setOriginalData(JSON.stringify({
@@ -108,7 +118,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         comment: data.comment || '',
                         criteriaScores: data.scores || {},
                         customTags: data.tags || data.userTags || [],
-                        imagePreview: data.photoUrl || null
+                        imagePreview: data.photoUrl || null,
+                        listId: data.listId
                     }));
 
                     if (data.placeId) {
@@ -156,6 +167,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         if (data.scores) setCriteriaScores(data.scores);
                         if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
                         if (data.photoUrl) setImagePreview(data.photoUrl);
+                        if (data.listId) setInternalListId(data.listId);
+
                         if (data.placeId) {
                             setSelectedPlace({
                                 id: data.placeId,
@@ -580,17 +593,20 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 <div className="overflow-y-auto flex-1 custom-scrollbar relative">
                     {/* List Selector Picker */}
                     <div className="p-6 pb-0 space-y-2">
-                        {(!lockList && !editReviewId) ? (
+                        {(!lockList && (!editReviewId || !internalListId)) ? (
                             <>
                                 <label className="block text-xs font-bold uppercase text-gray-400 tracking-wider">Guardar en Lista <span className="text-red-400">*</span></label>
                                 <ListSearch
-                                    onSelect={(id) => onListChange && onListChange(id)}
-                                    selectedListId={listId}
+                                    onSelect={(id) => {
+                                        setInternalListId(id);
+                                        if (onListChange) onListChange(id);
+                                    }}
+                                    selectedListId={internalListId}
                                     placeName={selectedPlace?.name || itemName} // Use place name or item name for smart search
                                     placeTypes={selectedPlace?.types} // Smart search by type
                                 />
                             </>
-                        ) : listId ? (
+                        ) : internalListId ? (
                             <div className="bg-[#151b2e] border border-white/10 p-3 rounded-lg flex justify-between items-center">
                                 <span className="text-sm text-gray-300">
                                     Guardando en: <span className="text-indigo-400 font-bold">{listData?.name || 'Lista'}</span>
@@ -842,8 +858,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     <button
                         type="submit"
                         form="review-form"
-                        disabled={loading || !isValid}
-                        className={`px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-all ${loading || !isValid
+                        disabled={loading || !isValid || (!isNew && !isDirty)}
+                        className={`px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-all ${loading || !isValid || (!isNew && !isDirty)
                             ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                             : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:scale-105'
                             }`}

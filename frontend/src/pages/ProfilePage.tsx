@@ -5,7 +5,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
 import { useFilters } from '../context/FilterContext'; // Import Filter Context
-import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical } from 'lucide-react';
+import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2 } from 'lucide-react';
 import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -82,9 +82,11 @@ export const ProfilePage: React.FC = () => {
     const [showReportModal, setShowReportModal] = useState(false);
     const [isFlowOpen, setIsFlowOpen] = useState(false);
     const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+    const [editingListId, setEditingListId] = useState<string | null>(null);
 
     const handleEditReview = (review: any) => {
         setEditingReviewId(review.id);
+        setEditingListId(review.listId || null);
         setIsFlowOpen(true);
     };
 
@@ -95,7 +97,7 @@ export const ProfilePage: React.FC = () => {
     // Hooks
     const { profile, loading: loadingProfile, error: errorProfile } = useUserProfile(targetUserId);
     const { lists: ownedLists, loading: loadingLists } = useLists('recent', targetUserId, isOwnProfile); // Pass isOwnProfile to include private
-    const { reviews: fetchedReviews, loading: loadingReviews, refresh: refreshReviews } = useReviews({ type: 'recent', userId: targetUserId });
+    const { reviews: fetchedReviews, loading: loadingReviews, refresh: refreshReviews, fetchMore, hasMore, loadingMore } = useReviews({ type: 'recent', userId: targetUserId });
     const [localReviews, setLocalReviews] = useState<any[]>([]);
 
     // Additional List States
@@ -130,6 +132,22 @@ export const ProfilePage: React.FC = () => {
                     } catch (e: any) {
                         console.warn("Guest lists query failed (likely missing index or permission)", e);
                         // Don't crash, just empty
+                    }
+                } else {
+                    // If viewing someone else, we can ONLY see public lists where they are editor
+                    // Note: This requires composite index: editors (array) + isPublic (asc/desc)
+                    try {
+                        const qGuest = query(
+                            collection(db, 'lists'),
+                            where('editors', 'array-contains', targetUserId),
+                            where('isPublic', '==', true),
+                            limit(20)
+                        );
+                        const snapGuest = await getDocs(qGuest);
+                        validGuest = snapGuest.docs.map(d => ({ id: d.id, ...d.data() }));
+                    } catch (e: any) {
+                        // Index might be missing for this composite query, fail gracefully
+                        console.warn("Guest lists (public) query failed", e);
                     }
                 }
                 setGuestLists(validGuest);
@@ -744,10 +762,26 @@ export const ProfilePage: React.FC = () => {
                                     <p className="text-gray-500">No hay reseñas recientes.</p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {localReviews.map(review => (
-                                        <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
-                                    ))}
+                                <div className="space-y-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {localReviews.map(review => (
+                                            <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
+                                        ))}
+                                    </div>
+
+                                    {/* Load More Button */}
+                                    {hasMore && (
+                                        <div className="flex justify-center pt-4">
+                                            <button
+                                                onClick={() => fetchMore()}
+                                                disabled={loadingMore}
+                                                className="px-6 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-full text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                                            >
+                                                {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
+                                                {loadingMore ? 'Cargando más...' : 'Cargar más reseñas'}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </>
@@ -851,16 +885,18 @@ export const ProfilePage: React.FC = () => {
             />
             {isFlowOpen && (
                 <AddReviewForm
-                    listId={null}
+                    listId={editingListId}
                     editReviewId={editingReviewId || undefined}
                     onClose={() => {
                         setIsFlowOpen(false);
                         setEditingReviewId(null);
+                        setEditingListId(null);
                     }}
                     onSuccess={() => {
                         refreshReviews();
                         setIsFlowOpen(false);
                         setEditingReviewId(null);
+                        setEditingListId(null);
                     }}
                 />
             )}
