@@ -32,11 +32,12 @@ export interface UseReviewsOptions {
     userId?: string;
     listId?: string;
     followingIds?: string[];
+    limit?: number;
 }
 
 export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 'following' = 'recent') => {
     // Normalize options
-    const { type = 'recent', userId, listId, followingIds } = typeof options === 'string' ? { type: options } : options;
+    const { type = 'recent', userId, listId, followingIds, limit: customLimit } = typeof options === 'string' ? { type: options } : options;
 
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [loading, setLoading] = useState(true);
@@ -86,7 +87,7 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
                         collectionGroup(db, 'reviews'),
                         where('userId', 'in', chunk),
                         orderBy('createdAt', 'desc'),
-                        limit(20) // Fetch top 20 per chunk
+                        limit(customLimit || 20) // Fetch top 20 per chunk (or custom)
                     );
                     return getDocs(q);
                 });
@@ -136,8 +137,8 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
                     constraints.push(startAfter(lastDoc));
                 }
 
-                // Initial request: 6 items. Subsequent (loadMore): 6 items.
-                const pageSize = 6;
+                // Initial request: customLimit or 6 items.
+                const pageSize = customLimit || 6;
                 constraints.push(limit(pageSize));
 
                 const q = query(reviewsRef, ...constraints);

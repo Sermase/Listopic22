@@ -47,9 +47,7 @@ export const HomePage: React.FC = () => {
     // --- DATA FETCHING (Dynamic based on Tab) ---
     // Explore -> Top Rated/Trending; News -> Following
     const listSort = activeTab === 'explore' ? 'top_rated' : 'recent'; // Lists still use 'recent' for news
-    const reviewSortParam = activeTab === 'explore'
-        ? { type: 'trending' as const, limit: 100 } // Fetch more for geo-filtering
-        : { type: 'following' as const, followingIds, limit: 50 }; // Fetch more following
+    const reviewSortParam = activeTab === 'explore' ? 'trending' : { type: 'following' as const, followingIds };
 
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews } = useReviews(reviewSortParam);
@@ -109,23 +107,48 @@ export const HomePage: React.FC = () => {
     }, [reviews, activeFilter, range, location]);
 
     const filteredItems = useMemo(() => {
-        // "Mejor en Listopic" (Best Rated items/reviews in range)
         return [...reviewsInRange]
-            .sort((a, b) => (b.placeAverageRating || b.overallRating || 0) - (a.placeAverageRating || a.overallRating || 0))
-            .slice(0, 15);
+            .sort((a, b) => (b.reactionCounts?.like || 0) - (a.reactionCounts?.like || 0))
+            .slice(0, 10);
     }, [reviewsInRange]);
 
     // 4b. Carousel Reviews (Specific Logic: Last 2 Months + Top Liked + Filtered by Range/Cat)
     const carouselReviews = useMemo(() => {
-        // "Reseñas que gustan" (Trending/Liked in range)
+        // 6 months in milliseconds to ensure data shows up during dev
+        const RECENT_WINDOW_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+        const cutoffDate = Date.now() - RECENT_WINDOW_MS;
+
         return reviewsInRange
-            .sort((a, b) => (b.reactionCounts?.like || 0) - (a.reactionCounts?.like || 0))
-            .slice(0, 15);
+            .filter(r => {
+                // Already filtered by Category & Dist in reviewsInRange
+
+                // 2. Date Filter (Last 2 months)
+                // Handle Firestore Timestamp or Date object
+                let createdAtMs = 0;
+                if (r.createdAt?.toMillis) {
+                    createdAtMs = r.createdAt.toMillis();
+                } else if (r.createdAt?.seconds) {
+                    createdAtMs = r.createdAt.seconds * 1000;
+                } else if (r.createdAt instanceof Date) {
+                    createdAtMs = r.createdAt.getTime();
+                }
+
+                const isRecent = createdAtMs > cutoffDate;
+                return isRecent;
+            })
+            .sort((a, b) => {
+                // 3. Sort by Likes (Desc)
+                const likesA = a.reactionCounts?.like || 0;
+                const likesB = b.reactionCounts?.like || 0;
+                return likesB - likesA;
+            })
+            .slice(0, 15); // Top 15
     }, [reviewsInRange]);
 
-    // 4c. Recent Reviews (Strictly by Date + In Range)
+    // 4c. Recent Reviews (Derived from same pool, but sorted by date)
     const recentReviewsInRange = useMemo(() => {
         return [...reviewsInRange].sort((a, b) => {
+            // Sort by Date Descending
             const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
             const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
             return dateB - dateA;
@@ -216,12 +239,10 @@ export const HomePage: React.FC = () => {
             }
         });
 
-        // Sort: "Los lugares de más nota a menos."
         return Array.from(uniquePlaces.values()).sort((a, b) => (b.rating || 0) - (a.rating || 0));
     }, [reviewsInRange, extraPlaces, range, location, activeFilter]);
 
     // 6. Derived Users (Synthesized from content IN RANGE)
-    // "Así aparecerán usuarios, ordenados de más resñas dentro de ese rango a menos."
     const activeUsersInRange = useMemo(() => {
         const userStats = new Map<string, { count: number, user: any }>();
 
