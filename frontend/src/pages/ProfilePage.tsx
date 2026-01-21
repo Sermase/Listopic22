@@ -12,6 +12,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { ReviewCard } from '../components/ReviewCard';
+import { AddReviewForm } from '../components/AddReviewForm';
 import { ChatService } from '../services/ChatService';
 import { FollowingSection } from '../components/profile/FollowingSection';
 import { BadgeDisplay } from '../components/profile/BadgeDisplay';
@@ -79,6 +80,13 @@ export const ProfilePage: React.FC = () => {
     const [dragActive, setDragActive] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+    const [isFlowOpen, setIsFlowOpen] = useState(false);
+    const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+
+    const handleEditReview = (review: any) => {
+        setEditingReviewId(review.id);
+        setIsFlowOpen(true);
+    };
 
     // Determine target user ID
     const targetUserId = paramUserId || user?.uid;
@@ -87,7 +95,7 @@ export const ProfilePage: React.FC = () => {
     // Hooks
     const { profile, loading: loadingProfile, error: errorProfile } = useUserProfile(targetUserId);
     const { lists: ownedLists, loading: loadingLists } = useLists('recent', targetUserId, isOwnProfile); // Pass isOwnProfile to include private
-    const { reviews: fetchedReviews, loading: loadingReviews } = useReviews({ type: 'recent', userId: targetUserId });
+    const { reviews: fetchedReviews, loading: loadingReviews, refresh: refreshReviews } = useReviews({ type: 'recent', userId: targetUserId });
     const [localReviews, setLocalReviews] = useState<any[]>([]);
 
     // Additional List States
@@ -738,7 +746,7 @@ export const ProfilePage: React.FC = () => {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {localReviews.map(review => (
-                                        <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} />
+                                        <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
                                     ))}
                                 </div>
                             )}
@@ -841,6 +849,21 @@ export const ProfilePage: React.FC = () => {
                 targetType="user"
                 itemName="Perfil de Usuario"
             />
+            {isFlowOpen && (
+                <AddReviewForm
+                    listId={null}
+                    editReviewId={editingReviewId || undefined}
+                    onClose={() => {
+                        setIsFlowOpen(false);
+                        setEditingReviewId(null);
+                    }}
+                    onSuccess={() => {
+                        refreshReviews();
+                        setIsFlowOpen(false);
+                        setEditingReviewId(null);
+                    }}
+                />
+            )}
         </div >
     );
 };
