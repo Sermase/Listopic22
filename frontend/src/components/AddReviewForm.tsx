@@ -82,10 +82,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             comment,
             criteriaScores,
             customTags,
-            imagePreview // crude check for photo change
+            imagePreview, // crude check for photo change
+            listId: internalListId // Include listId in comparison structure
         });
-        // Check if list changed? 
-        return currentData !== originalData || internalListId !== (JSON.parse(originalData || '{}').listId);
+
+        return currentData !== originalData;
     }, [isNew, itemName, comment, criteriaScores, customTags, imagePreview, originalData, internalListId]);
 
     // Fetch Review Data for Editing
@@ -110,7 +111,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     if (data.scores) setCriteriaScores(data.scores);
                     if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
                     if (data.photoUrl) setImagePreview(data.photoUrl);
-                    if (data.listId) setInternalListId(data.listId); // <--- HYDRATE LIST ID
+                    if (data.listId) {
+                        setInternalListId(data.listId);
+                    } else if (listId) {
+                        setInternalListId(listId);
+                    }
 
                     // Capture Original Data for Dirty Check
                     setOriginalData(JSON.stringify({
@@ -119,7 +124,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         criteriaScores: data.scores || {},
                         customTags: data.tags || data.userTags || [],
                         imagePreview: data.photoUrl || null,
-                        listId: data.listId
+                        listId: data.listId // Match structure
                     }));
 
                     if (data.placeId) {
@@ -273,7 +278,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                         if (Array.isArray(data.criteriaDefinition)) {
                             data.criteriaDefinition.forEach((c: any) => {
-                                defMap[c.id] = { ...c, min: 0, max: 10, step: 0.5 };
+                                // Respect DB step or default to 0.1 (common preference)
+                                defMap[c.id] = { ...c, min: 0, max: 10, step: c.step || 0.1 };
                                 scores[c.id] = 5;
                             });
                         } else {
@@ -281,6 +287,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             Object.keys(defMap).forEach(k => {
                                 const min = defMap[k].min ?? 0;
                                 const max = defMap[k].max ?? 10;
+                                const step = defMap[k].step ?? 0.1;
+                                // Ensure step is preserved in our local map if not already
+                                defMap[k] = { ...defMap[k], step };
                                 scores[k] = (min + max) / 2;
                             });
                         }
@@ -725,7 +734,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                 type="range"
                                                 min="0"
                                                 max="10"
-                                                step="0.5"
+                                                step={criteriaDefinition[key]?.step || 0.1}
                                                 value={criteriaScores[key]}
                                                 onChange={(e) => {
                                                     const val = parseFloat(e.target.value);

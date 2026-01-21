@@ -67,7 +67,16 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                 const uniqueLists = new Map<string, any>();
                 allDocs.forEach(d => {
                     if (!uniqueLists.has(d.id)) {
-                        uniqueLists.set(d.id, { id: d.id, ...d.data() });
+                        const data = d.data();
+
+                        // Strict filter for Archives as requested
+                        const nameLower = data.name.toLowerCase();
+                        if (nameLower === 'quiero ir' || nameLower === 'ya fui') return;
+                        // Filter out archives check.
+                        // Relying primarily on 'type' field if it exists.
+                        if (data.type === 'archive') return;
+
+                        uniqueLists.set(d.id, { id: d.id, ...data });
                     }
                 });
 
