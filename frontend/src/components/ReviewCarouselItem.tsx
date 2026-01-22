@@ -115,9 +115,9 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
 
             {/* Full Card Link */}
             <Link
-                to={review.placeId ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}` : '#'}
+                to={review.placeId ? `/group/${review.placeId}/${encodeURIComponent(review.itemName || review.placeName || '')}` : '#'}
                 className="absolute inset-0 z-20"
-                aria-label={`Ver reseña de ${review.itemName}`}
+                aria-label={`Ver reseña de ${review.itemName || review.placeName}`}
             />
         </article >
     );

@@ -38,6 +38,21 @@ export const PlacePage: React.FC = () => {
     const [selectedDishName, setSelectedDishName] = useState<string | null>(null);
     const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
+    // Infinite Scroll State
+    const [visibleCount, setVisibleCount] = useState(4);
+    const loadMoreRef = React.useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                setVisibleCount(prev => prev + 5);
+            }
+        }, { threshold: 0.1 });
+
+        if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+        return () => observer.disconnect();
+    }, [activeTab, visibleCount]);
+
     // Compute suggested list IDs where this place is already present
     const suggestedListIds = useMemo(() => {
         if (!place?.relatedLists) return [];
@@ -476,7 +491,7 @@ export const PlacePage: React.FC = () => {
 
                     {activeTab === 'reviews' && (
                         <div className="grid grid-cols-1 gap-6 animate-fade-in">
-                            {place.reviews.map(review => (
+                            {place.reviews.slice(0, visibleCount).map(review => (
                                 <ReviewCard
                                     key={review.id}
                                     review={review}
@@ -484,6 +499,11 @@ export const PlacePage: React.FC = () => {
                                     onEdit={handleEditReview}
                                 />
                             ))}
+                            {visibleCount < place.reviews.length && (
+                                <div ref={loadMoreRef} className="py-4 flex justify-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                </div>
+                            )}
                         </div>
                     )}
 

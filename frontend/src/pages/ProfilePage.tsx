@@ -100,6 +100,19 @@ export const ProfilePage: React.FC = () => {
     const { reviews: fetchedReviews, loading: loadingReviews, refresh: refreshReviews, fetchMore, hasMore, loadingMore } = useReviews({ type: 'recent', userId: targetUserId });
     const [localReviews, setLocalReviews] = useState<any[]>([]);
 
+    // Infinite Scroll Effect (Must be after useReviews)
+    const loadMoreRef = React.useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && hasMore && !loadingMore) {
+                fetchMore();
+            }
+        }, { threshold: 0.1 });
+
+        if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+        return () => observer.disconnect();
+    }, [hasMore, loadingMore, activeTab]);
+
     // Additional List States
     const [guestLists, setGuestLists] = useState<any[]>([]);
     const [followedLists, setFollowedLists] = useState<any[]>([]);
@@ -763,23 +776,20 @@ export const ProfilePage: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 gap-8">
                                         {localReviews.map(review => (
                                             <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
                                         ))}
                                     </div>
 
-                                    {/* Load More Button */}
+                                    {/* Infinite Scroll Trigger */}
                                     {hasMore && (
-                                        <div className="flex justify-center pt-4">
-                                            <button
-                                                onClick={() => fetchMore()}
-                                                disabled={loadingMore}
-                                                className="px-6 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-full text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-                                            >
-                                                {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
-                                                {loadingMore ? 'Cargando más...' : 'Cargar más reseñas'}
-                                            </button>
+                                        <div ref={loadMoreRef} className="flex justify-center pt-8 pb-4">
+                                            {loadingMore ? (
+                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                            ) : (
+                                                <div className="h-4 w-full" /> // Invisible trigger
+                                            )}
                                         </div>
                                     )}
                                 </div>

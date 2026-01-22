@@ -193,7 +193,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         <>
             <article
                 onClick={handleCardClick}
-                className="bg-[#101628] border border-white/5 rounded-3xl overflow-hidden shadow-2xl flex flex-col hover:border-white/10 transition-all duration-300 cursor-pointer group hover:shadow-indigo-500/10 relative"
+                className="bg-[#101628] border-y sm:border border-white/5 sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col hover:border-white/10 transition-all duration-300 cursor-pointer group hover:shadow-indigo-500/10 relative -mx-4 sm:mx-0 w-[calc(100%+2rem)] sm:w-full"
             >
                 {/* 1. Header: User, Context, Menu */}
                 {/* ... (Header code unchanged) ... */}
@@ -309,7 +309,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 </div>
 
                 {/* 2. Main Visual: Large Image with Overlay Bubble (Also for fallback) */}
-                <div className={`relative w-full bg-gray-900 overflow-hidden ${review.photoUrl ? 'aspect-[4/3]' : 'h-32 sm:h-40'}`}>
+                <div className={`relative w-full bg-gray-900 group/image ${review.photoUrl ? 'aspect-auto' : 'h-32 sm:h-40 overflow-hidden'}`}>
 
                     {/* "Ñam!" Animation Overlay */}
                     {showAnimation && (
@@ -323,10 +323,14 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     )}
 
                     {review.photoUrl ? (
-                        <img src={review.photoUrl} alt={review.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        <img
+                            src={review.photoUrl}
+                            alt={review.itemName}
+                            className="w-full h-auto object-cover block"
+                        />
                     ) : (
                         review.placeMainImage ? (
-                            <img src={review.placeMainImage} alt={review.placeName} className="w-full h-full object-cover object-center opacity-60 group-hover:scale-105 transition-transform duration-700" />
+                            <img src={review.placeMainImage} alt={review.placeName} className="w-full h-full object-cover object-center opacity-60 group-hover/image:scale-105 transition-transform duration-700" />
                         ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
                                 <MapPin className="w-8 h-8 mb-1 opacity-20" />
@@ -379,45 +383,59 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
                     {/* Criteria Bars */}
                     {criteriaList.length > 0 && (
-                        <div className="py-2 grid grid-cols-2 gap-x-4 gap-y-1">
-                            {criteriaList.map((crit, idx) => (
-                                <div key={idx} className="flex flex-col">
-                                    <div className="flex justify-between items-end text-[10px] mb-0.5">
-                                        <span className="text-gray-400 font-medium truncate opacity-80">{crit.label}</span>
-                                        <span className={`font-mono font-bold ${crit.score >= 8 ? 'text-emerald-400' : crit.score >= 5 ? 'text-indigo-400' : 'text-rose-400'}`}>
-                                            {crit.score.toFixed(1)}
-                                        </span>
+                        <div className="py-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                            {criteriaList.map((crit, idx) => {
+                                // Check ponderability from definition
+                                const def = review.criteriaDefinition?.[Object.keys(review.criteriaDefinition).find(k => review.criteriaDefinition![k].label === crit.label) || ''];
+                                const isPonderable = def?.ponderable !== false;
+
+                                const barColor = isPonderable
+                                    ? `bg-gradient-to-r ${getScoreColor(crit.score).split(' ')[0]} ${getScoreColor(crit.score).split(' ')[1]}`
+                                    : 'bg-indigo-500/50';
+
+                                const scoreColor = isPonderable
+                                    ? (crit.score >= 8 ? 'text-emerald-400' : crit.score >= 5 ? 'text-indigo-400' : 'text-rose-400')
+                                    : 'text-gray-300';
+
+                                return (
+                                    <div key={idx} className="flex flex-col">
+                                        <div className="flex justify-between items-end text-xs mb-1">
+                                            <span className="text-gray-400 font-medium truncate opacity-90">{crit.label}</span>
+                                            <span className={`font-mono font-bold ${scoreColor}`}>
+                                                {crit.score.toFixed(1)}
+                                            </span>
+                                        </div>
+                                        <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full ${barColor}`}
+                                                style={{ width: `${crit.score * 10}%` }}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full rounded-full bg-gradient-to-r ${getScoreColor(crit.score).split(' ')[0]} ${getScoreColor(crit.score).split(' ')[1]}`}
-                                            style={{ width: `${crit.score * 10}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     )}
 
                     {/* Review Text */}
                     {review.comment && (
-                        <div className="pl-3 border-l-2 border-white/10">
+                        <div className="pl-3 border-l-2 border-white/10 mt-2">
                             <p className="text-gray-300 text-sm leading-relaxed italic line-clamp-3">
                                 "{review.comment}"
                             </p>
                         </div>
                     )}
 
-                    {/* Tags (Restored below comment) */}
-                    {review.tags && review.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            {review.tags.map((tag, i) => (
-                                <span key={i} className="text-[10px] text-gray-400 bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                    {/* Tags */}
+                    {(review.tags && review.tags.length > 0) || (review.userTags && review.userTags.length > 0) ? (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            {[...(review.tags || []), ...(review.userTags || [])].filter((t, i, a) => a.indexOf(t) === i).map((tag, i) => (
+                                <span key={i} className="text-[10px] sm:text-xs font-bold text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
                                     #{tag}
                                 </span>
                             ))}
                         </div>
-                    )}
+                    ) : null}
                 </div>
 
                 {/* 4. Footer: Interactive Bar */}
