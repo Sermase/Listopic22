@@ -57,6 +57,7 @@ function App() {
 
               <Route path="/users" element={<UsersPage />} />
               <Route path="/place/:placeId" element={<PlacePage />} />
+              <Route path="/group/:placeId" element={<GroupPage />} />
               <Route path="/group/:placeId/:itemName" element={<GroupPage />} />
               <Route path="/debug" element={<DebugView />} />
               <Route path="/developer" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />

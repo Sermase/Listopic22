@@ -27,6 +27,13 @@ export const GroupPage: React.FC = () => {
     const navigate = useNavigate();
     const decodedName = decodeURIComponent(itemName || '');
 
+    // Redirect if no item name
+    useEffect(() => {
+        if (!itemName && placeId) {
+            navigate(`/place/${placeId}`, { replace: true });
+        }
+    }, [itemName, placeId, navigate]);
+
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [placeName, setPlaceName] = useState('');
     const [loading, setLoading] = useState(true);
@@ -71,9 +78,20 @@ export const GroupPage: React.FC = () => {
         try {
             console.log("Fetching Group Data for:", { placeId, decodedName });
 
+            // 1. Fetch Place Details First to get authoritative Name
+            const pSnap = await getDoc(doc(db, 'places', placeId));
+            let fetchedPlaceName = '';
+            let placeData: any = null;
+            if (pSnap.exists()) {
+                placeData = pSnap.data();
+                fetchedPlaceName = placeData.name;
+                setPlaceName(fetchedPlaceName);
+            }
+
             // Try strict query first
             let feats: ReviewEntity[] = [];
             try {
+                // ... strict query ...
                 const q = query(
                     collectionGroup(db, 'reviews'),
                     where('placeId', '==', placeId),
@@ -100,10 +118,16 @@ export const GroupPage: React.FC = () => {
                 // Robust normalization for filtering
                 const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
                 const targetName = normalize(decodedName);
+                const normalizedPlaceName = normalize(fetchedPlaceName);
 
-                feats = allPlaceReviews.filter(r =>
-                    r.itemName && normalize(r.itemName) === targetName
-                );
+                feats = allPlaceReviews.filter(r => {
+                    if (r.itemName) {
+                        return normalize(r.itemName) === targetName;
+                    }
+                    // If review has no item name, it belongs to the Place.
+                    // Include it ONLY if the current Group Page IS the Place Page (TargetName == PlaceName)
+                    return normalizedPlaceName === targetName;
+                });
 
                 console.log("Fallback: Filtered Matches:", feats.length);
             }
@@ -124,40 +148,40 @@ export const GroupPage: React.FC = () => {
             }
 
             const listIds = [...new Set(feats.map(r => r.listId).filter(Boolean))] as string[];
-            const listsMap: Record<string, string> = {};
+            const listsMap: Record<string, any> = {};
 
             if (listIds.length > 0) {
                 await Promise.all(listIds.slice(0, 20).map(async (lid) => {
                     try {
                         const lSnap = await getDoc(doc(db, 'lists', lid));
                         if (lSnap.exists()) {
-                            listsMap[lid] = lSnap.data().name;
+                            listsMap[lid] = lSnap.data();
                         }
                     } catch (e) { console.warn("Failed enrich list", lid); }
                 }));
             }
 
             // Apply Enrichment
-            feats = feats.map(r => {
+            const enriched = feats.map(r => {
                 const uid = r.userId || r.authorId;
                 const user = uid ? usersMap[uid] : null;
-                const lName = r.listId ? listsMap[r.listId] : undefined;
-
+                const listData = r.listId ? listsMap[r.listId] : undefined;
                 return {
                     ...r,
                     authorName: user?.displayName || user?.name || user?.username || r.authorName || 'Anónimo',
                     authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
-                    listName: lName || r.listName,
-                    tags: (r as any).userTags || r.tags || []
+                    listName: listData?.name || r.listName,
+                    criteriaDefinition: listData?.criteriaDefinition || r.criteriaDefinition,
+                    tags: (r as any).userTags || r.tags || [],
+                    // Enrich Place Data
+                    placeMainImage: placeData?.mainImageUrl || placeData?.photos?.[0],
+                    placeName: placeData?.name || r.placeName,
+                    placeCity: placeData?.city || (r as any).placeCity
                 };
             });
 
-            setReviews(feats);
+            setReviews(enriched);
 
-            const pSnap = await getDoc(doc(db, 'places', placeId));
-            if (pSnap.exists()) {
-                setPlaceName(pSnap.data().name);
-            }
         } catch (error) {
             console.error("Error fetching group data", error);
         } finally {

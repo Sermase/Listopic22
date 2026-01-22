@@ -93,8 +93,9 @@ export const usePlaceDetails = (placeId: string | undefined) => {
             }
 
             // 3. Fetch List Info for Context (Fix for missing List Name)
+            // 3. Fetch List Info for Context (Fix for missing List Name & Criteria)
             const listIds = [...new Set(reviews.map(r => r.listId).filter(Boolean))] as string[];
-            const listsMap: Record<string, string> = {};
+            const listsMap: Record<string, any> = {}; // Store full list data
             const relatedLists: { id: string; name: string; authorName?: string; parentListId?: string; photoUrl?: string; }[] = [];
 
             if (listIds.length > 0) {
@@ -103,7 +104,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                         const listSnap = await getDoc(doc(db, 'lists', lid));
                         if (listSnap.exists()) {
                             const d = listSnap.data();
-                            listsMap[lid] = d.name;
+                            listsMap[lid] = d; // Store full data
                             if (relatedLists.length < 10) {
                                 relatedLists.push({
                                     id: lid,
@@ -121,13 +122,18 @@ export const usePlaceDetails = (placeId: string | undefined) => {
             const enrichedReviews = reviews.map(r => {
                 const uid = r.userId || r.authorId;
                 const user = uid ? usersMap[uid] : null;
-                const lName = r.listId ? listsMap[r.listId] : undefined;
+                const listData = r.listId ? listsMap[r.listId] : undefined;
 
                 return {
                     ...r,
                     authorName: user?.displayName || user?.name || user?.username || r.authorName || 'Anónimo',
                     authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
-                    listName: lName || r.listName // Enrich list name
+                    listName: listData?.name || r.listName, // Enrich list name
+                    criteriaDefinition: listData?.criteriaDefinition || r.criteriaDefinition, // Enrich criteria for charts
+                    // Enrich Place Data for ReviewCard fallback
+                    placeMainImage: placeData?.mainImageUrl || placeData?.photos?.[0],
+                    placeName: placeData?.name || r.placeName,
+                    placeCity: placeData?.city || r.placeCity
                 };
             });
 

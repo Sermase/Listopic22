@@ -197,7 +197,7 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
                     listName: list?.name,
                     criteriaDefinition: list?.criteriaDefinition, // Critical for charts
                     placeName: place?.name || legacyReview.establishmentName, // Legacy fallback
-                    placeMainImage: place?.mainImageUrl,
+                    placeMainImage: place?.mainImageUrl || place?.photos?.[0],
                     placeAverageRating: place?.averageRating,
                     placeAddress: place?.address,
                     authorName: user?.displayName || user?.name || user?.username || review.authorName,
