@@ -20,7 +20,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
     const scoreColorClass = getScoreColor(review.overallRating || 0);
 
     return (
-        <article className="relative w-[220px] h-[160px] md:w-[260px] md:h-[190px] rounded-3xl overflow-hidden shadow-lg border border-white/5 group bg-gray-900 flex-shrink-0 transition-transform hover:scale-105 duration-300">
+        <article style={{ willChange: 'transform' }} className="relative w-[220px] h-[160px] md:w-[260px] md:h-[190px] rounded-3xl overflow-hidden shadow-lg border border-white/5 group bg-gray-900 flex-shrink-0 transition-transform hover:scale-105 duration-300">
             {/* Background Image */}
             <div className="absolute inset-0">
                 {review.photoUrl || review.placeMainImage ? (

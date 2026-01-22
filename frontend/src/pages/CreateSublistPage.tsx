@@ -91,8 +91,7 @@ export const CreateSublistPage: React.FC = () => {
                                         minLabel: val.labelMin,
                                         maxLabel: val.labelMax,
                                         isPonderable: val.ponderable !== false,
-                                        // Mark as inherited to maybe lock them or show visually?
-                                        // For now just standard
+                                        locked: true // Inherited criteria are locked
                                     });
                                 }
                             });

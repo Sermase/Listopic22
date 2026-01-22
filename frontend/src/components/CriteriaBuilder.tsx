@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X, Sliders } from 'lucide-react';
+import { Plus, X, Sliders, Lock } from 'lucide-react';
 
 export interface Criterion {
     id: string;
@@ -7,6 +7,7 @@ export interface Criterion {
     minLabel: string;
     maxLabel: string;
     isPonderable: boolean;
+    locked?: boolean;
 }
 
 interface CriteriaBuilderProps {
@@ -29,12 +30,14 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
     };
 
     const removeCriterion = (id: string) => {
-        if (lockedIds.includes(id)) return;
+        const item = criteria.find(c => c.id === id);
+        if (lockedIds.includes(id) || item?.locked) return;
         onChange(criteria.filter(c => c.id !== id));
     };
 
     const updateCriterion = (id: string, field: keyof Criterion, value: any) => {
-        if (lockedIds.includes(id)) return; // Strictly prevent ANY update to locked criteria
+        const item = criteria.find(c => c.id === id);
+        if (lockedIds.includes(id) || item?.locked) return;
         onChange(criteria.map(c =>
             c.id === id ? { ...c, [field]: value } : c
         ));
@@ -52,7 +55,7 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
 
             <div className="space-y-3">
                 {criteria.map((criterion) => {
-                    const isLocked = lockedIds.includes(criterion.id);
+                    const isLocked = lockedIds.includes(criterion.id) || criterion.locked;
                     return (
                         <div key={criterion.id} className={`bg-[#151b2e] p-4 rounded-xl border ${isLocked ? 'border-indigo-500/30' : 'border-white/5'} animate-fade-in relative group`}>
                             {!isLocked && (
@@ -65,8 +68,8 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
                                 </button>
                             )}
                             {isLocked && (
-                                <div className="absolute top-2 right-2 px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[10px] font-bold rounded border border-indigo-500/30">
-                                    Heredado
+                                <div className="absolute top-2 right-2 px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[10px] font-bold rounded border border-indigo-500/30 flex items-center gap-1">
+                                    <Lock className="w-3 h-3" /> Heredado
                                 </div>
                             )}
 

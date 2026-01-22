@@ -67,9 +67,12 @@ export const HomePage: React.FC = () => {
     // --- DATA FETCHING (Dynamic based on Tab) ---
     // Explore -> Top Rated/Trending; News -> Following
     const listSort = activeTab === 'explore' ? 'top_rated' : 'recent'; // Lists still use 'recent' for news
-    const reviewSortParam = activeTab === 'explore'
-        ? { type: 'trending' as const, limit: 100 } // Fetch more for geo-filtering
-        : { type: 'following' as const, followingIds, limit: 50 }; // Fetch more following
+
+    const reviewSortParam = useMemo(() => {
+        return activeTab === 'explore'
+            ? { type: 'trending' as const, limit: 100 } // Fetch more for geo-filtering
+            : { type: 'following' as const, followingIds, limit: 50 }; // Fetch more following
+    }, [activeTab, followingIds]);
 
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews } = useReviews(reviewSortParam);
@@ -168,13 +171,22 @@ export const HomePage: React.FC = () => {
     // --- MAP DATA ENRICHMENT ---
     // Fetch actual places from 'places' collection to populate Map beyond just Feed items
     const [extraPlaces, setExtraPlaces] = useState<any[]>([]);
+    const [placesLimit, setPlacesLimit] = useState(20); // Start small for speed
+
+    useEffect(() => {
+        // Upgrade to full fetch after initial render (Background Loading)
+        const timer = setTimeout(() => {
+            setPlacesLimit(100);
+        }, 2000); // Wait 2s to allow main content to settle
+        return () => clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
         const fetchExtraPlaces = async () => {
             try {
                 // Fetch top rated and recent places to ensure map is populated
                 // Note: Real geo-querying would be better, but for now we fetch a healthy batch
-                const q = query(collection(db, 'places'), limit(100)); // Simple fetch
+                const q = query(collection(db, 'places'), limit(placesLimit));
                 const snap = await getDocs(q);
 
                 const mapped = snap.docs.map(d => {
@@ -203,7 +215,7 @@ export const HomePage: React.FC = () => {
         if (activeTab === 'explore') {
             fetchExtraPlaces();
         }
-    }, [activeTab]);
+    }, [activeTab, placesLimit]);
 
     // 5. Derived Places (Unique from Reviews -> Filtered) + Extra Places
     const filteredPlaces = useMemo(() => {
