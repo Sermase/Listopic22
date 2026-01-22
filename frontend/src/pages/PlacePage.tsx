@@ -38,6 +38,12 @@ export const PlacePage: React.FC = () => {
     const [selectedDishName, setSelectedDishName] = useState<string | null>(null);
     const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
+    // Compute suggested list IDs where this place is already present
+    const suggestedListIds = useMemo(() => {
+        if (!place?.relatedLists) return [];
+        return place.relatedLists.map(l => l.id);
+    }, [place?.relatedLists]);
+
     const handleEditReview = (review: any) => {
         setEditingReviewId(review.id);
         setIsFlowOpen(true);
@@ -660,6 +666,7 @@ export const PlacePage: React.FC = () => {
                             // Maybe refresh reviews? Realtime updates handle it.
                             if (refresh) refresh();
                         }}
+                        suggestedListIds={suggestedListIds}
                     />
                 )
             }

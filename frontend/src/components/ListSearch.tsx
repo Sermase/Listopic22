@@ -10,6 +10,7 @@ interface ListSearchProps {
     selectedListId: string | null;
     placeName?: string;
     placeTypes?: string[];
+    suggestedListIds?: string[];
 }
 
 interface EnrichedList {
@@ -18,9 +19,10 @@ interface EnrichedList {
     parentListId?: string;
     parentListName?: string; // For display
     score: number;
+    isSuggested?: boolean;
 }
 
-export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId, placeName, placeTypes }) => {
+export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId, placeName, placeTypes, suggestedListIds }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [lists, setLists] = useState<EnrichedList[]>([]);
@@ -89,6 +91,13 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                     let score = 0;
                     const listNameLower = data.name.toLowerCase();
 
+                    // Boost if suggested explicitly
+                    let isSuggested = false;
+                    if (suggestedListIds && suggestedListIds.includes(data.id)) {
+                        score += 500;
+                        isSuggested = true;
+                    }
+
                     keywords.forEach(kw => {
                         if (kw.length > 2 && listNameLower.includes(kw)) {
                             score += 10;
@@ -100,7 +109,8 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                         name: data.name,
                         parentListId: data.parentListId,
                         parentListName: data.parentListId ? uniqueLists.get(data.parentListId)?.name : undefined,
-                        score
+                        score,
+                        isSuggested
                     };
                 });
 
@@ -125,7 +135,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
             }
         };
         fetchLists();
-    }, [user, placeName, placeTypes]);
+    }, [user, placeName, placeTypes, suggestedListIds]);
 
     // Handle Open/Close & Focus
     useEffect(() => {
@@ -274,7 +284,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                                     <div className="mb-2">
                                         <div className="px-3 py-1.5 text-[10px] font-bold uppercase text-indigo-400 tracking-wider flex items-center gap-1 bg-indigo-500/5 mx-1 rounded">
                                             <Sparkles className="w-3 h-3" />
-                                            Sugeridas para este lugar
+                                            Sugeridas
                                         </div>
                                         {suggestions.map(list => (
                                             <ListItem
@@ -338,5 +348,10 @@ const ListItem = ({ list, isSelected, onSelect }: { list: EnrichedList, isSelect
             )}
         </div>
         {isSelected && <Check className="w-4 h-4 text-indigo-400 shrink-0" />}
+        {!isSelected && list.isSuggested && (
+            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded ml-2 whitespace-nowrap">
+                Ya en lista
+            </span>
+        )}
     </button>
 );

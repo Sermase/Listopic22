@@ -17,9 +17,10 @@ interface AddReviewFormProps {
     lockList?: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    suggestedListIds?: string[]; // IDs of lists where this place is already present
 }
 
-export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, lockList = false, onClose, onSuccess }) => {
+export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, lockList = false, onClose, onSuccess, suggestedListIds }) => {
     const { user } = useAuth();
 
     // Core Data
@@ -613,6 +614,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     selectedListId={internalListId}
                                     placeName={selectedPlace?.name || itemName} // Use place name or item name for smart search
                                     placeTypes={selectedPlace?.types} // Smart search by type
+                                    suggestedListIds={suggestedListIds}
                                 />
                             </>
                         ) : internalListId ? (
