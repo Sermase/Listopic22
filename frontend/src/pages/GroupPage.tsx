@@ -45,6 +45,21 @@ export const GroupPage: React.FC = () => {
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
     const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
+    // Infinite Scroll
+    const [visibleCount, setVisibleCount] = useState(4);
+    const loadMoreRef = React.useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                setVisibleCount(prev => prev + 5);
+            }
+        }, { threshold: 0.1 });
+
+        if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+        return () => observer.disconnect();
+    }, [reviews, visibleCount]);
+
     const handleEditReview = (review: ReviewEntity) => {
         setEditingReviewId(review.id);
         setIsFlowOpen(true);
@@ -551,10 +566,15 @@ export const GroupPage: React.FC = () => {
 
                     {/* Reviews Grid */}
                     {reviews.length > 0 ? (
-                        <div className="grid grid-cols-1 gap-6 animate-fade-in">
-                            {reviews.map(review => (
+                        <div className="grid grid-cols-1 gap-8 animate-fade-in">
+                            {reviews.slice(0, visibleCount).map(review => (
                                 <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
                             ))}
+                            {visibleCount < reviews.length && (
+                                <div ref={loadMoreRef} className="py-4 flex justify-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="p-8 bg-[#151b2e] rounded-xl border border-white/10 text-center animate-fade-in">

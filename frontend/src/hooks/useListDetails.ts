@@ -38,6 +38,7 @@ export interface ReviewEntity {
     criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number; ponderable?: boolean }>;
     authorId?: string; // Legacy compatibility
     tags?: string[];
+    userTags?: string[];
 }
 
 export const useListDetails = (listId: string | undefined) => {

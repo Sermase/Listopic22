@@ -44,6 +44,26 @@ export const HomePage: React.FC = () => {
         fetchFollowing();
     }, [user]);
 
+    // Infinite Scroll
+    const [visibleCount, setVisibleCount] = useState(4);
+    const loadMoreRef = React.useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                setVisibleCount(prev => prev + 5);
+            }
+        }, { threshold: 0.5 });
+
+        if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+        return () => observer.disconnect();
+    }, [activeTab, visibleCount]); // Re-attach when count changes/renders
+
+    // Reset count when tab/filter changes
+    useEffect(() => {
+        setVisibleCount(4);
+    }, [activeTab, activeFilter]);
+
     // --- DATA FETCHING (Dynamic based on Tab) ---
     // Explore -> Top Rated/Trending; News -> Following
     const listSort = activeTab === 'explore' ? 'top_rated' : 'recent'; // Lists still use 'recent' for news
@@ -109,11 +129,22 @@ export const HomePage: React.FC = () => {
     }, [reviews, activeFilter, range, location]);
 
     const filteredItems = useMemo(() => {
+        const base = [...reviewsInRange];
+
+        if (activeTab === 'news') {
+            // Sort by Date Descending
+            return base.sort((a, b) => {
+                const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+                const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+                return dateB - dateA;
+            });
+        }
+
         // "Mejor en Listopic" (Best Rated items/reviews in range)
-        return [...reviewsInRange]
+        return base
             .sort((a, b) => (b.placeAverageRating || b.overallRating || 0) - (a.placeAverageRating || a.overallRating || 0))
             .slice(0, 15);
-    }, [reviewsInRange]);
+    }, [reviewsInRange, activeTab]);
 
     // 4b. Carousel Reviews (Specific Logic: Last 2 Months + Top Liked + Filtered by Range/Cat)
     const carouselReviews = useMemo(() => {
@@ -527,9 +558,14 @@ export const HomePage: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-8">
-                                    {filteredItems.map((review: any) => (
+                                    {filteredItems.slice(0, visibleCount).map((review: any) => (
                                         <ReviewCard key={review.id} review={review} />
                                     ))}
+                                    {visibleCount < filteredItems.length && (
+                                        <div ref={loadMoreRef} className="py-8 flex justify-center">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
