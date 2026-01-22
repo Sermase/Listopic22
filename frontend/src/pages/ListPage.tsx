@@ -892,9 +892,9 @@ export const ListPage: React.FC = () => {
                 )
             }
 
-            {/* Sublists Modal */}
+            {/* Sublists Modal (Only for Main Lists) */}
             {
-                isSublistsModalOpen && sublists && (
+                isSublistsModalOpen && sublists && !list.parentListId && (
                     <SublistsModal
                         isOpen={isSublistsModalOpen}
                         onClose={() => setIsSublistsModalOpen(false)}
