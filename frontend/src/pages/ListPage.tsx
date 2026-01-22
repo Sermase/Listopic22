@@ -646,19 +646,21 @@ export const ListPage: React.FC = () => {
                                     </button>
                                 )}
 
-                                {/* Sublists Button */}
-                                <button
-                                    onClick={() => setIsSublistsModalOpen(true)}
-                                    className="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-sm font-bold rounded-xl backdrop-blur-md flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-indigo-500/10"
-                                >
-                                    <ListIcon className="w-4 h-4" />
-                                    <span>Sublistas</span>
-                                    {sublists && sublists.length > 0 && (
-                                        <span className="bg-indigo-500/20 px-1.5 py-0.5 rounded text-[10px] ml-1 border border-indigo-500/30 text-indigo-200">
-                                            {sublists.length}
-                                        </span>
-                                    )}
-                                </button>
+                                {/* Sublists Button (Only for Main Lists) */}
+                                {!list.parentListId && (
+                                    <button
+                                        onClick={() => setIsSublistsModalOpen(true)}
+                                        className="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-sm font-bold rounded-xl backdrop-blur-md flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-indigo-500/10"
+                                    >
+                                        <ListIcon className="w-4 h-4" />
+                                        <span>Sublistas</span>
+                                        {sublists && sublists.length > 0 && (
+                                            <span className="bg-indigo-500/20 px-1.5 py-0.5 rounded text-[10px] ml-1 border border-indigo-500/30 text-indigo-200">
+                                                {sublists.length}
+                                            </span>
+                                        )}
+                                    </button>
+                                )}
 
                                 {/* Add Review Button */}
                                 {canAddReview && (
