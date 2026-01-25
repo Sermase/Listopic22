@@ -24,13 +24,16 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const { user } = useAuth();
 
     // Core Data
+    // Core Data
     const [itemName, setItemName] = useState(prefillItemName || '');
     const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
 
     const [comment, setComment] = useState('');
     const [overallRating, setOverallRating] = useState(5);
+
+    // Changed: Store full definition list to preserve ORDER
+    const [criteriaList, setCriteriaList] = useState<any[]>([]);
     const [criteriaScores, setCriteriaScores] = useState<Record<string, number>>({});
-    const [criteriaDefinition, setCriteriaDefinition] = useState<Record<string, any>>({});
 
     // Extras
     const [_imageFile, setImageFile] = useState<File | null>(null);
@@ -112,6 +115,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     if (data.scores) setCriteriaScores(data.scores);
                     if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
                     if (data.photoUrl) setImagePreview(data.photoUrl);
+
+                    // Fixed: Always prefer stored listId from review data if creating/editing
                     if (data.listId) {
                         setInternalListId(data.listId);
                     } else if (listId) {
@@ -234,15 +239,15 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
     // Recalculate Overall Rating
     useEffect(() => {
-        if (Object.keys(criteriaScores).length === 0) return;
+        if (criteriaList.length === 0 || Object.keys(criteriaScores).length === 0) return;
 
         let total = 0;
         let count = 0;
 
-        Object.keys(criteriaScores).forEach((key) => {
-            const def = criteriaDefinition[key];
-            const val = criteriaScores[key];
-            if (def && def.ponderable !== false) {
+        criteriaList.forEach((c) => {
+            const val = criteriaScores[c.id];
+            // Only ponderable items count towards the global rating
+            if (c.ponderable !== false && val !== undefined) {
                 total += val;
                 count++;
             }
@@ -252,18 +257,21 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             const avg = total / count;
             setOverallRating(parseFloat(avg.toFixed(1)));
         }
-    }, [criteriaScores, criteriaDefinition]);
+    }, [criteriaScores, criteriaList]);
 
     // Fetch List Metadata
     useEffect(() => {
         const fetchListMetadata = async () => {
-            if (!listId) {
+            // If editing, we rely on internalListId rather than prop listId primarily
+            const targetListId = internalListId || listId;
+
+            if (!targetListId) {
                 setListData(null);
                 setInitLoading(false);
                 return;
             }
             try {
-                const docRef = doc(db, 'lists', listId);
+                const docRef = doc(db, 'lists', targetListId);
                 const snap = await getDoc(docRef);
                 if (snap.exists()) {
                     const data = snap.data();
@@ -274,31 +282,44 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     }
 
                     if (data.criteriaDefinition) {
-                        let defMap: Record<string, any> = {};
+                        let cList: any[] = [];
                         let scores: Record<string, number> = {};
 
+                        // Logic: Convert whatever is in DB to an ordered Array
                         if (Array.isArray(data.criteriaDefinition)) {
-                            data.criteriaDefinition.forEach((c: any) => {
-                                // Respect DB step or default to 0.1 (common preference)
-                                defMap[c.id] = { ...c, min: 0, max: 10, step: c.step || 0.1 };
-                                scores[c.id] = 5;
-                            });
+                            cList = data.criteriaDefinition.map((c: any) => ({
+                                ...c,
+                                min: 0,
+                                max: 10,
+                                step: c.step || 0.1,
+                                ponderable: c.isPonderable !== false // normalize to boolean (default true)
+                            }));
                         } else {
-                            defMap = data.criteriaDefinition;
-                            Object.keys(defMap).forEach(k => {
-                                const min = defMap[k].min ?? 0;
-                                const max = defMap[k].max ?? 10;
-                                const step = defMap[k].step ?? 0.1;
-                                // Ensure step is preserved in our local map if not already
-                                defMap[k] = { ...defMap[k], step };
-                                scores[k] = (min + max) / 2;
+                            // Legacy MAP support: NO guaranteed order, just keys
+                            cList = Object.keys(data.criteriaDefinition).map(k => {
+                                const def = data.criteriaDefinition[k];
+                                return {
+                                    id: k,
+                                    label: def.label || k,
+                                    min: def.min ?? 0,
+                                    max: def.max ?? 10,
+                                    step: def.step ?? 0.1,
+                                    ponderable: def.ponderable !== false,
+                                    ...def
+                                };
                             });
                         }
-                        setCriteriaDefinition(defMap);
+
+                        // Initialize scores if NEW
                         if (!editReviewId) {
+                            cList.forEach(c => {
+                                scores[c.id] = 5; // Default score
+                            });
                             setCriteriaScores(scores);
                         }
+                        setCriteriaList(cList);
                     }
+
                     if (data.availableTags && Array.isArray(data.availableTags)) {
                         setListAvailableTags(data.availableTags);
                     }
@@ -310,7 +331,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             }
         };
         fetchListMetadata();
-    }, [listId, editReviewId]);
+    }, [internalListId, listId, editReviewId]); // Re-run if list changes
 
     // Handlers
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -509,8 +530,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             // If we relied on listId prop, it's fine.
 
             const isSublist = !!listData?.parentListId;
-            const finalListId = isSublist ? listData.parentListId : listId;
-            const sublistId = isSublist ? listId : null;
+            const finalListId = isSublist ? listData.parentListId : internalListId; // Use internalListId to respect selection
+            const sublistId = isSublist ? internalListId : null;
             const visibility = listData?.visibility === 'private' ? 'private' : 'public';
 
             const reviewData = {
@@ -524,7 +545,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 comment: comment.trim(),
                 overallRating,
                 scores: criteriaScores,
-                criteriaDefinition,
+                criteriaDefinition: criteriaList, // SAVE AS ARRAY to preserve order
                 tags: customTags,
                 photoUrl: finalPhotoUrl,
                 updatedAt: serverTimestamp(),
@@ -586,6 +607,10 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         );
     }
 
+    // Split Criteria for Display
+    const ponderableCriteria = criteriaList.filter(c => c.ponderable !== false);
+    const nonPonderableCriteria = criteriaList.filter(c => c.ponderable === false);
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4">
             <div className="bg-[#0b1021] w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-none md:border border-white/10">
@@ -603,7 +628,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 <div className="overflow-y-auto flex-1 custom-scrollbar relative">
                     {/* List Selector Picker */}
                     <div className="p-6 pb-0 space-y-2">
-                        {(!lockList && (!editReviewId || !internalListId)) ? (
+                        {/* CHANGED: Logic for locking list if editing - use internalListId state properly */}
+                        {(!lockList && !editReviewId) ? (
                             <>
                                 <label className="block text-xs font-bold uppercase text-gray-400 tracking-wider">Guardar en Lista <span className="text-red-400">*</span></label>
                                 <ListSearch
@@ -624,7 +650,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 </span>
                                 <Lock className="w-4 h-4 text-gray-500" />
                             </div>
-                        ) : null}
+                        ) : (
+                            <div className="p-2 border border-dashed border-red-500/30 text-red-400 text-xs rounded">
+                                Error: No hay lista seleccionada
+                            </div>
+                        )}
                     </div>
 
                     <form id="review-form" onSubmit={handleSubmit} className="space-y-6 p-6">
@@ -702,54 +732,105 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         </div>
 
                         {/* 4. Detailed Criteria */}
-                        {Object.keys(criteriaScores).length > 0 ? (
-                            <div className="bg-white/5 p-5 rounded-2xl border border-white/5 space-y-8">
-                                <h3 className="text-base font-bold text-gray-200 flex items-center gap-2 mb-4">
+                        {criteriaList.length > 0 ? (
+                            <div className="bg-white/5 p-5 rounded-2xl border border-white/5 space-y-6">
+                                <h3 className="text-base font-bold text-gray-200 flex items-center gap-2 mb-2">
                                     Valoración Detallada <span className="text-red-400">*</span>
                                 </h3>
-                                {Object.keys(criteriaScores).map(key => (
-                                    <div key={key}>
-                                        <div className="flex justify-between mb-2">
-                                            <label className="text-sm text-gray-300 font-medium">{key}</label>
-                                            <span
-                                                className="text-sm font-bold transition-colors duration-300"
-                                                style={{ color: `hsl(${criteriaScores[key] * 12}, 90%, 50%)` }}
-                                            >
-                                                {criteriaScores[key]}
-                                            </span>
-                                        </div>
-                                        <div className="relative w-full h-6 flex items-center">
-                                            {/* Track Background & Fill */}
-                                            <div className="absolute left-0 right-0 h-2 bg-gray-700/50 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full transition-all duration-300 rounded-full"
-                                                    style={{
-                                                        width: `${(criteriaScores[key] / 10) * 100}%`,
-                                                        background: `hsl(${criteriaScores[key] * 12}, 90%, 50%)`,
-                                                        boxShadow: `0 0 10px hsl(${criteriaScores[key] * 12}, 90%, 50%, 0.5)`
+
+                                {/* PONDERABLE CRITERIA */}
+                                <div className="space-y-6">
+                                    {ponderableCriteria.map((criterion) => (
+                                        <div key={criterion.id}>
+                                            <div className="flex justify-between mb-2">
+                                                <label className="text-sm text-gray-300 font-medium">{criterion.label || criterion.id}</label>
+                                                <span
+                                                    className="text-sm font-bold transition-colors duration-300"
+                                                    style={{ color: `hsl(${criteriaScores[criterion.id] * 12}, 90%, 50%)` }}
+                                                >
+                                                    {criteriaScores[criterion.id]}
+                                                </span>
+                                            </div>
+                                            <div className="relative w-full h-6 flex items-center">
+                                                {/* Track Background & Fill */}
+                                                <div className="absolute left-0 right-0 h-2 bg-gray-700/50 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full transition-all duration-300 rounded-full"
+                                                        style={{
+                                                            width: `${(criteriaScores[criterion.id] / 10) * 100}%`,
+                                                            background: `hsl(${criteriaScores[criterion.id] * 12}, 90%, 50%)`,
+                                                            boxShadow: `0 0 10px hsl(${criteriaScores[criterion.id] * 12}, 90%, 50%, 0.5)`
+                                                        }}
+                                                    />
+                                                </div>
+
+                                                {/* Interactive Input */}
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="10"
+                                                    step={criterion.step || 0.1}
+                                                    value={criteriaScores[criterion.id] || 0}
+                                                    onChange={(e) => {
+                                                        const val = parseFloat(e.target.value);
+                                                        const newScores = { ...criteriaScores, [criterion.id]: val };
+                                                        setCriteriaScores(newScores);
+                                                        setRatingsTouched(true);
                                                     }}
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                                 />
                                             </div>
-
-                                            {/* Interactive Input with Custom Thumb */}
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max="10"
-                                                step={criteriaDefinition[key]?.step || 0.1}
-                                                value={criteriaScores[key]}
-                                                onChange={(e) => {
-                                                    const val = parseFloat(e.target.value);
-                                                    const newScores = { ...criteriaScores, [key]: val };
-                                                    setCriteriaScores(newScores);
-                                                    setRatingsTouched(true);
-                                                }}
-                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-indigo-500"
-                                                style={{ opacity: 1, background: 'transparent', WebkitAppearance: 'none' }}
-                                            />
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
+
+                                {/* NON-PONDERABLE CRITERIA (Separate Section) */}
+                                {nonPonderableCriteria.length > 0 && (
+                                    <>
+                                        <div className="border-t border-white/10 pt-4 mt-6">
+                                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Otros Detalles</h4>
+                                            <div className="space-y-6">
+                                                {nonPonderableCriteria.map((criterion) => (
+                                                    <div key={criterion.id}>
+                                                        <div className="flex justify-between mb-2">
+                                                            <label className="text-sm text-gray-300 font-medium">{criterion.label || criterion.id}</label>
+                                                            <span className="text-sm font-bold text-indigo-400">
+                                                                {criteriaScores[criterion.id]}
+                                                            </span>
+                                                        </div>
+                                                        <div className="relative w-full h-6 flex items-center">
+                                                            {/* Track Background & Fill (Neutral Color) */}
+                                                            <div className="absolute left-0 right-0 h-2 bg-gray-700/50 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full transition-all duration-300 rounded-full bg-indigo-500/50"
+                                                                    style={{
+                                                                        width: `${(criteriaScores[criterion.id] / 10) * 100}%`
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            {/* Interactive Input with Fixed Step 0.5 */}
+                                                            <input
+                                                                type="range"
+                                                                min="0"
+                                                                max="10"
+                                                                step={0.5} // Enforce 0.5 step for non-ponderable
+                                                                value={criteriaScores[criterion.id] || 0}
+                                                                onChange={(e) => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    const newScores = { ...criteriaScores, [criterion.id]: val };
+                                                                    setCriteriaScores(newScores);
+                                                                    setRatingsTouched(true);
+                                                                }}
+                                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ) : (
                             <div className="p-8 border border-dashed border-white/10 rounded-xl text-center">

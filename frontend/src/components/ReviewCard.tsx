@@ -12,6 +12,7 @@ import { ReportModal } from './ReportModal';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '../firebase';
+import { NonPonderableGauge } from './NonPonderableGauge';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -66,9 +67,35 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
             'from-red-500 to-pink-500';
 
     // Extract Criteria for Visualization
-    const criteriaList = review.criteriaDefinition && review.scores
-        ? Object.entries(review.criteriaDefinition).map(([key, def]) => ({ label: def.label, score: review.scores?.[key] || 0 }))
-        : [];
+    const { ponderable, nonPonderable } = React.useMemo(() => {
+        let allCriteria: { key: string, label: string, score: number, isPonderable: boolean }[] = [];
+
+        if (review.criteriaDefinition) {
+            if (Array.isArray(review.criteriaDefinition)) {
+                // New Format: Array (Preserves Order)
+                allCriteria = review.criteriaDefinition.map((def: any) => ({
+                    key: def.id,
+                    label: def.label || def.id,
+                    score: review.scores?.[def.id] || 0,
+                    isPonderable: def.ponderable !== false && def.isPonderable !== false
+                }));
+            } else {
+                // Legacy Format: Map (No Order)
+                allCriteria = Object.entries(review.criteriaDefinition).map(([key, def]) => ({
+                    key,
+                    label: def.label || key,
+                    score: review.scores?.[key] || 0,
+                    isPonderable: def.ponderable !== false
+                }));
+            }
+        }
+
+        return {
+            ponderable: allCriteria.filter(c => c.isPonderable),
+            nonPonderable: allCriteria.filter(c => !c.isPonderable)
+        };
+    }, [review.criteriaDefinition, review.scores]);
+
 
     // Check if Liked (Graceful Error Handling)
     useEffect(() => {
@@ -198,13 +225,13 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
             >
                 {/* 1. Header: User, Context, Menu */}
                 {/* ... (Header code unchanged) ... */}
-                <div className="px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                <div className="px-4 py-3 flex items-center justify-center">
+                    <div className="flex items-center gap-3 w-full">
                         {/* Living Avatar Ring */}
                         <Link
                             to={review.userId ? `/profile/${review.userId}` : '#'}
                             onClick={(e) => e.stopPropagation()}
-                            className="block relative group/avatar z-10"
+                            className="block relative group/avatar z-10 shrink-0"
                         >
                             <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 rounded-full blur-[2px] opacity-70 group-hover/avatar:opacity-100 transition-opacity" />
                             <div className="relative w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500">
@@ -220,92 +247,94 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             </div>
                         </Link>
 
-                        <div className="flex flex-col leading-tight z-10 max-w-[150px] sm:max-w-none">
-                            <div className="flex items-baseline gap-1.5 flex-wrap">
-                                <Link
-                                    to={review.userId ? `/profile/${review.userId}` : '#'}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="font-bold text-sm text-gray-100 hover:underline cursor-pointer truncate"
-                                >
-                                    {review.authorName || 'Anónimo'}
-                                </Link>
-                                {(review.listName || review.placeName) && (
-                                    <span className="text-sm text-gray-400 flex items-center gap-1 truncate max-w-full">
-                                        en <Link
-                                            to={review.listId ? `/list/${review.listId}` : '#'}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="font-semibold text-gray-200 hover:text-indigo-400 transition-colors truncate"
-                                        >
-                                            {review.listName || review.placeName}
-                                        </Link>
-                                    </span>
-                                )}
+                        <div className="flex flex-col leading-tight z-10 min-w-0 flex-1">
+                            <div className="flex items-start justify-between w-full">
+                                <div className="flex flex-col">
+                                    <Link
+                                        to={review.userId ? `/profile/${review.userId}` : '#'}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="font-bold text-sm text-gray-100 hover:underline cursor-pointer truncate"
+                                    >
+                                        {review.authorName || 'Anónimo'}
+                                    </Link>
+                                    {(review.listName || review.placeName) && (
+                                        <span className="text-sm text-gray-400 truncate w-full">
+                                            en <Link
+                                                to={review.listId ? `/list/${review.listId}` : '#'}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="font-semibold text-gray-200 hover:text-indigo-400 transition-colors"
+                                            >
+                                                {review.listName || review.placeName}
+                                            </Link>
+                                        </span>
+                                    )}
+                                </div>
+                                <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                                    {(() => {
+                                        const date = review.createdAt;
+                                        let dateObj: Date | null = null;
+                                        if (date && typeof date.toDate === 'function') dateObj = date.toDate();
+                                        else if (date instanceof Date) dateObj = date;
+                                        else if (typeof date === 'string' || typeof date === 'number') dateObj = new Date(date);
+                                        return dateObj ? formatDistanceToNow(dateObj, { locale: es }) : 'Reciente';
+                                    })()}
+                                </span>
                             </div>
-                            <span className="text-xs text-gray-500">
-                                {(() => {
-                                    const date = review.createdAt;
-                                    let dateObj: Date | null = null;
-                                    if (date && typeof date.toDate === 'function') dateObj = date.toDate();
-                                    else if (date instanceof Date) dateObj = date;
-                                    else if (typeof date === 'string' || typeof date === 'number') dateObj = new Date(date);
-                                    return dateObj ? formatDistanceToNow(dateObj, { locale: es }) : 'Reciente';
-                                })()}
-                            </span>
                         </div>
-                    </div>
 
-                    <div className="relative z-20" ref={menuRef}>
-                        <button
-                            className="text-gray-500 hover:text-white transition-colors p-1"
-                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
-                        >
-                            <MoreHorizontal className="w-5 h-5" />
-                        </button>
+                        <div className="relative z-20 shrink-0 self-start mt-1" ref={menuRef}>
+                            <button
+                                className="text-gray-500 hover:text-white transition-colors p-1"
+                                onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                            >
+                                <MoreHorizontal className="w-5 h-5" />
+                            </button>
 
-                        {isMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right z-50">
-                                <button
-                                    onClick={handleSaveClick}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                >
-                                    <Bookmark className="w-4 h-4" /> Guardar
-                                </button>
-                                <button
-                                    onClick={handleShareClick}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                >
-                                    <Share2 className="w-4 h-4" /> Compartir
-                                </button>
+                            {isMenuOpen && (
+                                <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right z-50">
+                                    <button
+                                        onClick={handleSaveClick}
+                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                    >
+                                        <Bookmark className="w-4 h-4" /> Guardar
+                                    </button>
+                                    <button
+                                        onClick={handleShareClick}
+                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                    >
+                                        <Share2 className="w-4 h-4" /> Compartir
+                                    </button>
 
-                                {isOwner ? (
-                                    <>
-                                        <div className="h-px bg-white/10 my-1"></div>
-                                        <button
-                                            onClick={handleEdit}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                        >
-                                            <Edit className="w-4 h-4" /> Editar
-                                        </button>
-                                        <button
-                                            onClick={handleDelete}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 flex items-center gap-2 transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" /> Eliminar
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="h-px bg-white/10 my-1"></div>
-                                        <button
-                                            onClick={handleReportClick}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                        >
-                                            <Flag className="w-4 h-4" /> Reportar
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        )}
+                                    {isOwner ? (
+                                        <>
+                                            <div className="h-px bg-white/10 my-1"></div>
+                                            <button
+                                                onClick={handleEdit}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                            >
+                                                <Edit className="w-4 h-4" /> Editar
+                                            </button>
+                                            <button
+                                                onClick={handleDelete}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 flex items-center gap-2 transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" /> Eliminar
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="h-px bg-white/10 my-1"></div>
+                                            <button
+                                                onClick={handleReportClick}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                            >
+                                                <Flag className="w-4 h-4" /> Reportar
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -382,39 +411,47 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         </h3>
                     </div>
 
-                    {/* Criteria Bars */}
-                    {criteriaList.length > 0 && (
-                        <div className="py-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                            {criteriaList.map((crit, idx) => {
-                                // Check ponderability from definition
-                                const def = review.criteriaDefinition?.[Object.keys(review.criteriaDefinition).find(k => review.criteriaDefinition![k].label === crit.label) || ''];
-                                const isPonderable = def?.ponderable !== false;
+                    {/* Criteria Bars (Grouped) */}
+                    {(ponderable.length > 0 || nonPonderable.length > 0) && (
+                        <div className="py-2 space-y-3">
 
-                                const barColor = isPonderable
-                                    ? `bg-gradient-to-r ${getScoreColor(crit.score).split(' ')[0]} ${getScoreColor(crit.score).split(' ')[1]}`
-                                    : 'bg-indigo-500/50';
+                            {/* Ponderable (Standard) - Grid */}
+                            {ponderable.length > 0 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                                    {ponderable.map((crit, idx) => {
+                                        const barColor = `bg-gradient-to-r ${getScoreColor(crit.score).split(' ')[0]} ${getScoreColor(crit.score).split(' ')[1]}`;
+                                        const scoreColor = crit.score >= 8 ? 'text-emerald-400' : crit.score >= 5 ? 'text-indigo-400' : 'text-rose-400';
 
-                                const scoreColor = isPonderable
-                                    ? (crit.score >= 8 ? 'text-emerald-400' : crit.score >= 5 ? 'text-indigo-400' : 'text-rose-400')
-                                    : 'text-gray-300';
+                                        return (
+                                            <div key={idx} className="flex flex-col">
+                                                <div className="flex justify-between items-end text-xs mb-1">
+                                                    <span className="text-gray-400 font-medium truncate opacity-90">{crit.label}</span>
+                                                    <span className={`font-mono font-bold ${scoreColor}`}>
+                                                        {crit.score.toFixed(1)}
+                                                    </span>
+                                                </div>
+                                                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full ${barColor}`}
+                                                        style={{ width: `${crit.score * 10}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
 
-                                return (
-                                    <div key={idx} className="flex flex-col">
-                                        <div className="flex justify-between items-end text-xs mb-1">
-                                            <span className="text-gray-400 font-medium truncate opacity-90">{crit.label}</span>
-                                            <span className={`font-mono font-bold ${scoreColor}`}>
-                                                {crit.score.toFixed(1)}
-                                            </span>
-                                        </div>
-                                        <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full ${barColor}`}
-                                                style={{ width: `${crit.score * 10}%` }}
-                                            />
-                                        </div>
+                            {/* Non-Ponderable (Extras) - Gauges Grid */}
+                            {nonPonderable.length > 0 && (
+                                <div className="pt-2 border-t border-white/5">
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                        {nonPonderable.map((crit, idx) => (
+                                            <NonPonderableGauge key={idx} score={crit.score} label={crit.label} size={60} />
+                                        ))}
                                     </div>
-                                )
-                            })}
+                                </div>
+                            )}
                         </div>
                     )}
 
