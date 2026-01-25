@@ -32,13 +32,13 @@ const ListGrid = ({ lists, emptyMessage, isSublist = false }: { lists: any[], em
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {lists.map(list => (
                 <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                    <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all h-full flex flex-col opacity-90 hover:opacity-100">
-                        <div className={`${isSublist ? 'h-32' : 'h-40'} bg-gray-800 relative`}>
+                    <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all h-full flex flex-col relative">
+                        <div className="h-32 bg-gray-800 relative">
                             {list.photoUrl ? (
                                 <img src={list.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                    <ListIcon className={`${isSublist ? 'w-8 h-8' : 'w-10 h-10'} text-gray-600`} />
+                                    <ListIcon className="w-10 h-10 text-gray-600" />
                                 </div>
                             )}
                             {isSublist && (

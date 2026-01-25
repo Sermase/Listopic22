@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, getDocs } from 'firebase/firestore';
+import { collection, query, getDocs, where, documentId } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Users, List as ListIcon, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -19,20 +19,49 @@ export const FollowingSection: React.FC<FollowingSectionProps> = ({ targetUserId
             setItems([]);
             try {
                 let collectionName = '';
-                if (subTab === 'users') collectionName = 'following';
-                else if (subTab === 'lists') collectionName = 'followingLists';
-                else if (subTab === 'places') collectionName = 'followingPlaces';
+                let targetCollection = '';
 
-                const q = query(collection(db, 'users', targetUserId, collectionName));
-                const snap = await getDocs(q);
+                if (subTab === 'users') { collectionName = 'following'; targetCollection = 'users'; }
+                else if (subTab === 'lists') { collectionName = 'followingLists'; targetCollection = 'lists'; }
+                else if (subTab === 'places') { collectionName = 'followingPlaces'; targetCollection = 'places'; }
 
-                // We need to fetch details for Lists and Places maybe? 
-                // Typically 'following' collections store a mini-snapshot (id, name, photo). 
-                // If not, we might need to fetch the real docs.
-                // Assuming mini-snapshot for now based on 'following' user logic seen earlier.
+                // 1. Get IDs from the "following" subcollection
+                const qIds = query(collection(db, 'users', targetUserId, collectionName));
+                const snapIds = await getDocs(qIds);
 
-                const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                setItems(data);
+                if (snapIds.empty) {
+                    setItems([]);
+                    return;
+                }
+
+                const ids = snapIds.docs.map(d => d.id); // The doc ID in subcollection is usually the Entity ID
+
+                // 2. Fetch full details (Batching by 10 due to 'in' query limits)
+                // Note: Firestore 'in' limit is 10 or 30 depending on client. 10 is safe.
+                const chunks = [];
+                for (let i = 0; i < ids.length; i += 10) {
+                    chunks.push(ids.slice(i, i + 10));
+                }
+
+                const fetchedItems: any[] = [];
+
+                for (const chunk of chunks) {
+                    try {
+                        const qDetails = query(
+                            collection(db, targetCollection),
+                            where(documentId(), 'in', chunk)
+                        );
+                        const snapDetails = await getDocs(qDetails);
+                        fetchedItems.push(...snapDetails.docs.map(d => ({ id: d.id, ...d.data() })));
+                    } catch (e) {
+                        console.warn(`Error fetching chunk for ${targetCollection}`, e);
+                    }
+                }
+
+                // If fetching places, they might be in 'places' collection or might need Google Sync. 
+                // Assuming they are cached in 'places' collection for now.
+
+                setItems(fetchedItems);
 
             } catch (err) {
                 console.error("Error fetching following items", err);

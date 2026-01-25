@@ -3,7 +3,9 @@ import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs, doc, getDoc, collectionGroup } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, MoreVertical, Flag } from 'lucide-react';
+import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, MoreVertical, Flag, Image as ImageIcon, ZoomIn } from 'lucide-react';
+import { Lightbox } from '../components/Lightbox';
+import { NonPonderableGauge } from '../components/NonPonderableGauge';
 import { ReportModal } from '../components/ReportModal';
 import { ReviewCard } from '../components/ReviewCard';
 import { AddReviewForm } from '../components/AddReviewForm';
@@ -36,6 +38,7 @@ export const GroupPage: React.FC = () => {
 
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [placeName, setPlaceName] = useState('');
+    const [primaryListCriteria, setPrimaryListCriteria] = useState<any[]>([]); // New: Store definition for ordering
     const [loading, setLoading] = useState(true);
 
     // Navigation Context
@@ -51,6 +54,10 @@ export const GroupPage: React.FC = () => {
     const [showReportModal, setShowReportModal] = useState(false);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
     const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+
+    // Lightbox
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
 
     // Infinite Scroll
     const [visibleCount, setVisibleCount] = useState(4);
@@ -193,7 +200,7 @@ export const GroupPage: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
-    // Aggregate Stats (Overall + Criteria)
+    // Aggregate Stats (Overall + Criteria) - REFACTORED to use Primary List Order
     const stats = useMemo(() => {
         if (!reviews.length) return null;
 
@@ -211,7 +218,17 @@ export const GroupPage: React.FC = () => {
                 Object.entries(r.scores).forEach(([k, v]) => {
                     criteriaSums[k] = (criteriaSums[k] || 0) + v;
                     criteriaCounts[k] = (criteriaCounts[k] || 0) + 1;
-                    if (r.criteriaDefinition?.[k]?.label) labels[k] = r.criteriaDefinition[k].label;
+
+                    // Try to get label from review if not yet found
+                    if (!labels[k] && r.criteriaDefinition) {
+                        if (Array.isArray(r.criteriaDefinition)) {
+                            const found = r.criteriaDefinition.find((c: any) => c.id === k);
+                            if (found) labels[k] = found.label;
+                        } else {
+                            labels[k] = r.criteriaDefinition[k]?.label;
+                        }
+                    }
+                    if (!labels[k]) labels[k] = k; // Fallback
                 });
             }
 
@@ -226,13 +243,45 @@ export const GroupPage: React.FC = () => {
 
         const avg = totalRating / reviews.length;
 
-        // Process Criteria
-        const criteria = Object.keys(criteriaSums).map(k => ({
-            key: k,
-            label: labels[k] || k,
-            avg: criteriaSums[k] / criteriaCounts[k],
-            count: criteriaCounts[k]
-        })).sort((a, b) => b.avg - a.avg);
+        // Process Criteria using PRIMARY LIST ORDER if available
+        let orderedCriteria: { key: string, label: string, avg: number, count: number, isPonderable: boolean, step: number }[] = [];
+        const processedKeys = new Set();
+
+        // 1. Add keys from Primary List in order
+        if (primaryListCriteria.length > 0) {
+            primaryListCriteria.forEach(pc => {
+                const k = pc.id;
+                if (criteriaCounts[k]) { // Only if we have data for it
+                    orderedCriteria.push({
+                        key: k,
+                        label: pc.label || labels[k] || k, // Prefer primary list label
+                        avg: criteriaSums[k] / criteriaCounts[k],
+                        count: criteriaCounts[k],
+                        isPonderable: pc.ponderable !== false && pc.isPonderable !== false,
+                        step: pc.step || 0.1
+                    });
+                    processedKeys.add(k);
+                }
+            });
+        }
+
+        // 2. Add remaining keys (orphaned or from other lists)
+        Object.keys(criteriaSums).forEach(k => {
+            if (!processedKeys.has(k)) {
+                orderedCriteria.push({
+                    key: k,
+                    label: labels[k] || k,
+                    avg: criteriaSums[k] / criteriaCounts[k],
+                    count: criteriaCounts[k],
+                    isPonderable: true, // Default to true if unknown
+                    step: 0.1
+                });
+            }
+        });
+
+        // Split into Ponderable / Non-Ponderable
+        const ponderable = orderedCriteria.filter(c => c.isPonderable);
+        const nonPonderable = orderedCriteria.filter(c => !c.isPonderable);
 
         // Process Tags (50% Rule)
         const minThreshold = Math.ceil(reviews.length / 2);
@@ -248,10 +297,11 @@ export const GroupPage: React.FC = () => {
             count: reviews.length,
             mainPhoto: photos[0] || null,
             photos,
-            criteria,
+            ponderable,
+            nonPonderable,
             tags: consensusTags
         };
-    }, [reviews]);
+    }, [reviews, primaryListCriteria]);
 
     // Aggregate Lists
     const relatedLists = useMemo(() => {
@@ -294,9 +344,26 @@ export const GroupPage: React.FC = () => {
             const primaryId = relatedLists[0]; // Pick the first list
 
             try {
-                // Get List Name
+                // Get List Name & Definition
                 const lSnap = await getDoc(doc(db, 'lists', primaryId));
-                if (lSnap.exists()) setPrimaryListName(lSnap.data().name);
+                if (lSnap.exists()) {
+                    const data = lSnap.data();
+                    setPrimaryListName(data.name);
+
+                    // Extract Criteria Definition (Array vs Map)
+                    let criteriaDef: any[] = [];
+                    if (data.criteriaDefinition) {
+                        if (Array.isArray(data.criteriaDefinition)) {
+                            criteriaDef = data.criteriaDefinition;
+                        } else {
+                            criteriaDef = Object.keys(data.criteriaDefinition).map(k => ({
+                                id: k,
+                                ...data.criteriaDefinition[k]
+                            }));
+                        }
+                    }
+                    setPrimaryListCriteria(criteriaDef);
+                }
 
                 // Get All Reviews for this List to calculate averages
                 const q = query(collectionGroup(db, 'reviews'), where('listId', '==', primaryId));
@@ -492,17 +559,19 @@ export const GroupPage: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* 1. Detailed Stats (Moved from Main) */}
-                    {stats && stats.criteria.length > 0 && (
+                    {/* 1. Detailed Stats (Refactored) */}
+                    {stats && (stats.ponderable.length > 0 || stats.nonPonderable.length > 0) && (
                         <div className="bg-[#151b2e] rounded-xl border border-white/10 p-5">
                             <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm uppercase tracking-wider mb-4 flex justify-between items-center">
                                 <span>Puntuaciones</span>
                             </h3>
+
+                            {/* Ponderable (Charts) */}
                             <div className="space-y-4">
-                                {stats.criteria.map((c, i) => {
+                                {stats.ponderable.map((c, i) => {
                                     const listAvg = listStats?.[c.key];
                                     return (
-                                        <div key={i}>
+                                        <div key={c.key}>
                                             <div className="flex justify-between items-end mb-1">
                                                 <span className="text-gray-400 text-xs font-medium">{c.label}</span>
                                                 <div className="flex items-center gap-2">
@@ -531,6 +600,18 @@ export const GroupPage: React.FC = () => {
                                     );
                                 })}
                             </div>
+
+                            {/* Non-Ponderable (Gauges) */}
+                            {stats.nonPonderable.length > 0 && (
+                                <div className="mt-6 pt-4 border-t border-white/5">
+                                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Otros Detalles</h4>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                                        {stats.nonPonderable.map((c) => (
+                                            <NonPonderableGauge key={c.key} score={c.avg} label={c.label} size={70} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -541,15 +622,30 @@ export const GroupPage: React.FC = () => {
                                 Listas Relacionadas
                             </h3>
                             <div className="space-y-3">
-                                {listsDetails.slice(0, 5).map(l => (
+                                {listsDetails.slice(0, 5).map((l: any) => (
                                     <Link key={l.id} to={`/list/${l.id}`} className="block group">
-                                        <div className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors">
-                                            <div className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${l.parentListId ? 'bg-purple-500/10 text-purple-400 group-hover:bg-purple-500 group-hover:text-white' : 'bg-gray-800 text-gray-500 group-hover:bg-indigo-500 group-hover:text-white'}`}>
-                                                <ListIcon className="w-4 h-4" />
+                                        <div className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors border border-transparent hover:border-white/5">
+                                            {/* Thumbnail */}
+                                            <div className={`w-12 h-12 shrink-0 rounded overflow-hidden flex items-center justify-center transition-colors bg-gray-800`}>
+                                                {l.photoUrl ? (
+                                                    <img src={l.photoUrl} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <ListIcon className={`w-5 h-5 ${l.parentListId ? 'text-purple-400' : 'text-gray-500'}`} />
+                                                )}
                                             </div>
-                                            <div className="min-w-0">
-                                                <div className={`font-bold text-sm truncate transition-colors ${l.parentListId ? 'text-purple-300 group-hover:text-purple-400' : 'text-gray-200 group-hover:text-indigo-400'}`}>{l.name}</div>
-                                                <div className="text-xs text-gray-500 truncate">Por {l.author || 'Usuario'}</div>
+
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`font-bold text-sm truncate transition-colors ${l.parentListId ? 'text-purple-300 group-hover:text-purple-400' : 'text-gray-200 group-hover:text-indigo-400'}`}>
+                                                        {l.name}
+                                                    </div>
+                                                    {l.parentListId && (
+                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 uppercase tracking-wide font-bold">Sub</span>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-gray-500 truncate mt-0.5">
+                                                    {l.itemCount ? `${l.itemCount} lugares` : 'Ver lista'}
+                                                </div>
                                             </div>
                                         </div>
                                     </Link>
@@ -562,20 +658,37 @@ export const GroupPage: React.FC = () => {
                 {/* Main Content (Left) */}
                 <div className="order-2 lg:col-span-8 lg:order-first">
 
-                    {/* Photos (Horizontal Scroll) */}
+                    {/* Photos (Horizontal Scroll -> Grid with Lightbox) */}
                     {stats && stats.photos.length > 0 && (
                         <div className="mb-8">
                             <h3 className="font-bold text-white text-lg mb-4 flex items-center gap-2">
-                                <Camera className="w-5 h-5 text-indigo-500" />
-                                Fotos
+                                <ImageIcon className="w-5 h-5 text-indigo-500" />
+                                Galería ({stats.photos.length})
                             </h3>
-                            <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x">
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                                 {stats.photos.map((url, i) => (
-                                    <div key={i} className="flex-shrink-0 w-32 h-32 rounded-lg overflow-hidden border border-white/10 snap-start bg-gray-800">
-                                        <img src={url} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" alt={`Foto ${i}`} />
+                                    <div
+                                        key={i}
+                                        onClick={() => {
+                                            setLightboxIndex(i);
+                                            setIsLightboxOpen(true);
+                                        }}
+                                        className="aspect-square rounded-xl overflow-hidden cursor-pointer bg-gray-800 relative group border border-white/10"
+                                    >
+                                        <img src={url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={`Foto ${i}`} />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                            <ZoomIn className="w-6 h-6 text-white drop-shadow-md" />
+                                        </div>
                                     </div>
                                 ))}
                             </div>
+
+                            <Lightbox
+                                isOpen={isLightboxOpen}
+                                onClose={() => setIsLightboxOpen(false)}
+                                images={stats.photos}
+                                initialIndex={lightboxIndex}
+                            />
                         </div>
                     )}
 

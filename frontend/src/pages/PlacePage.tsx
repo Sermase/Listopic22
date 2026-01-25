@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, X, AlertTriangle
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, X, AlertTriangle, Image as ImageIcon, ZoomIn
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
@@ -14,6 +14,7 @@ import { doc, getDoc, setDoc, deleteDoc, updateDoc, increment, serverTimestamp, 
 import { db } from '../firebase';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { ReportModal } from '../components/ReportModal';
+import { Lightbox } from '../components/Lightbox';
 
 import { ListSelector } from '../components/ListSelector';
 
@@ -25,7 +26,9 @@ export const PlacePage: React.FC = () => {
     const searchParams = new URLSearchParams(location.search);
     const fromListId = searchParams.get('listId');
 
-    const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes'>('reviews');
+    const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos'>('reviews');
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [isFollowed, setIsFollowed] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -161,6 +164,30 @@ export const PlacePage: React.FC = () => {
             listId: d.listId
         })).sort((a, b) => b.avg - a.avg);
     }, [place?.reviews]);
+
+
+    // Aggregate Photos for Gallery
+    const galleryPhotos = useMemo(() => {
+        if (!place) return [];
+        const set = new Set<string>();
+
+        // 1. Place Photos
+        const placeAny = place as any;
+        if (placeAny.photos && Array.isArray(placeAny.photos)) {
+            placeAny.photos.forEach((p: string) => p && set.add(p));
+        } else if (place.photoUrl) {
+            set.add(place.photoUrl);
+        }
+
+        // 2. Review Photos
+        if (place.reviews) {
+            place.reviews.forEach(r => {
+                if (r.photoUrl) set.add(r.photoUrl);
+            });
+        }
+
+        return Array.from(set);
+    }, [place]);
 
 
 
@@ -485,6 +512,15 @@ export const PlacePage: React.FC = () => {
                         >
                             <Bookmark className="w-4 h-4" /> Listas ({place.relatedLists?.length || 0})
                         </button>
+                        <button
+                            onClick={() => setActiveTab('photos')}
+                            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap border-b-2 ${activeTab === 'photos'
+                                ? 'border-indigo-500 text-indigo-400'
+                                : 'border-transparent text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <ImageIcon className="w-4 h-4" /> Fotos ({galleryPhotos.length})
+                        </button>
                     </div>
 
 
@@ -588,20 +624,28 @@ export const PlacePage: React.FC = () => {
                                                     Listas ({mainLists.length})
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    {mainLists.map(list => (
+                                                    {mainLists.map((list: any) => (
                                                         <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                                                            <div className="bg-[#151b2e] border border-white/10 rounded-xl p-4 hover:border-indigo-500/50 transition-colors h-full flex flex-col justify-between">
-                                                                <div>
-                                                                    <div className="flex items-start justify-between mb-2">
-                                                                        <div className="bg-indigo-500/10 p-2 rounded-lg text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
-                                                                            <ListIcon className="w-5 h-5" />
+                                                            <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all h-full flex flex-col">
+                                                                <div className="h-32 bg-gray-800 relative">
+                                                                    {list.photoUrl ? (
+                                                                        <img src={list.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                                    ) : (
+                                                                        <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                                                                            <ListIcon className="w-10 h-10 text-gray-600" />
                                                                         </div>
-                                                                    </div>
-                                                                    <h3 className="text-white font-bold text-lg mb-1 truncate">{list.name}</h3>
+                                                                    )}
                                                                 </div>
-                                                                <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                                                                    <p className="text-sm text-gray-500">Por {list.authorName || 'Anónimo'}</p>
-                                                                    <span className="text-xs text-indigo-400 font-medium group-hover:underline">Ver Lista</span>
+                                                                <div className="p-4 flex-1 flex flex-col justify-between">
+                                                                    <div>
+                                                                        <h3 className="text-white font-bold text-lg mb-1 truncate">{list.name}</h3>
+                                                                        <p className="text-gray-500 text-xs line-clamp-2">{list.description}</p>
+                                                                    </div>
+                                                                    <div className="mt-4 pt-2 border-t border-white/5 flex items-center justify-between">
+                                                                        {/* Hiding Author as requested */}
+                                                                        <span className="text-xs text-indigo-400 font-medium group-hover:underline">Ver Lista</span>
+                                                                        <span className="text-xs text-gray-500">{list.itemCount || 0} lugares</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </Link>
@@ -617,23 +661,31 @@ export const PlacePage: React.FC = () => {
                                                     Sublistas ({subLists.length})
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    {subLists.map(list => (
+                                                    {subLists.map((list: any) => (
                                                         <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                                                            <div className="bg-[#151b2e] border border-white/10 rounded-xl p-4 hover:border-purple-500/50 transition-colors h-full flex flex-col justify-between relative overflow-hidden">
-                                                                <div className="absolute top-0 right-0 p-2 opacity-50">
-                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">Sublista</span>
-                                                                </div>
-                                                                <div>
-                                                                    <div className="flex items-start justify-between mb-2">
-                                                                        <div className="bg-purple-500/10 p-2 rounded-lg text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
-                                                                            <ListIcon className="w-5 h-5" />
+                                                            <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all h-full flex flex-col relative">
+                                                                <div className="h-32 bg-gray-800 relative">
+                                                                    {list.photoUrl ? (
+                                                                        <img src={list.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                                    ) : (
+                                                                        <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                                                                            <ListIcon className="w-10 h-10 text-gray-600" />
                                                                         </div>
+                                                                    )}
+                                                                    <div className="absolute top-2 right-2 p-1 bg-black/50 rounded backdrop-blur-md">
+                                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">Sublista</span>
                                                                     </div>
-                                                                    <h3 className="text-white font-bold text-lg mb-1 truncate pr-16">{list.name}</h3>
                                                                 </div>
-                                                                <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                                                                    <p className="text-sm text-gray-500">Por {list.authorName || 'Anónimo'}</p>
-                                                                    <span className="text-xs text-purple-400 font-medium group-hover:underline">Ver Sublista</span>
+                                                                <div className="p-4 flex-1 flex flex-col justify-between">
+                                                                    <div>
+                                                                        <h3 className="text-white font-bold text-lg mb-1 truncate">{list.name}</h3>
+                                                                        <p className="text-gray-500 text-xs line-clamp-2">{list.description}</p>
+                                                                    </div>
+                                                                    <div className="mt-4 pt-2 border-t border-white/5 flex items-center justify-between">
+                                                                        {/* Hiding Author */}
+                                                                        <span className="text-xs text-purple-400 font-medium group-hover:underline">Ver Sublista</span>
+                                                                        <span className="text-xs text-gray-500">{list.itemCount || 0} lugares</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </Link>
@@ -646,6 +698,45 @@ export const PlacePage: React.FC = () => {
                             })()}
                         </div>
                     )}
+
+                    {activeTab === 'photos' && (
+                        <div className="animate-fade-in">
+                            {galleryPhotos.length > 0 ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                    {galleryPhotos.map((photo, idx) => (
+                                        <div
+                                            key={idx}
+                                            onClick={() => {
+                                                setLightboxIndex(idx);
+                                                setIsLightboxOpen(true);
+                                            }}
+                                            className="aspect-square rounded-xl overflow-hidden bg-gray-800 cursor-pointer group relative border border-white/5 hover:border-indigo-500/50 transition-all"
+                                        >
+                                            <img src={photo} alt="Lugar" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                <div className="bg-black/50 backdrop-blur-sm p-2 rounded-full text-white">
+                                                    <ZoomIn className="w-5 h-5" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="py-16 text-center bg-[#151b2e] rounded-xl border border-dashed border-white/10">
+                                    <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                                    <h3 className="text-white font-bold">Sin fotos</h3>
+                                    <p className="text-gray-500 text-sm">Aún no hay fotos de este lugar.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <Lightbox
+                        isOpen={isLightboxOpen}
+                        onClose={() => setIsLightboxOpen(false)}
+                        images={galleryPhotos}
+                        initialIndex={lightboxIndex}
+                    />
                 </div>
             </main >
 
