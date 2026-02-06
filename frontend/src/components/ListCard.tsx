@@ -6,6 +6,7 @@ import { useLike } from '../hooks/useLike';
 import { SublistsModal } from './SublistsModal';
 import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { db } from '../firebase';
+import { SmartImage } from './SmartImage';
 
 interface ListCardProps {
     list: ListEntity;
@@ -46,7 +47,12 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
             <div className="group relative bg-[#151b2e] rounded-xl overflow-hidden border border-white/5 hover:border-indigo-500/50 transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/20 h-full flex flex-col">
                 <Link to={`/list/${list.id}`} className="block h-48 w-full bg-gray-800 relative overflow-hidden">
                     {(list.mainImageUrl || list.photoUrl) ? (
-                        <img src={list.mainImageUrl || list.photoUrl} alt={list.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <SmartImage
+                            src={list.mainImageUrl || list.photoUrl}
+                            width={400}
+                            alt={list.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
                     ) : (
                         <div className="w-full h-full bg-gradient-to-br from-indigo-900/50 to-purple-900/50 flex items-center justify-center">
                             <span className="text-4xl">📃</span>

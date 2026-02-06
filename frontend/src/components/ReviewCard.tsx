@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '../firebase';
 import { NonPonderableGauge } from './NonPonderableGauge';
+import { SmartImage } from './SmartImage';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -353,17 +354,24 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     )}
 
                     {review.photoUrl ? (
-                        <img
+                        <SmartImage
                             src={review.photoUrl}
+                            width={600}
                             alt={review.itemName}
                             className="w-full h-auto object-cover block"
                         />
                     ) : (
                         review.placeMainImage ? (
-                            <img src={review.placeMainImage} alt={review.placeName} className="w-full h-full object-cover object-center opacity-60 group-hover/image:scale-105 transition-transform duration-700" />
+                            <SmartImage
+                                src={review.placeMainImage}
+                                width={600}
+                                alt={review.placeName}
+                                className="w-full h-full object-cover object-center opacity-60 group-hover/image:scale-105 transition-transform duration-700"
+                            />
                         ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
                                 <MapPin className="w-8 h-8 mb-1 opacity-20" />
+                                <span className="text-xs font-bold opacity-20 text-center px-4">{review.placeName}</span>
                             </div>
                         )
                     )}

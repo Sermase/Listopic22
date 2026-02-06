@@ -21,5 +21,6 @@ module.exports = {
     ...require('./modules/notifications'),
     ...require('./modules/chat'),
     ...require('./modules/social'), // <-- Social Graph Consistency
+    ...require('./modules/images')  // <-- Image Processing
 };
 // Force redeploy

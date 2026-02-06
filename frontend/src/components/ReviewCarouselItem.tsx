@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, User } from 'lucide-react';
 import { type ReviewEntity } from '../hooks/useListDetails';
+import { SmartImage } from './SmartImage';
 
 interface ReviewCarouselItemProps {
     review: ReviewEntity;
@@ -24,8 +25,9 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
             {/* Background Image */}
             <div className="absolute inset-0">
                 {review.photoUrl || review.placeMainImage ? (
-                    <img
+                    <SmartImage
                         src={review.photoUrl || review.placeMainImage}
+                        width={300}
                         alt={review.itemName}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
