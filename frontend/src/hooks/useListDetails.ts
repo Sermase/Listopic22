@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { doc, getDoc, collectionGroup, query, where, orderBy, getDocs, Timestamp, collection } from 'firebase/firestore';
+import { doc, getDoc, query, where, orderBy, getDocs, Timestamp, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ListEntity } from './useLists';
 
@@ -40,6 +41,13 @@ export interface ReviewEntity {
     tags?: string[];
     userTags?: string[];
 }
+
+const toMillis = (value: any): number => {
+    if (!value) return 0;
+    if (typeof value?.toMillis === 'function') return value.toMillis();
+    if (typeof value?.seconds === 'number') return value.seconds * 1000;
+    return 0;
+};
 
 export const useListDetails = (listId: string | undefined) => {
     const [list, setList] = useState<ListEntity | null>(null);
@@ -85,31 +93,23 @@ export const useListDetails = (listId: string | undefined) => {
                 }
 
                 // 2. Fetch List Items (Reviews)
-                const reviewsRef = collectionGroup(db, 'reviews');
                 let rawReviews: ReviewEntity[] = [];
 
                 if (listData?.parentListId) {
-                    // Sublist Case: Fetch reviews where sublistId == this list's ID
-                    const q = query(
-                        reviewsRef,
-                        where('sublistId', '==', listId),
-                        orderBy('createdAt', 'desc')
-                    );
+                    // Sublist case: read from parent list subcollection and filter by sublistId.
+                    const q = query(collection(db, 'lists', listData.parentListId, 'reviews'), where('sublistId', '==', listId));
                     const snap = await getDocs(q);
                     rawReviews = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
                 } else {
-                    // Main List Case: Fetch reviews where listId == this list's ID
-                    // Since we now save ParentID as listId even for sublist items, this query automatically gets EVERYTHING.
-                    const q = query(
-                        reviewsRef,
-                        where('listId', '==', listId),
-                        orderBy('createdAt', 'desc')
-                    );
+                    // Main list case: read directly from list subcollection.
+                    const q = query(collection(db, 'lists', listId, 'reviews'), orderBy('createdAt', 'desc'));
                     const snap = await getDocs(q);
                     rawReviews = snap.docs
                         .map(d => ({ id: d.id, ...d.data() }))
                         .filter((r: any) => r.visibility !== 'private') as ReviewEntity[];
                 }
+
+                rawReviews.sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
                 // --- Enrich Data ---
                 // We need Places and Users. Lists are not needed as we have the parent list.

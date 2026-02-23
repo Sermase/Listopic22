@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, where, updateDoc, increment } from 'firebase/firestore';
+import { useState, useCallback } from 'react';
+import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, orderBy, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,7 +7,7 @@ export interface ArchiveEntity {
     id: string;
     name: string;
     description?: string;
-    createdAt: any;
+    createdAt: unknown;
     itemCount: number;
     // For UI ease, we might want to preview images, but that's complex to maintain.
 }
@@ -19,7 +19,7 @@ export interface SavedItemEntity {
     type: 'place' | 'review' | 'group' | 'list';
     name: string;
     photoUrl?: string; // Snapshot for display
-    savedAt: any;
+    savedAt: unknown;
     subtitle?: string; // e.g., Place name for a review
     route: string; // Pre-calculated route to navigate to
 }

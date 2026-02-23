@@ -6,6 +6,7 @@ import { db, functions, storage } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users } from 'lucide-react';
+import { DeveloperItemModal } from '../components/developer/DeveloperItemModal';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -32,6 +33,10 @@ export const DeveloperPage: React.FC = () => {
     const [consoleResults, setConsoleResults] = useState<any[]>([]);
     const [loadingConsole, setLoadingConsole] = useState(false);
     const [consoleError, setConsoleError] = useState<string | null>(null);
+
+    // Modal State
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
     // Reports State
     const [reports, setReports] = useState<any[]>([]);
@@ -484,7 +489,14 @@ export const DeveloperPage: React.FC = () => {
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
                                                 {consoleResults.map(item => (
-                                                    <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                                                    <tr
+                                                        key={item.id}
+                                                        className="hover:bg-white/5 transition-colors cursor-pointer"
+                                                        onClick={() => {
+                                                            setSelectedItem(item);
+                                                            setIsModalOpen(true);
+                                                        }}
+                                                    >
                                                         <td className="p-4 font-mono text-xs text-indigo-400">{item.id}</td>
                                                         <td className="p-4 font-medium">{item.name || item.displayName || item.title || '-'}</td>
                                                         <td className="p-4 text-xs">{item.userId || item.ownerId || item.email || '-'}</td>
@@ -493,12 +505,14 @@ export const DeveloperPage: React.FC = () => {
                                                         </td>
                                                         <td className="p-4">
                                                             <button
-                                                                onClick={() => {
-                                                                    alert(JSON.stringify(item, null, 2));
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedItem(item);
+                                                                    setIsModalOpen(true);
                                                                 }}
                                                                 className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded hover:bg-indigo-500/30"
                                                             >
-                                                                JSON
+                                                                Editar
                                                             </button>
                                                         </td>
                                                     </tr>
@@ -514,6 +528,14 @@ export const DeveloperPage: React.FC = () => {
                                         </table>
                                     </div>
                                 </div>
+
+                                <DeveloperItemModal
+                                    isOpen={isModalOpen}
+                                    onClose={() => setIsModalOpen(false)}
+                                    collectionName={consoleParams.collection}
+                                    item={selectedItem}
+                                    onSaved={handleConsoleSearch}
+                                />
                             </div >
                         )}
 

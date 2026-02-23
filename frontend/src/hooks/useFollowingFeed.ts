@@ -1,17 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, limit, collectionGroup, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, limit, doc, getDoc, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import type { ReviewEntity } from './useListDetails';
-
-// Helper to chunk array
-const chunkArray = (arr: string[], size: number) => {
-    const res = [];
-    for (let i = 0; i < arr.length; i += size) {
-        res.push(arr.slice(i, i + size));
-    }
-    return res;
-};
 
 export const useFollowingFeed = () => {
     const { user } = useAuth();
@@ -42,15 +34,50 @@ export const useFollowingFeed = () => {
                     return;
                 }
 
-                // 2. Chunk queries (Firestore 'in' limit 10)
-                const chunks = chunkArray(followedIds, 10);
-                const queries = chunks.map(chunk =>
-                    query(collectionGroup(db, 'reviews'), where('userId', 'in', chunk), limit(20)) // Limit per chunk
-                );
+                // 2. Build a bounded set of readable list IDs and query subcollections directly.
+                const [publicListsSnap, followingListsSnap, ownListsSnap] = await Promise.all([
+                    getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), limit(50))),
+                    getDocs(query(collection(db, 'users', user.uid, 'followingLists'), limit(50))),
+                    getDocs(query(collection(db, 'lists'), where('userId', '==', user.uid), limit(30)))
+                ]);
 
-                const snapshots = await Promise.all(queries.map(q => getDocs(q)));
+                const candidateListIds = Array.from(new Set([
+                    ...publicListsSnap.docs.map((d) => d.id),
+                    ...followingListsSnap.docs.map((d) => d.id),
+                    ...ownListsSnap.docs.map((d) => d.id)
+                ])).slice(0, 60);
 
-                let allReviews = snapshots.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data() } as ReviewEntity)));
+                const followedSet = new Set(followedIds);
+                const reviewsPerList = await Promise.all(candidateListIds.map(async (listId) => {
+                    try {
+                        const listReviewsSnap = await getDocs(
+                            query(collection(db, 'lists', listId, 'reviews'), orderBy('createdAt', 'desc'), limit(10))
+                        );
+                        return listReviewsSnap.docs
+                            .map((reviewDoc) => ({
+                                id: reviewDoc.id,
+                                ...(reviewDoc.data() as any),
+                                listId
+                            } as ReviewEntity))
+                            .filter((review) => {
+                                const authorId = review.userId || (review as any).authorId;
+                                return typeof authorId === 'string' && followedSet.has(authorId);
+                            });
+                    } catch (error: any) {
+                        if (error?.code !== 'permission-denied') {
+                            console.warn(`Error loading following reviews for list ${listId}`, error);
+                        }
+                        return [] as ReviewEntity[];
+                    }
+                }));
+
+                const dedupMap = new Map<string, ReviewEntity>();
+                for (const listReviews of reviewsPerList) {
+                    for (const review of listReviews) {
+                        dedupMap.set(`${review.listId || 'unknown'}:${review.id}`, review);
+                    }
+                }
+                const allReviews = Array.from(dedupMap.values());
 
                 // 4. Enrich Data (Fetch Users, Lists, and Places)
                 const userIds = Array.from(new Set(allReviews.map(r => r.userId).filter(Boolean))) as string[];
@@ -58,14 +85,32 @@ export const useFollowingFeed = () => {
                 const placeIds = Array.from(new Set(allReviews.map(r => r.placeId).filter(Boolean))) as string[];
 
                 const [userSnaps, listSnaps, placeSnaps] = await Promise.all([
-                    Promise.all(userIds.map(uid => getDoc(doc(db, 'users', uid)))),
-                    Promise.all(listIds.map(lid => getDoc(doc(db, 'lists', lid)))),
-                    Promise.all(placeIds.map(pid => getDoc(doc(db, 'places', pid))))
+                    Promise.all(userIds.map(async (uid) => {
+                        try {
+                            return await getDoc(doc(db, 'users', uid));
+                        } catch {
+                            return null;
+                        }
+                    })),
+                    Promise.all(listIds.map(async (lid) => {
+                        try {
+                            return await getDoc(doc(db, 'lists', lid));
+                        } catch {
+                            return null;
+                        }
+                    })),
+                    Promise.all(placeIds.map(async (pid) => {
+                        try {
+                            return await getDoc(doc(db, 'places', pid));
+                        } catch {
+                            return null;
+                        }
+                    }))
                 ]);
 
-                const userMap = new Map(userSnaps.map(s => [s.id, s.data() as any]));
-                const listMap = new Map(listSnaps.map(s => [s.id, s.data() as any]));
-                const placeMap = new Map(placeSnaps.map(s => [s.id, s.data() as any]));
+                const userMap = new Map(userSnaps.filter((s): s is NonNullable<typeof s> => !!s).map(s => [s.id, s.data() as any]));
+                const listMap = new Map(listSnaps.filter((s): s is NonNullable<typeof s> => !!s).map(s => [s.id, s.data() as any]));
+                const placeMap = new Map(placeSnaps.filter((s): s is NonNullable<typeof s> => !!s).map(s => [s.id, s.data() as any]));
 
                 const enrichedReviews = allReviews.map(r => {
                     const u = r.userId ? userMap.get(r.userId) : null;

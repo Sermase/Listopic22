@@ -30,6 +30,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ onClose, o
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
             setLoading(false);
+        }, (error) => {
+            console.error("NotificationModal snapshot error:", error);
+            setLoading(false);
         });
 
         return () => unsubscribe();

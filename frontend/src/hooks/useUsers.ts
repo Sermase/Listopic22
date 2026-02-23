@@ -28,7 +28,7 @@ export const useUsers = () => {
                 try {
                     const snap = await getDocs(q);
                     setUsers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserEntity)));
-                } catch (idxError) {
+                } catch {
                     console.warn("Index missing for followersCount, falling back to simple fetch");
                     // Fallback: fetch recent users or just default order
                     q = query(collection(db, 'users'), limit(15));

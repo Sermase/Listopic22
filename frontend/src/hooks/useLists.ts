@@ -55,7 +55,7 @@ export interface ListEntity {
     // Stats
     criteriaAverages: Record<string, number>;
     criteriaAveragesUpdatedAt?: Timestamp;
-    reactions: Record<string, any>;
+    reactions: Record<string, unknown>;
 }
 
 export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', userId?: string, includePrivate = false) => {
@@ -121,7 +121,7 @@ export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', us
                 }
 
                 const querySnapshot = await getDocs(q);
-                let fetchedLists = querySnapshot.docs.map(doc => ({
+                const fetchedLists = querySnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 })) as ListEntity[];
@@ -129,16 +129,17 @@ export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', us
                 // Client-side Sort for 'top_rated'
                 if (filter === 'top_rated') {
                     fetchedLists.sort((a, b) => {
-                        const scoreA = a.averageRating || (a as any).avgScore || 0;
-                        const scoreB = b.averageRating || (b as any).avgScore || 0;
+                        const scoreA = a.averageRating || a.avgScore || 0;
+                        const scoreB = b.averageRating || b.avgScore || 0;
                         return scoreB - scoreA;
                     });
                 }
 
                 setLists(fetchedLists);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("Error fetching lists:", err);
-                setError(err.message);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                setError((err as any).message);
             } finally {
                 setLoading(false);
             }

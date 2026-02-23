@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import { collection, query, where, orderBy, getDocs, doc, getDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, MoreVertical, Flag, Image as ImageIcon, ZoomIn } from 'lucide-react';
@@ -23,9 +23,17 @@ const getScoreColor = (score: number) => {
 
 import { ListSelector } from '../components/ListSelector';
 
+const toMillis = (value: any): number => {
+    if (!value) return 0;
+    if (typeof value?.toMillis === 'function') return value.toMillis();
+    if (typeof value?.seconds === 'number') return value.seconds * 1000;
+    return 0;
+};
+
 
 export const GroupPage: React.FC = () => {
     const { placeId, itemName } = useParams<{ placeId: string; itemName: string }>();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const decodedName = decodeURIComponent(itemName || '');
 
@@ -95,49 +103,63 @@ export const GroupPage: React.FC = () => {
                 setPlaceName(fetchedPlaceName);
             }
 
-            // Try strict query first
-            let feats: ReviewEntity[] = [];
-            try {
-                // ... strict query ...
-                const q = query(
-                    collectionGroup(db, 'reviews'),
-                    where('placeId', '==', placeId),
-                    where('itemName', '==', decodedName),
-                    orderBy('createdAt', 'desc')
-                );
-                const snap = await getDocs(q);
-                feats = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
-                console.log("Strict Query Results:", feats.length);
-            } catch (idxError) {
-                console.warn("Strict query failed (possible missing index), falling back to client-side filter", idxError);
+            const [publicListsSnap, followingListsSnap, ownListsSnap] = await Promise.all([
+                getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), limit(60))),
+                user ? getDocs(query(collection(db, 'users', user.uid, 'followingLists'), limit(60))) : Promise.resolve(null),
+                user ? getDocs(query(collection(db, 'lists'), where('userId', '==', user.uid), limit(40))) : Promise.resolve(null)
+            ]);
+
+            const candidateListIds = Array.from(new Set([
+                ...publicListsSnap.docs.map((d) => d.id),
+                ...(followingListsSnap ? followingListsSnap.docs.map((d) => d.id) : []),
+                ...(ownListsSnap ? ownListsSnap.docs.map((d) => d.id) : [])
+            ])).slice(0, 80);
+
+            const reviewsByList = await Promise.all(candidateListIds.map(async (candidateListId) => {
+                try {
+                    const listReviewsSnap = await getDocs(
+                        query(collection(db, 'lists', candidateListId, 'reviews'), where('placeId', '==', placeId), limit(25))
+                    );
+                    return listReviewsSnap.docs.map((reviewDoc) => ({
+                        id: reviewDoc.id,
+                        ...(reviewDoc.data() as any),
+                        listId: candidateListId
+                    } as ReviewEntity));
+                } catch (error: any) {
+                    if (error?.code !== 'permission-denied') {
+                        console.warn(`Error loading group reviews for list ${candidateListId}`, error);
+                    }
+                    return [] as ReviewEntity[];
+                }
+            }));
+
+            const reviewMap = new Map<string, ReviewEntity>();
+            for (const listReviews of reviewsByList) {
+                for (const review of listReviews) {
+                    reviewMap.set(`${review.listId || 'unknown'}:${review.id}`, review);
+                }
             }
 
-            // Fallback: If strict query gave 0 or failed, fetch all reviews for place and filter
-            if (feats.length === 0) {
-                const fallbackQ = query(
-                    collectionGroup(db, 'reviews'),
-                    where('placeId', '==', placeId)
-                );
-                const fallbackSnap = await getDocs(fallbackQ);
-                const allPlaceReviews = fallbackSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
-                console.log("Fallback: All Place Reviews:", allPlaceReviews.length);
+            const allPlaceReviews = Array.from(reviewMap.values());
+            console.log("Group query candidate reviews:", allPlaceReviews.length);
 
-                // Robust normalization for filtering
-                const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                const targetName = normalize(decodedName);
-                const normalizedPlaceName = normalize(fetchedPlaceName);
+            // Robust normalization for filtering
+            const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const targetName = normalize(decodedName);
+            const normalizedPlaceName = normalize(fetchedPlaceName);
 
-                feats = allPlaceReviews.filter(r => {
+            const feats: ReviewEntity[] = allPlaceReviews
+                .filter(r => {
                     if (r.itemName) {
                         return normalize(r.itemName) === targetName;
                     }
                     // If review has no item name, it belongs to the Place.
                     // Include it ONLY if the current Group Page IS the Place Page (TargetName == PlaceName)
                     return normalizedPlaceName === targetName;
-                });
+                })
+                .sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
-                console.log("Fallback: Filtered Matches:", feats.length);
-            }
+            console.log("Group query filtered matches:", feats.length);
 
             // --- Enrichment: Users & Lists (FIX for missing names) ---
             const userIds = [...new Set(feats.map(r => r.userId || r.authorId).filter(Boolean))] as string[];
@@ -194,7 +216,7 @@ export const GroupPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [placeId, decodedName]); // Dependencies for callback
+    }, [placeId, decodedName, user?.uid]); // Dependencies for callback
 
     useEffect(() => {
         fetchData();
@@ -365,9 +387,8 @@ export const GroupPage: React.FC = () => {
                     setPrimaryListCriteria(criteriaDef);
                 }
 
-                // Get All Reviews for this List to calculate averages
-                const q = query(collectionGroup(db, 'reviews'), where('listId', '==', primaryId));
-                const snap = await getDocs(q);
+                // Get all reviews from the list subcollection to calculate averages.
+                const snap = await getDocs(collection(db, 'lists', primaryId, 'reviews'));
                 const lReviews = snap.docs.map(d => d.data() as ReviewEntity);
 
                 if (lReviews.length === 0) return;

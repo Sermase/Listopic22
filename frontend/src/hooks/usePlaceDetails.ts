@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { collectionGroup, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 
@@ -40,6 +41,14 @@ export interface PlaceDetails {
     category?: string;
 }
 
+ 
+const toMillis = (value: any): number => {
+    if (!value) return 0;
+    if (typeof value?.toMillis === 'function') return value.toMillis();
+    if (typeof value?.seconds === 'number') return value.seconds * 1000;
+    return 0;
+};
+
 export const usePlaceDetails = (placeId: string | undefined) => {
     const [place, setPlace] = useState<PlaceDetails | null>(null);
     const [loading, setLoading] = useState(true);
@@ -58,18 +67,49 @@ export const usePlaceDetails = (placeId: string | undefined) => {
             const placeDocSnap = await getDoc(placeDocRef);
             const placeData = placeDocSnap.exists() ? placeDocSnap.data() : null;
 
-            // 2. Query reviews
-            const reviewsQ = query(
-                collectionGroup(db, 'reviews'),
-                where('placeId', '==', placeId),
-                orderBy('createdAt', 'desc')
-            );
+            // 2. Build candidate readable lists and fetch place reviews from each subcollection.
+            const { getAuth } = await import('firebase/auth');
+            const currentUser = getAuth().currentUser;
 
-            const reviewsSnap = await getDocs(reviewsQ);
-            const reviews = reviewsSnap.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as ReviewEntity[];
+            const [publicListsSnap, followingListsSnap, ownListsSnap] = await Promise.all([
+                getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), limit(60))),
+                currentUser ? getDocs(query(collection(db, 'users', currentUser.uid, 'followingLists'), limit(60))) : Promise.resolve(null),
+                currentUser ? getDocs(query(collection(db, 'lists'), where('userId', '==', currentUser.uid), limit(40))) : Promise.resolve(null)
+            ]);
+
+            const candidateListIds = Array.from(new Set([
+                ...publicListsSnap.docs.map((d) => d.id),
+                ...(followingListsSnap ? followingListsSnap.docs.map((d) => d.id) : []),
+                ...(ownListsSnap ? ownListsSnap.docs.map((d) => d.id) : [])
+            ])).slice(0, 80);
+
+            const reviewsByList = await Promise.all(candidateListIds.map(async (listId) => {
+                try {
+                    const listReviewsSnap = await getDocs(
+                        query(collection(db, 'lists', listId, 'reviews'), where('placeId', '==', placeId), limit(20))
+                    );
+                    return listReviewsSnap.docs.map((reviewDoc) => ({
+                        id: reviewDoc.id,
+                        ...(reviewDoc.data() as Record<string, unknown>),
+                        listId
+                    } as ReviewEntity));
+                } catch (error: unknown) {
+                     
+                    if ((error as any)?.code !== 'permission-denied') {
+                        console.warn(`Failed loading place reviews for list ${listId}`, error);
+                    }
+                    return [] as ReviewEntity[];
+                }
+            }));
+
+            const reviewMap = new Map<string, ReviewEntity>();
+            for (const listReviews of reviewsByList) {
+                for (const review of listReviews) {
+                    reviewMap.set(`${review.listId || 'unknown'}:${review.id}`, review);
+                }
+            }
+
+            const reviews = Array.from(reviewMap.values()).sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
             if (reviews.length === 0 && !placeData) {
                 setError("No se encontraron datos para este lugar.");
@@ -88,7 +128,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                         if (userSnap.exists()) {
                             usersMap[uid] = userSnap.data();
                         }
-                    } catch (e) { console.warn("Failed fetch user", uid); }
+                    } catch { console.warn("Failed fetch user", uid); }
                 }));
             }
 
@@ -115,7 +155,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                                 });
                             }
                         }
-                    } catch (e) { console.warn("Failed fetch list", lid); }
+                    } catch { console.warn("Failed fetch list", lid); }
                 }));
             }
 
@@ -208,9 +248,10 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                 category
             });
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Error fetching place details:", err);
-            setError(err.message);
+             
+            setError((err as any).message);
         } finally {
             setLoading(false);
         }

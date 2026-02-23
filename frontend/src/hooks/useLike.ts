@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, deleteDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 
@@ -25,8 +25,9 @@ export const useLike = (listId: string, initialCount: number = 0) => {
                 if (docSnap.exists()) {
                     setIsLiked(true);
                 }
-            } catch (err: any) {
-                if (err.code !== 'permission-denied') {
+            } catch (err: unknown) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                if ((err as any).code !== 'permission-denied') {
                     console.error("Error checking like status:", err);
                 }
             }

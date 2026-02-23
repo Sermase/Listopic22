@@ -8,6 +8,28 @@ const db = getFirestore();
 
 // --- Badge Logic Engine ---
 
+function normalizeUserTypes(rawUserType) {
+    if (Array.isArray(rawUserType)) {
+        return rawUserType
+            .filter((entry) => typeof entry === "string")
+            .map((entry) => entry.trim())
+            .filter((entry) => entry.length > 0);
+    }
+    if (typeof rawUserType === "string") {
+        const normalized = rawUserType.trim();
+        return normalized ? [normalized] : [];
+    }
+    return [];
+}
+
+async function assertJefeAccess(uid, permissionMessage = "No tienes permiso para ejecutar esta operación.") {
+    const userDoc = await db.collection("users").doc(uid).get();
+    const userTypes = normalizeUserTypes(userDoc.data()?.userType);
+    if (!userDoc.exists || !userTypes.includes("jefe")) {
+        throw new HttpsError("permission-denied", permissionMessage);
+    }
+}
+
 /**
  * Calculate Level based on XP.
  * Formula: Level = Floor(Sqrt(XP / 50)) + 1
@@ -58,18 +80,8 @@ async function checkBadges(userId) {
 
         // 2. Photo Count Logic
         if (badge.type === "photo_count") {
-            // We need to count reviews with photos if photosCount is not on user. 
-            // Ideally we should have aggregated this. For now, let's query (careful with costs).
-            // Mitigation: Only query if user is reasonably active or we don't have the field.
-            // Better: Let's assume we will add photosCount to user soon, OR query it here.
-            // Querying is safest for "Photographer" badge which is high value.
-            const photosQuery = await db.collectionGroup("reviews")
-                .where("userId", "==", userId)
-                .where("hasPhotos", "==", true) // Assumes we save 'hasPhotos' or similar. 
-            // Using 'images' field array is not directly queryable for "non-empty" easily in standard firestore without a helper field.
-            // Alternative: client side or aggregation.
-            // Let's assume we simply rely on a new 'stats.photosCount' or similar we might add.
-            // For this turn, I will stick to 'custom' logic.
+            // Por ahora dependemos de userData.photosCount (mantenido por trigger).
+            // Si en el futuro falta ese agregado, se puede añadir un recálculo puntual aquí.
         }
 
         // 3. Custom Hardcoded Logic (based on ID)
@@ -137,7 +149,7 @@ async function checkBadges(userId) {
 // --- Triggers ---
 
 // Trigger: When a review is created/updated/deleted
-const onReviewWritten = onDocumentWritten("places/{placeId}/reviews/{reviewId}", async (event) => {
+const onReviewWritten = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
     const afterData = event.data?.after?.data();
     const beforeData = event.data?.before?.data();
 
@@ -180,9 +192,8 @@ const onReviewWritten = onDocumentWritten("places/{placeId}/reviews/{reviewId}",
  * @param {object} data - { userId: string }
  */
 const adminRecalculateUserGamification = onCall(async (request) => {
-    // Auth check: Ensure admin/jefe (handled by client check mostly, but secure apps verify token claims)
-    // For now, we trust the client-side check + maybe a simple claim check if we had custom claims.
     if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+    await assertJefeAccess(request.auth.uid);
 
     const { userId } = request.data;
     if (!userId) throw new HttpsError('invalid-argument', 'userId is required');
@@ -202,6 +213,7 @@ const adminRecalculateUserGamification = onCall(async (request) => {
  */
 const adminManageBadge = onCall(async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+    await assertJefeAccess(request.auth.uid);
 
     const { userId, badgeId, action } = request.data;
     if (!userId || !badgeId || !['award', 'revoke'].includes(action)) {
@@ -239,6 +251,7 @@ const adminManageBadge = onCall(async (request) => {
  */
 const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+    await assertJefeAccess(request.auth.uid);
 
     const logs = [];
     logs.push(`Starting Global Gamification Recalculation at ${new Date().toISOString()}`);
@@ -248,8 +261,7 @@ const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: '1
         logs.push(`Found ${usersSnap.size} users.`);
 
         let processed = 0;
-        const batchSize = 50; // Process in chunks if doing parallel, but checkBadges is async.
-        // We'll just loop sequentially to be safe on memory, or small parallel chunks.
+        // Procesamiento secuencial para minimizar presión de memoria/CPU en función larga.
 
         for (const doc of usersSnap.docs) {
             try {
@@ -274,6 +286,7 @@ const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: '1
  */
 const adminResetUserGamification = onCall(async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+    await assertJefeAccess(request.auth.uid);
 
     const { userId } = request.data;
     if (!userId) throw new HttpsError('invalid-argument', 'userId is required');
@@ -299,6 +312,7 @@ const adminResetUserGamification = onCall(async (request) => {
  */
 const adminResetAllGamification = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+    await assertJefeAccess(request.auth.uid);
 
     const logs = [];
     logs.push(`Starting Global Gamification RESET at ${new Date().toISOString()}`);
@@ -308,7 +322,7 @@ const adminResetAllGamification = onCall({ timeoutSeconds: 540, memory: '1GiB' }
         logs.push(`Found ${usersSnap.size} users.`);
 
         let processed = 0;
-        const batch = db.batch();
+        let batch = db.batch();
         let batchCount = 0;
 
         for (const doc of usersSnap.docs) {
@@ -325,7 +339,8 @@ const adminResetAllGamification = onCall({ timeoutSeconds: 540, memory: '1GiB' }
             if (batchCount >= 400) {
                 await batch.commit();
                 logs.push(`Reset batch of ${batchCount} users...`);
-                batchCount = 0; // Reset count but we need a new batch, logic above creates one implicitly? No, need new instance.
+                batchCount = 0;
+                batch = db.batch();
             }
         }
 

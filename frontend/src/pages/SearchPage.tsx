@@ -13,11 +13,10 @@ import { Search, Map as MapIcon, Users, List as ListIcon, MessageCircle, Filter,
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import { SearchQueryParser } from '../services/SearchQueryParser';
 import { ListItemCard } from '../components/ListItemCard';
-import { PlaceCard } from '../components/PlaceCard';
 // Note: You might need to import/create specific card adapters if the data shape differs significantly.
 
 // --- Custom Search Box (Real-time) ---
-const CustomSearchBox = (props: any) => {
+const CustomSearchBox = (props: Record<string, unknown>) => {
     const { query, refine } = useSearchBox(props);
     const [inputValue, setInputValue] = useState(query);
 
@@ -26,6 +25,7 @@ const CustomSearchBox = (props: any) => {
         if (query !== inputValue) {
             setInputValue(query);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 
     // Debounced Refinement
@@ -68,7 +68,7 @@ const CustomSearchBox = (props: any) => {
 };
 
 // --- Custom Hits ---
-const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
+const CustomHits = ({ activeTab }: { activeTab: string }) => {
 
     // Note: useInfiniteHits doesn't support 'limit' directly in the hook, 
     // but the parent <Configure hitsPerPage={limit} /> handles it.
@@ -77,7 +77,7 @@ const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
     // Filter Items by Image Requirement
     const filteredHits = useMemo(() => {
         if (activeTab === 'grouped_items' || activeTab === 'items') {
-            return hits.filter((hit: any) =>
+            return hits.filter((hit: Record<string, unknown>) =>
                 hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl || hit.image || hit.coverImage || (hit.photos && hit.photos[0]) || hit.picture
             );
         }
@@ -99,7 +99,7 @@ const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredHits.map((hit: any) => {
+                {filteredHits.map((hit: Record<string, unknown>) => {
                     // Removed Console Log
                     return (
                         <div key={hit.objectID}>
@@ -180,7 +180,7 @@ const CustomHits = ({ hitComponent: HitComponent, activeTab, limit }: any) => {
 
 // --- Federated Section Content ---
 // Separated to access useHits/useInfiniteHits context
-const FederatedSectionContent = ({ title, type, icon: Icon }: any) => {
+const FederatedSectionContent = ({ title, type, icon: Icon }: { title: string; type: string; icon: React.ElementType }) => {
     const { hits } = useInfiniteHits();
 
     // Check if there are any hits AFTER filtering rules (e.g. images for items)
@@ -191,7 +191,7 @@ const FederatedSectionContent = ({ title, type, icon: Icon }: any) => {
     // Let's apply valid hits check.
 
     const validHits = type === 'grouped_items'
-        ? hits.filter((h: any) => h.mainImageUrl || h.photoUrl || h.thumbnailUrl || h.image || h.coverImage || (h.photos && h.photos[0]) || h.picture)
+        ? hits.filter((h: Record<string, unknown>) => h.mainImageUrl || h.photoUrl || h.thumbnailUrl || h.image || h.coverImage || (h.photos && h.photos[0]) || h.picture)
         : hits;
 
     if (validHits.length === 0) return null;
@@ -211,7 +211,7 @@ const FederatedSectionContent = ({ title, type, icon: Icon }: any) => {
 };
 
 
-const FederatedSection = ({ indexName, title, type, icon: Icon }: any) => {
+const FederatedSection = ({ indexName, title, type, icon: Icon }: { indexName: string; title: string; type: string; icon: React.ElementType }) => {
     return (
         <Index indexName={indexName}>
             <Configure hitsPerPage={3} />
@@ -221,7 +221,7 @@ const FederatedSection = ({ indexName, title, type, icon: Icon }: any) => {
 };
 
 // --- Custom Refinement List ---
-const CustomRefinementList = (props: any) => {
+const CustomRefinementList = (props: Record<string, unknown> & { attribute: string; label: string }) => {
     const { items, refine } = useRefinementList(props);
     if (items.length === 0) return null;
 

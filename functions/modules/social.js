@@ -1,8 +1,6 @@
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
-const { sendNotification } = require("./notifications"); // Reuse notification logic
-
 const db = getFirestore();
 
 /**
@@ -24,8 +22,6 @@ exports.onUserFollowingWrite = onDocumentWritten("users/{uid}/following/{targetU
 
     try {
         if (isCreate) {
-            const followData = event.data.after.data();
-
             // 1. Create reciprocal follower document safely (Server-side)
             await followerRef.set({
                 uid: uid,
@@ -72,15 +68,21 @@ exports.onPlaceFollowingWrite = onDocumentWritten("users/{uid}/followingPlaces/{
 
     const userRef = db.collection("users").doc(uid);
     const placeRef = db.collection("places").doc(placeId);
+    const placeFollowerRef = placeRef.collection("followers").doc(uid);
 
     try {
         if (isCreate) {
             await userRef.update({ followingPlacesCount: admin.firestore.FieldValue.increment(1) });
             // Ensure place exists or merge
             await placeRef.set({ followersCount: admin.firestore.FieldValue.increment(1) }, { merge: true });
+            await placeFollowerRef.set({
+                userId: uid,
+                followedAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
         } else if (isDelete) {
             await userRef.update({ followingPlacesCount: admin.firestore.FieldValue.increment(-1) });
             await placeRef.update({ followersCount: admin.firestore.FieldValue.increment(-1) });
+            await placeFollowerRef.delete();
         }
     } catch (error) {
         console.error(`Error in onPlaceFollowingWrite for ${uid} -> ${placeId}:`, error);
@@ -102,6 +104,7 @@ exports.onListFollowingWrite = onDocumentWritten("users/{uid}/followingLists/{li
 
     const userRef = db.collection("users").doc(uid);
     const listRef = db.collection("lists").doc(listId);
+    const listFollowerRef = listRef.collection("followers").doc(uid);
 
     try {
         if (isCreate) {
@@ -112,6 +115,10 @@ exports.onListFollowingWrite = onDocumentWritten("users/{uid}/followingLists/{li
                 likes: admin.firestore.FieldValue.increment(1),
                 followersCount: admin.firestore.FieldValue.increment(1)
             });
+            await listFollowerRef.set({
+                userId: uid,
+                followedAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
 
             // Notification for List Owner?
             // Maybe later.
@@ -121,6 +128,7 @@ exports.onListFollowingWrite = onDocumentWritten("users/{uid}/followingLists/{li
                 likes: admin.firestore.FieldValue.increment(-1),
                 followersCount: admin.firestore.FieldValue.increment(-1)
             });
+            await listFollowerRef.delete();
         }
     } catch (error) {
         console.error(`Error in onListFollowingWrite for ${uid} -> ${listId}:`, error);

@@ -12,7 +12,9 @@ export const useLocation = () => {
 
     useEffect(() => {
         if (!navigator.geolocation) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setError('Geolocalización no soportada por el navegador');
+             
             setLoading(false);
             return;
         }

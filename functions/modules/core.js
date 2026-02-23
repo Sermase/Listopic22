@@ -114,6 +114,29 @@ function sanitizeListPayload(data) {
   return safe;
 }
 
+function normalizeUserTypes(rawUserType) {
+  if (Array.isArray(rawUserType)) {
+    return rawUserType
+      .filter((entry) => typeof entry === 'string')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+  }
+  if (typeof rawUserType === 'string') {
+    const normalized = rawUserType.trim();
+    return normalized ? [normalized] : [];
+  }
+  return [];
+}
+
+async function assertJefeAccess(uid, permissionMessage = 'No tienes permiso para ejecutar esta operación.') {
+  const userProfileDoc = await db.collection('users').doc(uid).get();
+  const userTypes = normalizeUserTypes(userProfileDoc.data()?.userType);
+  if (!userProfileDoc.exists || !userTypes.includes('jefe')) {
+    throw new HttpsError('permission-denied', permissionMessage);
+  }
+  return userProfileDoc;
+}
+
 async function requireAuthFromRequest(req, res) {
   const authHeader = req.get('Authorization') || '';
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
@@ -1156,9 +1179,6 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
     if (!placeid) {
       return res.status(400).json({ message: "El ID del lugar (placeid) es requerido." });
     }
-    if (false) {
-      return res.status(400).json({ message: "El ID del usuario (userId) es requerido para asignar la autoría." });
-    }
     if (!apiKey) {
       logger.error("getPlaceDetailsFromGoogle: GOOGLE_PLACES_API_KEY no se encontró en las variables de entorno.");
       return res.status(500).json({ message: "Error de configuración del servidor (API Key no encontrada)." });
@@ -1359,13 +1379,16 @@ const deleteOrOrphanList = onCall({ cors: true }, async (request) => {
 });
 
 // --- FUNCIÓN CALLABLE: createList ---
-const createList = onCall(async (data, context) => {
-  if (!context.auth) {
+const createList = onCall(async (request) => {
+  const data = request.data || {};
+  const contextAuth = request.auth;
+
+  if (!contextAuth) {
     logger.warn("createList: Intento de llamada no autenticado.", { structuredData: true });
     throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado para crear una lista.');
   }
 
-  const userId = context.auth.uid;
+  const userId = contextAuth.uid;
   const { listName, criteriaDefinition, availableTags, isPublic, categoryId } = data;
 
   if (!listName || typeof listName !== 'string' || listName.trim() === "") {
@@ -1968,8 +1991,6 @@ const toggleFollowUser = onCall(async (request) => {
       // --- Lógica para DEJAR DE SEGUIR ---
       batch.delete(followingRef);
       batch.delete(followerRef);
-      batch.update(currentUserRef, { followingCount: FieldValue.increment(-1) });
-      batch.update(userToFollowRef, { followersCount: FieldValue.increment(-1) });
 
       await batch.commit();
       logger.info(`Usuario ${currentUserId} ha dejado de seguir a ${userIdToFollow}.`);
@@ -1978,29 +1999,9 @@ const toggleFollowUser = onCall(async (request) => {
       // --- Lógica para SEGUIR ---
       batch.set(followingRef, { followedAt: FieldValue.serverTimestamp() });
       batch.set(followerRef, { followedAt: FieldValue.serverTimestamp() });
-      batch.update(currentUserRef, { followingCount: FieldValue.increment(1) });
-      batch.update(userToFollowRef, { followersCount: FieldValue.increment(1) });
 
       await batch.commit();
       logger.info(`Usuario ${currentUserId} ahora sigue a ${userIdToFollow}.`);
-
-      try {
-        const followerProfileSnap = await currentUserRef.get();
-        const followerProfile = followerProfileSnap.exists ? followerProfileSnap.data() : {};
-        const followerUsername = followerProfile.username || followerProfile.displayName || followerProfile.email || '';
-        const followerDisplayName = followerProfile.displayName || followerProfile.username || '';
-        await userToFollowRef.collection('notifications').add({
-          type: 'new_follower',
-          followerId: currentUserId,
-          followerUsername,
-          followerDisplayName,
-          followerPhotoUrl: followerProfile.photoUrl || followerProfile.photoURL || '',
-          createdAt: FieldValue.serverTimestamp(),
-          read: false
-        });
-      } catch (notificationError) {
-        logger.error(`toggleFollowUser: Error creando notificación de nuevo seguidor para ${userIdToFollow}`, notificationError);
-      }
 
       return { status: 'followed', message: 'Ahora sigues a este usuario.' };
     }
@@ -2477,7 +2478,7 @@ async function recalculateAggregatesForPlace(placeId) {
   } catch (error) {
     logger.error(`Error al actualizar el documento del lugar ${placeId}:`, error);
   }
-};
+}
 
 function replaceTagInArray(values, fromTag, toTag) {
   if (!Array.isArray(values)) {
@@ -2599,14 +2600,7 @@ const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: "1GiB" }, async (r
   }
 
   try {
-    const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
-    const userType = userProfileDoc.data()?.userType;
-    const userTypes = Array.isArray(userType)
-      ? userType
-      : (typeof userType === 'string' && userType ? [userType] : []);
-    if (!userProfileDoc.exists || !userTypes.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operacion.');
-    }
+    await assertJefeAccess(contextAuth.uid, 'No tienes permiso para ejecutar esta operacion.');
   } catch (error) {
     if (error instanceof HttpsError) {
       throw error;
@@ -2719,11 +2713,11 @@ const adminUpdateAllPlaces = onCall(async (request) => {
 
   // Admin check
   try {
-    const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
-    }
+    await assertJefeAccess(contextAuth.uid);
   } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     logger.error("adminUpdateAllPlaces: Error al verificar permisos de admin", error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
@@ -2888,11 +2882,11 @@ const adminAuditStatistics = onCall(async (request) => {
   };
 
   try {
-    const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
-    }
+    await assertJefeAccess(contextAuth.uid);
   } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     logger.error('adminAuditStatistics: Error al verificar permisos de admin', error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
@@ -3165,11 +3159,11 @@ const adminGetCollection = onCall(async (request) => {
 
   // Admin check
   try {
-    const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
-    }
+    await assertJefeAccess(contextAuth.uid);
   } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     logger.error("adminGetCollection: Error al verificar permisos de admin", error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
@@ -3199,11 +3193,11 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
 
   // Comprobación de rol de administrador (¡importante!)
   try {
-    const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
-    }
+    await assertJefeAccess(contextAuth.uid);
   } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     logger.error("adminUpdateSinglePlace: Error al verificar permisos", error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
@@ -3410,11 +3404,11 @@ const adminFixPlaceDocument = onCall({ cors: true }, async (request) => {
   }
 
   try {
-    const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operacion.');
-    }
+    await assertJefeAccess(contextAuth.uid, 'No tienes permiso para ejecutar esta operacion.');
   } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     logger.error("adminFixPlaceDocument: Error al verificar permisos", error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
@@ -3509,7 +3503,7 @@ const adminFixPlaceDocument = onCall({ cors: true }, async (request) => {
       return;
     }
     if (keysToSkip.has(key)) {
-      if (!mergedData.hasOwnProperty(key) || mergedData[key] === null || typeof mergedData[key] === 'undefined') {
+      if (!Object.prototype.hasOwnProperty.call(mergedData, key) || mergedData[key] === null || typeof mergedData[key] === 'undefined') {
         mergedData[key] = value;
       }
       return;
@@ -3651,11 +3645,11 @@ const adminAuditPlaceIdConsistency = onCall({ cors: true }, async (request) => {
   }
 
   try {
-    const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
-    }
+    await assertJefeAccess(contextAuth.uid);
   } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     logger.error("adminAuditPlaceIdConsistency: Error al verificar permisos", error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
@@ -3749,7 +3743,7 @@ const toggleFollowPlace = onCall({ cors: true }, async (request) => {
 
   const placeRef = db.collection('places').doc(placeId);
   const placeFollowerRef = placeRef.collection('followers').doc(userId);
-  const userFollowingRef = db.collection('users').doc(userId).collection('following');
+  const userFollowingRef = db.collection('users').doc(userId).collection('followingPlaces');
   const userFollowDoc = userFollowingRef.doc(placeId);
 
   try {
@@ -3767,8 +3761,6 @@ const toggleFollowPlace = onCall({ cors: true }, async (request) => {
       logger.info(`Usuario ${userId} deja de seguir el lugar ${placeId}.`);
       batch.delete(userFollowDoc);
       batch.delete(placeFollowerRef);
-      batch.update(placeRef, { followersCount: FieldValue.increment(-1) });
-      batch.update(db.collection('users').doc(userId), { followingCount: FieldValue.increment(-1) });
     } else {
       logger.info(`Usuario ${userId} comienza a seguir el lugar ${placeId}.`);
       batch.set(userFollowDoc, {
@@ -3776,8 +3768,6 @@ const toggleFollowPlace = onCall({ cors: true }, async (request) => {
         followedAt: FieldValue.serverTimestamp()
       });
       batch.set(placeFollowerRef, { userId, followedAt: FieldValue.serverTimestamp() });
-      batch.update(placeRef, { followersCount: FieldValue.increment(1) });
-      batch.update(db.collection('users').doc(userId), { followingCount: FieldValue.increment(1) });
       status = 'followed';
       message = 'Ahora sigues este lugar.';
     }
@@ -3834,13 +3824,9 @@ const toggleFollowList = onCall({ cors: true }, async (request) => {
     if (already.exists) {
       batch.delete(userFollowingListRef);
       batch.delete(listFollowerRef);
-      batch.update(listRef, { followersCount: FieldValue.increment(-1) });
-      batch.update(userRef, { followingCount: FieldValue.increment(-1) });
     } else {
       batch.set(userFollowingListRef, { listId, followedAt: FieldValue.serverTimestamp() });
       batch.set(listFollowerRef, { userId, followedAt: FieldValue.serverTimestamp() });
-      batch.update(listRef, { followersCount: FieldValue.increment(1) });
-      batch.update(userRef, { followingCount: FieldValue.increment(1) });
       status = 'followed';
       message = 'Ahora sigues esta lista.';
     }
@@ -3862,11 +3848,11 @@ const adminUpdateSingleListAggregates = onCall(async (request) => {
   }
   // Admin check
   try {
-    const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
-    }
+    await assertJefeAccess(contextAuth.uid);
   } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     logger.error("adminUpdateSingleListAggregates: Error al verificar permisos", error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
@@ -3906,11 +3892,11 @@ const adminRecalculateListAverages = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
   }
   try {
-    const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
-    }
+    await assertJefeAccess(contextAuth.uid);
   } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     logger.error("adminRecalculateListAverages: Error al verificar permisos", error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
@@ -3952,11 +3938,11 @@ const adminRecalculatePlaceStats = onCall(async (request) => {
   }
   // Admin check
   try {
-    const userProfileDoc = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfileDoc.exists || !Array.isArray(userProfileDoc.data().userType) || !userProfileDoc.data().userType.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'No tienes permiso para ejecutar esta operación.');
-    }
+    await assertJefeAccess(contextAuth.uid);
   } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     logger.error("adminRecalculatePlaceStats: Error al verificar permisos", error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
@@ -3983,12 +3969,12 @@ const adminRecalculateAllLists = onCall({ timeoutSeconds: 540, memory: '1GiB' },
   if (!contextAuth) throw new HttpsError('unauthenticated', 'Auth required.');
 
   try {
-    const userProfile = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfile.exists || !userProfile.data().userType?.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'Admin only.');
-    }
+    await assertJefeAccess(contextAuth.uid, 'Admin only.');
   } catch (e) {
-    throw new HttpsError('permission-denied', e.message);
+    if (e instanceof HttpsError) {
+      throw e;
+    }
+    throw new HttpsError('internal', 'Error al verificar permisos.');
   }
 
   const listsSnap = await db.collection('lists').get();
@@ -4036,12 +4022,12 @@ const adminRecalculateAllPlaces = onCall({ timeoutSeconds: 540, memory: '1GiB' }
   const contextAuth = request.auth;
   if (!contextAuth) throw new HttpsError('unauthenticated', 'Auth required.');
   try {
-    const userProfile = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfile.exists || !userProfile.data().userType?.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'Admin only.');
-    }
+    await assertJefeAccess(contextAuth.uid, 'Admin only.');
   } catch (e) {
-    throw new HttpsError('permission-denied', e.message);
+    if (e instanceof HttpsError) {
+      throw e;
+    }
+    throw new HttpsError('internal', 'Error al verificar permisos.');
   }
 
   const placesSnap = await db.collection('places').get();
@@ -4088,12 +4074,12 @@ const adminRecalculateAllUsers = onCall({ timeoutSeconds: 540, memory: '1GiB' },
   if (!contextAuth) throw new HttpsError('unauthenticated', 'Resulta que necesitas estar logueado.');
 
   try {
-    const userProfile = await db.collection('users').doc(contextAuth.uid).get();
-    if (!userProfile.exists || !userProfile.data().userType?.includes('jefe')) {
-      throw new HttpsError('permission-denied', 'Solo los jefes pueden hacer esto.');
-    }
+    await assertJefeAccess(contextAuth.uid, 'Solo los jefes pueden hacer esto.');
   } catch (e) {
-    throw new HttpsError('permission-denied', e.message);
+    if (e instanceof HttpsError) {
+      throw e;
+    }
+    throw new HttpsError('internal', 'Error al verificar permisos.');
   }
 
   const usersSnap = await db.collection('users').get();

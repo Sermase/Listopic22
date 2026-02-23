@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Archive, MessageSquare, User, Moon, Sun, Menu, X, Plus, Compass, Users, Bell } from 'lucide-react';
+import { Search, Archive, MessageSquare, User, Menu, X, Plus, Compass, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
@@ -8,12 +8,47 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { NotificationModal } from './NotificationModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 
+const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string; icon: React.ElementType; label: string; badge?: boolean; count?: number; isActive: boolean }) => {
+    return (
+        <Link
+            to={to}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 group
+                ${isActive
+                    ? 'bg-indigo-500/10 text-indigo-400 font-medium'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+        >
+            <div className="relative">
+                <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'group-hover:text-indigo-400 transition-colors'}`} />
+                {/* Generic Badge (boolean) */}
+                {badge && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]" />}
+
+                {/* Count Badge (number) */}
+                {count !== undefined && count > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1 min-w-[16px] h-4 rounded-full flex items-center justify-center border border-[#0b1021]">
+                        {count > 9 ? '9+' : count}
+                    </span>
+                )}
+            </div>
+            <span className="text-sm">{label}</span>
+        </Link>
+    );
+};
+
 export const Navbar: React.FC = () => {
     const { user } = useAuth();
     const config = useAppConfig();
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrolled(window.scrollY > 20);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
     const [showNotifications, setShowNotifications] = useState(false);
     const [showHistory, setShowHistory] = useState(false); // New state lifted
     const [unreadCount, setUnreadCount] = useState(0);
@@ -26,38 +61,17 @@ export const Navbar: React.FC = () => {
         );
         const unsubscribe = onSnapshot(q, (snap: any) => {
             setUnreadCount(snap.size);
+        }, (error) => {
+            console.error("Navbar notifications snapshot error:", error);
         });
         return () => unsubscribe();
     }, [user]);
 
-    // Initial theme state (force dark for Navy Theme)
-    const [isDark, setIsDark] = useState(true);
-
-    useEffect(() => {
-        const handleScroll = () => {
-            setScrolled(window.scrollY > 20);
-        };
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
-
     // Close mobile menu on route change
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsMenuOpen(false);
     }, [location]);
-
-    const toggleTheme = () => {
-        const newIsDark = !isDark;
-        setIsDark(newIsDark);
-        if (newIsDark) {
-            document.documentElement.classList.remove('light-mode');
-        } else {
-            document.documentElement.classList.add('light-mode');
-        }
-    };
-
-
-
     // --- Unread Chats Logic ---
     const [unreadChatCount, setUnreadChatCount] = useState(0);
 
@@ -69,44 +83,18 @@ export const Navbar: React.FC = () => {
         );
         const unsubscribe = onSnapshot(q, (snapshot: any) => {
             let total = 0;
-            snapshot.docs.forEach((doc: any) => {
+            snapshot.docs.forEach((doc) => {
                 const data = doc.data();
                 if (data.unreadCount && typeof data.unreadCount[user.uid] === 'number') {
                     total += data.unreadCount[user.uid];
                 }
             });
             setUnreadChatCount(total);
+        }, (error) => {
+            console.error("Navbar chats snapshot error:", error);
         });
         return () => unsubscribe();
     }, [user]);
-
-    const NavItem = ({ to, icon: Icon, label, badge, count }: { to: string; icon: any; label: string; badge?: boolean; count?: number }) => {
-        const isActive = location.pathname === to;
-        return (
-            <Link
-                to={to}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 group
-                    ${isActive
-                        ? 'bg-indigo-500/10 text-indigo-400 font-medium'
-                        : 'text-gray-400 hover:text-white hover:bg-white/5'
-                    }`}
-            >
-                <div className="relative">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'group-hover:text-indigo-400 transition-colors'}`} />
-                    {/* Generic Badge (boolean) */}
-                    {badge && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]" />}
-
-                    {/* Count Badge (number) */}
-                    {count !== undefined && count > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1 min-w-[16px] h-4 rounded-full flex items-center justify-center border border-[#0b1021]">
-                            {count > 9 ? '9+' : count}
-                        </span>
-                    )}
-                </div>
-                <span className="text-sm">{label}</span>
-            </Link>
-        );
-    };
 
     return (
         <header
@@ -141,10 +129,10 @@ export const Navbar: React.FC = () => {
 
                     {/* Desktop Navigation */}
                     <nav className="hidden md:flex items-center bg-white/5 backdrop-blur-md rounded-full px-2 py-1.5 border border-white/5 shadow-inner">
-                        <NavItem to="/search" icon={Search} label="Buscar" />
+                        <NavItem to="/search" icon={Search} label="Buscar" isActive={location.pathname === '/search'} />
                         <div className="w-px h-4 bg-white/10 mx-1" />
-                        <NavItem to="/archive" icon={Archive} label="Archivo" />
-                        <NavItem to="/chats" icon={MessageSquare} label="Chats" count={unreadChatCount} />
+                        <NavItem to="/archive" icon={Archive} label="Archivo" isActive={location.pathname === '/archive'} />
+                        <NavItem to="/chats" icon={MessageSquare} label="Chats" count={unreadChatCount} isActive={location.pathname === '/chats'} />
                     </nav>
 
                     {/* Right Actions */}

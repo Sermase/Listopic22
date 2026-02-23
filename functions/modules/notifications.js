@@ -1,5 +1,4 @@
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
@@ -72,10 +71,10 @@ const onFollowUser = onDocumentWritten("users/{uid}/followers/{followerId}", asy
 
 /**
  * Trigger: When a review gets a REACTION (Like).
- * Path: reviews/{reviewId}/reactions/{userId}
- * Note: We now use root-level reviews collection for easier access.
+ * Path: lists/{listId}/reviews/{reviewId}/reactions/{userId}
  */
-const onReviewReaction = onDocumentWritten("reviews/{reviewId}/reactions/{userId}", async (event) => {
+const onReviewReaction = onDocumentWritten("lists/{listId}/reviews/{reviewId}/reactions/{userId}", async (event) => {
+    const listId = event.params.listId;
     const reviewId = event.params.reviewId;
     const reactorId = event.params.userId;
 
@@ -87,7 +86,7 @@ const onReviewReaction = onDocumentWritten("reviews/{reviewId}/reactions/{userId
         if (reactionData.reaction !== 'like') return;
 
         // Fetch review to get author and placeId
-        const reviewSnapshot = await db.collection('reviews').doc(reviewId).get();
+        const reviewSnapshot = await db.doc(`lists/${listId}/reviews/${reviewId}`).get();
         if (!reviewSnapshot.exists) return;
 
         const reviewData = reviewSnapshot.data();

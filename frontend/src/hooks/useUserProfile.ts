@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export interface UserProfileEntity {
@@ -14,13 +14,13 @@ export interface UserProfileEntity {
     website?: string;
     instagram?: string;
     twitter?: string;
-    createdAt?: any;
+    createdAt?: Record<string, unknown>;
     xp?: number;
     level?: number;
     followersCount?: number;
     followingCount?: number;
     reviewsCount?: number;
-    badges?: any[]; // Or string[], using any[] for safety as I saw objects in gamification
+    badges?: Record<string, unknown>[]; // Or string[], using any[] for safety as I saw objects in gamification
     // Add other fields as needed based on legacy schema
     defaultDistanceKm?: number;
     followingListsCount?: number;
@@ -50,9 +50,10 @@ export const useUserProfile = (uid: string | undefined) => {
                 } else {
                     setError('Perfil no encontrado');
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("Error fetching user profile:", err);
-                setError(err.message);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                setError((err as any).message);
             } finally {
                 setLoading(false);
             }

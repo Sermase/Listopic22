@@ -25,9 +25,10 @@ export const useBadges = () => {
                 const snap = await getDocs(q);
                 const fetchedBadges = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Badge));
                 setBadges(fetchedBadges);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("Error fetching badges:", err);
-                setError(err.message);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                setError((err as any).message);
             } finally {
                 setLoading(false);
             }

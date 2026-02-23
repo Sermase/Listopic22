@@ -69,6 +69,7 @@ export const HomePage: React.FC = () => {
     const listSort = activeTab === 'explore' ? 'top_rated' : 'recent'; // Lists still use 'recent' for news
 
     const reviewSortParam = useMemo(() => {
+        console.log(`[HomePage] Building reviewSortParam. Tab: ${activeTab}, followingIds length: ${followingIds.length}`);
         return activeTab === 'explore'
             ? { type: 'trending' as const, limit: 100 } // Fetch more for geo-filtering
             : { type: 'following' as const, followingIds, limit: 50 }; // Fetch more following

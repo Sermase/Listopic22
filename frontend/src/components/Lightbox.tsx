@@ -41,6 +41,7 @@ export const Lightbox: React.FC<LightboxProps> = ({ isOpen, onClose, images, ini
             window.removeEventListener('keydown', handleKeyDown);
             document.body.style.overflow = 'unset';
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, currentIndex]);
 
     const handlePrev = (e?: React.MouseEvent) => {
