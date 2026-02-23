@@ -44,25 +44,9 @@ export const HomePage: React.FC = () => {
         fetchFollowing();
     }, [user]);
 
-    // Infinite Scroll
+    // Infinite Scroll / Pagination
     const [visibleCount, setVisibleCount] = useState(4);
     const loadMoreRef = React.useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-                setVisibleCount(prev => prev + 5);
-            }
-        }, { threshold: 0.5 });
-
-        if (loadMoreRef.current) observer.observe(loadMoreRef.current);
-        return () => observer.disconnect();
-    }, [activeTab, visibleCount]); // Re-attach when count changes/renders
-
-    // Reset count when tab/filter changes
-    useEffect(() => {
-        setVisibleCount(4);
-    }, [activeTab, activeFilter]);
 
     // --- DATA FETCHING (Dynamic based on Tab) ---
     // Explore -> Top Rated/Trending; News -> Following
@@ -72,12 +56,32 @@ export const HomePage: React.FC = () => {
         console.log(`[HomePage] Building reviewSortParam. Tab: ${activeTab}, followingIds length: ${followingIds.length}`);
         return activeTab === 'explore'
             ? { type: 'trending' as const, limit: 100 } // Fetch more for geo-filtering
-            : { type: 'following' as const, followingIds, limit: 50 }; // Fetch more following
+            : { type: 'following' as const, followingIds, limit: 10 }; // Fetch a smaller chunk initially to allow pagination
     }, [activeTab, followingIds]);
 
     const { lists, loading: loadingLists } = useLists(listSort);
-    const { reviews, loading: loadingReviews } = useReviews(reviewSortParam);
+    const { reviews, loading: loadingReviews, fetchMore, hasMore, loadingMore } = useReviews(reviewSortParam);
     const { users: topUsers, loading: loadingUsers } = useUsers();
+
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                // Increase locally visible count
+                setVisibleCount(prev => prev + 5);
+                // Also trigger backend fetch if we are running out of local items and the backend has more
+                if (activeTab === 'news' && !loadingMore && hasMore) {
+                    fetchMore();
+                }
+            }
+        }, { threshold: 0.5 });
+
+        if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+        return () => observer.disconnect();
+    }, [activeTab, visibleCount, hasMore, loadingMore, fetchMore]); // Re-attach when dependencies change
+    // Reset count when tab/filter changes
+    useEffect(() => {
+        setVisibleCount(4);
+    }, [activeTab, activeFilter]);
 
     // --- FILTERING LOGIC ---
 
@@ -574,7 +578,7 @@ export const HomePage: React.FC = () => {
                                     {filteredItems.slice(0, visibleCount).map((review: any) => (
                                         <ReviewCard key={review.id} review={review} />
                                     ))}
-                                    {visibleCount < filteredItems.length && (
+                                    {(visibleCount < filteredItems.length || hasMore) && (
                                         <div ref={loadMoreRef} className="py-8 flex justify-center">
                                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
                                         </div>
