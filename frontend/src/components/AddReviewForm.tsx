@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc, deleteField } from 'firebase/firestore';
 import { db, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
@@ -535,20 +535,36 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             const visibility = listData?.visibility === 'private' ? 'private' : 'public';
 
             const reviewData = {
+                // New Fields structure
                 listId: finalListId,
+                parentListId: isSublist ? listData.parentListId : finalListId,
                 sublistId: sublistId,
                 visibility,
+
+                // Author / Ownership Fields
                 userId: user.uid,
+                authorId: user.uid,
+                authorUid: user.uid,
+                ownerId: user.uid,
+                creatorId: user.uid,
                 authorName: user.displayName || 'Anónimo',
                 authorPhoto: user.photoURL || '',
+
+                // Item details
                 itemName: itemName.trim(),
+                itemNameLower: itemName.trim().toLowerCase(),
                 comment: comment.trim(),
                 overallRating,
                 scores: criteriaScores,
-                criteriaDefinition: criteriaList, // SAVE AS ARRAY to preserve order
+
+                // User input / Tags / Interactions
                 tags: customTags,
+                userTags: customTags,
+                reactionCounts: { like: 0, dislike: 0 },
                 photoUrl: finalPhotoUrl,
                 updatedAt: serverTimestamp(),
+
+                // Location Details
                 placeId: finalPlaceId,
                 placeName: selectedPlace?.name || placeName,
                 placeAddress: finalPlaceAddress,
@@ -559,7 +575,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             if (editReviewId) {
                 // Update
                 const reviewRef = doc(db, reviewPath || `reviews/${editReviewId}`);
-                await updateDoc(reviewRef, reviewData as any);
+                await updateDoc(reviewRef, {
+                    ...reviewData,
+                    criteriaDefinition: deleteField(),
+                    updatedAt: serverTimestamp() // force update timestamp
+                });
             } else {
                 // Create
                 await addDoc(collection(db, 'reviews'), {
