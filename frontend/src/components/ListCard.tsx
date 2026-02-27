@@ -43,7 +43,7 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
 
     return (
         <>
-            <div className="group relative bg-[#151b2e] rounded-xl overflow-hidden border border-white/5 hover:border-indigo-500/50 transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/20 h-full flex flex-col">
+            <div className="glass-card flex flex-col h-full group">
                 <Link to={`/list/${list.id}`} className="block h-48 w-full bg-gray-800 relative overflow-hidden">
                     {(list.mainImageUrl || list.photoUrl) ? (
                         <img src={list.mainImageUrl || list.photoUrl} alt={list.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -72,11 +72,11 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
                         </p>
                     </Link>
 
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/30">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                        <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/30 shadow-inner">
                             {list.authorName?.[0] || "?"}
                         </div>
-                        <span className="truncate max-w-[80px]">{list.authorName}</span>
+                        <span className="truncate max-w-[80px] font-medium">{list.authorName}</span>
                     </div>
 
                     {/* Tags (if available) - Only top 2 */}
@@ -111,7 +111,7 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
                                 e.stopPropagation();
                                 setIsSublistsModalOpen(true);
                             }}
-                            className="flex items-center gap-1 hover:text-indigo-400 transition-colors"
+                            className="flex items-center gap-1 hover:text-indigo-400 transition-colors p-1 rounded-md hover:bg-white/5"
                             title="Sublistas"
                         >
                             <Layers className="w-3 h-3" />
@@ -124,7 +124,7 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
                                 e.stopPropagation();
                                 toggleLike();
                             }}
-                            className={`flex items-center gap-1 transition-colors ${isLiked ? 'text-pink-500' : 'hover:text-pink-400'}`}
+                            className={`flex items-center gap-1 transition-colors p-1 rounded-md hover:bg-white/5 ${isLiked ? 'text-pink-500' : 'hover:text-pink-400'}`}
                         >
                             <Heart className={`w-3 h-3 ${isLiked ? 'fill-current' : ''}`} />
                             {likeCount}

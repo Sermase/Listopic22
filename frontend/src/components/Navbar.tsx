@@ -139,7 +139,7 @@ export const Navbar: React.FC = () => {
                     <div className="hidden md:flex items-center gap-4">
                         <Link
                             to="/create-sublist"
-                            className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-full text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all hover:shadow-indigo-500/40 active:scale-95"
+                            className="btn-primary"
                         >
                             <Plus className="w-4 h-4" />
                             <span>Crear Sublista</span>
@@ -198,7 +198,7 @@ export const Navbar: React.FC = () => {
                                 </div>
                             </Link>
                         ) : (
-                            <Link to="/login" className="px-6 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-colors border border-white/5">
+                            <Link to="/login" className="btn-glass">
                                 Iniciar Sesión
                             </Link>
                         )}
@@ -225,7 +225,7 @@ export const Navbar: React.FC = () => {
             {isMenuOpen && (
                 <div className="fixed inset-0 bg-[#0b1021]/95 z-40 pt-24 px-6 animate-fade-in flex flex-col backdrop-blur-3xl">
                     <div className="space-y-4 bg-[#0b1021] p-6 rounded-3xl border border-white/10 shadow-2xl">
-                        <Link to="/create-sublist" className="flex items-center justify-center gap-2 w-full py-4 bg-indigo-600 rounded-xl text-white font-bold text-lg mb-8 shadow-lg shadow-indigo-600/20">
+                        <Link to="/create-sublist" className="btn-primary w-full py-4 text-lg mb-8 shadow-indigo-600/20">
                             <Plus className="w-6 h-6" /> Crear Sublista
                         </Link>
 
@@ -253,7 +253,7 @@ export const Navbar: React.FC = () => {
 
                         <div className="space-y-2 pt-4 border-t border-white/5">
                             {!user && (
-                                <Link to="/login" className="flex items-center gap-3 p-4 rounded-xl bg-indigo-600 text-white font-bold w-full justify-center">
+                                <Link to="/login" className="btn-primary w-full justify-center p-4 rounded-xl">
                                     Iniciar Sesión
                                 </Link>
                             )}

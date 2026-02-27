@@ -242,7 +242,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 </div>
             ) : null}
 
-            <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-6">
+            <div className="glass-card p-6 space-y-6">
                 {!parentListId && <h2 className="text-xl font-bold text-white mb-4">Información Básica</h2>}
 
                 <div>
@@ -320,7 +320,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             </div>
 
             {/* Criteria & Tags */}
-            <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-8">
+            <div className="glass-card p-6 space-y-8">
                 {/* Criteria Builder Component */}
                 <CriteriaBuilder criteria={criteria} onChange={setCriteria} lockedIds={lockedCriteriaIds} />
 
@@ -357,7 +357,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             </div>
 
             {/* Visibility */}
-            <div className="bg-[#151b2e] p-4 rounded-xl border border-white/10 flex items-center gap-3">
+            <div className="glass-card p-4 flex items-center gap-3">
                 <input
                     type="checkbox"
                     id="isPublic"
@@ -373,7 +373,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
 
             {/* Public Access Level */}
             {isPublic && (
-                <div className="bg-[#151b2e] p-4 rounded-xl border border-white/10 animate-fade-in">
+                <div className="glass-card p-4 animate-fade-in">
                     <label className="block text-sm font-medium text-gray-400 mb-3">Permisos Públicos</label>
                     <div className="space-y-3">
                         <label className="flex items-center gap-3 cursor-pointer">
@@ -412,14 +412,14 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 <button
                     type="button"
                     onClick={onCancel}
-                    className="flex-1 py-4 border border-white/10 hover:bg-white/5 text-white font-bold rounded-xl transition-colors"
+                    className="btn-glass flex-1 py-4 text-base"
                 >
                     Cancelar
                 </button>
                 <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="btn-primary w-full flex-1 py-4 text-base disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                     {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                     {loading ? 'Guardando...' : parentListId ? 'Crear Sublista' : 'Guardar Lista'}

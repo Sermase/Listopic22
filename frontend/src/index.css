@@ -74,14 +74,14 @@
         background-attachment: fixed;
         /* Subtle global gradient using new accents */
         background-image:
-            radial-gradient(circle at 15% 15%, rgba(92, 124, 250, 0.08), transparent 35%),
-            /* Indigo */
-            radial-gradient(circle at 85% 15%, rgba(255, 113, 91, 0.06), transparent 30%),
-            /* Coral */
-            radial-gradient(circle at 50% 50%, rgba(36, 163, 255, 0.04), transparent 45%),
-            /* Blue */
-            radial-gradient(circle at 85% 85%, rgba(61, 213, 152, 0.05), transparent 35%);
-        /* Mint */
+            radial-gradient(circle at 10% 20%, rgba(92, 124, 250, 0.12), transparent 40%),
+            /* Indigo focus */
+            radial-gradient(circle at 90% 10%, rgba(255, 113, 91, 0.08), transparent 35%),
+            /* Coral focus */
+            radial-gradient(circle at 50% 60%, rgba(36, 163, 255, 0.06), transparent 50%),
+            /* Blue focus */
+            radial-gradient(circle at 80% 90%, rgba(61, 213, 152, 0.08), transparent 40%);
+        /* Mint focus */
     }
 
     h1,
@@ -174,8 +174,26 @@
         @apply hover:bg-[var(--glass-bg-hover)] hover:border-[var(--glass-border-hover)] transition-all duration-300;
     }
 
-    .glass-button {
-        @apply bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-sm transition-all active:scale-95;
+    .glass-card {
+        @apply bg-[var(--card-bg)] border border-[var(--glass-border)] backdrop-blur-xl rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/20 hover:border-indigo-500/50;
+    }
+
+    /* Living Buttons */
+    .btn-glass {
+        @apply px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 backdrop-blur-sm transition-all duration-300 active:scale-95 text-sm font-semibold text-white;
+    }
+
+    .btn-primary {
+        @apply relative overflow-hidden px-4 py-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all duration-300 hover:shadow-indigo-500/40 active:scale-95 flex items-center justify-center gap-2;
+    }
+
+    .btn-primary::after {
+        content: '';
+        @apply absolute top-0 left-[-100%] w-[50%] h-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-20deg] transition-all duration-700;
+    }
+
+    .btn-primary:hover::after {
+        left: 200%;
     }
 
     /* Custom Range Slider */

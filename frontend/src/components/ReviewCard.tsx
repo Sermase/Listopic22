@@ -221,7 +221,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
             <article
                 onClick={handleCardClick}
                 style={{ willChange: 'transform' }} // Optimize for GPU
-                className="bg-[#101628] border-y sm:border border-white/5 sm:rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl flex flex-col hover:border-white/10 transition-transform duration-300 cursor-pointer group relative -mx-4 sm:mx-0 w-[calc(100%+2rem)] sm:w-full"
+                className="glass-card sm:rounded-3xl cursor-pointer group relative -mx-4 sm:mx-0 w-[calc(100%+2rem)] sm:w-full flex-col flex"
             >
                 {/* 1. Header: User, Context, Menu */}
                 {/* ... (Header code unchanged) ... */}
