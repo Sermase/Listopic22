@@ -83,7 +83,7 @@ export const Navbar: React.FC = () => {
         );
         const unsubscribe = onSnapshot(q, (snapshot: any) => {
             let total = 0;
-            snapshot.docs.forEach((doc) => {
+            snapshot.docs.forEach((doc: any) => {
                 const data = doc.data();
                 if (data.unreadCount && typeof data.unreadCount[user.uid] === 'number') {
                     total += data.unreadCount[user.uid];
