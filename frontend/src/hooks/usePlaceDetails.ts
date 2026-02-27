@@ -41,7 +41,7 @@ export interface PlaceDetails {
     category?: string;
 }
 
- 
+
 const toMillis = (value: any): number => {
     if (!value) return 0;
     if (typeof value?.toMillis === 'function') return value.toMillis();
@@ -94,13 +94,32 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                         listId
                     } as ReviewEntity));
                 } catch (error: unknown) {
-                     
+
                     if ((error as any)?.code !== 'permission-denied') {
                         console.warn(`Failed loading place reviews for list ${listId}`, error);
                     }
                     return [] as ReviewEntity[];
                 }
             }));
+
+            // 2.2 Add Global Reviews fetch since new reviews are created in the root 'reviews' collection
+            const globalReviewsSnap = await getDocs(
+                query(collection(db, 'reviews'), where('placeId', '==', placeId), limit(50))
+            ).catch(e => {
+                console.warn('Failed to fetch global reviews for place', e);
+                return { docs: [] };
+            });
+
+            const globalReviews = globalReviewsSnap.docs
+                .map(doc => ({ id: doc.id, ...(doc.data() as Record<string, unknown>) } as ReviewEntity))
+                .filter(r => {
+                    // Show if: It's own review, or it's public, or its list is a candidate
+                    return r.userId === currentUser?.uid || r.authorId === currentUser?.uid ||
+                        r.visibility === 'public' ||
+                        (r.listId && candidateListIds.includes(r.listId));
+                });
+
+            reviewsByList.push(globalReviews);
 
             const reviewMap = new Map<string, ReviewEntity>();
             for (const listReviews of reviewsByList) {
@@ -250,7 +269,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
 
         } catch (err: unknown) {
             console.error("Error fetching place details:", err);
-             
+
             setError((err as any).message);
         } finally {
             setLoading(false);

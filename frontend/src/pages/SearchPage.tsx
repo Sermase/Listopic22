@@ -77,7 +77,7 @@ const CustomHits = ({ activeTab }: { activeTab: string }) => {
     // Filter Items by Image Requirement
     const filteredHits = useMemo(() => {
         if (activeTab === 'grouped_items' || activeTab === 'items') {
-            return hits.filter((hit: Record<string, unknown>) =>
+            return hits.filter((hit: any) =>
                 hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl || hit.image || hit.coverImage || (hit.photos && hit.photos[0]) || hit.picture
             );
         }
@@ -99,7 +99,7 @@ const CustomHits = ({ activeTab }: { activeTab: string }) => {
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredHits.map((hit: Record<string, unknown>) => {
+                {(filteredHits as any[]).map((hit: any) => {
                     // Removed Console Log
                     return (
                         <div key={hit.objectID}>
@@ -191,7 +191,7 @@ const FederatedSectionContent = ({ title, type, icon: Icon }: { title: string; t
     // Let's apply valid hits check.
 
     const validHits = type === 'grouped_items'
-        ? hits.filter((h: Record<string, unknown>) => h.mainImageUrl || h.photoUrl || h.thumbnailUrl || h.image || h.coverImage || (h.photos && h.photos[0]) || h.picture)
+        ? hits.filter((h: any) => h.mainImageUrl || h.photoUrl || h.thumbnailUrl || h.image || h.coverImage || (h.photos && h.photos[0]) || h.picture)
         : hits;
 
     if (validHits.length === 0) return null;

@@ -24,7 +24,7 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
             to={`/place/${place.objectID}`}
             className="block h-full group"
         >
-            <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all hover:-translate-y-1 h-full flex flex-col">
+            <div className="glass-card h-full flex flex-col">
                 {/* Image Placeholder or Actual Image */}
                 <div className="h-32 bg-gray-800 relative">
                     {place.photoUrl ? (

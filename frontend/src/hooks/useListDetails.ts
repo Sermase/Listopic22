@@ -40,6 +40,7 @@ export interface ReviewEntity {
     authorId?: string; // Legacy compatibility
     tags?: string[];
     userTags?: string[];
+    visibility?: string;
 }
 
 const toMillis = (value: any): number => {
