@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
-import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, UserPlus, X, Users, User, Plus } from 'lucide-react';
+import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, UserPlus, X, Users, User } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 
@@ -56,44 +56,36 @@ export const ChatsPage: React.FC = () => {
         return () => clearTimeout(timer);
     }, [participantInput]);
 
-    // Fetch User Details for Private Chats
+    // Real-time user details (incl. online presence) for private chats
     useEffect(() => {
-        const fetchChatUsers = async () => {
-            if (!user || chats.length === 0) return;
+        if (!user || chats.length === 0) return;
 
-            const userIdsToFetch = new Set<string>();
-            chats.forEach(c => {
-                if (c.type === 'private') {
-                    const targetId = c.participants.find(p => p !== user.uid);
-                    if (targetId && !usersMap[targetId]) {
-                        userIdsToFetch.add(targetId);
-                    }
-                }
-            });
+        const privateTargets = Array.from(new Set(
+            chats
+                .filter(c => c.type === 'private')
+                .map(c => c.participants.find(p => p !== user.uid))
+                .filter(Boolean)
+        )) as string[];
 
-            if (userIdsToFetch.size === 0) return;
+        if (privateTargets.length === 0) return;
 
-            const newUsers: Record<string, any> = {};
-            await Promise.all(Array.from(userIdsToFetch).map(async (uid) => {
-                try {
-                    const snap = await getDoc(doc(db, 'users', uid));
-                    if (snap.exists()) {
-                        newUsers[uid] = snap.data();
-                    } else {
-                        // Fallback for deleted/missing users to prevent infinite refetch
-                        newUsers[uid] = { displayName: 'Usuario Eliminado', name: 'Usuario Eliminado' };
-                    }
-                } catch (e) {
-                    console.warn("Failed to fetch user", uid);
-                    // On error, also set placeholder to avoid loop, or leave empty to retry
-                    newUsers[uid] = { displayName: 'Usuario Desconocido' };
-                }
+        const unsubs = privateTargets.map((uid) => onSnapshot(doc(db, 'users', uid), (snap) => {
+            setUsersMap(prev => ({
+                ...prev,
+                [uid]: snap.exists()
+                    ? snap.data()
+                    : { displayName: 'Usuario Eliminado', name: 'Usuario Eliminado', isOnline: false }
             }));
+        }, () => {
+            setUsersMap(prev => ({
+                ...prev,
+                [uid]: prev[uid] || { displayName: 'Usuario Desconocido', isOnline: false }
+            }));
+        }));
 
-            setUsersMap(prev => ({ ...prev, ...newUsers }));
+        return () => {
+            unsubs.forEach(unsub => unsub());
         };
-
-        fetchChatUsers();
     }, [chats, user]);
 
     // Initial load of chats
@@ -132,6 +124,14 @@ export const ChatsPage: React.FC = () => {
         return () => unsubscribe();
     }, [activeChat, user]);
 
+    useEffect(() => {
+        if (!user || !activeChat || messages.length === 0) return;
+        const hasIncoming = messages.some(msg => msg.senderId !== user.uid && !(msg.readBy || []).includes(user.uid));
+        if (hasIncoming) {
+            ChatService.markChatAsRead(activeChat, user.uid).catch(console.error);
+        }
+    }, [messages, activeChat, user]);
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !activeChat || !newMessage.trim()) return;
@@ -168,7 +168,24 @@ export const ChatsPage: React.FC = () => {
         return null; // Default
     };
 
+    const isPrivateUserOnline = (chat: Chat) => {
+        if (chat.type !== 'private') return false;
+        const targetId = chat.participants.find(p => p !== user?.uid);
+        if (!targetId) return false;
+        return Boolean(usersMap[targetId]?.isOnline);
+    };
+
     const activeChatObj = chats.find(c => c.id === activeChat);
+    const activePrivateParticipantId = useMemo(() => {
+        if (!activeChatObj || activeChatObj.type !== 'private') return null;
+        return activeChatObj.participants.find(p => p !== user?.uid) || null;
+    }, [activeChatObj, user]);
+    const activePrivateUser = activePrivateParticipantId ? usersMap[activePrivateParticipantId] : null;
+
+    const goToActivePrivateProfile = () => {
+        if (!activePrivateParticipantId) return;
+        navigate(`/profile/${activePrivateParticipantId}`);
+    };
 
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] pt-20 flex h-screen overflow-hidden">
@@ -217,6 +234,12 @@ export const ChatsPage: React.FC = () => {
                                                 {getChatName(chat).charAt(0).toUpperCase()}
                                             </div>
                                         )}
+                                        {chat.type === 'private' && (
+                                            <span
+                                                className={`absolute right-0 bottom-0 w-3 h-3 rounded-full border-2 border-[#151b2e] ${isPrivateUserOnline(chat) ? 'bg-emerald-500' : 'bg-gray-500'}`}
+                                                title={isPrivateUserOnline(chat) ? 'En línea' : 'Desconectado'}
+                                            />
+                                        )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start mb-0.5">
@@ -248,33 +271,42 @@ export const ChatsPage: React.FC = () => {
                 {activeChat ? (
                     <>
                         {/* Header */}
-                        <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 bg-[#151b2e]">
-                            <div className="flex items-center gap-3">
+                        <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 bg-[#151b2e] sticky top-0 z-20">
+                            <div className="flex items-center gap-3 min-w-0">
                                 <button onClick={() => navigate('/chats')} className="md:hidden text-gray-400 hover:text-white">
                                     <ArrowLeft className="w-6 h-6" />
                                 </button>
 
-                                {/* Avatar */}
-                                <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden flex-shrink-0 border border-white/10">
-                                    {activeChatObj && getChatPhoto(activeChatObj) ? (
-                                        <img src={getChatPhoto(activeChatObj)!} alt="Chat" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-indigo-900/50">
-                                            {activeChatObj?.type === 'group' ? <Users className="w-5 h-5 text-indigo-300" /> : <User className="w-5 h-5 text-indigo-300" />}
-                                        </div>
-                                    )}
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={goToActivePrivateProfile}
+                                    disabled={!activePrivateParticipantId}
+                                    className={`flex items-center gap-3 min-w-0 ${activePrivateParticipantId ? 'cursor-pointer hover:opacity-90' : 'cursor-default'}`}
+                                    title={activePrivateParticipantId ? 'Ver perfil' : undefined}
+                                >
+                                    {/* Avatar */}
+                                    <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden flex-shrink-0 border border-white/10">
+                                        {activeChatObj && getChatPhoto(activeChatObj) ? (
+                                            <img src={getChatPhoto(activeChatObj)!} alt="Chat" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-indigo-900/50">
+                                                {activeChatObj?.type === 'group' ? <Users className="w-5 h-5 text-indigo-300" /> : <User className="w-5 h-5 text-indigo-300" />}
+                                            </div>
+                                        )}
+                                    </div>
 
-                                <div>
-                                    <h2 className="text-white font-bold text-sm md:text-base">{activeChatObj ? getChatName(activeChatObj) : 'Conversación'}</h2>
-                                    {activeChatObj?.type === 'group' ? (
-                                        <span className="text-xs text-gray-500">{activeChatObj.participants.length} participantes</span>
-                                    ) : (
-                                        <span className="text-xs text-green-500 flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-full bg-green-500 text-green-500 animate-pulse"></span> En línea
-                                        </span>
-                                    )}
-                                </div>
+                                    <div className="text-left min-w-0">
+                                        <h2 className="text-white font-bold text-sm md:text-base truncate">{activeChatObj ? getChatName(activeChatObj) : 'Conversación'}</h2>
+                                        {activeChatObj?.type === 'group' ? (
+                                            <span className="text-xs text-gray-500">{activeChatObj.participants.length} participantes</span>
+                                        ) : (
+                                            <span className={`text-xs flex items-center gap-1 ${activePrivateUser?.isOnline ? 'text-green-500' : 'text-gray-500'}`}>
+                                                <span className={`w-2 h-2 rounded-full ${activePrivateUser?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
+                                                {activePrivateUser?.isOnline ? 'En línea' : 'Desconectado'}
+                                            </span>
+                                        )}
+                                    </div>
+                                </button>
                             </div>
                             <button
                                 onClick={() => setIsInfoModalOpen(true)}
