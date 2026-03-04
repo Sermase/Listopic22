@@ -182,6 +182,11 @@ export const ChatsPage: React.FC = () => {
     }, [activeChatObj, user]);
     const activePrivateUser = activePrivateParticipantId ? usersMap[activePrivateParticipantId] : null;
 
+    const goToActivePrivateProfile = () => {
+        if (!activePrivateParticipantId) return;
+        navigate(`/profile/${activePrivateParticipantId}`);
+    };
+
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] pt-20 flex h-screen overflow-hidden">
             {/* Chat List Sidebar */}
@@ -266,34 +271,42 @@ export const ChatsPage: React.FC = () => {
                 {activeChat ? (
                     <>
                         {/* Header */}
-                        <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 bg-[#151b2e]">
-                            <div className="flex items-center gap-3">
+                        <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 bg-[#151b2e] sticky top-0 z-20">
+                            <div className="flex items-center gap-3 min-w-0">
                                 <button onClick={() => navigate('/chats')} className="md:hidden text-gray-400 hover:text-white">
                                     <ArrowLeft className="w-6 h-6" />
                                 </button>
 
-                                {/* Avatar */}
-                                <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden flex-shrink-0 border border-white/10">
-                                    {activeChatObj && getChatPhoto(activeChatObj) ? (
-                                        <img src={getChatPhoto(activeChatObj)!} alt="Chat" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-indigo-900/50">
-                                            {activeChatObj?.type === 'group' ? <Users className="w-5 h-5 text-indigo-300" /> : <User className="w-5 h-5 text-indigo-300" />}
-                                        </div>
-                                    )}
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={goToActivePrivateProfile}
+                                    disabled={!activePrivateParticipantId}
+                                    className={`flex items-center gap-3 min-w-0 ${activePrivateParticipantId ? 'cursor-pointer hover:opacity-90' : 'cursor-default'}`}
+                                    title={activePrivateParticipantId ? 'Ver perfil' : undefined}
+                                >
+                                    {/* Avatar */}
+                                    <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden flex-shrink-0 border border-white/10">
+                                        {activeChatObj && getChatPhoto(activeChatObj) ? (
+                                            <img src={getChatPhoto(activeChatObj)!} alt="Chat" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-indigo-900/50">
+                                                {activeChatObj?.type === 'group' ? <Users className="w-5 h-5 text-indigo-300" /> : <User className="w-5 h-5 text-indigo-300" />}
+                                            </div>
+                                        )}
+                                    </div>
 
-                                <div>
-                                    <h2 className="text-white font-bold text-sm md:text-base">{activeChatObj ? getChatName(activeChatObj) : 'Conversación'}</h2>
-                                    {activeChatObj?.type === 'group' ? (
-                                        <span className="text-xs text-gray-500">{activeChatObj.participants.length} participantes</span>
-                                    ) : (
-                                        <span className={`text-xs flex items-center gap-1 ${activePrivateUser?.isOnline ? 'text-green-500' : 'text-gray-500'}`}>
-                                            <span className={`w-2 h-2 rounded-full ${activePrivateUser?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
-                                            {activePrivateUser?.isOnline ? 'En línea' : 'Desconectado'}
-                                        </span>
-                                    )}
-                                </div>
+                                    <div className="text-left min-w-0">
+                                        <h2 className="text-white font-bold text-sm md:text-base truncate">{activeChatObj ? getChatName(activeChatObj) : 'Conversación'}</h2>
+                                        {activeChatObj?.type === 'group' ? (
+                                            <span className="text-xs text-gray-500">{activeChatObj.participants.length} participantes</span>
+                                        ) : (
+                                            <span className={`text-xs flex items-center gap-1 ${activePrivateUser?.isOnline ? 'text-green-500' : 'text-gray-500'}`}>
+                                                <span className={`w-2 h-2 rounded-full ${activePrivateUser?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
+                                                {activePrivateUser?.isOnline ? 'En línea' : 'Desconectado'}
+                                            </span>
+                                        )}
+                                    </div>
+                                </button>
                             </div>
                             <button
                                 onClick={() => setIsInfoModalOpen(true)}
