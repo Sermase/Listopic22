@@ -11,7 +11,8 @@ import {
     getDocs,
     limit,
     getDoc,
-    arrayUnion
+    arrayUnion,
+    increment
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -97,10 +98,17 @@ export const ChatService = {
 
         // Update last message
         const chatRef = doc(db, 'chats', chatId);
+        const chatSnap = await getDoc(chatRef);
+        const participants = chatSnap.exists() ? (chatSnap.data().participants || []) as string[] : [];
+        const unreadUpdates = participants
+            .filter(uid => uid !== senderId)
+            .reduce((acc, uid) => ({ ...acc, [`unreadCount.${uid}`]: increment(1) }), {} as Record<string, any>);
+
         await updateDoc(chatRef, {
             lastMessage: text,
             lastMessageTimestamp: serverTimestamp(),
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
+            ...unreadUpdates
         });
     },
 
