@@ -8,11 +8,19 @@ import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
-import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, query, getDocs, limit } from 'firebase/firestore';
 import { db } from '../firebase';
+import { updateProfile } from 'firebase/auth';
+import {
+    completeUserProfileSetup,
+    getUsernameGateStatus,
+    isUserProfileServiceError,
+    type UserProfileFormData,
+} from '../services/UserProfileService';
+import { USERNAME_MAX_LENGTH } from '../utils/username';
 
 /* 
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
@@ -31,6 +39,110 @@ export const HomePage: React.FC = () => {
     const { range, toggleRange, getRangeLabel } = useFilters();
 
     const [isMapOpen, setIsMapOpen] = useState(false);
+    const [gateLoading, setGateLoading] = useState(false);
+    const [showProfileGate, setShowProfileGate] = useState(false);
+    const [gateSubmitting, setGateSubmitting] = useState(false);
+    const [gateError, setGateError] = useState<string | null>(null);
+    const [gateForm, setGateForm] = useState<UserProfileFormData>({
+        username: '',
+        displayName: '',
+        name: '',
+        surnames: '',
+        location: '',
+        bio: '',
+    });
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const checkProfileGate = async () => {
+            if (!user) {
+                if (!cancelled) {
+                    setGateLoading(false);
+                    setShowProfileGate(false);
+                    setGateError(null);
+                }
+                return;
+            }
+
+            setGateLoading(true);
+            try {
+                const status = await getUsernameGateStatus({
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName,
+                    photoUrl: user.photoURL,
+                });
+
+                if (cancelled) return;
+
+                setGateForm(status.prefill);
+                setShowProfileGate(status.requiresCompletion);
+                if (status.requiresCompletion && status.reason === 'claim_conflict') {
+                    setGateError('Ese nombre de usuario ya está ocupado. Elige otro para continuar.');
+                } else {
+                    setGateError(null);
+                }
+            } catch (error) {
+                if (cancelled) return;
+                console.error('[HomePage] Error validating username gate:', error);
+                setShowProfileGate(true);
+                setGateError('No se pudo validar tu perfil. Inténtalo de nuevo.');
+            } finally {
+                if (!cancelled) {
+                    setGateLoading(false);
+                }
+            }
+        };
+
+        void checkProfileGate();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.uid, user?.email, user?.displayName, user?.photoURL]);
+
+    const handleGateFieldChange = (field: keyof UserProfileFormData, value: string) => {
+        setGateForm(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleCompleteProfileSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!user) return;
+
+        setGateSubmitting(true);
+        setGateError(null);
+        try {
+            const result = await completeUserProfileSetup({
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoUrl: user.photoURL,
+            }, gateForm);
+
+            if (user.displayName !== result.displayName) {
+                await updateProfile(user, { displayName: result.displayName });
+            }
+
+            setShowProfileGate(false);
+            setGateError(null);
+        } catch (error) {
+            if (isUserProfileServiceError(error)) {
+                if (error.code === 'username-taken') {
+                    setGateError('Ese nombre de usuario ya está en uso. Prueba otro.');
+                } else if (error.code === 'username-immutable') {
+                    setGateError('Tu username actual ya está bloqueado y no se puede cambiar.');
+                } else {
+                    setGateError(error.message || 'No se pudo guardar tu perfil.');
+                }
+            } else {
+                console.error('[HomePage] Error completing profile gate:', error);
+                setGateError('No se pudo guardar tu perfil. Inténtalo de nuevo.');
+            }
+        } finally {
+            setGateSubmitting(false);
+        }
+    };
 
     // Following Logic
     const [followingIds, setFollowingIds] = useState<string[]>([]);
@@ -338,6 +450,129 @@ export const HomePage: React.FC = () => {
         }
         toggleRange();
     };
+
+    if (user && gateLoading) {
+        return (
+            <div className="min-h-screen bg-[#0b1021] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+            </div>
+        );
+    }
+
+    if (user && showProfileGate) {
+        return (
+            <div className="min-h-screen bg-[#0b1021] px-4 py-12 flex items-center justify-center">
+                <div className="w-full max-w-2xl bg-[#151b2e] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Completa tu perfil</h2>
+                    <p className="text-gray-400 text-sm mb-6">
+                        Antes de entrar en Home necesitas un username válido.
+                    </p>
+
+                    <form onSubmit={handleCompleteProfileSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                Username (obligatorio)
+                            </label>
+                            <input
+                                type="text"
+                                value={gateForm.username}
+                                onChange={(e) => handleGateFieldChange('username', e.target.value)}
+                                maxLength={USERNAME_MAX_LENGTH}
+                                required
+                                className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                placeholder="sin espacios, máximo 18"
+                            />
+                            <p className="text-[11px] text-amber-300 mt-2">
+                                El username es único, no puede tener espacios y no se podrá cambiar después.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                    Display Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={gateForm.displayName}
+                                    onChange={(e) => handleGateFieldChange('displayName', e.target.value)}
+                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                    placeholder="por defecto será el username"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                    Nombre
+                                </label>
+                                <input
+                                    type="text"
+                                    value={gateForm.name}
+                                    onChange={(e) => handleGateFieldChange('name', e.target.value)}
+                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                    placeholder="opcional"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                    Apellidos
+                                </label>
+                                <input
+                                    type="text"
+                                    value={gateForm.surnames}
+                                    onChange={(e) => handleGateFieldChange('surnames', e.target.value)}
+                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                    placeholder="opcional"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                    Lugar
+                                </label>
+                                <input
+                                    type="text"
+                                    value={gateForm.location}
+                                    onChange={(e) => handleGateFieldChange('location', e.target.value)}
+                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                    placeholder="opcional"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                Biografía
+                            </label>
+                            <textarea
+                                value={gateForm.bio}
+                                onChange={(e) => handleGateFieldChange('bio', e.target.value)}
+                                rows={4}
+                                className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                placeholder="opcional"
+                            />
+                        </div>
+
+                        {gateError && (
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-200">
+                                {gateError}
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={gateSubmitting}
+                            className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            {gateSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                            Guardar y continuar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20 font-sans">
