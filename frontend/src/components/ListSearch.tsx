@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { Search, List as ListIcon, Plus, ChevronDown, Check, Sparkles, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -43,10 +43,13 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                 const qOwned = query(collection(db, 'lists'), where('userId', '==', user.uid));
                 // Fetch Edited
                 const qEdited = query(collection(db, 'lists'), where('editors', 'array-contains', user.uid));
+                // Fetch Public lists so users can choose from across Listopic
+                const qPublic = query(collection(db, 'lists'), where('isPublic', '==', true), limit(300));
 
-                const [snapOwned, snapEdited] = await Promise.allSettled([
+                const [snapOwned, snapEdited, snapPublic] = await Promise.allSettled([
                     getDocs(qOwned),
-                    getDocs(qEdited)
+                    getDocs(qEdited),
+                    getDocs(qPublic)
                 ]);
 
                 const allDocs: any[] = [];
@@ -64,6 +67,12 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                 } else {
                     console.warn("ListSearch: Error fetching shared lists", snapEdited.reason);
                     // Don't fail everything if shared lists fail, but maybe log it?
+                }
+
+                if (snapPublic.status === 'fulfilled') {
+                    snapPublic.value.docs.forEach(d => allDocs.push(d));
+                } else {
+                    console.warn("ListSearch: Error fetching public lists", snapPublic.reason);
                 }
 
                 const uniqueLists = new Map<string, any>();
@@ -159,16 +168,22 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
     const selectedList = lists.find(l => l.id === selectedListId);
 
     // Robust Searching / Filtering Logic
+    const normalize = (value: string) => value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+
     const filteredLists = useMemo(() => {
         if (!searchTerm.trim()) return lists;
 
-        const lowerTerm = searchTerm.toLowerCase();
+        const lowerTerm = normalize(searchTerm);
         const terms = lowerTerm.split(' ').filter(t => t.length > 0);
 
         // Score based on search match
         const searchScored = lists.map(list => {
             let searchScore = 0;
-            const nameLower = list.name.toLowerCase();
+            const nameLower = normalize(list.name);
 
             // Check each search term
             terms.forEach(term => {
@@ -180,7 +195,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                 }
             });
 
-            if (list.parentListName?.toLowerCase().includes(lowerTerm)) searchScore += 5; // Match parent name
+            if (list.parentListName && normalize(list.parentListName).includes(lowerTerm)) searchScore += 5; // Match parent name
 
             return { ...list, searchScore };
         });
