@@ -763,7 +763,7 @@ export const PlacePage: React.FC = () => {
                         prefillPlaceId={place.placeId}
                         prefillItemName={selectedDishName || undefined}
                         editReviewId={editingReviewId || undefined}
-                        lockList={!!selectedListId}
+                        lockList={false}
                         onClose={() => {
                             setIsFlowOpen(false);
                             setSelectedListId(null);
