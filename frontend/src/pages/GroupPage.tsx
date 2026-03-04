@@ -21,7 +21,6 @@ const getScoreColor = (score: number) => {
     return 'from-red-400 to-red-600';
 };
 
-import { ListSelector } from '../components/ListSelector';
 
 const toMillis = (value: any): number => {
     if (!value) return 0;
@@ -330,6 +329,13 @@ export const GroupPage: React.FC = () => {
         return [...new Set(reviews.map(r => r.listId).filter(Boolean))];
     }, [reviews]);
 
+    const lockedListId = fromListId || relatedLists[0] || null;
+
+    const openAddReviewFlow = () => {
+        setSelectedListId(lockedListId);
+        setIsFlowOpen(true);
+    };
+
     const [listsDetails, setListsDetails] = useState<{ id: string, name: string, author: string, parentListId?: string }[]>([]);
 
     // List Comparison States
@@ -524,15 +530,7 @@ export const GroupPage: React.FC = () => {
 
                                     {/* Add Review Button */}
                                     <button
-                                        onClick={() => {
-                                            if (fromListId) {
-                                                setSelectedListId(fromListId);
-                                                setIsFlowOpen(true);
-                                            } else {
-                                                setSelectedListId(null);
-                                                setIsFlowOpen(true);
-                                            }
-                                        }}
+                                        onClick={openAddReviewFlow}
                                         className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
                                     >
                                         <Plus className="w-4 h-4" />
@@ -740,7 +738,7 @@ export const GroupPage: React.FC = () => {
                             <h3 className="text-lg font-bold text-white mb-2">Sé el primero en opinar</h3>
                             <p className="text-gray-400 mb-6 text-sm">Nadie ha escrito una reseña detallada sobre este plato aún.</p>
                             <button
-                                onClick={() => setIsFlowOpen(true)}
+                                onClick={openAddReviewFlow}
                                 className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full font-bold transition-all shadow-lg shadow-indigo-500/20"
                             >
                                 Añadir Reseña
@@ -754,12 +752,12 @@ export const GroupPage: React.FC = () => {
             {
                 isFlowOpen && (
                     <AddReviewForm
-                        listId={selectedListId}
+                        listId={selectedListId || lockedListId}
                         onListChange={setSelectedListId}
                         prefillPlaceId={placeId}
                         prefillItemName={decodedName}
                         editReviewId={editingReviewId || undefined}
-                        lockList={!!selectedListId} // Lock if we pre-selected a list
+                        lockList={!!(selectedListId || lockedListId)} // Always lock when group is associated to a concrete list
                         onClose={() => {
                             setIsFlowOpen(false);
                             setSelectedListId(null);
