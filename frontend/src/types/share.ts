@@ -18,6 +18,7 @@ export interface ShareEntityPayload {
     url: string;
     imageUrl?: string;
     badgeLabel?: string;
+    score?: number;
 }
 
 const SHARE_ENTITY_LABELS: Record<ShareEntityType, string> = {
@@ -27,7 +28,7 @@ const SHARE_ENTITY_LABELS: Record<ShareEntityType, string> = {
     sublist: 'Sublista',
     profile: 'Perfil',
     app: 'App',
-    review: 'Resena',
+    review: 'Reseña',
     link: 'Enlace',
 };
 

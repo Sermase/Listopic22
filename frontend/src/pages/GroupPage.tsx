@@ -880,6 +880,7 @@ export const GroupPage: React.FC = () => {
                     route: `/group/${placeId}/${encodeURIComponent(decodedName)}`,
                     url: `${window.location.origin}/group/${placeId}/${encodeURIComponent(decodedName)}`,
                     imageUrl: stats?.mainPhoto || undefined,
+                    score: stats?.avg,
                 }}
             />
 

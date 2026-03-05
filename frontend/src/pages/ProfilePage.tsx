@@ -5,7 +5,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
 import { useFilters } from '../context/FilterContext'; // Import Filter Context
-import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown, BarChart3, Sparkles, Share2 } from 'lucide-react';
+import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown, BarChart3, Sparkles, Share2, X } from 'lucide-react';
 import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -64,7 +64,9 @@ export const ProfilePage: React.FC = () => {
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [preferencesTab, setPreferencesTab] = useState<'user' | 'search'>('user');
     const [editRange, setEditRange] = useState<string>('50'); // Default to 50 if undefined
+    const [editUsername, setEditUsername] = useState('');
     const [editDisplayName, setEditDisplayName] = useState('');
     const [editName, setEditName] = useState('');
     const [editSurnames, setEditSurnames] = useState('');
@@ -95,6 +97,12 @@ export const ProfilePage: React.FC = () => {
         setEditingReviewId(review.id);
         setEditingListId(review.listId || null);
         setIsFlowOpen(true);
+    };
+
+    const openPreferencesModal = (tab: 'user' | 'search' = 'user') => {
+        setPreferencesTab(tab);
+        setPreferencesError(null);
+        setIsEditing(true);
     };
 
     // Determine target user ID
@@ -596,6 +604,7 @@ export const ProfilePage: React.FC = () => {
 
     useEffect(() => {
         if (!profile) return;
+        setEditUsername((profile.username || '').trim());
         setEditDisplayName((profile.displayName || profile.username || '').trim());
         setEditName((profile.name || '').trim());
         setEditSurnames((profile.surnames || '').trim());
@@ -665,8 +674,11 @@ export const ProfilePage: React.FC = () => {
 
     const savePreferences = async () => {
         if (!user) return;
-        if (!isUsernameValid(profile?.username || '')) {
-            setPreferencesError('Tu username no es válido todavía. Complétalo primero desde Home.');
+        const profileUsername = (profile?.username || '').trim();
+        const canEditUsername = !isUsernameValid(profileUsername);
+        const nextUsername = editUsername.trim();
+        if (canEditUsername && !isUsernameValid(nextUsername)) {
+            setPreferencesError('Debes definir un username válido: sin espacios, máximo 18 caracteres y único.');
             return;
         }
 
@@ -683,6 +695,7 @@ export const ProfilePage: React.FC = () => {
                 displayName: user.displayName,
                 photoUrl: user.photoURL,
             }, {
+                username: canEditUsername ? nextUsername : undefined,
                 displayName: editDisplayName,
                 name: editName,
                 surnames: editSurnames,
@@ -786,6 +799,7 @@ export const ProfilePage: React.FC = () => {
     const profileShareTitle = profile.displayName || profile.username || 'Perfil';
     const profileShareSubtitle = profile.username ? `@${profile.username}` : '';
     const profileShareText = `Mira este perfil en Listopic: ${profileShareTitle}`;
+    const hasLockedUsername = isUsernameValid((profile.username || '').trim());
 
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20">
@@ -814,9 +828,9 @@ export const ProfilePage: React.FC = () => {
 
                     {/* Identity (Right of Avatar) */}
                     <div className="flex-1 min-w-0 pb-0 md:pb-0 flex flex-col justify-start">
-                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 relative md:pr-64">
-                            <div>
-                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight truncate">
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                            <div className="min-w-0 md:flex-1 md:pr-4">
+                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight break-words line-clamp-2">
                                     {profile.displayName || profile.username || 'Usuario'}
                                 </h1>
                                 {profile.username && (
@@ -826,108 +840,107 @@ export const ProfilePage: React.FC = () => {
                                 )}
                             </div>
 
-                            {/* DESKTOP ACTIONS */}
-                            <div className="hidden md:flex items-center gap-3 absolute top-0 right-0">
-                                {isOwnProfile ? (
-                                    <div className="flex items-center gap-2">
-                                        {((Array.isArray(profile.userType) && profile.userType.includes('jefe')) || profile.userType === 'jefe') && (
-                                            <Link to="/developer" className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-indigo-400 hover:bg-indigo-500/10 transition-colors">
-                                                <Bug className="w-5 h-5" />
-                                            </Link>
-                                        )}
-                                        <button onClick={() => setIsEditing(!isEditing)} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors">
-                                            <Settings className="w-5 h-5" />
-                                        </button>
-                                        <button onClick={() => setIsShareModalOpen(true)} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors" title="Compartir perfil">
-                                            <Share2 className="w-5 h-5" />
-                                        </button>
-                                        <button onClick={async () => { await signOut(auth); navigate('/login'); }} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-                                            <Power className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <button
-                                            onClick={handleFollowToggle}
-                                            disabled={followLoading}
-                                            className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${isFollowing
-                                                ? 'bg-[#151b2e] border border-white/20 text-white hover:border-red-500 hover:text-red-500'
-                                                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20'
-                                                }`}
-                                        >
-                                            {isFollowing ? <><UserCheck className="w-4 h-4" /> Siguiendo</> : <><UserPlus className="w-4 h-4" /> Seguir</>}
-                                        </button>
-                                        <button
-                                            onClick={handleMessage}
-                                            className="px-4 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-white hover:bg-white/10 transition-colors shadow-lg"
-                                        >
-                                            <MessageCircle className="w-5 h-5" />
-                                        </button>
-                                        <button
-                                            onClick={() => setIsShareModalOpen(true)}
-                                            className="px-4 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors shadow-lg"
-                                            title="Compartir perfil"
-                                        >
-                                            <Share2 className="w-5 h-5" />
-                                        </button>
-
-                                        <div className="relative">
-                                            <button
-                                                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                                className="px-3 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                                            >
-                                                <MoreVertical className="w-5 h-5" />
-                                            </button>
-                                            {isMenuOpen && (
-                                                <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in z-50 origin-top-right">
-                                                    <button
-                                                        onClick={() => { setIsMenuOpen(false); setShowReportModal(true); }}
-                                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                                    >
-                                                        <Flag className="w-4 h-4" /> Reportar
-                                                    </button>
-                                                </div>
+                            <div className="hidden md:flex shrink-0 flex-col items-end gap-3">
+                                <div className="flex items-center gap-2">
+                                    {isOwnProfile ? (
+                                        <>
+                                            {((Array.isArray(profile.userType) && profile.userType.includes('jefe')) || profile.userType === 'jefe') && (
+                                                <Link to="/developer" className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+                                                    <Bug className="w-5 h-5" />
+                                                </Link>
                                             )}
+                                            <button onClick={() => openPreferencesModal('user')} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors">
+                                                <Settings className="w-5 h-5" />
+                                            </button>
+                                            <button onClick={() => setIsShareModalOpen(true)} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors" title="Compartir perfil">
+                                                <Share2 className="w-5 h-5" />
+                                            </button>
+                                            <button onClick={async () => { await signOut(auth); navigate('/login'); }} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                                                <Power className="w-5 h-5" />
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={handleFollowToggle}
+                                                disabled={followLoading}
+                                                className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${isFollowing
+                                                    ? 'bg-[#151b2e] border border-white/20 text-white hover:border-red-500 hover:text-red-500'
+                                                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20'
+                                                    }`}
+                                            >
+                                                {isFollowing ? <><UserCheck className="w-4 h-4" /> Siguiendo</> : <><UserPlus className="w-4 h-4" /> Seguir</>}
+                                            </button>
+                                            <button
+                                                onClick={handleMessage}
+                                                className="px-4 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-white hover:bg-white/10 transition-colors shadow-lg"
+                                            >
+                                                <MessageCircle className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => setIsShareModalOpen(true)}
+                                                className="px-4 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors shadow-lg"
+                                                title="Compartir perfil"
+                                            >
+                                                <Share2 className="w-5 h-5" />
+                                            </button>
+
+                                            <div className="relative">
+                                                <button
+                                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                                    className="px-3 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                                                >
+                                                    <MoreVertical className="w-5 h-5" />
+                                                </button>
+                                                {isMenuOpen && (
+                                                    <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in z-50 origin-top-right">
+                                                        <button
+                                                            onClick={() => { setIsMenuOpen(false); setShowReportModal(true); }}
+                                                            className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                                        >
+                                                            <Flag className="w-4 h-4" /> Reportar
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                {favoriteReview && (
+                                    <Link
+                                        to={favoriteGroupLink}
+                                        className="group w-[220px] flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
+                                        title="Abrir favorito en pagina de grupo"
+                                    >
+                                        <div className="relative w-11 h-11 shrink-0">
+                                            <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
+                                                {favoriteReview.photoUrl ? (
+                                                    <img src={favoriteReview.photoUrl} alt={favoriteReview.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                        <ListIcon className="w-4 h-4" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[#0b1021] shadow-lg`}>
+                                                {favoriteReview.score.toFixed(1)}
+                                            </div>
                                         </div>
-                                    </>
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-[9px] uppercase tracking-widest text-amber-200 font-bold flex items-center gap-1">
+                                                <Sparkles className="w-2.5 h-2.5" /> Favorito
+                                            </div>
+                                            <div className="text-xs font-extrabold text-white truncate">{favoriteReview.itemName}</div>
+                                            <div className="text-[11px] text-indigo-200 truncate">{favoriteReview.placeName}</div>
+                                            <div className="text-[10px] text-gray-300 truncate">{favoriteReview.listName}</div>
+                                        </div>
+                                    </Link>
                                 )}
                             </div>
                         </div>
                     </div>
-
-                    {favoriteReview && (
-                        <div className="hidden md:block shrink-0 pt-1">
-                            <Link
-                                to={favoriteGroupLink}
-                                className="group w-[220px] flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
-                                title="Abrir favorito en pagina de grupo"
-                            >
-                                <div className="relative w-11 h-11 shrink-0">
-                                    <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
-                                        {favoriteReview.photoUrl ? (
-                                            <img src={favoriteReview.photoUrl} alt={favoriteReview.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                                <ListIcon className="w-4 h-4" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[#0b1021] shadow-lg`}>
-                                        {favoriteReview.score.toFixed(1)}
-                                    </div>
-                                </div>
-
-                                <div className="min-w-0 flex-1">
-                                    <div className="text-[9px] uppercase tracking-widest text-amber-200 font-bold flex items-center gap-1">
-                                        <Sparkles className="w-2.5 h-2.5" /> Favorito
-                                    </div>
-                                    <div className="text-xs font-extrabold text-white truncate">{favoriteReview.itemName}</div>
-                                    <div className="text-[11px] text-indigo-200 truncate">{favoriteReview.placeName}</div>
-                                    <div className="text-[10px] text-gray-300 truncate">{favoriteReview.listName}</div>
-                                </div>
-                            </Link>
-                        </div>
-                    )}
                 </div>
 
                 {favoriteReview && (
@@ -982,7 +995,7 @@ export const ProfilePage: React.FC = () => {
                                         <Bug className="w-5 h-5" />
                                     </Link>
                                 )}
-                                <button onClick={() => setIsEditing(!isEditing)} className="flex-1 p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 text-sm font-bold">
+                                <button onClick={() => openPreferencesModal('user')} className="flex-1 p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 text-sm font-bold">
                                     Editar Perfil
                                 </button>
                                 <button onClick={() => setIsShareModalOpen(true)} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300">
@@ -1104,209 +1117,279 @@ export const ProfilePage: React.FC = () => {
                 </div>
 
 
-                {/* Preferences Form */}
+                {/* Preferences Modal */}
                 {isEditing && isOwnProfile && (
-                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 mb-8 animate-fade-in space-y-6">
-
-                        {/* Profile Identity */}
-                        <div>
-                            <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                                <UsersIcon className="w-4 h-4 text-indigo-400" /> Perfil público
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
-                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Username (bloqueado)</label>
-                                    <input
-                                        type="text"
-                                        value={profile.username || ''}
-                                        disabled
-                                        className="w-full bg-black/40 border border-white/10 rounded-lg text-gray-400 px-3 py-2 cursor-not-allowed"
-                                    />
-                                    <p className="text-[11px] text-amber-300 mt-2">
-                                        El username no se puede cambiar una vez guardado. Máximo 18 caracteres y sin espacios.
-                                    </p>
-                                </div>
-
+                    <div
+                        className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+                        onClick={() => !savingPreferences && setIsEditing(false)}
+                    >
+                        <div
+                            className="w-full max-w-3xl max-h-[92vh] rounded-2xl border border-white/10 bg-[#151b2e] shadow-2xl overflow-hidden"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
                                 <div>
-                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Display Name</label>
-                                    <input
-                                        type="text"
-                                        value={editDisplayName}
-                                        onChange={(e) => setEditDisplayName(e.target.value)}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
-                                        placeholder="Visible públicamente"
-                                    />
+                                    <h3 className="text-white font-bold text-lg">Preferencias de perfil</h3>
+                                    <p className="text-xs text-gray-400 mt-1">Configura datos del usuario y ajustes de busqueda.</p>
                                 </div>
-
-                                <div>
-                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Nombre</label>
-                                    <input
-                                        type="text"
-                                        value={editName}
-                                        onChange={(e) => setEditName(e.target.value)}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
-                                        placeholder="Opcional"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Apellidos</label>
-                                    <input
-                                        type="text"
-                                        value={editSurnames}
-                                        onChange={(e) => setEditSurnames(e.target.value)}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
-                                        placeholder="Opcional"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Lugar</label>
-                                    <input
-                                        type="text"
-                                        value={editLocation}
-                                        onChange={(e) => setEditLocation(e.target.value)}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
-                                        placeholder="Opcional"
-                                    />
-                                </div>
-
-                                <div className="md:col-span-2">
-                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Biografía</label>
-                                    <textarea
-                                        value={editBio}
-                                        onChange={(e) => setEditBio(e.target.value)}
-                                        rows={4}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500 resize-y"
-                                        placeholder="Opcional"
-                                    />
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => !savingPreferences && setIsEditing(false)}
+                                    className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
                             </div>
-                        </div>
 
-                        {/* Avatar Settings */}
-                        <div>
-                            <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                                <UsersIcon className="w-4 h-4 text-indigo-400" /> Avatar
-                            </h3>
-                            <div className="flex flex-col gap-4">
-                                <div className="flex gap-4">
-                                    {/* Google Option */}
+                            <div className="px-5 pt-4">
+                                <div className="inline-flex rounded-xl border border-white/10 bg-[#0f1424] p-1">
                                     <button
-                                        onClick={async () => {
-                                            if (!user?.photoURL) return;
-                                            try {
-                                                await setDoc(doc(db, 'users', user!.uid), {
-                                                    photoUrl: user!.photoURL
-                                                }, { merge: true });
-                                                // Force reload profile by relying on useUserProfile effect or optimistic update
-                                                // Ideally we'd have a refresh function from the hook, but let's just wait for real-time listener or effect
-                                                window.location.reload();
-                                            } catch (e) {
-                                                console.error("Error setting Google photo", e);
-                                            }
-                                        }}
-                                        className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${profile.photoUrl === user?.photoURL
-                                            ? 'bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500'
-                                            : 'bg-black/20 border-white/10 hover:border-white/30'
+                                        type="button"
+                                        onClick={() => setPreferencesTab('user')}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === 'user'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'text-gray-300 hover:text-white'
                                             }`}
                                     >
-                                        <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10">
-                                            {user?.photoURL ? (
-                                                <img src={user.photoURL} alt="Google" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full bg-gray-700"></div>
-                                            )}
-                                        </div>
-                                        <span className="text-xs font-bold text-gray-300">Google</span>
+                                        Usuario
                                     </button>
-
-                                    {/* Custom Option / Drag & Drop Zone */}
-                                    <div
-                                        className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all relative overflow-hidden group ${profile.photoUrl !== user?.photoURL
-                                            ? 'bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500'
-                                            : 'bg-black/20 border-white/10 hover:border-white/30'
-                                            } ${dragActive ? 'border-dashed border-indigo-400 bg-indigo-500/10' : ''}`}
-                                        onDragEnter={handleDrag}
-                                        onDragLeave={handleDrag}
-                                        onDragOver={handleDrag}
-                                        onDrop={handleDrop}
-                                        onClick={() => document.getElementById('file-upload')?.click()}
+                                    <button
+                                        type="button"
+                                        onClick={() => setPreferencesTab('search')}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === 'search'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'text-gray-300 hover:text-white'
+                                            }`}
                                     >
-                                        <input
-                                            type="file"
-                                            id="file-upload"
-                                            className="hidden"
-                                            accept="image/*"
-                                            onChange={(e) => e.target.files && e.target.files[0] && processFile(e.target.files[0])}
-                                        />
-
-                                        {uploading ? (
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
-                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                                            </div>
-                                        ) : null}
-
-                                        <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 grayscale group-hover:grayscale-0 transition-all">
-                                            <img src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName}`} alt="Custom" className="w-full h-full object-cover" />
-                                        </div>
-                                        <span className="text-xs font-bold text-gray-300">
-                                            {dragActive ? 'Suelta aquí' : 'Personal'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-gray-400 text-xs uppercase font-bold">O arrastra tu imagen aquí</label>
-                                    <p className="text-[10px] text-gray-500">
-                                        Haz clic en "Personal" o arrastra una imagen para subirla. Máx 5MB.
-                                    </p>
+                                        Busqueda
+                                    </button>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Search Preferences */}
-                        <div>
-                            <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                                <Settings className="w-4 h-4 text-indigo-400" /> Preferencias de Búsqueda
-                            </h3>
-                            <div className="flex flex-col gap-2 max-w-xs">
-                                <label className="text-gray-400 text-xs uppercase font-bold">Rango de distancia por defecto</label>
-                                <div className="flex items-center gap-3">
-                                    <select
-                                        value={editRange}
-                                        onChange={(e) => setEditRange(e.target.value)}
-                                        className="bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500 w-full"
-                                    >
-                                        <option value="1">1 km</option>
-                                        <option value="2">2 km</option>
-                                        <option value="5">5 km</option>
-                                        <option value="10">10 km</option>
-                                        <option value="50">50 km</option>
-                                        <option value="100">100 km</option>
-                                        <option value="500">500 km</option>
-                                        <option value="999999">Sin límite</option>
-                                    </select>
-                                </div>
-                                <p className="text-[10px] text-gray-500 mt-1">Este rango se aplicará automáticamente cuando inicies nueva sesión.</p>
+                            <div className="px-5 py-4 space-y-6 overflow-y-auto max-h-[calc(92vh-220px)]">
+                                {preferencesTab === 'user' && (
+                                    <>
+                                        <div>
+                                            <h4 className="text-white font-bold mb-4 flex items-center gap-2">
+                                                <UsersIcon className="w-4 h-4 text-indigo-400" /> Perfil publico
+                                            </h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="md:col-span-2">
+                                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
+                                                        {hasLockedUsername ? 'Username (bloqueado)' : 'Username (obligatorio)'}
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={editUsername}
+                                                        onChange={(e) => setEditUsername(e.target.value)}
+                                                        disabled={hasLockedUsername}
+                                                        className={`w-full border rounded-lg px-3 py-2 ${hasLockedUsername
+                                                            ? 'bg-black/40 border-white/10 text-gray-400 cursor-not-allowed'
+                                                            : 'bg-black/20 border-amber-400/40 text-white outline-none focus:border-indigo-500'
+                                                            }`}
+                                                        placeholder="Sin espacios, maximo 18 caracteres"
+                                                    />
+                                                    <p className="text-[11px] text-amber-300 mt-2">
+                                                        {hasLockedUsername
+                                                            ? 'El username no se puede cambiar una vez guardado. Maximo 18 caracteres y sin espacios.'
+                                                            : 'Tu username actual no es valido. Debes guardarlo ahora y quedara bloqueado cuando sea correcto.'
+                                                        }
+                                                    </p>
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Display Name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editDisplayName}
+                                                        onChange={(e) => setEditDisplayName(e.target.value)}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                                                        placeholder="Visible publicamente"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Nombre</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editName}
+                                                        onChange={(e) => setEditName(e.target.value)}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                                                        placeholder="Opcional"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Apellidos</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editSurnames}
+                                                        onChange={(e) => setEditSurnames(e.target.value)}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                                                        placeholder="Opcional"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Lugar</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editLocation}
+                                                        onChange={(e) => setEditLocation(e.target.value)}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                                                        placeholder="Opcional"
+                                                    />
+                                                </div>
+
+                                                <div className="md:col-span-2">
+                                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Biografia</label>
+                                                    <textarea
+                                                        value={editBio}
+                                                        onChange={(e) => setEditBio(e.target.value)}
+                                                        rows={4}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500 resize-y"
+                                                        placeholder="Opcional"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <h4 className="text-white font-bold mb-4 flex items-center gap-2">
+                                                <UsersIcon className="w-4 h-4 text-indigo-400" /> Avatar
+                                            </h4>
+                                            <div className="flex flex-col gap-4">
+                                                <div className="flex gap-4">
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (!user?.photoURL) return;
+                                                            try {
+                                                                await setDoc(doc(db, 'users', user!.uid), {
+                                                                    photoUrl: user!.photoURL
+                                                                }, { merge: true });
+                                                                window.location.reload();
+                                                            } catch (e) {
+                                                                console.error("Error setting Google photo", e);
+                                                            }
+                                                        }}
+                                                        className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${profile.photoUrl === user?.photoURL
+                                                            ? 'bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500'
+                                                            : 'bg-black/20 border-white/10 hover:border-white/30'
+                                                            }`}
+                                                    >
+                                                        <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10">
+                                                            {user?.photoURL ? (
+                                                                <img src={user.photoURL} alt="Google" className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-full bg-gray-700"></div>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-xs font-bold text-gray-300">Google</span>
+                                                    </button>
+
+                                                    <div
+                                                        className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all relative overflow-hidden group ${profile.photoUrl !== user?.photoURL
+                                                            ? 'bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500'
+                                                            : 'bg-black/20 border-white/10 hover:border-white/30'
+                                                            } ${dragActive ? 'border-dashed border-indigo-400 bg-indigo-500/10' : ''}`}
+                                                        onDragEnter={handleDrag}
+                                                        onDragLeave={handleDrag}
+                                                        onDragOver={handleDrag}
+                                                        onDrop={handleDrop}
+                                                        onClick={() => document.getElementById('file-upload')?.click()}
+                                                    >
+                                                        <input
+                                                            type="file"
+                                                            id="file-upload"
+                                                            className="hidden"
+                                                            accept="image/*"
+                                                            onChange={(e) => e.target.files && e.target.files[0] && processFile(e.target.files[0])}
+                                                        />
+
+                                                        {uploading ? (
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+                                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                                                            </div>
+                                                        ) : null}
+
+                                                        <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 grayscale group-hover:grayscale-0 transition-all">
+                                                            <img src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName}`} alt="Custom" className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <span className="text-xs font-bold text-gray-300">
+                                                            {dragActive ? 'Suelta aqui' : 'Personal'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <label className="text-gray-400 text-xs uppercase font-bold">O arrastra tu imagen aqui</label>
+                                                    <p className="text-[10px] text-gray-500">
+                                                        Haz clic en "Personal" o arrastra una imagen para subirla. Max 5MB.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {preferencesTab === 'search' && (
+                                    <div>
+                                        <h4 className="text-white font-bold mb-4 flex items-center gap-2">
+                                            <Settings className="w-4 h-4 text-indigo-400" /> Preferencias de busqueda
+                                        </h4>
+                                        <div className="flex flex-col gap-2 max-w-sm">
+                                            <label className="text-gray-400 text-xs uppercase font-bold">Rango de distancia por defecto</label>
+                                            <div className="flex items-center gap-3">
+                                                <select
+                                                    value={editRange}
+                                                    onChange={(e) => setEditRange(e.target.value)}
+                                                    className="bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500 w-full"
+                                                >
+                                                    <option value="1">1 km</option>
+                                                    <option value="2">2 km</option>
+                                                    <option value="5">5 km</option>
+                                                    <option value="10">10 km</option>
+                                                    <option value="50">50 km</option>
+                                                    <option value="100">100 km</option>
+                                                    <option value="500">500 km</option>
+                                                    <option value="999999">Sin limite</option>
+                                                </select>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 mt-1">Este rango se aplicara automaticamente cuando inicies nueva sesion.</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="px-5 py-4 border-t border-white/10 bg-[#12182c] space-y-3">
                                 {preferencesError && (
-                                    <div className="mt-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-200">
+                                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-200">
                                         {preferencesError}
                                     </div>
                                 )}
-                                <button
-                                    onClick={savePreferences}
-                                    disabled={savingPreferences}
-                                    className="mt-2 w-full py-2 bg-white/10 hover:bg-white/20 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2"
-                                >
-                                    {savingPreferences && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                    Guardar Preferencias
-                                </button>
+                                <div className="flex items-center justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => !savingPreferences && setIsEditing(false)}
+                                        disabled={savingPreferences}
+                                        className="px-3 py-2 text-xs font-bold rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={savePreferences}
+                                        disabled={savingPreferences}
+                                        className="px-3 py-2 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 min-w-[150px]"
+                                    >
+                                        {savingPreferences && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                        Guardar preferencias
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 )}
-
                 {/* Tabs Navigation */}
                 <div className="flex gap-8 border-b border-white/10 mb-8 overflow-x-auto">
                     <button

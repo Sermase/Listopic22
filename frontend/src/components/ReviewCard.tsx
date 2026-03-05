@@ -579,7 +579,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 shareEntity={{
                     type: 'review',
                     id: review.id,
-                    title: review.itemName || 'Resena',
+                    title: review.itemName || 'Reseña',
                     subtitle: review.placeName || 'Lugar',
                     route: review.placeId && review.itemName ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}` : undefined,
                     url: `${window.location.origin}/group/${review.placeId}/${encodeURIComponent(review.itemName || '')}`,

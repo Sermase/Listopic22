@@ -226,6 +226,9 @@ export const ChatsPage: React.FC = () => {
             route: typeof share.route === 'string' ? share.route : undefined,
             imageUrl: typeof share.imageUrl === 'string' ? share.imageUrl : undefined,
             badgeLabel: typeof share.badgeLabel === 'string' ? share.badgeLabel : undefined,
+            score: typeof share.score === 'number'
+                ? share.score
+                : (Number.isFinite(Number(share.score)) ? Number(share.score) : undefined),
         };
     };
 

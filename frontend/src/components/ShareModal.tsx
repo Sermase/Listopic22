@@ -9,7 +9,6 @@ import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat } from '../services/ChatService';
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import type { ShareEntityPayload } from '../types/share';
-import { getShareEntityLabel } from '../types/share';
 import { db } from '../firebase';
 
 interface ShareModalProps {
@@ -437,7 +436,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     <div>
                         <h3 className="text-xl font-bold text-white">{title}</h3>
                         <p className="text-xs text-gray-400 mt-1">
-                            {getShareEntityLabel(resolvedShareEntity.type)} - {resolvedShareEntity.title}
+                            {resolvedShareEntity.title}
                         </p>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-white">

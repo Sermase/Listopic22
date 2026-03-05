@@ -4,7 +4,6 @@ import { Download, X } from 'lucide-react';
 import type { PlaceDetails } from '../hooks/usePlaceDetails';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import type { ShareEntityPayload, ShareEntityType } from '../types/share';
-import { getShareEntityLabel } from '../types/share';
 
 export type ShareCardVariant = 'cinematic' | 'clean' | 'punchy';
 
@@ -101,7 +100,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             return {
                 type: 'review',
                 id: review.id,
-                title: review.itemName || 'Resena',
+                title: review.itemName || 'Reseña',
                 subtitle: review.placeName || 'Lugar',
                 description: review.comment || '',
                 route: review.placeId && review.itemName ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}` : undefined,
@@ -117,7 +116,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 id: place.placeId,
                 title: place.name || 'Lugar',
                 subtitle: place.address || '',
-                description: place.reviewCount ? `${place.reviewCount} resenas publicadas` : '',
+                description: place.reviewCount ? `${place.reviewCount} reseñas publicadas` : '',
                 route: place.placeId ? `/place/${place.placeId}` : undefined,
                 url: placeUrl,
                 imageUrl: place.photoUrl,
@@ -128,7 +127,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     }, [shareEntity, review, place]);
 
     const theme = VARIANT_THEMES[variant] || VARIANT_THEMES.cinematic;
-    const score = review?.overallRating ?? place?.avgScore;
+    const score = review?.overallRating ?? place?.avgScore ?? entity.score;
     const scoreColor = SCORE_BUBBLE(score);
     const heroImage = localImages.hero || review?.photoUrl || place?.photoUrl || entity.imageUrl || '';
     const avatarImage = localImages.avatar || review?.authorPhoto || (entity.type === 'profile' ? entity.imageUrl || '' : '');
@@ -298,25 +297,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                     }}
                                 />
 
-                                <div
-                                    style={{
-                                        position: 'absolute',
-                                        top: '14px',
-                                        left: '14px',
-                                        background: theme.pillBg,
-                                        border: `1px solid ${theme.border}`,
-                                        borderRadius: '9999px',
-                                        padding: '6px 10px',
-                                        fontSize: '11px',
-                                        fontWeight: 800,
-                                        letterSpacing: '0.08em',
-                                        textTransform: 'uppercase',
-                                        color: '#e2e8f0',
-                                    }}
-                                >
-                                    {getShareEntityLabel(entity.type)}
-                                </div>
-
                                 {entity.type === 'profile' && (
                                     <div
                                         style={{
@@ -427,9 +407,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                     )}
 
                                     <div style={{ textAlign: 'right', minWidth: 0 }}>
-                                        <div style={{ fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#cbd5e1', fontWeight: 800 }}>
-                                            {variant}
-                                        </div>
                                         <div style={{ fontSize: '18px', fontWeight: 900, color: '#f8fafc', marginTop: '2px' }}>Listopic</div>
                                         <div style={{ fontSize: '11px', color: '#93c5fd', marginTop: '1px' }}>listopic.app</div>
                                     </div>
@@ -444,7 +421,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 <div className="fixed inset-0 z-[115] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in" onClick={() => setIsPreviewOpen(false)}>
                     <div className="bg-[#151b2e] rounded-2xl w-full max-w-md border border-white/10 overflow-hidden shadow-2xl" onClick={(event) => event.stopPropagation()}>
                         <div className="p-4 border-b border-white/10 flex justify-between items-center">
-                            <h3 className="text-white font-bold">Previsualizacion</h3>
+                            <h3 className="text-white font-bold">Previsualización</h3>
                             <button onClick={() => setIsPreviewOpen(false)} className="text-gray-400 hover:text-white">
                                 <X className="w-5 h-5" />
                             </button>
@@ -472,7 +449,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             </div>
 
                             <p className="text-xs text-gray-400 text-center">
-                                Descarga la imagen y subela en Instagram Stories.
+                                Descarga la imagen y súbela en Instagram Stories.
                             </p>
                         </div>
                     </div>
