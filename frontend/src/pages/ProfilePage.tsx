@@ -1120,14 +1120,14 @@ export const ProfilePage: React.FC = () => {
                 {/* Preferences Modal */}
                 {isEditing && isOwnProfile && (
                     <div
-                        className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+                        className="fixed inset-0 z-[130] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
                         onClick={() => !savingPreferences && setIsEditing(false)}
                     >
                         <div
-                            className="w-full max-w-3xl max-h-[92vh] rounded-2xl border border-white/10 bg-[#151b2e] shadow-2xl overflow-hidden"
+                            className="w-full h-full md:h-[88vh] md:max-h-[88vh] md:max-w-3xl rounded-none md:rounded-2xl border-0 md:border border-white/10 bg-[#151b2e] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
                             onClick={(event) => event.stopPropagation()}
                         >
-                            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+                            <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[#151b2e] flex items-center justify-between">
                                 <div>
                                     <h3 className="text-white font-bold text-lg">Preferencias de perfil</h3>
                                     <p className="text-xs text-gray-400 mt-1">Configura datos del usuario y ajustes de busqueda.</p>
@@ -1141,7 +1141,7 @@ export const ProfilePage: React.FC = () => {
                                 </button>
                             </div>
 
-                            <div className="px-5 pt-4">
+                            <div className="px-4 md:px-5 pt-4">
                                 <div className="inline-flex rounded-xl border border-white/10 bg-[#0f1424] p-1">
                                     <button
                                         type="button"
@@ -1166,7 +1166,7 @@ export const ProfilePage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="px-5 py-4 space-y-6 overflow-y-auto max-h-[calc(92vh-220px)]">
+                            <div className="px-4 md:px-5 py-4 space-y-6 overflow-y-auto flex-1">
                                 {preferencesTab === 'user' && (
                                     <>
                                         <div>
@@ -1361,7 +1361,7 @@ export const ProfilePage: React.FC = () => {
                                 )}
                             </div>
 
-                            <div className="px-5 py-4 border-t border-white/10 bg-[#12182c] space-y-3">
+                            <div className="px-4 md:px-5 py-4 border-t border-white/10 bg-[#12182c] space-y-3">
                                 {preferencesError && (
                                     <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-200">
                                         {preferencesError}
