@@ -69,6 +69,53 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
         );
     };
 
+    const criteriaPreview = React.useMemo(() => {
+        if (!item.criteriaAverages) return [];
+
+        const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+        const definitionAny = item.criteriaDefinition as any;
+        const averages = item.criteriaAverages;
+        const averageKeys = Object.keys(averages);
+        const keySet = new Set(averageKeys);
+        const orderedKeys: string[] = [];
+
+        const getLabel = (key: string) => {
+            if (Array.isArray(definitionAny)) {
+                const found = definitionAny.find((d: any) => d?.id === key);
+                return found?.label || key;
+            }
+            if (definitionAny && typeof definitionAny === 'object') {
+                return definitionAny[key]?.label || key;
+            }
+            return key;
+        };
+
+        if (Array.isArray(definitionAny)) {
+            definitionAny.forEach((def: any) => {
+                if (typeof def?.id === 'string' && keySet.has(def.id)) {
+                    orderedKeys.push(def.id);
+                }
+            });
+        } else if (definitionAny && typeof definitionAny === 'object') {
+            orderedKeys.push(
+                ...Object.keys(definitionAny)
+                    .filter((key) => keySet.has(key))
+                    .sort((a, b) => collator.compare(getLabel(a), getLabel(b)))
+            );
+        }
+
+        const used = new Set(orderedKeys);
+        const remaining = averageKeys
+            .filter((key) => !used.has(key))
+            .sort((a, b) => collator.compare(getLabel(a), getLabel(b)));
+
+        return [...orderedKeys, ...remaining].map((key) => ({
+            key,
+            label: getLabel(key),
+            score: averages[key]
+        }));
+    }, [item.criteriaAverages, item.criteriaDefinition]);
+
     // --- Render Content ---
     return (
         <article className={`group relative bg-[var(--card-bg)] transition-all overflow-hidden shadow-sm hover:shadow-xl 
@@ -305,10 +352,9 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                         </div>
 
                         {/* Mini Criteria Bars (Legacy Compact Style) */}
-                        {item.criteriaAverages && item.criteriaDefinition && (
+                        {criteriaPreview.length > 0 && (
                             <div className="mt-2 grid grid-cols-4 gap-x-2 gap-y-0.5 sm:grid-cols-4">
-                                {Object.entries(item.criteriaAverages || {}).slice(0, 4).map(([key, score]) => {
-                                    const label = item.criteriaDefinition?.[key]?.label || key;
+                                {criteriaPreview.slice(0, 4).map(({ key, label, score }) => {
                                     return (
                                         <div key={key} className="flex flex-col">
                                             <div className="flex justify-between items-end text-[9px] text-[var(--text-secondary)] leading-none mb-0.5">

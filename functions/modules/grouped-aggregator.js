@@ -42,40 +42,67 @@ async function fetchPlacesByIds(ids) {
 
 async function fetchRootReviewsByField(field, value) {
     if (!value) {
-        return null;
+        return [];
     }
-    return db.collection('reviews').where(field, '==', value).get();
+    const snapshot = await db.collection('reviews').where(field, '==', value).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
 async function fetchReviewsForList(listId, listData, listRef) {
     const isSublist = !!listData?.parentListId;
+    const reviewMap = new Map();
+
+    const addReviews = (reviews, fallbackListId) => {
+        if (!Array.isArray(reviews) || reviews.length === 0) {
+            return;
+        }
+        reviews.forEach((review) => {
+            if (!review || !review.id) {
+                return;
+            }
+            const resolvedListId = typeof review.listId === 'string' && review.listId.trim()
+                ? review.listId.trim()
+                : fallbackListId;
+            reviewMap.set(review.id, {
+                ...review,
+                listId: resolvedListId || review.listId || null
+            });
+        });
+    };
 
     if (isSublist) {
-        const bySublistId = await fetchRootReviewsByField('sublistId', listId);
-        if (bySublistId && !bySublistId.empty) {
-            return bySublistId;
+        const [rootBySublistId, rootByListId] = await Promise.all([
+            fetchRootReviewsByField('sublistId', listId),
+            fetchRootReviewsByField('listId', listId)
+        ]);
+        addReviews(rootBySublistId, listData?.parentListId || listId);
+        addReviews(rootByListId, listData?.parentListId || listId);
+
+        if (listData?.parentListId) {
+            const parentNestedSnapshot = await db
+                .collection('lists')
+                .doc(listData.parentListId)
+                .collection('reviews')
+                .where('sublistId', '==', listId)
+                .get();
+            addReviews(parentNestedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })), listData.parentListId);
         }
 
-        // Fallback for docs that may have been persisted with listId = sublistId.
-        const byListId = await fetchRootReviewsByField('listId', listId);
-        if (byListId && !byListId.empty) {
-            return byListId;
-        }
+        const ownNestedSnapshot = await listRef.collection('reviews').get();
+        addReviews(ownNestedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })), listId);
     } else {
-        const byListId = await fetchRootReviewsByField('listId', listId);
-        if (byListId && !byListId.empty) {
-            return byListId;
-        }
+        const [rootByListId, rootByParentListId, nestedSnapshot] = await Promise.all([
+            fetchRootReviewsByField('listId', listId),
+            fetchRootReviewsByField('parentListId', listId),
+            listRef.collection('reviews').get()
+        ]);
 
-        // Fallback for docs that only have parentListId.
-        const byParentListId = await fetchRootReviewsByField('parentListId', listId);
-        if (byParentListId && !byParentListId.empty) {
-            return byParentListId;
-        }
+        addReviews(rootByListId, listId);
+        addReviews(rootByParentListId, listId);
+        addReviews(nestedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })), listId);
     }
 
-    // Legacy fallback: old reviews path under the list subcollection.
-    return listRef.collection('reviews').get();
+    return Array.from(reviewMap.values());
 }
 
 function extractGeoloc(placeData) {
@@ -119,11 +146,7 @@ async function buildGroupedItemsForList(listId) {
     const listRef = db.collection('lists').doc(listId);
     const listSnap = await listRef.get();
     const listData = listSnap.exists ? { id: listSnap.id, ...listSnap.data() } : null;
-    const reviewsSnap = await fetchReviewsForList(listId, listData, listRef);
-    const reviews = [];
-    reviewsSnap.forEach(doc => {
-        reviews.push({ id: doc.id, ...doc.data() });
-    });
+    const reviews = await fetchReviewsForList(listId, listData, listRef);
 
     if (reviews.length === 0) {
         return {

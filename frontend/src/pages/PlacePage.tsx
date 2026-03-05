@@ -368,7 +368,18 @@ export const PlacePage: React.FC = () => {
                                 </a>
                             </div>
                             <div className="h-48 sm:h-64 relative z-0">
-                                <MapView items={[{ ...place.reviews[0], lat: place.coords.lat, lng: place.coords.lng }]} />
+                                <MapView
+                                    items={[{
+                                        id: place.placeId,
+                                        placeId: place.placeId,
+                                        name: place.name,
+                                        lat: place.coords.lat,
+                                        lng: place.coords.lng,
+                                        photoUrl: place.photoUrl,
+                                        rating: place.avgScore,
+                                        reviewsCount: place.reviewCount
+                                    }]}
+                                />
                             </div>
                         </div>
                     )}

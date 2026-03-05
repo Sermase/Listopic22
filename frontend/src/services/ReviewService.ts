@@ -13,39 +13,51 @@ export const ReviewService = {
         }
 
         try {
-            const rootRef = doc(db, 'reviews', reviewId);
-            const rootSnap = await import('firebase/firestore').then(m => m.getDoc(rootRef));
+            const { getDoc, updateDoc, increment, serverTimestamp } = await import('firebase/firestore');
+            const refsToDelete: any[] = [];
+            let reviewData: any = null;
 
-            let reviewData: any = {};
-            let refToDelete = rootRef;
-
-            if (rootSnap.exists()) {
-                reviewData = rootSnap.data();
-            } else if (listId) {
-                // Fallback: Delete from legacy subcollection ONLY if listId is provided
-                const subRef = doc(db, 'lists', listId, 'reviews', reviewId);
-                const subSnap = await import('firebase/firestore').then(m => m.getDoc(subRef));
-                if (subSnap.exists()) {
-                    reviewData = subSnap.data();
-                    refToDelete = subRef;
-                } else {
-                    console.warn(`Review ${reviewId} not found for deletion.`);
-                    return;
+            if (listId) {
+                const canonicalRef = doc(db, 'lists', listId, 'reviews', reviewId);
+                const canonicalSnap = await getDoc(canonicalRef);
+                if (canonicalSnap.exists()) {
+                    refsToDelete.push(canonicalRef);
+                    reviewData = canonicalSnap.data();
                 }
-            } else {
-                console.warn(`Review ${reviewId} not found and no listId provided for legacy lookup.`);
+            }
+
+            const rootRef = doc(db, 'reviews', reviewId);
+            const rootSnap = await getDoc(rootRef);
+            if (rootSnap.exists()) {
+                refsToDelete.push(rootRef);
+                if (!reviewData) reviewData = rootSnap.data();
+
+                const rootListId = rootSnap.data().listId;
+                if (rootListId && (!listId || rootListId !== listId)) {
+                    const movedCanonicalRef = doc(db, 'lists', rootListId, 'reviews', reviewId);
+                    const movedCanonicalSnap = await getDoc(movedCanonicalRef);
+                    if (movedCanonicalSnap.exists()) {
+                        refsToDelete.push(movedCanonicalRef);
+                        reviewData = movedCanonicalSnap.data();
+                    }
+                }
+            }
+
+            if (refsToDelete.length === 0) {
+                console.warn(`Review ${reviewId} not found for deletion.`);
                 return;
             }
 
-            // Perform Deletion
-            const { updateDoc, increment } = await import('firebase/firestore');
-            await deleteDoc(refToDelete);
+            const uniqueRefs = Array.from(new Map(refsToDelete.map((ref) => [ref.path, ref])).values());
+            await Promise.all(uniqueRefs.map((ref) => deleteDoc(ref)));
+            const resolvedReviewData = reviewData || {};
 
             // Update Counters (Best effort)
             const updates = [];
 
             // Resolve List ID
-            const finalListId = listId || reviewData.listId;
+            const finalListId = listId || resolvedReviewData.listId;
+            const sublistId = typeof resolvedReviewData.sublistId === 'string' ? resolvedReviewData.sublistId : null;
 
             // 1. List Counters
             if (finalListId) {
@@ -53,12 +65,20 @@ export const ReviewService = {
                 updates.push(updateDoc(listRef, {
                     reviewCount: increment(-1),
                     itemCount: increment(-1),
-                    updatedAt: new Date() // Use client date or serverTimestamp via import
+                    updatedAt: serverTimestamp()
                 }).catch(e => console.warn("Failed to decrement list counters", e)));
+            }
+            if (sublistId && sublistId !== finalListId) {
+                const sublistRef = doc(db, 'lists', sublistId);
+                updates.push(updateDoc(sublistRef, {
+                    reviewCount: increment(-1),
+                    itemCount: increment(-1),
+                    updatedAt: serverTimestamp()
+                }).catch(e => console.warn("Failed to decrement sublist counters", e)));
             }
 
             // 2. User Counters
-            const userId = reviewData.userId || reviewData.authorId;
+            const userId = resolvedReviewData.userId || resolvedReviewData.authorId;
             if (userId) {
                 const userRef = doc(db, 'users', userId);
                 updates.push(updateDoc(userRef, {
@@ -67,7 +87,7 @@ export const ReviewService = {
             }
 
             // 3. Place Counters
-            const placeId = reviewData.placeId;
+            const placeId = resolvedReviewData.placeId;
             if (placeId) {
                 const placeRef = doc(db, 'places', placeId);
                 updates.push(updateDoc(placeRef, {

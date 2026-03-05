@@ -9,7 +9,7 @@ import { FilterModal } from '../components/FilterModal';
 import { ShareListModal } from '../components/ShareListModal';
 import { SublistsModal } from '../components/SublistsModal';
 import { useAuth } from '../context/AuthContext';
-import { useFilters } from '../context/FilterContext';
+import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
 import { useLike } from '../hooks/useLike';
 import { useLocation } from '../hooks/useLocation';
 import { doc, getDoc } from 'firebase/firestore';
@@ -74,7 +74,7 @@ export const ListPage: React.FC = () => {
 
 
     // Range State from Context
-    const { range, toggleRange, getRangeLabel } = useFilters();
+    const { range, setRange, toggleRange, getRangeLabel } = useFilters();
 
     const handleToggleRange = () => {
         if (!location) {
@@ -433,6 +433,23 @@ export const ListPage: React.FC = () => {
 
         return result;
     }, [mapItems, searchQuery, filters, range, location]);
+
+    const hasListMapCandidates = useMemo(() => {
+        return mapItems.some((item: any) => !!item?.lat && !!item?.lng);
+    }, [mapItems]);
+
+    useEffect(() => {
+        if (!isMapOpen) return;
+        if (loading) return;
+        if (range === null || !location) return;
+        if (!hasListMapCandidates) return;
+        if (filteredMapItems.length > 0) return;
+
+        const nextRange = getExpandedRangeValue(range);
+        if (nextRange !== range) {
+            setRange(nextRange);
+        }
+    }, [isMapOpen, loading, range, location, hasListMapCandidates, filteredMapItems.length, setRange]);
 
     // Pagination
     const PAGE_SIZE = 24;
