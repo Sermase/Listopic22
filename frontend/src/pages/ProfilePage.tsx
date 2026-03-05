@@ -5,7 +5,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
 import { useFilters } from '../context/FilterContext'; // Import Filter Context
-import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown } from 'lucide-react';
+import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown, BarChart3 } from 'lucide-react';
 import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -16,18 +16,39 @@ import { AddReviewForm } from '../components/AddReviewForm';
 import { ChatService } from '../services/ChatService';
 import { FollowingSection } from '../components/profile/FollowingSection';
 import { BadgeDisplay } from '../components/profile/BadgeDisplay';
-import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
+import { collection, collectionGroup, query, where, getDocs, documentId, orderBy, limit, startAfter } from 'firebase/firestore';
 import { isUsernameValid } from '../utils/username';
 import {
     isUserProfileServiceError,
     updateUserProfilePreferences,
 } from '../services/UserProfileService';
 
+interface ListRatingStats {
+    listId: string;
+    listName: string;
+    reviewsCount: number;
+    averageRating: number;
+}
+
+interface AdvancedProfileStats {
+    totalReviews: number;
+    averageRating: number;
+    ratedListsCount: number;
+    perList: ListRatingStats[];
+}
+
+const EMPTY_ADVANCED_STATS: AdvancedProfileStats = {
+    totalReviews: 0,
+    averageRating: 0,
+    ratedListsCount: 0,
+    perList: [],
+};
+
 export const ProfilePage: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { userId: paramUserId } = useParams<{ userId: string }>();
-    const [activeTab, setActiveTab] = useState<'lists' | 'reviews' | 'following'>('reviews');
+    const [activeTab, setActiveTab] = useState<'lists' | 'reviews' | 'following' | 'stats'>('reviews');
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -49,6 +70,10 @@ export const ProfilePage: React.FC = () => {
     const [reviewViewMode, setReviewViewMode] = useState<'full' | 'minimal'>('full');
     const [expandedReviewIds, setExpandedReviewIds] = useState<string[]>([]);
     const [listSubTab, setListSubTab] = useState<'followed_lists' | 'followed_sublists' | 'created_sublists'>('followed_lists');
+    const [statsLoading, setStatsLoading] = useState(false);
+    const [statsError, setStatsError] = useState<string | null>(null);
+    const [statsLoadedUserId, setStatsLoadedUserId] = useState<string | null>(null);
+    const [advancedStats, setAdvancedStats] = useState<AdvancedProfileStats>(EMPTY_ADVANCED_STATS);
 
     const handleEditReview = (review: any) => {
         setEditingReviewId(review.id);
@@ -59,6 +84,12 @@ export const ProfilePage: React.FC = () => {
     // Determine target user ID
     const targetUserId = paramUserId || user?.uid;
     const isOwnProfile = user?.uid === targetUserId;
+
+    useEffect(() => {
+        setStatsLoadedUserId(null);
+        setStatsError(null);
+        setAdvancedStats(EMPTY_ADVANCED_STATS);
+    }, [targetUserId]);
 
     // Hooks
     const { profile, loading: loadingProfile, error: errorProfile } = useUserProfile(targetUserId);
@@ -160,9 +191,171 @@ export const ProfilePage: React.FC = () => {
         }
     }, [fetchedReviews]);
 
+    useEffect(() => {
+        if (activeTab !== 'stats' || !targetUserId) return;
+        if (statsLoadedUserId === targetUserId) return;
+
+        let cancelled = false;
+
+        const loadAdvancedStats = async () => {
+            setStatsLoading(true);
+            setStatsError(null);
+            try {
+                const pageSize = 200;
+                const maxReviews = 3000;
+                const allReviews: Array<Record<string, any>> = [];
+                let cursor: any = null;
+
+                while (allReviews.length < maxReviews) {
+                    const constraints: any[] = [
+                        where('userId', '==', targetUserId),
+                        orderBy('createdAt', 'desc'),
+                    ];
+
+                    if (cursor) {
+                        constraints.push(startAfter(cursor));
+                    }
+
+                    constraints.push(limit(pageSize));
+
+                    const pageSnapshot = await getDocs(query(collectionGroup(db, 'reviews'), ...constraints));
+                    if (pageSnapshot.empty) break;
+
+                    const pageRows = pageSnapshot.docs
+                        .map((reviewDoc): Record<string, any> | null => {
+                            const pathSegments = reviewDoc.ref.path.split('/');
+                            const isCanonicalListReviewPath =
+                                pathSegments.length === 4 &&
+                                pathSegments[0] === 'lists' &&
+                                pathSegments[2] === 'reviews';
+
+                            if (!isCanonicalListReviewPath) {
+                                return null;
+                            }
+
+                            const reviewData = reviewDoc.data() as Record<string, any>;
+                            const inferredListId = typeof reviewData.listId === 'string' && reviewData.listId.trim().length > 0
+                                ? reviewData.listId
+                                : reviewDoc.ref.parent.parent?.id || '';
+
+                            return {
+                                id: reviewDoc.id,
+                                ...reviewData,
+                                listId: inferredListId,
+                            };
+                        })
+                        .filter(Boolean) as Array<Record<string, any>>;
+
+                    allReviews.push(...pageRows);
+                    cursor = pageSnapshot.docs[pageSnapshot.docs.length - 1];
+
+                    if (pageSnapshot.size < pageSize) break;
+                }
+
+                const listIds = Array.from(
+                    new Set(
+                        allReviews
+                            .map((review) => typeof review.listId === 'string' ? review.listId : '')
+                            .filter((listId) => listId.length > 0)
+                    )
+                );
+
+                const listNamesById: Record<string, string> = {};
+                for (let i = 0; i < listIds.length; i += 10) {
+                    const chunk = listIds.slice(i, i + 10);
+                    try {
+                        const listSnapshot = await getDocs(query(collection(db, 'lists'), where(documentId(), 'in', chunk)));
+                        listSnapshot.docs.forEach((listDoc) => {
+                            const listData = listDoc.data() as Record<string, any>;
+                            if (typeof listData.name === 'string' && listData.name.trim().length > 0) {
+                                listNamesById[listDoc.id] = listData.name.trim();
+                            }
+                        });
+                    } catch (listError) {
+                        console.warn('Error loading list names for stats chunk', listError);
+                    }
+                }
+
+                let totalScore = 0;
+                let scoredReviewsCount = 0;
+                const perListMap = new Map<string, { listName: string; reviewsCount: number; totalScore: number }>();
+
+                allReviews.forEach((review) => {
+                    const numericScore = typeof review.overallRating === 'number'
+                        ? review.overallRating
+                        : Number(review.overallRating);
+                    const hasScore = Number.isFinite(numericScore);
+
+                    if (hasScore) {
+                        totalScore += numericScore;
+                        scoredReviewsCount += 1;
+                    }
+
+                    const listId = typeof review.listId === 'string' ? review.listId.trim() : '';
+                    if (!listId || !hasScore) return;
+
+                    const fallbackListName = listNamesById[listId]
+                        || (typeof review.listName === 'string' && review.listName.trim().length > 0 ? review.listName.trim() : 'Lista');
+                    const current = perListMap.get(listId) || {
+                        listName: fallbackListName,
+                        reviewsCount: 0,
+                        totalScore: 0,
+                    };
+
+                    current.reviewsCount += 1;
+                    current.totalScore += numericScore;
+
+                    if (!current.listName && fallbackListName) {
+                        current.listName = fallbackListName;
+                    }
+
+                    perListMap.set(listId, current);
+                });
+
+                const perList = Array.from(perListMap.entries())
+                    .map(([listId, value]) => ({
+                        listId,
+                        listName: value.listName || 'Lista',
+                        reviewsCount: value.reviewsCount,
+                        averageRating: value.reviewsCount > 0 ? value.totalScore / value.reviewsCount : 0,
+                    }))
+                    .sort((a, b) => {
+                        if (b.reviewsCount !== a.reviewsCount) return b.reviewsCount - a.reviewsCount;
+                        return b.averageRating - a.averageRating;
+                    });
+
+                if (!cancelled) {
+                    setAdvancedStats({
+                        totalReviews: scoredReviewsCount,
+                        averageRating: scoredReviewsCount > 0 ? totalScore / scoredReviewsCount : 0,
+                        ratedListsCount: perList.length,
+                        perList,
+                    });
+                    setStatsLoadedUserId(targetUserId);
+                }
+            } catch (error) {
+                console.error('Error loading advanced profile stats', error);
+                if (!cancelled) {
+                    setStatsError('No se pudieron cargar las estadisticas.');
+                }
+            } finally {
+                if (!cancelled) {
+                    setStatsLoading(false);
+                }
+            }
+        };
+
+        void loadAdvancedStats();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeTab, targetUserId, statsLoadedUserId]);
+
     const handleDeleteReview = (id: string) => {
         setLocalReviews(prev => prev.filter(r => r.id !== id));
         setExpandedReviewIds(prev => prev.filter(reviewId => reviewId !== id));
+        setStatsLoadedUserId(null);
     };
 
     const toggleReviewExpanded = (reviewId: string) => {
@@ -199,6 +392,11 @@ export const ProfilePage: React.FC = () => {
 
         if (!date || Number.isNaN(date.getTime())) return '';
         return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+    };
+
+    const formatStatRating = (value: number) => {
+        if (!Number.isFinite(value)) return '-';
+        return value.toFixed(2);
     };
 
     const renderMinimalListRows = (lists: any[], emptyMessage: string, showSubBadge: boolean) => {
@@ -909,6 +1107,14 @@ export const ProfilePage: React.FC = () => {
                         <UserCheck className="w-4 h-4" /> Siguiendo ({profile.followingCount || 0})
                         {activeTab === 'following' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
                     </button>
+                    <button
+                        onClick={() => setActiveTab('stats')}
+                        className={`pb-4 px-2 font-bold text-sm flex items-center gap-2 transition-colors relative ${activeTab === 'stats' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <BarChart3 className="w-4 h-4" /> Estadisticas
+                        {activeTab === 'stats' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
+                    </button>
                 </div>
 
                 {/* Tab Content */}
@@ -1088,6 +1294,64 @@ export const ProfilePage: React.FC = () => {
                         </>
                     )}
 
+                    {activeTab === 'stats' && (
+                        <>
+                            {statsLoading ? (
+                                <div className="py-20 text-center text-gray-500">Cargando estadisticas...</div>
+                            ) : statsError ? (
+                                <div className="py-10 px-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-200 text-sm">
+                                    {statsError}
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 p-4">
+                                            <div className="text-[11px] uppercase tracking-wider text-gray-400">Media global</div>
+                                            <div className="text-3xl font-black text-white mt-1">{formatStatRating(advancedStats.averageRating)}</div>
+                                        </div>
+                                        <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 p-4">
+                                            <div className="text-[11px] uppercase tracking-wider text-gray-400">Resenas analizadas</div>
+                                            <div className="text-3xl font-black text-white mt-1">{advancedStats.totalReviews}</div>
+                                        </div>
+                                        <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 p-4">
+                                            <div className="text-[11px] uppercase tracking-wider text-gray-400">Listas valoradas</div>
+                                            <div className="text-3xl font-black text-white mt-1">{advancedStats.ratedListsCount}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 overflow-hidden">
+                                        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                                            <h3 className="text-sm font-bold text-white">Media por lista</h3>
+                                            <span className="text-[11px] text-gray-400">Resenas y valoracion media</span>
+                                        </div>
+                                        {advancedStats.perList.length === 0 ? (
+                                            <div className="py-10 text-center text-gray-500 text-sm">No hay datos de valoracion por lista.</div>
+                                        ) : (
+                                            <div className="divide-y divide-white/10">
+                                                {advancedStats.perList.map((listStat) => (
+                                                    <Link
+                                                        key={listStat.listId}
+                                                        to={`/list/${listStat.listId}`}
+                                                        className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
+                                                    >
+                                                        <div className="min-w-0">
+                                                            <div className="text-sm font-bold text-white truncate">{listStat.listName}</div>
+                                                            <div className="text-[11px] text-gray-400">{listStat.reviewsCount} resenas</div>
+                                                        </div>
+                                                        <div className="shrink-0 text-right">
+                                                            <div className="text-xs text-gray-400">Media</div>
+                                                            <div className="text-lg font-black text-indigo-300">{formatStatRating(listStat.averageRating)}</div>
+                                                        </div>
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+
                     {activeTab === 'following' && (
                         <FollowingSection targetUserId={targetUserId} />
                     )}
@@ -1114,6 +1378,7 @@ export const ProfilePage: React.FC = () => {
                     }}
                     onSuccess={() => {
                         refreshReviews();
+                        setStatsLoadedUserId(null);
                         setIsFlowOpen(false);
                         setEditingReviewId(null);
                         setEditingListId(null);
