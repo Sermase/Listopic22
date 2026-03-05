@@ -185,7 +185,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
 
                 return {
                     ...r,
-                    authorName: user?.displayName || user?.name || user?.username || r.authorName || 'Anónimo',
+                    authorName: user?.username || user?.displayName || user?.name || r.authorName || 'Anónimo',
                     authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
                     listName: listData?.name || r.listName, // Enrich list name
                     criteriaDefinition: listData?.criteriaDefinition || r.criteriaDefinition, // Enrich criteria for charts

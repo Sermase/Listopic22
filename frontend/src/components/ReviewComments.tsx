@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -50,10 +50,19 @@ export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId
 
         setSubmitting(true);
         try {
+            const userProfileSnap = await getDoc(doc(db, 'users', user.uid)).catch(() => null);
+            const userProfile = userProfileSnap && userProfileSnap.exists() ? userProfileSnap.data() : null;
+            const commentAuthorName = typeof userProfile?.username === 'string' && userProfile.username.trim()
+                ? userProfile.username.trim()
+                : (user.displayName || 'Usuario');
+            const commentAuthorPhoto = (userProfile && typeof userProfile.photoUrl === 'string' && userProfile.photoUrl.trim())
+                ? userProfile.photoUrl.trim()
+                : (user.photoURL || null);
+
             await addDoc(collection(db, 'lists', listId, 'reviews', reviewId, 'comments'), {
                 userId: user.uid,
-                userName: user.displayName || 'Usuario',
-                userPhoto: user.photoURL || null,
+                userName: commentAuthorName,
+                userPhoto: commentAuthorPhoto,
                 text: newComment.trim(),
                 createdAt: serverTimestamp()
             });

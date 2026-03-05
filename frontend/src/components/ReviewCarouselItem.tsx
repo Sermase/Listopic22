@@ -54,7 +54,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
                                 />
                             </div>
                             <span className="text-[10px] font-bold text-white truncate leading-none">
-                                {review.authorName?.split(' ')[0] || 'Anónimo'}
+                                {review.authorName || 'Anónimo'}
                             </span>
                         </div>
 
