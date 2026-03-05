@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { doc, getDoc, query, where, orderBy, getDocs, Timestamp, collection } from 'firebase/firestore';
+import { doc, getDoc, query, where, getDocs, Timestamp, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ListEntity } from './useLists';
 
@@ -78,6 +78,9 @@ export const useListDetails = (listId: string | undefined) => {
 
                 setList({ id: listSnap.id, ...listSnap.data() } as ListEntity);
                 const listData = listSnap.data();
+                const { getAuth } = await import('firebase/auth');
+                const currentUser = getAuth().currentUser;
+                const isOwner = !!(currentUser && listData.userId === currentUser.uid);
 
                 // 1.1 Fetch Parent List Name if applicable
                 if (listData?.parentListId) {
@@ -93,24 +96,91 @@ export const useListDetails = (listId: string | undefined) => {
                     }
                 }
 
-                // 2. Fetch List Items (Reviews)
-                let rawReviews: ReviewEntity[] = [];
+                // 2. Fetch List Reviews from canonical path + root legacy fallback
+                const safeGetDocs = async (load: () => Promise<any>, label: string) => {
+                    try {
+                        return await load();
+                    } catch (e: any) {
+                        if (e?.code !== 'permission-denied') {
+                            console.warn(`Failed to load reviews (${label})`, e);
+                        }
+                        return null;
+                    }
+                };
+
+                const reviewMap = new Map<string, ReviewEntity>();
+                const appendSnapshot = (snap: any, fallbackListId: string) => {
+                    if (!snap) return;
+                    snap.docs.forEach((reviewDoc: any) => {
+                        const data = reviewDoc.data() as any;
+                        const resolvedListId = typeof data.listId === 'string' && data.listId.trim().length > 0
+                            ? data.listId
+                            : fallbackListId;
+                        const review = {
+                            id: reviewDoc.id,
+                            ...data,
+                            listId: resolvedListId
+                        } as ReviewEntity;
+                        reviewMap.set(reviewDoc.id, review);
+                    });
+                };
+
+                const canViewReview = (review: any) => {
+                    if (isOwner) return true;
+                    if (review.visibility !== 'private') return true;
+                    if (!currentUser) return false;
+                    return review.userId === currentUser.uid || review.authorId === currentUser.uid;
+                };
 
                 if (listData?.parentListId) {
-                    // Sublist case: read from parent list subcollection and filter by sublistId.
-                    const q = query(collection(db, 'lists', listData.parentListId, 'reviews'), where('sublistId', '==', listId));
-                    const snap = await getDocs(q);
-                    rawReviews = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ReviewEntity[];
+                    const parentListId = listData.parentListId;
+                    const [rootBySublist, rootByList, nestedParent, nestedLegacyOwn] = await Promise.all([
+                        safeGetDocs(
+                            () => getDocs(query(collection(db, 'reviews'), where('sublistId', '==', listId))),
+                            'root by sublistId'
+                        ),
+                        safeGetDocs(
+                            () => getDocs(query(collection(db, 'reviews'), where('listId', '==', listId))),
+                            'root by listId (legacy sublist)'
+                        ),
+                        safeGetDocs(
+                            () => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId))),
+                            'nested parent list filtered by sublistId'
+                        ),
+                        safeGetDocs(
+                            () => getDocs(collection(db, 'lists', listId, 'reviews')),
+                            'nested legacy sublist path'
+                        )
+                    ]);
+
+                    appendSnapshot(rootBySublist, parentListId);
+                    appendSnapshot(rootByList, parentListId);
+                    appendSnapshot(nestedLegacyOwn, listId);
+                    appendSnapshot(nestedParent, parentListId);
                 } else {
-                    // Main list case: read directly from list subcollection.
-                    const q = query(collection(db, 'lists', listId, 'reviews'), orderBy('createdAt', 'desc'));
-                    const snap = await getDocs(q);
-                    rawReviews = snap.docs
-                        .map(d => ({ id: d.id, ...d.data() }))
-                        .filter((r: any) => r.visibility !== 'private') as ReviewEntity[];
+                    const [rootByList, rootByParentList, nestedMain] = await Promise.all([
+                        safeGetDocs(
+                            () => getDocs(query(collection(db, 'reviews'), where('listId', '==', listId))),
+                            'root by listId'
+                        ),
+                        safeGetDocs(
+                            () => getDocs(query(collection(db, 'reviews'), where('parentListId', '==', listId))),
+                            'root by parentListId'
+                        ),
+                        safeGetDocs(
+                            () => getDocs(collection(db, 'lists', listId, 'reviews')),
+                            'nested main list'
+                        )
+                    ]);
+
+                    appendSnapshot(rootByList, listId);
+                    appendSnapshot(rootByParentList, listId);
+                    appendSnapshot(nestedMain, listId);
                 }
 
-                rawReviews.sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
+                const rawReviews = Array.from(reviewMap.values())
+                    .filter(canViewReview)
+                    .sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
                 // --- Enrich Data ---
                 // We need Places and Users. Lists are not needed as we have the parent list.
@@ -189,13 +259,6 @@ export const useListDetails = (listId: string | undefined) => {
                 // Wrap in try/catch to avoid blocking main content if permissions fail (e.g. public list but restrictive list-query rules)
                 try {
                     const listsRef = collection(db, 'lists');
-                    // Check if current user is owner to decide whether to show private sublists
-                    // We need auth instance
-                    const { getAuth } = await import('firebase/auth');
-                    const auth = getAuth();
-                    const currentUser = auth.currentUser;
-                    const isOwner = currentUser && listData.userId === currentUser.uid;
-
                     let sublistsQ;
                     if (isOwner) {
                         sublistsQ = query(listsRef, where('parentListId', '==', listId));

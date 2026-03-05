@@ -166,49 +166,55 @@ export const EditListPage: React.FC = () => {
                 availableTags: customTags // Overwrite all tags
             });
 
-            // 2. Batch Update Reviews
-            // Changing visibility requires updating all reviews for this list/sublist
-            // Query all reviews where listId == listId (for main lists) OR sublistId == listId (for sublists)
-            // But strict schema says reviews have `listId` as parent. 
-            // If this is a sublist, reviews have `sublistId` == this ID.
-            // If this is a main list, reviews have `listId` == this ID AND `sublistId` == null (technically).
-
-            // Simplest safe approach:
-            // Find all reviews where sublistId == listId (if sublist) OR listId == listId (if main list, but be careful not to touch sublist reviews if we only want to change main list visibility?)
-            // Actually, if a MAIN list becomes private, all its reviews should be private.
-            // If a SUBLIST becomes private, only its reviews should be private.
-
-            // Strategy: query reviews targeting this list context.
-            // Since we know if we are a sublist (parentListId exists), we can target precisely.
-
-            let q;
-            if (parentListId) {
-                // We are a sublist
-                q = query(collection(db, 'reviews'), where('sublistId', '==', listId));
-            } else {
-                // We are a main list
-                // If main list changes visibility, typically we want to update its direct reviews.
-                // However, sublist reviews might have their own visibility. 
-                // For now, let's assume we update all reviews where listId == listId.
-                q = query(collection(db, 'reviews'), where('listId', '==', listId));
-            }
-
-            const snap = await getDocs(q);
-            const batch = writeBatch(db);
-            let count = 0;
-
-            snap.docs.forEach(doc => {
-                // Only update if visibility is different to save writes? 
-                // Or just overwrite to be safe.
-                if (doc.data().visibility !== newVisibility) {
-                    batch.update(doc.ref, { visibility: newVisibility });
-                    count++;
+            // 2. Batch Update Reviews (canonical nested path + root legacy fallback)
+            const safeGetDocs = async (load: () => Promise<any>) => {
+                try {
+                    return await load();
+                } catch (e: any) {
+                    if (e?.code !== 'permission-denied') {
+                        console.warn('Failed to query reviews for visibility sync', e);
+                    }
+                    return null;
                 }
+            };
+
+            const snapshots = parentListId
+                ? await Promise.all([
+                    safeGetDocs(() => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId)))),
+                    safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('sublistId', '==', listId)))),
+                    safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('listId', '==', listId)))),
+                    safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews')))
+                ])
+                : await Promise.all([
+                    safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews'))),
+                    safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('listId', '==', listId)))),
+                    safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('parentListId', '==', listId))))
+                ]);
+
+            const reviewDocs = new Map<string, any>();
+            snapshots.forEach((snap) => {
+                if (!snap) return;
+                snap.docs.forEach((reviewDoc: any) => {
+                    reviewDocs.set(reviewDoc.ref.path, reviewDoc);
+                });
             });
 
-            if (count > 0) {
+            const refsToUpdate = Array.from(reviewDocs.values())
+                .filter((reviewDoc: any) => reviewDoc.data().visibility !== newVisibility);
+
+            let updated = 0;
+            const batchSize = 450;
+            for (let i = 0; i < refsToUpdate.length; i += batchSize) {
+                const batch = writeBatch(db);
+                refsToUpdate.slice(i, i + batchSize).forEach((reviewDoc: any) => {
+                    batch.update(reviewDoc.ref, { visibility: newVisibility });
+                    updated++;
+                });
                 await batch.commit();
-                console.log(`Updated visibility for ${count} reviews`);
+            }
+
+            if (updated > 0) {
+                console.log(`Updated visibility for ${updated} reviews`);
             }
 
             navigate(`/list/${listId}`);

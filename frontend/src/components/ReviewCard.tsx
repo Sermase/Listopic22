@@ -68,27 +68,57 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
     // Extract Criteria for Visualization
     const { ponderable, nonPonderable } = React.useMemo(() => {
-        let allCriteria: { key: string, label: string, score: number, isPonderable: boolean }[] = [];
+        const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+        const defAny = review.criteriaDefinition as any;
+        const scores = review.scores || {};
+        const scoreKeys = Object.keys(scores);
+        const scoreKeySet = new Set(scoreKeys);
+        const orderedKeys: string[] = [];
 
-        if (review.criteriaDefinition) {
-            if (Array.isArray(review.criteriaDefinition)) {
-                // New Format: Array (Preserves Order)
-                allCriteria = review.criteriaDefinition.map((def: any) => ({
-                    key: def.id,
-                    label: def.label || def.id,
-                    score: review.scores?.[def.id] || 0,
-                    isPonderable: def.ponderable !== false && def.isPonderable !== false
-                }));
-            } else {
-                // Legacy Format: Map (No Order)
-                allCriteria = Object.entries(review.criteriaDefinition).map(([key, def]) => ({
-                    key,
-                    label: def.label || key,
-                    score: review.scores?.[key] || 0,
-                    isPonderable: def.ponderable !== false
-                }));
+        const getLabel = (key: string) => {
+            if (Array.isArray(defAny)) {
+                const found = defAny.find((d: any) => d?.id === key);
+                return found?.label || key;
             }
+            if (defAny && typeof defAny === 'object') {
+                return defAny[key]?.label || key;
+            }
+            return key;
+        };
+
+        if (Array.isArray(defAny)) {
+            defAny.forEach((def: any) => {
+                if (typeof def?.id === 'string' && scoreKeySet.has(def.id)) {
+                    orderedKeys.push(def.id);
+                }
+            });
+        } else if (defAny && typeof defAny === 'object') {
+            orderedKeys.push(
+                ...Object.keys(defAny)
+                    .filter((key) => scoreKeySet.has(key))
+                    .sort((a, b) => collator.compare(getLabel(a), getLabel(b)))
+            );
         }
+
+        const used = new Set(orderedKeys);
+        const remaining = scoreKeys
+            .filter((key) => !used.has(key))
+            .sort((a, b) => collator.compare(getLabel(a), getLabel(b)));
+
+        const finalKeys = [...orderedKeys, ...remaining];
+
+        const allCriteria = finalKeys.map((key) => {
+            const def = Array.isArray(defAny)
+                ? defAny.find((entry: any) => entry?.id === key)
+                : (defAny && typeof defAny === 'object' ? defAny[key] : null);
+
+            return {
+                key,
+                label: getLabel(key),
+                score: scores[key] || 0,
+                isPonderable: def ? (def.ponderable !== false && def.isPonderable !== false) : true
+            };
+        });
 
         return {
             ponderable: allCriteria.filter(c => c.isPonderable),

@@ -108,6 +108,7 @@ export const GroupPage: React.FC = () => {
                 user ? getDocs(query(collection(db, 'lists'), where('userId', '==', user.uid), limit(40))) : Promise.resolve(null)
             ]);
 
+            const ownListSet = new Set(ownListsSnap ? ownListsSnap.docs.map((d) => d.id) : []);
             const candidateListIds = Array.from(new Set([
                 ...publicListsSnap.docs.map((d) => d.id),
                 ...(followingListsSnap ? followingListsSnap.docs.map((d) => d.id) : []),
@@ -132,10 +133,51 @@ export const GroupPage: React.FC = () => {
                 }
             }));
 
+            const canViewReview = (review: any) => {
+                if (review.visibility !== 'private') return true;
+                if (!user) return false;
+                const reviewListId = (typeof review.listId === 'string' && review.listId)
+                    || (typeof review.parentListId === 'string' && review.parentListId)
+                    || '';
+                return review.userId === user.uid
+                    || review.authorId === user.uid
+                    || review.ownerId === user.uid
+                    || (reviewListId ? ownListSet.has(reviewListId) : false);
+            };
+
+            let rootReviews: ReviewEntity[] = [];
+            try {
+                const rootSnap = await getDocs(
+                    query(collection(db, 'reviews'), where('placeId', '==', placeId), limit(120))
+                );
+                rootReviews = rootSnap.docs
+                    .map((reviewDoc) => ({
+                        id: reviewDoc.id,
+                        ...(reviewDoc.data() as any)
+                    } as ReviewEntity))
+                    .filter((review) => canViewReview(review));
+            } catch (error: any) {
+                if (error?.code !== 'permission-denied') {
+                    console.warn('Error loading root reviews for group page', error);
+                }
+            }
+
             const reviewMap = new Map<string, ReviewEntity>();
+            for (const review of rootReviews) {
+                const resolvedListId = review.listId || (review as any).parentListId || '';
+                reviewMap.set(`${resolvedListId || 'unknown'}:${review.id}`, {
+                    ...review,
+                    listId: resolvedListId
+                });
+            }
             for (const listReviews of reviewsByList) {
                 for (const review of listReviews) {
-                    reviewMap.set(`${review.listId || 'unknown'}:${review.id}`, review);
+                    if (!canViewReview(review)) continue;
+                    const resolvedListId = review.listId || (review as any).parentListId || '';
+                    reviewMap.set(`${resolvedListId || 'unknown'}:${review.id}`, {
+                        ...review,
+                        listId: resolvedListId
+                    });
                 }
             }
 
@@ -267,6 +309,7 @@ export const GroupPage: React.FC = () => {
         // Process Criteria using PRIMARY LIST ORDER if available
         let orderedCriteria: { key: string, label: string, avg: number, count: number, isPonderable: boolean, step: number }[] = [];
         const processedKeys = new Set();
+        const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
 
         // 1. Add keys from Primary List in order
         if (primaryListCriteria.length > 0) {
@@ -287,7 +330,9 @@ export const GroupPage: React.FC = () => {
         }
 
         // 2. Add remaining keys (orphaned or from other lists)
-        Object.keys(criteriaSums).forEach(k => {
+        Object.keys(criteriaSums)
+            .sort((a, b) => collator.compare(labels[a] || a, labels[b] || b))
+            .forEach(k => {
             if (!processedKeys.has(k)) {
                 orderedCriteria.push({
                     key: k,
@@ -384,18 +429,57 @@ export const GroupPage: React.FC = () => {
                         if (Array.isArray(data.criteriaDefinition)) {
                             criteriaDef = data.criteriaDefinition;
                         } else {
-                            criteriaDef = Object.keys(data.criteriaDefinition).map(k => ({
-                                id: k,
-                                ...data.criteriaDefinition[k]
-                            }));
+                            const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+                            criteriaDef = Object.keys(data.criteriaDefinition)
+                                .sort((a, b) => {
+                                    const labelA = data.criteriaDefinition[a]?.label || a;
+                                    const labelB = data.criteriaDefinition[b]?.label || b;
+                                    return collator.compare(labelA, labelB);
+                                })
+                                .map(k => ({
+                                    id: k,
+                                    ...data.criteriaDefinition[k]
+                                }));
                         }
                     }
                     setPrimaryListCriteria(criteriaDef);
                 }
 
-                // Get all reviews from the list subcollection to calculate averages.
-                const snap = await getDocs(collection(db, 'lists', primaryId, 'reviews'));
-                const lReviews = snap.docs.map(d => d.data() as ReviewEntity);
+                const isPrimaryOwner = !!(user && lSnap.exists() && lSnap.data().userId === user.uid);
+                const canUseForStats = (review: any) => {
+                    if (review.visibility !== 'private') return true;
+                    if (!user) return false;
+                    return isPrimaryOwner
+                        || review.userId === user.uid
+                        || review.authorId === user.uid
+                        || review.ownerId === user.uid;
+                };
+
+                const [nestedSnap, rootByListSnap, rootByParentSnap] = await Promise.all([
+                    getDocs(collection(db, 'lists', primaryId, 'reviews')).catch(() => null),
+                    getDocs(query(collection(db, 'reviews'), where('listId', '==', primaryId))).catch(() => null),
+                    getDocs(query(collection(db, 'reviews'), where('parentListId', '==', primaryId))).catch(() => null)
+                ]);
+
+                const reviewMap = new Map<string, ReviewEntity>();
+                const append = (snap: any) => {
+                    if (!snap) return;
+                    snap.docs.forEach((reviewDoc: any) => {
+                        const data = reviewDoc.data() as any;
+                        const review = {
+                            id: reviewDoc.id,
+                            ...data,
+                            listId: data.listId || primaryId
+                        } as ReviewEntity;
+                        if (!canUseForStats(review)) return;
+                        reviewMap.set(reviewDoc.id, review);
+                    });
+                };
+
+                append(rootByListSnap);
+                append(rootByParentSnap);
+                append(nestedSnap);
+                const lReviews = Array.from(reviewMap.values());
 
                 if (lReviews.length === 0) return;
 
@@ -422,7 +506,7 @@ export const GroupPage: React.FC = () => {
             }
         };
         fetchListStats();
-    }, [relatedLists]);
+    }, [relatedLists, user?.uid]);
 
 
     if (loading) {

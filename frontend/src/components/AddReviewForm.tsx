@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc, deleteField } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { db, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
@@ -97,100 +97,109 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     useEffect(() => {
         const fetchReviewData = async () => {
             if (!editReviewId) return;
-            // If listId is missing, we can try to fetch globally, but we prefer context.
+
+            const hydrateReviewState = async (data: any, resolvedListId?: string, resolvedPath?: string) => {
+                setItemName(data.itemName || '');
+                setComment(data.comment || '');
+                setOverallRating(data.overallRating || 5);
+                if (data.scores) setCriteriaScores(data.scores);
+                if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
+                if (data.photoUrl) setImagePreview(data.photoUrl);
+
+                const effectiveListId = resolvedListId || data.listId || data.parentListId || listId || null;
+                if (effectiveListId) {
+                    setInternalListId(effectiveListId);
+                }
+                if (resolvedPath) {
+                    setReviewPath(resolvedPath);
+                }
+
+                setOriginalData(JSON.stringify({
+                    itemName: data.itemName || '',
+                    comment: data.comment || '',
+                    criteriaScores: data.scores || {},
+                    customTags: data.tags || data.userTags || [],
+                    imagePreview: data.photoUrl || null,
+                    listId: effectiveListId
+                }));
+
+                if (!data.placeId) return;
+
+                try {
+                    const details = await PlaceService.getDetails(data.placeId);
+                    const legacyPlace = transformToLegacyPlace({
+                        id: data.placeId,
+                        name: data.placeName || data.itemName || 'Lugar',
+                        address: data.placeAddress || '',
+                        lat: data.placeLat || 0,
+                        lng: data.placeLng || 0
+                    } as any, details);
+
+                    setSelectedPlace({
+                        id: legacyPlace.googlePlaceId || data.placeId,
+                        name: legacyPlace.name,
+                        address: legacyPlace.address,
+                        lat: legacyPlace.coordinates.latitude,
+                        lng: legacyPlace.coordinates.longitude,
+                        types: legacyPlace.types || []
+                    });
+                } catch (_e) {
+                    setSelectedPlace({
+                        id: data.placeId,
+                        name: data.placeName || data.itemName || 'Lugar',
+                        address: data.placeAddress || '',
+                        lat: data.placeLat || 0,
+                        lng: data.placeLng || 0
+                    });
+                }
+            };
 
             try {
-                // Determine collection path. Assuming 'lists/{listId}/reviews/{reviewId}' or global 'reviews'?
-                // The addDoc gets written to 'reviews' (global) now in recent iterations, but let's check.
-                const reviewRef = doc(db, 'reviews', editReviewId);
-                const snap = await getDoc(reviewRef);
+                const candidateListIds = Array.from(new Set(
+                    [listId, internalListId].filter((value): value is string => !!value)
+                ));
 
-                if (snap.exists()) {
-                    const data = snap.data();
-                    setReviewPath(`reviews/${editReviewId}`);
-
-                    setItemName(data.itemName || '');
-                    setComment(data.comment || '');
-                    setOverallRating(data.overallRating || 5);
-                    if (data.scores) setCriteriaScores(data.scores);
-                    if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
-                    if (data.photoUrl) setImagePreview(data.photoUrl);
-
-                    // Fixed: Always prefer stored listId from review data if creating/editing
-                    if (data.listId) {
-                        setInternalListId(data.listId);
-                    } else if (listId) {
-                        setInternalListId(listId);
-                    }
-
-                    // Capture Original Data for Dirty Check
-                    setOriginalData(JSON.stringify({
-                        itemName: data.itemName || '',
-                        comment: data.comment || '',
-                        criteriaScores: data.scores || {},
-                        customTags: data.tags || data.userTags || [],
-                        imagePreview: data.photoUrl || null,
-                        listId: data.listId // Match structure
-                    }));
-
-                    if (data.placeId) {
-                        // Fetch fresh details from Place Service
-                        try {
-                            const details = await PlaceService.getDetails(data.placeId);
-                            const legacyPlace = transformToLegacyPlace({
-                                id: data.placeId,
-                                name: data.placeName || data.itemName || 'Lugar',
-                                address: data.placeAddress || '',
-                                lat: data.placeLat || 0,
-                                lng: data.placeLng || 0
-                            } as any, details);
-
-                            setSelectedPlace({
-                                id: legacyPlace.googlePlaceId || data.placeId,
-                                name: legacyPlace.name,
-                                address: legacyPlace.address,
-                                lat: legacyPlace.coordinates.latitude,
-                                lng: legacyPlace.coordinates.longitude,
-                                types: legacyPlace.types || [] // Hydrate types if available
-                            });
-                        } catch (e) {
-                            // Fallback
-                            setSelectedPlace({
-                                id: data.placeId,
-                                name: data.placeName || data.itemName || 'Lugar',
-                                address: data.placeAddress || '',
-                                lat: data.placeLat || 0,
-                                lng: data.placeLng || 0
-                            });
-                        }
-                    }
-                } else if (listId) {
-                    // Fallback to subcollection (Legacy)
-                    const subRef = doc(db, 'lists', listId, 'reviews', editReviewId);
+                for (const candidateListId of candidateListIds) {
+                    const subRef = doc(db, 'lists', candidateListId, 'reviews', editReviewId);
                     const subSnap = await getDoc(subRef);
+                    if (!subSnap.exists()) continue;
 
-                    if (subSnap.exists()) {
-                        setReviewPath(`lists/${listId}/reviews/${editReviewId}`);
-                        const data = subSnap.data();
-                        setItemName(data.itemName || '');
-                        setComment(data.comment || '');
-                        setOverallRating(data.overallRating || 5);
-                        if (data.scores) setCriteriaScores(data.scores);
-                        if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
-                        if (data.photoUrl) setImagePreview(data.photoUrl);
-                        if (data.listId) setInternalListId(data.listId);
-
-                        if (data.placeId) {
-                            setSelectedPlace({
-                                id: data.placeId,
-                                name: data.placeName || 'Lugar',
-                                address: data.placeAddress || '',
-                                lat: data.placeLat || 0,
-                                lng: data.placeLng || 0
-                            });
-                        }
-                    }
+                    await hydrateReviewState(
+                        subSnap.data(),
+                        candidateListId,
+                        `lists/${candidateListId}/reviews/${editReviewId}`
+                    );
+                    return;
                 }
+
+                const rootRef = doc(db, 'reviews', editReviewId);
+                const rootSnap = await getDoc(rootRef);
+                if (!rootSnap.exists()) return;
+
+                const rootData = rootSnap.data();
+                const rootListCandidates = Array.from(new Set(
+                    [rootData.listId, rootData.parentListId, listId, internalListId]
+                        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+                ));
+
+                for (const candidateListId of rootListCandidates) {
+                    const subRef = doc(db, 'lists', candidateListId, 'reviews', editReviewId);
+                    const subSnap = await getDoc(subRef);
+                    if (!subSnap.exists()) continue;
+
+                    await hydrateReviewState(
+                        subSnap.data(),
+                        candidateListId,
+                        `lists/${candidateListId}/reviews/${editReviewId}`
+                    );
+                    return;
+                }
+
+                await hydrateReviewState(
+                    rootData,
+                    rootData.listId || rootData.parentListId,
+                    `reviews/${editReviewId}`
+                );
             } catch (e) {
                 console.error("Error fetching review for edit:", e);
                 setError("Error cargando la reseña para editar");
@@ -200,7 +209,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         if (editReviewId) {
             fetchReviewData();
         }
-    }, [editReviewId, listId]);
+    }, [editReviewId, listId, internalListId]);
 
     // Hydrate Place from PREFILL (Group Page Context)
     useEffect(() => {
@@ -375,7 +384,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
         try {
             // --- AUTOMATION: "Quiero ir" -> "Ya fui" (ARCHIVES) ---
-            // Requirement: "si hacemos una reseña de ... elemento en Quiero ir, se pase automáticamente a ya fui" (in Archives)
+            // Requirement: "si hacemos una reseÃ±a de ... elemento en Quiero ir, se pase automÃ¡ticamente a ya fui" (in Archives)
 
             // 1. Ensure "Ya fui" archive exists
             let yaFuiArchiveId: string | null = null;
@@ -523,16 +532,16 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     console.error("Failed to sync place with backend via new logic:", placeErr);
                 }
             }
-
-
-
-            const listDataLocal = listData || {}; // might need to refetch if we switched listId? 
-            // If we relied on listId prop, it's fine.
-
             const isSublist = !!listData?.parentListId;
-            const finalListId = isSublist ? listData.parentListId : internalListId; // Use internalListId to respect selection
+            const finalListId = isSublist ? (listData?.parentListId || internalListId) : internalListId;
             const sublistId = isSublist ? internalListId : null;
             const visibility = listData?.visibility === 'private' ? 'private' : 'public';
+
+            if (!finalListId) {
+                setError('Selecciona una lista válida antes de guardar.');
+                setLoading(false);
+                return;
+            }
 
             const userProfileSnap = await getDoc(doc(db, 'users', user.uid)).catch(() => null);
             const userProfile = userProfileSnap && userProfileSnap.exists() ? userProfileSnap.data() : null;
@@ -540,7 +549,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             const authorDisplayName = typeof userProfile?.displayName === 'string'
                 ? userProfile.displayName.trim()
                 : (user.displayName || '').trim();
-            const authorNameToPersist = authorUsername || authorDisplayName || 'An�nimo';
+            const authorNameToPersist = authorUsername || authorDisplayName || 'Anónimo';
             const authorPhotoToPersist = userProfile?.photoUrl || user.photoURL || '';
 
             const reviewData = {
@@ -582,16 +591,46 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             };
 
             if (editReviewId) {
-                // Update
-                const reviewRef = doc(db, reviewPath || `reviews/${editReviewId}`);
-                await updateDoc(reviewRef, {
+                // Canonical write path: lists/{listId}/reviews/{reviewId}
+                const targetSubRef = doc(db, 'lists', finalListId, 'reviews', editReviewId);
+                let createdAtToKeep: any = null;
+
+                // Preserve original createdAt and clean up old location if needed.
+                if (reviewPath?.startsWith('lists/')) {
+                    const parts = reviewPath.split('/');
+                    if (parts.length >= 4) {
+                        const previousListId = parts[1];
+                        const previousRef = doc(db, 'lists', previousListId, 'reviews', editReviewId);
+                        const previousSnap = await getDoc(previousRef);
+                        if (previousSnap.exists()) {
+                            createdAtToKeep = previousSnap.data().createdAt || null;
+                            if (previousListId !== finalListId) {
+                                await deleteDoc(previousRef);
+                            }
+                        }
+                    }
+                } else if (reviewPath?.startsWith('reviews/')) {
+                    const legacyRootRef = doc(db, 'reviews', editReviewId);
+                    const legacyRootSnap = await getDoc(legacyRootRef);
+                    if (legacyRootSnap.exists()) {
+                        createdAtToKeep = legacyRootSnap.data().createdAt || null;
+                        await deleteDoc(legacyRootRef);
+                    }
+                }
+
+                const existingTargetSnap = await getDoc(targetSubRef);
+                if (existingTargetSnap.exists() && !createdAtToKeep) {
+                    createdAtToKeep = existingTargetSnap.data().createdAt || null;
+                }
+
+                await setDoc(targetSubRef, {
                     ...reviewData,
-                    criteriaDefinition: deleteField(),
-                    updatedAt: serverTimestamp() // force update timestamp
-                });
+                    createdAt: createdAtToKeep || serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
             } else {
-                // Create
-                await addDoc(collection(db, 'reviews'), {
+                // Create in the list subcollection (legacy/canonical path).
+                await addDoc(collection(db, 'lists', finalListId, 'reviews'), {
                     ...reviewData,
                     createdAt: serverTimestamp()
                 });
@@ -647,7 +686,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 {/* Header */}
                 <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#151b2e]">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                        {isNew ? 'Nueva Reseña' : 'Editar Reseña'}
+                        {isNew ? 'Nueva ReseÃ±a' : 'Editar ReseÃ±a'}
                     </h2>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                         <X className="w-5 h-5 text-gray-400" />
@@ -699,7 +738,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         </div>
                                         <div>
                                             <div className="font-bold text-white text-sm">{selectedPlace?.name || 'Cargando lugar...'}</div>
-                                            <div className="text-xs text-gray-500">{selectedPlace?.address || 'Dirección no disponible'}</div>
+                                            <div className="text-xs text-gray-500">{selectedPlace?.address || 'DirecciÃ³n no disponible'}</div>
                                         </div>
                                     </div>
                                     <div className="text-gray-500" title="Lugar fijo">
@@ -726,7 +765,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                         {/* 1. Item Name (Locked if Prefilled) */}
                         <div>
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1 tracking-wider">¿Qué probaste? <span className="text-red-400">*</span></label>
+                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1 tracking-wider">Â¿QuÃ© probaste? <span className="text-red-400">*</span></label>
                             <div className="relative">
                                 <input
                                     type="text"
@@ -755,7 +794,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     {overallRating}
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                    Esta nota se calcula automáticamente basándose en tus puntuaciones.
+                                    Esta nota se calcula automÃ¡ticamente basÃ¡ndose en tus puntuaciones.
                                 </div>
                             </div>
                         </div>
@@ -764,7 +803,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         {criteriaList.length > 0 ? (
                             <div className="bg-white/5 p-5 rounded-2xl border border-white/5 space-y-6">
                                 <h3 className="text-base font-bold text-gray-200 flex items-center gap-2 mb-2">
-                                    Valoración Detallada <span className="text-red-400">*</span>
+                                    ValoraciÃ³n Detallada <span className="text-red-400">*</span>
                                 </h3>
 
                                 {/* PONDERABLE CRITERIA */}
@@ -864,18 +903,18 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         ) : (
                             <div className="p-8 border border-dashed border-white/10 rounded-xl text-center">
                                 <p className="text-gray-400 text-sm">
-                                    {listId ? 'Cargando criterios...' : 'Selecciona una lista para ver los criterios de valoración.'}
+                                    {listId ? 'Cargando criterios...' : 'Selecciona una lista para ver los criterios de valoraciÃ³n.'}
                                 </p>
                             </div>
                         )}
 
                         {/* 5. Comment */}
                         <div>
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1 tracking-wider">Tu opinión</label>
+                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1 tracking-wider">Tu opiniÃ³n</label>
                             <textarea
                                 value={comment}
                                 onChange={e => setComment(e.target.value)}
-                                placeholder="¿Qué te pareció?"
+                                placeholder="Â¿QuÃ© te pareciÃ³?"
                                 rows={4}
                                 className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
                             />
@@ -986,7 +1025,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             }`}
                     >
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {isNew ? 'Publicar Reseña' : 'Guardar Cambios'}
+                        {isNew ? 'Publicar ReseÃ±a' : 'Guardar Cambios'}
                     </button>
                 </div>
             </div >

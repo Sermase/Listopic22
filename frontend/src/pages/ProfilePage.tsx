@@ -5,7 +5,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
 import { useFilters } from '../context/FilterContext'; // Import Filter Context
-import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2 } from 'lucide-react';
+import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown } from 'lucide-react';
 import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -16,61 +16,12 @@ import { AddReviewForm } from '../components/AddReviewForm';
 import { ChatService } from '../services/ChatService';
 import { FollowingSection } from '../components/profile/FollowingSection';
 import { BadgeDisplay } from '../components/profile/BadgeDisplay';
-import { collection, query, where, getDocs, limit, documentId, FieldPath } from 'firebase/firestore';
+import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
 import { isUsernameValid } from '../utils/username';
 import {
     isUserProfileServiceError,
     updateUserProfilePreferences,
 } from '../services/UserProfileService';
-
-// Helper Component for List Cards
-const ListGrid = ({ lists, emptyMessage, isSublist = false }: { lists: any[], emptyMessage: string, isSublist?: boolean }) => {
-    if (lists.length === 0) {
-        return (
-            <div className="py-8 text-center border border-dashed border-white/5 rounded-xl bg-white/5">
-                <p className="text-gray-500 text-sm">{emptyMessage}</p>
-            </div>
-        );
-    }
-
-    return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {lists.map(list => (
-                <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                    <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all h-full flex flex-col relative">
-                        <div className="h-32 bg-gray-800 relative">
-                            {list.photoUrl ? (
-                                <img src={list.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                    <ListIcon className="w-10 h-10 text-gray-600" />
-                                </div>
-                            )}
-                            {isSublist && (
-                                <div className="absolute top-2 left-2 bg-indigo-600/90 px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase tracking-wider">
-                                    Sublista
-                                </div>
-                            )}
-                            {!list.isPublic && (
-                                <div className="absolute top-2 right-2 bg-red-500/90 px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1">
-                                    Privada
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-4 flex-1 flex flex-col">
-                            <h3 className="text-white font-bold text-lg mb-1 truncate">{list.name}</h3>
-                            <p className="text-gray-500 text-xs mb-3 flex-1 line-clamp-2">{list.description}</p>
-                            <div className="flex justify-between items-center text-xs text-gray-400 mt-2 pt-2 border-t border-white/5">
-                                <span>{list.itemCount || 0} lugares</span>
-                                {list.ownerName && <span className="text-indigo-400">de {list.ownerName}</span>}
-                            </div>
-                        </div>
-                    </div>
-                </Link>
-            ))}
-        </div>
-    );
-};
 
 export const ProfilePage: React.FC = () => {
     const { user } = useAuth();
@@ -95,6 +46,9 @@ export const ProfilePage: React.FC = () => {
     const [isFlowOpen, setIsFlowOpen] = useState(false);
     const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
     const [editingListId, setEditingListId] = useState<string | null>(null);
+    const [reviewViewMode, setReviewViewMode] = useState<'full' | 'minimal'>('full');
+    const [expandedReviewIds, setExpandedReviewIds] = useState<string[]>([]);
+    const [listSubTab, setListSubTab] = useState<'followed_lists' | 'followed_sublists' | 'created_sublists'>('followed_lists');
 
     const handleEditReview = (review: any) => {
         setEditingReviewId(review.id);
@@ -115,69 +69,39 @@ export const ProfilePage: React.FC = () => {
     // Infinite Scroll Effect (Must be after useReviews)
     const loadMoreRef = React.useRef<HTMLDivElement>(null);
     useEffect(() => {
+        if (activeTab !== 'reviews' || loadingReviews) return;
+        const target = loadMoreRef.current;
+        if (!target) return;
+
         const observer = new IntersectionObserver((entries) => {
             if (entries[0].isIntersecting && hasMore && !loadingMore) {
                 fetchMore();
             }
         }, { threshold: 0.1 });
 
-        if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+        observer.observe(target);
         return () => observer.disconnect();
-    }, [hasMore, loadingMore, activeTab]);
+    }, [activeTab, hasMore, loadingMore, loadingReviews, localReviews.length, fetchMore]);
 
     // Additional List States
-    const [guestLists, setGuestLists] = useState<any[]>([]);
     const [followedLists, setFollowedLists] = useState<any[]>([]);
     const [loadingExtraLists, setLoadingExtraLists] = useState(false);
 
     // Derived Lists
-    const mainCreatedLists = ownedLists.filter(l => !l.parentListId);
     const subCreatedLists = ownedLists.filter(l => !!l.parentListId);
 
     const mainFollowedLists = followedLists.filter(l => !l.parentListId);
     const subFollowedLists = followedLists.filter(l => !!l.parentListId);
+    const profileListsCount = mainFollowedLists.length + subFollowedLists.length + subCreatedLists.length;
 
-    // Fetch Guest & Followed Lists
+    // Fetch Followed Lists
     useEffect(() => {
         if (!targetUserId) return;
 
         const fetchExtra = async () => {
             setLoadingExtraLists(true);
             try {
-                // 1. Guest Lists (Where I am an editor)
-                // Note: 'editors' array-contains query
-                // FIX: Only fetch guest lists if viewing own profile to avoid permission errors (can't query private lists of others)
-                // or ensure we rely on Algolia for complex search. For now, strict check.
-                let validGuest: any[] = [];
-                if (isOwnProfile) {
-                    try {
-                        const qGuest = query(collection(db, 'lists'), where('editors', 'array-contains', targetUserId), limit(20));
-                        const snapGuest = await getDocs(qGuest);
-                        validGuest = snapGuest.docs.map(d => ({ id: d.id, ...d.data() }));
-                    } catch (e: any) {
-                        console.warn("Guest lists query failed (likely missing index or permission)", e);
-                        // Don't crash, just empty
-                    }
-                } else {
-                    // If viewing someone else, we can ONLY see public lists where they are editor
-                    // Note: This requires composite index: editors (array) + isPublic (asc/desc)
-                    try {
-                        const qGuest = query(
-                            collection(db, 'lists'),
-                            where('editors', 'array-contains', targetUserId),
-                            where('isPublic', '==', true),
-                            limit(20)
-                        );
-                        const snapGuest = await getDocs(qGuest);
-                        validGuest = snapGuest.docs.map(d => ({ id: d.id, ...d.data() }));
-                    } catch (e: any) {
-                        // Index might be missing for this composite query, fail gracefully
-                        console.warn("Guest lists (public) query failed", e);
-                    }
-                }
-                setGuestLists(validGuest);
-
-                // 2. Followed Lists (From 'followingLists' subcollection)
+                // Followed Lists (From 'followingLists' subcollection)
                 const qFollowed = query(collection(db, 'users', targetUserId, 'followingLists'));
                 const snapFollowed = await getDocs(qFollowed);
 
@@ -228,7 +152,7 @@ export const ProfilePage: React.FC = () => {
         };
 
         fetchExtra();
-    }, [targetUserId, isOwnProfile, user]);
+    }, [targetUserId, user]);
 
     useEffect(() => {
         if (fetchedReviews) {
@@ -238,6 +162,92 @@ export const ProfilePage: React.FC = () => {
 
     const handleDeleteReview = (id: string) => {
         setLocalReviews(prev => prev.filter(r => r.id !== id));
+        setExpandedReviewIds(prev => prev.filter(reviewId => reviewId !== id));
+    };
+
+    const toggleReviewExpanded = (reviewId: string) => {
+        setExpandedReviewIds((prev) =>
+            prev.includes(reviewId)
+                ? prev.filter((id) => id !== reviewId)
+                : [...prev, reviewId]
+        );
+    };
+
+    const getScoreBubbleClass = (score: number) => {
+        if (score >= 7) return 'from-emerald-500 to-teal-500';
+        if (score >= 5) return 'from-yellow-400 to-orange-500';
+        return 'from-red-500 to-pink-500';
+    };
+
+    const formatReviewDate = (value: any) => {
+        if (!value) return '';
+
+        let date: Date | null = null;
+        if (typeof value?.toDate === 'function') {
+            try {
+                date = value.toDate();
+            } catch {
+                date = null;
+            }
+        } else if (value instanceof Date) {
+            date = value;
+        } else if (typeof value?.seconds === 'number') {
+            date = new Date(value.seconds * 1000);
+        } else if (typeof value === 'string' || typeof value === 'number') {
+            date = new Date(value);
+        }
+
+        if (!date || Number.isNaN(date.getTime())) return '';
+        return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+    };
+
+    const renderMinimalListRows = (lists: any[], emptyMessage: string, showSubBadge: boolean) => {
+        if (lists.length === 0) {
+            return (
+                <div className="py-10 text-center border border-dashed border-white/10 rounded-xl bg-white/5">
+                    <p className="text-gray-500 text-sm">{emptyMessage}</p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-2">
+                {lists.map((list) => {
+                    const listImage = list.mainImageUrl || list.photoUrl || '';
+                    return (
+                    <Link
+                        key={list.id}
+                        to={`/list/${list.id}`}
+                        className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[#151b2e]/70 hover:border-indigo-500/40 hover:bg-white/5 transition-all"
+                    >
+                        <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-gray-800">
+                            {listImage ? (
+                                <img src={listImage} alt={list.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                    <ListIcon className="w-5 h-5" />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                            <div className="text-sm font-bold text-white truncate">{list.name || 'Lista'}</div>
+                            <div className="text-[11px] text-gray-400 truncate">
+                                {list.itemCount || 0} lugares
+                                {list.description ? ` - ${list.description}` : ''}
+                            </div>
+                        </div>
+
+                        {showSubBadge && (
+                            <span className="shrink-0 text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold uppercase tracking-wide">
+                                Sub
+                            </span>
+                        )}
+                    </Link>
+                    );
+                })}
+            </div>
+        );
     };
 
     // Check Follow Status
@@ -466,13 +476,17 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     {/* Identity (Right of Avatar) */}
-                    <div className="flex-1 min-w-0 pb-1 md:pb-4 flex flex-col justify-end">
+                    <div className="flex-1 min-w-0 pb-2 md:pb-6 flex flex-col justify-end">
                         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                             <div>
-                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight flex flex-col md:flex-row md:items-end gap-1 md:gap-3">
-                                    <span className="truncate">{profile.displayName || profile.username || 'Usuario'}</span>
-                                    {profile.username && <span className="text-base sm:text-lg text-indigo-400 font-normal truncate">@{profile.username}</span>}
+                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight truncate">
+                                    {profile.displayName || profile.username || 'Usuario'}
                                 </h1>
+                                {profile.username && (
+                                    <p className="text-sm sm:text-base md:text-lg text-indigo-400 font-normal truncate mt-1">
+                                        @{profile.username}
+                                    </p>
+                                )}
                             </div>
 
                             {/* DESKTOP ACTIONS */}
@@ -884,7 +898,7 @@ export const ProfilePage: React.FC = () => {
                         className={`pb-4 px-2 font-bold text-sm flex items-center gap-2 transition-colors relative ${activeTab === 'lists' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
                             }`}
                     >
-                        <ListIcon className="w-4 h-4" /> Listas ({ownedLists.length + guestLists.length + followedLists.length})
+                        <ListIcon className="w-4 h-4" /> Listas ({profileListsCount})
                         {activeTab === 'lists' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
                     </button>
                     <button
@@ -909,10 +923,93 @@ export const ProfilePage: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-8">
-                                    <div className="grid grid-cols-1 gap-8">
-                                        {localReviews.map(review => (
-                                            <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
-                                        ))}
+                                    <div className="flex items-center justify-end">
+                                        <div className="inline-flex rounded-xl border border-white/10 bg-[#151b2e]/70 p-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setReviewViewMode('full')}
+                                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${reviewViewMode === 'full'
+                                                    ? 'bg-indigo-600 text-white'
+                                                    : 'text-gray-300 hover:text-white'
+                                                    }`}
+                                            >
+                                                Completa
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setReviewViewMode('minimal')}
+                                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${reviewViewMode === 'minimal'
+                                                    ? 'bg-indigo-600 text-white'
+                                                    : 'text-gray-300 hover:text-white'
+                                                    }`}
+                                            >
+                                                Minimalista
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {reviewViewMode === 'full' ? (
+                                            localReviews.map(review => (
+                                                <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
+                                            ))
+                                        ) : (
+                                            localReviews.map(review => {
+                                                const score = typeof review.overallRating === 'number' ? review.overallRating : 0;
+                                                const itemLabel = review.itemName || 'Elemento sin nombre';
+                                                const placeLabel = review.placeName || 'Lugar';
+                                                const cityLabel = review.placeCity || review.placeAddress || 'Sin ciudad';
+                                                const listLabel = review.listName || 'Sin lista';
+                                                const reviewDate = formatReviewDate(review.createdAt);
+                                                const isExpanded = expandedReviewIds.includes(review.id);
+                                                const thumbnail = review.photoUrl || review.placeMainImage || '';
+
+                                                return (
+                                                    <div key={review.id} className="rounded-xl border border-white/10 bg-[#151b2e]/70 overflow-hidden">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleReviewExpanded(review.id)}
+                                                            className="w-full px-3 py-2.5 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors"
+                                                        >
+                                                            <div className="min-w-0 flex items-center gap-3 text-left flex-1">
+                                                                <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-gray-800">
+                                                                    {thumbnail ? (
+                                                                        <img src={thumbnail} alt={itemLabel} className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-500">
+                                                                            Sin foto
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <div className="text-sm font-bold text-white truncate">{itemLabel}</div>
+                                                                    <div className="text-xs text-indigo-300 truncate">{placeLabel}</div>
+                                                                    <div className="text-[11px] text-gray-400 truncate">{cityLabel} • {listLabel}</div>
+                                                                    {reviewDate && (
+                                                                        <div className="text-[10px] text-gray-500 truncate mt-0.5 flex items-center gap-1">
+                                                                            <Calendar className="w-3 h-3" />
+                                                                            {reviewDate}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="shrink-0 flex items-center gap-2">
+                                                                <div className={`w-11 h-11 rounded-full bg-gradient-to-r ${getScoreBubbleClass(score)} text-white font-black text-sm flex items-center justify-center shadow-lg`}>
+                                                                    {score.toFixed(1)}
+                                                                </div>
+                                                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                                            </div>
+                                                        </button>
+
+                                                        {isExpanded && (
+                                                            <div className="px-2 pb-2">
+                                                                <ReviewCard review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
+                                        )}
                                     </div>
 
                                     {/* Infinite Scroll Trigger */}
@@ -935,76 +1032,56 @@ export const ProfilePage: React.FC = () => {
                             {loadingLists || loadingExtraLists ? (
                                 <div className="py-20 text-center text-gray-500">Cargando listas...</div>
                             ) : (
-                                <div className="space-y-16">
+                                <div className="space-y-6">
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setListSubTab('followed_lists')}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${listSubTab === 'followed_lists'
+                                                ? 'bg-indigo-600 border-indigo-500 text-white'
+                                                : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                                                }`}
+                                        >
+                                            Listas seguidas ({mainFollowedLists.length})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setListSubTab('followed_sublists')}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${listSubTab === 'followed_sublists'
+                                                ? 'bg-indigo-600 border-indigo-500 text-white'
+                                                : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                                                }`}
+                                        >
+                                            Sublistas seguidas ({subFollowedLists.length})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setListSubTab('created_sublists')}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${listSubTab === 'created_sublists'
+                                                ? 'bg-indigo-600 border-indigo-500 text-white'
+                                                : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                                                }`}
+                                        >
+                                            Sublistas creadas ({subCreatedLists.length})
+                                        </button>
+                                    </div>
 
-                                    {/* 1. Created Lists */}
-                                    <section>
-                                        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                            <span className="w-1.5 h-6 bg-indigo-500 rounded-full"></span>
-                                            Listas Creadas
-                                        </h3>
-                                        <ListGrid
-                                            lists={mainCreatedLists}
-                                            emptyMessage="No hay listas públicas creadas aún."
-                                        />
-                                    </section>
-
-                                    {/* 2. Created Sublists */}
-                                    {subCreatedLists.length > 0 && (
-                                        <section>
-                                            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                                <span className="w-1.5 h-6 bg-purple-500 rounded-full"></span>
-                                                Sublistas Creadas
-                                            </h3>
-                                            <ListGrid
-                                                lists={subCreatedLists}
-                                                emptyMessage="No hay sublistas."
-                                                isSublist={true}
-                                            />
-                                        </section>
+                                    {listSubTab === 'followed_lists' && renderMinimalListRows(
+                                        mainFollowedLists,
+                                        'No sigues listas principales.',
+                                        false
                                     )}
 
-                                    {/* 3. Guest Lists */}
-                                    {guestLists.length > 0 && (
-                                        <section>
-                                            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                                <span className="w-1.5 h-6 bg-amber-500 rounded-full"></span>
-                                                Listas como Invitado / Editor
-                                            </h3>
-                                            <ListGrid
-                                                lists={guestLists}
-                                                emptyMessage="No participas en ninguna lista."
-                                            />
-                                        </section>
+                                    {listSubTab === 'followed_sublists' && renderMinimalListRows(
+                                        subFollowedLists,
+                                        'No sigues sublistas.',
+                                        true
                                     )}
 
-                                    {/* 4. Followed Lists */}
-                                    {mainFollowedLists.length > 0 && (
-                                        <section>
-                                            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                                <span className="w-1.5 h-6 bg-emerald-500 rounded-full"></span>
-                                                Listas Seguidas
-                                            </h3>
-                                            <ListGrid
-                                                lists={mainFollowedLists}
-                                                emptyMessage="No sigues ninguna lista."
-                                            />
-                                        </section>
-                                    )}
-
-                                    {/* 5. Followed Sublists */}
-                                    {subFollowedLists.length > 0 && (
-                                        <section>
-                                            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                                <span className="w-1.5 h-6 bg-teal-500 rounded-full"></span>
-                                                Sublistas Seguidas
-                                            </h3>
-                                            <ListGrid
-                                                lists={subFollowedLists}
-                                                emptyMessage="No sigues ninguna sublista."
-                                                isSublist={true}
-                                            />
-                                        </section>
+                                    {listSubTab === 'created_sublists' && renderMinimalListRows(
+                                        subCreatedLists,
+                                        'No has creado sublistas todavia.',
+                                        true
                                     )}
                                 </div>
                             )}
@@ -1046,3 +1123,4 @@ export const ProfilePage: React.FC = () => {
         </div >
     );
 };
+
