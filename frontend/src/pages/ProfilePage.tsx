@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
 import { useFilters } from '../context/FilterContext'; // Import Filter Context
-import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown } from 'lucide-react';
+import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown, BarChart3, Sparkles } from 'lucide-react';
 import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -16,18 +16,50 @@ import { AddReviewForm } from '../components/AddReviewForm';
 import { ChatService } from '../services/ChatService';
 import { FollowingSection } from '../components/profile/FollowingSection';
 import { BadgeDisplay } from '../components/profile/BadgeDisplay';
-import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
+import { collection, collectionGroup, query, where, getDocs, documentId, orderBy, limit, startAfter } from 'firebase/firestore';
 import { isUsernameValid } from '../utils/username';
 import {
     isUserProfileServiceError,
     updateUserProfilePreferences,
 } from '../services/UserProfileService';
 
+interface ListRatingStats {
+    listId: string;
+    listName: string;
+    reviewsCount: number;
+    averageRating: number;
+}
+
+interface AdvancedProfileStats {
+    totalReviews: number;
+    averageRating: number;
+    ratedListsCount: number;
+    perList: ListRatingStats[];
+}
+
+interface FavoriteReviewSummary {
+    id: string;
+    placeId: string;
+    listId: string;
+    listName: string;
+    itemName: string;
+    placeName: string;
+    photoUrl: string;
+    score: number;
+}
+
+const EMPTY_ADVANCED_STATS: AdvancedProfileStats = {
+    totalReviews: 0,
+    averageRating: 0,
+    ratedListsCount: 0,
+    perList: [],
+};
+
 export const ProfilePage: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { userId: paramUserId } = useParams<{ userId: string }>();
-    const [activeTab, setActiveTab] = useState<'lists' | 'reviews' | 'following'>('reviews');
+    const [activeTab, setActiveTab] = useState<'lists' | 'reviews' | 'following' | 'stats'>('reviews');
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -47,8 +79,15 @@ export const ProfilePage: React.FC = () => {
     const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
     const [editingListId, setEditingListId] = useState<string | null>(null);
     const [reviewViewMode, setReviewViewMode] = useState<'full' | 'minimal'>('full');
+    const [reviewSortMode, setReviewSortMode] = useState<'recent' | 'top_rated'>('recent');
     const [expandedReviewIds, setExpandedReviewIds] = useState<string[]>([]);
     const [listSubTab, setListSubTab] = useState<'followed_lists' | 'followed_sublists' | 'created_sublists'>('followed_lists');
+    const [statsListSort, setStatsListSort] = useState<'reviews_desc' | 'rating_desc'>('reviews_desc');
+    const [statsLoading, setStatsLoading] = useState(false);
+    const [statsError, setStatsError] = useState<string | null>(null);
+    const [statsLoadedUserId, setStatsLoadedUserId] = useState<string | null>(null);
+    const [advancedStats, setAdvancedStats] = useState<AdvancedProfileStats>(EMPTY_ADVANCED_STATS);
+    const [favoriteReview, setFavoriteReview] = useState<FavoriteReviewSummary | null>(null);
 
     const handleEditReview = (review: any) => {
         setEditingReviewId(review.id);
@@ -59,6 +98,13 @@ export const ProfilePage: React.FC = () => {
     // Determine target user ID
     const targetUserId = paramUserId || user?.uid;
     const isOwnProfile = user?.uid === targetUserId;
+
+    useEffect(() => {
+        setStatsLoadedUserId(null);
+        setStatsError(null);
+        setAdvancedStats(EMPTY_ADVANCED_STATS);
+        setFavoriteReview(null);
+    }, [targetUserId]);
 
     // Hooks
     const { profile, loading: loadingProfile, error: errorProfile } = useUserProfile(targetUserId);
@@ -160,9 +206,226 @@ export const ProfilePage: React.FC = () => {
         }
     }, [fetchedReviews]);
 
+    useEffect(() => {
+        if (!targetUserId) return;
+        if (statsLoadedUserId === targetUserId) return;
+
+        let cancelled = false;
+
+        const loadAdvancedStats = async () => {
+            setStatsLoading(true);
+            setStatsError(null);
+            try {
+                const pageSize = 200;
+                const maxReviews = 3000;
+                const allReviews: Array<Record<string, any>> = [];
+                let cursor: any = null;
+
+                while (allReviews.length < maxReviews) {
+                    const constraints: any[] = [
+                        where('userId', '==', targetUserId),
+                        orderBy('createdAt', 'desc'),
+                    ];
+
+                    if (cursor) {
+                        constraints.push(startAfter(cursor));
+                    }
+
+                    constraints.push(limit(pageSize));
+
+                    const pageSnapshot = await getDocs(query(collectionGroup(db, 'reviews'), ...constraints));
+                    if (pageSnapshot.empty) break;
+
+                    const pageRows = pageSnapshot.docs
+                        .map((reviewDoc): Record<string, any> | null => {
+                            const pathSegments = reviewDoc.ref.path.split('/');
+                            const isCanonicalListReviewPath =
+                                pathSegments.length === 4 &&
+                                pathSegments[0] === 'lists' &&
+                                pathSegments[2] === 'reviews';
+
+                            if (!isCanonicalListReviewPath) {
+                                return null;
+                            }
+
+                            const reviewData = reviewDoc.data() as Record<string, any>;
+                            const inferredListId = typeof reviewData.listId === 'string' && reviewData.listId.trim().length > 0
+                                ? reviewData.listId
+                                : reviewDoc.ref.parent.parent?.id || '';
+
+                            return {
+                                id: reviewDoc.id,
+                                ...reviewData,
+                                listId: inferredListId,
+                            };
+                        })
+                        .filter(Boolean) as Array<Record<string, any>>;
+
+                    allReviews.push(...pageRows);
+                    cursor = pageSnapshot.docs[pageSnapshot.docs.length - 1];
+
+                    if (pageSnapshot.size < pageSize) break;
+                }
+
+                const dedupedReviewsMap = new Map<string, Record<string, any>>();
+                allReviews.forEach((review) => {
+                    const listId = typeof review.listId === 'string' ? review.listId.trim() : '';
+                    if (!listId) return;
+                    const key = `${listId}:${review.id}`;
+                    if (!dedupedReviewsMap.has(key)) {
+                        dedupedReviewsMap.set(key, review);
+                    }
+                });
+                const canonicalReviews = Array.from(dedupedReviewsMap.values());
+
+                const listIds = Array.from(
+                    new Set(
+                        canonicalReviews
+                            .map((review) => typeof review.listId === 'string' ? review.listId : '')
+                            .filter((listId) => listId.length > 0)
+                    )
+                );
+
+                const listNamesById: Record<string, string> = {};
+                for (let i = 0; i < listIds.length; i += 10) {
+                    const chunk = listIds.slice(i, i + 10);
+                    try {
+                        const listSnapshot = await getDocs(query(collection(db, 'lists'), where(documentId(), 'in', chunk)));
+                        listSnapshot.docs.forEach((listDoc) => {
+                            const listData = listDoc.data() as Record<string, any>;
+                            if (typeof listData.name === 'string' && listData.name.trim().length > 0) {
+                                listNamesById[listDoc.id] = listData.name.trim();
+                            }
+                        });
+                    } catch (listError) {
+                        console.warn('Error loading list names for stats chunk', listError);
+                    }
+                }
+
+                let totalScore = 0;
+                let scoredReviewsCount = 0;
+                const perListMap = new Map<string, { listName: string; reviewsCount: number; totalScore: number }>();
+                let favoriteCandidate: Record<string, any> | null = null;
+                let favoriteCandidateDate = 0;
+
+                const getCreatedAtMillis = (value: any): number => {
+                    if (!value) return 0;
+                    if (typeof value?.toDate === 'function') {
+                        try {
+                            return value.toDate().getTime();
+                        } catch {
+                            return 0;
+                        }
+                    }
+                    if (typeof value?.seconds === 'number') return value.seconds * 1000;
+                    if (value instanceof Date) return value.getTime();
+                    if (typeof value === 'string' || typeof value === 'number') {
+                        const parsed = new Date(value).getTime();
+                        return Number.isFinite(parsed) ? parsed : 0;
+                    }
+                    return 0;
+                };
+
+                canonicalReviews.forEach((review) => {
+                    const numericScore = typeof review.overallRating === 'number'
+                        ? review.overallRating
+                        : Number(review.overallRating);
+                    const hasScore = Number.isFinite(numericScore);
+
+                    if (hasScore) {
+                        totalScore += numericScore;
+                        scoredReviewsCount += 1;
+
+                        const reviewDate = getCreatedAtMillis(review.createdAt);
+                        if (!favoriteCandidate || numericScore > Number(favoriteCandidate.overallRating) || (
+                            numericScore === Number(favoriteCandidate.overallRating) && reviewDate > favoriteCandidateDate
+                        )) {
+                            favoriteCandidate = review;
+                            favoriteCandidateDate = reviewDate;
+                        }
+                    }
+
+                    const listId = typeof review.listId === 'string' ? review.listId.trim() : '';
+                    if (!listId || !hasScore) return;
+
+                    const fallbackListName = listNamesById[listId]
+                        || (typeof review.listName === 'string' && review.listName.trim().length > 0 ? review.listName.trim() : 'Lista');
+                    const current = perListMap.get(listId) || {
+                        listName: fallbackListName,
+                        reviewsCount: 0,
+                        totalScore: 0,
+                    };
+
+                    current.reviewsCount += 1;
+                    current.totalScore += numericScore;
+
+                    if (!current.listName && fallbackListName) {
+                        current.listName = fallbackListName;
+                    }
+
+                    perListMap.set(listId, current);
+                });
+
+                const perList = Array.from(perListMap.entries())
+                    .map(([listId, value]) => ({
+                        listId,
+                        listName: value.listName || 'Lista',
+                        reviewsCount: value.reviewsCount,
+                        averageRating: value.reviewsCount > 0 ? value.totalScore / value.reviewsCount : 0,
+                    }))
+                    .sort((a, b) => {
+                        if (b.reviewsCount !== a.reviewsCount) return b.reviewsCount - a.reviewsCount;
+                        return b.averageRating - a.averageRating;
+                    });
+
+                if (!cancelled) {
+                    const favoriteCandidateData = favoriteCandidate as Record<string, any> | null;
+                    const favorite: FavoriteReviewSummary | null = favoriteCandidateData
+                        ? {
+                            id: String(favoriteCandidateData.id || ''),
+                            placeId: typeof favoriteCandidateData.placeId === 'string' ? favoriteCandidateData.placeId : '',
+                            listId: String(favoriteCandidateData.listId || ''),
+                            listName: listNamesById[String(favoriteCandidateData.listId || '')]
+                                || (typeof favoriteCandidateData.listName === 'string' ? favoriteCandidateData.listName : 'Lista'),
+                            itemName: typeof favoriteCandidateData.itemName === 'string' ? favoriteCandidateData.itemName : 'Elemento',
+                            placeName: typeof favoriteCandidateData.placeName === 'string' ? favoriteCandidateData.placeName : 'Lugar',
+                            photoUrl: typeof favoriteCandidateData.photoUrl === 'string' ? favoriteCandidateData.photoUrl : '',
+                            score: Number(favoriteCandidateData.overallRating) || 0,
+                        }
+                        : null;
+
+                    setAdvancedStats({
+                        totalReviews: scoredReviewsCount,
+                        averageRating: scoredReviewsCount > 0 ? totalScore / scoredReviewsCount : 0,
+                        ratedListsCount: perList.length,
+                        perList,
+                    });
+                    setFavoriteReview(favorite);
+                    setStatsLoadedUserId(targetUserId);
+                }
+            } catch (error) {
+                console.error('Error loading advanced profile stats', error);
+                if (!cancelled) {
+                    setStatsError('No se pudieron cargar las estadisticas.');
+                }
+            } finally {
+                if (!cancelled) {
+                    setStatsLoading(false);
+                }
+            }
+        };
+
+        void loadAdvancedStats();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [targetUserId, statsLoadedUserId]);
+
     const handleDeleteReview = (id: string) => {
         setLocalReviews(prev => prev.filter(r => r.id !== id));
         setExpandedReviewIds(prev => prev.filter(reviewId => reviewId !== id));
+        setStatsLoadedUserId(null);
     };
 
     const toggleReviewExpanded = (reviewId: string) => {
@@ -200,6 +463,73 @@ export const ProfilePage: React.FC = () => {
         if (!date || Number.isNaN(date.getTime())) return '';
         return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
     };
+
+    const formatStatRating = (value: number) => {
+        if (!Number.isFinite(value)) return '-';
+        return value.toFixed(2);
+    };
+
+    const getReviewCreatedAtMillis = (value: any): number => {
+        if (!value) return 0;
+        if (typeof value?.toDate === 'function') {
+            try {
+                return value.toDate().getTime();
+            } catch {
+                return 0;
+            }
+        }
+        if (typeof value?.seconds === 'number') return value.seconds * 1000;
+        if (value instanceof Date) return value.getTime();
+        if (typeof value === 'string' || typeof value === 'number') {
+            const parsed = new Date(value).getTime();
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+        return 0;
+    };
+
+    const displayedReviewsCount = statsLoadedUserId === targetUserId
+        ? advancedStats.totalReviews
+        : (profile?.reviewsCount || 0);
+
+    const sortedProfileReviews = useMemo(() => {
+        const base = [...localReviews];
+        if (reviewSortMode === 'top_rated') {
+            return base.sort((a, b) => {
+                const scoreA = typeof a.overallRating === 'number' ? a.overallRating : Number(a.overallRating) || 0;
+                const scoreB = typeof b.overallRating === 'number' ? b.overallRating : Number(b.overallRating) || 0;
+                if (scoreB !== scoreA) return scoreB - scoreA;
+                return getReviewCreatedAtMillis(b.createdAt) - getReviewCreatedAtMillis(a.createdAt);
+            });
+        }
+
+        return base.sort((a, b) => getReviewCreatedAtMillis(b.createdAt) - getReviewCreatedAtMillis(a.createdAt));
+    }, [localReviews, reviewSortMode]);
+
+    const sortedStatsPerList = useMemo(() => {
+        const base = [...advancedStats.perList];
+        if (statsListSort === 'rating_desc') {
+            return base.sort((a, b) => {
+                if (b.averageRating !== a.averageRating) return b.averageRating - a.averageRating;
+                return b.reviewsCount - a.reviewsCount;
+            });
+        }
+
+        return base.sort((a, b) => {
+            if (b.reviewsCount !== a.reviewsCount) return b.reviewsCount - a.reviewsCount;
+            return b.averageRating - a.averageRating;
+        });
+    }, [advancedStats.perList, statsListSort]);
+
+    const favoriteGroupLink = useMemo(() => {
+        if (!favoriteReview) return '#';
+        if (favoriteReview.placeId) {
+            const encodedItemName = encodeURIComponent(favoriteReview.itemName || 'item');
+            const listQuery = favoriteReview.listId ? `?listId=${encodeURIComponent(favoriteReview.listId)}` : '';
+            return `/group/${favoriteReview.placeId}/${encodedItemName}${listQuery}`;
+        }
+        if (favoriteReview.listId) return `/list/${favoriteReview.listId}`;
+        return '#';
+    }, [favoriteReview]);
 
     const renderMinimalListRows = (lists: any[], emptyMessage: string, showSubBadge: boolean) => {
         if (lists.length === 0) {
@@ -461,7 +791,7 @@ export const ProfilePage: React.FC = () => {
 
             <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-32 z-10">
                 {/* TOP SECTION: Avatar + Identity + Desktop Actions */}
-                <div className="flex flex-row items-end gap-4 md:gap-8 mb-6">
+                <div className="flex flex-row items-center md:items-start gap-4 md:gap-8 mb-4">
                     {/* Avatar (Left) */}
                     <div className="group relative shrink-0">
                         <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
@@ -476,8 +806,8 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     {/* Identity (Right of Avatar) */}
-                    <div className="flex-1 min-w-0 pb-2 md:pb-6 flex flex-col justify-end">
-                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div className="flex-1 min-w-0 pb-0 md:pb-0 flex flex-col justify-start">
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 relative md:pr-64">
                             <div>
                                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight truncate">
                                     {profile.displayName || profile.username || 'Usuario'}
@@ -490,7 +820,7 @@ export const ProfilePage: React.FC = () => {
                             </div>
 
                             {/* DESKTOP ACTIONS */}
-                            <div className="hidden md:flex items-center gap-3">
+                            <div className="hidden md:flex items-center gap-3 absolute top-0 right-0">
                                 {isOwnProfile ? (
                                     <div className="flex items-center gap-2">
                                         {((Array.isArray(profile.userType) && profile.userType.includes('jefe')) || profile.userType === 'jefe') && (
@@ -547,7 +877,75 @@ export const ProfilePage: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+                    {favoriteReview && (
+                        <div className="hidden md:block shrink-0 pt-1">
+                            <Link
+                                to={favoriteGroupLink}
+                                className="group w-[220px] flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
+                                title="Abrir favorito en pagina de grupo"
+                            >
+                                <div className="relative w-11 h-11 shrink-0">
+                                    <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
+                                        {favoriteReview.photoUrl ? (
+                                            <img src={favoriteReview.photoUrl} alt={favoriteReview.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                <ListIcon className="w-4 h-4" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[#0b1021] shadow-lg`}>
+                                        {favoriteReview.score.toFixed(1)}
+                                    </div>
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-[9px] uppercase tracking-widest text-amber-200 font-bold flex items-center gap-1">
+                                        <Sparkles className="w-2.5 h-2.5" /> Favorito
+                                    </div>
+                                    <div className="text-xs font-extrabold text-white truncate">{favoriteReview.itemName}</div>
+                                    <div className="text-[11px] text-indigo-200 truncate">{favoriteReview.placeName}</div>
+                                    <div className="text-[10px] text-gray-300 truncate">{favoriteReview.listName}</div>
+                                </div>
+                            </Link>
+                        </div>
+                    )}
                 </div>
+
+                {favoriteReview && (
+                    <div className="md:hidden mb-4 flex justify-end">
+                        <Link
+                            to={favoriteGroupLink}
+                            className="group w-full sm:w-auto sm:max-w-md flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
+                            title="Abrir favorito en pagina de grupo"
+                        >
+                            <div className="relative w-11 h-11 shrink-0">
+                                <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
+                                    {favoriteReview.photoUrl ? (
+                                        <img src={favoriteReview.photoUrl} alt={favoriteReview.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                            <ListIcon className="w-4 h-4" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[#0b1021] shadow-lg`}>
+                                    {favoriteReview.score.toFixed(1)}
+                                </div>
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                                <div className="text-[9px] uppercase tracking-widest text-amber-200 font-bold flex items-center gap-1">
+                                    <Sparkles className="w-2.5 h-2.5" /> Favorito
+                                </div>
+                                <div className="text-xs font-extrabold text-white truncate">{favoriteReview.itemName}</div>
+                                <div className="text-[11px] text-indigo-200 truncate">{favoriteReview.placeName}</div>
+                                <div className="text-[10px] text-gray-300 truncate">{favoriteReview.listName}</div>
+                            </div>
+                        </Link>
+                    </div>
+                )}
 
                 {/* BIO + MOBILE ACTIONS + STATS */}
                 <div className="space-y-6 md:space-y-8">
@@ -620,7 +1018,7 @@ export const ProfilePage: React.FC = () => {
                         <div className="grid grid-cols-4 gap-2 md:gap-8 mb-4 md:mb-6">
                             {[
                                 { label: 'Seguidores', value: profile.followersCount || 0 },
-                                { label: 'Reseñas', value: profile.reviewsCount || 0 },
+                                { label: 'Reseñas', value: displayedReviewsCount },
                                 { label: 'Usuarios', value: profile.followingUsersCount || profile.followingCount || 0, icon: UsersIcon },
                                 { label: 'Listas', value: profile.followingListsCount || 0, icon: ListIcon }
                             ].map((stat, i) => (
@@ -890,7 +1288,7 @@ export const ProfilePage: React.FC = () => {
                         className={`pb-4 px-2 font-bold text-sm flex items-center gap-2 transition-colors relative ${activeTab === 'reviews' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
                             }`}
                     >
-                        <Star className="w-4 h-4" /> Reseñas ({localReviews.length})
+                        <Star className="w-4 h-4" /> Reseñas ({displayedReviewsCount})
                         {activeTab === 'reviews' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
                     </button>
                     <button
@@ -909,6 +1307,14 @@ export const ProfilePage: React.FC = () => {
                         <UserCheck className="w-4 h-4" /> Siguiendo ({profile.followingCount || 0})
                         {activeTab === 'following' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
                     </button>
+                    <button
+                        onClick={() => setActiveTab('stats')}
+                        className={`pb-4 px-2 font-bold text-sm flex items-center gap-2 transition-colors relative ${activeTab === 'stats' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <BarChart3 className="w-4 h-4" /> Estadisticas
+                        {activeTab === 'stats' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
+                    </button>
                 </div>
 
                 {/* Tab Content */}
@@ -917,13 +1323,35 @@ export const ProfilePage: React.FC = () => {
                         <>
                             {loadingReviews ? (
                                 <div className="py-20 text-center text-gray-500">Cargando reseñas...</div>
-                            ) : localReviews.length === 0 ? (
+                            ) : sortedProfileReviews.length === 0 ? (
                                 <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-xl">
                                     <p className="text-gray-500">No hay reseñas recientes.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-8">
-                                    <div className="flex items-center justify-end">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <div className="inline-flex rounded-xl border border-white/10 bg-[#151b2e]/70 p-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setReviewSortMode('recent')}
+                                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${reviewSortMode === 'recent'
+                                                    ? 'bg-indigo-600 text-white'
+                                                    : 'text-gray-300 hover:text-white'
+                                                    }`}
+                                            >
+                                                Recientes
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setReviewSortMode('top_rated')}
+                                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${reviewSortMode === 'top_rated'
+                                                    ? 'bg-indigo-600 text-white'
+                                                    : 'text-gray-300 hover:text-white'
+                                                    }`}
+                                            >
+                                                Mejor valoradas
+                                            </button>
+                                        </div>
                                         <div className="inline-flex rounded-xl border border-white/10 bg-[#151b2e]/70 p-1">
                                             <button
                                                 type="button"
@@ -950,11 +1378,11 @@ export const ProfilePage: React.FC = () => {
 
                                     <div className="grid grid-cols-1 gap-2">
                                         {reviewViewMode === 'full' ? (
-                                            localReviews.map(review => (
+                                            sortedProfileReviews.map(review => (
                                                 <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
                                             ))
                                         ) : (
-                                            localReviews.map(review => {
+                                            sortedProfileReviews.map(review => {
                                                 const score = typeof review.overallRating === 'number' ? review.overallRating : 0;
                                                 const itemLabel = review.itemName || 'Elemento sin nombre';
                                                 const placeLabel = review.placeName || 'Lugar';
@@ -1088,6 +1516,88 @@ export const ProfilePage: React.FC = () => {
                         </>
                     )}
 
+                    {activeTab === 'stats' && (
+                        <>
+                            {statsLoading ? (
+                                <div className="py-20 text-center text-gray-500">Cargando estadisticas...</div>
+                            ) : statsError ? (
+                                <div className="py-10 px-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-200 text-sm">
+                                    {statsError}
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 p-4">
+                                            <div className="text-[11px] uppercase tracking-wider text-gray-400">Media global</div>
+                                            <div className="text-3xl font-black text-white mt-1">{formatStatRating(advancedStats.averageRating)}</div>
+                                        </div>
+                                        <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 p-4">
+                                            <div className="text-[11px] uppercase tracking-wider text-gray-400">Resenas analizadas</div>
+                                            <div className="text-3xl font-black text-white mt-1">{advancedStats.totalReviews}</div>
+                                        </div>
+                                        <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 p-4">
+                                            <div className="text-[11px] uppercase tracking-wider text-gray-400">Listas valoradas</div>
+                                            <div className="text-3xl font-black text-white mt-1">{advancedStats.ratedListsCount}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 overflow-hidden">
+                                        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                                            <h3 className="text-sm font-bold text-white">Media por lista</h3>
+                                            <span className="text-[11px] text-gray-400">Resenas y valoracion media</span>
+                                        </div>
+                                        <div className="px-4 py-2 border-b border-white/10">
+                                            <div className="inline-flex rounded-lg border border-white/10 bg-[#0f1424] p-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setStatsListSort('reviews_desc')}
+                                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${statsListSort === 'reviews_desc'
+                                                        ? 'bg-indigo-600 text-white'
+                                                        : 'text-gray-300 hover:text-white'
+                                                        }`}
+                                                >
+                                                    Mas resenas
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setStatsListSort('rating_desc')}
+                                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${statsListSort === 'rating_desc'
+                                                        ? 'bg-indigo-600 text-white'
+                                                        : 'text-gray-300 hover:text-white'
+                                                        }`}
+                                                >
+                                                    Mejor valoradas
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {sortedStatsPerList.length === 0 ? (
+                                            <div className="py-10 text-center text-gray-500 text-sm">No hay datos de valoracion por lista.</div>
+                                        ) : (
+                                            <div className="divide-y divide-white/10">
+                                                {sortedStatsPerList.map((listStat) => (
+                                                    <Link
+                                                        key={listStat.listId}
+                                                        to={`/list/${listStat.listId}`}
+                                                        className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
+                                                    >
+                                                        <div className="min-w-0">
+                                                            <div className="text-sm font-bold text-white truncate">{listStat.listName}</div>
+                                                            <div className="text-[11px] text-gray-400">{listStat.reviewsCount} resenas</div>
+                                                        </div>
+                                                        <div className="shrink-0 text-right">
+                                                            <div className="text-xs text-gray-400">Media</div>
+                                                            <div className="text-lg font-black text-indigo-300">{formatStatRating(listStat.averageRating)}</div>
+                                                        </div>
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+
                     {activeTab === 'following' && (
                         <FollowingSection targetUserId={targetUserId} />
                     )}
@@ -1114,6 +1624,7 @@ export const ProfilePage: React.FC = () => {
                     }}
                     onSuccess={() => {
                         refreshReviews();
+                        setStatsLoadedUserId(null);
                         setIsFlowOpen(false);
                         setEditingReviewId(null);
                         setEditingListId(null);
