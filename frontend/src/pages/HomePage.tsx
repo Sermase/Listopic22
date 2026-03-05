@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useFilters } from '../context/FilterContext';
+import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
 import { useLists } from '../hooks/useLists';
 import { useUsers } from '../hooks/useUsers';
 import { useReviews } from '../hooks/useReviews';
@@ -36,7 +36,7 @@ export const HomePage: React.FC = () => {
     const [activeFilter, setActiveFilter] = useState('Todo'); // Category Filter
 
     // Global Distance Range State
-    const { range, toggleRange, getRangeLabel } = useFilters();
+    const { range, setRange, toggleRange, getRangeLabel } = useFilters();
 
     const [isMapOpen, setIsMapOpen] = useState(false);
     const [gateLoading, setGateLoading] = useState(false);
@@ -379,6 +379,52 @@ export const HomePage: React.FC = () => {
         // Sort: "Los lugares de más nota a menos."
         return Array.from(uniquePlaces.values()).sort((a, b) => (b.rating || 0) - (a.rating || 0));
     }, [reviewsInRange, extraPlaces, range, location, activeFilter]);
+
+    const hasHomeMapCandidates = useMemo(() => {
+        const filterNorm = activeFilter.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const matchesCategory = (item: any) => {
+            if (activeFilter === 'Todo') return true;
+
+            const catId = item.categoryId || item.category || '';
+            const catNorm = String(catId).toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (catNorm.includes(filterNorm)) return true;
+
+            if (item.availableTags && Array.isArray(item.availableTags)) {
+                if (item.availableTags.some((t: string) => t.toLowerCase().includes(filterNorm))) return true;
+            }
+
+            if (item.listCategory || item.category) {
+                const itemCat = String(item.listCategory || item.category).toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (itemCat.includes(filterNorm)) return true;
+            }
+
+            return false;
+        };
+
+        const reviewCandidates = reviews.some((review: any) => {
+            if (!matchesCategory(review)) return false;
+            const lat = review.placeLat || review.lat;
+            const lng = review.placeLng || review.lng;
+            return !!review.placeId && !!lat && !!lng;
+        });
+
+        const extraPlaceCandidates = extraPlaces.some((place: any) => !!place?.id && !!place?.lat && !!place?.lng);
+
+        return reviewCandidates || extraPlaceCandidates;
+    }, [reviews, extraPlaces, activeFilter]);
+
+    useEffect(() => {
+        if (activeTab !== 'explore') return;
+        if (range === null || !location) return;
+        if (loadingReviews) return;
+        if (!hasHomeMapCandidates) return;
+        if (filteredPlaces.length > 0) return;
+
+        const nextRange = getExpandedRangeValue(range);
+        if (nextRange !== range) {
+            setRange(nextRange);
+        }
+    }, [activeTab, range, location, loadingReviews, hasHomeMapCandidates, filteredPlaces.length, setRange]);
 
     // 6. Derived Users (Synthesized from content IN RANGE)
     // "Así aparecerán usuarios, ordenados de más resñas dentro de ese rango a menos."

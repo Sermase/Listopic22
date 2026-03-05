@@ -3,6 +3,55 @@ import { useAuth } from './AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
+export const DEFAULT_RANGE_KM = 5;
+export const RANGE_STEPS_KM: number[] = [1, 2, 5, 10, 50, 100, 500];
+const SESSION_RANGE_KEY = 'sessionRange';
+const SESSION_RANGE_UID_KEY = 'sessionRangeUid';
+
+export const getNextRangeValue = (current: number | null): number | null => {
+    if (current === null) {
+        return RANGE_STEPS_KM[0];
+    }
+
+    const exactIndex = RANGE_STEPS_KM.indexOf(current);
+    if (exactIndex >= 0) {
+        return exactIndex === RANGE_STEPS_KM.length - 1 ? null : RANGE_STEPS_KM[exactIndex + 1];
+    }
+
+    const nextGreater = RANGE_STEPS_KM.find((value) => value > current);
+    return nextGreater ?? null;
+};
+
+export const getExpandedRangeValue = (current: number | null): number | null => {
+    if (current === null) {
+        return null;
+    }
+
+    const nextGreater = RANGE_STEPS_KM.find((value) => value > current);
+    return nextGreater ?? null;
+};
+
+function normalizeRangeValue(value: unknown, fallback: number | null): number | null {
+    if (value === null) {
+        return null;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+
+    if (parsed >= 999999) {
+        return null;
+    }
+
+    if (parsed <= 0) {
+        return fallback;
+    }
+
+    return parsed;
+}
+
 interface FilterContextType {
     range: number | null;
     setRange: (range: number | null) => void;
@@ -22,81 +71,99 @@ export const useFilters = () => useContext(FilterContext);
 export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
 
-    // Initialize from session storage if available, otherwise default to 2km (per user request)
+    const resolveSessionRange = (uid: string | undefined): number | null | undefined => {
+        const saved = sessionStorage.getItem(SESSION_RANGE_KEY);
+        if (saved === null) {
+            return undefined;
+        }
+
+        const savedUid = sessionStorage.getItem(SESSION_RANGE_UID_KEY);
+        if (uid) {
+            if (!savedUid || savedUid !== uid) {
+                sessionStorage.removeItem(SESSION_RANGE_KEY);
+                sessionStorage.removeItem(SESSION_RANGE_UID_KEY);
+                return undefined;
+            }
+        }
+
+        return normalizeRangeValue(saved, DEFAULT_RANGE_KM);
+    };
+
+    // If user exists and no session value, keep it neutral until profile preference is fetched.
     const [range, setRangeState] = useState<number | null>(() => {
-        const saved = sessionStorage.getItem('sessionRange');
-        return saved ? Number(saved) : 2; // Default 2km if new session
+        const sessionRange = resolveSessionRange(user?.uid);
+        if (sessionRange !== undefined) {
+            return sessionRange;
+        }
+        if (user) {
+            return null;
+        }
+        return DEFAULT_RANGE_KM;
     });
 
-    const [hasLoadedProfile, setHasLoadedProfile] = useState(false);
-
-    // Fetch user preference on load
     useEffect(() => {
-        if (!user) {
-            // User logged out: Clear session storage to ensure fresh start next time
-            sessionStorage.removeItem('sessionRange');
-            setRangeState(null); // Reset internal state
+        const uid = user?.uid;
+        const sessionRange = resolveSessionRange(uid);
+
+        if (!uid) {
+            sessionStorage.removeItem(SESSION_RANGE_KEY);
+            sessionStorage.removeItem(SESSION_RANGE_UID_KEY);
+            setRangeState(DEFAULT_RANGE_KM);
             return;
         }
 
+        if (sessionRange !== undefined) {
+            setRangeState(sessionRange);
+            return;
+        }
+
+        // Avoid showing 5km before loading persisted profile preference.
+        setRangeState(null);
+
+        let cancelled = false;
         const fetchUserPreferences = async () => {
             try {
-                // If we already have a session value, we respect it (persistence during session).
-                // Unless the user explicitly wants to reset on every reload? 
-                // For now, we assume reloading the page is "continuing the session".
-                if (sessionStorage.getItem('sessionRange')) {
-                    setHasLoadedProfile(true);
-                    return;
-                }
-
-                const snap = await getDoc(doc(db, 'users', user.uid));
+                const snap = await getDoc(doc(db, 'users', uid));
+                let resolvedRange = DEFAULT_RANGE_KM;
                 if (snap.exists()) {
                     const data = snap.data();
                     const pref = data.defaultDistanceKm ?? data.defaultRange; // Backward compat
-                    if (pref !== undefined) {
-                        // If pref is 999999 or very large, treat as null (infinite)
-                        if (pref >= 999999) {
-                            setRangeState(null);
-                        } else {
-                            setRangeState(pref);
-                        }
-                    } else {
-                        // No profile preference found -> default 2km
-                        setRangeState(2);
+                    if (pref !== undefined && pref !== null) {
+                        resolvedRange = normalizeRangeValue(pref, DEFAULT_RANGE_KM) ?? DEFAULT_RANGE_KM;
                     }
                 }
+                if (cancelled) return;
+                setRangeState(resolvedRange);
+                sessionStorage.setItem(SESSION_RANGE_KEY, String(resolvedRange));
+                sessionStorage.setItem(SESSION_RANGE_UID_KEY, uid);
             } catch (e) {
                 console.error("Error fetching user preferences:", e);
-            } finally {
-                setHasLoadedProfile(true);
+                if (cancelled) return;
+                setRangeState(DEFAULT_RANGE_KM);
             }
         };
 
         fetchUserPreferences();
-    }, [user]);
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.uid]);
 
     const setRange = (newRange: number | null) => {
         setRangeState(newRange);
         if (newRange !== null) {
-            sessionStorage.setItem('sessionRange', String(newRange));
+            sessionStorage.setItem(SESSION_RANGE_KEY, String(newRange));
+            if (user?.uid) {
+                sessionStorage.setItem(SESSION_RANGE_UID_KEY, user.uid);
+            }
         } else {
-            sessionStorage.removeItem('sessionRange');
+            sessionStorage.removeItem(SESSION_RANGE_KEY);
+            sessionStorage.removeItem(SESSION_RANGE_UID_KEY);
         }
     };
 
     const toggleRange = () => {
-        let next: number | null = null;
-        if (range === null) next = 1;
-        else if (range === 1) next = 2;
-        else if (range === 2) next = 5;
-        else if (range === 5) next = 10;
-        else if (range === 10) next = 50;
-        else if (range === 50) next = 100;
-        else if (range === 100) next = 500;
-        else if (range === 500) next = null;
-        else next = null;
-
-        setRange(next);
+        setRange(getNextRangeValue(range));
     };
 
     const getRangeLabel = () => {
