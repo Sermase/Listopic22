@@ -521,13 +521,65 @@ async function deleteRecord(index, config, docId, data) {
     }
 }
 
+function collectReviewListIds(data, fallbackListId) {
+    const result = new Set();
+    const candidates = [
+        data?.listId,
+        data?.parentListId,
+        data?.sublistId,
+        fallbackListId
+    ];
+
+    for (const value of candidates) {
+        if (isNonEmptyString(value)) {
+            result.add(value.trim());
+        }
+    }
+
+    return Array.from(result);
+}
+
+function collectChangedReviewListIds(beforeData, afterData, fallbackListId) {
+    const result = new Set();
+    const beforeListIds = collectReviewListIds(beforeData, fallbackListId);
+    const afterListIds = collectReviewListIds(afterData, fallbackListId);
+
+    for (const listId of beforeListIds) {
+        result.add(listId);
+    }
+    for (const listId of afterListIds) {
+        result.add(listId);
+    }
+
+    return Array.from(result);
+}
+
+async function rebuildGroupedItemsForListIds(listIds) {
+    if (!Array.isArray(listIds) || listIds.length === 0) {
+        return null;
+    }
+    for (const listId of listIds) {
+        await rebuildGroupedItemsForList(listId);
+    }
+    return null;
+}
+
 const { onCreated: onListCreated, onUpdated: onListUpdated, onDeleted: onListDeleted } = createCollectionHandlers("lists");
 const { onCreated: onPlaceCreated, onUpdated: onPlaceUpdated, onDeleted: onPlaceDeleted } = createCollectionHandlers("places");
 const { onCreated: onUserCreated, onUpdated: onUserUpdated, onDeleted: onUserDeleted } = createCollectionHandlers("users");
 
 const syncGroupedItemsIndex = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
-    const listId = event.params.listId;
-    return await rebuildGroupedItemsForList(listId);
+    const beforeData = event.data?.before?.data();
+    const afterData = event.data?.after?.data();
+    const listIds = collectChangedReviewListIds(beforeData, afterData, event.params.listId);
+    return await rebuildGroupedItemsForListIds(listIds);
+});
+
+const syncGroupedItemsRootReviews = onDocumentWritten("reviews/{reviewId}", async (event) => {
+    const beforeData = event.data?.before?.data();
+    const afterData = event.data?.after?.data();
+    const listIds = collectChangedReviewListIds(beforeData, afterData);
+    return await rebuildGroupedItemsForListIds(listIds);
 });
 
 const syncGroupedItemsOnListUpdate = onDocumentUpdated("lists/{listId}", async (event) => {
@@ -645,6 +697,7 @@ module.exports = {
     onUserUpdated,
     onUserDeleted,
     syncGroupedItemsIndex,
+    syncGroupedItemsRootReviews,
     syncGroupedItemsOnListUpdate,
     syncGroupedItemsOnListDelete,
     adminBackfillAlgolia

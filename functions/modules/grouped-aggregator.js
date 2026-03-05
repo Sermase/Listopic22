@@ -40,6 +40,44 @@ async function fetchPlacesByIds(ids) {
     return map;
 }
 
+async function fetchRootReviewsByField(field, value) {
+    if (!value) {
+        return null;
+    }
+    return db.collection('reviews').where(field, '==', value).get();
+}
+
+async function fetchReviewsForList(listId, listData, listRef) {
+    const isSublist = !!listData?.parentListId;
+
+    if (isSublist) {
+        const bySublistId = await fetchRootReviewsByField('sublistId', listId);
+        if (bySublistId && !bySublistId.empty) {
+            return bySublistId;
+        }
+
+        // Fallback for docs that may have been persisted with listId = sublistId.
+        const byListId = await fetchRootReviewsByField('listId', listId);
+        if (byListId && !byListId.empty) {
+            return byListId;
+        }
+    } else {
+        const byListId = await fetchRootReviewsByField('listId', listId);
+        if (byListId && !byListId.empty) {
+            return byListId;
+        }
+
+        // Fallback for docs that only have parentListId.
+        const byParentListId = await fetchRootReviewsByField('parentListId', listId);
+        if (byParentListId && !byParentListId.empty) {
+            return byParentListId;
+        }
+    }
+
+    // Legacy fallback: old reviews path under the list subcollection.
+    return listRef.collection('reviews').get();
+}
+
 function extractGeoloc(placeData) {
     if (!placeData) {
         return null;
@@ -79,12 +117,9 @@ async function buildGroupedItemsForList(listId) {
     }
 
     const listRef = db.collection('lists').doc(listId);
-    const [listSnap, reviewsSnap] = await Promise.all([
-        listRef.get(),
-        listRef.collection('reviews').get()
-    ]);
-
+    const listSnap = await listRef.get();
     const listData = listSnap.exists ? { id: listSnap.id, ...listSnap.data() } : null;
+    const reviewsSnap = await fetchReviewsForList(listId, listData, listRef);
     const reviews = [];
     reviewsSnap.forEach(doc => {
         reviews.push({ id: doc.id, ...doc.data() });
