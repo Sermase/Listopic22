@@ -5,7 +5,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
 import { useFilters } from '../context/FilterContext'; // Import Filter Context
-import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown, BarChart3 } from 'lucide-react';
+import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown, BarChart3, Sparkles } from 'lucide-react';
 import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -39,6 +39,7 @@ interface AdvancedProfileStats {
 
 interface FavoriteReviewSummary {
     id: string;
+    placeId: string;
     listId: string;
     listName: string;
     itemName: string;
@@ -382,6 +383,7 @@ export const ProfilePage: React.FC = () => {
                     const favorite: FavoriteReviewSummary | null = favoriteCandidateData
                         ? {
                             id: String(favoriteCandidateData.id || ''),
+                            placeId: typeof favoriteCandidateData.placeId === 'string' ? favoriteCandidateData.placeId : '',
                             listId: String(favoriteCandidateData.listId || ''),
                             listName: listNamesById[String(favoriteCandidateData.listId || '')]
                                 || (typeof favoriteCandidateData.listName === 'string' ? favoriteCandidateData.listName : 'Lista'),
@@ -517,6 +519,17 @@ export const ProfilePage: React.FC = () => {
             return b.averageRating - a.averageRating;
         });
     }, [advancedStats.perList, statsListSort]);
+
+    const favoriteGroupLink = useMemo(() => {
+        if (!favoriteReview) return '#';
+        if (favoriteReview.placeId) {
+            const encodedItemName = encodeURIComponent(favoriteReview.itemName || 'item');
+            const listQuery = favoriteReview.listId ? `?listId=${encodeURIComponent(favoriteReview.listId)}` : '';
+            return `/group/${favoriteReview.placeId}/${encodedItemName}${listQuery}`;
+        }
+        if (favoriteReview.listId) return `/list/${favoriteReview.listId}`;
+        return '#';
+    }, [favoriteReview]);
 
     const renderMinimalListRows = (lists: any[], emptyMessage: string, showSubBadge: boolean) => {
         if (lists.length === 0) {
@@ -778,7 +791,7 @@ export const ProfilePage: React.FC = () => {
 
             <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-32 z-10">
                 {/* TOP SECTION: Avatar + Identity + Desktop Actions */}
-                <div className="flex flex-row items-end gap-4 md:gap-8 mb-6">
+                <div className="flex flex-row items-center md:items-start gap-4 md:gap-8 mb-4">
                     {/* Avatar (Left) */}
                     <div className="group relative shrink-0">
                         <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
@@ -793,8 +806,8 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     {/* Identity (Right of Avatar) */}
-                    <div className="flex-1 min-w-0 pb-2 md:pb-6 flex flex-col justify-end">
-                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div className="flex-1 min-w-0 pb-0 md:pb-0 flex flex-col justify-start">
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 relative md:pr-64">
                             <div>
                                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight truncate">
                                     {profile.displayName || profile.username || 'Usuario'}
@@ -807,7 +820,7 @@ export const ProfilePage: React.FC = () => {
                             </div>
 
                             {/* DESKTOP ACTIONS */}
-                            <div className="hidden md:flex items-center gap-3">
+                            <div className="hidden md:flex items-center gap-3 absolute top-0 right-0">
                                 {isOwnProfile ? (
                                     <div className="flex items-center gap-2">
                                         {((Array.isArray(profile.userType) && profile.userType.includes('jefe')) || profile.userType === 'jefe') && (
@@ -864,7 +877,75 @@ export const ProfilePage: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+                    {favoriteReview && (
+                        <div className="hidden md:block shrink-0 pt-1">
+                            <Link
+                                to={favoriteGroupLink}
+                                className="group w-[220px] flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
+                                title="Abrir favorito en pagina de grupo"
+                            >
+                                <div className="relative w-11 h-11 shrink-0">
+                                    <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
+                                        {favoriteReview.photoUrl ? (
+                                            <img src={favoriteReview.photoUrl} alt={favoriteReview.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                <ListIcon className="w-4 h-4" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[#0b1021] shadow-lg`}>
+                                        {favoriteReview.score.toFixed(1)}
+                                    </div>
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-[9px] uppercase tracking-widest text-amber-200 font-bold flex items-center gap-1">
+                                        <Sparkles className="w-2.5 h-2.5" /> Favorito
+                                    </div>
+                                    <div className="text-xs font-extrabold text-white truncate">{favoriteReview.itemName}</div>
+                                    <div className="text-[11px] text-indigo-200 truncate">{favoriteReview.placeName}</div>
+                                    <div className="text-[10px] text-gray-300 truncate">{favoriteReview.listName}</div>
+                                </div>
+                            </Link>
+                        </div>
+                    )}
                 </div>
+
+                {favoriteReview && (
+                    <div className="md:hidden mb-4 flex justify-end">
+                        <Link
+                            to={favoriteGroupLink}
+                            className="group w-full sm:w-auto sm:max-w-md flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
+                            title="Abrir favorito en pagina de grupo"
+                        >
+                            <div className="relative w-11 h-11 shrink-0">
+                                <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
+                                    {favoriteReview.photoUrl ? (
+                                        <img src={favoriteReview.photoUrl} alt={favoriteReview.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                            <ListIcon className="w-4 h-4" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[#0b1021] shadow-lg`}>
+                                    {favoriteReview.score.toFixed(1)}
+                                </div>
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                                <div className="text-[9px] uppercase tracking-widest text-amber-200 font-bold flex items-center gap-1">
+                                    <Sparkles className="w-2.5 h-2.5" /> Favorito
+                                </div>
+                                <div className="text-xs font-extrabold text-white truncate">{favoriteReview.itemName}</div>
+                                <div className="text-[11px] text-indigo-200 truncate">{favoriteReview.placeName}</div>
+                                <div className="text-[10px] text-gray-300 truncate">{favoriteReview.listName}</div>
+                            </div>
+                        </Link>
+                    </div>
+                )}
 
                 {/* BIO + MOBILE ACTIONS + STATS */}
                 <div className="space-y-6 md:space-y-8">
@@ -977,34 +1058,6 @@ export const ProfilePage: React.FC = () => {
                             );
                         })()}
                     </div>
-
-                    {favoriteReview && (
-                        <div className="pt-1">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Favorito</h3>
-                            <Link
-                                to={favoriteReview.listId ? `/list/${favoriteReview.listId}` : '#'}
-                                className="max-w-md group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[#151b2e]/70 hover:border-indigo-500/40 hover:bg-white/5 transition-all"
-                            >
-                                <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-gray-800">
-                                    {favoriteReview.photoUrl ? (
-                                        <img src={favoriteReview.photoUrl} alt={favoriteReview.itemName} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-gray-600">
-                                            <ListIcon className="w-5 h-5" />
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <div className="text-sm font-bold text-white truncate">{favoriteReview.itemName}</div>
-                                    <div className="text-xs text-indigo-300 truncate">{favoriteReview.placeName}</div>
-                                    <div className="text-[11px] text-gray-400 truncate">{favoriteReview.listName}</div>
-                                </div>
-                                <div className={`w-9 h-9 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-xs font-black flex items-center justify-center shadow-lg shrink-0`}>
-                                    {favoriteReview.score.toFixed(1)}
-                                </div>
-                            </Link>
-                        </div>
-                    )}
 
                     {/* BADGES SECTION */}
                     {profile.badges && profile.badges.length > 0 && (
