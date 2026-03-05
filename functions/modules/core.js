@@ -4047,7 +4047,20 @@ const adminRecalculateAllPlaces = onCall({ timeoutSeconds: 540, memory: '1GiB' }
 
 async function recalculateAggregatesForUser(userId) {
   const reviewsSnap = await db.collectionGroup('reviews').where('userId', '==', userId).get();
-  const reviewCount = reviewsSnap.size;
+  const canonicalReviewKeys = new Set();
+  reviewsSnap.forEach((docSnap) => {
+    const pathSegments = docSnap.ref.path.split('/');
+    const isCanonicalListReviewPath =
+      pathSegments.length === 4 &&
+      pathSegments[0] === 'lists' &&
+      pathSegments[2] === 'reviews';
+
+    if (!isCanonicalListReviewPath) return;
+
+    const listId = pathSegments[1] || '';
+    canonicalReviewKeys.add(`${listId}:${docSnap.id}`);
+  });
+  const reviewCount = canonicalReviewKeys.size;
 
   const listsSnap = await db.collection('lists').where('userId', '==', userId).get();
   const listCount = listsSnap.size;
@@ -4058,15 +4071,21 @@ async function recalculateAggregatesForUser(userId) {
   const followingSnap = await db.collection('users').doc(userId).collection('following').get();
   const followingCount = followingSnap.size;
 
-  await db.collection('users').doc(userId).update({
+  const followingListsSnap = await db.collection('users').doc(userId).collection('followingLists').get();
+  const followingListsCount = followingListsSnap.size;
+
+  await db.collection('users').doc(userId).set({
+    reviewsCount: reviewCount,
     reviewCount,
     listCount,
     followersCount,
     followingCount,
+    followingUsersCount: followingCount,
+    followingListsCount,
     lastStatsRecalc: FieldValue.serverTimestamp()
-  });
+  }, { merge: true });
 
-  return { reviewCount, listCount, followersCount, followingCount };
+  return { reviewCount, reviewsCount: reviewCount, listCount, followersCount, followingCount, followingListsCount };
 }
 
 const adminRecalculateAllUsers = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
