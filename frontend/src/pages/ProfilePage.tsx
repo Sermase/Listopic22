@@ -5,7 +5,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
 import { useFilters } from '../context/FilterContext'; // Import Filter Context
-import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown, BarChart3, Sparkles } from 'lucide-react';
+import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown, BarChart3, Sparkles, Share2 } from 'lucide-react';
 import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -13,6 +13,7 @@ import { db, auth, storage } from '../firebase';
 import { signOut, updateProfile } from 'firebase/auth';
 import { ReviewCard } from '../components/ReviewCard';
 import { AddReviewForm } from '../components/AddReviewForm';
+import { ShareModal } from '../components/ShareModal';
 import { ChatService } from '../services/ChatService';
 import { FollowingSection } from '../components/profile/FollowingSection';
 import { BadgeDisplay } from '../components/profile/BadgeDisplay';
@@ -75,6 +76,7 @@ export const ProfilePage: React.FC = () => {
     const [dragActive, setDragActive] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isFlowOpen, setIsFlowOpen] = useState(false);
     const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
     const [editingListId, setEditingListId] = useState<string | null>(null);
@@ -780,6 +782,11 @@ export const ProfilePage: React.FC = () => {
         );
     }
 
+    const profileShareUrl = `${window.location.origin}/profile/${targetUserId}`;
+    const profileShareTitle = profile.displayName || profile.username || 'Perfil';
+    const profileShareSubtitle = profile.username ? `@${profile.username}` : '';
+    const profileShareText = `Mira este perfil en Listopic: ${profileShareTitle}`;
+
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20">
             {/* Header / Banner */}
@@ -831,6 +838,9 @@ export const ProfilePage: React.FC = () => {
                                         <button onClick={() => setIsEditing(!isEditing)} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors">
                                             <Settings className="w-5 h-5" />
                                         </button>
+                                        <button onClick={() => setIsShareModalOpen(true)} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors" title="Compartir perfil">
+                                            <Share2 className="w-5 h-5" />
+                                        </button>
                                         <button onClick={async () => { await signOut(auth); navigate('/login'); }} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors">
                                             <Power className="w-5 h-5" />
                                         </button>
@@ -852,6 +862,13 @@ export const ProfilePage: React.FC = () => {
                                             className="px-4 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-white hover:bg-white/10 transition-colors shadow-lg"
                                         >
                                             <MessageCircle className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => setIsShareModalOpen(true)}
+                                            className="px-4 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors shadow-lg"
+                                            title="Compartir perfil"
+                                        >
+                                            <Share2 className="w-5 h-5" />
                                         </button>
 
                                         <div className="relative">
@@ -968,6 +985,9 @@ export const ProfilePage: React.FC = () => {
                                 <button onClick={() => setIsEditing(!isEditing)} className="flex-1 p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 text-sm font-bold">
                                     Editar Perfil
                                 </button>
+                                <button onClick={() => setIsShareModalOpen(true)} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300">
+                                    <Share2 className="w-5 h-5" />
+                                </button>
                                 <button onClick={async () => { await signOut(auth); navigate('/login'); }} className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 text-red-400">
                                     <Power className="w-5 h-5" />
                                 </button>
@@ -989,6 +1009,12 @@ export const ProfilePage: React.FC = () => {
                                     className="px-4 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-white shadow-lg"
                                 >
                                     <MessageCircle className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={() => setIsShareModalOpen(true)}
+                                    className="px-3 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 shadow-lg"
+                                >
+                                    <Share2 className="w-5 h-5" />
                                 </button>
                                 <div className="relative">
                                     <button
@@ -1605,6 +1631,22 @@ export const ProfilePage: React.FC = () => {
             </div>
 
 
+            <ShareModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                title={`Compartir perfil de ${profileShareTitle}`}
+                url={profileShareUrl}
+                text={profileShareText}
+                shareEntity={{
+                    type: 'profile',
+                    id: targetUserId,
+                    title: profileShareTitle,
+                    subtitle: profileShareSubtitle,
+                    route: `/profile/${targetUserId}`,
+                    url: profileShareUrl,
+                    imageUrl: profile.photoUrl || undefined,
+                }}
+            />
             <ReportModal
                 isOpen={showReportModal}
                 onClose={() => setShowReportModal(false)}

@@ -15,6 +15,8 @@ import {
     increment
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import type { ShareEntityPayload } from '../types/share';
+import { getShareEntityLabel } from '../types/share';
 
 export interface Message {
     id?: string;
@@ -22,9 +24,15 @@ export interface Message {
     senderId: string;
     createdAt: any;
     readBy?: string[];
-    type?: 'text' | 'image' | 'review-share';
-    metadata?: any;
+    type?: 'text' | 'image' | 'share' | 'review-share';
+    metadata?: MessageMetadata;
 }
+
+export interface ShareMessageMetadata {
+    share: ShareEntityPayload;
+}
+
+export type MessageMetadata = Record<string, unknown> & Partial<ShareMessageMetadata>;
 
 export interface Chat {
     id: string;
@@ -86,14 +94,29 @@ export const ChatService = {
     },
 
     // Send a message
-    sendMessage: async (chatId: string, senderId: string, text: string, type: 'text' | 'image' = 'text') => {
+    sendMessage: async (
+        chatId: string,
+        senderId: string,
+        text: string,
+        type: 'text' | 'image' | 'share' | 'review-share' = 'text',
+        metadata?: MessageMetadata
+    ) => {
         const messagesRef = collection(db, 'chats', chatId, 'messages');
-        await addDoc(messagesRef, {
-            text,
+        const safeText = typeof text === 'string' ? text : '';
+        const payload: Record<string, unknown> = {
+            text: safeText,
             senderId,
             createdAt: serverTimestamp(),
             type,
             readBy: [senderId]
+        };
+
+        if (metadata) {
+            payload.metadata = metadata;
+        }
+
+        await addDoc(messagesRef, {
+            ...payload
         });
 
         // Update last message
@@ -104,8 +127,30 @@ export const ChatService = {
             .filter(uid => uid !== senderId)
             .reduce((acc, uid) => ({ ...acc, [`unreadCount.${uid}`]: increment(1) }), {} as Record<string, any>);
 
+        let previewText = safeText.trim();
+        if (!previewText && (type === 'share' || type === 'review-share')) {
+            const shared = metadata?.share;
+            if (shared && typeof shared === 'object' && typeof shared.type === 'string') {
+                const candidateType = shared.type as ShareEntityPayload['type'];
+                const validTypes: ShareEntityPayload['type'][] = ['place', 'group', 'list', 'sublist', 'profile', 'app', 'review', 'link'];
+                const safeType = validTypes.includes(candidateType) ? candidateType : 'link';
+                const rawLabel = getShareEntityLabel(safeType);
+                const label = rawLabel.toLowerCase();
+                const title = typeof (shared as ShareEntityPayload).title === 'string'
+                    ? (shared as ShareEntityPayload).title.trim()
+                    : '';
+                previewText = title ? `Compartio ${label}: ${title}` : `Compartio ${label}`;
+            } else {
+                previewText = 'Compartio contenido';
+            }
+        }
+
+        if (!previewText) {
+            previewText = 'Nuevo mensaje';
+        }
+
         await updateDoc(chatRef, {
-            lastMessage: text,
+            lastMessage: previewText,
             lastMessageTimestamp: serverTimestamp(),
             updatedAt: serverTimestamp(),
             ...unreadUpdates

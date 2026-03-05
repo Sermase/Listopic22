@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
-import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, UserPlus, X, Users, User } from 'lucide-react';
+import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, UserPlus, X, Users, User, ExternalLink } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
+import type { ShareEntityPayload } from '../types/share';
+import { getShareEntityLabel } from '../types/share';
 
 export const ChatsPage: React.FC = () => {
     const { user } = useAuth();
@@ -187,6 +189,64 @@ export const ChatsPage: React.FC = () => {
         navigate(`/profile/${activePrivateParticipantId}`);
     };
 
+    const parseSharedEntity = (msg: Message): ShareEntityPayload | null => {
+        const rawMetadata = msg.metadata;
+        if (!rawMetadata || typeof rawMetadata !== 'object') return null;
+
+        const rawShare = (rawMetadata as Record<string, unknown>).share;
+        if (!rawShare || typeof rawShare !== 'object') return null;
+
+        const share = rawShare as Record<string, unknown>;
+        const title = typeof share.title === 'string' ? share.title.trim() : '';
+        const url = typeof share.url === 'string' ? share.url.trim() : '';
+        const type = typeof share.type === 'string' ? share.type.trim() : 'link';
+        if (!title || !url) return null;
+
+        const allowedTypes = new Set<ShareEntityPayload['type']>([
+            'place',
+            'group',
+            'list',
+            'sublist',
+            'profile',
+            'app',
+            'review',
+            'link'
+        ]);
+        const normalizedType: ShareEntityPayload['type'] = allowedTypes.has(type as ShareEntityPayload['type'])
+            ? (type as ShareEntityPayload['type'])
+            : 'link';
+
+        return {
+            type: normalizedType,
+            title,
+            url,
+            id: typeof share.id === 'string' ? share.id : undefined,
+            subtitle: typeof share.subtitle === 'string' ? share.subtitle : undefined,
+            description: typeof share.description === 'string' ? share.description : undefined,
+            route: typeof share.route === 'string' ? share.route : undefined,
+            imageUrl: typeof share.imageUrl === 'string' ? share.imageUrl : undefined,
+            badgeLabel: typeof share.badgeLabel === 'string' ? share.badgeLabel : undefined,
+        };
+    };
+
+    const openSharedEntity = (shared: ShareEntityPayload) => {
+        if (shared.route) {
+            navigate(shared.route);
+            return;
+        }
+
+        try {
+            const parsedUrl = new URL(shared.url, window.location.origin);
+            if (parsedUrl.origin === window.location.origin) {
+                navigate(`${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`);
+                return;
+            }
+            window.open(parsedUrl.toString(), '_blank', 'noopener,noreferrer');
+        } catch {
+            window.open(shared.url, '_blank', 'noopener,noreferrer');
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] pt-20 flex h-screen overflow-hidden">
             {/* Chat List Sidebar */}
@@ -320,15 +380,62 @@ export const ChatsPage: React.FC = () => {
                         <div className="flex-1 overflow-y-auto p-4 space-y-4">
                             {messages.map((msg) => (
                                 <div key={msg.id} className={`flex ${msg.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${msg.senderId === user?.uid
+                                    {(() => {
+                                        const isOwnMessage = msg.senderId === user?.uid;
+                                        const sharedEntity = parseSharedEntity(msg);
+                                        const isShareMessage = (msg.type === 'share' || msg.type === 'review-share') && Boolean(sharedEntity);
+                                        const shareLabel = sharedEntity
+                                            ? (sharedEntity.badgeLabel || getShareEntityLabel(sharedEntity.type))
+                                            : 'Contenido';
+                                        const shareCardClass = isOwnMessage
+                                            ? 'bg-indigo-500/30 border-indigo-300/30 hover:bg-indigo-500/40'
+                                            : 'bg-[#0f1424] border-white/10 hover:bg-[#1a2033]';
+
+                                        return (
+                                            <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isOwnMessage
                                         ? 'bg-indigo-600 text-white rounded-br-none shadow-lg shadow-indigo-500/10'
                                         : 'bg-[#1e2337] text-gray-200 rounded-bl-none border border-white/5'
                                         }`}>
-                                        <p>{msg.text}</p>
-                                        <span className="text-[10px] opacity-50 block text-right mt-1">
-                                            {msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
-                                        </span>
-                                    </div>
+                                                {isShareMessage && sharedEntity ? (
+                                                    <div className="space-y-2">
+                                                        {msg.text?.trim() && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openSharedEntity(sharedEntity)}
+                                                            className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${shareCardClass}`}
+                                                        >
+                                                            <div className="flex items-start gap-3">
+                                                                {sharedEntity.imageUrl ? (
+                                                                    <img
+                                                                        src={sharedEntity.imageUrl}
+                                                                        alt={sharedEntity.title}
+                                                                        className="w-12 h-12 rounded-lg object-cover border border-white/10 shrink-0"
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center text-xs font-bold shrink-0">
+                                                                        {shareLabel.slice(0, 2).toUpperCase()}
+                                                                    </div>
+                                                                )}
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="text-[10px] uppercase tracking-wider opacity-75 font-bold">{shareLabel}</div>
+                                                                    <div className="text-sm font-bold truncate">{sharedEntity.title}</div>
+                                                                    {sharedEntity.subtitle && (
+                                                                        <div className="text-xs opacity-80 truncate">{sharedEntity.subtitle}</div>
+                                                                    )}
+                                                                </div>
+                                                                <ExternalLink className="w-3.5 h-3.5 opacity-70 shrink-0 mt-0.5" />
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                                                )}
+                                                <span className="text-[10px] opacity-50 block text-right mt-1">
+                                                    {msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+                                                </span>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             ))}
                             <div ref={messagesEndRef} />

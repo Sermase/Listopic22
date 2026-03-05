@@ -1,443 +1,486 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { X } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 import type { PlaceDetails } from '../hooks/usePlaceDetails';
 import { type ReviewEntity } from '../hooks/useListDetails';
+import type { ShareEntityPayload, ShareEntityType } from '../types/share';
+import { getShareEntityLabel } from '../types/share';
+
+export type ShareCardVariant = 'cinematic' | 'clean' | 'punchy';
 
 interface ShareCardProps {
     place?: PlaceDetails;
     review?: ReviewEntity;
+    shareEntity?: ShareEntityPayload;
+    variant?: ShareCardVariant;
     triggerRef: React.MutableRefObject<() => void>;
 }
 
-export const ShareCard: React.FC<ShareCardProps> = ({ place, review, triggerRef }) => {
-    const cardRef = useRef<HTMLDivElement>(null);
-    const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-    const [isFallbackOpen, setIsFallbackOpen] = useState(false);
+type VariantTheme = {
+    pageBg: string;
+    cardBg: string;
+    accent: string;
+    accentSoft: string;
+    border: string;
+    pillBg: string;
+    subtitle: string;
+};
+
+const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
+    cinematic: {
+        pageBg: 'linear-gradient(165deg, #060b1a 0%, #0b1226 58%, #151f3f 100%)',
+        cardBg: '#0d152d',
+        accent: '#60a5fa',
+        accentSoft: 'rgba(96,165,250,0.2)',
+        border: 'rgba(148,163,184,0.28)',
+        pillBg: 'rgba(10,18,36,0.68)',
+        subtitle: '#cbd5e1',
+    },
+    clean: {
+        pageBg: 'linear-gradient(165deg, #0a1020 0%, #151f36 58%, #1f2d49 100%)',
+        cardBg: '#111b30',
+        accent: '#93c5fd',
+        accentSoft: 'rgba(148,197,253,0.18)',
+        border: 'rgba(226,232,240,0.34)',
+        pillBg: 'rgba(24,36,60,0.78)',
+        subtitle: '#dbeafe',
+    },
+    punchy: {
+        pageBg: 'linear-gradient(165deg, #081225 0%, #142445 58%, #1d2e59 100%)',
+        cardBg: '#101b35',
+        accent: '#22d3ee',
+        accentSoft: 'rgba(34,211,238,0.25)',
+        border: 'rgba(45,212,191,0.35)',
+        pillBg: 'rgba(8,24,47,0.7)',
+        subtitle: '#cffafe',
+    },
+};
+
+const SCORE_BUBBLE = (score?: number) => {
+    if (!Number.isFinite(score as number)) return '#94a3b8';
+    if ((score as number) >= 9) return '#34d399';
+    if ((score as number) >= 7) return '#84cc16';
+    if ((score as number) >= 5) return '#facc15';
+    return '#f87171';
+};
+
+const DEFAULT_ENTITY: ShareEntityPayload = {
+    type: 'link',
+    title: 'Listopic',
+    subtitle: 'Comparte recomendaciones reales',
+    url: typeof window !== 'undefined' ? window.location.origin : '',
+};
+
+const isSupportedEntityType = (value: unknown): value is ShareEntityType => {
+    return ['place', 'group', 'list', 'sublist', 'profile', 'app', 'review', 'link'].includes(String(value));
+};
+
+export const ShareCard: React.FC<ShareCardProps> = ({
+    place,
+    review,
+    shareEntity,
+    variant = 'cinematic',
+    triggerRef,
+}) => {
+    const captureRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(false);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-    // State for pre-loaded blob URLs (CORS bypass)
-    const [localImages, setLocalImages] = useState({
-        main: '',
-        author: '',
-    });
+    const [localImages, setLocalImages] = useState<{ hero: string; avatar: string }>({ hero: '', avatar: '' });
 
-    // Determine content source
-    const mainPhotoUrl = review?.photoUrl || place?.photoUrl;
-    const authorPhotoUrl = review?.authorPhoto;
+    const entity = useMemo<ShareEntityPayload>(() => {
+        if (shareEntity && isSupportedEntityType(shareEntity.type)) {
+            return shareEntity;
+        }
 
-    // Pre-load images as Blobs to bypass CORS during capture
-    const preloadImages = async () => {
-        const loadBlob = async (url?: string) => {
-            if (!url) return '';
-            const cacheBustedUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
-            try {
-                // Append time param to bypass cache if needed
-                const response = await fetch(cacheBustedUrl);
-                const blob = await response.blob();
-                return URL.createObjectURL(blob);
-            } catch (e) {
-                console.warn("Failed to preload image:", url, e);
-                return cacheBustedUrl; // Fallback to original with cache buster to force fresh CORS request in html2canvas
-            }
-        };
+        if (review) {
+            const reviewUrl = typeof window !== 'undefined'
+                ? `${window.location.origin}/group/${review.placeId || ''}/${encodeURIComponent(review.itemName || '')}`
+                : '';
+            return {
+                type: 'review',
+                id: review.id,
+                title: review.itemName || 'Resena',
+                subtitle: review.placeName || 'Lugar',
+                description: review.comment || '',
+                route: review.placeId && review.itemName ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}` : undefined,
+                url: reviewUrl,
+                imageUrl: review.photoUrl || review.placeMainImage,
+            };
+        }
 
-        const [mainBlob, authorBlob] = await Promise.all([
-            loadBlob(mainPhotoUrl),
-            loadBlob(authorPhotoUrl)
-        ]);
+        if (place) {
+            const placeUrl = typeof window !== 'undefined' ? `${window.location.origin}/place/${place.placeId}` : '';
+            return {
+                type: 'place',
+                id: place.placeId,
+                title: place.name || 'Lugar',
+                subtitle: place.address || '',
+                description: place.reviewCount ? `${place.reviewCount} resenas publicadas` : '',
+                route: place.placeId ? `/place/${place.placeId}` : undefined,
+                url: placeUrl,
+                imageUrl: place.photoUrl,
+            };
+        }
 
-        setLocalImages({ main: mainBlob, author: authorBlob });
+        return DEFAULT_ENTITY;
+    }, [shareEntity, review, place]);
+
+    const theme = VARIANT_THEMES[variant] || VARIANT_THEMES.cinematic;
+    const score = review?.overallRating ?? place?.avgScore;
+    const scoreColor = SCORE_BUBBLE(score);
+    const heroImage = localImages.hero || review?.photoUrl || place?.photoUrl || entity.imageUrl || '';
+    const avatarImage = localImages.avatar || review?.authorPhoto || (entity.type === 'profile' ? entity.imageUrl || '' : '');
+    const hasScore = Number.isFinite(score as number);
+
+    const loadAsBlobUrl = async (url?: string): Promise<string> => {
+        if (!url) return '';
+        const cacheBustedUrl = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+        try {
+            const response = await fetch(cacheBustedUrl);
+            const blob = await response.blob();
+            return URL.createObjectURL(blob);
+        } catch {
+            return cacheBustedUrl;
+        }
     };
 
-    // Expose the generate function to the parent
+    const clearBlobUrl = (url?: string) => {
+        if (url && url.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+        }
+    };
+
     triggerRef.current = async () => {
-        if (!cardRef.current || loading) return;
+        if (!captureRef.current || loading) return;
+
         setLoading(true);
-
         try {
-            // 1. Preload images
-            await preloadImages();
+            clearBlobUrl(localImages.hero);
+            clearBlobUrl(localImages.avatar);
 
-            // 2. Wait a tick for React to render the new blob URLs
-            await new Promise(resolve => setTimeout(resolve, 500));
+            const [heroBlob, avatarBlob] = await Promise.all([
+                loadAsBlobUrl(review?.photoUrl || place?.photoUrl || entity.imageUrl),
+                loadAsBlobUrl(review?.authorPhoto || (entity.type === 'profile' ? entity.imageUrl : undefined)),
+            ]);
 
-            // 3. Capture
-            if (!cardRef.current) throw new Error("Card ref missing");
+            setLocalImages({ hero: heroBlob, avatar: avatarBlob });
+            await new Promise((resolve) => setTimeout(resolve, 120));
 
-            const canvas = await html2canvas(cardRef.current, {
+            if (!captureRef.current) return;
+
+            const canvas = await html2canvas(captureRef.current, {
                 useCORS: true,
-                scale: 2, // 2x is enough for 1080x1920
-                backgroundColor: '#0b1021',
+                scale: 2,
+                backgroundColor: '#060b1a',
                 logging: false,
-                width: 540, // Capture at logical size
+                width: 540,
                 height: 960,
-                onclone: (clonedDoc) => {
-                    const clonedElement = clonedDoc.querySelector('[data-share-card]');
-                    if (clonedElement instanceof HTMLElement) {
-                        clonedElement.style.width = '540px';
-                        clonedElement.style.height = '960px';
-                        clonedElement.style.transform = 'none';
-                        clonedElement.style.position = 'relative';
-                        clonedElement.style.left = '0';
-                        clonedElement.style.top = '0';
+                onclone: (clonedDocument) => {
+                    const card = clonedDocument.querySelector('[data-story-canvas]');
+                    if (card instanceof HTMLElement) {
+                        card.style.width = '540px';
+                        card.style.height = '960px';
                     }
-                }
+                },
             });
 
             const dataUrl = canvas.toDataURL('image/png', 1.0);
-
-            // Cleanup Blobs
-            if (localImages.main && localImages.main.startsWith('blob:')) URL.revokeObjectURL(localImages.main);
-            if (localImages.author && localImages.author.startsWith('blob:')) URL.revokeObjectURL(localImages.author);
-
-            // Convert Base64 to Blob for sharing
-            const blob = await (await fetch(dataUrl)).blob();
-            const file = new File([blob], `share_${place?.placeId || 'review'}.png`, { type: 'image/png' });
-
-            // Check if Web Share API supports file sharing
-            try {
-                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        title: review ? `Reseña de ${review.itemName}` : place?.name,
-                        text: review
-                            ? `Mira esta reseña de ${review.itemName} en ${place?.name || 'Listopic'}`
-                            : `Mira este lugar en Listopic: ${place?.name}`,
-                        files: [file],
-                    });
-                } else {
-                    throw new Error("Share API not supported or validation failed");
-                }
-            } catch (shareError) {
-                console.warn("Share failed, showing fallback:", shareError);
-                setGeneratedImage(dataUrl);
-                setIsFallbackOpen(true);
-            }
+            setPreviewImage(dataUrl);
+            setIsPreviewOpen(true);
         } catch (error) {
-            console.error("Error generating or sharing card:", error);
+            console.error('Share card generation error', error);
         } finally {
             setLoading(false);
         }
     };
 
-    // Helper for score color
-    const getScoreColor = (score?: number) => {
-        if (!score) return '#9ca3af';
-        if (score >= 9) return '#34d399'; // Emerald
-        if (score >= 7) return '#a3e635'; // Lime
-        if (score >= 5) return '#facc15'; // Yellow
-        return '#f87171'; // Red
+    const downloadPreview = () => {
+        if (!previewImage) return;
+        const fileSlug = `${entity.type}-${entity.id || 'card'}`.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+        const anchor = document.createElement('a');
+        anchor.href = previewImage;
+        anchor.download = `listopic-story-${fileSlug || 'share'}.png`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
     };
 
-    const scoreColor = getScoreColor(review ? review.overallRating : place?.avgScore);
-
-    // Generate Radar Chart Logic
-    const ChartComponent = () => {
-        if (!review?.scores || !review.criteriaDefinition) return null;
-
-        const criteriaKeys = Object.keys(review.scores);
-        // Only show chart if we have enough data, otherwise it looks broken
-        if (criteriaKeys.length < 3) return null;
-
-        const size = 180; // Slightly smaller to fit comment
-        const center = size / 2;
-        const radius = (size / 2) - 10;
-        const angleSlice = (Math.PI * 2) / criteriaKeys.length;
-
-        const getCoords = (value: number, index: number, max: number = 10) => {
-            const angle = index * angleSlice - Math.PI / 2;
-            const r = (value / max) * radius;
-            return {
-                x: center + r * Math.cos(angle),
-                y: center + r * Math.sin(angle)
-            };
-        };
-
-        const levels = [3, 6, 9]; // Simplified grid
-        const pathPoints = criteriaKeys.map((key, i) => {
-            const score = review.scores![key] || 0;
-            const label = review.criteriaDefinition![key]; // Keep for max ref if needed
-            const max = label?.max || 10;
-            const { x, y } = getCoords(score, i, max);
-            return `${x},${y}`;
-        }).join(' ');
-
-        return (
-            <div style={{ position: 'relative', width: size, height: size, margin: '0 0' }}>
-                <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible' }}>
-                    {/* Background Web */}
-                    {levels.map((level) => {
-                        const points = criteriaKeys.map((_, i) => {
-                            const { x, y } = getCoords(level, i, 10);
-                            return `${x},${y}`;
-                        }).join(' ');
-                        return <polygon key={level} points={points} fill="none" stroke="#ffffff" strokeOpacity={0.15} strokeWidth={1} />;
-                    })}
-
-                    {/* Axis Lines */}
-                    {criteriaKeys.map((_, i) => {
-                        const { x, y } = getCoords(10, i, 10);
-                        return <line key={i} x1={center} y1={center} x2={x} y2={y} stroke="#ffffff" strokeOpacity={0.1} strokeWidth={1} />;
-                    })}
-
-                    {/* Data Polygon */}
-                    <polygon
-                        points={pathPoints}
-                        fill={`${scoreColor}40`} // Dynamic color with opacity
-                        stroke={scoreColor}
-                        strokeWidth={2}
-                        strokeLinejoin="round"
-                    />
-
-                    {/* Simple Dots for Vertexes (No Labels) */}
-                    {criteriaKeys.map((key, i) => {
-                        const score = review.scores![key] || 0;
-                        const labelDef = review.criteriaDefinition![key];
-                        const max = labelDef?.max || 10;
-                        const { x, y } = getCoords(score, i, max);
-                        return <circle key={key} cx={x} cy={y} r={3} fill={scoreColor} />;
-                    })}
-                </svg>
-            </div>
-        );
-    };
+    const titleText = entity.title || 'Listopic';
+    const subtitleText = entity.subtitle || '';
+    const descriptionText = (review?.comment || entity.description || '').trim();
 
     return (
         <>
-            {/* CAPTURE CONTAINER */}
             <div
                 style={{
                     position: 'fixed',
                     left: '-9999px',
                     top: '0',
-                    zIndex: -1,
                     width: '540px',
                     height: '960px',
+                    zIndex: -1,
                 }}
             >
                 <div
-                    ref={cardRef}
-                    data-share-card
+                    ref={captureRef}
+                    data-story-canvas
                     style={{
                         width: '540px',
                         height: '960px',
-                        backgroundColor: '#0b1021', // Dark Navy Background
                         position: 'relative',
                         overflow: 'hidden',
+                        background: theme.pageBg,
                         fontFamily: "'Manrope', sans-serif",
                         color: '#ffffff',
-                        display: 'flex',
-                        flexDirection: 'column'
                     }}
                 >
-                    {/* 1. BACKGROUND IMAGE (Top 65%) */}
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '65%', zIndex: 0 }}>
-                        {localImages.main || mainPhotoUrl ? (
-                            <img
-                                src={localImages.main || mainPhotoUrl}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                alt="Background"
-                            />
-                        ) : (
-                            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #1e1b4b, #312e81)' }} />
-                        )}
-                        <div style={{
+                    <div
+                        style={{
                             position: 'absolute',
                             inset: 0,
-                            background: 'linear-gradient(to bottom, rgba(11,16,33,0) 0%, rgba(11,16,33,0.1) 40%, rgba(11,16,33,0.8) 70%, #0b1021 100%)'
-                        }} />
-                    </div>
+                            opacity: 0.95,
+                            background: 'radial-gradient(circle at 16% 14%, rgba(255,255,255,0.08), transparent 36%)',
+                        }}
+                    />
 
-                    {/* 2. MAIN CONTENT AREA */}
-                    <div style={{
-                        position: 'relative',
-                        zIndex: 10,
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'flex-end',
-                        padding: '32px'
-                    }}>
-
-                        {/* INFO BODY */}
-                        <div style={{
+                    {/* Safe zones based on Meta template guidance */}
+                    <div
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            paddingTop: '52px',
+                            paddingBottom: '120px',
+                            paddingLeft: '28px',
+                            paddingRight: '28px',
+                            boxSizing: 'border-box',
                             display: 'flex',
-                            flexDirection: 'column',
-                            gap: '20px',
-                            background: 'rgba(11, 16, 33, 0.6)',
-                            backdropFilter: 'blur(4px)',
-                            borderRadius: '32px',
-                            padding: '24px',
-                            border: '1px solid rgba(255,255,255,0.05)',
-                            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
-                        }}>
-
-                            {/* Header: Title & Location */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', textAlign: 'center' }}>
-                                {/* Badges Row */}
-                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                                    {review?.placeCity && (
-                                        <div style={{
-                                            display: 'flex', alignItems: 'center', gap: '4px',
-                                            background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '8px'
-                                        }}>
-                                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                {review.placeCity.toUpperCase()}
-                                            </span>
-                                        </div>
-                                    )}
-                                    {review?.listName && (
-                                        <div style={{
-                                            background: '#4f46e5', padding: '4px 10px', borderRadius: '8px',
-                                            boxShadow: '0 2px 8px rgba(79, 70, 229, 0.4)'
-                                        }}>
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#fff' }}>
-                                                {review.listName}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <h1 style={{
-                                    fontSize: review?.itemName?.length && review.itemName.length > 20 ? '32px' : '40px',
-                                    fontWeight: 900,
-                                    lineHeight: 1.1,
-                                    color: '#fff',
-                                    textShadow: '0 2px 10px rgba(0,0,0,0.5)'
-                                }}>
-                                    {review?.itemName || place?.name}
-                                </h1>
-                                <span style={{ fontSize: '15px', color: '#94a3b8', fontWeight: 500 }}>
-                                    @{review?.placeName || place?.name}
-                                </span>
-                            </div>
-
-                            {/* Middle: Chart + Score */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
-                                {/* Chart Area */}
-                                <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-                                    {review?.scores ? <ChartComponent /> : <div style={{ width: 50 }} />}
-                                </div>
-
-                                {/* Score Bubble */}
-                                <div style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: '100px',
-                                    height: '100px',
-                                    borderRadius: '50%',
-                                    background: `linear-gradient(135deg, ${scoreColor}20, ${scoreColor}05)`,
-                                    border: `2px solid ${scoreColor}`,
-                                    boxShadow: `0 0 20px ${scoreColor}40`,
-                                    marginLeft: '16px'
-                                }}>
-                                    <span style={{ fontSize: '42px', fontWeight: 900, color: '#fff', lineHeight: 1 }}>
-                                        {(review ? review.overallRating : place?.avgScore)?.toFixed(1)}
-                                    </span>
-                                    <span style={{ fontSize: '10px', color: scoreColor, fontWeight: 700, textTransform: 'uppercase', marginTop: '2px' }}>
-                                        Puntuación
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Comment (Truncated) */}
-                            {review?.comment && (
-                                <div style={{
-                                    background: 'rgba(0,0,0,0.2)',
-                                    borderRadius: '16px',
-                                    padding: '16px',
-                                    borderTop: '1px solid rgba(255,255,255,0.05)'
-                                }}>
-                                    <p style={{
-                                        fontSize: '14px',
-                                        lineHeight: 1.5,
-                                        color: '#e2e8f0',
-                                        fontStyle: 'italic',
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: 3,
-                                        WebkitBoxOrient: 'vertical',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        margin: 0
-                                    }}>
-                                        "{review.comment}"
-                                    </p>
-                                </div>
-                            )}
-
-                        </div>
-
-                        {/* FOOTER */}
-                        <div style={{
-                            marginTop: '24px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
                             alignItems: 'center',
-                            padding: '0 8px'
-                        }}>
-                            {/* Author */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                {localImages.author || authorPhotoUrl ? (
-                                    <img src={localImages.author || authorPhotoUrl} style={{ width: '40px', height: '40px', borderRadius: '50%', border: `2px solid ${scoreColor}`, objectFit: 'cover' }} alt="User" />
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <div
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                borderRadius: '34px',
+                                border: `1px solid ${theme.border}`,
+                                background: theme.cardBg,
+                                overflow: 'hidden',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                boxShadow: '0 28px 60px rgba(0,0,0,0.46)',
+                            }}
+                        >
+                            <div style={{ position: 'relative', flex: '0 0 62%' }}>
+                                {heroImage ? (
+                                    <img
+                                        src={heroImage}
+                                        alt={titleText}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
                                 ) : (
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: scoreColor, color: '#0b1021', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                                        {review?.authorName?.[0] || 'U'}
+                                    <div
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            background: `linear-gradient(150deg, ${theme.accentSoft}, rgba(15,23,42,0.75))`,
+                                        }}
+                                    />
+                                )}
+
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.42) 100%)',
+                                    }}
+                                />
+
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        top: '14px',
+                                        left: '14px',
+                                        background: theme.pillBg,
+                                        border: `1px solid ${theme.border}`,
+                                        borderRadius: '9999px',
+                                        padding: '6px 10px',
+                                        fontSize: '11px',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.08em',
+                                        textTransform: 'uppercase',
+                                        color: '#e2e8f0',
+                                    }}
+                                >
+                                    {getShareEntityLabel(entity.type)}
+                                </div>
+
+                                {entity.type === 'profile' && (
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            right: '16px',
+                                            bottom: '-34px',
+                                            width: '78px',
+                                            height: '78px',
+                                            borderRadius: '9999px',
+                                            border: `3px solid ${theme.cardBg}`,
+                                            background: '#1e293b',
+                                            overflow: 'hidden',
+                                            boxShadow: '0 12px 22px rgba(0,0,0,0.35)',
+                                        }}
+                                    >
+                                        {avatarImage ? (
+                                            <img src={avatarImage} alt={titleText} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '28px' }}>
+                                                {(titleText || 'U').slice(0, 1).toUpperCase()}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>
-                                        {review?.authorName || 'Usuario'}
-                                    </span>
+                            </div>
+
+                            <div
+                                style={{
+                                    flex: '1 1 auto',
+                                    padding: '22px 20px 18px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '10px',
+                                    justifyContent: 'space-between',
+                                }}
+                            >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <h1
+                                        style={{
+                                            margin: 0,
+                                            fontSize: titleText.length > 34 ? '30px' : '34px',
+                                            lineHeight: 1.08,
+                                            fontWeight: 900,
+                                            wordBreak: 'break-word',
+                                            letterSpacing: '-0.015em',
+                                        }}
+                                    >
+                                        {titleText}
+                                    </h1>
+
+                                    {subtitleText && (
+                                        <p
+                                            style={{
+                                                margin: 0,
+                                                fontSize: '16px',
+                                                lineHeight: 1.25,
+                                                color: theme.subtitle,
+                                                fontWeight: 600,
+                                                wordBreak: 'break-word',
+                                            }}
+                                        >
+                                            {subtitleText}
+                                        </p>
+                                    )}
+
+                                    {descriptionText && (
+                                        <p
+                                            style={{
+                                                margin: 0,
+                                                fontSize: '13px',
+                                                lineHeight: 1.4,
+                                                color: '#dbeafe',
+                                                opacity: 0.92,
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 3,
+                                                WebkitBoxOrient: 'vertical',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                            }}
+                                        >
+                                            {descriptionText}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '12px' }}>
+                                    {hasScore ? (
+                                        <div
+                                            style={{
+                                                width: '84px',
+                                                height: '84px',
+                                                borderRadius: '9999px',
+                                                border: `2px solid ${scoreColor}`,
+                                                background: 'rgba(15,23,42,0.55)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                boxShadow: `0 0 18px ${scoreColor}55`,
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '31px', fontWeight: 900, lineHeight: 1 }}>{(score as number).toFixed(1)}</span>
+                                            <span style={{ fontSize: '9px', letterSpacing: '0.09em', textTransform: 'uppercase', color: '#cbd5e1', fontWeight: 800 }}>Score</span>
+                                        </div>
+                                    ) : (
+                                        <div style={{ width: '84px', height: '84px', flexShrink: 0 }} />
+                                    )}
+
+                                    <div style={{ textAlign: 'right', minWidth: 0 }}>
+                                        <div style={{ fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#cbd5e1', fontWeight: 800 }}>
+                                            {variant}
+                                        </div>
+                                        <div style={{ fontSize: '18px', fontWeight: 900, color: '#f8fafc', marginTop: '2px' }}>Listopic</div>
+                                        <div style={{ fontSize: '11px', color: '#93c5fd', marginTop: '1px' }}>listopic.app</div>
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* Branding */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.9 }}>
-                                <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: 'linear-gradient(to top right, #06b6d4, #4f46e5)' }} />
-                                <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.05em', color: 'white' }}>Listopic</span>
-                            </div>
                         </div>
-
                     </div>
                 </div>
             </div>
 
-            {/* FALLBACK MODAL (For Android WebView / Desktop) */}
-            {isFallbackOpen && generatedImage && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in" onClick={() => setIsFallbackOpen(false)}>
-                    <div className="bg-[#151b2e] rounded-2xl w-full max-w-sm border border-white/10 overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            {isPreviewOpen && previewImage && (
+                <div className="fixed inset-0 z-[115] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in" onClick={() => setIsPreviewOpen(false)}>
+                    <div className="bg-[#151b2e] rounded-2xl w-full max-w-md border border-white/10 overflow-hidden shadow-2xl" onClick={(event) => event.stopPropagation()}>
                         <div className="p-4 border-b border-white/10 flex justify-between items-center">
-                            <h3 className="text-white font-bold">Tarjeta Lista</h3>
-                            <button onClick={() => setIsFallbackOpen(false)} className="text-gray-400 hover:text-white">
+                            <h3 className="text-white font-bold">Previsualizacion</h3>
+                            <button onClick={() => setIsPreviewOpen(false)} className="text-gray-400 hover:text-white">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <div className="p-6 flex flex-col gap-4">
-                            {/* Preview Image */}
-                            <div className="rounded-xl overflow-hidden border border-white/10 shadow-lg relative aspect-[9/16] w-full max-h-[60vh] bg-black">
-                                <img src={generatedImage} alt="Share Card" className="w-full h-full object-contain" />
+                        <div className="p-5 space-y-4">
+                            <div className="rounded-xl overflow-hidden border border-white/10 bg-black aspect-[9/16] shadow-lg">
+                                <img src={previewImage} alt="Story preview" className="w-full h-full object-contain" />
                             </div>
 
-                            <p className="text-center text-gray-400 text-xs">
-                                Mantén pulsada la imagen para compartirla en Instagram Stories
-                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={downloadPreview}
+                                    className="inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors"
+                                >
+                                    <Download className="w-4 h-4" /> Descargar PNG
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPreviewOpen(false)}
+                                    className="py-3 rounded-xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 transition-colors"
+                                >
+                                    Cerrar
+                                </button>
+                            </div>
 
-                            <button
-                                onClick={() => setIsFallbackOpen(false)}
-                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all"
-                            >
-                                Entendido
-                            </button>
+                            <p className="text-xs text-gray-400 text-center">
+                                Descarga la imagen y subela en Instagram Stories.
+                            </p>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Loading Overlay */}
             {loading && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm">
                     <div className="bg-white/10 p-4 rounded-2xl animate-spin border-t-2 border-indigo-500 w-12 h-12"></div>
                 </div>
             )}
