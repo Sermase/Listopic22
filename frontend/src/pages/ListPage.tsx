@@ -7,6 +7,7 @@ import { MapView } from '../components/MapView';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { FilterModal } from '../components/FilterModal';
 import { ShareListModal } from '../components/ShareListModal';
+import { ShareModal } from '../components/ShareModal';
 import { SublistsModal } from '../components/SublistsModal';
 import { useAuth } from '../context/AuthContext';
 import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
@@ -70,6 +71,7 @@ export const ListPage: React.FC = () => {
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isMapOpen, setIsMapOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isPublicShareModalOpen, setIsPublicShareModalOpen] = useState(false);
     const [isSublistsModalOpen, setIsSublistsModalOpen] = useState(false);
 
 
@@ -509,6 +511,13 @@ export const ListPage: React.FC = () => {
         );
     }
 
+    const listShareUrl = `${window.location.origin}/list/${list.id}`;
+    const listTypeLabel = list.parentListId ? 'Sublista' : 'Lista';
+    const listShareSubtitle = list.parentListId && parentListName
+        ? `${listTypeLabel} de ${parentListName}`
+        : listTypeLabel;
+    const listShareImage = list.mainImageUrl || list.photoUrl || undefined;
+
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20 transition-colors duration-300">
             {/* Hero Section */}
@@ -633,12 +642,22 @@ export const ListPage: React.FC = () => {
                                 )}
 
                                 <button
-                                    onClick={() => setIsShareModalOpen(true)}
+                                    onClick={() => setIsPublicShareModalOpen(true)}
                                     className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white text-sm font-bold rounded-xl border border-white/10 backdrop-blur-md flex items-center gap-2 transition-all"
                                 >
                                     <Share2 className="w-4 h-4" />
                                     <span className="hidden sm:inline">Compartir</span>
                                 </button>
+
+                                {user && list.userId === user.uid && (
+                                    <button
+                                        onClick={() => setIsShareModalOpen(true)}
+                                        className="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-sm font-bold rounded-xl border border-indigo-500/20 backdrop-blur-md flex items-center gap-2 transition-all"
+                                    >
+                                        <Lock className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Permisos</span>
+                                    </button>
+                                )}
 
                                 {/* Like/Follow Button */}
                                 {user && list.userId !== user.uid && (
@@ -891,7 +910,7 @@ export const ListPage: React.FC = () => {
 
             {/* Share Modal */}
             {
-                isShareModalOpen && list && user && (
+                isShareModalOpen && list && user && list.userId === user.uid && (
                     <ShareListModal
                         isOpen={isShareModalOpen}
                         onClose={() => setIsShareModalOpen(false)}
@@ -908,6 +927,23 @@ export const ListPage: React.FC = () => {
                     />
                 )
             }
+
+            <ShareModal
+                isOpen={isPublicShareModalOpen}
+                onClose={() => setIsPublicShareModalOpen(false)}
+                title={`Compartir ${list.name}`}
+                url={listShareUrl}
+                text={`Mira esta ${list.parentListId ? 'sublista' : 'lista'} en Listopic: ${list.name}`}
+                shareEntity={{
+                    type: list.parentListId ? 'sublist' : 'list',
+                    id: list.id,
+                    title: list.name,
+                    subtitle: listShareSubtitle,
+                    route: `/list/${list.id}`,
+                    url: listShareUrl,
+                    imageUrl: listShareImage,
+                }}
+            />
 
             {/* Sublists Modal (Only for Main Lists) */}
             {

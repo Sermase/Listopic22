@@ -870,7 +870,18 @@ export const GroupPage: React.FC = () => {
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
                 title={`Compartir ${decodedName}`}
-                text={`¡Mira lo que dicen sobre ${decodedName} en ${placeName}!`}
+                text={`Mira lo que dicen sobre ${decodedName} en ${placeName}!`}
+                url={`${window.location.origin}/group/${placeId}/${encodeURIComponent(decodedName)}`}
+                shareEntity={{
+                    type: 'group',
+                    id: `${placeId}_${decodedName}`,
+                    title: decodedName,
+                    subtitle: placeName || 'Grupo',
+                    route: `/group/${placeId}/${encodeURIComponent(decodedName)}`,
+                    url: `${window.location.origin}/group/${placeId}/${encodeURIComponent(decodedName)}`,
+                    imageUrl: stats?.mainPhoto || undefined,
+                    score: stats?.avg,
+                }}
             />
 
             <ReportModal

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Archive, MessageSquare, User, Menu, X, Plus, Compass, Bell } from 'lucide-react';
+import { Search, Archive, MessageSquare, User, Menu, X, Plus, Compass, Bell, Share2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { NotificationModal } from './NotificationModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
+import { ShareModal } from './ShareModal';
 
 const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string; icon: React.ElementType; label: string; badge?: boolean; count?: number; isActive: boolean }) => {
     return (
@@ -40,7 +41,10 @@ export const Navbar: React.FC = () => {
     const config = useAppConfig();
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isAppShareOpen, setIsAppShareOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+    const appShareUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const appShareText = `Descubre ${config.appName} y comparte tus reseñas favoritas`;
 
     useEffect(() => {
         const handleScroll = () => {
@@ -164,6 +168,14 @@ export const Navbar: React.FC = () => {
 
                     {/* Right Actions */}
                     <div className="hidden md:flex items-center gap-4">
+                        <button
+                            onClick={() => setIsAppShareOpen(true)}
+                            className="p-2.5 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors border border-white/10 bg-white/5"
+                            title="Compartir app"
+                        >
+                            <Share2 className="w-4 h-4" />
+                        </button>
+
                         <Link
                             to="/create-sublist"
                             className="btn-primary"
@@ -276,6 +288,16 @@ export const Navbar: React.FC = () => {
                             <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
                                 <Archive className="w-5 h-5 text-indigo-400" /> Archivo
                             </Link>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsMenuOpen(false);
+                                    setIsAppShareOpen(true);
+                                }}
+                                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200"
+                            >
+                                <Share2 className="w-5 h-5 text-indigo-400" /> Compartir App
+                            </button>
                         </div>
 
                         <div className="space-y-2 pt-4 border-t border-white/5">
@@ -292,6 +314,22 @@ export const Navbar: React.FC = () => {
                     </div>
                 </div>
             )}
+            <ShareModal
+                isOpen={isAppShareOpen}
+                onClose={() => setIsAppShareOpen(false)}
+                title={`Compartir ${config.appName}`}
+                url={appShareUrl}
+                text={appShareText}
+                shareEntity={{
+                    type: 'app',
+                    id: 'listopic-app',
+                    title: config.appName || 'Listopic',
+                    subtitle: 'Descubre lugares, listas y resenas',
+                    route: '/',
+                    url: appShareUrl,
+                    imageUrl: config.logoType === 'image' ? (config.logoUrl || undefined) : undefined,
+                }}
+            />
         </header>
     );
 };

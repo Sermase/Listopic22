@@ -47,6 +47,7 @@ export interface UsernameGateStatus {
 }
 
 export interface PreferencesUpdateData {
+    username?: string;
     displayName: string;
     name: string;
     surnames: string;
@@ -387,11 +388,26 @@ export const updateUserProfilePreferences = async (
     const userRef = doc(db, USERS_COLLECTION, seed.uid);
     const userSnap = await getDoc(userRef);
     const userData = userSnap.exists() ? asObject(userSnap.data()) : {};
-    const username = asString(userData.username);
-    const usernameError = getUsernameValidationError(username);
+    const currentUsername = asString(userData.username);
+    const currentUsernameError = getUsernameValidationError(currentUsername);
+    const requestedUsername = asString(data.username);
+    let username = currentUsername;
 
-    if (usernameError) {
-        throw makeError('username-missing', 'Primero debes completar un username valido en Home.');
+    if (currentUsernameError) {
+        const candidateUsername = requestedUsername || currentUsername;
+        const candidateUsernameError = getUsernameValidationError(candidateUsername);
+        if (candidateUsernameError) {
+            if (!requestedUsername) {
+                throw makeError('username-missing', 'Debes definir un username valido para guardar el perfil.');
+            }
+            throw makeError('username-invalid', candidateUsernameError);
+        }
+        username = candidateUsername;
+    } else if (
+        requestedUsername &&
+        normalizeUsername(requestedUsername) !== normalizeUsername(currentUsername)
+    ) {
+        throw makeError('username-immutable', 'El nombre de usuario no se puede cambiar una vez bloqueado.');
     }
 
     const claimOk = await claimUsernameForUser(seed.uid, username);
@@ -417,6 +433,7 @@ export const updateUserProfilePreferences = async (
         bio,
         defaultDistanceKm: data.defaultDistanceKm,
         updatedAt: serverTimestamp(),
+        ...(!userData.usernameLockedAt ? { usernameLockedAt: serverTimestamp() } : {}),
     }, { merge: true });
 
     return { username, displayName };
