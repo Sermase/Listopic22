@@ -157,6 +157,21 @@ service cloud.firestore {
       }
     }
 
+    // Reserva de usernames (docId = username en minúsculas)
+    match /usernameClaims/{usernameKey} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.usernameLower == usernameKey
+                    && !exists(/databases/$(database)/documents/usernameClaims/$(usernameKey));
+      allow update: if request.auth != null
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == resource.data.uid
+                    && request.resource.data.usernameLower == resource.data.usernameLower
+                    && request.resource.data.usernameLower == usernameKey;
+      allow delete: if false;
+    }
+
     // Helper: comprobar si el usuario puede escribir en una lista
     function canWriteToList(listId) {
       let list = get(/databases/$(database)/documents/lists/$(listId)).data;

@@ -196,7 +196,7 @@ export const GroupPage: React.FC = () => {
                 const listData = r.listId ? listsMap[r.listId] : undefined;
                 return {
                     ...r,
-                    authorName: user?.displayName || user?.name || user?.username || r.authorName || 'Anónimo',
+                    authorName: user?.username || user?.displayName || user?.name || r.authorName || 'Anónimo',
                     authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
                     listName: listData?.name || r.listName,
                     criteriaDefinition: listData?.criteriaDefinition || r.criteriaDefinition,

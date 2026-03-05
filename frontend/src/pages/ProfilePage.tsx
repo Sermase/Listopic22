@@ -10,13 +10,18 @@ import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
-import { signOut } from 'firebase/auth';
+import { signOut, updateProfile } from 'firebase/auth';
 import { ReviewCard } from '../components/ReviewCard';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { ChatService } from '../services/ChatService';
 import { FollowingSection } from '../components/profile/FollowingSection';
 import { BadgeDisplay } from '../components/profile/BadgeDisplay';
 import { collection, query, where, getDocs, limit, documentId, FieldPath } from 'firebase/firestore';
+import { isUsernameValid } from '../utils/username';
+import {
+    isUserProfileServiceError,
+    updateUserProfilePreferences,
+} from '../services/UserProfileService';
 
 // Helper Component for List Cards
 const ListGrid = ({ lists, emptyMessage, isSublist = false }: { lists: any[], emptyMessage: string, isSublist?: boolean }) => {
@@ -76,6 +81,13 @@ export const ProfilePage: React.FC = () => {
     const [followLoading, setFollowLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editRange, setEditRange] = useState<string>('50'); // Default to 50 if undefined
+    const [editDisplayName, setEditDisplayName] = useState('');
+    const [editName, setEditName] = useState('');
+    const [editSurnames, setEditSurnames] = useState('');
+    const [editLocation, setEditLocation] = useState('');
+    const [editBio, setEditBio] = useState('');
+    const [savingPreferences, setSavingPreferences] = useState(false);
+    const [preferencesError, setPreferencesError] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -241,6 +253,15 @@ export const ProfilePage: React.FC = () => {
     }, [user, targetUserId, isOwnProfile]);
 
     useEffect(() => {
+        if (!profile) return;
+        setEditDisplayName((profile.displayName || profile.username || '').trim());
+        setEditName((profile.name || '').trim());
+        setEditSurnames((profile.surnames || '').trim());
+        setEditLocation((profile.location || profile.residence || '').trim());
+        setEditBio((profile.bio || '').trim());
+    }, [profile]);
+
+    useEffect(() => {
         if (profile?.defaultDistanceKm) {
             setEditRange(String(profile.defaultDistanceKm));
         }
@@ -302,23 +323,52 @@ export const ProfilePage: React.FC = () => {
 
     const savePreferences = async () => {
         if (!user) return;
-        try {
-            const val = parseInt(editRange);
-            const newRange = isNaN(val) ? 50 : (val >= 999999 ? null : val);
+        if (!isUsernameValid(profile?.username || '')) {
+            setPreferencesError('Tu username no es válido todavía. Complétalo primero desde Home.');
+            return;
+        }
 
-            await setDoc(doc(db, 'users', user.uid), {
-                defaultDistanceKm: isNaN(val) ? 50 : val
-            }, { merge: true });
+        setSavingPreferences(true);
+        setPreferencesError(null);
+        try {
+            const val = parseInt(editRange, 10);
+            const safeDistance = isNaN(val) ? 50 : val;
+            const newRange = safeDistance >= 999999 ? null : safeDistance;
+
+            const result = await updateUserProfilePreferences({
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoUrl: user.photoURL,
+            }, {
+                displayName: editDisplayName,
+                name: editName,
+                surnames: editSurnames,
+                location: editLocation,
+                bio: editBio,
+                defaultDistanceKm: safeDistance,
+            });
 
             // Update session too if generic
             // And CRUCIALLY update the context immediately so the UI reflects it without reload
             sessionStorage.removeItem('sessionRange');
             setRange(newRange);
 
+            if (user.displayName !== result.displayName) {
+                await updateProfile(user, { displayName: result.displayName });
+            }
+
             setIsEditing(false);
+            window.location.reload();
         } catch (err) {
             console.error("Error saving preferences:", err);
-            alert("Error al guardar preferencias");
+            if (isUserProfileServiceError(err)) {
+                setPreferencesError(err.message);
+            } else {
+                setPreferencesError('Error al guardar preferencias');
+            }
+        } finally {
+            setSavingPreferences(false);
         }
     };
 
@@ -620,6 +670,82 @@ export const ProfilePage: React.FC = () => {
                 {isEditing && isOwnProfile && (
                     <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 mb-8 animate-fade-in space-y-6">
 
+                        {/* Profile Identity */}
+                        <div>
+                            <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                                <UsersIcon className="w-4 h-4 text-indigo-400" /> Perfil público
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Username (bloqueado)</label>
+                                    <input
+                                        type="text"
+                                        value={profile.username || ''}
+                                        disabled
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg text-gray-400 px-3 py-2 cursor-not-allowed"
+                                    />
+                                    <p className="text-[11px] text-amber-300 mt-2">
+                                        El username no se puede cambiar una vez guardado. Máximo 18 caracteres y sin espacios.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Display Name</label>
+                                    <input
+                                        type="text"
+                                        value={editDisplayName}
+                                        onChange={(e) => setEditDisplayName(e.target.value)}
+                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                                        placeholder="Visible públicamente"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Nombre</label>
+                                    <input
+                                        type="text"
+                                        value={editName}
+                                        onChange={(e) => setEditName(e.target.value)}
+                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                                        placeholder="Opcional"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Apellidos</label>
+                                    <input
+                                        type="text"
+                                        value={editSurnames}
+                                        onChange={(e) => setEditSurnames(e.target.value)}
+                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                                        placeholder="Opcional"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Lugar</label>
+                                    <input
+                                        type="text"
+                                        value={editLocation}
+                                        onChange={(e) => setEditLocation(e.target.value)}
+                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                                        placeholder="Opcional"
+                                    />
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">Biografía</label>
+                                    <textarea
+                                        value={editBio}
+                                        onChange={(e) => setEditBio(e.target.value)}
+                                        rows={4}
+                                        className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500 resize-y"
+                                        placeholder="Opcional"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Avatar Settings */}
                         <div>
                             <h3 className="text-white font-bold mb-4 flex items-center gap-2">
@@ -725,10 +851,17 @@ export const ProfilePage: React.FC = () => {
                                     </select>
                                 </div>
                                 <p className="text-[10px] text-gray-500 mt-1">Este rango se aplicará automáticamente cuando inicies nueva sesión.</p>
+                                {preferencesError && (
+                                    <div className="mt-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-200">
+                                        {preferencesError}
+                                    </div>
+                                )}
                                 <button
                                     onClick={savePreferences}
-                                    className="mt-2 w-full py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-lg"
+                                    disabled={savingPreferences}
+                                    className="mt-2 w-full py-2 bg-white/10 hover:bg-white/20 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2"
                                 >
+                                    {savingPreferences && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                                     Guardar Preferencias
                                 </button>
                             </div>

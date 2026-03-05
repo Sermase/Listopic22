@@ -534,6 +534,15 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             const sublistId = isSublist ? internalListId : null;
             const visibility = listData?.visibility === 'private' ? 'private' : 'public';
 
+            const userProfileSnap = await getDoc(doc(db, 'users', user.uid)).catch(() => null);
+            const userProfile = userProfileSnap && userProfileSnap.exists() ? userProfileSnap.data() : null;
+            const authorUsername = typeof userProfile?.username === 'string' ? userProfile.username.trim() : '';
+            const authorDisplayName = typeof userProfile?.displayName === 'string'
+                ? userProfile.displayName.trim()
+                : (user.displayName || '').trim();
+            const authorNameToPersist = authorUsername || authorDisplayName || 'Anónimo';
+            const authorPhotoToPersist = userProfile?.photoUrl || user.photoURL || '';
+
             const reviewData = {
                 // New Fields structure
                 listId: finalListId,
@@ -547,8 +556,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 authorUid: user.uid,
                 ownerId: user.uid,
                 creatorId: user.uid,
-                authorName: user.displayName || 'AnÃ³nimo',
-                authorPhoto: user.photoURL || '',
+                authorName: authorNameToPersist,
+                authorPhoto: authorPhotoToPersist,
 
                 // Item details
                 itemName: itemName.trim(),

@@ -4,7 +4,7 @@ import { Search, Archive, MessageSquare, User, Menu, X, Plus, Compass, Bell } fr
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { NotificationModal } from './NotificationModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 
@@ -52,6 +52,8 @@ export const Navbar: React.FC = () => {
     const [showNotifications, setShowNotifications] = useState(false);
     const [showHistory, setShowHistory] = useState(false); // New state lifted
     const [unreadCount, setUnreadCount] = useState(0);
+    const [profileUsername, setProfileUsername] = useState('');
+    const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
 
     useEffect(() => {
         if (!user) return;
@@ -64,6 +66,31 @@ export const Navbar: React.FC = () => {
         }, (error) => {
             console.error("Navbar notifications snapshot error:", error);
         });
+        return () => unsubscribe();
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) {
+            setProfileUsername('');
+            setProfilePhotoUrl('');
+            return;
+        }
+
+        const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+            if (!snap.exists()) {
+                setProfileUsername('');
+                setProfilePhotoUrl('');
+                return;
+            }
+            const data = snap.data() as Record<string, unknown>;
+            const username = typeof data.username === 'string' ? data.username.trim() : '';
+            const photoUrl = typeof data.photoUrl === 'string' ? data.photoUrl.trim() : '';
+            setProfileUsername(username);
+            setProfilePhotoUrl(photoUrl);
+        }, (error) => {
+            console.warn('Navbar profile snapshot error:', error);
+        });
+
         return () => unsubscribe();
     }, [user]);
 
@@ -182,13 +209,13 @@ export const Navbar: React.FC = () => {
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-3 ml-2 group">
                                 <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors text-right hidden lg:block">
                                     <span className="block text-xs text-gray-500 group-hover:text-gray-400">Hola,</span>
-                                    {user.displayName?.split(' ')[0] || 'Usuario'}
+                                    {profileUsername ? `@${profileUsername}` : (user.displayName?.split(' ')[0] || 'Usuario')}
                                 </span>
                                 <div className="relative">
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 p-[2px] transition-transform group-hover:scale-105 shadow-lg shadow-indigo-500/20">
                                         <div className="w-full h-full rounded-full bg-[#151b2e] flex items-center justify-center overflow-hidden">
-                                            {user.photoURL ? (
-                                                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                                            {(profilePhotoUrl || user.photoURL) ? (
+                                                <img src={profilePhotoUrl || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover" />
                                             ) : (
                                                 <User className="w-5 h-5 text-indigo-400" />
                                             )}
@@ -208,7 +235,7 @@ export const Navbar: React.FC = () => {
                     <div className="md:hidden flex items-center gap-4">
                         {user && (
                             <Link to={`/profile/${user.uid}`} className="w-8 h-8 rounded-full bg-gray-800 overflow-hidden">
-                                {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <User className="w-4 h-4 m-2" />}
+                                {(profilePhotoUrl || user.photoURL) ? <img src={profilePhotoUrl || user.photoURL || ''} className="w-full h-full object-cover" /> : <User className="w-4 h-4 m-2" />}
                             </Link>
                         )}
                         <button

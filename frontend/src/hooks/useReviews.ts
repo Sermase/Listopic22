@@ -59,7 +59,7 @@ const enrichRawReviews = async (rawReviews: ReviewEntity[]): Promise<ReviewEntit
             placeMainImage: place?.mainImageUrl || place?.photos?.[0],
             placeAverageRating: place?.averageRating,
             placeAddress: place?.address,
-            authorName: user?.displayName || user?.name || user?.username || legacyReview.authorName,
+            authorName: user?.username || user?.displayName || user?.name || legacyReview.authorName,
             authorPhoto: user?.photoUrl || user?.photoURL || legacyReview.authorPhoto,
             placeLat: place?.location?.latitude || place?.lat || place?.latitude || legacyReview.lat || legacyReview.placeLat,
             placeLng: place?.location?.longitude || place?.lng || place?.longitude || legacyReview.lng || legacyReview.placeLng,

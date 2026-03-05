@@ -118,7 +118,7 @@ export const useFollowingFeed = () => {
                     const p = r.placeId ? placeMap.get(r.placeId) : null;
                     return {
                         ...r,
-                        authorName: u?.displayName || u?.username || r.authorName || 'Usuario',
+                        authorName: u?.username || u?.displayName || r.authorName || 'Usuario',
                         authorPhoto: u?.photoUrl || r.authorPhoto,
                         criteriaDefinition: l?.criteriaDefinition || r.criteriaDefinition,
                         listName: l?.name || r.listName,
