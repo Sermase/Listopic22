@@ -26,6 +26,86 @@ import { USERNAME_MAX_LENGTH, isUsernameValid } from '../utils/username';
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
 */
 
+const HERO_SUBTITLE_TEMPLATES = [
+    'Donde las [[listas]] empiezan a tomarse muy en [[serio]] su trabajo.',
+    'El lugar donde tus [[gustos]] finalmente encuentran un [[orden]] razonable.',
+    'Donde las [[ideas]] hacen [[fila]] educadamente antes de convertirse en ranking.',
+    'El pequeño [[imperio]] donde tus [[opiniones]] gobiernan en paz.',
+    'Aquí las [[listas]] se ponen [[elegantes]] antes de salir al mundo.',
+    'Donde lo [[importante]] y lo [[trivial]] comparten la misma columna.',
+    'El [[archivo]] internacional de tus preferencias más [[discutibles]].',
+    'Un lugar [[tranquilo]] donde tus [[comparaciones]] pueden estirarse a gusto.',
+    'Donde las ideas [[sueltas]] vienen a encontrar un [[número]].',
+    'El [[spa]] donde los gustos [[cansados]] se reorganizan un poco.',
+    'Donde las [[listas]] salen mejor [[peinadas]] de lo que entraron.',
+    'El [[gimnasio]] donde tus [[prioridades]] entrenan para subir posiciones.',
+    'Donde lo [[aleatorio]] empieza a parecer sorprendentemente [[lógico]].',
+    'Tu pequeño [[observatorio]] personal de gustos y [[caprichos]].',
+    'El [[club]] donde las [[comparaciones]] encuentran su público.',
+    'Donde cada [[gusto]] encuentra, tarde o temprano, su [[casilla]].',
+    'Un [[rincón]] donde el [[caos]] acepta sentarse un momento.',
+    'El territorio [[neutral]] entre el caos creativo y el [[orden]] absoluto.',
+    'Donde las [[opiniones]] dejan de vagar y consiguen [[numeración]] oficial.',
+    'El [[santuario]] donde los [[rankings]] descansan entre debate y debate.',
+    'Donde tus [[obsesiones]] finalmente consiguen [[ranking]] propio.',
+    'Un lugar donde el [[mundo]] se entiende mejor en [[columnas]].',
+    'Donde cada "esto va [[primero]]" encuentra apoyo [[institucional]].',
+    'El pequeño [[país]] donde siempre cabe una [[lista]] más.',
+    'Donde las [[comparaciones]] se toman un [[café]] antes de decidir.',
+    'El [[laboratorio]] donde tus [[preferencias]] se ponen a prueba.',
+    'Donde los [[gustos]] se alinean... o al menos lo [[intentan]].',
+    'El [[hábitat]] natural de las [[listas]] que llevabas días pensando.',
+    'Donde [[ordenar]] cosas empieza a parecer una gran [[idea]].',
+    'El [[salón]] donde tus [[opiniones]] encuentran asiento numerado.',
+    'Donde las [[listas]] crecen sanas y bien [[clasificadas]].',
+    'Un [[mapa]] del mundo construido a base de [[preferencias]].',
+    'Donde las [[ideas]] aprenden el noble arte de ponerse en [[fila]].',
+    'El lugar donde el [[caos]] pierde por una pequeña [[ventaja]].',
+    'Donde tus [[criterios]] encuentran [[luz]], aire y numeración.',
+    'Un rincón [[amable]] para decidir qué va [[antes]] que qué.',
+    'Donde cada [[ranking]] cuenta una pequeña [[historia]] personal.',
+    'El lugar donde lo [[subjetivo]] se organiza con sorprendente [[dignidad]].',
+    'Donde las [[listas]] encuentran su [[vocación]] definitiva.',
+    'El pequeño [[museo]] de tus elecciones más [[curiosas]].',
+    'Donde el [[orden]] empieza a parecer una aventura [[interesante]].',
+    'Donde tus [[gustos]] se comparan [[amistosamente]] entre ellos.',
+    'El país [[tranquilo]] donde las [[listas]] se multiplican sin prisa.',
+    'Donde cada [[preferencia]] encuentra su [[escala]] adecuada.',
+    'Un sitio [[perfecto]] para [[ordenar]] cosas que nadie pidió ordenar.',
+    'Donde los [[rankings]] encuentran un [[hogar]] respetable.',
+    'El [[observatorio]] donde tus [[gustos]] se miran con perspectiva.',
+    'Donde las ideas [[dispersas]] empiezan a [[comportarse]].',
+    'El pequeño [[parlamento]] donde votan tus [[preferencias]].',
+    'Donde lo [[complicado]] se resuelve con [[columnas]] numeradas.',
+    'Donde cada [[comparación]] encuentra su momento de [[gloria]].',
+    'Un [[refugio]] tranquilo para tus listas más [[ambiciosas]].',
+    'Donde el [[caos]] aprende lentamente a hacer [[cola]].',
+    'El [[elegante]] arte de poner las ideas en [[fila]].',
+    'Donde tus [[gustos]] encuentran su [[tamaño]] real.',
+    'El punto [[exacto]] entre [[ordenar]] y entretenerse ordenando.',
+    'Donde cada [[lista]] empieza a parecer [[inevitable]].',
+    'Un lugar donde el [[mundo]] cabe cómodamente en [[rankings]].',
+    'Donde tus [[criterios]] encuentran [[forma]] y estructura.',
+    'El [[rincón]] donde las [[listas]] se sienten comprendidas.',
+    'Donde las [[ideas]] encuentran su versión más [[ordenada]].',
+    'El pequeño [[universo]] donde todo puede [[compararse]] con todo.',
+    'Donde cada [[gusto]] tiene derecho a su [[posición]] oficial.',
+    'Un lugar donde [[ordenar]] el mundo parece perfectamente [[razonable]].',
+    'Donde las [[listas]] empiezan pequeñas y terminan [[legendarias]].',
+    'El [[laboratorio]] donde nacen los [[rankings]] del futuro.',
+    'Donde tus [[preferencias]] se convierten en [[conocimiento]] organizado.',
+    'El sitio donde cada [[idea]] encuentra su lugar [[natural]].',
+    'Donde los [[gustos]] encuentran [[equilibrio]] entre caos y criterio.',
+    'Donde siempre empieza la [[próxima]] gran [[lista]].',
+] as const;
+
+const HERO_HIGHLIGHT_REGEX = /(\[\[[^\]]+\]\])/g;
+const HERO_HIGHLIGHT_STYLES = ['text-indigo-400', 'text-purple-400', 'text-cyan-300'] as const;
+
+const pickRandomHeroSubtitle = (): string => {
+    return HERO_SUBTITLE_TEMPLATES[Math.floor(Math.random() * HERO_SUBTITLE_TEMPLATES.length)];
+};
+
 export const HomePage: React.FC = () => {
     const { user } = useAuth();
     const { location, calculateDistance, requestLocation } = useLocation();
@@ -51,6 +131,34 @@ export const HomePage: React.FC = () => {
         location: '',
         bio: '',
     });
+    const [heroSubtitle] = useState<string>(() => pickRandomHeroSubtitle());
+
+    const parsedHeroSubtitle = useMemo(() => {
+        let highlightIndex = 0;
+        return heroSubtitle
+            .split(HERO_HIGHLIGHT_REGEX)
+            .filter(Boolean)
+            .map((segment, index) => {
+                const tokenMatch = segment.match(/^\[\[([\s\S]+)\]\]$/);
+                if (!tokenMatch) {
+                    return {
+                        key: `plain-${index}`,
+                        text: segment,
+                        isHighlight: false,
+                        className: '',
+                    };
+                }
+
+                const className = HERO_HIGHLIGHT_STYLES[highlightIndex % HERO_HIGHLIGHT_STYLES.length];
+                highlightIndex += 1;
+                return {
+                    key: `highlight-${index}`,
+                    text: tokenMatch[1],
+                    isHighlight: true,
+                    className,
+                };
+            });
+    }, [heroSubtitle]);
 
     useEffect(() => {
         let cancelled = false;
@@ -648,7 +756,15 @@ export const HomePage: React.FC = () => {
                         </span>
                     </h1>
                     <p className="text-lg md:text-xl text-gray-400 font-light tracking-wide max-w-xl mx-auto">
-                        Donde tus ideas cobran <span className="text-indigo-400 font-bold">vida</span> y el mundo las <span className="text-purple-400 font-bold">descubre</span>.
+                        {parsedHeroSubtitle.map((segment) => (
+                            segment.isHighlight ? (
+                                <span key={segment.key} className={`${segment.className} font-bold`}>
+                                    {segment.text}
+                                </span>
+                            ) : (
+                                <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
+                            )
+                        ))}
                     </p>
                 </div>
 
