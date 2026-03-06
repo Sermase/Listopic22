@@ -2,6 +2,7 @@ import {
     collection,
     doc,
     getDoc,
+    getDocFromServer,
     getDocs,
     limit,
     query,
@@ -190,24 +191,68 @@ export const isUserProfileServiceError = (error: unknown): error is UserProfileS
 
 export const getUsernameGateStatus = async (seed: UserIdentitySeed): Promise<UsernameGateStatus> => {
     const userRef = doc(db, USERS_COLLECTION, seed.uid);
-    const userSnap = await getDoc(userRef);
-    const userData = userSnap.exists() ? asObject(userSnap.data()) : {};
+    let userSnap;
+    let userDataFromServer = true;
+    try {
+        userSnap = await getDocFromServer(userRef);
+    } catch {
+        userSnap = await getDoc(userRef);
+        userDataFromServer = false;
+    }
 
-    const currentUsername = asString(userData.username);
-    const suggestedUsername = currentUsername || buildUsernameSuggestion(readSeedBase(seed), seed.uid);
+    const userData = userSnap.exists() ? asObject(userSnap.data()) : {};
     const currentLocation = asString(userData.location) || asString(userData.residence);
 
+    let effectiveUsername = asString(userData.username);
+    let formatError = getUsernameValidationError(effectiveUsername);
+
+    // Defensive recovery: if username is missing but usernameLower still exists, restore from claim doc.
+    if (formatError && !effectiveUsername) {
+        const storedUsernameLower = asString(userData.usernameLower);
+        if (storedUsernameLower) {
+            try {
+                const claimSnap = await getDoc(doc(db, USERNAME_CLAIMS_COLLECTION, storedUsernameLower));
+                if (claimSnap.exists()) {
+                    const claimData = asObject(claimSnap.data());
+                    const claimOwner = asString(claimData.uid);
+                    const claimUsername = asString(claimData.username);
+                    const claimUsernameError = getUsernameValidationError(claimUsername);
+                    if (claimOwner === seed.uid && !claimUsernameError) {
+                        effectiveUsername = claimUsername;
+                        formatError = null;
+                        await setDoc(userRef, {
+                            username: claimUsername,
+                            usernameLower: normalizeUsername(claimUsername),
+                            displayName: asString(userData.displayName) || claimUsername,
+                            updatedAt: serverTimestamp(),
+                            ...(!userData.usernameLockedAt ? { usernameLockedAt: serverTimestamp() } : {}),
+                        }, { merge: true });
+                    }
+                }
+            } catch {
+                // Ignore recovery failures and continue with normal gate flow.
+            }
+        }
+    }
+
+    const suggestedUsername = effectiveUsername || buildUsernameSuggestion(readSeedBase(seed), seed.uid);
     const prefill: UserProfileFormData = {
         username: suggestedUsername,
-        displayName: asString(userData.displayName) || currentUsername || suggestedUsername,
+        displayName: asString(userData.displayName) || effectiveUsername || suggestedUsername,
         name: asString(userData.name),
         surnames: asString(userData.surnames),
         location: currentLocation,
         bio: asString(userData.bio),
     };
 
-    const formatError = getUsernameValidationError(currentUsername);
     if (formatError) {
+        // If we could not validate against server data, avoid opening the gate to prevent false positives.
+        if (!userDataFromServer) {
+            return {
+                requiresCompletion: false,
+                prefill,
+            };
+        }
         return {
             requiresCompletion: true,
             reason: 'missing_or_invalid',
@@ -215,7 +260,7 @@ export const getUsernameGateStatus = async (seed: UserIdentitySeed): Promise<Use
         };
     }
 
-    const normalizedUsername = normalizeUsername(currentUsername);
+    const normalizedUsername = normalizeUsername(effectiveUsername);
     const claimRef = doc(db, USERNAME_CLAIMS_COLLECTION, normalizedUsername);
 
     try {
@@ -247,7 +292,7 @@ export const getUsernameGateStatus = async (seed: UserIdentitySeed): Promise<Use
             };
         }
 
-        const claimOk = await claimUsernameForUser(seed.uid, currentUsername);
+        const claimOk = await claimUsernameForUser(seed.uid, effectiveUsername);
         if (!claimOk) {
             return {
                 requiresCompletion: true,
@@ -268,7 +313,7 @@ export const getUsernameGateStatus = async (seed: UserIdentitySeed): Promise<Use
             throw error;
         }
 
-        const taken = await isUsernameTakenInUsersCollection(seed.uid, currentUsername);
+        const taken = await isUsernameTakenInUsersCollection(seed.uid, effectiveUsername);
         if (taken) {
             return {
                 requiresCompletion: true,
