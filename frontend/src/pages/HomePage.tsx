@@ -11,7 +11,7 @@ import { MapView } from '../components/MapView';
 import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
-import { collection, query, getDocs, limit } from 'firebase/firestore';
+import { collection, query, getDocs, limit, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { updateProfile } from 'firebase/auth';
 import {
@@ -20,7 +20,7 @@ import {
     isUserProfileServiceError,
     type UserProfileFormData,
 } from '../services/UserProfileService';
-import { USERNAME_MAX_LENGTH } from '../utils/username';
+import { USERNAME_MAX_LENGTH, isUsernameValid } from '../utils/username';
 
 /* 
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
@@ -86,8 +86,8 @@ export const HomePage: React.FC = () => {
             } catch (error) {
                 if (cancelled) return;
                 console.error('[HomePage] Error validating username gate:', error);
-                setShowProfileGate(true);
-                setGateError('No se pudo validar tu perfil. Inténtalo de nuevo.');
+                setShowProfileGate(false);
+                setGateError(null);
             } finally {
                 if (!cancelled) {
                     setGateLoading(false);
@@ -101,6 +101,22 @@ export const HomePage: React.FC = () => {
             cancelled = true;
         };
     }, [user?.uid, user?.email, user?.displayName, user?.photoURL]);
+
+    useEffect(() => {
+        if (!user || !showProfileGate) return;
+
+        const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+            if (!snap.exists()) return;
+            const data = snap.data() as Record<string, unknown>;
+            const candidateUsername = typeof data.username === 'string' ? data.username.trim() : '';
+            if (isUsernameValid(candidateUsername)) {
+                setShowProfileGate(false);
+                setGateError(null);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [user?.uid, showProfileGate]);
 
     const handleGateFieldChange = (field: keyof UserProfileFormData, value: string) => {
         setGateForm(prev => ({ ...prev, [field]: value }));
