@@ -5,7 +5,7 @@ import { BrandingManager } from '../components/developer/BrandingManager';
 import { db, functions, storage } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal } from 'lucide-react';
 import { DeveloperItemModal } from '../components/developer/DeveloperItemModal';
 
 const FUNCTIONS_REGION = 'europe-west1';
@@ -22,8 +22,17 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others'>('console');
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+
+    // Other Settings State
+    const [otherSettings, setOtherSettings] = useState({
+        showRandomChoiceButton: true,
+        showProfileFavoriteBadge: true,
+    });
+    const [otherSettingsLoading, setOtherSettingsLoading] = useState(false);
+    const [otherSettingsSaving, setOtherSettingsSaving] = useState(false);
+    const [otherSettingsMessage, setOtherSettingsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     // Console State
     const [consoleParams, setConsoleParams] = useState<ConsoleSearchParams>({
@@ -292,9 +301,46 @@ export const DeveloperPage: React.FC = () => {
         }
     };
 
+    const fetchOtherSettings = async () => {
+        setOtherSettingsLoading(true);
+        setOtherSettingsMessage(null);
+        try {
+            const configSnap = await getDoc(doc(db, 'config', 'app'));
+            const data = configSnap.exists() ? configSnap.data() : {};
+            setOtherSettings({
+                showRandomChoiceButton: typeof data.showRandomChoiceButton === 'boolean' ? data.showRandomChoiceButton : true,
+                showProfileFavoriteBadge: typeof data.showProfileFavoriteBadge === 'boolean' ? data.showProfileFavoriteBadge : true,
+            });
+        } catch (error: any) {
+            console.error('Error fetching other settings:', error);
+            setOtherSettingsMessage({ type: 'error', text: error?.message || 'No se pudieron cargar los ajustes.' });
+        } finally {
+            setOtherSettingsLoading(false);
+        }
+    };
+
+    const saveOtherSettings = async () => {
+        setOtherSettingsSaving(true);
+        setOtherSettingsMessage(null);
+        try {
+            await setDoc(doc(db, 'config', 'app'), {
+                showRandomChoiceButton: otherSettings.showRandomChoiceButton,
+                showProfileFavoriteBadge: otherSettings.showProfileFavoriteBadge,
+                updatedAt: new Date(),
+            }, { merge: true });
+            setOtherSettingsMessage({ type: 'success', text: 'Ajustes guardados correctamente.' });
+        } catch (error: any) {
+            console.error('Error saving other settings:', error);
+            setOtherSettingsMessage({ type: 'error', text: error?.message || 'No se pudieron guardar los ajustes.' });
+        } finally {
+            setOtherSettingsSaving(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'gamification') fetchBadges();
         if (activeTab === 'reports') fetchReports();
+        if (activeTab === 'others') fetchOtherSettings();
     }, [activeTab]);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -373,6 +419,12 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'branding' ? 'border-indigo-500 bg-indigo-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Palette className="w-5 h-5" /> Marca & SEO
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('others'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'others' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <SlidersHorizontal className="w-5 h-5" /> OTROS
                         </button>
                     </nav>
 
@@ -698,6 +750,89 @@ export const DeveloperPage: React.FC = () => {
                         }
 
                         {activeTab === 'branding' && <BrandingManager />}
+
+                        {activeTab === 'others' && (
+                            <div className="max-w-4xl mx-auto space-y-6">
+                                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                                    <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
+                                        <SlidersHorizontal className="w-6 h-6 text-amber-400" /> OTROS
+                                    </h2>
+                                    <p className="text-gray-400 text-sm mb-6">
+                                        Ajustes visuales y de experiencia para activar/desactivar funciones puntuales en la app.
+                                    </p>
+
+                                    {otherSettingsMessage && (
+                                        <div
+                                            className={`mb-4 p-3 rounded-lg border text-sm ${
+                                                otherSettingsMessage.type === 'success'
+                                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                                                    : 'bg-red-500/10 border-red-500/20 text-red-300'
+                                            }`}
+                                        >
+                                            {otherSettingsMessage.text}
+                                        </div>
+                                    )}
+
+                                    {otherSettingsLoading ? (
+                                        <div className="text-gray-400 text-sm">Cargando ajustes...</div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-black/20">
+                                                <div>
+                                                    <div className="text-sm font-bold text-white">Botón aleatorio (Home)</div>
+                                                    <div className="text-xs text-gray-400">
+                                                        Muestra u oculta el botón “No sé qué elegir” en la página principal.
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOtherSettings((prev) => ({ ...prev, showRandomChoiceButton: !prev.showRandomChoiceButton }))}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                                                        otherSettings.showRandomChoiceButton
+                                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                            : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                                                    }`}
+                                                >
+                                                    {otherSettings.showRandomChoiceButton ? 'ACTIVO' : 'INACTIVO'}
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-black/20">
+                                                <div>
+                                                    <div className="text-sm font-bold text-white">Sello favorito (Perfil)</div>
+                                                    <div className="text-xs text-gray-400">
+                                                        Muestra u oculta la tarjeta/sello de favorito en los perfiles.
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOtherSettings((prev) => ({ ...prev, showProfileFavoriteBadge: !prev.showProfileFavoriteBadge }))}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                                                        otherSettings.showProfileFavoriteBadge
+                                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                            : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                                                    }`}
+                                                >
+                                                    {otherSettings.showProfileFavoriteBadge ? 'ACTIVO' : 'INACTIVO'}
+                                                </button>
+                                            </div>
+
+                                            <div className="pt-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={saveOtherSettings}
+                                                    disabled={otherSettingsSaving}
+                                                    className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-60 inline-flex items-center gap-2"
+                                                >
+                                                    {otherSettingsSaving && <RefreshCw className="w-4 h-4 animate-spin" />}
+                                                    Guardar ajustes
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {
                             activeTab === 'gamification' && (

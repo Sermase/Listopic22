@@ -8,27 +8,119 @@ import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
-import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users, Loader2, Shuffle } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users, Loader2, Dice5, Shuffle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
-import { collection, query, getDocs, limit } from 'firebase/firestore';
+import { collection, query, getDocs, limit, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { updateProfile } from 'firebase/auth';
+import { useToast } from '../context/ToastContext';
+import { useAppConfig } from '../context/AppConfigContext';
 import {
     completeUserProfileSetup,
     getUsernameGateStatus,
     isUserProfileServiceError,
     type UserProfileFormData,
 } from '../services/UserProfileService';
-import { USERNAME_MAX_LENGTH } from '../utils/username';
+import { USERNAME_MAX_LENGTH, isUsernameValid } from '../utils/username';
 
 /* 
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
 */
 
+const HERO_SUBTITLE_TEMPLATES = [
+    'Donde las [[listas]] empiezan a tomarse muy en [[serio]] su trabajo.',
+    'El lugar donde tus [[gustos]] finalmente encuentran un [[orden]] razonable.',
+    'Donde las [[ideas]] hacen [[fila]] educadamente antes de convertirse en ranking.',
+    'El pequeño [[imperio]] donde tus [[opiniones]] gobiernan en paz.',
+    'Aquí las [[listas]] se ponen [[elegantes]] antes de salir al mundo.',
+    'Donde lo [[importante]] y lo [[trivial]] comparten la misma columna.',
+    'El [[archivo]] internacional de tus preferencias más [[discutibles]].',
+    'Un lugar [[tranquilo]] donde tus [[comparaciones]] pueden estirarse a gusto.',
+    'Donde las ideas [[sueltas]] vienen a encontrar un [[número]].',
+    'El [[spa]] donde los gustos [[cansados]] se reorganizan un poco.',
+    'Donde las [[listas]] salen mejor [[peinadas]] de lo que entraron.',
+    'El [[gimnasio]] donde tus [[prioridades]] entrenan para subir posiciones.',
+    'Donde lo [[aleatorio]] empieza a parecer sorprendentemente [[lógico]].',
+    'Tu pequeño [[observatorio]] personal de gustos y [[caprichos]].',
+    'El [[club]] donde las [[comparaciones]] encuentran su público.',
+    'Donde cada [[gusto]] encuentra, tarde o temprano, su [[casilla]].',
+    'Un [[rincón]] donde el [[caos]] acepta sentarse un momento.',
+    'El territorio [[neutral]] entre el caos creativo y el [[orden]] absoluto.',
+    'Donde las [[opiniones]] dejan de vagar y consiguen [[numeración]] oficial.',
+    'El [[santuario]] donde los [[rankings]] descansan entre debate y debate.',
+    'Donde tus [[obsesiones]] finalmente consiguen [[ranking]] propio.',
+    'Un lugar donde el [[mundo]] se entiende mejor en [[columnas]].',
+    'Donde cada "esto va [[primero]]" encuentra apoyo [[institucional]].',
+    'El pequeño [[país]] donde siempre cabe una [[lista]] más.',
+    'Donde las [[comparaciones]] se toman un [[café]] antes de decidir.',
+    'El [[laboratorio]] donde tus [[preferencias]] se ponen a prueba.',
+    'Donde los [[gustos]] se alinean... o al menos lo [[intentan]].',
+    'El [[hábitat]] natural de las [[listas]] que llevabas días pensando.',
+    'Donde [[ordenar]] cosas empieza a parecer una gran [[idea]].',
+    'El [[salón]] donde tus [[opiniones]] encuentran asiento numerado.',
+    'Donde las [[listas]] crecen sanas y bien [[clasificadas]].',
+    'Un [[mapa]] del mundo construido a base de [[preferencias]].',
+    'Donde las [[ideas]] aprenden el noble arte de ponerse en [[fila]].',
+    'El lugar donde el [[caos]] pierde por una pequeña [[ventaja]].',
+    'Donde tus [[criterios]] encuentran [[luz]], aire y numeración.',
+    'Un rincón [[amable]] para decidir qué va [[antes]] que qué.',
+    'Donde cada [[ranking]] cuenta una pequeña [[historia]] personal.',
+    'El lugar donde lo [[subjetivo]] se organiza con sorprendente [[dignidad]].',
+    'Donde las [[listas]] encuentran su [[vocación]] definitiva.',
+    'El pequeño [[museo]] de tus elecciones más [[curiosas]].',
+    'Donde el [[orden]] empieza a parecer una aventura [[interesante]].',
+    'Donde tus [[gustos]] se comparan [[amistosamente]] entre ellos.',
+    'El país [[tranquilo]] donde las [[listas]] se multiplican sin prisa.',
+    'Donde cada [[preferencia]] encuentra su [[escala]] adecuada.',
+    'Un sitio [[perfecto]] para [[ordenar]] cosas que nadie pidió ordenar.',
+    'Donde los [[rankings]] encuentran un [[hogar]] respetable.',
+    'El [[observatorio]] donde tus [[gustos]] se miran con perspectiva.',
+    'Donde las ideas [[dispersas]] empiezan a [[comportarse]].',
+    'El pequeño [[parlamento]] donde votan tus [[preferencias]].',
+    'Donde lo [[complicado]] se resuelve con [[columnas]] numeradas.',
+    'Donde cada [[comparación]] encuentra su momento de [[gloria]].',
+    'Un [[refugio]] tranquilo para tus listas más [[ambiciosas]].',
+    'Donde el [[caos]] aprende lentamente a hacer [[cola]].',
+    'El [[elegante]] arte de poner las ideas en [[fila]].',
+    'Donde tus [[gustos]] encuentran su [[tamaño]] real.',
+    'El punto [[exacto]] entre [[ordenar]] y entretenerse ordenando.',
+    'Donde cada [[lista]] empieza a parecer [[inevitable]].',
+    'Un lugar donde el [[mundo]] cabe cómodamente en [[rankings]].',
+    'Donde tus [[criterios]] encuentran [[forma]] y estructura.',
+    'El [[rincón]] donde las [[listas]] se sienten comprendidas.',
+    'Donde las [[ideas]] encuentran su versión más [[ordenada]].',
+    'El pequeño [[universo]] donde todo puede [[compararse]] con todo.',
+    'Donde cada [[gusto]] tiene derecho a su [[posición]] oficial.',
+    'Un lugar donde [[ordenar]] el mundo parece perfectamente [[razonable]].',
+    'Donde las [[listas]] empiezan pequeñas y terminan [[legendarias]].',
+    'El [[laboratorio]] donde nacen los [[rankings]] del futuro.',
+    'Donde tus [[preferencias]] se convierten en [[conocimiento]] organizado.',
+    'El sitio donde cada [[idea]] encuentra su lugar [[natural]].',
+    'Donde los [[gustos]] encuentran [[equilibrio]] entre caos y criterio.',
+    'Donde siempre empieza la [[próxima]] gran [[lista]].',
+] as const;
+
+const HERO_HIGHLIGHT_REGEX = /(\[\[[^\]]+\]\])/g;
+const HERO_HIGHLIGHT_STYLES = ['text-indigo-400', 'text-purple-400', 'text-cyan-300'] as const;
+const HOME_LOADING_MESSAGES = [
+    'Ajustando rankings con precision artesanal...',
+    'Buscando joyas ocultas cerca de ti...',
+    'Ordenando gustos con paciencia diplomatica...',
+    'Calentando motores para la proxima recomendacion...',
+    'Poniendo criterio donde antes habia caos...',
+    'Preparando tu dosis de comparaciones finas...',
+] as const;
+
+const pickRandomHeroSubtitle = (): string => {
+    return HERO_SUBTITLE_TEMPLATES[Math.floor(Math.random() * HERO_SUBTITLE_TEMPLATES.length)];
+};
+
 export const HomePage: React.FC = () => {
     const { user } = useAuth();
+    const appConfig = useAppConfig();
     const { location, calculateDistance, requestLocation } = useLocation();
+    const { showToast } = useToast();
     const navigate = useNavigate();
 
     // UI State
@@ -51,6 +143,35 @@ export const HomePage: React.FC = () => {
         location: '',
         bio: '',
     });
+    const [heroSubtitle] = useState<string>(() => pickRandomHeroSubtitle());
+    const [loadingMessageIndex, setLoadingMessageIndex] = useState<number>(() => Math.floor(Math.random() * HOME_LOADING_MESSAGES.length));
+
+    const parsedHeroSubtitle = useMemo(() => {
+        let highlightIndex = 0;
+        return heroSubtitle
+            .split(HERO_HIGHLIGHT_REGEX)
+            .filter(Boolean)
+            .map((segment, index) => {
+                const tokenMatch = segment.match(/^\[\[([\s\S]+)\]\]$/);
+                if (!tokenMatch) {
+                    return {
+                        key: `plain-${index}`,
+                        text: segment,
+                        isHighlight: false,
+                        className: '',
+                    };
+                }
+
+                const className = HERO_HIGHLIGHT_STYLES[highlightIndex % HERO_HIGHLIGHT_STYLES.length];
+                highlightIndex += 1;
+                return {
+                    key: `highlight-${index}`,
+                    text: tokenMatch[1],
+                    isHighlight: true,
+                    className,
+                };
+            });
+    }, [heroSubtitle]);
 
     useEffect(() => {
         let cancelled = false;
@@ -86,8 +207,8 @@ export const HomePage: React.FC = () => {
             } catch (error) {
                 if (cancelled) return;
                 console.error('[HomePage] Error validating username gate:', error);
-                setShowProfileGate(true);
-                setGateError('No se pudo validar tu perfil. Inténtalo de nuevo.');
+                setShowProfileGate(false);
+                setGateError(null);
             } finally {
                 if (!cancelled) {
                     setGateLoading(false);
@@ -101,6 +222,22 @@ export const HomePage: React.FC = () => {
             cancelled = true;
         };
     }, [user?.uid, user?.email, user?.displayName, user?.photoURL]);
+
+    useEffect(() => {
+        if (!user || !showProfileGate) return;
+
+        const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+            if (!snap.exists()) return;
+            const data = snap.data() as Record<string, unknown>;
+            const candidateUsername = typeof data.username === 'string' ? data.username.trim() : '';
+            if (isUsernameValid(candidateUsername)) {
+                setShowProfileGate(false);
+                setGateError(null);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [user?.uid, showProfileGate]);
 
     const handleGateFieldChange = (field: keyof UserProfileFormData, value: string) => {
         setGateForm(prev => ({ ...prev, [field]: value }));
@@ -174,6 +311,15 @@ export const HomePage: React.FC = () => {
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews, fetchMore, hasMore, loadingMore } = useReviews(reviewSortParam);
     const { users: topUsers, loading: loadingUsers } = useUsers();
+    const homeContentLoading = loadingLists || loadingReviews || loadingUsers;
+
+    useEffect(() => {
+        if (!homeContentLoading) return;
+        const intervalId = window.setInterval(() => {
+            setLoadingMessageIndex((prev) => (prev + 1) % HOME_LOADING_MESSAGES.length);
+        }, 2400);
+        return () => window.clearInterval(intervalId);
+    }, [homeContentLoading]);
 
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
@@ -597,6 +743,60 @@ export const HomePage: React.FC = () => {
         });
     }, [filteredLists, reviewsInRange, range]);
 
+    const surpriseCandidates = useMemo(() => {
+        const candidates: Array<{ route: string; label: string }> = [];
+
+        filteredItems.slice(0, 25).forEach((review: any) => {
+            if (review?.placeId && review?.itemName) {
+                candidates.push({
+                    route: `/group/${review.placeId}/${encodeURIComponent(review.itemName)}`,
+                    label: `${review.itemName} · ${review.placeName || 'Grupo'}`,
+                });
+            }
+        });
+
+        filteredPlaces.slice(0, 15).forEach((place: any) => {
+            const placeId = place?.placeId || place?.id;
+            if (placeId) {
+                candidates.push({
+                    route: `/place/${placeId}`,
+                    label: place?.name || 'Lugar sorpresa',
+                });
+            }
+        });
+
+        listsWithRangeStats.slice(0, 15).forEach((list: any) => {
+            if (list?.id) {
+                candidates.push({
+                    route: `/list/${list.id}`,
+                    label: list?.name || 'Lista sorpresa',
+                });
+            }
+        });
+
+        return candidates;
+    }, [filteredItems, filteredPlaces, listsWithRangeStats]);
+
+    const handleSurpriseChoice = () => {
+        if (surpriseCandidates.length === 0) {
+            showToast({
+                variant: 'info',
+                title: 'Sin opciones por ahora',
+                message: 'No hay resultados en este rango. Prueba ampliarlo y volvemos a jugar.',
+            });
+            return;
+        }
+
+        const randomChoice = surpriseCandidates[Math.floor(Math.random() * surpriseCandidates.length)];
+        showToast({
+            variant: 'info',
+            title: 'Modo sorpresa activado',
+            message: `Te llevamos a: ${randomChoice.label}`,
+            durationMs: 2200,
+        });
+        navigate(randomChoice.route);
+    };
+
 
     const handleToggleRange = () => {
         if (!location) {
@@ -733,15 +933,38 @@ export const HomePage: React.FC = () => {
             <div className="pt-24 px-4 pb-6">
 
                 {/* Hero Section (Clean) */}
-                <div className="max-w-4xl mx-auto mb-8 text-center pt-4">
+                <div className="max-w-4xl mx-auto mb-8 text-center pt-4 relative">
                     <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-3 select-none">
                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 drop-shadow-[0_0_25px_rgba(99,102,241,0.4)]">
                             LISTOPIC
                         </span>
                     </h1>
                     <p className="text-lg md:text-xl text-gray-400 font-light tracking-wide max-w-xl mx-auto">
-                        Donde tus ideas cobran <span className="text-indigo-400 font-bold">vida</span> y el mundo las <span className="text-purple-400 font-bold">descubre</span>.
+                        {parsedHeroSubtitle.map((segment) => (
+                            segment.isHighlight ? (
+                                <span key={segment.key} className={`${segment.className} font-bold`}>
+                                    {segment.text}
+                                </span>
+                            ) : (
+                                <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
+                            )
+                        ))}
                     </p>
+
+                    {appConfig.showRandomChoiceButton && (
+                        <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 ml-8">
+                            <button
+                                type="button"
+                                onClick={handleSurpriseChoice}
+                                className="group inline-flex items-center justify-center gap-2 px-3 py-2 min-w-[150px] rounded-full border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 backdrop-blur-sm transition-all whitespace-nowrap"
+                            >
+                                <span className="w-7 h-7 rounded-full border border-amber-300/60 bg-[#151b2e] text-amber-200 shadow-lg flex items-center justify-center shrink-0">
+                                    <Dice5 className="w-3.5 h-3.5" />
+                                </span>
+                                <span className="text-xs font-extrabold text-white tracking-wide whitespace-nowrap">Plan al azar</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Navigation Pills */}
@@ -767,6 +990,28 @@ export const HomePage: React.FC = () => {
                         </button>
                     </div>
                 </div>
+
+                {appConfig.showRandomChoiceButton && (
+                    <button
+                        type="button"
+                        onClick={handleSurpriseChoice}
+                        className="lg:hidden group fixed bottom-5 right-4 z-[120] inline-flex items-center justify-center gap-2 px-3 py-2 min-w-[150px] rounded-full border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 backdrop-blur-sm text-white active:scale-[0.98] transition-transform whitespace-nowrap"
+                    >
+                        <span className="w-7 h-7 rounded-full border border-amber-300/60 bg-[#151b2e] text-amber-200 shadow-lg flex items-center justify-center shrink-0">
+                            <Dice5 className="w-3.5 h-3.5" />
+                        </span>
+                        <span className="text-xs font-extrabold tracking-wide whitespace-nowrap">Plan al azar</span>
+                    </button>
+                )}
+
+                {homeContentLoading && (
+                    <div className="mt-4 flex justify-center">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-[#151b2e]/90 text-sm text-gray-300">
+                            <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                            <span>{HOME_LOADING_MESSAGES[loadingMessageIndex]}</span>
+                        </div>
+                    </div>
+                )}
 
                 {/* Filter Chips (Categories) */}
                 <div className="flex flex-wrap justify-between items-center mt-8 gap-4">

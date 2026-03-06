@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Save, Loader, Image as ImageIcon, X } from 'lucide-react';
@@ -19,6 +20,7 @@ interface CreateListFormProps {
 
 export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, parentListName, parentListImage, parentCriteria, parentTags, initialData, onSuccess, onCancel }) => {
     const { user } = useAuth();
+    const { showToast } = useToast();
 
     // State
     const [name, setName] = useState(initialData?.name || '');
@@ -212,10 +214,21 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 listsCount: increment(1)
             }).catch(e => console.warn("Could not increment user list count", e));
 
+            showToast({
+                variant: 'success',
+                title: parentListId ? 'Sublista creada' : 'Lista creada',
+                message: parentListId
+                    ? 'Tu sublista ya esta lista para recibir comparaciones finas.'
+                    : 'Lista publicada. El orden acaba de ganar otra batalla.',
+            });
             onSuccess(docRef.id);
         } catch (error) {
             console.error("Error creating list:", error);
-            alert("Error al crear la lista");
+            showToast({
+                variant: 'error',
+                title: 'No se pudo crear la lista',
+                message: 'No conseguimos guardar la lista. Prueba otra vez en un momento.',
+            });
         } finally {
             setLoading(false);
         }
