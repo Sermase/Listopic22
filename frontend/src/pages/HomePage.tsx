@@ -8,12 +8,14 @@ import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
-import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users, Loader2 } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users, Loader2, Dice5 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, query, getDocs, limit, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { updateProfile } from 'firebase/auth';
+import { useToast } from '../context/ToastContext';
+import { useAppConfig } from '../context/AppConfigContext';
 import {
     completeUserProfileSetup,
     getUsernameGateStatus,
@@ -101,6 +103,14 @@ const HERO_SUBTITLE_TEMPLATES = [
 
 const HERO_HIGHLIGHT_REGEX = /(\[\[[^\]]+\]\])/g;
 const HERO_HIGHLIGHT_STYLES = ['text-indigo-400', 'text-purple-400', 'text-cyan-300'] as const;
+const HOME_LOADING_MESSAGES = [
+    'Ajustando rankings con precision artesanal...',
+    'Buscando joyas ocultas cerca de ti...',
+    'Ordenando gustos con paciencia diplomatica...',
+    'Calentando motores para la proxima recomendacion...',
+    'Poniendo criterio donde antes habia caos...',
+    'Preparando tu dosis de comparaciones finas...',
+] as const;
 
 const pickRandomHeroSubtitle = (): string => {
     return HERO_SUBTITLE_TEMPLATES[Math.floor(Math.random() * HERO_SUBTITLE_TEMPLATES.length)];
@@ -108,7 +118,9 @@ const pickRandomHeroSubtitle = (): string => {
 
 export const HomePage: React.FC = () => {
     const { user } = useAuth();
+    const appConfig = useAppConfig();
     const { location, calculateDistance, requestLocation } = useLocation();
+    const { showToast } = useToast();
     const navigate = useNavigate();
 
     // UI State
@@ -132,6 +144,7 @@ export const HomePage: React.FC = () => {
         bio: '',
     });
     const [heroSubtitle] = useState<string>(() => pickRandomHeroSubtitle());
+    const [loadingMessageIndex, setLoadingMessageIndex] = useState<number>(() => Math.floor(Math.random() * HOME_LOADING_MESSAGES.length));
 
     const parsedHeroSubtitle = useMemo(() => {
         let highlightIndex = 0;
@@ -298,6 +311,15 @@ export const HomePage: React.FC = () => {
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews, fetchMore, hasMore, loadingMore } = useReviews(reviewSortParam);
     const { users: topUsers, loading: loadingUsers } = useUsers();
+    const homeContentLoading = loadingLists || loadingReviews || loadingUsers;
+
+    useEffect(() => {
+        if (!homeContentLoading) return;
+        const intervalId = window.setInterval(() => {
+            setLoadingMessageIndex((prev) => (prev + 1) % HOME_LOADING_MESSAGES.length);
+        }, 2400);
+        return () => window.clearInterval(intervalId);
+    }, [homeContentLoading]);
 
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
@@ -613,6 +635,60 @@ export const HomePage: React.FC = () => {
         });
     }, [filteredLists, reviewsInRange, range]);
 
+    const surpriseCandidates = useMemo(() => {
+        const candidates: Array<{ route: string; label: string }> = [];
+
+        filteredItems.slice(0, 25).forEach((review: any) => {
+            if (review?.placeId && review?.itemName) {
+                candidates.push({
+                    route: `/group/${review.placeId}/${encodeURIComponent(review.itemName)}`,
+                    label: `${review.itemName} · ${review.placeName || 'Grupo'}`,
+                });
+            }
+        });
+
+        filteredPlaces.slice(0, 15).forEach((place: any) => {
+            const placeId = place?.placeId || place?.id;
+            if (placeId) {
+                candidates.push({
+                    route: `/place/${placeId}`,
+                    label: place?.name || 'Lugar sorpresa',
+                });
+            }
+        });
+
+        listsWithRangeStats.slice(0, 15).forEach((list: any) => {
+            if (list?.id) {
+                candidates.push({
+                    route: `/list/${list.id}`,
+                    label: list?.name || 'Lista sorpresa',
+                });
+            }
+        });
+
+        return candidates;
+    }, [filteredItems, filteredPlaces, listsWithRangeStats]);
+
+    const handleSurpriseChoice = () => {
+        if (surpriseCandidates.length === 0) {
+            showToast({
+                variant: 'info',
+                title: 'Sin opciones por ahora',
+                message: 'No hay resultados en este rango. Prueba ampliarlo y volvemos a jugar.',
+            });
+            return;
+        }
+
+        const randomChoice = surpriseCandidates[Math.floor(Math.random() * surpriseCandidates.length)];
+        showToast({
+            variant: 'info',
+            title: 'Modo sorpresa activado',
+            message: `Te llevamos a: ${randomChoice.label}`,
+            durationMs: 2200,
+        });
+        navigate(randomChoice.route);
+    };
+
 
     const handleToggleRange = () => {
         if (!location) {
@@ -749,7 +825,7 @@ export const HomePage: React.FC = () => {
             <div className="pt-24 px-4 pb-6">
 
                 {/* Hero Section (Clean) */}
-                <div className="max-w-4xl mx-auto mb-8 text-center pt-4">
+                <div className="max-w-4xl mx-auto mb-8 text-center pt-4 relative">
                     <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-3 select-none">
                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 drop-shadow-[0_0_25px_rgba(99,102,241,0.4)]">
                             LISTOPIC
@@ -766,6 +842,21 @@ export const HomePage: React.FC = () => {
                             )
                         ))}
                     </p>
+
+                    {appConfig.showRandomChoiceButton && (
+                        <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 ml-8">
+                            <button
+                                type="button"
+                                onClick={handleSurpriseChoice}
+                                className="group inline-flex items-center justify-center gap-2 px-3 py-2 min-w-[150px] rounded-full border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 backdrop-blur-sm transition-all whitespace-nowrap"
+                            >
+                                <span className="w-7 h-7 rounded-full border border-amber-300/60 bg-[#151b2e] text-amber-200 shadow-lg flex items-center justify-center shrink-0">
+                                    <Dice5 className="w-3.5 h-3.5" />
+                                </span>
+                                <span className="text-xs font-extrabold text-white tracking-wide whitespace-nowrap">Plan al azar</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Navigation Pills */}
@@ -791,6 +882,28 @@ export const HomePage: React.FC = () => {
                         </button>
                     </div>
                 </div>
+
+                {appConfig.showRandomChoiceButton && (
+                    <button
+                        type="button"
+                        onClick={handleSurpriseChoice}
+                        className="lg:hidden group fixed bottom-5 right-4 z-[120] inline-flex items-center justify-center gap-2 px-3 py-2 min-w-[150px] rounded-full border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 backdrop-blur-sm text-white active:scale-[0.98] transition-transform whitespace-nowrap"
+                    >
+                        <span className="w-7 h-7 rounded-full border border-amber-300/60 bg-[#151b2e] text-amber-200 shadow-lg flex items-center justify-center shrink-0">
+                            <Dice5 className="w-3.5 h-3.5" />
+                        </span>
+                        <span className="text-xs font-extrabold tracking-wide whitespace-nowrap">Plan al azar</span>
+                    </button>
+                )}
+
+                {homeContentLoading && (
+                    <div className="mt-4 flex justify-center">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-[#151b2e]/90 text-sm text-gray-300">
+                            <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                            <span>{HOME_LOADING_MESSAGES[loadingMessageIndex]}</span>
+                        </div>
+                    </div>
+                )}
 
                 {/* Filter Chips (Categories) */}
                 <div className="flex flex-wrap justify-between items-center mt-8 gap-4">

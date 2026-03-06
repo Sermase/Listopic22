@@ -5,6 +5,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { useLists } from '../hooks/useLists';
 import { useReviews } from '../hooks/useReviews';
 import { useFilters } from '../context/FilterContext'; // Import Filter Context
+import { useAppConfig } from '../context/AppConfigContext';
 import { Settings, Calendar, Users as UsersIcon, List as ListIcon, Star, UserPlus, UserCheck, MessageCircle, Power, MapPin as MapPinIcon, Bug, Flag, MoreVertical, Loader2, ChevronDown, BarChart3, Sparkles, Share2, X } from 'lucide-react';
 import { ReportModal } from '../components/ReportModal';
 import { doc, setDoc, deleteDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
@@ -58,6 +59,7 @@ const EMPTY_ADVANCED_STATS: AdvancedProfileStats = {
 
 export const ProfilePage: React.FC = () => {
     const { user } = useAuth();
+    const appConfig = useAppConfig();
     const navigate = useNavigate();
     const { userId: paramUserId } = useParams<{ userId: string }>();
     const [activeTab, setActiveTab] = useState<'lists' | 'reviews' | 'following' | 'stats'>('reviews');
@@ -390,6 +392,14 @@ export const ProfilePage: React.FC = () => {
 
                 if (!cancelled) {
                     const favoriteCandidateData = favoriteCandidate as Record<string, any> | null;
+                    const favoritePlaceNameRaw = favoriteCandidateData && typeof favoriteCandidateData.placeName === 'string'
+                        ? favoriteCandidateData.placeName.trim()
+                        : '';
+                    const favoritePlaceAddressRaw = favoriteCandidateData && typeof favoriteCandidateData.placeAddress === 'string'
+                        ? favoriteCandidateData.placeAddress.trim()
+                        : '';
+                    const favoritePlaceName = favoritePlaceNameRaw
+                        || (favoritePlaceAddressRaw ? favoritePlaceAddressRaw.split(',')[0].trim() : '');
                     const favorite: FavoriteReviewSummary | null = favoriteCandidateData
                         ? {
                             id: String(favoriteCandidateData.id || ''),
@@ -398,7 +408,7 @@ export const ProfilePage: React.FC = () => {
                             listName: listNamesById[String(favoriteCandidateData.listId || '')]
                                 || (typeof favoriteCandidateData.listName === 'string' ? favoriteCandidateData.listName : 'Lista'),
                             itemName: typeof favoriteCandidateData.itemName === 'string' ? favoriteCandidateData.itemName : 'Elemento',
-                            placeName: typeof favoriteCandidateData.placeName === 'string' ? favoriteCandidateData.placeName : 'Lugar',
+                            placeName: favoritePlaceName,
                             photoUrl: typeof favoriteCandidateData.photoUrl === 'string' ? favoriteCandidateData.photoUrl : '',
                             score: Number(favoriteCandidateData.overallRating) || 0,
                         }
@@ -907,7 +917,7 @@ export const ProfilePage: React.FC = () => {
                                     )}
                                 </div>
 
-                                {favoriteReview && (
+                                {appConfig.showProfileFavoriteBadge && favoriteReview && (
                                     <Link
                                         to={favoriteGroupLink}
                                         className="group w-[220px] flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
@@ -933,7 +943,9 @@ export const ProfilePage: React.FC = () => {
                                                 <Sparkles className="w-2.5 h-2.5" /> Favorito
                                             </div>
                                             <div className="text-xs font-extrabold text-white truncate">{favoriteReview.itemName}</div>
-                                            <div className="text-[11px] text-indigo-200 truncate">{favoriteReview.placeName}</div>
+                                            {favoriteReview.placeName && (
+                                                <div className="text-[11px] text-indigo-200 truncate">{favoriteReview.placeName}</div>
+                                            )}
                                             <div className="text-[10px] text-gray-300 truncate">{favoriteReview.listName}</div>
                                         </div>
                                     </Link>
@@ -943,7 +955,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
                 </div>
 
-                {favoriteReview && (
+                {appConfig.showProfileFavoriteBadge && favoriteReview && (
                     <div className="md:hidden mb-4 flex justify-end">
                         <Link
                             to={favoriteGroupLink}
@@ -970,7 +982,9 @@ export const ProfilePage: React.FC = () => {
                                     <Sparkles className="w-2.5 h-2.5" /> Favorito
                                 </div>
                                 <div className="text-xs font-extrabold text-white truncate">{favoriteReview.itemName}</div>
-                                <div className="text-[11px] text-indigo-200 truncate">{favoriteReview.placeName}</div>
+                                {favoriteReview.placeName && (
+                                    <div className="text-[11px] text-indigo-200 truncate">{favoriteReview.placeName}</div>
+                                )}
                                 <div className="text-[10px] text-gray-300 truncate">{favoriteReview.listName}</div>
                             </div>
                         </Link>

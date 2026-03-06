@@ -10,6 +10,8 @@ export interface AppConfig {
     appName: string;
     appDescription: string;
     keywords: string;
+    showRandomChoiceButton: boolean;
+    showProfileFavoriteBadge: boolean;
 }
 
 const defaultConfig: AppConfig = {
@@ -17,7 +19,9 @@ const defaultConfig: AppConfig = {
     faviconType: 'default',
     appName: 'Listopic',
     appDescription: 'Comparte y descubre listas de tus lugares favoritos.',
-    keywords: 'listas, lugares, recomendaciones, social, mapas'
+    keywords: 'listas, lugares, recomendaciones, social, mapas',
+    showRandomChoiceButton: true,
+    showProfileFavoriteBadge: true,
 };
 
 const AppConfigContext = createContext<AppConfig>(defaultConfig);
@@ -34,7 +38,13 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     ...data,
                     // Ensure valid types if needed
                     logoType: data.logoType === 'image' ? 'image' : 'default',
-                    faviconType: data.faviconType === 'image' ? 'image' : 'default'
+                    faviconType: data.faviconType === 'image' ? 'image' : 'default',
+                    showRandomChoiceButton: typeof data.showRandomChoiceButton === 'boolean'
+                        ? data.showRandomChoiceButton
+                        : defaultConfig.showRandomChoiceButton,
+                    showProfileFavoriteBadge: typeof data.showProfileFavoriteBadge === 'boolean'
+                        ? data.showProfileFavoriteBadge
+                        : defaultConfig.showProfileFavoriteBadge,
                 } as AppConfig);
             }
         }, (error) => {
