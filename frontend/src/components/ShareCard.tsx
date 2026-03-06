@@ -1,11 +1,11 @@
 import React, { useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { Download, X } from 'lucide-react';
+import { Check, Copy, Download, Share2, X } from 'lucide-react';
 import type { PlaceDetails } from '../hooks/usePlaceDetails';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import type { ShareEntityPayload, ShareEntityType } from '../types/share';
 
-export type ShareCardVariant = 'cinematic' | 'clean' | 'punchy';
+export type ShareCardVariant = 'cinematic' | 'clean' | 'punchy' | 'spotify';
 
 interface ShareCardProps {
     place?: PlaceDetails;
@@ -19,10 +19,13 @@ type VariantTheme = {
     pageBg: string;
     cardBg: string;
     accent: string;
+    accent2: string;
     accentSoft: string;
     border: string;
     pillBg: string;
     subtitle: string;
+    title: string;
+    logo: string;
 };
 
 const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
@@ -30,28 +33,49 @@ const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
         pageBg: 'linear-gradient(165deg, #060b1a 0%, #0b1226 58%, #151f3f 100%)',
         cardBg: '#0d152d',
         accent: '#60a5fa',
+        accent2: '#38bdf8',
         accentSoft: 'rgba(96,165,250,0.2)',
         border: 'rgba(148,163,184,0.28)',
         pillBg: 'rgba(10,18,36,0.68)',
         subtitle: '#cbd5e1',
+        title: '#f8fafc',
+        logo: '#93c5fd',
     },
     clean: {
-        pageBg: 'linear-gradient(165deg, #0a1020 0%, #151f36 58%, #1f2d49 100%)',
-        cardBg: '#111b30',
-        accent: '#93c5fd',
-        accentSoft: 'rgba(148,197,253,0.18)',
-        border: 'rgba(226,232,240,0.34)',
-        pillBg: 'rgba(24,36,60,0.78)',
-        subtitle: '#dbeafe',
+        pageBg: 'linear-gradient(165deg, #e2e8f0 0%, #f8fafc 45%, #cbd5e1 100%)',
+        cardBg: '#f8fafc',
+        accent: '#4f46e5',
+        accent2: '#06b6d4',
+        accentSoft: 'rgba(79,70,229,0.15)',
+        border: 'rgba(15,23,42,0.14)',
+        pillBg: 'rgba(226,232,240,0.84)',
+        subtitle: '#334155',
+        title: '#0f172a',
+        logo: '#312e81',
     },
     punchy: {
         pageBg: 'linear-gradient(165deg, #081225 0%, #142445 58%, #1d2e59 100%)',
         cardBg: '#101b35',
         accent: '#22d3ee',
+        accent2: '#818cf8',
         accentSoft: 'rgba(34,211,238,0.25)',
         border: 'rgba(45,212,191,0.35)',
         pillBg: 'rgba(8,24,47,0.7)',
         subtitle: '#cffafe',
+        title: '#ecfeff',
+        logo: '#67e8f9',
+    },
+    spotify: {
+        pageBg: 'linear-gradient(150deg, #020617 0%, #0f172a 45%, #14532d 100%)',
+        cardBg: '#07140d',
+        accent: '#1db954',
+        accent2: '#34d399',
+        accentSoft: 'rgba(29,185,84,0.22)',
+        border: 'rgba(74,222,128,0.35)',
+        pillBg: 'rgba(5,18,11,0.74)',
+        subtitle: '#bbf7d0',
+        title: '#f0fdf4',
+        logo: '#4ade80',
     },
 };
 
@@ -85,6 +109,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     const [loading, setLoading] = useState(false);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
     const [localImages, setLocalImages] = useState<{ hero: string; avatar: string }>({ hero: '', avatar: '' });
 
@@ -206,6 +231,40 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         anchor.remove();
     };
 
+    const dataUrlToFile = async (dataUrl: string, filename: string) => {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        return new File([blob], filename, { type: 'image/png' });
+    };
+
+    const sharePreview = async () => {
+        if (!previewImage) return;
+        const fileSlug = `${entity.type}-${entity.id || 'card'}`.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+        const fileName = `listopic-story-${fileSlug || 'share'}.png`;
+
+        try {
+            const file = await dataUrlToFile(previewImage, fileName);
+            const canShareFiles = typeof navigator !== 'undefined'
+                && typeof navigator.canShare === 'function'
+                && navigator.canShare({ files: [file] });
+
+            if (typeof navigator !== 'undefined' && typeof navigator.share === 'function' && canShareFiles) {
+                await navigator.share({
+                    files: [file],
+                    title: titleText,
+                    text: subtitleText || 'Compartido desde Listopic',
+                });
+                setShareFeedback('Tarjeta compartida');
+                return;
+            }
+
+            await navigator.clipboard.writeText(entity.url || (typeof window !== 'undefined' ? window.location.href : ''));
+            setShareFeedback('Tu dispositivo no soporta compartir imagen. Copiamos el enlace.');
+        } catch {
+            setShareFeedback('No se pudo compartir la tarjeta ahora mismo.');
+        }
+    };
+
     const titleText = entity.title || 'Listopic';
     const subtitleText = entity.subtitle || '';
     const descriptionText = (review?.comment || entity.description || '').trim();
@@ -232,7 +291,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                         overflow: 'hidden',
                         background: theme.pageBg,
                         fontFamily: "'Manrope', sans-serif",
-                        color: '#ffffff',
+                        color: theme.title,
                     }}
                 >
                     <div
@@ -241,6 +300,14 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             inset: 0,
                             opacity: 0.95,
                             background: 'radial-gradient(circle at 16% 14%, rgba(255,255,255,0.08), transparent 36%)',
+                        }}
+                    />
+                    <div
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            opacity: 0.6,
+                            background: `radial-gradient(circle at 88% 84%, ${theme.accentSoft}, transparent 32%), radial-gradient(circle at 12% 90%, ${theme.accent2}22, transparent 35%)`,
                         }}
                     />
 
@@ -338,6 +405,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                         style={{
                                             margin: 0,
                                             fontSize: titleText.length > 34 ? '30px' : '34px',
+                                            color: theme.title,
                                             lineHeight: 1.08,
                                             fontWeight: 900,
                                             wordBreak: 'break-word',
@@ -407,8 +475,8 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                     )}
 
                                     <div style={{ textAlign: 'right', minWidth: 0 }}>
-                                        <div style={{ fontSize: '18px', fontWeight: 900, color: '#f8fafc', marginTop: '2px' }}>Listopic</div>
-                                        <div style={{ fontSize: '11px', color: '#93c5fd', marginTop: '1px' }}>listopic.app</div>
+                                        <div style={{ fontSize: '18px', fontWeight: 900, color: theme.logo, marginTop: '2px' }}>Listopic</div>
+                                        <div style={{ fontSize: '11px', color: theme.subtitle, marginTop: '1px' }}>listopic.app</div>
                                     </div>
                                 </div>
                             </div>
@@ -441,12 +509,26 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                 </button>
                                 <button
                                     type="button"
+                                    onClick={() => void sharePreview()}
+                                    className="inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold hover:bg-emerald-500/30 transition-colors"
+                                >
+                                    <Share2 className="w-4 h-4" /> Compartir
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => setIsPreviewOpen(false)}
                                     className="py-3 rounded-xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 transition-colors"
                                 >
                                     Cerrar
                                 </button>
                             </div>
+
+                            {shareFeedback && (
+                                <div className="text-xs rounded-lg px-3 py-2 bg-white/5 border border-white/10 text-gray-300 flex items-center gap-2">
+                                    {shareFeedback.includes('Copiamos') ? <Copy className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                                    <span>{shareFeedback}</span>
+                                </div>
+                            )}
 
                             <p className="text-xs text-gray-400 text-center">
                                 Descarga la imagen y súbela en Instagram Stories.
