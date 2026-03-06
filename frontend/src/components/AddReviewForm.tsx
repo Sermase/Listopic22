@@ -3,6 +3,7 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc,
 import { db, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Loader2, X, Image as ImageIcon, MapPin as MapPinIcon, Lock, Trash2 } from 'lucide-react';
 import { PlaceSearch } from './PlaceSearch';
 import { PlaceService, type PlaceResult, transformToLegacyPlace } from '../services/PlaceService';
@@ -20,8 +21,25 @@ interface AddReviewFormProps {
     suggestedListIds?: string[]; // IDs of lists where this place is already present
 }
 
+const REVIEW_CREATE_TOASTS = [
+    'Tu veredicto ya esta en la mesa.',
+    'Resena publicada: criterio fino y sin titubeos.',
+    'Nuevo punto en el mapa del buen gusto.',
+    'Anotado. El ranking acaba de ponerse interesante.',
+] as const;
+
+const REVIEW_EDIT_TOASTS = [
+    'Cambios guardados. Ajuste de precision aplicado.',
+    'Revision lista: tu ranking respira mas orden.',
+    'Actualizacion hecha. El criterio subio un nivel.',
+    'Editado con exito: caos bajo control.',
+] as const;
+
+const pickRandom = <T,>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)];
+
 export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, lockList = false, onClose, onSuccess, suggestedListIds }) => {
     const { user } = useAuth();
+    const { showToast } = useToast();
 
     // Core Data
     // Core Data
@@ -656,12 +674,22 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 await Promise.all(updates);
             }
 
+            showToast({
+                variant: 'success',
+                title: isNew ? 'Resena publicada' : 'Cambios guardados',
+                message: isNew ? pickRandom(REVIEW_CREATE_TOASTS) : pickRandom(REVIEW_EDIT_TOASTS),
+            });
             onSuccess();
             onClose();
 
         } catch (err: any) {
             console.error("Error adding review:", err);
             setError("Error al guardar: " + err.message);
+            showToast({
+                variant: 'error',
+                title: 'No se pudo guardar',
+                message: 'Hubo un problema al guardar la resena. Intentalo de nuevo en unos segundos.',
+            });
         } finally {
             setLoading(false);
         }

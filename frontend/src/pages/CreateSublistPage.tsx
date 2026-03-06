@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { collection, addDoc, serverTimestamp, getDocs, doc, getDoc, query, limit, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight } from 'lucide-react';
@@ -8,6 +9,7 @@ import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
 
 export const CreateSublistPage: React.FC = () => {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const navigate = useNavigate();
     const { parentId } = useParams<{ parentId: string }>();
 
@@ -212,10 +214,19 @@ export const CreateSublistPage: React.FC = () => {
             };
 
             const docRef = await addDoc(collection(db, 'lists'), newListData);
+            showToast({
+                variant: 'success',
+                title: 'Sublista creada',
+                message: 'Sublista publicada. Ya puedes empezar el debate serio.',
+            });
             navigate(`/list/${docRef.id}`);
         } catch (error) {
             console.error("Error creating sublist:", error);
-            alert("Error al crear la sublista");
+            showToast({
+                variant: 'error',
+                title: 'No se pudo crear la sublista',
+                message: 'No conseguimos guardar la sublista. Intentalo otra vez.',
+            });
         } finally {
             setLoading(false);
         }
