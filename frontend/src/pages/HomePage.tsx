@@ -843,20 +843,6 @@ export const HomePage: React.FC = () => {
                         ))}
                     </p>
 
-                    {appConfig.showRandomChoiceButton && (
-                        <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 ml-8">
-                            <button
-                                type="button"
-                                onClick={handleSurpriseChoice}
-                                className="group inline-flex items-center justify-center gap-2 px-3 py-2 min-w-[150px] rounded-full border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 backdrop-blur-sm transition-all whitespace-nowrap"
-                            >
-                                <span className="w-7 h-7 rounded-full border border-amber-300/60 bg-[#151b2e] text-amber-200 shadow-lg flex items-center justify-center shrink-0">
-                                    <Dice5 className="w-3.5 h-3.5" />
-                                </span>
-                                <span className="text-xs font-extrabold text-white tracking-wide whitespace-nowrap">Plan al azar</span>
-                            </button>
-                        </div>
-                    )}
                 </div>
 
                 {/* Navigation Pills */}
@@ -882,19 +868,6 @@ export const HomePage: React.FC = () => {
                         </button>
                     </div>
                 </div>
-
-                {appConfig.showRandomChoiceButton && (
-                    <button
-                        type="button"
-                        onClick={handleSurpriseChoice}
-                        className="lg:hidden group fixed bottom-5 right-4 z-[120] inline-flex items-center justify-center gap-2 px-3 py-2 min-w-[150px] rounded-full border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 backdrop-blur-sm text-white active:scale-[0.98] transition-transform whitespace-nowrap"
-                    >
-                        <span className="w-7 h-7 rounded-full border border-amber-300/60 bg-[#151b2e] text-amber-200 shadow-lg flex items-center justify-center shrink-0">
-                            <Dice5 className="w-3.5 h-3.5" />
-                        </span>
-                        <span className="text-xs font-extrabold tracking-wide whitespace-nowrap">Plan al azar</span>
-                    </button>
-                )}
 
                 {homeContentLoading && (
                     <div className="mt-4 flex justify-center">
@@ -1129,6 +1102,18 @@ export const HomePage: React.FC = () => {
 
                 </div>
             </div>
+
+            {appConfig.showRandomChoiceButton && (
+                <button
+                    type="button"
+                    onClick={handleSurpriseChoice}
+                    className="fixed bottom-5 right-4 sm:bottom-6 sm:right-5 z-40 h-11 w-11 rounded-full border-2 border-amber-300/90 bg-indigo-600 text-amber-100 shadow-lg shadow-amber-500/25 hover:bg-indigo-500 transition-colors flex items-center justify-center"
+                    title="Plan al azar"
+                    aria-label="Plan al azar"
+                >
+                    <Dice5 className="w-4 h-4" />
+                </button>
+            )}
         </div >
     );
 };
