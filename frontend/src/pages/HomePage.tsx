@@ -8,7 +8,7 @@ import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
-import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users, Loader2, Dice5, Shuffle } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users, Loader2, Dice5 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, query, getDocs, limit, doc, onSnapshot } from 'firebase/firestore';
@@ -371,114 +371,6 @@ export const HomePage: React.FC = () => {
         const dist = calculateDistance(lat, lng);
         if (dist === null) return true;
         return dist <= range;
-    };
-
-    const isStrictlyInSelectedRange = (lat?: number, lng?: number) => {
-        if (range === null) return true;
-        if (!location || !lat || !lng) return false;
-        const dist = calculateDistance(lat, lng);
-        return dist !== null && dist <= range;
-    };
-
-    const handleRandomPlan = () => {
-        type RandomPlanCandidate = {
-            route: string;
-            rating: number;
-            reviewsCount: number;
-        };
-
-        const groupedMap = new Map<string, {
-            placeId: string;
-            itemName: string;
-            listId?: string;
-            lat?: number;
-            lng?: number;
-            ratingSum: number;
-            count: number;
-        }>();
-
-        reviews.forEach((review: any) => {
-            if (!checkCategory(review)) return;
-
-            const placeId = typeof review.placeId === 'string' ? review.placeId : '';
-            const itemName = typeof review.itemName === 'string' ? review.itemName.trim() : '';
-            if (!placeId || !itemName) return;
-
-            const lat = (review as any).placeLat || (review as any).lat;
-            const lng = (review as any).placeLng || (review as any).lng;
-            if (!isStrictlyInSelectedRange(lat, lng)) return;
-
-            const score = typeof review.overallRating === 'number'
-                ? review.overallRating
-                : Number(review.overallRating) || 0;
-            if (score <= 0) return;
-
-            const key = `${placeId}::${itemName.toLowerCase()}`;
-            const existing = groupedMap.get(key) || {
-                placeId,
-                itemName,
-                listId: review.listId,
-                lat,
-                lng,
-                ratingSum: 0,
-                count: 0
-            };
-
-            existing.ratingSum += score;
-            existing.count += 1;
-            if (!existing.listId && review.listId) existing.listId = review.listId;
-            if ((!existing.lat || !existing.lng) && lat && lng) {
-                existing.lat = lat;
-                existing.lng = lng;
-            }
-
-            groupedMap.set(key, existing);
-        });
-
-        const groupedCandidates: RandomPlanCandidate[] = Array.from(groupedMap.values()).map((group) => {
-            const routeBase = `/group/${group.placeId}/${encodeURIComponent(group.itemName)}`;
-            const listQuery = group.listId ? `?listId=${encodeURIComponent(group.listId)}` : '';
-            return {
-                route: `${routeBase}${listQuery}`,
-                rating: group.count > 0 ? group.ratingSum / group.count : 0,
-                reviewsCount: group.count
-            };
-        }).filter((candidate) => candidate.reviewsCount > 0 && candidate.rating > 0);
-
-        const placeCandidates: RandomPlanCandidate[] = filteredPlaces
-            .filter((place: any) => {
-                const reviewsCount = Number(place.reviewsCount || 0);
-                if (reviewsCount <= 0) return false;
-                if (!isStrictlyInSelectedRange(place.lat, place.lng)) return false;
-                const score = Number(place.rating || 0);
-                return score > 0;
-            })
-            .map((place: any) => ({
-                route: `/place/${place.id}`,
-                rating: Number(place.rating || 0),
-                reviewsCount: Number(place.reviewsCount || 0)
-            }));
-
-        const candidates = [...groupedCandidates, ...placeCandidates];
-        if (!candidates.length) {
-            window.alert(range !== null
-                ? 'No hay planes con reseñas dentro del rango seleccionado.'
-                : 'No hay planes con reseñas disponibles.');
-            return;
-        }
-
-        const highRated = candidates.filter((candidate) => candidate.rating > 8);
-        const prioritized = (highRated.length ? highRated : candidates)
-            .sort((a, b) => {
-                if (b.rating !== a.rating) return b.rating - a.rating;
-                return b.reviewsCount - a.reviewsCount;
-            });
-
-        const topCandidates = prioritized.slice(0, Math.min(5, prioritized.length));
-        const randomIndex = Math.floor(Math.random() * topCandidates.length);
-        const selected = topCandidates[randomIndex];
-
-        navigate(selected.route);
     };
 
     // 3. Derived & Filtered Lists
@@ -1237,16 +1129,6 @@ export const HomePage: React.FC = () => {
 
                 </div>
             </div>
-
-            <button
-                type="button"
-                onClick={handleRandomPlan}
-                className="fixed bottom-6 right-4 sm:bottom-8 sm:right-6 z-40 h-14 w-14 rounded-full border border-indigo-400/40 bg-indigo-600 text-white shadow-xl shadow-indigo-900/50 hover:bg-indigo-500 transition-colors flex items-center justify-center"
-                title="Llevame al azar"
-                aria-label="Llevame al azar"
-            >
-                <Shuffle className="w-6 h-6" />
-            </button>
         </div >
     );
 };
