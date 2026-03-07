@@ -78,6 +78,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             label: 'Punchy',
             description: 'Mas viva, con color fuerte para stories.',
             swatch: 'linear-gradient(135deg, #7c3aed, #06b6d4)'
+        },
+        {
+            id: 'spotify',
+            label: 'Music',
+            description: 'Inspirada en shares de Spotify, foco en contraste y ritmo.',
+            swatch: 'linear-gradient(135deg, #052e16, #22c55e)'
         }
     ];
 
@@ -504,7 +510,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                         </div>
 
                         <div className="p-4 space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                 {cardVariantOptions.map((option) => {
                                     const isSelected = selectedCardVariant === option.id;
                                     return (
