@@ -10,6 +10,7 @@ import { ChatService, type Chat } from '../services/ChatService';
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import type { ShareEntityPayload } from '../types/share';
 import { db } from '../firebase';
+import { buildCriteriaStats } from '../utils/shareCriteria';
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -118,13 +119,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 ? `/group/${review.placeId}/${encodeURIComponent(itemLabel)}`
                 : inferLocalRoute(fallbackUrl);
             return {
-                type: 'group',
+                type: 'review',
                 id: review.id,
                 title: itemLabel,
                 subtitle: placeLabel,
                 route,
                 url: fallbackUrl,
                 imageUrl: review.photoUrl || review.placeMainImage,
+                badgeLabel: review.listName,
+                score: review.overallRating,
+                authorName: review.authorName,
+                authorPhoto: review.authorPhoto,
+                criteriaStats: buildCriteriaStats(review.scores, review.criteriaDefinition),
+                tags: review.userTags || review.tags,
             };
         }
 
@@ -138,6 +145,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 route,
                 url: fallbackUrl,
                 imageUrl: place.photoUrl,
+                score: place.avgScore,
             };
         }
 

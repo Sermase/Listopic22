@@ -881,6 +881,18 @@ export const GroupPage: React.FC = () => {
                     url: `${window.location.origin}/group/${placeId}/${encodeURIComponent(decodedName)}`,
                     imageUrl: stats?.mainPhoto || undefined,
                     score: stats?.avg,
+                    reviewCount: stats?.count,
+                    criteriaStats: stats
+                        ? [...stats.ponderable, ...stats.nonPonderable]
+                            .slice(0, 6)
+                            .map((criterion) => ({
+                                key: criterion.key,
+                                label: criterion.label,
+                                score: criterion.avg,
+                                count: criterion.count,
+                            }))
+                        : [],
+                    tags: stats?.tags,
                 }}
             />
 

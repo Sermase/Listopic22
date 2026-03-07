@@ -8,6 +8,13 @@ export type ShareEntityType =
     | 'review'
     | 'link';
 
+export interface ShareCriteriaStat {
+    key: string;
+    label: string;
+    score: number;
+    count?: number;
+}
+
 export interface ShareEntityPayload {
     type: ShareEntityType;
     id?: string;
@@ -19,6 +26,11 @@ export interface ShareEntityPayload {
     imageUrl?: string;
     badgeLabel?: string;
     score?: number;
+    reviewCount?: number;
+    authorName?: string;
+    authorPhoto?: string;
+    criteriaStats?: ShareCriteriaStat[];
+    tags?: string[];
 }
 
 const SHARE_ENTITY_LABELS: Record<ShareEntityType, string> = {
@@ -28,7 +40,7 @@ const SHARE_ENTITY_LABELS: Record<ShareEntityType, string> = {
     sublist: 'Sublista',
     profile: 'Perfil',
     app: 'App',
-    review: 'Reseña',
+    review: 'Rese\u00f1a',
     link: 'Enlace',
 };
 

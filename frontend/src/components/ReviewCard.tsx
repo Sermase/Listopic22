@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '../firebase';
 import { NonPonderableGauge } from './NonPonderableGauge';
+import { buildCriteriaStats } from '../utils/shareCriteria';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -584,6 +585,12 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     route: review.placeId && review.itemName ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}` : undefined,
                     url: `${window.location.origin}/group/${review.placeId}/${encodeURIComponent(review.itemName || '')}`,
                     imageUrl: review.photoUrl || review.placeMainImage,
+                    badgeLabel: review.listName,
+                    score: review.overallRating,
+                    authorName: review.authorName,
+                    authorPhoto: review.authorPhoto,
+                    criteriaStats: buildCriteriaStats(review.scores, review.criteriaDefinition),
+                    tags: review.userTags || review.tags,
                 }}
             />
 

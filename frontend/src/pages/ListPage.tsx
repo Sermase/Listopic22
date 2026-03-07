@@ -15,6 +15,7 @@ import { useLike } from '../hooks/useLike';
 import { useLocation } from '../hooks/useLocation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { buildCriteriaStats } from '../utils/shareCriteria';
 
 export interface FilterState {
     minRating: number;
@@ -942,6 +943,10 @@ export const ListPage: React.FC = () => {
                     route: `/list/${list.id}`,
                     url: listShareUrl,
                     imageUrl: listShareImage,
+                    score: list.averageRating || list.avgScore,
+                    reviewCount: list.reviewCount,
+                    authorName: list.authorName,
+                    criteriaStats: buildCriteriaStats(list.criteriaAverages, list.criteriaDefinition),
                 }}
             />
 
