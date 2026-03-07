@@ -218,6 +218,7 @@ const RadarChart: React.FC<{
     gridColor: string;
     referenceStroke: string;
     referenceFill: string;
+    maxSize?: number;
 }> = ({
     stats,
     referenceStats,
@@ -225,11 +226,12 @@ const RadarChart: React.FC<{
     gridColor,
     referenceStroke,
     referenceFill,
+    maxSize = 320,
 }) => {
     if (stats.length < 3) return null;
-    const size = 280;
-    const center = 140;
-    const radius = 106;
+    const size = 320;
+    const center = 160;
+    const radius = 124;
     const levels = [0.25, 0.5, 0.75, 1];
     const angleStep = (Math.PI * 2) / stats.length;
 
@@ -280,8 +282,8 @@ const RadarChart: React.FC<{
         .join(' ');
 
     return (
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: '248px', display: 'block' }}>
+        <div style={{ width: '100%', maxWidth: `${maxSize}px`, aspectRatio: '1 / 1', margin: '0 auto' }}>
+            <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: '100%', display: 'block' }}>
                 {gridPolygons.map((polygon, index) => (
                     <polygon
                         key={`grid-${levels[index]}`}
@@ -420,7 +422,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                     score: clampScore(Number(stat.score)),
                 }))
                 .filter((stat) => Number.isFinite(stat.score))
-                .slice(0, 6);
+                .slice(0, 8);
         }
 
         return buildCriteriaStats(review?.scores, review?.criteriaDefinition);
@@ -491,9 +493,10 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
         };
     }, [entity.referenceCriteriaStats, entity.referenceLabel, entity.type, review?.listId]);
 
-    const radarStats = criteriaStats.slice(0, 5);
+    const radarStats = criteriaStats.slice(0, 8);
     const summaryStats = criteriaStats.slice(0, 4);
     const hasRadar = radarStats.length >= 3;
+    const hasFooterInsights = hasRadar || summaryStats.length > 0;
     const isReviewShare = entity.type === 'review' || Boolean(review);
     const heroAspectRatio = heroSize.width > 0 && heroSize.height > 0 ? heroSize.width / heroSize.height : 0;
     const isLandscapeCard = heroAspectRatio >= LANDSCAPE_SWITCH_RATIO;
@@ -505,13 +508,12 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
     const scoreLabel = getScoreLabel(entity.type);
     const tagList = normalizeTags(entity.tags || review?.userTags || review?.tags);
     const brandName = config.appName || 'Listopic';
+    const radarPanelSize = isLandscapeCard ? 286 : 238;
     const titleFontSize = isLandscapeCard
         ? (titleText.length > 54 ? '58px' : titleText.length > 38 ? '70px' : '84px')
         : (titleText.length > 54 ? '52px' : titleText.length > 38 ? '62px' : '74px');
     const authorNameSize = titleText.length > 44 ? '32px' : '38px';
-    const heroTextMaxWidth = isLandscapeCard
-        ? (hasRadar ? '56%' : '70%')
-        : (hasRadar ? '54%' : '76%');
+    const heroTextMaxWidth = isLandscapeCard ? '72%' : '80%';
     const alignedReferenceStats = radarStats
         .map((stat) => {
             const match = referenceCriteriaStats.find((reference) => reference.key === stat.key);
@@ -894,34 +896,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                 )}
                             </div>
 
-                            {hasRadar && (
-                                <div
-                                    style={{
-                                        position: 'absolute',
-                                        right: '30px',
-                                        bottom: '30px',
-                                        width: isLandscapeCard ? '438px' : '388px',
-                                        padding: '8px 12px',
-                                        borderRadius: '28px',
-                                        background: theme.panelBg,
-                                        border: `1px solid ${theme.border}`,
-                                        boxShadow: '0 24px 48px rgba(2,6,23,0.24)',
-                                    }}
-                                    aria-label={alignedReferenceStats.length > 0 ? `${referenceLabel || 'Media de la lista'} comparada con la reseña` : 'Resumen de criterios'}
-                                >
-                                    <div>
-                                        <RadarChart
-                                            stats={radarStats}
-                                            referenceStats={alignedReferenceStats}
-                                            accent={theme.accent}
-                                            gridColor={theme.border}
-                                            referenceStroke={theme.referenceStroke}
-                                            referenceFill={theme.referenceFill}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
                             <div
                                 style={{
                                     position: 'absolute',
@@ -1039,12 +1013,12 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                             style={{
                                 background: theme.footerBg,
                                 borderTop: `1px solid ${theme.border}`,
-                                padding: '28px 32px 38px',
+                                padding: isLandscapeCard ? '22px 28px 26px' : '22px 26px 28px',
                                 display: 'grid',
-                                gridTemplateColumns: summaryStats.length > 0
-                                    ? (isLandscapeCard ? 'minmax(0, 1.48fr) minmax(360px, 0.62fr)' : 'minmax(0, 1.28fr) minmax(300px, 0.72fr)')
+                                gridTemplateColumns: hasFooterInsights
+                                    ? (isLandscapeCard ? 'minmax(0, 1.62fr) minmax(300px, 0.46fr)' : 'minmax(0, 1.38fr) minmax(252px, 0.58fr)')
                                     : '1fr',
-                                gap: '18px',
+                                gap: isLandscapeCard ? '16px' : '14px',
                             }}
                         >
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
@@ -1147,7 +1121,32 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                 )}
                             </div>
 
-                            {summaryStats.length > 0 && (
+                            {hasRadar ? (
+                                <div
+                                    style={{
+                                        padding: isLandscapeCard ? '10px 10px' : '10px',
+                                        borderRadius: '24px',
+                                        background: theme.panelBg,
+                                        border: `1px solid ${theme.border}`,
+                                        boxShadow: '0 14px 28px rgba(2,6,23,0.1)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        alignSelf: 'start',
+                                    }}
+                                    aria-label={alignedReferenceStats.length > 0 ? `${referenceLabel || 'Media de la lista'} comparada con la ${'rese\u00f1a'}` : 'Resumen de criterios'}
+                                >
+                                    <RadarChart
+                                        stats={radarStats}
+                                        referenceStats={alignedReferenceStats}
+                                        accent={theme.accent}
+                                        gridColor={theme.border}
+                                        referenceStroke={theme.referenceStroke}
+                                        referenceFill={theme.referenceFill}
+                                        maxSize={radarPanelSize}
+                                    />
+                                </div>
+                            ) : summaryStats.length > 0 ? (
                                 <div
                                     style={{
                                         display: 'grid',
@@ -1235,7 +1234,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                         </div>
                                     ))}
                                 </div>
-                            )}
+                            ) : null}
 
                             <div
                                 style={{
