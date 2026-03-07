@@ -20,31 +20,9 @@ type VariantTheme = {
     textPrimary: string;
     textSecondary: string;
     accent: string;
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-    accent2: string;
-    accentSoft: string;
-    border: string;
-    pillBg: string;
-    subtitle: string;
-    title: string;
-    logo: string;
-=======
     badgeBg: string;
     badgeText: string;
     footerBg: string;
->>>>>>> theirs
-=======
-    badgeBg: string;
-    badgeText: string;
-    footerBg: string;
->>>>>>> theirs
-=======
-    badgeBg: string;
-    badgeText: string;
-    footerBg: string;
->>>>>>> theirs
 };
 
 const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
@@ -53,48 +31,11 @@ const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
         textPrimary: '#f8fafc',
         textSecondary: '#bfdbfe',
         accent: '#60a5fa',
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-        accent2: '#38bdf8',
-        accentSoft: 'rgba(96,165,250,0.2)',
-        border: 'rgba(148,163,184,0.28)',
-        pillBg: 'rgba(10,18,36,0.68)',
-        subtitle: '#cbd5e1',
-        title: '#f8fafc',
-        logo: '#93c5fd',
-    },
-    clean: {
-        pageBg: 'linear-gradient(165deg, #e2e8f0 0%, #f8fafc 45%, #cbd5e1 100%)',
-        cardBg: '#f8fafc',
-        accent: '#4f46e5',
-        accent2: '#06b6d4',
-        accentSoft: 'rgba(79,70,229,0.15)',
-        border: 'rgba(15,23,42,0.14)',
-        pillBg: 'rgba(226,232,240,0.84)',
-        subtitle: '#334155',
-        title: '#0f172a',
-        logo: '#312e81',
-=======
         badgeBg: 'rgba(96,165,250,0.18)',
         badgeText: '#bfdbfe',
         footerBg: 'rgba(7, 18, 37, 0.94)',
     },
     clean: {
-=======
-        badgeBg: 'rgba(96,165,250,0.18)',
-        badgeText: '#bfdbfe',
-        footerBg: 'rgba(7, 18, 37, 0.94)',
-    },
-    clean: {
->>>>>>> theirs
-=======
-        badgeBg: 'rgba(96,165,250,0.18)',
-        badgeText: '#bfdbfe',
-        footerBg: 'rgba(7, 18, 37, 0.94)',
-    },
-    clean: {
->>>>>>> theirs
         cardBg: '#ffffff',
         textPrimary: '#0f172a',
         textSecondary: '#334155',
@@ -102,46 +43,12 @@ const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
         badgeBg: 'rgba(79,70,229,0.12)',
         badgeText: '#312e81',
         footerBg: 'rgba(255, 255, 255, 0.95)',
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
     },
     punchy: {
         cardBg: '#081328',
         textPrimary: '#ecfeff',
         textSecondary: '#a5f3fc',
         accent: '#22d3ee',
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-        accent2: '#818cf8',
-        accentSoft: 'rgba(34,211,238,0.25)',
-        border: 'rgba(45,212,191,0.35)',
-        pillBg: 'rgba(8,24,47,0.7)',
-        subtitle: '#cffafe',
-        title: '#ecfeff',
-        logo: '#67e8f9',
-    },
-    spotify: {
-        pageBg: 'linear-gradient(150deg, #020617 0%, #0f172a 45%, #14532d 100%)',
-        cardBg: '#07140d',
-        accent: '#1db954',
-        accent2: '#34d399',
-        accentSoft: 'rgba(29,185,84,0.22)',
-        border: 'rgba(74,222,128,0.35)',
-        pillBg: 'rgba(5,18,11,0.74)',
-        subtitle: '#bbf7d0',
-        title: '#f0fdf4',
-        logo: '#4ade80',
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
         badgeBg: 'rgba(34,211,238,0.16)',
         badgeText: '#67e8f9',
         footerBg: 'rgba(8, 19, 40, 0.95)',
@@ -154,13 +61,6 @@ const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
         badgeBg: 'rgba(29,185,84,0.2)',
         badgeText: '#86efac',
         footerBg: 'rgba(7, 24, 14, 0.95)',
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
     },
 };
 
@@ -215,16 +115,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [shareFeedback, setShareFeedback] = useState<string | null>(null);
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
     const [localImages, setLocalImages] = useState<{ hero: string; avatar: string }>({ hero: '', avatar: '' });
 
     const entity = useMemo<ShareEntityPayload>(() => {
@@ -239,7 +129,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             return {
                 type: 'review',
                 id: review.id,
-                title: review.itemName || 'Reseña',
+                title: review.itemName || 'Rese\u00f1a',
                 subtitle: review.placeName || 'Lugar',
                 description: review.comment || '',
                 route: review.placeId && review.itemName ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}` : undefined,
@@ -256,7 +146,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 id: place.placeId,
                 title: place.name || 'Lugar',
                 subtitle: place.address || '',
-                description: place.reviewCount ? `${place.reviewCount} reseñas publicadas` : '',
+                description: place.reviewCount ? `${place.reviewCount} rese\u00f1as publicadas` : '',
                 route: place.placeId ? `/place/${place.placeId}` : undefined,
                 url: placeUrl,
                 imageUrl: place.photoUrl,
@@ -265,7 +155,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         }
 
         return DEFAULT_ENTITY;
-    }, [shareEntity, review, place]);
+    }, [place, review, shareEntity]);
 
     const theme = VARIANT_THEMES[variant] || VARIANT_THEMES.cinematic;
     const score = review?.overallRating ?? place?.avgScore ?? entity.score;
@@ -358,19 +248,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     const sharePreview = async () => {
         if (!previewImage) return;
         const fileSlug = `${entity.type}-${entity.id || 'card'}`.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-        const fileName = `listopic-story-${fileSlug || 'share'}.png`;
-=======
         const fileName = `listopic-card-${fileSlug || 'share'}.png`;
->>>>>>> theirs
-=======
-        const fileName = `listopic-card-${fileSlug || 'share'}.png`;
->>>>>>> theirs
-=======
-        const fileName = `listopic-card-${fileSlug || 'share'}.png`;
->>>>>>> theirs
 
         try {
             const file = await dataUrlToFile(previewImage, fileName);
@@ -388,25 +266,18 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 return;
             }
 
-            await navigator.clipboard.writeText(entity.url || (typeof window !== 'undefined' ? window.location.href : ''));
-            setShareFeedback('Tu dispositivo no soporta compartir imagen. Copiamos el enlace.');
+            const fallbackUrl = entity.url || (typeof window !== 'undefined' ? window.location.href : '');
+            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(fallbackUrl);
+                setShareFeedback('Tu dispositivo no soporta compartir imagen. Copiamos el enlace.');
+                return;
+            }
+
+            setShareFeedback('No se pudo compartir la tarjeta ahora mismo.');
         } catch {
             setShareFeedback('No se pudo compartir la tarjeta ahora mismo.');
         }
     };
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-
-    const titleText = entity.title || 'Listopic';
-    const subtitleText = entity.subtitle || '';
-    const descriptionText = (review?.comment || entity.description || '').trim();
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
 
     return (
         <>
@@ -428,64 +299,16 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                         position: 'relative',
                         background: 'transparent',
                         fontFamily: "'Manrope', sans-serif",
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-                        color: theme.title,
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
+                        color: theme.textPrimary,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         padding: '56px',
                         boxSizing: 'border-box',
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
                     }}
                 >
                     <div
                         style={{
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-                            position: 'absolute',
-                            inset: 0,
-                            opacity: 0.95,
-                            background: 'radial-gradient(circle at 16% 14%, rgba(255,255,255,0.08), transparent 36%)',
-                        }}
-                    />
-                    <div
-                        style={{
-                            position: 'absolute',
-                            inset: 0,
-                            opacity: 0.6,
-                            background: `radial-gradient(circle at 88% 84%, ${theme.accentSoft}, transparent 32%), radial-gradient(circle at 12% 90%, ${theme.accent2}22, transparent 35%)`,
-                        }}
-                    />
-
-                    {/* Safe zones based on Meta template guidance */}
-                    <div
-                        style={{
-                            position: 'absolute',
-                            inset: 0,
-                            paddingTop: '52px',
-                            paddingBottom: '120px',
-                            paddingLeft: '28px',
-                            paddingRight: '28px',
-                            boxSizing: 'border-box',
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
                             width: '100%',
                             height: '100%',
                             borderRadius: '58px',
@@ -493,13 +316,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             background: theme.cardBg,
                             border: `2px solid ${theme.accent}33`,
                             boxShadow: '0 26px 80px rgba(0,0,0,0.28)',
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
                             display: 'flex',
                             flexDirection: 'column',
                         }}
@@ -529,7 +345,17 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                 }}
                             />
 
-                            <div style={{ position: 'absolute', top: '30px', left: '30px', right: '30px', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    top: '30px',
+                                    left: '30px',
+                                    right: '30px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    gap: '12px',
+                                }}
+                            >
                                 <div
                                     style={{
                                         display: 'inline-flex',
@@ -635,18 +461,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
                                     <div
                                         style={{
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-                                            margin: 0,
-                                            fontSize: titleText.length > 34 ? '30px' : '34px',
-                                            color: theme.title,
-                                            lineHeight: 1.08,
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
                                             width: '56px',
                                             height: '56px',
                                             borderRadius: '9999px',
@@ -657,56 +471,45 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             color: theme.badgeText,
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
                                             fontWeight: 900,
                                             fontSize: '22px',
                                             flexShrink: 0,
                                         }}
                                     >
                                         {avatarImage ? (
-                                            <img src={avatarImage} alt={authorLabel} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <img
+                                                src={avatarImage}
+                                                alt={authorLabel}
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                            />
                                         ) : (
                                             (authorLabel || 'L').slice(0, 1).toUpperCase()
                                         )}
                                     </div>
 
                                     <div style={{ minWidth: 0 }}>
-                                        <div style={{ fontSize: '22px', fontWeight: 700, color: theme.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '540px' }}>
+                                        <div
+                                            style={{
+                                                fontSize: '22px',
+                                                fontWeight: 700,
+                                                color: theme.textPrimary,
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                maxWidth: '540px',
+                                            }}
+                                        >
                                             {authorLabel}
-<<<<<<< ours
                                         </div>
                                         <div style={{ fontSize: '17px', fontWeight: 600, color: theme.textSecondary }}>
-                                            {createdAtLabel ? `Reseña • ${createdAtLabel}` : 'Compartido desde Listopic'}
+                                            {createdAtLabel ? `Rese\u00f1a \u2022 ${createdAtLabel}` : 'Compartido desde Listopic'}
                                         </div>
-<<<<<<< ours
-<<<<<<< ours
-                                    ) : (
-                                        <div style={{ width: '84px', height: '84px', flexShrink: 0 }} />
-                                    )}
-
-                                    <div style={{ textAlign: 'right', minWidth: 0 }}>
-                                        <div style={{ fontSize: '18px', fontWeight: 900, color: theme.logo, marginTop: '2px' }}>Listopic</div>
-                                        <div style={{ fontSize: '11px', color: theme.subtitle, marginTop: '1px' }}>listopic.app</div>
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
-                                        </div>
-                                        <div style={{ fontSize: '17px', fontWeight: 600, color: theme.textSecondary }}>
-                                            {createdAtLabel ? `Reseña • ${createdAtLabel}` : 'Compartido desde Listopic'}
-                                        </div>
->>>>>>> theirs
                                     </div>
                                 </div>
 
-                                <div style={{ fontSize: '19px', color: theme.accent, fontWeight: 900, letterSpacing: '0.02em' }}>listopic.app</div>
+                                <div style={{ fontSize: '19px', color: theme.accent, fontWeight: 900, letterSpacing: '0.02em' }}>
+                                    listopic.app
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -714,17 +517,23 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             </div>
 
             {isPreviewOpen && previewImage && (
-                <div className="fixed inset-0 z-[115] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in" onClick={() => setIsPreviewOpen(false)}>
-                    <div className="bg-[#151b2e] rounded-2xl w-full max-w-md border border-white/10 overflow-hidden shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                <div
+                    className="fixed inset-0 z-[115] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
+                    onClick={() => setIsPreviewOpen(false)}
+                >
+                    <div
+                        className="bg-[#151b2e] rounded-2xl w-full max-w-md border border-white/10 overflow-hidden shadow-2xl"
+                        onClick={(event) => event.stopPropagation()}
+                    >
                         <div className="p-4 border-b border-white/10 flex justify-between items-center">
-                            <h3 className="text-white font-bold">Previsualización</h3>
+                            <h3 className="text-white font-bold">Previsualizaci\u00f3n</h3>
                             <button onClick={() => setIsPreviewOpen(false)} className="text-gray-400 hover:text-white">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
                         <div className="p-5 space-y-4">
                             <div className="rounded-xl overflow-hidden border border-white/10 bg-black aspect-[3/4] shadow-lg">
-                                <img src={previewImage} alt="Story preview" className="w-full h-full object-contain" />
+                                <img src={previewImage} alt="Card preview" className="w-full h-full object-contain" />
                             </div>
 
                             <div className="grid grid-cols-3 gap-2">
@@ -741,19 +550,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                     className="inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold hover:bg-emerald-500/30 transition-colors"
                                 >
                                     <Share2 className="w-4 h-4" /> Compartir
-<<<<<<< ours
-<<<<<<< ours
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => void sharePreview()}
-                                    className="inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold hover:bg-emerald-500/30 transition-colors"
-                                >
-                                    <Share2 className="w-4 h-4" /> Compartir
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
                                 </button>
                                 <button
                                     type="button"
