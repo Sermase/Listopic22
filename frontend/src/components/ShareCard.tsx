@@ -16,9 +16,13 @@ interface ShareCardProps {
 }
 
 type VariantTheme = {
-    pageBg: string;
     cardBg: string;
+    textPrimary: string;
+    textSecondary: string;
     accent: string;
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
     accent2: string;
     accentSoft: string;
     border: string;
@@ -26,13 +30,32 @@ type VariantTheme = {
     subtitle: string;
     title: string;
     logo: string;
+=======
+    badgeBg: string;
+    badgeText: string;
+    footerBg: string;
+>>>>>>> theirs
+=======
+    badgeBg: string;
+    badgeText: string;
+    footerBg: string;
+>>>>>>> theirs
+=======
+    badgeBg: string;
+    badgeText: string;
+    footerBg: string;
+>>>>>>> theirs
 };
 
 const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
     cinematic: {
-        pageBg: 'linear-gradient(165deg, #060b1a 0%, #0b1226 58%, #151f3f 100%)',
-        cardBg: '#0d152d',
+        cardBg: '#071225',
+        textPrimary: '#f8fafc',
+        textSecondary: '#bfdbfe',
         accent: '#60a5fa',
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
         accent2: '#38bdf8',
         accentSoft: 'rgba(96,165,250,0.2)',
         border: 'rgba(148,163,184,0.28)',
@@ -52,11 +75,49 @@ const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
         subtitle: '#334155',
         title: '#0f172a',
         logo: '#312e81',
+=======
+        badgeBg: 'rgba(96,165,250,0.18)',
+        badgeText: '#bfdbfe',
+        footerBg: 'rgba(7, 18, 37, 0.94)',
+    },
+    clean: {
+=======
+        badgeBg: 'rgba(96,165,250,0.18)',
+        badgeText: '#bfdbfe',
+        footerBg: 'rgba(7, 18, 37, 0.94)',
+    },
+    clean: {
+>>>>>>> theirs
+=======
+        badgeBg: 'rgba(96,165,250,0.18)',
+        badgeText: '#bfdbfe',
+        footerBg: 'rgba(7, 18, 37, 0.94)',
+    },
+    clean: {
+>>>>>>> theirs
+        cardBg: '#ffffff',
+        textPrimary: '#0f172a',
+        textSecondary: '#334155',
+        accent: '#4f46e5',
+        badgeBg: 'rgba(79,70,229,0.12)',
+        badgeText: '#312e81',
+        footerBg: 'rgba(255, 255, 255, 0.95)',
+<<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
     },
     punchy: {
-        pageBg: 'linear-gradient(165deg, #081225 0%, #142445 58%, #1d2e59 100%)',
-        cardBg: '#101b35',
+        cardBg: '#081328',
+        textPrimary: '#ecfeff',
+        textSecondary: '#a5f3fc',
         accent: '#22d3ee',
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
         accent2: '#818cf8',
         accentSoft: 'rgba(34,211,238,0.25)',
         border: 'rgba(45,212,191,0.35)',
@@ -76,6 +137,30 @@ const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
         subtitle: '#bbf7d0',
         title: '#f0fdf4',
         logo: '#4ade80',
+=======
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+        badgeBg: 'rgba(34,211,238,0.16)',
+        badgeText: '#67e8f9',
+        footerBg: 'rgba(8, 19, 40, 0.95)',
+    },
+    spotify: {
+        cardBg: '#07180e',
+        textPrimary: '#f0fdf4',
+        textSecondary: '#bbf7d0',
+        accent: '#1db954',
+        badgeBg: 'rgba(29,185,84,0.2)',
+        badgeText: '#86efac',
+        footerBg: 'rgba(7, 24, 14, 0.95)',
+<<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
     },
 };
 
@@ -94,8 +179,28 @@ const DEFAULT_ENTITY: ShareEntityPayload = {
     url: typeof window !== 'undefined' ? window.location.origin : '',
 };
 
+const EXPORT_WIDTH = 1080;
+const EXPORT_HEIGHT = 1600;
+
 const isSupportedEntityType = (value: unknown): value is ShareEntityType => {
     return ['place', 'group', 'list', 'sublist', 'profile', 'app', 'review', 'link'].includes(String(value));
+};
+
+const toReadableDate = (review?: ReviewEntity): string | null => {
+    if (!review?.createdAt) return null;
+    try {
+        const jsDate = typeof review.createdAt?.toDate === 'function'
+            ? review.createdAt.toDate()
+            : null;
+        if (!jsDate) return null;
+        return new Intl.DateTimeFormat('es-ES', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+        }).format(jsDate);
+    } catch {
+        return null;
+    }
 };
 
 export const ShareCard: React.FC<ShareCardProps> = ({
@@ -110,7 +215,16 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
     const [localImages, setLocalImages] = useState<{ hero: string; avatar: string }>({ hero: '', avatar: '' });
 
     const entity = useMemo<ShareEntityPayload>(() => {
@@ -131,6 +245,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 route: review.placeId && review.itemName ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}` : undefined,
                 url: reviewUrl,
                 imageUrl: review.photoUrl || review.placeMainImage,
+                score: review.overallRating,
             };
         }
 
@@ -145,6 +260,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 route: place.placeId ? `/place/${place.placeId}` : undefined,
                 url: placeUrl,
                 imageUrl: place.photoUrl,
+                score: place.avgScore,
             };
         }
 
@@ -157,6 +273,12 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     const heroImage = localImages.hero || review?.photoUrl || place?.photoUrl || entity.imageUrl || '';
     const avatarImage = localImages.avatar || review?.authorPhoto || (entity.type === 'profile' ? entity.imageUrl || '' : '');
     const hasScore = Number.isFinite(score as number);
+    const createdAtLabel = toReadableDate(review);
+
+    const titleText = entity.title || 'Listopic';
+    const subtitleText = entity.subtitle || '';
+    const descriptionText = (review?.comment || entity.description || '').trim();
+    const authorLabel = review?.authorName || (entity.type === 'profile' ? entity.title : 'Comunidad Listopic');
 
     const loadAsBlobUrl = async (url?: string): Promise<string> => {
         if (!url) return '';
@@ -180,6 +302,8 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         if (!captureRef.current || loading) return;
 
         setLoading(true);
+        setShareFeedback(null);
+
         try {
             clearBlobUrl(localImages.hero);
             clearBlobUrl(localImages.avatar);
@@ -190,24 +314,17 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             ]);
 
             setLocalImages({ hero: heroBlob, avatar: avatarBlob });
-            await new Promise((resolve) => setTimeout(resolve, 120));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             if (!captureRef.current) return;
 
             const canvas = await html2canvas(captureRef.current, {
                 useCORS: true,
                 scale: 2,
-                backgroundColor: '#060b1a',
+                backgroundColor: null,
                 logging: false,
-                width: 540,
-                height: 960,
-                onclone: (clonedDocument) => {
-                    const card = clonedDocument.querySelector('[data-story-canvas]');
-                    if (card instanceof HTMLElement) {
-                        card.style.width = '540px';
-                        card.style.height = '960px';
-                    }
-                },
+                width: EXPORT_WIDTH,
+                height: EXPORT_HEIGHT,
             });
 
             const dataUrl = canvas.toDataURL('image/png', 1.0);
@@ -215,6 +332,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             setIsPreviewOpen(true);
         } catch (error) {
             console.error('Share card generation error', error);
+            setShareFeedback('No se pudo generar la tarjeta.');
         } finally {
             setLoading(false);
         }
@@ -225,7 +343,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         const fileSlug = `${entity.type}-${entity.id || 'card'}`.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
         const anchor = document.createElement('a');
         anchor.href = previewImage;
-        anchor.download = `listopic-story-${fileSlug || 'share'}.png`;
+        anchor.download = `listopic-card-${fileSlug || 'share'}.png`;
         document.body.appendChild(anchor);
         anchor.click();
         anchor.remove();
@@ -240,7 +358,19 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     const sharePreview = async () => {
         if (!previewImage) return;
         const fileSlug = `${entity.type}-${entity.id || 'card'}`.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
         const fileName = `listopic-story-${fileSlug || 'share'}.png`;
+=======
+        const fileName = `listopic-card-${fileSlug || 'share'}.png`;
+>>>>>>> theirs
+=======
+        const fileName = `listopic-card-${fileSlug || 'share'}.png`;
+>>>>>>> theirs
+=======
+        const fileName = `listopic-card-${fileSlug || 'share'}.png`;
+>>>>>>> theirs
 
         try {
             const file = await dataUrlToFile(previewImage, fileName);
@@ -264,10 +394,19 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             setShareFeedback('No se pudo compartir la tarjeta ahora mismo.');
         }
     };
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 
     const titleText = entity.title || 'Listopic';
     const subtitleText = entity.subtitle || '';
     const descriptionText = (review?.comment || entity.description || '').trim();
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 
     return (
         <>
@@ -275,27 +414,48 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 style={{
                     position: 'fixed',
                     left: '-9999px',
-                    top: '0',
-                    width: '540px',
-                    height: '960px',
+                    top: 0,
+                    width: `${EXPORT_WIDTH}px`,
+                    height: `${EXPORT_HEIGHT}px`,
                     zIndex: -1,
                 }}
             >
                 <div
                     ref={captureRef}
-                    data-story-canvas
                     style={{
-                        width: '540px',
-                        height: '960px',
+                        width: `${EXPORT_WIDTH}px`,
+                        height: `${EXPORT_HEIGHT}px`,
                         position: 'relative',
-                        overflow: 'hidden',
-                        background: theme.pageBg,
+                        background: 'transparent',
                         fontFamily: "'Manrope', sans-serif",
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
                         color: theme.title,
+=======
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '56px',
+                        boxSizing: 'border-box',
+<<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
                     }}
                 >
                     <div
                         style={{
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
                             position: 'absolute',
                             inset: 0,
                             opacity: 0.95,
@@ -321,155 +481,211 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             paddingLeft: '28px',
                             paddingRight: '28px',
                             boxSizing: 'border-box',
+=======
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+                            width: '100%',
+                            height: '100%',
+                            borderRadius: '58px',
+                            overflow: 'hidden',
+                            background: theme.cardBg,
+                            border: `2px solid ${theme.accent}33`,
+                            boxShadow: '0 26px 80px rgba(0,0,0,0.28)',
+<<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
+                            flexDirection: 'column',
                         }}
                     >
-                        <div
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                borderRadius: '34px',
-                                border: `1px solid ${theme.border}`,
-                                background: theme.cardBg,
-                                overflow: 'hidden',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                boxShadow: '0 28px 60px rgba(0,0,0,0.46)',
-                            }}
-                        >
-                            <div style={{ position: 'relative', flex: '0 0 62%' }}>
-                                {heroImage ? (
-                                    <img
-                                        src={heroImage}
-                                        alt={titleText}
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    />
-                                ) : (
-                                    <div
-                                        style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            background: `linear-gradient(150deg, ${theme.accentSoft}, rgba(15,23,42,0.75))`,
-                                        }}
-                                    />
-                                )}
-
+                        <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 0 }}>
+                            {heroImage ? (
+                                <img
+                                    src={heroImage}
+                                    alt={titleText}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                            ) : (
                                 <div
                                     style={{
-                                        position: 'absolute',
-                                        inset: 0,
-                                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.42) 100%)',
+                                        width: '100%',
+                                        height: '100%',
+                                        background: `linear-gradient(145deg, ${theme.accent}33, ${theme.cardBg})`,
                                     }}
                                 />
-
-                                {entity.type === 'profile' && (
-                                    <div
-                                        style={{
-                                            position: 'absolute',
-                                            right: '16px',
-                                            bottom: '-34px',
-                                            width: '78px',
-                                            height: '78px',
-                                            borderRadius: '9999px',
-                                            border: `3px solid ${theme.cardBg}`,
-                                            background: '#1e293b',
-                                            overflow: 'hidden',
-                                            boxShadow: '0 12px 22px rgba(0,0,0,0.35)',
-                                        }}
-                                    >
-                                        {avatarImage ? (
-                                            <img src={avatarImage} alt={titleText} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '28px' }}>
-                                                {(titleText || 'U').slice(0, 1).toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            )}
 
                             <div
                                 style={{
-                                    flex: '1 1 auto',
-                                    padding: '22px 20px 18px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '10px',
-                                    justifyContent: 'space-between',
+                                    position: 'absolute',
+                                    inset: 0,
+                                    background: 'linear-gradient(to top, rgba(0,0,0,0.62), rgba(0,0,0,0.08) 44%, rgba(0,0,0,0.02) 100%)',
                                 }}
-                            >
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <h1
+                            />
+
+                            <div style={{ position: 'absolute', top: '30px', left: '30px', right: '30px', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                                <div
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '10px 16px',
+                                        borderRadius: '999px',
+                                        background: theme.badgeBg,
+                                        color: theme.badgeText,
+                                        fontWeight: 800,
+                                        fontSize: '20px',
+                                        letterSpacing: '0.02em',
+                                    }}
+                                >
+                                    Listopic
+                                </div>
+
+                                {hasScore && (
+                                    <div
                                         style={{
+                                            width: '106px',
+                                            height: '106px',
+                                            borderRadius: '9999px',
+                                            border: `4px solid ${scoreColor}`,
+                                            background: 'rgba(2,6,23,0.64)',
+                                            color: '#fff',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            boxShadow: `0 0 24px ${scoreColor}66`,
+                                        }}
+                                    >
+                                        <span style={{ fontWeight: 900, fontSize: '40px', lineHeight: 1 }}>{(score as number).toFixed(1)}</span>
+                                        <span style={{ fontWeight: 800, fontSize: '12px', letterSpacing: '0.08em', opacity: 0.9 }}>SCORE</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div
+                            style={{
+                                flex: '0 0 auto',
+                                padding: '30px 32px 34px',
+                                background: theme.footerBg,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '18px',
+                            }}
+                        >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <h1
+                                    style={{
+                                        margin: 0,
+                                        color: theme.textPrimary,
+                                        fontSize: titleText.length > 42 ? '48px' : '56px',
+                                        lineHeight: 1.03,
+                                        letterSpacing: '-0.015em',
+                                        fontWeight: 900,
+                                        wordBreak: 'break-word',
+                                    }}
+                                >
+                                    {titleText}
+                                </h1>
+
+                                {subtitleText && (
+                                    <p
+                                        style={{
+                                            margin: 0,
+                                            color: theme.textSecondary,
+                                            fontWeight: 700,
+                                            fontSize: '29px',
+                                            lineHeight: 1.2,
+                                            wordBreak: 'break-word',
+                                        }}
+                                    >
+                                        {subtitleText}
+                                    </p>
+                                )}
+
+                                {descriptionText && (
+                                    <p
+                                        style={{
+                                            margin: 0,
+                                            color: theme.textSecondary,
+                                            opacity: 0.95,
+                                            fontWeight: 500,
+                                            fontSize: '23px',
+                                            lineHeight: 1.35,
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                        }}
+                                    >
+                                        {descriptionText}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                                    <div
+                                        style={{
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
                                             margin: 0,
                                             fontSize: titleText.length > 34 ? '30px' : '34px',
                                             color: theme.title,
                                             lineHeight: 1.08,
+=======
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+                                            width: '56px',
+                                            height: '56px',
+                                            borderRadius: '9999px',
+                                            overflow: 'hidden',
+                                            background: `${theme.accent}2b`,
+                                            border: `2px solid ${theme.accent}55`,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: theme.badgeText,
+<<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
                                             fontWeight: 900,
-                                            wordBreak: 'break-word',
-                                            letterSpacing: '-0.015em',
+                                            fontSize: '22px',
+                                            flexShrink: 0,
                                         }}
                                     >
-                                        {titleText}
-                                    </h1>
+                                        {avatarImage ? (
+                                            <img src={avatarImage} alt={authorLabel} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            (authorLabel || 'L').slice(0, 1).toUpperCase()
+                                        )}
+                                    </div>
 
-                                    {subtitleText && (
-                                        <p
-                                            style={{
-                                                margin: 0,
-                                                fontSize: '16px',
-                                                lineHeight: 1.25,
-                                                color: theme.subtitle,
-                                                fontWeight: 600,
-                                                wordBreak: 'break-word',
-                                            }}
-                                        >
-                                            {subtitleText}
-                                        </p>
-                                    )}
-
-                                    {descriptionText && (
-                                        <p
-                                            style={{
-                                                margin: 0,
-                                                fontSize: '13px',
-                                                lineHeight: 1.4,
-                                                color: '#dbeafe',
-                                                opacity: 0.92,
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: 3,
-                                                WebkitBoxOrient: 'vertical',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                            }}
-                                        >
-                                            {descriptionText}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '12px' }}>
-                                    {hasScore ? (
-                                        <div
-                                            style={{
-                                                width: '84px',
-                                                height: '84px',
-                                                borderRadius: '9999px',
-                                                border: `2px solid ${scoreColor}`,
-                                                background: 'rgba(15,23,42,0.55)',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                boxShadow: `0 0 18px ${scoreColor}55`,
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            <span style={{ fontSize: '31px', fontWeight: 900, lineHeight: 1 }}>{(score as number).toFixed(1)}</span>
-                                            <span style={{ fontSize: '9px', letterSpacing: '0.09em', textTransform: 'uppercase', color: '#cbd5e1', fontWeight: 800 }}>Score</span>
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontSize: '22px', fontWeight: 700, color: theme.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '540px' }}>
+                                            {authorLabel}
+<<<<<<< ours
                                         </div>
+                                        <div style={{ fontSize: '17px', fontWeight: 600, color: theme.textSecondary }}>
+                                            {createdAtLabel ? `Reseña • ${createdAtLabel}` : 'Compartido desde Listopic'}
+                                        </div>
+<<<<<<< ours
+<<<<<<< ours
                                     ) : (
                                         <div style={{ width: '84px', height: '84px', flexShrink: 0 }} />
                                     )}
@@ -477,8 +693,20 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                     <div style={{ textAlign: 'right', minWidth: 0 }}>
                                         <div style={{ fontSize: '18px', fontWeight: 900, color: theme.logo, marginTop: '2px' }}>Listopic</div>
                                         <div style={{ fontSize: '11px', color: theme.subtitle, marginTop: '1px' }}>listopic.app</div>
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+                                        </div>
+                                        <div style={{ fontSize: '17px', fontWeight: 600, color: theme.textSecondary }}>
+                                            {createdAtLabel ? `Reseña • ${createdAtLabel}` : 'Compartido desde Listopic'}
+                                        </div>
+>>>>>>> theirs
                                     </div>
                                 </div>
+
+                                <div style={{ fontSize: '19px', color: theme.accent, fontWeight: 900, letterSpacing: '0.02em' }}>listopic.app</div>
                             </div>
                         </div>
                     </div>
@@ -495,17 +723,17 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             </button>
                         </div>
                         <div className="p-5 space-y-4">
-                            <div className="rounded-xl overflow-hidden border border-white/10 bg-black aspect-[9/16] shadow-lg">
+                            <div className="rounded-xl overflow-hidden border border-white/10 bg-black aspect-[3/4] shadow-lg">
                                 <img src={previewImage} alt="Story preview" className="w-full h-full object-contain" />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                                 <button
                                     type="button"
                                     onClick={downloadPreview}
                                     className="inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors"
                                 >
-                                    <Download className="w-4 h-4" /> Descargar PNG
+                                    <Download className="w-4 h-4" /> Descargar
                                 </button>
                                 <button
                                     type="button"
@@ -513,6 +741,19 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                     className="inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold hover:bg-emerald-500/30 transition-colors"
                                 >
                                     <Share2 className="w-4 h-4" /> Compartir
+<<<<<<< ours
+<<<<<<< ours
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void sharePreview()}
+                                    className="inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold hover:bg-emerald-500/30 transition-colors"
+                                >
+                                    <Share2 className="w-4 h-4" /> Compartir
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
                                 </button>
                                 <button
                                     type="button"
@@ -531,7 +772,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             )}
 
                             <p className="text-xs text-gray-400 text-center">
-                                Descarga la imagen y súbela en Instagram Stories.
+                                PNG sin fondo para pegar en stories y elegir el fondo dentro de Instagram.
                             </p>
                         </div>
                     </div>
