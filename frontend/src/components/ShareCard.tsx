@@ -34,6 +34,8 @@ type VariantTheme = {
     panelBg: string;
     chipBg: string;
     chipBorder: string;
+    referenceStroke: string;
+    referenceFill: string;
     shadow: string;
 };
 
@@ -53,23 +55,27 @@ const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
         panelBg: 'rgba(6, 18, 37, 0.82)',
         chipBg: 'rgba(148,163,184,0.12)',
         chipBorder: 'rgba(148,163,184,0.14)',
+        referenceStroke: 'rgba(255,255,255,0.74)',
+        referenceFill: 'rgba(255,255,255,0.06)',
         shadow: '0 34px 90px rgba(2, 6, 23, 0.38)',
     },
     clean: {
-        cardBg: '#f8fafc',
-        footerBg: 'rgba(255, 255, 255, 0.97)',
-        heroFallback: 'linear-gradient(145deg, #e0e7ff 0%, #c7d2fe 55%, #eef2ff 100%)',
+        cardBg: '#f6f1e8',
+        footerBg: 'rgba(247, 242, 234, 0.98)',
+        heroFallback: 'linear-gradient(145deg, #efe7d8 0%, #e5dcc8 55%, #f7f3eb 100%)',
         textPrimary: '#0f172a',
         textSecondary: '#334155',
-        textMuted: '#64748b',
+        textMuted: '#6b7280',
         accent: '#4f46e5',
-        accentSoft: 'rgba(79,70,229,0.2)',
-        border: 'rgba(15,23,42,0.12)',
-        badgeBg: 'rgba(255, 255, 255, 0.82)',
+        accentSoft: 'rgba(79,70,229,0.16)',
+        border: 'rgba(51,65,85,0.14)',
+        badgeBg: 'rgba(249, 246, 240, 0.9)',
         badgeText: '#312e81',
-        panelBg: 'rgba(255, 255, 255, 0.9)',
-        chipBg: 'rgba(79,70,229,0.08)',
+        panelBg: 'rgba(248, 244, 237, 0.92)',
+        chipBg: 'rgba(79,70,229,0.06)',
         chipBorder: 'rgba(79,70,229,0.12)',
+        referenceStroke: 'rgba(51,65,85,0.52)',
+        referenceFill: 'rgba(51,65,85,0.06)',
         shadow: '0 28px 72px rgba(15, 23, 42, 0.16)',
     },
     punchy: {
@@ -87,6 +93,8 @@ const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
         panelBg: 'rgba(7, 24, 41, 0.8)',
         chipBg: 'rgba(34,211,238,0.1)',
         chipBorder: 'rgba(34,211,238,0.14)',
+        referenceStroke: 'rgba(255,255,255,0.74)',
+        referenceFill: 'rgba(255,255,255,0.06)',
         shadow: '0 34px 90px rgba(8, 14, 35, 0.45)',
     },
     spotify: {
@@ -104,6 +112,8 @@ const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
         panelBg: 'rgba(5, 24, 12, 0.82)',
         chipBg: 'rgba(34,197,94,0.1)',
         chipBorder: 'rgba(74,222,128,0.12)',
+        referenceStroke: 'rgba(255,255,255,0.74)',
+        referenceFill: 'rgba(255,255,255,0.06)',
         shadow: '0 34px 90px rgba(2, 12, 5, 0.42)',
     },
 };
@@ -204,22 +214,22 @@ const loadImageDimensions = (source?: string): Promise<{ width: number; height: 
 const RadarChart: React.FC<{
     stats: ShareCriteriaStat[];
     referenceStats?: ShareCriteriaStat[];
-    referenceLabel?: string;
     accent: string;
     gridColor: string;
-    textColor: string;
+    referenceStroke: string;
+    referenceFill: string;
 }> = ({
     stats,
     referenceStats,
-    referenceLabel,
     accent,
     gridColor,
-    textColor,
+    referenceStroke,
+    referenceFill,
 }) => {
     if (stats.length < 3) return null;
-    const size = 300;
-    const center = 150;
-    const radius = 100;
+    const size = 280;
+    const center = 140;
+    const radius = 106;
     const levels = [0.25, 0.5, 0.75, 1];
     const angleStep = (Math.PI * 2) / stats.length;
 
@@ -231,16 +241,10 @@ const RadarChart: React.FC<{
     const axes = stats.map((stat, index) => {
         const angle = (-Math.PI / 2) + (index * angleStep);
         const axisPoint = getPoint(angle, radius);
-        const labelPoint = getPoint(angle, radius + 30);
-        const cosine = Math.cos(angle);
-        const anchor: 'start' | 'end' | 'middle' = cosine > 0.35 ? 'start' : cosine < -0.35 ? 'end' : 'middle';
 
         return {
             angle,
             axisPoint,
-            labelPoint,
-            anchor,
-            label: truncateLabel(stat.label, 11),
         };
     });
 
@@ -256,7 +260,7 @@ const RadarChart: React.FC<{
     const alignedReference = referenceStats
         ?.map((reference) => {
             const axis = stats.find((stat) => stat.key === reference.key);
-            return axis ? { ...reference, label: axis.label } : null;
+            return axis ? reference : null;
         })
         .filter((reference): reference is ShareCriteriaStat => Boolean(reference));
 
@@ -276,8 +280,8 @@ const RadarChart: React.FC<{
         .join(' ');
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: '252px', overflow: 'visible', display: 'block' }}>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: '248px', display: 'block' }}>
                 {gridPolygons.map((polygon, index) => (
                     <polygon
                         key={`grid-${levels[index]}`}
@@ -304,8 +308,8 @@ const RadarChart: React.FC<{
                     <>
                         <polygon
                             points={referencePolygon}
-                            fill="rgba(255,255,255,0.06)"
-                            stroke="rgba(255,255,255,0.72)"
+                            fill={referenceFill}
+                            stroke={referenceStroke}
                             strokeWidth="2"
                             strokeDasharray="6 5"
                         />
@@ -318,8 +322,7 @@ const RadarChart: React.FC<{
                                     cx={point.x}
                                     cy={point.y}
                                     r="3.5"
-                                    fill="#ffffff"
-                                    opacity="0.85"
+                                    fill={referenceStroke}
                                 />
                             );
                         })}
@@ -338,42 +341,7 @@ const RadarChart: React.FC<{
                     const point = getPoint(angle, radius * (clampScore(stats[index].score) / 10));
                     return <circle key={`dot-${stats[index].key}`} cx={point.x} cy={point.y} r="4.8" fill={accent} />;
                 })}
-
-                {axes.map(({ labelPoint, anchor, label }, index) => (
-                    <text
-                        key={`label-${stats[index].key}`}
-                        x={labelPoint.x}
-                        y={labelPoint.y}
-                        textAnchor={anchor}
-                        dominantBaseline="middle"
-                        fill={textColor}
-                        fontSize="13"
-                        fontWeight="700"
-                    >
-                        {label}
-                    </text>
-                ))}
             </svg>
-
-            {alignedReference && alignedReference.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', color: textColor, fontSize: '12px', fontWeight: 700 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ width: '10px', height: '10px', borderRadius: '999px', background: accent, display: 'inline-block' }} />
-                        <span>{'Rese\u00f1a'}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span
-                            style={{
-                                width: '14px',
-                                height: '0',
-                                borderTop: '2px dashed rgba(255,255,255,0.72)',
-                                display: 'inline-block',
-                            }}
-                        />
-                        <span>{referenceLabel || 'Media de la lista'}</span>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
@@ -859,7 +827,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                                 border: `1px solid ${theme.border}`,
                                                 fontWeight: 800,
                                                 fontSize: '18px',
-                                                lineHeight: 1,
+                                                lineHeight: 1.05,
                                                 textAlign: 'center',
                                             }}
                                         >
@@ -933,21 +901,22 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                         right: '30px',
                                         bottom: '30px',
                                         width: isLandscapeCard ? '438px' : '388px',
-                                        padding: '12px 14px 10px',
+                                        padding: '8px 12px',
                                         borderRadius: '28px',
                                         background: theme.panelBg,
                                         border: `1px solid ${theme.border}`,
                                         boxShadow: '0 24px 48px rgba(2,6,23,0.24)',
                                     }}
+                                    aria-label={alignedReferenceStats.length > 0 ? `${referenceLabel || 'Media de la lista'} comparada con la reseña` : 'Resumen de criterios'}
                                 >
                                     <div>
                                         <RadarChart
                                             stats={radarStats}
                                             referenceStats={alignedReferenceStats}
-                                            referenceLabel={referenceLabel}
                                             accent={theme.accent}
                                             gridColor={theme.border}
-                                            textColor={theme.textSecondary}
+                                            referenceStroke={theme.referenceStroke}
+                                            referenceFill={theme.referenceFill}
                                         />
                                     </div>
                                 </div>
@@ -997,8 +966,8 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                             marginTop: '26px',
                                             display: 'inline-flex',
                                             alignItems: 'center',
-                                            gap: '16px',
-                                            padding: '16px 20px',
+                                            gap: '14px',
+                                            padding: '15px 18px',
                                             borderRadius: '28px',
                                             background: 'rgba(7, 18, 37, 0.44)',
                                             border: '1px solid rgba(255,255,255,0.12)',
@@ -1037,22 +1006,27 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                             )}
                                         </div>
 
-                                        <div style={{ minWidth: 0 }}>
-                                            <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.68)' }}>
-                                                {'RESE\u00d1A DE'}
-                                            </div>
+                                        <div
+                                            style={{
+                                                minWidth: 0,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                textAlign: 'center',
+                                            }}
+                                        >
                                             <div
                                                 style={{
-                                                    marginTop: '6px',
                                                     fontSize: authorNameSize,
                                                     fontWeight: 900,
-                                                    lineHeight: 0.98,
+                                                    lineHeight: 1,
                                                     wordBreak: 'break-word',
                                                 }}
                                             >
                                                 {authorLabel}
                                             </div>
-                                            <div style={{ marginTop: '8px', fontSize: '17px', fontWeight: 700, color: 'rgba(255,255,255,0.74)' }}>
+                                            <div style={{ marginTop: '6px', fontSize: '17px', fontWeight: 700, color: 'rgba(255,255,255,0.74)', lineHeight: 1.1 }}>
                                                 {createdAtLabel ? `Publicada el ${createdAtLabel}` : 'Compartida desde Listopic'}
                                             </div>
                                         </div>
@@ -1065,12 +1039,12 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                             style={{
                                 background: theme.footerBg,
                                 borderTop: `1px solid ${theme.border}`,
-                                padding: '28px 32px 34px',
+                                padding: '28px 32px 38px',
                                 display: 'grid',
                                 gridTemplateColumns: summaryStats.length > 0
-                                    ? (isLandscapeCard ? 'minmax(0, 1.38fr) minmax(380px, 0.72fr)' : 'minmax(0, 1.28fr) minmax(300px, 0.72fr)')
+                                    ? (isLandscapeCard ? 'minmax(0, 1.48fr) minmax(360px, 0.62fr)' : 'minmax(0, 1.28fr) minmax(300px, 0.72fr)')
                                     : '1fr',
-                                gap: '20px',
+                                gap: '18px',
                             }}
                         >
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
@@ -1080,12 +1054,13 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                         color: theme.textSecondary,
                                         fontWeight: 600,
                                         fontSize: '22px',
-                                        lineHeight: 1.45,
+                                        lineHeight: 1.48,
                                         display: '-webkit-box',
-                                        WebkitLineClamp: 6,
+                                        WebkitLineClamp: isLandscapeCard ? 5 : 6,
                                         WebkitBoxOrient: 'vertical',
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
+                                        paddingBottom: '8px',
                                     }}
                                 >
                                     {footerDescription}
@@ -1104,7 +1079,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                                     color: theme.textPrimary,
                                                     fontSize: '15px',
                                                     fontWeight: 700,
-                                                    lineHeight: 1,
+                                                    lineHeight: 1.05,
                                                     height: '38px',
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
@@ -1237,8 +1212,8 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                                             left: `${clampScore(referenceSummaryStats.find((reference) => reference.key === stat.key)?.score || 0) * 10}%`,
                                                             width: '3px',
                                                             marginLeft: '-1px',
-                                                            background: 'rgba(255,255,255,0.88)',
-                                                            boxShadow: '0 0 5px rgba(255,255,255,0.38)',
+                                                            background: theme.referenceStroke,
+                                                            boxShadow: `0 0 5px ${theme.referenceStroke}`,
                                                             zIndex: 2,
                                                         }}
                                                     />
@@ -1284,7 +1259,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                                 color: theme.textMuted,
                                                 fontSize: '14px',
                                                 fontWeight: 800,
-                                                lineHeight: 1,
+                                                lineHeight: 1.05,
                                                 height: '38px',
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
