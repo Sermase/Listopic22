@@ -1,9 +1,12 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { Check, Copy, Download, Share2, X } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
 import type { PlaceDetails } from '../hooks/usePlaceDetails';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import { getShareEntityLabel, type ShareCriteriaStat, type ShareEntityPayload, type ShareEntityType } from '../types/share';
+import { useAppConfig } from '../context/AppConfigContext';
+import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
 
 export type ShareCardVariant = 'cinematic' | 'clean' | 'punchy' | 'spotify';
@@ -114,6 +117,9 @@ const DEFAULT_ENTITY: ShareEntityPayload = {
 
 const EXPORT_WIDTH = 1080;
 const EXPORT_HEIGHT = 1600;
+const LANDSCAPE_EXPORT_WIDTH = 1600;
+const LANDSCAPE_EXPORT_HEIGHT = 1200;
+const LANDSCAPE_SWITCH_RATIO = 1.08;
 
 const isSupportedEntityType = (value: unknown): value is ShareEntityType => {
     return ['place', 'group', 'list', 'sublist', 'profile', 'app', 'review', 'link'].includes(String(value));
@@ -170,16 +176,50 @@ const normalizeTags = (values?: string[]) => {
     return values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)).slice(0, 4);
 };
 
-const RadarChart: React.FC<{ stats: ShareCriteriaStat[]; accent: string; gridColor: string; textColor: string }> = ({
+const getCoverBackground = (src: string, position = 'center center'): React.CSSProperties => ({
+    backgroundImage: `url(${JSON.stringify(src)})`,
+    backgroundSize: 'cover',
+    backgroundPosition: position,
+    backgroundRepeat: 'no-repeat',
+});
+
+const loadImageDimensions = (source?: string): Promise<{ width: number; height: number }> => {
+    if (!source) {
+        return Promise.resolve({ width: 0, height: 0 });
+    }
+
+    return new Promise((resolve) => {
+        const image = new Image();
+        image.decoding = 'async';
+        image.crossOrigin = 'anonymous';
+        image.onload = () => resolve({
+            width: image.naturalWidth || 0,
+            height: image.naturalHeight || 0,
+        });
+        image.onerror = () => resolve({ width: 0, height: 0 });
+        image.src = source;
+    });
+};
+
+const RadarChart: React.FC<{
+    stats: ShareCriteriaStat[];
+    referenceStats?: ShareCriteriaStat[];
+    referenceLabel?: string;
+    accent: string;
+    gridColor: string;
+    textColor: string;
+}> = ({
     stats,
+    referenceStats,
+    referenceLabel,
     accent,
     gridColor,
     textColor,
 }) => {
     if (stats.length < 3) return null;
-    const size = 240;
-    const center = 120;
-    const radius = 74;
+    const size = 300;
+    const center = 150;
+    const radius = 100;
     const levels = [0.25, 0.5, 0.75, 1];
     const angleStep = (Math.PI * 2) / stats.length;
 
@@ -191,7 +231,7 @@ const RadarChart: React.FC<{ stats: ShareCriteriaStat[]; accent: string; gridCol
     const axes = stats.map((stat, index) => {
         const angle = (-Math.PI / 2) + (index * angleStep);
         const axisPoint = getPoint(angle, radius);
-        const labelPoint = getPoint(angle, radius + 26);
+        const labelPoint = getPoint(angle, radius + 30);
         const cosine = Math.cos(angle);
         const anchor: 'start' | 'end' | 'middle' = cosine > 0.35 ? 'start' : cosine < -0.35 ? 'end' : 'middle';
 
@@ -213,6 +253,13 @@ const RadarChart: React.FC<{ stats: ShareCriteriaStat[]; accent: string; gridCol
             .join(' ')
     ));
 
+    const alignedReference = referenceStats
+        ?.map((reference) => {
+            const axis = stats.find((stat) => stat.key === reference.key);
+            return axis ? { ...reference, label: axis.label } : null;
+        })
+        .filter((reference): reference is ShareCriteriaStat => Boolean(reference));
+
     const dataPolygon = axes
         .map(({ angle }, index) => {
             const point = getPoint(angle, radius * (clampScore(stats[index].score) / 10));
@@ -220,68 +267,128 @@ const RadarChart: React.FC<{ stats: ShareCriteriaStat[]; accent: string; gridCol
         })
         .join(' ');
 
+    const referencePolygon = axes
+        .map(({ angle }, index) => {
+            const match = alignedReference?.find((reference) => reference.key === stats[index].key);
+            const point = getPoint(angle, radius * (clampScore(match?.score || 0) / 10));
+            return `${point.x},${point.y}`;
+        })
+        .join(' ');
+
     return (
-        <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: '188px', overflow: 'visible' }}>
-            {gridPolygons.map((polygon, index) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: '252px', overflow: 'visible', display: 'block' }}>
+                {gridPolygons.map((polygon, index) => (
+                    <polygon
+                        key={`grid-${levels[index]}`}
+                        points={polygon}
+                        fill="none"
+                        stroke={gridColor}
+                        strokeWidth={index === gridPolygons.length - 1 ? 1.5 : 1}
+                    />
+                ))}
+
+                {axes.map(({ axisPoint }, index) => (
+                    <line
+                        key={`axis-${index}`}
+                        x1={center}
+                        y1={center}
+                        x2={axisPoint.x}
+                        y2={axisPoint.y}
+                        stroke={gridColor}
+                        strokeWidth="1"
+                    />
+                ))}
+
+                {alignedReference && alignedReference.length > 0 && (
+                    <>
+                        <polygon
+                            points={referencePolygon}
+                            fill="rgba(255,255,255,0.06)"
+                            stroke="rgba(255,255,255,0.72)"
+                            strokeWidth="2"
+                            strokeDasharray="6 5"
+                        />
+                        {axes.map(({ angle }, index) => {
+                            const match = alignedReference.find((reference) => reference.key === stats[index].key);
+                            const point = getPoint(angle, radius * (clampScore(match?.score || 0) / 10));
+                            return (
+                                <circle
+                                    key={`reference-dot-${stats[index].key}`}
+                                    cx={point.x}
+                                    cy={point.y}
+                                    r="3.5"
+                                    fill="#ffffff"
+                                    opacity="0.85"
+                                />
+                            );
+                        })}
+                    </>
+                )}
+
                 <polygon
-                    key={`grid-${levels[index]}`}
-                    points={polygon}
-                    fill="none"
-                    stroke={gridColor}
-                    strokeWidth={index === gridPolygons.length - 1 ? 1.4 : 1}
+                    points={dataPolygon}
+                    fill={accent}
+                    fillOpacity="0.18"
+                    stroke={accent}
+                    strokeWidth="3"
                 />
-            ))}
 
-            {axes.map(({ axisPoint }, index) => (
-                <line
-                    key={`axis-${index}`}
-                    x1={center}
-                    y1={center}
-                    x2={axisPoint.x}
-                    y2={axisPoint.y}
-                    stroke={gridColor}
-                    strokeWidth="1"
-                />
-            ))}
+                {axes.map(({ angle }, index) => {
+                    const point = getPoint(angle, radius * (clampScore(stats[index].score) / 10));
+                    return <circle key={`dot-${stats[index].key}`} cx={point.x} cy={point.y} r="4.8" fill={accent} />;
+                })}
 
-            <polygon
-                points={dataPolygon}
-                fill={accent}
-                fillOpacity="0.18"
-                stroke={accent}
-                strokeWidth="3"
-            />
+                {axes.map(({ labelPoint, anchor, label }, index) => (
+                    <text
+                        key={`label-${stats[index].key}`}
+                        x={labelPoint.x}
+                        y={labelPoint.y}
+                        textAnchor={anchor}
+                        dominantBaseline="middle"
+                        fill={textColor}
+                        fontSize="13"
+                        fontWeight="700"
+                    >
+                        {label}
+                    </text>
+                ))}
+            </svg>
 
-            {axes.map(({ angle }, index) => {
-                const point = getPoint(angle, radius * (clampScore(stats[index].score) / 10));
-                return <circle key={`dot-${stats[index].key}`} cx={point.x} cy={point.y} r="4.8" fill={accent} />;
-            })}
-
-            {axes.map(({ labelPoint, anchor, label }, index) => (
-                <text
-                    key={`label-${stats[index].key}`}
-                    x={labelPoint.x}
-                    y={labelPoint.y}
-                    textAnchor={anchor}
-                    dominantBaseline="middle"
-                    fill={textColor}
-                    fontSize="12"
-                    fontWeight="700"
-                >
-                    {label}
-                </text>
-            ))}
-        </svg>
+            {alignedReference && alignedReference.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', color: textColor, fontSize: '12px', fontWeight: 700 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '999px', background: accent, display: 'inline-block' }} />
+                        <span>{'Rese\u00f1a'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span
+                            style={{
+                                width: '14px',
+                                height: '0',
+                                borderTop: '2px dashed rgba(255,255,255,0.72)',
+                                display: 'inline-block',
+                            }}
+                        />
+                        <span>{referenceLabel || 'Media de la lista'}</span>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 
 export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity, variant = 'cinematic', triggerRef }) => {
+    const config = useAppConfig();
     const captureRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(false);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [shareFeedback, setShareFeedback] = useState<string | null>(null);
     const [localImages, setLocalImages] = useState<{ hero: string; avatar: string }>({ hero: '', avatar: '' });
+    const [referenceCriteriaStats, setReferenceCriteriaStats] = useState<ShareCriteriaStat[]>([]);
+    const [referenceLabel, setReferenceLabel] = useState<string>('');
+    const [heroSize, setHeroSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
     const entity = useMemo<ShareEntityPayload>(() => {
         if (shareEntity && isSupportedEntityType(shareEntity.type)) return shareEntity;
@@ -351,24 +458,104 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
         return buildCriteriaStats(review?.scores, review?.criteriaDefinition);
     }, [entity.criteriaStats, review]);
 
+    useEffect(() => {
+        const source = review?.photoUrl || place?.photoUrl || entity.imageUrl;
+        if (!source) {
+            setHeroSize({ width: 0, height: 0 });
+            return;
+        }
+
+        let cancelled = false;
+        void loadImageDimensions(source).then((dimensions) => {
+            if (!cancelled) {
+                setHeroSize(dimensions);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [entity.imageUrl, place?.photoUrl, review?.photoUrl]);
+
+    useEffect(() => {
+        if (entity.referenceCriteriaStats?.length) {
+            setReferenceCriteriaStats(entity.referenceCriteriaStats);
+            setReferenceLabel(entity.referenceLabel || 'Media de la lista');
+            return;
+        }
+
+        if (entity.type !== 'review' || !review?.listId) {
+            setReferenceCriteriaStats([]);
+            setReferenceLabel('');
+            return;
+        }
+
+        let isCancelled = false;
+
+        const loadReferenceStats = async () => {
+            try {
+                const listSnap = await getDoc(doc(db, 'lists', review.listId));
+                if (!listSnap.exists() || isCancelled) return;
+
+                const listData = listSnap.data() as {
+                    name?: string;
+                    criteriaAverages?: Record<string, number>;
+                    criteriaDefinition?: Record<string, { label?: string }> | Array<{ id?: string; label?: string }>;
+                };
+
+                const stats = buildCriteriaStats(listData.criteriaAverages, listData.criteriaDefinition);
+                if (!isCancelled) {
+                    setReferenceCriteriaStats(stats);
+                    setReferenceLabel(listData.name || 'Media de la lista');
+                }
+            } catch {
+                if (!isCancelled) {
+                    setReferenceCriteriaStats([]);
+                    setReferenceLabel('');
+                }
+            }
+        };
+
+        void loadReferenceStats();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [entity.referenceCriteriaStats, entity.referenceLabel, entity.type, review?.listId]);
+
     const radarStats = criteriaStats.slice(0, 5);
     const summaryStats = criteriaStats.slice(0, 4);
     const hasRadar = radarStats.length >= 3;
     const isReviewShare = entity.type === 'review' || Boolean(review);
+    const heroAspectRatio = heroSize.width > 0 && heroSize.height > 0 ? heroSize.width / heroSize.height : 0;
+    const isLandscapeCard = heroAspectRatio >= LANDSCAPE_SWITCH_RATIO;
+    const exportWidth = isLandscapeCard ? LANDSCAPE_EXPORT_WIDTH : EXPORT_WIDTH;
+    const exportHeight = isLandscapeCard ? LANDSCAPE_EXPORT_HEIGHT : EXPORT_HEIGHT;
+    const previewAspectRatio = isLandscapeCard ? '4 / 3' : '3 / 4';
     const reviewCountLabel = formatReviewCount(entity.reviewCount);
     const entityLabel = getShareEntityLabel(entity.type);
     const scoreLabel = getScoreLabel(entity.type);
     const tagList = normalizeTags(entity.tags || review?.userTags || review?.tags);
-    const titleFontSize = titleText.length > 54 ? '52px' : titleText.length > 38 ? '62px' : '74px';
+    const brandName = config.appName || 'Listopic';
+    const titleFontSize = isLandscapeCard
+        ? (titleText.length > 54 ? '58px' : titleText.length > 38 ? '70px' : '84px')
+        : (titleText.length > 54 ? '52px' : titleText.length > 38 ? '62px' : '74px');
     const authorNameSize = titleText.length > 44 ? '32px' : '38px';
-    const heroTextMaxWidth = hasRadar ? '58%' : '76%';
-    const chartHeading = isReviewShare
-        ? 'Criterios valorados'
-        : entity.type === 'group'
-            ? 'Medias del grupo'
-            : entity.type === 'list' || entity.type === 'sublist'
-                ? 'Medias de la lista'
-                : 'Datos destacados';
+    const heroTextMaxWidth = isLandscapeCard
+        ? (hasRadar ? '56%' : '70%')
+        : (hasRadar ? '54%' : '76%');
+    const alignedReferenceStats = radarStats
+        .map((stat) => {
+            const match = referenceCriteriaStats.find((reference) => reference.key === stat.key);
+            return match ? { ...match, label: stat.label } : null;
+        })
+        .filter((stat): stat is ShareCriteriaStat => Boolean(stat));
+    const referenceSummaryStats = summaryStats
+        .map((stat) => {
+            const match = referenceCriteriaStats.find((reference) => reference.key === stat.key);
+            return match ? { ...match, label: stat.label } : null;
+        })
+        .filter((stat): stat is ShareCriteriaStat => Boolean(stat));
 
     const infoChips = [
         entityLabel,
@@ -414,8 +601,8 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
         iframe.style.position = 'fixed';
         iframe.style.left = '-200vw';
         iframe.style.top = '0';
-        iframe.style.width = `${EXPORT_WIDTH}px`;
-        iframe.style.height = `${EXPORT_HEIGHT}px`;
+        iframe.style.width = `${exportWidth}px`;
+        iframe.style.height = `${exportHeight}px`;
         iframe.style.opacity = '0';
         iframe.style.pointerEvents = 'none';
         iframe.style.border = '0';
@@ -463,10 +650,10 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                 scale: 2,
                 backgroundColor: null,
                 logging: false,
-                width: EXPORT_WIDTH,
-                height: EXPORT_HEIGHT,
-                windowWidth: EXPORT_WIDTH,
-                windowHeight: EXPORT_HEIGHT,
+                width: exportWidth,
+                height: exportHeight,
+                windowWidth: exportWidth,
+                windowHeight: exportHeight,
             });
         } finally {
             iframe.remove();
@@ -489,6 +676,13 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
             ]);
 
             setLocalImages({ hero: heroBlob, avatar: avatarBlob });
+            const nextHeroSource = heroBlob || review?.photoUrl || place?.photoUrl || entity.imageUrl;
+            if (nextHeroSource) {
+                const measuredHeroSize = await loadImageDimensions(nextHeroSource);
+                if (measuredHeroSize.width > 0 && measuredHeroSize.height > 0) {
+                    setHeroSize(measuredHeroSize);
+                }
+            }
             await new Promise((resolve) => setTimeout(resolve, 100));
             if (!captureRef.current) return;
 
@@ -562,20 +756,20 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                     position: 'fixed',
                     left: '-9999px',
                     top: 0,
-                    width: `${EXPORT_WIDTH}px`,
-                    height: `${EXPORT_HEIGHT}px`,
+                    width: `${exportWidth}px`,
+                    height: `${exportHeight}px`,
                     zIndex: -1,
                 }}
             >
                 <div
                     ref={captureRef}
                     style={{
-                        width: `${EXPORT_WIDTH}px`,
-                        height: `${EXPORT_HEIGHT}px`,
+                        width: `${exportWidth}px`,
+                        height: `${exportHeight}px`,
                         position: 'relative',
                         background: 'transparent',
                         fontFamily: "'Manrope', sans-serif",
-                        padding: '36px',
+                        padding: isLandscapeCard ? '28px' : '36px',
                         boxSizing: 'border-box',
                     }}
                 >
@@ -595,10 +789,14 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                     >
                         <div style={{ position: 'relative', minHeight: 0 }}>
                             {heroImage ? (
-                                <img
-                                    src={heroImage}
-                                    alt={titleText}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                <div
+                                    role="img"
+                                    aria-label={titleText}
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        ...getCoverBackground(heroImage),
+                                    }}
                                 />
                             ) : (
                                 <div style={{ width: '100%', height: '100%', background: theme.heroFallback }} />
@@ -645,20 +843,24 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                     gap: '16px',
                                 }}
                             >
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', maxWidth: '72%' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', maxWidth: isLandscapeCard ? '78%' : '72%' }}>
                                     {infoChips.map((chip) => (
                                         <div
                                             key={chip}
                                             style={{
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
-                                                padding: '10px 16px',
+                                                justifyContent: 'center',
+                                                height: '48px',
+                                                padding: '0 18px',
                                                 borderRadius: '999px',
                                                 background: theme.badgeBg,
                                                 color: theme.badgeText,
                                                 border: `1px solid ${theme.border}`,
                                                 fontWeight: 800,
                                                 fontSize: '18px',
+                                                lineHeight: 1,
+                                                textAlign: 'center',
                                             }}
                                         >
                                             {chip}
@@ -674,8 +876,9 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                             borderRadius: '9999px',
                                             border: `4px solid ${scoreColor}`,
                                             background: 'rgba(2,6,23,0.82)',
-                                            display: 'grid',
-                                            placeItems: 'center',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
                                             boxShadow: `0 0 28px ${scoreColor}55`,
                                             flexShrink: 0,
                                         }}
@@ -688,7 +891,8 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
                                                 textAlign: 'center',
-                                                transform: 'translateY(-1px)',
+                                                gap: '2px',
+                                                transform: 'translateY(-2px)',
                                             }}
                                         >
                                             <span
@@ -698,7 +902,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                                     color: '#ffffff',
                                                     fontWeight: 900,
                                                     fontSize: '44px',
-                                                    lineHeight: 1,
+                                                    lineHeight: 0.9,
                                                     fontVariantNumeric: 'tabular-nums',
                                                 }}
                                             >
@@ -713,7 +917,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                                     fontSize: '12px',
                                                     letterSpacing: '0.18em',
                                                     lineHeight: 1,
-                                                    marginTop: '6px',
                                                 }}
                                             >
                                                 {scoreLabel}
@@ -728,24 +931,20 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                     style={{
                                         position: 'absolute',
                                         right: '30px',
-                                        bottom: '32px',
-                                        width: '328px',
-                                        padding: '18px 18px 16px',
+                                        bottom: '30px',
+                                        width: isLandscapeCard ? '438px' : '388px',
+                                        padding: '12px 14px 10px',
                                         borderRadius: '28px',
                                         background: theme.panelBg,
                                         border: `1px solid ${theme.border}`,
                                         boxShadow: '0 24px 48px rgba(2,6,23,0.24)',
                                     }}
                                 >
-                                    <div style={{ color: theme.textPrimary, fontSize: '16px', fontWeight: 800, letterSpacing: '0.03em' }}>
-                                        {chartHeading}
-                                    </div>
-                                    <div style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600, marginTop: '4px' }}>
-                                        Vista r\u00e1pida de los criterios destacados
-                                    </div>
-                                    <div style={{ marginTop: '14px' }}>
+                                    <div>
                                         <RadarChart
                                             stats={radarStats}
+                                            referenceStats={alignedReferenceStats}
+                                            referenceLabel={referenceLabel}
                                             accent={theme.accent}
                                             gridColor={theme.border}
                                             textColor={theme.textSecondary}
@@ -824,10 +1023,14 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                             }}
                                         >
                                             {avatarImage ? (
-                                                <img
-                                                    src={avatarImage}
-                                                    alt={authorLabel}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                <div
+                                                    role="img"
+                                                    aria-label={authorLabel}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        ...getCoverBackground(avatarImage),
+                                                    }}
                                                 />
                                             ) : (
                                                 (authorLabel || 'L').slice(0, 1).toUpperCase()
@@ -836,7 +1039,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
 
                                         <div style={{ minWidth: 0 }}>
                                             <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.68)' }}>
-                                                RESE\u00d1A DE
+                                                {'RESE\u00d1A DE'}
                                             </div>
                                             <div
                                                 style={{
@@ -864,7 +1067,9 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                 borderTop: `1px solid ${theme.border}`,
                                 padding: '28px 32px 34px',
                                 display: 'grid',
-                                gridTemplateColumns: summaryStats.length > 0 ? 'minmax(0, 1.1fr) minmax(0, 0.9fr)' : '1fr',
+                                gridTemplateColumns: summaryStats.length > 0
+                                    ? (isLandscapeCard ? 'minmax(0, 1.38fr) minmax(380px, 0.72fr)' : 'minmax(0, 1.28fr) minmax(300px, 0.72fr)')
+                                    : '1fr',
                                 gap: '20px',
                             }}
                         >
@@ -877,7 +1082,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                         fontSize: '22px',
                                         lineHeight: 1.45,
                                         display: '-webkit-box',
-                                        WebkitLineClamp: 4,
+                                        WebkitLineClamp: 6,
                                         WebkitBoxOrient: 'vertical',
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
@@ -892,13 +1097,18 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                             <div
                                                 key={tag}
                                                 style={{
-                                                    padding: '8px 12px',
+                                                    padding: '0 12px',
                                                     borderRadius: '999px',
                                                     background: theme.chipBg,
                                                     border: `1px solid ${theme.chipBorder}`,
                                                     color: theme.textPrimary,
                                                     fontSize: '15px',
                                                     fontWeight: 700,
+                                                    lineHeight: 1,
+                                                    height: '38px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
                                                 }}
                                             >
                                                 #{truncateLabel(tag, 20)}
@@ -927,10 +1137,14 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                             }}
                                         >
                                             {avatarImage ? (
-                                                <img
-                                                    src={avatarImage}
-                                                    alt={authorLabel}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                <div
+                                                    role="img"
+                                                    aria-label={authorLabel}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        ...getCoverBackground(avatarImage),
+                                                    }}
                                                 />
                                             ) : (
                                                 (authorLabel || 'L').slice(0, 1).toUpperCase()
@@ -975,9 +1189,13 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                                 borderRadius: '22px',
                                                 background: theme.chipBg,
                                                 border: `1px solid ${theme.chipBorder}`,
+                                                minHeight: '112px',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'center',
                                             }}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                                 <span
                                                     style={{
                                                         color: theme.textPrimary,
@@ -1007,8 +1225,24 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                                     borderRadius: '999px',
                                                     background: 'rgba(148,163,184,0.18)',
                                                     overflow: 'hidden',
+                                                    position: 'relative',
                                                 }}
                                             >
+                                                {referenceSummaryStats.find((reference) => reference.key === stat.key) && (
+                                                    <div
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            bottom: 0,
+                                                            left: `${clampScore(referenceSummaryStats.find((reference) => reference.key === stat.key)?.score || 0) * 10}%`,
+                                                            width: '3px',
+                                                            marginLeft: '-1px',
+                                                            background: 'rgba(255,255,255,0.88)',
+                                                            boxShadow: '0 0 5px rgba(255,255,255,0.38)',
+                                                            zIndex: 2,
+                                                        }}
+                                                    />
+                                                )}
                                                 <div
                                                     style={{
                                                         height: '100%',
@@ -1043,13 +1277,18 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                         <div
                                             key={fact}
                                             style={{
-                                                padding: '8px 12px',
+                                                padding: '0 12px',
                                                 borderRadius: '999px',
                                                 background: theme.chipBg,
                                                 border: `1px solid ${theme.chipBorder}`,
                                                 color: theme.textMuted,
                                                 fontSize: '14px',
                                                 fontWeight: 800,
+                                                lineHeight: 1,
+                                                height: '38px',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
                                             }}
                                         >
                                             {fact}
@@ -1057,12 +1296,38 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                                     ))}
                                 </div>
 
-                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                    <div style={{ color: theme.textPrimary, fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em' }}>
-                                        Listopic
-                                    </div>
-                                    <div style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 700, marginTop: '4px', letterSpacing: '0.06em' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'right', flexShrink: 0 }}>
+                                    {config.logoType === 'image' && config.logoUrl ? (
+                                        <img
+                                            src={config.logoUrl}
+                                            alt={brandName}
+                                            style={{ width: '42px', height: '42px', objectFit: 'contain', flexShrink: 0 }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                position: 'relative',
+                                                width: '42px',
+                                                height: '42px',
+                                                borderRadius: '14px',
+                                                background: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 52%, #4f46e5 100%)',
+                                                boxShadow: '0 12px 26px rgba(37,99,235,0.28)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            <div style={{ width: '16px', height: '16px', borderRadius: '999px', background: '#ffffff' }} />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <div style={{ color: theme.textPrimary, fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em' }}>
+                                            {brandName}
+                                        </div>
+                                        <div style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 700, marginTop: '4px', letterSpacing: '0.06em' }}>
                                         listopic.app
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1077,17 +1342,21 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                     onClick={() => setIsPreviewOpen(false)}
                 >
                     <div
-                        className="bg-[#151b2e] rounded-2xl w-full max-w-md border border-white/10 overflow-hidden shadow-2xl"
+                        className="bg-[#151b2e] rounded-2xl w-full border border-white/10 overflow-hidden shadow-2xl"
+                        style={{ maxWidth: isLandscapeCard ? '960px' : '430px' }}
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="p-4 border-b border-white/10 flex justify-between items-center">
-                            <h3 className="text-white font-bold">Previsualizaci\u00f3n</h3>
+                            <h3 className="text-white font-bold">{'Previsualizaci\u00f3n'}</h3>
                             <button onClick={() => setIsPreviewOpen(false)} className="text-gray-400 hover:text-white">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
                         <div className="p-5 space-y-4">
-                            <div className="rounded-xl overflow-hidden border border-white/10 bg-black aspect-[3/4] shadow-lg">
+                            <div
+                                className="rounded-xl overflow-hidden border border-white/10 bg-black shadow-lg"
+                                style={{ aspectRatio: previewAspectRatio }}
+                            >
                                 <img src={previewImage} alt="Card preview" className="w-full h-full object-contain" />
                             </div>
 
@@ -1123,7 +1392,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
                             )}
 
                             <p className="text-xs text-gray-400 text-center">
-                                PNG sin fondo para pegar en stories y elegir el fondo dentro de Instagram.
+                                PNG listo para reutilizar en stories, posts o envíos directos.
                             </p>
                         </div>
                     </div>

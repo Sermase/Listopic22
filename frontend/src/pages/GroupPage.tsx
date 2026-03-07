@@ -892,6 +892,17 @@ export const GroupPage: React.FC = () => {
                                 count: criterion.count,
                             }))
                         : [],
+                    referenceCriteriaStats: listStats
+                        ? [...stats?.ponderable || [], ...stats?.nonPonderable || []]
+                            .slice(0, 6)
+                            .map((criterion) => ({
+                                key: criterion.key,
+                                label: criterion.label,
+                                score: listStats[criterion.key] || 0,
+                            }))
+                            .filter((criterion) => Number.isFinite(criterion.score) && criterion.score > 0)
+                        : [],
+                    referenceLabel: primaryListName || 'Media de la lista',
                     tags: stats?.tags,
                 }}
             />

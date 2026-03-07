@@ -30,6 +30,8 @@ export interface ShareEntityPayload {
     authorName?: string;
     authorPhoto?: string;
     criteriaStats?: ShareCriteriaStat[];
+    referenceCriteriaStats?: ShareCriteriaStat[];
+    referenceLabel?: string;
     tags?: string[];
 }
 
