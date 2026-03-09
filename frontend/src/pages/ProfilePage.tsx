@@ -47,6 +47,7 @@ import { ShareModal } from "../components/ShareModal";
 import { ChatService } from "../services/ChatService";
 import { FollowingSection } from "../components/profile/FollowingSection";
 import { BadgeDisplay } from "../components/profile/BadgeDisplay";
+import { MapView } from "../components/MapView";
 import {
   collection,
   collectionGroup,
@@ -165,7 +166,7 @@ export const ProfilePage: React.FC = () => {
   // Details Modal State
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [detailsModalTab, setDetailsModalTab] = useState<
-    "lists" | "following" | "followers" | "stats"
+    "lists" | "following" | "followers" | "stats" | "map"
   >("following");
 
   const handleEditReview = (review: any) => {
@@ -525,6 +526,11 @@ export const ProfilePage: React.FC = () => {
             return b.averageRating - a.averageRating;
           });
 
+        const statsByList = perList.reduce((acc, curr) => {
+          acc[curr.listId] = curr;
+          return acc;
+        }, {} as Record<string, any>);
+
         if (!cancelled) {
           const favoriteCandidateData = favoriteCandidate as Record<
             string,
@@ -576,7 +582,7 @@ export const ProfilePage: React.FC = () => {
             averageRating:
               scoredReviewsCount > 0 ? totalScore / scoredReviewsCount : 0,
             ratedListsCount: perList.length,
-            perList,
+            statsByList,
           });
           setFavoriteReview(favorite);
           setStatsLoadedUserId(targetUserId);
@@ -1393,7 +1399,7 @@ export const ProfilePage: React.FC = () => {
             {/* Stats Grid */}
             <div className="col-span-2 md:col-span-4 grid grid-cols-4 gap-2 md:gap-4 mb-2">
               {[
-                { id: "stats", label: "Reseñas", value: displayedReviewsCount },
+                { id: "map", label: "Reseñas", value: displayedReviewsCount },
                 {
                   id: "followers",
                   label: "Seguidores",
@@ -1411,7 +1417,7 @@ export const ProfilePage: React.FC = () => {
                   key={i}
                   onClick={() => {
                     setDetailsModalTab(
-                      stat.id as "stats" | "followers" | "following" | "lists",
+                      stat.id as "stats" | "followers" | "following" | "lists" | "map",
                     );
                     setIsDetailsModalOpen(true);
                   }}
@@ -1941,7 +1947,7 @@ export const ProfilePage: React.FC = () => {
                       review.photos &&
                       Array.isArray(review.photos) &&
                       review.photos.length > 0;
-                    const photoUrl = hasPhotos ? review.photos[0] : null;
+                    const photoUrl = review.photoUrl || (hasPhotos ? review.photos[0] : null) || review.placeMainImage || null;
                     const score =
                       typeof review.overallRating === "number"
                         ? review.overallRating
@@ -2075,10 +2081,16 @@ export const ProfilePage: React.FC = () => {
               {/* Modal Tabs */}
               <div className="flex overflow-x-auto hide-scrollbar border-b border-white/10 bg-[#12182c]">
                 <button
-                  onClick={() => setDetailsModalTab("stats")}
-                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "stats" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
+                  onClick={() => setDetailsModalTab("map")}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "map" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
-                  Estadísticas
+                  <MapPinIcon className="w-4 h-4" /> Mapa
+                </button>
+                <button
+                  onClick={() => setDetailsModalTab("stats")}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
+                >
+                  <BarChart3 className="w-4 h-4" /> Estadísticas
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("followers")}
@@ -2101,7 +2113,12 @@ export const ProfilePage: React.FC = () => {
               </div>
 
               {/* Modal Content */}
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#0b1021]">
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#0b1021] flex flex-col">
+                {detailsModalTab === "map" && (
+                  <div className="flex-1 rounded-xl overflow-hidden min-h-[400px]">
+                    <MapView items={sortedProfileReviews} mode="global" />
+                  </div>
+                )}
                 {detailsModalTab === "stats" && (
                   <>
                     {statsLoading ? (
