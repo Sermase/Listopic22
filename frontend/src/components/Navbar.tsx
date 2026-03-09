@@ -43,6 +43,8 @@ export const Navbar: React.FC = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isAppShareOpen, setIsAppShareOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+    const [isInstallable, setIsInstallable] = useState(false);
     const appShareUrl = typeof window !== 'undefined' ? window.location.origin : '';
     const appShareText = `Descubre ${config.appName} y comparte tus reseñas favoritas`;
 
@@ -58,6 +60,30 @@ export const Navbar: React.FC = () => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [profileUsername, setProfileUsername] = useState('');
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
+
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e: any) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            setIsInstallable(true);
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            setIsInstallable(false);
+        }
+        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    }, []);
+
+    const handleInstallClick = async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                setIsInstallable(false);
+            }
+            setDeferredPrompt(null);
+        }
+    };
 
     useEffect(() => {
         if (!user) return;
@@ -298,6 +324,21 @@ export const Navbar: React.FC = () => {
                             >
                                 <Share2 className="w-5 h-5 text-indigo-400" /> Compartir App
                             </button>
+                            {isInstallable && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        handleInstallClick();
+                                    }}
+                                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 font-bold mt-2"
+                                >
+                                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 16V17H11V16H10.5C10.22 16 10 15.78 10 15.5V13.5C10 13.22 10.22 13 10.5 13H13V12H10V10H11V9H13V10H13.5C13.78 10 14 10.22 14 10.5V12.5C14 12.78 13.78 13 13.5 13H11V14H14V16H13ZM12 4C7.58 4 4 7.58 4 12C4 16.42 7.58 20 12 20C16.42 20 20 16.42 20 12C20 7.58 16.42 4 12 4ZM10 6L8 8H11V13H13V8H16L14 6H10Z" />
+                                    </svg>
+                                    Instalar App
+                                </button>
+                            )}
                         </div>
                     </div>
 
