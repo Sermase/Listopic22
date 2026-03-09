@@ -118,10 +118,10 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
 
     // --- Render Content ---
     return (
-        <article className={`group relative bg-[var(--card-bg)] transition-all overflow-hidden shadow-sm hover:shadow-xl 
+        <article className={`group relative glass-card 
             ${isGrid
-                ? 'flex flex-row md:flex-col h-28 sm:h-32 md:h-64 rounded-xl' // Grid mode: Fixed height horizontal on mobile, Vertical on desktop
-                : 'flex flex-row rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10'}`}>
+                ? 'flex flex-row md:flex-col h-32 md:h-72' // Grid mode: Fixed height horizontal on mobile, Vertical on desktop
+                : 'flex flex-row min-h-[120px]'}`}>
 
             {/* --- GRID MODE (Rich Background Card - DESKTOP ONLY / Horizontal Mobile) --- */}
             {isGrid ? (

@@ -1,0 +1,163 @@
+﻿[36mvite v7.3.0 [32mbuilding client environment for production...[36m[39m
+transforming...
+node.exe : Error: 
+Cannot apply unknown 
+utility class 
+`bento-card`
+En línea: 1 Carácter: 1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (Error: Cannot   
+  a...ss `bento-car    
+d`:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+    at 
+onInvalidCandidate (C:\
+Users\icaa\Documents\Pr
+oyectos\Listopic\fronte
+nd\node_modules\tailwin
+dcss\dist\lib.js:21:151
+1)
+    at Te (C:\Users\ica
+a\Documents\Proyectos\L
+istopic\frontend\node_m
+odules\tailwindcss\dist
+\lib.js:16:36326)
+    at C:\Users\icaa\Do
+cuments\Proyectos\Listo
+pic\frontend\node_modul
+es\tailwindcss\dist\lib
+.js:21:355
+    at Rr (C:\Users\ica
+a\Documents\Proyectos\L
+istopic\frontend\node_m
+odules\tailwindcss\dist
+\lib.js:3:1718)
+    at _ (C:\Users\icaa
+\Documents\Proyectos\Li
+stopic\frontend\node_mo
+dules\tailwindcss\dist\
+lib.js:3:1377)
+    at $e (C:\Users\ica
+a\Documents\Proyectos\L
+istopic\frontend\node_m
+odules\tailwindcss\dist
+\lib.js:21:172)
+    at un (C:\Users\ica
+a\Documents\Proyectos\L
+istopic\frontend\node_m
+odules\tailwindcss\dist
+\lib.js:38:294)
+    at async cn (C:\Use
+rs\icaa\Documents\Proye
+ctos\Listopic\frontend\
+node_modules\tailwindcs
+s\dist\lib.js:38:631)
+    at async Xr (C:\Use
+rs\icaa\Documents\Proye
+ctos\Listopic\frontend\
+node_modules\@tailwindc
+ss\node\dist\index.js:1
+0:3417)
+    at async I (C:\User
+s\icaa\Documents\Proyec
+tos\Listopic\frontend\n
+ode_modules\@tailwindcs
+s\postcss\dist\index.js
+:10:3977)
+[32mÔ£ô[39m 9 modules transformed.
+[31mÔ£ù[39m Build 
+failed in 1.50s
+[31merror during 
+build:
+[31m[vite:css] 
+[postcss] tailwindcss: 
+C:/Users/icaa/Documents
+/Proyectos/Listopic/fro
+ntend/src/index.css:1:1
+: Cannot apply unknown 
+utility class 
+`bento-card`[31m
+file: [36mC:/Users/ica
+a/Documents/Proyectos/L
+istopic/frontend/src/in
+dex.css:1:0[31m
+    at Input.error (C:\
+Users\icaa\Documents\Pr
+oyectos\Listopic\fronte
+nd\node_modules\postcss
+\lib\input.js:135:16)
+    at Root.error (C:\U
+sers\icaa\Documents\Pro
+yectos\Listopic\fronten
+d\node_modules\postcss\
+lib\node.js:146:32)
+    at Object.Once (C:\
+Users\icaa\Documents\Pr
+oyectos\Listopic\fronte
+nd\node_modules\@tailwi
+ndcss\postcss\dist\inde
+x.js:10:6911)
+    at async 
+LazyResult.runAsync (C:
+\Users\icaa\Documents\P
+royectos\Listopic\front
+end\node_modules\postcs
+s\lib\lazy-result.js:29
+3:11)
+    at async 
+runPostCSS (file:///C:/
+Users/icaa/Documents/Pr
+oyectos/Listopic/fronte
+nd/node_modules/vite/di
+st/node/chunks/config.j
+s:30144:19)
+    at async 
+compilePostCSS (file://
+/C:/Users/icaa/Document
+s/Proyectos/Listopic/fr
+ontend/node_modules/vit
+e/dist/node/chunks/conf
+ig.js:30128:6)
+    at async 
+compileCSS (file:///C:/
+Users/icaa/Documents/Pr
+oyectos/Listopic/fronte
+nd/node_modules/vite/di
+st/node/chunks/config.j
+s:30058:26)
+    at async 
+Object.handler (file://
+/C:/Users/icaa/Document
+s/Proyectos/Listopic/fr
+ontend/node_modules/vit
+e/dist/node/chunks/conf
+ig.js:29591:54)
+    at async transform 
+(file:///C:/Users/icaa/
+Documents/Proyectos/Lis
+topic/frontend/node_mod
+ules/rollup/dist/es/sha
+red/node-entry.js:21234
+:16)
+    at async ModuleLoad
+er.addModuleSource (fil
+e:///C:/Users/icaa/Docu
+ments/Proyectos/Listopi
+c/frontend/node_modules
+/rollup/dist/es/shared/
+node-entry.js:21448:36)
+[39m

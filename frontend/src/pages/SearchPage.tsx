@@ -54,8 +54,8 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
                 type="text"
                 value={inputValue}
                 onChange={handleChange}
-                placeholder="Buscar listas, usuarios, cafeterías (@user, #tag)..."
-                className="w-full bg-[#151b2e] border border-white/10 rounded-full py-4 pl-14 pr-6 text-white text-lg focus:outline-none focus:border-indigo-500 shadow-xl placeholder-gray-500"
+                placeholder="Buscar listas, usuarios, trastiendas (@user, #tag)..."
+                className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-full py-4 pl-14 pr-6 text-white text-lg focus:outline-none focus:border-indigo-500 focus:bg-white/10 shadow-2xl placeholder-gray-400 transition-all hover:bg-white/10"
             />
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
             {inputValue && (
@@ -106,7 +106,7 @@ const CustomHits = ({ activeTab }: { activeTab: string }) => {
                             {activeTab === 'users' ? (
                                 // User Card Adapter
                                 <Link to={`/profile/${hit.objectID}`} className="block group">
-                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-4 flex items-center gap-4 hover:border-indigo-500/50 transition-all">
+                                    <div className="glass-card rounded-2xl p-4 flex items-center gap-4 hover:scale-105 transition-all duration-300 shadow-lg border border-white/5">
                                         <img src={hit.photoUrl || `https://ui-avatars.com/api/?name=${hit.username}`} className="w-16 h-16 rounded-full object-cover" />
                                         <div>
                                             <h3 className="text-white font-bold text-lg group-hover:text-indigo-400 transition-colors">{hit.username}</h3>
@@ -235,7 +235,7 @@ const CustomRefinementList = (props: Record<string, unknown> & { attribute: stri
                             type="checkbox"
                             checked={item.isRefined}
                             onChange={() => refine(item.value)}
-                            className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-gray-900"
+                            className="w-4 h-4 rounded border-white/20 bg-black/30 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-transparent backdrop-blur-sm transition-colors"
                         />
                         <span className={`text-sm ${item.isRefined ? 'text-indigo-400 font-bold' : 'text-gray-400 group-hover:text-gray-300'}`}>
                             {item.label} <span className="text-gray-600 ml-1">({item.count})</span>
@@ -322,7 +322,7 @@ export const SearchPage: React.FC = () => {
 
                 {/* Tabs */}
                 <div className="flex justify-center mb-8">
-                    <div className="inline-flex bg-[#151b2e] p-1 rounded-full border border-white/10 overflow-x-auto max-w-[90vw]">
+                    <div className="inline-flex items-center bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner overflow-x-auto max-w-[90vw] gap-1 hide-scrollbar">
                         <button
                             onClick={() => handleTabChange('all')}
                             className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap capitalize ${activeTab === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
@@ -362,7 +362,7 @@ export const SearchPage: React.FC = () => {
                         <div className="container mx-auto max-w-7xl flex flex-col lg:flex-row gap-8">
                             {/* Filters Sidebar (Desktop) */}
                             <div className={`lg:w-64 flex-shrink-0 ${isFiltersOpen ? 'block' : 'hidden lg:block'}`}>
-                                <div className="bg-[#151b2e] rounded-xl border border-white/10 p-5 sticky top-24">
+                                <div className="glass-card rounded-2xl border border-white/10 p-5 sticky top-24 shadow-xl">
                                     <div className="flex justify-between items-center mb-4 lg:hidden">
                                         <h3 className="text-white font-bold">Filtros</h3>
                                         <button onClick={() => setIsFiltersOpen(false)}><X className="text-white" /></button>

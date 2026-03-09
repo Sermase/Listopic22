@@ -825,13 +825,15 @@ export const HomePage: React.FC = () => {
             <div className="pt-24 px-4 pb-6">
 
                 {/* Hero Section (Clean) */}
-                <div className="max-w-4xl mx-auto mb-8 text-center pt-4 relative">
-                    <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-3 select-none">
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 drop-shadow-[0_0_25px_rgba(99,102,241,0.4)]">
+                <div className="max-w-4xl mx-auto mb-10 text-center pt-8 relative z-10">
+                    <div className="absolute top-0 left-1/4 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" />
+                    <div className="absolute top-10 right-1/4 w-72 h-72 bg-purple-500/20 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" style={{ animationDelay: '2s' }} />
+                    <h1 className="text-5xl md:text-[5.5rem] font-black tracking-tighter mb-4 select-none leading-[1.1]">
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 drop-shadow-md">
                             LISTOPIC
                         </span>
                     </h1>
-                    <p className="text-lg md:text-xl text-gray-400 font-light tracking-wide max-w-xl mx-auto">
+                    <p className="text-lg md:text-2xl text-gray-400 font-light tracking-wide max-w-2xl mx-auto leading-relaxed">
                         {parsedHeroSubtitle.map((segment) => (
                             segment.isHighlight ? (
                                 <span key={segment.key} className={`${segment.className} font-bold`}>
@@ -847,21 +849,21 @@ export const HomePage: React.FC = () => {
 
                 {/* Navigation Pills */}
                 <div className="flex justify-center mt-8 gap-4">
-                    <div className="inline-flex bg-[#151b2e] p-1 rounded-full border border-white/10">
+                    <div className="inline-flex bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner">
                         <button
                             onClick={() => setActiveTab('explore')}
-                            className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'explore'
-                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
-                                : 'text-gray-400 hover:text-white'
+                            className={`relative px-8 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${activeTab === 'explore'
+                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_4px_14px_0_rgba(99,102,241,0.39)] scale-100'
+                                : 'text-gray-400 hover:text-white hover:bg-white/10 scale-[0.98]'
                                 }`}
                         >
                             Explorar
                         </button>
                         <button
                             onClick={() => setActiveTab('news')}
-                            className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'news'
-                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
-                                : 'text-gray-400 hover:text-white'
+                            className={`relative px-8 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${activeTab === 'news'
+                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_4px_14px_0_rgba(99,102,241,0.39)] scale-100'
+                                : 'text-gray-400 hover:text-white hover:bg-white/10 scale-[0.98]'
                                 }`}
                         >
                             Novedades

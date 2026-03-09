@@ -246,8 +246,8 @@ export const PlacePage: React.FC = () => {
                     </div>
                 )}
 
-                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 z-20 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-transparent pt-20">
-                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 pb-12 sm:pb-16 z-20 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-transparent pt-20">
+                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6 relative z-30">
 
                         {/* Title & Info */}
                         <div className="flex-1">
@@ -314,14 +314,14 @@ export const PlacePage: React.FC = () => {
             </div>
 
             {/* Main Content: Flex Col on Mobile (Order control), Grid on Desktop */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-8 flex flex-col lg:grid lg:grid-cols-12 gap-8">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 relative -mt-8 sm:-mt-12 z-20 flex flex-col lg:grid lg:grid-cols-12 gap-8">
 
                 {/* Sidebar (Right on Desktop, Top on Mobile) */}
                 {/* Order-1 on Mobile -> Renders FIRST. lg:order-last -> Renders RIGHT. */}
                 <div className="order-1 lg:col-span-4 lg:order-last space-y-4 sm:space-y-6">
 
                     {/* 1. Actions Row */}
-                    <div className="bg-[#151b2e] p-3 rounded-xl border border-white/10 grid grid-cols-4 gap-2 sm:gap-3">
+                    <div className="glass-card p-3 rounded-2xl grid grid-cols-4 gap-2 sm:gap-3 shadow-lg">
                         <button
                             onClick={() => setIsSaveModalOpen(true)}
                             className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
@@ -355,7 +355,7 @@ export const PlacePage: React.FC = () => {
 
                     {/* 2. Map */}
                     {place.coords && (
-                        <div className="bg-[#151b2e] rounded-xl overflow-hidden border border-white/10 shadow-lg relative group">
+                        <div className="glass-card rounded-2xl overflow-hidden shadow-xl relative group">
                             <div className="absolute top-3 right-3 z-10">
                                 <a
                                     href={place.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${place.coords.lat},${place.coords.lng}`}
@@ -385,7 +385,7 @@ export const PlacePage: React.FC = () => {
                     )}
 
                     {/* 3. Detailed Info (New Rich Data) */}
-                    <div className="bg-[#151b2e] p-5 rounded-xl border border-white/10 space-y-4">
+                    <div className="glass-card p-5 rounded-2xl space-y-4 shadow-lg">
                         <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm uppercase tracking-wider">Detalles</h3>
 
                         {/* Price & Features Grid */}
@@ -495,39 +495,39 @@ export const PlacePage: React.FC = () => {
                 {/* Order-2 on Mobile -> Renders SECOND. lg:order-first -> Renders LEFT. */}
                 <div className="order-2 lg:col-span-8 lg:order-first">
                     {/* Tabs */}
-                    <div className="flex gap-4 sm:gap-8 border-b border-white/10 mb-6 overflow-x-auto scrollbar-hide px-1">
+                    <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar px-1 py-2">
                         <button
                             onClick={() => setActiveTab('reviews')}
-                            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap border-b-2 ${activeTab === 'reviews'
-                                ? 'border-indigo-500 text-indigo-400'
-                                : 'border-transparent text-gray-400 hover:text-white'
+                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'reviews'
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
                                 }`}
                         >
                             <MessageSquare className="w-4 h-4" /> Opiniones ({place.reviews.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('dishes')}
-                            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap border-b-2 ${activeTab === 'dishes'
-                                ? 'border-indigo-500 text-indigo-400'
-                                : 'border-transparent text-gray-400 hover:text-white'
+                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'dishes'
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
                                 }`}
                         >
                             <ListIcon className="w-4 h-4" /> La Carta ({dishes.length || 0})
                         </button>
                         <button
                             onClick={() => setActiveTab('lists')}
-                            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap border-b-2 ${activeTab === 'lists'
-                                ? 'border-indigo-500 text-indigo-400'
-                                : 'border-transparent text-gray-400 hover:text-white'
+                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'lists'
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
                                 }`}
                         >
                             <Bookmark className="w-4 h-4" /> Listas ({place.relatedLists?.length || 0})
                         </button>
                         <button
                             onClick={() => setActiveTab('photos')}
-                            className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap border-b-2 ${activeTab === 'photos'
-                                ? 'border-indigo-500 text-indigo-400'
-                                : 'border-transparent text-gray-400 hover:text-white'
+                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'photos'
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
                                 }`}
                         >
                             <ImageIcon className="w-4 h-4" /> Fotos ({galleryPhotos.length})
@@ -555,7 +555,7 @@ export const PlacePage: React.FC = () => {
                     )}
 
                     {activeTab === 'dishes' && (
-                        <div className="animate-fade-in bg-[#151b2e] rounded-2xl border border-white/10 p-6 sm:p-8">
+                        <div className="animate-fade-in glass-card p-6 sm:p-8">
                             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                                 <ListIcon className="w-5 h-5 text-indigo-400" />
                                 Platos Destacados
@@ -564,24 +564,24 @@ export const PlacePage: React.FC = () => {
                             {dishes && dishes.length > 0 ? (
                                 <div className="space-y-4">
                                     {dishes.map((dish, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
+                                        <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/20 transition-all hover:-translate-y-1 hover:shadow-lg group">
                                             <Link
                                                 to={`/group/${placeId}/${encodeURIComponent(dish.name)}`}
                                                 className="flex items-center gap-4 flex-1 min-w-0"
                                             >
-                                                <div className="w-12 h-12 rounded-lg bg-gray-800 overflow-hidden shrink-0">
+                                                <div className="w-14 h-14 rounded-xl bg-gray-800 overflow-hidden shrink-0 shadow-inner">
                                                     {dish.photo ? (
-                                                        <img src={dish.photo} alt={dish.name} className="w-full h-full object-cover" />
+                                                        <img src={dish.photo} alt={dish.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                                     ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-gray-600 font-bold text-xs">
+                                                        <div className="w-full h-full flex items-center justify-center text-gray-600 font-bold text-xs bg-gradient-to-br from-gray-800 to-gray-900">
                                                             IMG
                                                         </div>
                                                     )}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <h4 className="font-bold text-white group-hover:text-indigo-400 transition-colors truncate">{dish.name}</h4>
-                                                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                                                        <span className="font-bold text-emerald-400">{dish.avg.toFixed(1)}</span>
+                                                    <h4 className="font-bold text-white group-hover:text-indigo-400 transition-colors text-lg truncate">{dish.name}</h4>
+                                                    <div className="flex items-center gap-2 text-sm text-gray-400 mt-0.5">
+                                                        <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">{dish.avg.toFixed(1)}</span>
                                                         <span>• {dish.count} opiniones</span>
                                                     </div>
                                                 </div>
@@ -597,9 +597,10 @@ export const PlacePage: React.FC = () => {
                                                         alert("No se pudo identificar la lista asociada a este plato.");
                                                     }
                                                 }}
-                                                className="px-3 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
+                                                className="px-4 py-2 rounded-full bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20 active:scale-95 flex items-center gap-1.5 ml-4 shrink-0"
                                             >
-                                                Valorar
+                                                <Plus className="w-3.5 h-3.5" />
+                                                <span className="hidden sm:inline">Añadir Foto</span>
                                             </button>
                                         </div>
                                     ))}
@@ -708,39 +709,42 @@ export const PlacePage: React.FC = () => {
                                 );
                             })()}
                         </div>
-                    )}
+                    )
+                    }
 
-                    {activeTab === 'photos' && (
-                        <div className="animate-fade-in">
-                            {galleryPhotos.length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                    {galleryPhotos.map((photo, idx) => (
-                                        <div
-                                            key={idx}
-                                            onClick={() => {
-                                                setLightboxIndex(idx);
-                                                setIsLightboxOpen(true);
-                                            }}
-                                            className="aspect-square rounded-xl overflow-hidden bg-gray-800 cursor-pointer group relative border border-white/5 hover:border-indigo-500/50 transition-all"
-                                        >
-                                            <img src={photo} alt="Lugar" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                                <div className="bg-black/50 backdrop-blur-sm p-2 rounded-full text-white">
-                                                    <ZoomIn className="w-5 h-5" />
+                    {
+                        activeTab === 'photos' && (
+                            <div className="animate-fade-in">
+                                {galleryPhotos.length > 0 ? (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                        {galleryPhotos.map((photo, idx) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => {
+                                                    setLightboxIndex(idx);
+                                                    setIsLightboxOpen(true);
+                                                }}
+                                                className="aspect-square rounded-xl overflow-hidden bg-gray-800 cursor-pointer group relative border border-white/5 hover:border-indigo-500/50 transition-all"
+                                            >
+                                                <img src={photo} alt="Lugar" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                    <div className="bg-black/50 backdrop-blur-sm p-2 rounded-full text-white">
+                                                        <ZoomIn className="w-5 h-5" />
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="py-16 text-center bg-[#151b2e] rounded-xl border border-dashed border-white/10">
-                                    <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                                    <h3 className="text-white font-bold">Sin fotos</h3>
-                                    <p className="text-gray-500 text-sm">Aún no hay fotos de este lugar.</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="py-16 text-center bg-[#151b2e] rounded-xl border border-dashed border-white/10">
+                                        <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                                        <h3 className="text-white font-bold">Sin fotos</h3>
+                                        <p className="text-gray-500 text-sm">Aún no hay fotos de este lugar.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    }
 
                     <Lightbox
                         isOpen={isLightboxOpen}
@@ -748,7 +752,7 @@ export const PlacePage: React.FC = () => {
                         images={galleryPhotos}
                         initialIndex={lightboxIndex}
                     />
-                </div>
+                </div >
             </main >
 
             <SaveToArchiveModal

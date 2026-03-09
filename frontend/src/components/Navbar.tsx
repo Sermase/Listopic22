@@ -129,14 +129,14 @@ export const Navbar: React.FC = () => {
 
     return (
         <header
-            className={`fixed top-0 w-full z-50 transition-all duration-300 
-            ${scrolled || isMenuOpen
-                    ? 'bg-[#0b1021]/95 backdrop-blur-md border-b border-white/5 shadow-lg shadow-indigo-500/10'
-                    : 'bg-gradient-to-b from-[#0b1021]/80 to-transparent'
-                }`}
+            className="fixed top-0 w-full z-50 px-3 pt-3 sm:px-6 sm:pt-5 transition-all duration-500 pointer-events-none"
         >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between h-20">
+            <div className={`pointer-events-auto max-w-7xl mx-auto transition-all duration-500 rounded-3xl md:rounded-[2rem]
+                ${scrolled || isMenuOpen
+                    ? 'bg-[#151b2e]/70 backdrop-blur-2xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.4)] ring-1 ring-white/5 px-4 sm:px-6 py-2'
+                    : 'bg-transparent px-2 sm:px-4 py-3'
+                }`}>
+                <div className="flex items-center justify-between h-14 md:h-16">
 
                     {/* Brand */}
                     <Link to="/" className="flex items-center gap-3 group brand-logo relative z-50">
@@ -159,7 +159,7 @@ export const Navbar: React.FC = () => {
                     </Link>
 
                     {/* Desktop Navigation */}
-                    <nav className="hidden md:flex items-center bg-white/5 backdrop-blur-md rounded-full px-2 py-1.5 border border-white/5 shadow-inner">
+                    <nav className="hidden md:flex items-center bg-white/5 backdrop-blur-xl rounded-full px-2 py-1.5 border border-white/5 shadow-inner">
                         <NavItem to="/search" icon={Search} label="Buscar" isActive={location.pathname === '/search'} />
                         <div className="w-px h-4 bg-white/10 mx-1" />
                         <NavItem to="/archive" icon={Archive} label="Archivo" isActive={location.pathname === '/archive'} />
@@ -262,8 +262,8 @@ export const Navbar: React.FC = () => {
 
             {/* Mobile Menu Overlay */}
             {isMenuOpen && (
-                <div className="fixed inset-0 bg-[#0b1021]/95 z-40 pt-24 px-6 animate-fade-in flex flex-col backdrop-blur-3xl">
-                    <div className="space-y-4 bg-[#0b1021] p-6 rounded-3xl border border-white/10 shadow-2xl">
+                <div className="fixed inset-0 top-[80px] bg-[#060913]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto">
+                    <div className="space-y-4 bg-[#151b2e]/60 p-6 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5 mt-4">
                         <Link to="/create-sublist" className="btn-primary w-full py-4 text-lg mb-8 shadow-indigo-600/20">
                             <Plus className="w-6 h-6" /> Crear Sublista
                         </Link>
@@ -299,17 +299,18 @@ export const Navbar: React.FC = () => {
                                 <Share2 className="w-5 h-5 text-indigo-400" /> Compartir App
                             </button>
                         </div>
-
-                        <div className="space-y-2 pt-4 border-t border-white/5">
-                            {!user && (
-                                <Link to="/login" className="btn-primary w-full justify-center p-4 rounded-xl">
-                                    Iniciar Sesión
-                                </Link>
-                            )}
-                        </div>
                     </div>
 
-                    <div className="mt-auto pb-8 text-center text-gray-500 text-sm">
+                    {/* Mobile Login Button (outside the main box but constrained) */}
+                    <div className="w-full mt-4 flex items-center justify-center flex-shrink-0">
+                        {!user && (
+                            <Link to="/login" className="btn-primary w-full justify-center p-4 rounded-2xl shadow-indigo-500/20">
+                                Iniciar Sesión
+                            </Link>
+                        )}
+                    </div>
+
+                    <div className="mt-auto pt-8 pb-4 text-center text-gray-500 text-sm flex-shrink-0">
                         <p>© 2024 Listopic App</p>
                     </div>
                 </div>
@@ -330,6 +331,6 @@ export const Navbar: React.FC = () => {
                     imageUrl: config.logoType === 'image' ? (config.logoUrl || undefined) : undefined,
                 }}
             />
-        </header>
+        </header >
     );
 };

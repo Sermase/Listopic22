@@ -539,8 +539,8 @@ export const ListPage: React.FC = () => {
                     </div>
                 )}
 
-                <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-8 z-10 max-w-7xl mx-auto w-full">
-                    <div className="flex flex-col md:flex-row gap-6 md:items-end md:justify-between">
+                <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-8 pb-12 sm:pb-16 z-10 max-w-7xl mx-auto w-full">
+                    <div className="flex flex-col md:flex-row gap-6 md:items-end md:justify-between relative z-30">
                         {/* Left Column: Title & Author */}
                         <div className="flex-1 space-y-4">
                             <div>
@@ -716,9 +716,9 @@ export const ListPage: React.FC = () => {
             </div>
 
             {/* Map Collapsible */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
-                <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
-                    <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[#1e2538]/50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 relative -mt-8 sm:-mt-12 z-20">
+                <div className="glass-card rounded-xl overflow-hidden transition-all duration-300 shadow-2xl">
+                    <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[#151b2e]/60 border-b border-white/5">
                         <button
                             onClick={() => setIsMapOpen(!isMapOpen)}
                             className="flex items-center gap-2 hover:text-white transition-colors flex-1"

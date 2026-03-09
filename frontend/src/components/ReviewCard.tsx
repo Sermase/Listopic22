@@ -370,7 +370,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 </div>
 
                 {/* 2. Main Visual: Large Image with Overlay Bubble (Also for fallback) */}
-                <div className={`relative w-full bg-gray-900 group/image ${review.photoUrl ? 'aspect-auto' : 'h-32 sm:h-40 overflow-hidden'}`}>
+                <div className={`relative w-[calc(100%-1.5rem)] mx-auto rounded-[1.25rem] overflow-hidden bg-gray-900 shadow-inner group/image ${review.photoUrl ? 'aspect-auto' : 'h-32 sm:h-40'}`}>
 
                     {/* "Ñam!" Animation Overlay */}
                     {showAnimation && (

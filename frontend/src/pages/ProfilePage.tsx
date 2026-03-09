@@ -565,35 +565,35 @@ export const ProfilePage: React.FC = () => {
                 {lists.map((list) => {
                     const listImage = list.mainImageUrl || list.photoUrl || '';
                     return (
-                    <Link
-                        key={list.id}
-                        to={`/list/${list.id}`}
-                        className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[#151b2e]/70 hover:border-indigo-500/40 hover:bg-white/5 transition-all"
-                    >
-                        <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-gray-800">
-                            {listImage ? (
-                                <img src={listImage} alt={list.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-600">
-                                    <ListIcon className="w-5 h-5" />
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                            <div className="text-sm font-bold text-white truncate">{list.name || 'Lista'}</div>
-                            <div className="text-[11px] text-gray-400 truncate">
-                                {list.itemCount || 0} lugares
-                                {list.description ? ` - ${list.description}` : ''}
+                        <Link
+                            key={list.id}
+                            to={`/list/${list.id}`}
+                            className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[#151b2e]/70 hover:border-indigo-500/40 hover:bg-white/5 transition-all"
+                        >
+                            <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-gray-800">
+                                {listImage ? (
+                                    <img src={listImage} alt={list.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                        <ListIcon className="w-5 h-5" />
+                                    </div>
+                                )}
                             </div>
-                        </div>
 
-                        {showSubBadge && (
-                            <span className="shrink-0 text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold uppercase tracking-wide">
-                                Sub
-                            </span>
-                        )}
-                    </Link>
+                            <div className="min-w-0 flex-1">
+                                <div className="text-sm font-bold text-white truncate">{list.name || 'Lista'}</div>
+                                <div className="text-[11px] text-gray-400 truncate">
+                                    {list.itemCount || 0} lugares
+                                    {list.description ? ` - ${list.description}` : ''}
+                                </div>
+                            </div>
+
+                            {showSubBadge && (
+                                <span className="shrink-0 text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold uppercase tracking-wide">
+                                    Sub
+                                </span>
+                            )}
+                        </Link>
                     );
                 })}
             </div>
@@ -825,8 +825,9 @@ export const ProfilePage: React.FC = () => {
                 <div className="flex flex-row items-center md:items-start gap-4 md:gap-8 mb-4">
                     {/* Avatar (Left) */}
                     <div className="group relative shrink-0">
-                        <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
-                            <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-4 border-[#151b2e] shadow-2xl relative">
+                        <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen" />
+                        <div className="relative w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
+                            <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-[3px] border-[#0b1021] shadow-2xl relative">
                                 <img
                                     src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || 'User'}`}
                                     alt={profile.username}
@@ -1065,18 +1066,18 @@ export const ProfilePage: React.FC = () => {
                         )}
                     </div>
 
-                    {/* DASHBOARD CARD: STATS + LEVEL */}
-                    <div className="bg-[#151b2e] border border-white/5 rounded-2xl p-4 md:p-6 mb-6">
+                    {/* DASHBOARD CARD: STATS + LEVEL BENTO */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-4 gap-2 md:gap-8 mb-4 md:mb-6">
+                        <div className="col-span-2 md:col-span-4 grid grid-cols-4 gap-2 md:gap-4 mb-2">
                             {[
                                 { label: 'Seguidores', value: profile.followersCount || 0 },
                                 { label: 'Reseñas', value: displayedReviewsCount },
                                 { label: 'Usuarios', value: profile.followingUsersCount || profile.followingCount || 0, icon: UsersIcon },
                                 { label: 'Listas', value: profile.followingListsCount || 0, icon: ListIcon }
                             ].map((stat, i) => (
-                                <div key={i} className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/5 md:bg-transparent md:p-0">
-                                    <span className="text-white font-bold text-lg md:text-2xl mb-1">{stat.value}</span>
+                                <div key={i} className="glass-card flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl md:rounded-2xl transition hover:scale-105 duration-300 shadow-sm border border-white/5">
+                                    <span className="text-white font-display font-bold text-lg md:text-3xl mb-1">{stat.value}</span>
                                     <span className="text-[9px] md:text-xs text-gray-400 uppercase tracking-wider text-center flex flex-col md:flex-row items-center gap-1">
                                         {stat.icon && <stat.icon className="w-3 h-3 md:w-4 md:h-4 mb-0.5 md:mb-0" />}
                                         {stat.label}
@@ -1085,7 +1086,7 @@ export const ProfilePage: React.FC = () => {
                             ))}
                         </div>
 
-                        {/* Level Bar (Full Width in Card) */}
+                        {/* Level Bar (Bento full width span) */}
                         {(() => {
                             const xp = profile.xp || 0;
                             const level = Math.floor(Math.sqrt(xp / 50)) + 1;
@@ -1094,8 +1095,9 @@ export const ProfilePage: React.FC = () => {
                             const progress = Math.min(100, Math.max(0, ((xp - currentLevelBaseXp) / (nextLevelXp - currentLevelBaseXp)) * 100));
 
                             return (
-                                <div className="flex items-center gap-3 relative">
-                                    <div className="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-bold text-white text-sm shadow-lg border border-[#151b2e] z-10">
+                                <div className="col-span-2 md:col-span-4 glass-card p-4 md:p-6 flex items-center gap-3 relative overflow-hidden border-indigo-500/20 bg-gradient-to-r from-[#151b2e] to-indigo-900/30">
+                                    {/* Level Badge inside Level Card */}
+                                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-bold text-white text-lg shadow-[0_4px_16px_rgba(245,158,11,0.4)] border border-white/20 z-10">
                                         {level}
                                     </div>
                                     <div className="flex-1 min-w-0">
@@ -1404,40 +1406,46 @@ export const ProfilePage: React.FC = () => {
                         </div>
                     </div>
                 )}
-                {/* Tabs Navigation */}
-                <div className="flex gap-8 border-b border-white/10 mb-8 overflow-x-auto">
-                    <button
-                        onClick={() => setActiveTab('reviews')}
-                        className={`pb-4 px-2 font-bold text-sm flex items-center gap-2 transition-colors relative ${activeTab === 'reviews' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <Star className="w-4 h-4" /> Reseñas ({displayedReviewsCount})
-                        {activeTab === 'reviews' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('lists')}
-                        className={`pb-4 px-2 font-bold text-sm flex items-center gap-2 transition-colors relative ${activeTab === 'lists' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <ListIcon className="w-4 h-4" /> Listas ({profileListsCount})
-                        {activeTab === 'lists' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('following')}
-                        className={`pb-4 px-2 font-bold text-sm flex items-center gap-2 transition-colors relative ${activeTab === 'following' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <UserCheck className="w-4 h-4" /> Siguiendo ({profile.followingCount || 0})
-                        {activeTab === 'following' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('stats')}
-                        className={`pb-4 px-2 font-bold text-sm flex items-center gap-2 transition-colors relative ${activeTab === 'stats' ? 'text-indigo-400' : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <BarChart3 className="w-4 h-4" /> Estadisticas
-                        {activeTab === 'stats' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-full" />}
-                    </button>
+                {/* Tabs Navigation (Floating Island Style) */}
+                <div className="flex justify-start md:justify-center mb-10 overflow-x-auto pb-4 hide-scrollbar">
+                    <div className="inline-flex items-center bg-[#151b2e]/60 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner min-w-max gap-1">
+                        <button
+                            onClick={() => setActiveTab('reviews')}
+                            className={`relative px-4 sm:px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'reviews'
+                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg scale-105'
+                                : 'text-gray-400 hover:text-white hover:bg-white/10'
+                                }`}
+                        >
+                            <Star className="w-4 h-4" /> Reseñas ({displayedReviewsCount})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('lists')}
+                            className={`relative px-4 sm:px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'lists'
+                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg scale-105'
+                                : 'text-gray-400 hover:text-white hover:bg-white/10'
+                                }`}
+                        >
+                            <ListIcon className="w-4 h-4" /> Listas ({profileListsCount})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('following')}
+                            className={`relative px-4 sm:px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'following'
+                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg scale-105'
+                                : 'text-gray-400 hover:text-white hover:bg-white/10'
+                                }`}
+                        >
+                            <UserCheck className="w-4 h-4" /> Siguiendo ({profile.followingCount || 0})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('stats')}
+                            className={`relative px-4 sm:px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'stats'
+                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg scale-105'
+                                : 'text-gray-400 hover:text-white hover:bg-white/10'
+                                }`}
+                        >
+                            <BarChart3 className="w-4 h-4" /> Estadísticas
+                        </button>
+                    </div>
                 </div>
 
                 {/* Tab Content */}
