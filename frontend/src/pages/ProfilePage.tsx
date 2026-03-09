@@ -28,6 +28,8 @@ import {
   X,
   Grid3X3,
   AlignJustify,
+  Clock,
+  TrendingUp,
 } from "lucide-react";
 import { ReportModal } from "../components/ReportModal";
 import {
@@ -138,8 +140,8 @@ export const ProfilePage: React.FC = () => {
   const [isFlowOpen, setIsFlowOpen] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [editingListId, setEditingListId] = useState<string | null>(null);
-  const [reviewViewMode, setReviewViewMode] = useState<"full" | "gallery">(
-    "full",
+  const [reviewViewMode, setReviewViewMode] = useState<"full" | "gallery" | "map">(
+    "gallery",
   );
   const [reviewListFilter, setReviewListFilter] = useState<string>("all");
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -166,8 +168,8 @@ export const ProfilePage: React.FC = () => {
   // Details Modal State
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [detailsModalTab, setDetailsModalTab] = useState<
-    "lists" | "following" | "followers" | "stats" | "map"
-  >("following");
+    "lists" | "following" | "followers" | "stats"
+  >("stats");
 
   const handleEditReview = (review: any) => {
     setEditingReviewId(review.id);
@@ -462,11 +464,9 @@ export const ProfilePage: React.FC = () => {
         };
 
         canonicalReviews.forEach((review) => {
-          const numericScore =
-            typeof review.overallRating === "number"
-              ? review.overallRating
-              : Number(review.overallRating);
-          const hasScore = Number.isFinite(numericScore);
+          const rawScore = review.overallRating ?? review.rating ?? review.avgRating;
+          const numericScore = typeof rawScore === "number" ? rawScore : Number(rawScore);
+          const hasScore = typeof rawScore !== "undefined" && rawScore !== null && !Number.isNaN(numericScore);
 
           if (hasScore) {
             totalScore += numericScore;
@@ -1399,7 +1399,7 @@ export const ProfilePage: React.FC = () => {
             {/* Stats Grid */}
             <div className="col-span-2 md:col-span-4 grid grid-cols-4 gap-2 md:gap-4 mb-2">
               {[
-                { id: "map", label: "Reseñas", value: displayedReviewsCount },
+                { id: "stats", label: "Reseñas", value: displayedReviewsCount },
                 {
                   id: "followers",
                   label: "Seguidores",
@@ -1450,47 +1450,46 @@ export const ProfilePage: React.FC = () => {
               );
 
               return (
-                <div className="col-span-2 md:col-span-4 glass-card p-4 md:p-6 flex items-center gap-3 relative overflow-hidden border-indigo-500/20 bg-gradient-to-r from-[#151b2e] to-indigo-900/30">
-                  {/* Level Badge inside Level Card */}
-                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-bold text-white text-lg shadow-[0_4px_16px_rgba(245,158,11,0.4)] border border-white/20 z-10">
-                    {level}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-end mb-1.5">
-                      <span className="text-[10px] font-bold text-gray-400 tracking-wider">
-                        NIVEL {level}
-                      </span>
-                      <span className="text-[10px] text-amber-500 font-mono font-bold">
-                        {Math.floor(xp)} / {nextLevelXp} XP
-                      </span>
+                <div className="col-span-2 md:col-span-4 glass-card p-4 md:p-6 flex flex-col items-stretch gap-4 relative overflow-hidden border-indigo-500/20 bg-gradient-to-r from-[#151b2e] to-indigo-900/30">
+                  <div className="flex items-center gap-3 w-full">
+                    {/* Level Badge inside Level Card */}
+                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-bold text-white text-lg shadow-[0_4px_16px_rgba(245,158,11,0.4)] border border-white/20 z-10">
+                      {level}
                     </div>
-                    <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
-                        style={{ width: `${progress}%` }}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-end mb-1.5">
+                        <span className="text-[10px] font-bold text-gray-400 tracking-wider">
+                          NIVEL {level}
+                        </span>
+                        <span className="text-[10px] text-amber-500 font-mono font-bold">
+                          {Math.floor(xp)} / {nextLevelXp} XP
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* BADGES SECTION IN BENTO */}
+                  {profile.badges && profile.badges.length > 0 && (
+                    <div className="mt-2 pt-4 border-t border-white/10 w-full">
+                      <BadgeDisplay
+                        earnedBadgeIds={
+                          profile.badges?.map((b: any) =>
+                            typeof b === "string" ? b : b.id,
+                          ) || []
+                        }
                       />
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })()}
           </div>
-
-          {/* BADGES SECTION */}
-          {profile.badges && profile.badges.length > 0 && (
-            <div className="pt-2">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Star className="w-3 h-3 text-amber-500" /> Medallas
-              </h3>
-              <BadgeDisplay
-                earnedBadgeIds={
-                  profile.badges?.map((b: any) =>
-                    typeof b === "string" ? b : b.id,
-                  ) || []
-                }
-              />
-            </div>
-          )}
 
         </div>
 
@@ -1858,32 +1857,32 @@ export const ProfilePage: React.FC = () => {
         {/* Main Content (Reviews are always visible below stats) */}
         <div className="mt-8 space-y-6">
           {/* STICKY REVIEWS HEADER */}
-          <div className="sticky top-14 md:top-16 z-30 bg-[#0b1021]/90 backdrop-blur-md border-b border-white/10 py-4 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-6 rounded-t-3xl sm:rounded-none">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Star className="w-5 h-5 text-indigo-400" /> Reseñas
-              </h2>
-              <div className="flex items-center gap-2 flex-wrap">
+          <div className="sticky top-14 md:top-16 z-30 bg-[#0b1021]/90 backdrop-blur-md border-b border-white/10 py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-6 rounded-t-3xl sm:rounded-none">
+            <div className="flex items-center justify-between gap-2 overflow-x-auto hide-scrollbar w-full">
+
+              <div className="flex items-center gap-2 flex-nowrap min-w-max">
                 <div className="inline-flex rounded-xl border border-white/10 bg-[#151b2e]/70 p-1">
                   <button
                     type="button"
                     onClick={() => setReviewSortMode("recent")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${reviewSortMode === "recent"
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewSortMode === "recent"
                       ? "bg-indigo-600 text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
+                    title="Recientes"
                   >
-                    Recientes
+                    <Clock className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setReviewSortMode("top_rated")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${reviewSortMode === "top_rated"
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewSortMode === "top_rated"
                       ? "bg-indigo-600 text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
+                    title="Mejor valoradas"
                   >
-                    Mejor valoradas
+                    <TrendingUp className="w-4 h-4" />
                   </button>
                 </div>
 
@@ -1893,7 +1892,7 @@ export const ProfilePage: React.FC = () => {
                     onChange={(e) => setReviewListFilter(e.target.value)}
                     className="bg-transparent border-none text-xs font-bold text-gray-300 px-2 py-1 outline-none focus:ring-0 cursor-pointer text-center"
                   >
-                    <option value="all" className="bg-[#151b2e] text-white">Todas las listas</option>
+                    <option value="all" className="bg-[#151b2e] text-white">Listas</option>
                     {availableListsForFilter.map(list => (
                       <option key={list.id} value={list.id} className="bg-[#151b2e] text-white">
                         {list.name}
@@ -1901,6 +1900,9 @@ export const ProfilePage: React.FC = () => {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-nowrap min-w-max">
 
                 <div className="inline-flex rounded-xl border border-white/10 bg-[#151b2e]/70 p-1">
                   <button
@@ -1925,6 +1927,17 @@ export const ProfilePage: React.FC = () => {
                   >
                     <Grid3X3 className="w-4 h-4" />
                   </button>
+                  <button
+                    type="button"
+                    title="Vista mapa"
+                    onClick={() => setReviewViewMode("map")}
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewViewMode === "map"
+                      ? "bg-indigo-600 text-white"
+                      : "text-gray-300 hover:text-white"
+                      }`}
+                  >
+                    <MapPinIcon className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -1940,13 +1953,26 @@ export const ProfilePage: React.FC = () => {
             </div>
           ) : (
             <>
-              {reviewViewMode === "gallery" ? (
+              {reviewViewMode === "map" ? (
+                <div className="h-[500px] w-full rounded-2xl overflow-hidden border border-white/10 relative z-0">
+                  <MapView
+                    items={sortedProfileReviews.map(r => ({
+                      ...r,
+                      lat: r.placeLat || r.lat || r.location?.latitude || r.coordinates?.latitude,
+                      lng: r.placeLng || r.lng || r.location?.longitude || r.coordinates?.longitude
+                    }))}
+                    mode="global"
+                    range={null}
+                  />
+                </div>
+              ) : reviewViewMode === "gallery" ? (
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
                   {sortedProfileReviews.map((review: any) => {
                     const hasPhotos =
                       review.photos &&
                       Array.isArray(review.photos) &&
                       review.photos.length > 0;
+                    const isPlaceImage = !hasPhotos && !review.photoUrl && !!review.placeMainImage;
                     const photoUrl = review.photoUrl || (hasPhotos ? review.photos[0] : null) || review.placeMainImage || null;
                     const score =
                       typeof review.overallRating === "number"
@@ -1962,9 +1988,7 @@ export const ProfilePage: React.FC = () => {
                         >
                           <button
                             onClick={() => {
-                              setExpandedReviewIds((prev) =>
-                                prev.filter((id) => id !== review.id),
-                              );
+                              setExpandedReviewIds([]);
                             }}
                             className="absolute top-2 right-2 sm:top-4 sm:right-4 z-10 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white backdrop-blur-md transition-colors"
                           >
@@ -1985,8 +2009,8 @@ export const ProfilePage: React.FC = () => {
                         onClick={() => {
                           setExpandedReviewIds((prev) =>
                             prev.includes(review.id)
-                              ? prev.filter((id) => id !== review.id)
-                              : [review.id, ...prev],
+                              ? []
+                              : [review.id],
                           );
                         }}
                         className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[#0b1021] hover:border-indigo-500 transition-colors"
@@ -1996,7 +2020,7 @@ export const ProfilePage: React.FC = () => {
                             <img
                               src={photoUrl}
                               alt={review.placeName || review.itemName || "Lugar"}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                              className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImage ? 'opacity-50 saturate-50' : ''}`}
                             />
                             <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 pt-6">
                               <span className="text-[10px] sm:text-xs text-white font-bold line-clamp-2 leading-tight drop-shadow-md">
@@ -2081,12 +2105,6 @@ export const ProfilePage: React.FC = () => {
               {/* Modal Tabs */}
               <div className="flex overflow-x-auto hide-scrollbar border-b border-white/10 bg-[#12182c]">
                 <button
-                  onClick={() => setDetailsModalTab("map")}
-                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "map" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
-                >
-                  <MapPinIcon className="w-4 h-4" /> Mapa
-                </button>
-                <button
                   onClick={() => setDetailsModalTab("stats")}
                   className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
@@ -2114,11 +2132,6 @@ export const ProfilePage: React.FC = () => {
 
               {/* Modal Content */}
               <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#0b1021] flex flex-col">
-                {detailsModalTab === "map" && (
-                  <div className="flex-1 rounded-xl overflow-hidden min-h-[400px]">
-                    <MapView items={sortedProfileReviews} mode="global" />
-                  </div>
-                )}
                 {detailsModalTab === "stats" && (
                   <>
                     {statsLoading ? (
