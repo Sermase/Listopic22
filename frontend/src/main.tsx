@@ -8,7 +8,14 @@ import { AuthProvider } from './context/AuthContext';
 import { FilterProvider } from './context/FilterContext';
 import { StorageImageRecovery } from './components/StorageImageRecovery';
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+const canRegisterServiceWorker = 'serviceWorker' in navigator
+  && (
+    window.isSecureContext
+    || window.location.hostname === 'localhost'
+    || window.location.hostname === '127.0.0.1'
+  );
+
+if (canRegisterServiceWorker) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((error) => {
       console.error('Service worker registration failed:', error);

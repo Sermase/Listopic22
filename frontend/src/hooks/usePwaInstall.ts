@@ -41,6 +41,21 @@ const isStandaloneApp = (): boolean => {
         || document.referrer.startsWith('android-app://');
 };
 
+const hasSecureInstallContext = (): boolean => {
+    if (typeof window === 'undefined') return false;
+
+    return window.isSecureContext
+        || window.location.hostname === 'localhost'
+        || window.location.hostname === '127.0.0.1';
+};
+
+const isChromiumLike = (): boolean => {
+    if (typeof window === 'undefined') return false;
+
+    const ua = window.navigator.userAgent;
+    return /(Chrome|Chromium|Edg|OPR|Brave)/i.test(ua) && !/(Firefox|FxiOS)/i.test(ua);
+};
+
 export const usePwaInstall = () => {
     const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
     const [isInstalled, setIsInstalled] = useState(false);
@@ -128,6 +143,9 @@ export const usePwaInstall = () => {
         return installMethod;
     }, [deferredPrompt, installMethod, syncEnvironment]);
 
+    const isSecureInstallContext = useMemo(() => hasSecureInstallContext(), []);
+    const chromiumLike = useMemo(() => isChromiumLike(), []);
+
     const manualInstallSteps = useMemo(() => {
         if (installMethod === 'ios') {
             return [
@@ -144,10 +162,35 @@ export const usePwaInstall = () => {
         ];
     }, [installMethod]);
 
+    const installButtonLabel = useMemo(() => {
+        if (installMethod === 'ios') return 'Añadir a inicio';
+        if (installMethod === 'manual') return 'Cómo instalar';
+        return 'Instalar App';
+    }, [installMethod]);
+
+    const installHelpText = useMemo(() => {
+        if (installMethod === 'ios') {
+            return 'Safari en iPhone y iPad no ofrece el prompt beforeinstallprompt. La instalación se hace desde Compartir.';
+        }
+
+        if (!isSecureInstallContext) {
+            return 'El prompt nativo solo aparece en HTTPS o en localhost. Si estás entrando desde una IP local o una URL http, el navegador no lo mostrará.';
+        }
+
+        if (!chromiumLike) {
+            return 'El prompt nativo suele estar disponible en navegadores basados en Chromium. En otros navegadores la instalación se hace desde el menú del navegador.';
+        }
+
+        return 'Si no aparece el prompt nativo, normalmente el navegador todavía no considera esta visita instalable o estás probando en un entorno de desarrollo no válido.';
+    }, [chromiumLike, installMethod, isSecureInstallContext]);
+
     return {
         installMethod,
         isInstalled,
         isInstallVisible: isMobile && !isInstalled && installMethod !== null,
+        installButtonLabel,
+        installHelpText,
+        isSecureInstallContext,
         manualInstallSteps,
         triggerInstall,
     };

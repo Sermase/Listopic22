@@ -51,6 +51,8 @@ export const Navbar: React.FC = () => {
     const {
         installMethod,
         isInstallVisible,
+        installButtonLabel,
+        installHelpText,
         manualInstallSteps,
         triggerInstall,
     } = usePwaInstall();
@@ -342,7 +344,7 @@ export const Navbar: React.FC = () => {
                                     <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 16V17H11V16H10.5C10.22 16 10 15.78 10 15.5V13.5C10 13.22 10.22 13 10.5 13H13V12H10V10H11V9H13V10H13.5C13.78 10 14 10.22 14 10.5V12.5C14 12.78 13.78 13 13.5 13H11V14H14V16H13ZM12 4C7.58 4 4 7.58 4 12C4 16.42 7.58 20 12 20C16.42 20 20 16.42 20 12C20 7.58 16.42 4 12 4ZM10 6L8 8H11V13H13V8H16L14 6H10Z" />
                                     </svg>
-                                    Instalar App
+                                    {installButtonLabel}
                                 </button>
                             )}
                         </div>
@@ -378,9 +380,7 @@ export const Navbar: React.FC = () => {
                             <div>
                                 <h3 className="text-lg font-bold text-white">Instalar app</h3>
                                 <p className="mt-1 text-sm text-gray-400">
-                                    {installMethod === 'ios'
-                                        ? 'En iPhone o iPad la instalación se hace desde Safari.'
-                                        : 'Si no aparece el prompt del navegador, puedes instalarla manualmente.'}
+                                    {installHelpText}
                                 </p>
                             </div>
                             <button
