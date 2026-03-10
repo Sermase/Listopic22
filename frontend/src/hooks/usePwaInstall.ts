@@ -14,6 +14,13 @@ type ExtendedNavigator = Navigator & {
     standalone?: boolean;
 };
 
+declare global {
+    interface Window {
+        __listopicDeferredInstallPrompt?: BeforeInstallPromptEvent | null;
+        __listopicPwaInstalled?: boolean;
+    }
+}
+
 const DISPLAY_MODE_QUERY = '(display-mode: standalone)';
 const MOBILE_QUERY = '(max-width: 1024px), (pointer: coarse)';
 
@@ -36,7 +43,8 @@ const isMobileDevice = (): boolean => {
 const isStandaloneApp = (): boolean => {
     if (typeof window === 'undefined') return false;
 
-    return window.matchMedia(DISPLAY_MODE_QUERY).matches
+    return Boolean(window.__listopicPwaInstalled)
+        || window.matchMedia(DISPLAY_MODE_QUERY).matches
         || Boolean((window.navigator as ExtendedNavigator).standalone)
         || document.referrer.startsWith('android-app://');
 };
@@ -65,7 +73,7 @@ export const usePwaInstall = () => {
     const syncEnvironment = useCallback((promptEvent?: BeforeInstallPromptEvent | null) => {
         const mobile = isMobileDevice();
         const installed = isStandaloneApp();
-        const nextPrompt = promptEvent ?? deferredPrompt;
+        const nextPrompt = promptEvent ?? window.__listopicDeferredInstallPrompt ?? deferredPrompt;
 
         setIsMobile(mobile);
         setIsInstalled(installed);
@@ -84,6 +92,10 @@ export const usePwaInstall = () => {
     }, [deferredPrompt]);
 
     useEffect(() => {
+        if (window.__listopicDeferredInstallPrompt) {
+            setDeferredPrompt(window.__listopicDeferredInstallPrompt);
+        }
+
         syncEnvironment();
 
         const displayModeMedia = window.matchMedia(DISPLAY_MODE_QUERY);
@@ -91,13 +103,22 @@ export const usePwaInstall = () => {
         const handleBeforeInstallPrompt = (event: Event) => {
             event.preventDefault();
             const promptEvent = event as BeforeInstallPromptEvent;
+            window.__listopicDeferredInstallPrompt = promptEvent;
             setDeferredPrompt(promptEvent);
             syncEnvironment(promptEvent);
         };
 
         const handleAppInstalled = () => {
+            window.__listopicDeferredInstallPrompt = null;
+            window.__listopicPwaInstalled = true;
             setDeferredPrompt(null);
             syncEnvironment(null);
+        };
+
+        const handleStoredPromptReady = () => {
+            if (!window.__listopicDeferredInstallPrompt) return;
+            setDeferredPrompt(window.__listopicDeferredInstallPrompt);
+            syncEnvironment(window.__listopicDeferredInstallPrompt);
         };
 
         const handleEnvironmentChange = () => {
@@ -106,6 +127,8 @@ export const usePwaInstall = () => {
 
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
         window.addEventListener('appinstalled', handleAppInstalled);
+        window.addEventListener('listopic:beforeinstallprompt', handleStoredPromptReady);
+        window.addEventListener('listopic:appinstalled', handleAppInstalled);
         window.addEventListener('resize', handleEnvironmentChange);
 
         if (typeof displayModeMedia.addEventListener === 'function') {
@@ -117,6 +140,8 @@ export const usePwaInstall = () => {
         return () => {
             window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
             window.removeEventListener('appinstalled', handleAppInstalled);
+            window.removeEventListener('listopic:beforeinstallprompt', handleStoredPromptReady);
+            window.removeEventListener('listopic:appinstalled', handleAppInstalled);
             window.removeEventListener('resize', handleEnvironmentChange);
 
             if (typeof displayModeMedia.removeEventListener === 'function') {
@@ -128,11 +153,14 @@ export const usePwaInstall = () => {
     }, [syncEnvironment]);
 
     const triggerInstall = useCallback(async (): Promise<InstallMethod> => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
+        const promptEvent = deferredPrompt ?? window.__listopicDeferredInstallPrompt ?? null;
+
+        if (promptEvent) {
+            promptEvent.prompt();
+            const { outcome } = await promptEvent.userChoice;
 
             if (outcome === 'accepted') {
+                window.__listopicDeferredInstallPrompt = null;
                 setDeferredPrompt(null);
                 syncEnvironment(null);
             }

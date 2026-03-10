@@ -1,5 +1,12 @@
 import { useEffect } from 'react';
-import { useAppConfig } from '../context/AppConfigContext';
+import { type AppConfig, useAppConfig } from '../context/AppConfigContext';
+
+const DEFAULT_FAVICON_URL = '/default_favicon.svg';
+const DEFAULT_APPLE_TOUCH_ICON_URL = '/apple-touch-icon.png';
+const DEFAULT_MANIFEST_ICONS = [
+    { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+];
 
 export const SeoManager: React.FC = () => {
     const config = useAppConfig();
@@ -26,16 +33,52 @@ export const SeoManager: React.FC = () => {
             updateMetaProperty('og:image', socialImage);
         }
 
-        // --- FAVICON ---
-        const effectiveFaviconUrl = config.faviconType === 'image' && config.faviconUrl
-            ? config.faviconUrl
-            : '/default_favicon.svg';
+        const brandingAssets = resolveBrandingAssets(config);
 
-        updateFavicon(effectiveFaviconUrl);
+        updateFavicon(brandingAssets.faviconUrl);
+        updateAppleTouchIcon(brandingAssets.appleTouchIconUrl);
+        updateManifest({
+            id: '/',
+            name: config.appName || 'Listopic',
+            short_name: config.appName || 'Listopic',
+            description: config.appDescription || 'Comparte y descubre listas de tus lugares favoritos.',
+            lang: 'es-ES',
+            start_url: '/',
+            scope: '/',
+            display: 'standalone',
+            background_color: '#0b1021',
+            theme_color: '#0b1021',
+            icons: brandingAssets.manifestIcons,
+        });
 
     }, [config]);
 
     return null; // Renders nothing visibly
+};
+
+const resolveBrandingAssets = (config: AppConfig) => {
+    const effectiveCustomIconUrl = (config.faviconType === 'image' && config.faviconUrl)
+        ? config.faviconUrl
+        : ((config.logoType === 'image' && config.logoUrl) ? config.logoUrl : null);
+
+    if (!effectiveCustomIconUrl) {
+        return {
+            faviconUrl: DEFAULT_FAVICON_URL,
+            appleTouchIconUrl: DEFAULT_APPLE_TOUCH_ICON_URL,
+            manifestIcons: DEFAULT_MANIFEST_ICONS,
+        };
+    }
+
+    const manifestIconType = guessImageMimeType(effectiveCustomIconUrl);
+
+    return {
+        faviconUrl: effectiveCustomIconUrl,
+        appleTouchIconUrl: effectiveCustomIconUrl,
+        manifestIcons: [
+            { src: effectiveCustomIconUrl, sizes: '192x192', type: manifestIconType },
+            { src: effectiveCustomIconUrl, sizes: '512x512', type: manifestIconType },
+        ],
+    };
 };
 
 // --- HELPER FUNCTIONS ---
@@ -67,6 +110,44 @@ const updateFavicon = (url: string) => {
         link.rel = 'icon';
         document.head.appendChild(link);
     }
-    // Force browser refresh of icon by changing type if needed or just href
     link.href = url;
+};
+
+const updateAppleTouchIcon = (url: string) => {
+    let link: HTMLLinkElement | null = document.querySelector("link[rel='apple-touch-icon']");
+    if (!link) {
+        link = document.createElement('link');
+        link.rel = 'apple-touch-icon';
+        document.head.appendChild(link);
+    }
+    link.href = url;
+};
+
+const updateManifest = (manifestContent: Record<string, unknown>) => {
+    let link: HTMLLinkElement | null = document.querySelector("link[rel='manifest']");
+    if (!link) {
+        link = document.createElement('link');
+        link.rel = 'manifest';
+        document.head.appendChild(link);
+    }
+
+    const previousBlobUrl = link.dataset.dynamicManifestUrl;
+    if (previousBlobUrl) {
+        URL.revokeObjectURL(previousBlobUrl);
+    }
+
+    const manifestBlob = new Blob([JSON.stringify(manifestContent)], {
+        type: 'application/manifest+json',
+    });
+    const manifestUrl = URL.createObjectURL(manifestBlob);
+    link.href = manifestUrl;
+    link.dataset.dynamicManifestUrl = manifestUrl;
+};
+
+const guessImageMimeType = (url: string): string => {
+    const normalizedUrl = url.toLowerCase();
+    if (normalizedUrl.includes('.svg')) return 'image/svg+xml';
+    if (normalizedUrl.includes('.webp')) return 'image/webp';
+    if (normalizedUrl.includes('.jpg') || normalizedUrl.includes('.jpeg')) return 'image/jpeg';
+    return 'image/png';
 };

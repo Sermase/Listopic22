@@ -22,6 +22,22 @@
 <body>
   <div id="root"></div>
   <script>
+    window.__listopicDeferredInstallPrompt = null;
+    window.__listopicPwaInstalled = false;
+
+    window.addEventListener('beforeinstallprompt', function (event) {
+      event.preventDefault();
+      window.__listopicDeferredInstallPrompt = event;
+      window.dispatchEvent(new CustomEvent('listopic:beforeinstallprompt'));
+    });
+
+    window.addEventListener('appinstalled', function () {
+      window.__listopicDeferredInstallPrompt = null;
+      window.__listopicPwaInstalled = true;
+      window.dispatchEvent(new CustomEvent('listopic:appinstalled'));
+    });
+  </script>
+  <script>
     window.initMap = function () {
       console.log("Google Maps API loaded");
     };
