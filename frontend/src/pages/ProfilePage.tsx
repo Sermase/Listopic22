@@ -102,6 +102,8 @@ interface FavoriteReviewSummary {
   score: number;
 }
 
+type DetailsModalTab = "lists" | "following" | "followers" | "stats";
+
 const EMPTY_ADVANCED_STATS: AdvancedProfileStats = {
   totalReviews: 0,
   averageRating: 0,
@@ -167,9 +169,8 @@ export const ProfilePage: React.FC = () => {
 
   // Details Modal State
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [detailsModalTab, setDetailsModalTab] = useState<
-    "lists" | "following" | "followers" | "stats"
-  >("stats");
+  const [detailsModalTab, setDetailsModalTab] =
+    useState<DetailsModalTab>("stats");
 
   const handleEditReview = (review: any) => {
     setEditingReviewId(review.id);
@@ -1416,9 +1417,7 @@ export const ProfilePage: React.FC = () => {
                 <div
                   key={i}
                   onClick={() => {
-                    setDetailsModalTab(
-                      stat.id as "stats" | "followers" | "following" | "lists" | "map",
-                    );
+                    setDetailsModalTab(stat.id as DetailsModalTab);
                     setIsDetailsModalOpen(true);
                   }}
                   className="glass-card flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl md:rounded-2xl transition hover:scale-105 hover:bg-white/5 duration-300 shadow-sm border border-white/5 cursor-pointer"
