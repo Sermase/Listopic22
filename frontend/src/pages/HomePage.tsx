@@ -131,8 +131,9 @@ export const HomePage: React.FC = () => {
     const { range, setRange, toggleRange, getRangeLabel } = useFilters();
 
     const [isMapOpen, setIsMapOpen] = useState(false);
-    const [gateLoading, setGateLoading] = useState(false);
+    const [gateLoading, setGateLoading] = useState(true);
     const [showProfileGate, setShowProfileGate] = useState(false);
+    const [gateChecked, setGateChecked] = useState(false);
     const [gateSubmitting, setGateSubmitting] = useState(false);
     const [gateError, setGateError] = useState<string | null>(null);
     const [gateForm, setGateForm] = useState<UserProfileFormData>({
@@ -180,6 +181,7 @@ export const HomePage: React.FC = () => {
             if (!user) {
                 if (!cancelled) {
                     setGateLoading(false);
+                    setGateChecked(true);
                     setShowProfileGate(false);
                     setGateError(null);
                 }
@@ -212,6 +214,7 @@ export const HomePage: React.FC = () => {
             } finally {
                 if (!cancelled) {
                     setGateLoading(false);
+                    setGateChecked(true);
                 }
             }
         };
@@ -697,7 +700,7 @@ export const HomePage: React.FC = () => {
         toggleRange();
     };
 
-    if (user && gateLoading) {
+    if (user && (!gateChecked || gateLoading)) {
         return (
             <div className="min-h-screen bg-[#0b1021] flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
