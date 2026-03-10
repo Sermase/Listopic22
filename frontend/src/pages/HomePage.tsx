@@ -117,7 +117,7 @@ const pickRandomHeroSubtitle = (): string => {
 };
 
 export const HomePage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const appConfig = useAppConfig();
     const { location, calculateDistance, requestLocation } = useLocation();
     const { showToast } = useToast();
@@ -134,6 +134,7 @@ export const HomePage: React.FC = () => {
     const [gateLoading, setGateLoading] = useState(true);
     const [showProfileGate, setShowProfileGate] = useState(false);
     const [gateChecked, setGateChecked] = useState(false);
+    const [gateResolvedForUserId, setGateResolvedForUserId] = useState<string | null>(null);
     const [gateSubmitting, setGateSubmitting] = useState(false);
     const [gateError, setGateError] = useState<string | null>(null);
     const [gateForm, setGateForm] = useState<UserProfileFormData>({
@@ -182,12 +183,16 @@ export const HomePage: React.FC = () => {
                 if (!cancelled) {
                     setGateLoading(false);
                     setGateChecked(true);
+                    setGateResolvedForUserId(null);
                     setShowProfileGate(false);
                     setGateError(null);
                 }
                 return;
             }
 
+            setGateResolvedForUserId(null);
+            setGateChecked(false);
+            setShowProfileGate(false);
             setGateLoading(true);
             try {
                 const status = await getUsernameGateStatus({
@@ -215,6 +220,7 @@ export const HomePage: React.FC = () => {
                 if (!cancelled) {
                     setGateLoading(false);
                     setGateChecked(true);
+                    setGateResolvedForUserId(user.uid);
                 }
             }
         };
@@ -700,7 +706,13 @@ export const HomePage: React.FC = () => {
         toggleRange();
     };
 
-    if (user && (!gateChecked || gateLoading)) {
+    const shouldHoldHomeForGate = authLoading || (Boolean(user) && (
+        !gateChecked
+        || gateLoading
+        || gateResolvedForUserId !== user?.uid
+    ));
+
+    if (shouldHoldHomeForGate) {
         return (
             <div className="min-h-screen bg-[#0b1021] flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
