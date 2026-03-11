@@ -136,12 +136,47 @@ const updateManifest = (manifestContent: Record<string, unknown>) => {
         URL.revokeObjectURL(previousBlobUrl);
     }
 
-    const manifestBlob = new Blob([JSON.stringify(manifestContent)], {
+    const manifestBlob = new Blob([JSON.stringify(normalizeManifestUrls(manifestContent))], {
         type: 'application/manifest+json',
     });
     const manifestUrl = URL.createObjectURL(manifestBlob);
     link.href = manifestUrl;
     link.dataset.dynamicManifestUrl = manifestUrl;
+};
+
+const normalizeManifestUrls = (manifestContent: Record<string, unknown>) => {
+    const normalizedManifest: Record<string, unknown> = { ...manifestContent };
+
+    if (typeof normalizedManifest.start_url === 'string') {
+        normalizedManifest.start_url = toAbsoluteUrl(normalizedManifest.start_url);
+    }
+
+    if (typeof normalizedManifest.scope === 'string') {
+        normalizedManifest.scope = toAbsoluteUrl(normalizedManifest.scope);
+    }
+
+    if (typeof normalizedManifest.id === 'string') {
+        normalizedManifest.id = toAbsoluteUrl(normalizedManifest.id);
+    }
+
+    if (Array.isArray(normalizedManifest.icons)) {
+        normalizedManifest.icons = normalizedManifest.icons
+            .filter((icon): icon is Record<string, unknown> => typeof icon === 'object' && icon !== null)
+            .map((icon) => ({
+                ...icon,
+                src: typeof icon.src === 'string' ? toAbsoluteUrl(icon.src) : icon.src,
+            }));
+    }
+
+    return normalizedManifest;
+};
+
+const toAbsoluteUrl = (url: string): string => {
+    try {
+        return new URL(url, window.location.origin).toString();
+    } catch {
+        return url;
+    }
 };
 
 const guessImageMimeType = (url: string): string => {

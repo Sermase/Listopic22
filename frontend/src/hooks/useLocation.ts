@@ -30,7 +30,6 @@ export const useLocation = () => {
         const fail = (err: GeolocationPositionError) => {
             setError(err.message);
             setLoading(false);
-            console.warn('Error obteniendo ubicación:', err);
         };
 
         // Solicitar ubicación al montar
