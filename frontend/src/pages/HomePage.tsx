@@ -137,6 +137,7 @@ export const HomePage: React.FC = () => {
     const [gateResolvedForUserId, setGateResolvedForUserId] = useState<string | null>(null);
     const [gateSubmitting, setGateSubmitting] = useState(false);
     const [gateError, setGateError] = useState<string | null>(null);
+    const [profileGateVisible, setProfileGateVisible] = useState(false);
     const [gateForm, setGateForm] = useState<UserProfileFormData>({
         username: '',
         displayName: '',
@@ -247,6 +248,21 @@ export const HomePage: React.FC = () => {
 
         return () => unsubscribe();
     }, [user?.uid, showProfileGate]);
+
+    useEffect(() => {
+        if (!user || !showProfileGate || gateLoading) {
+            setProfileGateVisible(false);
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            setProfileGateVisible(true);
+        }, 220);
+
+        return () => {
+            window.clearTimeout(timer);
+        };
+    }, [user?.uid, showProfileGate, gateLoading]);
 
     const handleGateFieldChange = (field: keyof UserProfileFormData, value: string) => {
         setGateForm(prev => ({ ...prev, [field]: value }));
@@ -720,7 +736,15 @@ export const HomePage: React.FC = () => {
         );
     }
 
-    if (user && showProfileGate) {
+    if (user && showProfileGate && !profileGateVisible) {
+        return (
+            <div className="min-h-screen bg-[#0b1021] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+            </div>
+        );
+    }
+
+    if (user && showProfileGate && profileGateVisible) {
         return (
             <div className="min-h-screen bg-[#0b1021] px-4 py-12 flex items-center justify-center">
                 <div className="w-full max-w-2xl bg-[#151b2e] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
