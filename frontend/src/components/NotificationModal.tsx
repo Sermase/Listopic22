@@ -8,9 +8,14 @@ import { Link } from 'react-router-dom';
 interface NotificationModalProps {
     onClose: () => void;
     onOpenHistory: () => void;
+    mobile?: boolean;
 }
 
-export const NotificationModal: React.FC<NotificationModalProps> = ({ onClose, onOpenHistory }) => {
+export const NotificationModal: React.FC<NotificationModalProps> = ({
+    onClose,
+    onOpenHistory,
+    mobile = false,
+}) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -82,9 +87,59 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ onClose, o
         return '#';
     }
 
-    return (
-        <div className="absolute top-12 right-0 w-80 md:w-96 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in origin-top-right">
-            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/20">
+    const mobileListContent = loading ? (
+        <div className="py-10 text-center text-gray-500 text-sm">Cargando...</div>
+    ) : notifications.length === 0 ? (
+        <div className="py-10 text-center text-gray-500 text-sm flex flex-col items-center gap-2">
+            <Bell className="w-8 h-8 opacity-20" />
+            Sin notificaciones recientes
+        </div>
+    ) : (
+        <div className="space-y-1">
+            {notifications.map(notification => (
+                <Link
+                    key={notification.id}
+                    to={getLink(notification)}
+                    onClick={() => {
+                        if (!notification.read && user) {
+                            updateDoc(doc(db, 'users', user.uid, 'notifications', notification.id), { read: true });
+                        }
+                        onClose();
+                    }}
+                    className={`block rounded-xl border p-3 transition-all ${!notification.read
+                        ? 'bg-indigo-500/10 border-indigo-500/20'
+                        : 'bg-white/5 border-transparent hover:bg-white/10'
+                        }`}
+                >
+                    <div className="flex gap-3">
+                        <div className="mt-0.5 shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-black/20 border border-white/5">
+                            {getIcon(notification.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-200 leading-snug">
+                                {notification.senderName && <span className="font-bold text-white">{notification.senderName} </span>}
+                                {notification.message || 'Nueva notificaciÃ³n'}
+                            </p>
+                            <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-500">
+                                <span>
+                                    {notification.createdAt?.seconds
+                                        ? new Date(notification.createdAt.seconds * 1000).toLocaleDateString()
+                                        : 'Hace un momento'}
+                                </span>
+                                {!notification.read && (
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </Link>
+            ))}
+        </div>
+    );
+
+    const panelContent = (
+        <>
+            <div className={`p-4 border-b border-white/10 flex items-center justify-between ${mobile ? 'bg-[#151b2e]' : 'bg-black/20'}`}>
                 <h3 className="font-bold text-white flex items-center gap-2">
                     <Bell className="w-4 h-4 text-indigo-400" /> Notificaciones
                 </h3>
@@ -101,7 +156,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ onClose, o
                 </div>
             </div>
 
-            <div className="max-h-[400px] overflow-y-auto">
+            <div className={mobile ? "flex-1 overflow-y-auto bg-[#0b1021]" : "max-h-[400px] overflow-y-auto"}>
                 {loading ? (
                     <div className="p-8 text-center text-gray-500 text-sm">Cargando...</div>
                 ) : notifications.length === 0 ? (
@@ -147,7 +202,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ onClose, o
                 )}
             </div>
 
-            <div className="p-2 border-t border-white/10 bg-black/20 text-center">
+            <div className={`p-2 border-t border-white/10 text-center ${mobile ? 'bg-[#151b2e]' : 'bg-black/20'}`}>
                 <button
                     onClick={onOpenHistory}
                     className="text-xs text-gray-400 hover:text-white transition-colors w-full py-1"
@@ -155,6 +210,54 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ onClose, o
                     Ver todas
                 </button>
             </div>
+        </>
+    );
+
+    if (mobile) {
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4">
+                <div
+                    className="bg-[#151b2e] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh] mx-4"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0b1021]/50">
+                        <h3 className="font-bold text-white flex items-center gap-2">
+                            <Bell className="w-5 h-5 text-indigo-400" />
+                            Notificaciones
+                        </h3>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleMarkAllRead}
+                                className="text-[10px] uppercase font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+                            >
+                                Marcar leÃ­das
+                            </button>
+                            <button onClick={onClose} className="p-1 rounded-full hover:bg-white/10 transition-colors">
+                                <X className="w-5 h-5 text-gray-400" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                        {mobileListContent}
+                    </div>
+
+                    <div className="p-4 border-t border-white/5 bg-[#0b1021]/30">
+                        <button
+                            onClick={onOpenHistory}
+                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-500/20"
+                        >
+                            Ver todas
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="absolute top-12 right-0 w-80 md:w-96 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in origin-top-right">
+            {panelContent}
         </div>
     );
 };

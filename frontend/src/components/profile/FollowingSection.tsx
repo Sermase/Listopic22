@@ -5,9 +5,13 @@ import { Link } from 'react-router-dom';
 
 interface FollowingSectionProps {
     targetUserId: string;
+    onNavigateToProfile?: () => void;
 }
 
-export const FollowingSection: React.FC<FollowingSectionProps> = ({ targetUserId }) => {
+export const FollowingSection: React.FC<FollowingSectionProps> = ({
+    targetUserId,
+    onNavigateToProfile,
+}) => {
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -90,6 +94,7 @@ export const FollowingSection: React.FC<FollowingSectionProps> = ({ targetUserId
                             <Link
                                 key={item.id}
                                 to={`/profile/${item.id}`}
+                                onClick={() => onNavigateToProfile?.()}
                                 className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[#151b2e]/70 hover:border-indigo-500/40 hover:bg-white/5 transition-all"
                             >
                                 <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-gray-800">

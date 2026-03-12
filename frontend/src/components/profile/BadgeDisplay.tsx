@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Award, Lock, Sparkles } from "lucide-react";
 import { useBadges } from "../../hooks/useBadges";
 import { cn } from "../../lib/utils";
@@ -42,6 +42,7 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
   className,
 }) => {
   const { badges, loading } = useBadges();
+  const [selectedShowcaseBadgeId, setSelectedShowcaseBadgeId] = useState<string | null>(null);
 
   const earnedSet = useMemo(
     () => new Set(earnedBadgeIds.filter((badgeId) => typeof badgeId === "string" && badgeId.trim().length > 0)),
@@ -64,6 +65,11 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
       return a.name.localeCompare(b.name, "es");
     });
   }, [badges, earnedSet, showLocked]);
+
+  const selectedShowcaseBadge = useMemo(
+    () => orderedBadges.find((badge) => badge.id === selectedShowcaseBadgeId) || null,
+    [orderedBadges, selectedShowcaseBadgeId],
+  );
 
   if (loading) {
     return null;
@@ -105,38 +111,57 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
 
   if (variant === "showcase") {
     return (
-      <div
-        className={cn(
-          "flex flex-wrap items-start justify-center gap-4 md:gap-5",
-          className,
-        )}
-      >
-        {orderedBadges.map((badge) => (
-          <div key={badge.id} className="flex w-[104px] flex-col items-center text-center">
-            <div className="relative pt-5">
-              <div className="absolute left-1/2 top-0 flex -translate-x-1/2 gap-2">
-                <span className="h-7 w-4 rounded-b-xl bg-gradient-to-b from-rose-300 to-rose-500 shadow-md" />
-                <span className="h-7 w-4 rounded-b-xl bg-gradient-to-b from-amber-100 to-amber-400 shadow-md" />
-              </div>
-              <div className="flex h-20 w-20 items-center justify-center rounded-full border border-amber-100/30 bg-gradient-to-br from-[#f8d26c] via-[#d9961f] to-[#8f4a06] shadow-[0_18px_38px_rgba(217,119,6,0.35)] ring-4 ring-amber-500/10">
-                {renderBadgeFace(
-                  badge,
-                  badge.imageUrl
-                    ? "h-10 w-10 object-contain"
-                    : badge.icon
-                      ? "text-3xl"
-                      : "h-8 w-8 text-white",
-                )}
-              </div>
+      <div className={cn("space-y-4", className)}>
+        <div
+          className="flex flex-wrap items-start justify-center gap-4 md:gap-5"
+        >
+          {orderedBadges.map((badge) => {
+            const isSelected = selectedShowcaseBadge?.id === badge.id;
+
+            return (
+              <button
+                key={badge.id}
+                type="button"
+                onClick={() => setSelectedShowcaseBadgeId((current) => (
+                  current === badge.id ? null : badge.id
+                ))}
+                className="flex w-[104px] flex-col items-center text-center"
+              >
+                <div
+                  className={cn(
+                    "flex h-20 w-20 items-center justify-center rounded-full border bg-gradient-to-br shadow-[0_18px_38px_rgba(217,119,6,0.35)] ring-4 transition-all",
+                    isSelected
+                      ? "border-amber-100/40 from-[#f8d26c] via-[#d9961f] to-[#8f4a06] ring-amber-300/20 scale-[1.03]"
+                      : "border-amber-100/30 from-[#f8d26c] via-[#d9961f] to-[#8f4a06] ring-amber-500/10 hover:scale-[1.02]",
+                  )}
+                >
+                  {renderBadgeFace(
+                    badge,
+                    badge.imageUrl
+                      ? "h-10 w-10 object-contain"
+                      : badge.icon
+                        ? "text-3xl"
+                        : "h-8 w-8 text-white",
+                  )}
+                </div>
+                <div className="mt-3 text-[11px] font-black uppercase tracking-[0.18em] text-amber-200">
+                  {badge.name}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedShowcaseBadge && (
+          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-center">
+            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-200">
+              {selectedShowcaseBadge.name}
             </div>
-            <div className="mt-3 text-[11px] font-black uppercase tracking-[0.18em] text-amber-200">
-              {badge.name}
-            </div>
-            <div className="mt-1 text-[11px] leading-tight text-gray-400">
-              {getBadgePublicDescription(badge)}
+            <div className="mt-2 text-sm leading-relaxed text-gray-300">
+              {getBadgePublicDescription(selectedShowcaseBadge)}
             </div>
           </div>
-        ))}
+        )}
       </div>
     );
   }

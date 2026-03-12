@@ -207,6 +207,9 @@ export const ProfilePage: React.FC = () => {
     setStatsError(null);
     setAdvancedStats(EMPTY_ADVANCED_STATS);
     setFavoriteReview(null);
+    setIsDetailsModalOpen(false);
+    setDetailsModalTab("stats");
+    setIsAvatarModalOpen(false);
   }, [targetUserId]);
 
   // Hooks
@@ -1192,7 +1195,7 @@ export const ProfilePage: React.FC = () => {
         {/* Removed top-right buttons from here */}
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-28 sm:-mt-32 z-10">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-[7.5rem] sm:-mt-32 z-10">
         {/* TOP SECTION: Avatar + Identity + Desktop Actions */}
         <div className="flex flex-row items-center md:items-start gap-3 md:gap-8 mb-3 md:mb-4">
           {/* Avatar (Left) */}
@@ -1573,13 +1576,8 @@ export const ProfilePage: React.FC = () => {
 
               <div className="w-full rounded-[2rem] border border-white/10 bg-[#151b2e]/70 p-5 md:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] font-black uppercase tracking-[0.28em] text-amber-200">
-                      Medallas
-                    </div>
-                    <div className="mt-1 text-sm text-gray-400">
-                      Debajo de la foto quedan como trofeos del perfil.
-                    </div>
+                  <div className="text-[11px] font-black uppercase tracking-[0.28em] text-amber-200">
+                    Medallas
                   </div>
                   <button
                     type="button"
@@ -2333,7 +2331,7 @@ export const ProfilePage: React.FC = () => {
                 {detailsModalTab === "level" && (
                   <div className="space-y-4">
                     <div className="overflow-hidden rounded-[2rem] border border-amber-400/20 bg-gradient-to-br from-[#24160b] via-[#3a210f] to-[#5f310d] p-5 md:p-6">
-                      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                      <div className="flex flex-col gap-5">
                         <div className="flex items-center gap-4">
                           <div className="flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-white/15 bg-white/10 text-3xl font-black text-white shadow-[0_16px_36px_rgba(245,158,11,0.22)]">
                             {levelInfo.level}
@@ -2347,33 +2345,6 @@ export const ProfilePage: React.FC = () => {
                             </div>
                             <div className="mt-1 text-sm text-amber-100/80">
                               {levelInfo.xp} XP totales
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3 md:min-w-[320px]">
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[11px] uppercase tracking-wide text-amber-100/70">
-                              Progreso
-                            </div>
-                            <div className="mt-1 text-2xl font-black text-white">
-                              {Math.round(levelInfo.progressPercent)}%
-                            </div>
-                          </div>
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[11px] uppercase tracking-wide text-amber-100/70">
-                              Restante
-                            </div>
-                            <div className="mt-1 text-2xl font-black text-white">
-                              {levelInfo.remainingXp}
-                            </div>
-                          </div>
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[11px] uppercase tracking-wide text-amber-100/70">
-                              Medallas
-                            </div>
-                            <div className="mt-1 text-2xl font-black text-white">
-                              {earnedBadgeIds.length}
                             </div>
                           </div>
                         </div>
@@ -2392,11 +2363,6 @@ export const ProfilePage: React.FC = () => {
                             style={{ width: `${levelInfo.progressPercent}%` }}
                           />
                         </div>
-                        <p className="mt-3 text-sm leading-relaxed text-amber-100/80">
-                          La XP suma resenas, fotos, listas creadas y medallas obtenidas.
-                          Las medallas de abajo explican cada hito y, cuando procede,
-                          muestran el progreso.
-                        </p>
                       </div>
                     </div>
 
@@ -2429,14 +2395,9 @@ export const ProfilePage: React.FC = () => {
 
                     <div className="rounded-2xl border border-white/10 bg-[#151b2e]/70 p-4 md:p-5">
                       <div className="mb-4 flex items-center justify-between gap-3">
-                        <div>
-                          <h4 className="text-lg font-black text-white">
-                            Medallas y requisitos
-                          </h4>
-                          <p className="mt-1 text-sm text-gray-400">
-                            Las ganadas aparecen primero y las pendientes muestran progreso cuando se puede medir.
-                          </p>
-                        </div>
+                        <h4 className="text-lg font-black text-white">
+                          Medallas y requisitos
+                        </h4>
                         <div className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-100">
                           {earnedBadgeIds.length} ganadas
                         </div>
@@ -2519,11 +2480,23 @@ export const ProfilePage: React.FC = () => {
                 )}
 
                 {detailsModalTab === "following" && (
-                  <FollowingSection targetUserId={targetUserId} />
+                  <FollowingSection
+                    targetUserId={targetUserId}
+                    onNavigateToProfile={() => {
+                      setIsDetailsModalOpen(false);
+                      setDetailsModalTab("stats");
+                    }}
+                  />
                 )}
 
                 {detailsModalTab === "followers" && (
-                  <FollowersSection targetUserId={targetUserId} />
+                  <FollowersSection
+                    targetUserId={targetUserId}
+                    onNavigateToProfile={() => {
+                      setIsDetailsModalOpen(false);
+                      setDetailsModalTab("stats");
+                    }}
+                  />
                 )}
               </div>
             </div>
