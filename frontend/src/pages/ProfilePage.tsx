@@ -763,42 +763,36 @@ export const ProfilePage: React.FC = () => {
         id: "stats" as DetailsModalTab,
         label: "Resenas",
         value: displayedReviewsCount,
-        secondary: "Actividad",
         accent: "default" as const,
       },
       {
         id: "followers" as DetailsModalTab,
         label: "Seguidores",
         value: profile?.followersCount || 0,
-        secondary: "Comunidad",
         accent: "default" as const,
       },
       {
         id: "level" as DetailsModalTab,
         label: "Nivel",
         value: levelInfo.level,
-        secondary: `${Math.round(levelInfo.progressPercent)}% XP`,
         accent: "level" as const,
       },
       {
         id: "following" as DetailsModalTab,
         label: "Siguiendo",
         value: profile?.followingUsersCount || profile?.followingCount || 0,
-        secondary: "Red",
         accent: "default" as const,
       },
       {
         id: "lists" as DetailsModalTab,
         label: "Listas",
         value: profileListsCount,
-        secondary: "Coleccion",
         accent: "default" as const,
       },
     ],
     [
       displayedReviewsCount,
       levelInfo.level,
-      levelInfo.progressPercent,
       profile?.followersCount,
       profile?.followingCount,
       profile?.followingUsersCount,
@@ -1184,7 +1178,7 @@ export const ProfilePage: React.FC = () => {
     <div className="min-h-screen bg-[#0b1021] pb-20">
       {/* Header / Banner */}
       <div
-        className={`h-64 relative bg-gradient-to-b from-indigo-900/40 to-[#0b1021] ${profile.photoUrl ? "bg-cover bg-center" : ""}`}
+        className={`h-56 sm:h-64 relative bg-gradient-to-b from-indigo-900/40 to-[#0b1021] ${profile.photoUrl ? "bg-cover bg-center" : ""}`}
         style={
           profile.photoUrl
             ? {
@@ -1198,13 +1192,13 @@ export const ProfilePage: React.FC = () => {
         {/* Removed top-right buttons from here */}
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-32 z-10">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-28 sm:-mt-32 z-10">
         {/* TOP SECTION: Avatar + Identity + Desktop Actions */}
-        <div className="flex flex-row items-center md:items-start gap-4 md:gap-8 mb-4">
+        <div className="flex flex-row items-center md:items-start gap-3 md:gap-8 mb-3 md:mb-4">
           {/* Avatar (Left) */}
           <div className="group relative shrink-0 cursor-pointer" onClick={() => setIsAvatarModalOpen(true)}>
             <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen" />
-            <div className="relative w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
+            <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
               <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-[3px] border-[#0b1021] shadow-2xl relative">
                 <img
                   src={
@@ -1222,7 +1216,7 @@ export const ProfilePage: React.FC = () => {
           <div className="flex-1 min-w-0 pb-0 md:pb-0 flex flex-col justify-start">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
               <div className="min-w-0 md:flex-1 md:pr-4">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight break-words line-clamp-2">
+                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-white leading-tight break-words line-clamp-2">
                   {profile.displayName || profile.username || "Usuario"}
                 </h1>
                 {profile.username && (
@@ -1379,7 +1373,7 @@ export const ProfilePage: React.FC = () => {
         </div>
 
         {appConfig.showProfileFavoriteBadge && favoriteReview && (
-          <div className="md:hidden mb-4 flex justify-end">
+          <div className="md:hidden mb-3 flex justify-end">
             <Link
               to={favoriteGroupLink}
               className="group w-full sm:w-auto sm:max-w-md flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
@@ -1427,7 +1421,7 @@ export const ProfilePage: React.FC = () => {
         )}
 
         {/* BIO + MOBILE ACTIONS + STATS */}
-        <div className="space-y-6 md:space-y-8">
+        <div className="space-y-4 md:space-y-8">
           {/* Bio */}
           {profile.bio && (
             <p className="text-gray-400 text-sm max-w-2xl leading-relaxed">
@@ -1436,7 +1430,7 @@ export const ProfilePage: React.FC = () => {
           )}
 
           {/* MOBILE ACTIONS */}
-          <div className="md:hidden flex items-center gap-3">
+          <div className="md:hidden flex items-center gap-2.5">
             {isOwnProfile ? (
               <div className="flex items-center gap-2 w-full">
                 {((Array.isArray(profile.userType) &&
@@ -1444,31 +1438,31 @@ export const ProfilePage: React.FC = () => {
                   profile.userType === "jefe") && (
                     <Link
                       to="/developer"
-                      className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-indigo-400"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#151b2e] border border-white/10 text-indigo-400"
                     >
-                      <Bug className="w-5 h-5" />
+                      <Bug className="w-4 h-4" />
                     </Link>
                   )}
                 <button
                   onClick={() => openPreferencesModal("user")}
-                  className="flex-1 p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 text-sm font-bold"
+                  className="flex h-10 flex-1 items-center justify-center rounded-lg bg-[#151b2e] border border-white/10 px-3 text-[13px] font-bold text-gray-300"
                 >
                   Editar Perfil
                 </button>
                 <button
                   onClick={() => setIsShareModalOpen(true)}
-                  className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#151b2e] border border-white/10 text-gray-300"
                 >
-                  <Share2 className="w-5 h-5" />
+                  <Share2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={async () => {
                     await signOut(auth);
                     navigate("/login");
                   }}
-                  className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 text-red-400"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#151b2e] border border-white/10 text-red-400"
                 >
-                  <Power className="w-5 h-5" />
+                  <Power className="w-4 h-4" />
                 </button>
               </div>
             ) : (
@@ -1476,7 +1470,7 @@ export const ProfilePage: React.FC = () => {
                 <button
                   onClick={handleFollowToggle}
                   disabled={followLoading}
-                  className={`flex-1 px-4 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${isFollowing
+                  className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-bold transition-all shadow-lg ${isFollowing
                     ? "bg-[#151b2e] border border-white/20 text-white"
                     : "bg-indigo-600 text-white"
                     }`}
@@ -1485,22 +1479,22 @@ export const ProfilePage: React.FC = () => {
                 </button>
                 <button
                   onClick={handleMessage}
-                  className="px-4 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-white shadow-lg"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#151b2e] border border-white/10 text-white shadow-lg"
                 >
-                  <MessageCircle className="w-5 h-5" />
+                  <MessageCircle className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setIsShareModalOpen(true)}
-                  className="px-3 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 shadow-lg"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#151b2e] border border-white/10 text-gray-300 shadow-lg"
                 >
-                  <Share2 className="w-5 h-5" />
+                  <Share2 className="w-4 h-4" />
                 </button>
                 <div className="relative">
                   <button
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="px-3 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-400"
+                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#151b2e] border border-white/10 text-gray-400"
                   >
-                    <MoreVertical className="w-5 h-5" />
+                    <MoreVertical className="w-4 h-4" />
                   </button>
                   {isMenuOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 z-50">
@@ -1520,20 +1514,19 @@ export const ProfilePage: React.FC = () => {
             )}
           </div>
 
-          <div className="-mx-1 overflow-x-auto px-1 pb-2 hide-scrollbar">
-            <div className="grid min-w-[560px] grid-cols-5 gap-3">
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
               {profileStatCards.map((stat) => (
                 <button
                   key={stat.id}
                   type="button"
                   onClick={() => openDetailsModal(stat.id)}
-                  className={`group relative flex min-h-[108px] flex-col justify-between rounded-2xl border px-3 py-3 text-left transition-all hover:-translate-y-0.5 ${stat.accent === "level"
+                  className={`group flex min-h-[78px] sm:min-h-[108px] min-w-0 flex-col items-center justify-center rounded-2xl border px-1.5 py-2 text-center transition-all hover:-translate-y-0.5 sm:px-3 sm:py-3 ${stat.accent === "level"
                     ? "border-amber-400/35 bg-gradient-to-br from-[#26160a] via-[#44230d] to-[#6d340c] shadow-[0_18px_40px_rgba(245,158,11,0.18)]"
                     : "border-white/10 bg-[#151b2e]/80 hover:border-indigo-400/35 hover:bg-[#19213a]"
                     }`}
                 >
                   <span
-                    className={`text-[10px] font-black uppercase tracking-[0.22em] ${stat.accent === "level"
+                    className={`text-[9px] sm:text-[10px] font-black uppercase leading-tight tracking-[0.14em] sm:tracking-[0.22em] ${stat.accent === "level"
                       ? "text-amber-100/90"
                       : "text-gray-500 group-hover:text-gray-300"
                       }`}
@@ -1541,26 +1534,13 @@ export const ProfilePage: React.FC = () => {
                     {stat.label}
                   </span>
 
-                  <div>
-                    <div className="text-2xl font-black leading-none text-white md:text-3xl">
+                  <div className="mt-2 min-w-0">
+                    <div className="text-base font-black leading-none text-white sm:text-2xl md:text-3xl">
                       {stat.value}
                     </div>
-                    <div
-                      className={`mt-2 text-[11px] uppercase tracking-wide ${stat.accent === "level" ? "text-amber-100/80" : "text-gray-400"
-                        }`}
-                    >
-                      {stat.secondary}
-                    </div>
                   </div>
-
-                  {stat.accent === "level" && (
-                    <div className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-sm font-black text-white">
-                      LV
-                    </div>
-                  )}
                 </button>
               ))}
-            </div>
           </div>
 
         </div>
@@ -1956,9 +1936,9 @@ export const ProfilePage: React.FC = () => {
         )}
 
         {/* Main Content (Reviews are always visible below stats) */}
-        <div className="mt-8 space-y-6">
+        <div className="mt-5 space-y-5 md:mt-8 md:space-y-6">
           {/* STICKY REVIEWS HEADER */}
-          <div className="sticky top-14 md:top-16 z-30 bg-[#0b1021]/90 backdrop-blur-md border-b border-white/10 py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-6 rounded-t-3xl sm:rounded-none">
+          <div className="sticky top-14 md:top-16 z-30 bg-[#0b1021]/90 backdrop-blur-md border-b border-white/10 py-2.5 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-4 md:mb-6 rounded-t-3xl sm:rounded-none">
             <div className="flex items-center justify-between gap-2 overflow-x-auto hide-scrollbar w-full">
 
               <div className="flex items-center gap-2 flex-nowrap min-w-max">
