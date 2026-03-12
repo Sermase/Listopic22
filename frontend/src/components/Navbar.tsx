@@ -43,6 +43,7 @@ export const Navbar: React.FC = () => {
     const [showInstallHelp, setShowInstallHelp] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [notificationPanelMode, setNotificationPanelMode] = useState<'desktop' | 'mobile'>('desktop');
     const [showHistory, setShowHistory] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -150,17 +151,18 @@ export const Navbar: React.FC = () => {
     };
 
     const profileLabel = profileUsername ? `@${profileUsername}` : (user?.displayName || 'Mi cuenta');
+    const mobileCreateButtonClass = "w-full flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4 text-lg font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:from-emerald-400 hover:to-teal-400";
 
     return (
-        <header className="fixed top-0 w-full z-50 px-3 pt-3 sm:px-6 sm:pt-5 transition-all duration-500 pointer-events-none">
+        <header className="fixed top-0 w-full z-50 px-3 pt-2 sm:px-5 sm:pt-3 transition-all duration-500 pointer-events-none">
             <div
                 className={`pointer-events-auto max-w-7xl mx-auto transition-all duration-500 rounded-3xl md:rounded-[2rem]
                 ${scrolled || isMenuOpen
-                        ? 'bg-[#151b2e]/70 backdrop-blur-2xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.4)] ring-1 ring-white/5 px-4 sm:px-6 py-2'
-                        : 'bg-transparent px-2 sm:px-4 py-3'
+                        ? 'bg-[#151b2e]/70 backdrop-blur-2xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.4)] ring-1 ring-white/5 px-3 sm:px-5 py-1.5'
+                        : 'bg-transparent px-2 sm:px-4 py-2'
                     }`}
             >
-                <div className="flex items-center justify-between h-14 md:h-16">
+                <div className="flex items-center justify-between h-12 md:h-14">
                     <Link to="/" className="flex items-center gap-3 group brand-logo relative z-50">
                         {config.logoType === 'image' && config.logoUrl ? (
                             <img src={config.logoUrl} alt={config.appName} className="max-h-12 w-auto object-contain transition-transform group-hover:scale-105" />
@@ -195,7 +197,10 @@ export const Navbar: React.FC = () => {
                         {user && (
                             <div className="relative">
                                 <button
-                                    onClick={() => setShowNotifications(!showNotifications)}
+                                    onClick={() => {
+                                        setNotificationPanelMode('desktop');
+                                        setShowNotifications(current => notificationPanelMode === 'desktop' ? !current : true);
+                                    }}
                                     className={`p-2.5 rounded-full transition-all duration-300 relative ${unreadCount > 0
                                         ? 'text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20'
                                         : 'text-gray-400 hover:text-white hover:bg-white/10'
@@ -207,7 +212,7 @@ export const Navbar: React.FC = () => {
                                     )}
                                 </button>
 
-                                {showNotifications && (
+                                {showNotifications && notificationPanelMode === 'desktop' && (
                                     <NotificationModal
                                         onClose={() => setShowNotifications(false)}
                                         onOpenHistory={() => {
@@ -218,8 +223,6 @@ export const Navbar: React.FC = () => {
                                 )}
                             </div>
                         )}
-
-                        {showHistory && <NotificationHistoryModal onClose={() => setShowHistory(false)} />}
 
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-3 ml-2 group">
@@ -247,7 +250,7 @@ export const Navbar: React.FC = () => {
                         )}
                     </div>
 
-                    <div className="md:hidden flex items-center gap-4">
+                    <div className="md:hidden flex items-center gap-3">
                         {user && (
                             <Link to={`/profile/${user.uid}`} className="w-8 h-8 rounded-full bg-gray-800 overflow-hidden">
                                 {(profilePhotoUrl || user.photoURL) ? (
@@ -268,7 +271,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             {isMenuOpen && (
-                <div className="fixed inset-0 top-[80px] bg-[#060913]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto">
+                <div className="fixed inset-0 top-[68px] bg-[#060913]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto">
                     <div className="space-y-4 bg-[#151b2e]/60 p-6 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5 mt-4">
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-gray-100">
@@ -294,10 +297,10 @@ export const Navbar: React.FC = () => {
                         )}
 
                         <div className="grid grid-cols-1 gap-3">
-                            <Link to="/create-sublist" className="btn-primary w-full py-4 text-lg shadow-indigo-600/20">
+                            <Link to="/create-sublist" className={mobileCreateButtonClass}>
                                 <Plus className="w-6 h-6" /> Crear Sublista
                             </Link>
-                            <Link to="/create-review" className="w-full flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4 text-lg font-bold text-white shadow-lg shadow-emerald-500/20">
+                            <Link to="/create-review" className={mobileCreateButtonClass}>
                                 <Plus className="w-6 h-6" /> Crear Reseña
                             </Link>
                         </div>
@@ -319,6 +322,26 @@ export const Navbar: React.FC = () => {
                                     </span>
                                 )}
                             </Link>
+                            {user && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setNotificationPanelMode('mobile');
+                                        setIsMenuOpen(false);
+                                        setShowNotifications(true);
+                                    }}
+                                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200 justify-between"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Bell className="w-5 h-5 text-indigo-400" /> Notificaciones
+                                    </div>
+                                    {unreadCount > 0 && (
+                                        <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[24px] text-center">
+                                            {unreadCount > 9 ? '9+' : unreadCount}
+                                        </span>
+                                    )}
+                                </button>
+                            )}
                             <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
                                 <Archive className="w-5 h-5 text-indigo-400" /> Archivo
                             </Link>
@@ -355,6 +378,19 @@ export const Navbar: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {showNotifications && notificationPanelMode === 'mobile' && (
+                <NotificationModal
+                    mobile
+                    onClose={() => setShowNotifications(false)}
+                    onOpenHistory={() => {
+                        setShowNotifications(false);
+                        setShowHistory(true);
+                    }}
+                />
+            )}
+
+            {showHistory && <NotificationHistoryModal onClose={() => setShowHistory(false)} />}
 
             <ShareModal
                 isOpen={isAppShareOpen}

@@ -17,6 +17,7 @@ interface ShareCardProps {
     shareEntity?: ShareEntityPayload;
     variant?: ShareCardVariant;
     triggerRef: React.MutableRefObject<() => void>;
+    onRequestClose?: () => void;
 }
 
 type VariantTheme = {
@@ -348,7 +349,14 @@ const RadarChart: React.FC<{
     );
 };
 
-export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity, variant = 'cinematic', triggerRef }) => {
+export const ShareCard: React.FC<ShareCardProps> = ({
+    place,
+    review,
+    shareEntity,
+    variant = 'cinematic',
+    triggerRef,
+    onRequestClose,
+}) => {
     const config = useAppConfig();
     const captureRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(false);
@@ -359,6 +367,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
     const [referenceCriteriaStats, setReferenceCriteriaStats] = useState<ShareCriteriaStat[]>([]);
     const [referenceLabel, setReferenceLabel] = useState<string>('');
     const [heroSize, setHeroSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+    const CARD_GENERATION_TIMEOUT_MS = 20000;
 
     const entity = useMemo<ShareEntityPayload>(() => {
         if (shareEntity && isSupportedEntityType(shareEntity.type)) return shareEntity;
@@ -630,6 +639,21 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
         }
     };
 
+    const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+        try {
+            return await Promise.race([
+                promise,
+                new Promise<T>((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+                }),
+            ]);
+        } finally {
+            if (timeoutId) clearTimeout(timeoutId);
+        }
+    };
+
     triggerRef.current = async () => {
         if (!captureRef.current || loading) return;
 
@@ -640,15 +664,23 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
             clearBlobUrl(localImages.hero);
             clearBlobUrl(localImages.avatar);
 
-            const [heroBlob, avatarBlob] = await Promise.all([
-                loadAsBlobUrl(review?.photoUrl || place?.photoUrl || entity.imageUrl),
-                loadAsBlobUrl(review?.authorPhoto || entity.authorPhoto || (entity.type === 'profile' ? entity.imageUrl : undefined)),
-            ]);
+            const [heroBlob, avatarBlob] = await withTimeout(
+                Promise.all([
+                    loadAsBlobUrl(review?.photoUrl || place?.photoUrl || entity.imageUrl),
+                    loadAsBlobUrl(review?.authorPhoto || entity.authorPhoto || (entity.type === 'profile' ? entity.imageUrl : undefined)),
+                ]),
+                CARD_GENERATION_TIMEOUT_MS,
+                'Tiempo de espera agotado al preparar las imagenes.',
+            );
 
             setLocalImages({ hero: heroBlob, avatar: avatarBlob });
             const nextHeroSource = heroBlob || review?.photoUrl || place?.photoUrl || entity.imageUrl;
             if (nextHeroSource) {
-                const measuredHeroSize = await loadImageDimensions(nextHeroSource);
+                const measuredHeroSize = await withTimeout(
+                    loadImageDimensions(nextHeroSource),
+                    CARD_GENERATION_TIMEOUT_MS,
+                    'Tiempo de espera agotado al medir la imagen.',
+                );
                 if (measuredHeroSize.width > 0 && measuredHeroSize.height > 0) {
                     setHeroSize(measuredHeroSize);
                 }
@@ -656,7 +688,11 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
             await new Promise((resolve) => setTimeout(resolve, 100));
             if (!captureRef.current) return;
 
-            const canvas = await renderIsolatedCanvas(captureRef.current);
+            const canvas = await withTimeout(
+                renderIsolatedCanvas(captureRef.current),
+                CARD_GENERATION_TIMEOUT_MS,
+                'Tiempo de espera agotado al generar la tarjeta.',
+            );
 
             setPreviewImage(canvas.toDataURL('image/png', 1.0));
             setIsPreviewOpen(true);
@@ -1374,8 +1410,23 @@ export const ShareCard: React.FC<ShareCardProps> = ({ place, review, shareEntity
             )}
 
             {loading && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                    <div className="bg-white/10 p-4 rounded-2xl animate-spin border-t-2 border-indigo-500 w-12 h-12"></div>
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-xs rounded-2xl border border-white/10 bg-[#151b2e] p-5 shadow-2xl text-center">
+                        <div className="mx-auto h-12 w-12 rounded-2xl animate-spin border-t-2 border-indigo-500 bg-white/5"></div>
+                        <div className="mt-4 text-sm font-bold text-white">
+                            Generando tarjeta
+                        </div>
+                        <div className="mt-2 text-xs text-gray-400">
+                            Si tarda demasiado, puedes cerrar y volver a intentarlo.
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => onRequestClose?.()}
+                            className="mt-4 inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-white hover:bg-white/10 transition-colors"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
                 </div>
             )}
         </>

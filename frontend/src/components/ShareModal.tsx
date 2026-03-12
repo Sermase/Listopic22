@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, MessageSquare, Copy, Send, Search, Check, Share2 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -61,6 +62,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const [statusTone, setStatusTone] = React.useState<'neutral' | 'success' | 'error'>('neutral');
     const [isCardStylePickerOpen, setIsCardStylePickerOpen] = React.useState(false);
     const [selectedCardVariant, setSelectedCardVariant] = React.useState<ShareCardVariant | null>(null);
+    const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const cardVariantOptions: Array<{ id: ShareCardVariant; label: string; description: string; swatch: string }> = [
         {
             id: 'cinematic',
@@ -196,24 +198,55 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         return typeof profile.photoUrl === 'string' ? profile.photoUrl : undefined;
     };
 
+    const resetModalState = React.useCallback(() => {
+        setIsChatPanelOpen(false);
+        setSelectedChatIds([]);
+        setSelectedUserIds([]);
+        setSelectedUsersMap({});
+        setRecipientQuery('');
+        setRecipientResults([]);
+        setChatNote('');
+        setStatusMessage(null);
+        setStatusTone('neutral');
+        setIsSearchingRecipients(false);
+        setIsCardStylePickerOpen(false);
+        setSelectedCardVariant(null);
+    }, []);
+
+    const handleRequestClose = React.useCallback(() => {
+        if (closeTimeoutRef.current) {
+            clearTimeout(closeTimeoutRef.current);
+            closeTimeoutRef.current = null;
+        }
+        resetModalState();
+        onClose();
+    }, [onClose, resetModalState]);
+
     React.useEffect(() => {
         if (!isOpen) {
-            setIsChatPanelOpen(false);
-            setSelectedChatIds([]);
-            setSelectedUserIds([]);
-            setSelectedUsersMap({});
-            setRecipientQuery('');
-            setRecipientResults([]);
-            setChatNote('');
-            setStatusMessage(null);
-            setStatusTone('neutral');
-            setIsSearchingRecipients(false);
+            if (closeTimeoutRef.current) {
+                clearTimeout(closeTimeoutRef.current);
+                closeTimeoutRef.current = null;
+            }
             setChats([]);
             setPrivateUsersMap({});
-            setIsCardStylePickerOpen(false);
-            setSelectedCardVariant(null);
+            resetModalState();
         }
-    }, [isOpen]);
+    }, [isOpen, resetModalState]);
+
+    React.useEffect(() => {
+        if (!isOpen) return;
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                handleRequestClose();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, handleRequestClose]);
 
     React.useEffect(() => {
         if (!isOpen || !isChatPanelOpen || !user) return;
@@ -419,8 +452,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         if (failedCount === 0) {
             setStatusTone('success');
             setStatusMessage(`Compartido en ${successCount} chat${successCount === 1 ? '' : 's'}`);
-            setTimeout(() => {
-                onClose();
+            closeTimeoutRef.current = setTimeout(() => {
+                handleRequestClose();
             }, 450);
         } else if (successCount > 0) {
             setStatusTone('neutral');
@@ -435,14 +468,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
     const totalSelections = selectedChatIds.length + selectedUserIds.length;
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+    const modalContent = (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={handleRequestClose}>
             <ShareCard
                 place={place}
                 review={review}
                 shareEntity={resolvedShareEntity}
                 variant={selectedCardVariant || 'cinematic'}
                 triggerRef={shareCardTriggerRef}
+                onRequestClose={handleRequestClose}
             />
 
             <div className="bg-[#151b2e] rounded-2xl w-full max-w-xl border border-white/10 shadow-2xl p-6 max-h-[90vh] overflow-y-auto" onClick={event => event.stopPropagation()}>
@@ -453,7 +487,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                             {resolvedShareEntity.title}
                         </p>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">
+                    <button onClick={handleRequestClose} className="text-gray-400 hover:text-white">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -708,4 +742,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             </div>
         </div>
     );
+
+    if (typeof document === 'undefined') {
+        return modalContent;
+    }
+
+    return createPortal(modalContent, document.body);
 };
