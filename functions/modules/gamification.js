@@ -3,10 +3,10 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
+const { sendNotification } = require("./notifications");
 
 const db = getFirestore();
-
-// --- Badge Logic Engine ---
+const DEFAULT_BADGE_XP_REWARD = 50;
 
 function normalizeUserTypes(rawUserType) {
     if (Array.isArray(rawUserType)) {
@@ -22,7 +22,7 @@ function normalizeUserTypes(rawUserType) {
     return [];
 }
 
-async function assertJefeAccess(uid, permissionMessage = "No tienes permiso para ejecutar esta operación.") {
+async function assertJefeAccess(uid, permissionMessage = "No tienes permiso para ejecutar esta operacion.") {
     const userDoc = await db.collection("users").doc(uid).get();
     const userTypes = normalizeUserTypes(userDoc.data()?.userType);
     if (!userDoc.exists || !userTypes.includes("jefe")) {
@@ -30,246 +30,413 @@ async function assertJefeAccess(uid, permissionMessage = "No tienes permiso para
     }
 }
 
-/**
- * Calculate Level based on XP.
- * Formula: Level = Floor(Sqrt(XP / 50)) + 1
- * Level 1: 0-49 XP
- * Level 2: 50-199 XP
- * Level 3: 200-449 XP
- * ...
- */
+function safeNumber(value) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return 0;
+}
+
+function normalizeString(value) {
+    return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeBadgeIds(rawBadges) {
+    if (!Array.isArray(rawBadges)) return [];
+    return rawBadges
+        .map((entry) => {
+            if (typeof entry === "string") return entry.trim();
+            if (entry && typeof entry === "object" && typeof entry.id === "string") {
+                return entry.id.trim();
+            }
+            return "";
+        })
+        .filter((badgeId) => badgeId.length > 0);
+}
+
 function calculateLevel(xp) {
     if (!xp || xp < 0) return 1;
     return Math.floor(Math.sqrt(xp / 50)) + 1;
 }
 
-/**
- * Checks and awards badges for a specific user based on their stats and actions.
- * Also recalculates Level and XP.
- * @param {string} userId
- */
-async function checkBadges(userId) {
-    if (!userId) return;
+function getBadgeThreshold(badge) {
+    const threshold = safeNumber(badge?.threshold);
+    return threshold > 0 ? threshold : 0;
+}
 
-    const userRef = db.collection("users").doc(userId);
-    const userSnapshot = await userRef.get();
-    if (!userSnapshot.exists) return;
+function getBadgeXpReward(badge) {
+    const xpReward = safeNumber(badge?.xpReward);
+    return xpReward > 0 ? xpReward : DEFAULT_BADGE_XP_REWARD;
+}
 
-    const userData = userSnapshot.data();
-    const currentBadges = userData.badges || [];
-    const newBadges = [];
+function getListsCount(userData) {
+    const explicitListCount = safeNumber(userData?.listCount);
+    if (explicitListCount > 0) return explicitListCount;
 
-    // Fetch all active badge definitions
-    const badgesSnapshot = await db.collection("badges").where("active", "==", true).get();
-    const badgeDefinitions = [];
-    badgesSnapshot.forEach(doc => {
-        badgeDefinitions.push({ id: doc.id, ...doc.data() });
+    const legacyListsCount = safeNumber(userData?.listsCount);
+    if (legacyListsCount > 0) return legacyListsCount;
+
+    return safeNumber(userData?.publicListsCount) + safeNumber(userData?.privateListsCount);
+}
+
+function countReviewPhotos(reviewData) {
+    if (!reviewData || typeof reviewData !== "object") return 0;
+
+    if (Array.isArray(reviewData.photos)) {
+        const count = reviewData.photos.filter((photo) => typeof photo === "string" && photo.trim().length > 0).length;
+        if (count > 0) return count;
+    }
+
+    if (Array.isArray(reviewData.images)) {
+        const count = reviewData.images.filter((photo) => typeof photo === "string" && photo.trim().length > 0).length;
+        if (count > 0) return count;
+    }
+
+    return normalizeString(reviewData.photoUrl) ? 1 : 0;
+}
+
+async function countReviewedPlaces(userId) {
+    const reviewsSnapshot = await db.collectionGroup("reviews").where("userId", "==", userId).get();
+    const uniquePlaceIds = new Set();
+
+    reviewsSnapshot.forEach((docSnap) => {
+        const pathSegments = docSnap.ref.path.split("/");
+        const isCanonicalListReviewPath =
+            pathSegments.length === 4 &&
+            pathSegments[0] === "lists" &&
+            pathSegments[2] === "reviews";
+
+        if (!isCanonicalListReviewPath) return;
+
+        const reviewData = docSnap.data() || {};
+        const placeId = normalizeString(reviewData.placeId);
+        if (placeId) {
+            uniquePlaceIds.add(placeId);
+        }
     });
 
-    // Evaluate each badge
-    for (const badge of badgeDefinitions) {
-        // Skip if already earned
-        if (currentBadges.includes(badge.id)) continue;
+    return uniquePlaceIds.size;
+}
 
-        let earned = false;
+async function buildGamificationMetrics(userId, userData, badgeDefinitions) {
+    const needsPlaceCount = badgeDefinitions.some((badge) => badge.type === "place_count");
+    const storedReviewedPlacesCount = safeNumber(userData?.reviewedPlacesCount);
 
-        // 1. Simple Rules (Thresholds)
-        if (badge.type === "review_count" && (userData.reviewsCount || 0) >= (badge.threshold || 0)) {
-            earned = true;
-        }
+    const reviewedPlacesCount = needsPlaceCount || storedReviewedPlacesCount <= 0
+        ? await countReviewedPlaces(userId)
+        : storedReviewedPlacesCount;
 
-        // 2. Photo Count Logic
-        if (badge.type === "photo_count") {
-            // Por ahora dependemos de userData.photosCount (mantenido por trigger).
-            // Si en el futuro falta ese agregado, se puede añadir un recálculo puntual aquí.
-        }
+    return {
+        reviewsCount: safeNumber(userData?.reviewsCount),
+        photosCount: safeNumber(userData?.photosCount),
+        listsCount: getListsCount(userData),
+        followersCount: safeNumber(userData?.followersCount),
+        followingCount: safeNumber(userData?.followingUsersCount) || safeNumber(userData?.followingCount),
+        reviewedPlacesCount,
+    };
+}
 
-        // 3. Custom Hardcoded Logic (based on ID)
-        if (!earned) {
-            if (badge.id === "PIONERO" && (userData.reviewsCount || 0) >= 1) {
-                earned = true;
+function isBadgeEarned(badge, context) {
+    const threshold = getBadgeThreshold(badge);
+    const { metrics, level } = context;
+
+    switch (badge.type) {
+        case "review_count":
+            return metrics.reviewsCount >= threshold;
+        case "photo_count":
+            return metrics.photosCount >= threshold;
+        case "place_count":
+            return metrics.reviewedPlacesCount >= threshold;
+        case "lists_count":
+            return metrics.listsCount >= threshold;
+        case "followers_count":
+            return metrics.followersCount >= threshold;
+        case "following_count":
+            return metrics.followingCount >= threshold;
+        case "level_reached":
+            return level >= threshold;
+        default:
+            break;
+    }
+
+    if (badge.id === "PIONERO") {
+        return metrics.reviewsCount >= Math.max(1, threshold || 1);
+    }
+
+    if (badge.id === "PHOTOGRAPHER") {
+        return metrics.photosCount >= Math.max(1, threshold || 10);
+    }
+
+    return false;
+}
+
+function calculateXp(metrics, earnedBadgeIds, badgeDefinitionsById) {
+    const reviewsXP = metrics.reviewsCount * 10;
+    const photosXP = metrics.photosCount * 5;
+    const listsXP = metrics.listsCount * 20;
+    const badgesXP = earnedBadgeIds.reduce((total, badgeId) => {
+        return total + getBadgeXpReward(badgeDefinitionsById.get(badgeId));
+    }, 0);
+
+    return reviewsXP + photosXP + listsXP + badgesXP;
+}
+
+function resolveGamificationState(currentBadges, badgeDefinitions, metrics) {
+    const badgeDefinitionsById = new Map(badgeDefinitions.map((badge) => [badge.id, badge]));
+    const earnedBadgeIds = new Set(currentBadges);
+
+    let iterations = 0;
+    let changed = true;
+
+    while (changed && iterations < 5) {
+        iterations += 1;
+        changed = false;
+
+        const provisionalXp = calculateXp(metrics, Array.from(earnedBadgeIds), badgeDefinitionsById);
+        const provisionalLevel = calculateLevel(provisionalXp);
+
+        for (const badge of badgeDefinitions) {
+            if (earnedBadgeIds.has(badge.id)) continue;
+            if (isBadgeEarned(badge, { metrics, level: provisionalLevel, xp: provisionalXp })) {
+                earnedBadgeIds.add(badge.id);
+                changed = true;
             }
-
-            if (badge.id === "PHOTOGRAPHER") {
-                // Check for 10 reviews with photos. 
-                // Since we don't have 'photosCount' aggregated, and array length query is hard,
-                // We will skip this auto-check unless we have the aggregate.
-                // TODO: Implement photosCount aggregation.
-                // For now, let's award if reviewsCount > 9000 (just kidding).
-                // Let's use a workaround: if badge.threshold is met by *reviewsCount* (fallback) 
-                // OR we implemented 'photosCount' field.
-                if ((userData.photosCount || 0) >= (badge.threshold || 10)) {
-                    earned = true;
-                }
-            }
-        }
-
-
-        if (earned) {
-            newBadges.push(badge.id);
         }
     }
 
-    // --- LEVEL & XP CALCULATION ---
-    const reviewsXP = (userData.reviewsCount || 0) * 10;
-    const photosXP = (userData.photosCount || 0) * 5;
-    // Assuming listsCount exists, or we skip it for now. Let's add it if available, else 0.
-    const listsXP = (userData.listsCount || 0) * 20;
+    const finalBadgeIds = Array.from(earnedBadgeIds);
+    const totalXP = calculateXp(metrics, finalBadgeIds, badgeDefinitionsById);
+    const level = calculateLevel(totalXP);
+    const newBadges = finalBadgeIds.filter((badgeId) => !currentBadges.includes(badgeId));
 
-    // Bonus XP from Badges? Maybe 50 per badge.
-    const badgesXP = (currentBadges.length + newBadges.length) * 50;
+    return {
+        totalXP,
+        level,
+        badgeDefinitionsById,
+        finalBadgeIds,
+        newBadges,
+    };
+}
 
-    const totalXP = reviewsXP + photosXP + listsXP + badgesXP;
-    const newLevel = calculateLevel(totalXP);
+async function notifyGamificationChanges(userId, previousLevel, nextLevel, newBadges, badgeDefinitionsById, totalXP) {
+    const tasks = [];
 
-    const updates = {};
-    if (newBadges.length > 0) {
-        updates.badges = admin.firestore.FieldValue.arrayUnion(...newBadges);
-        updates.lastBadgeEarnedAt = admin.firestore.FieldValue.serverTimestamp();
+    if (nextLevel > previousLevel) {
+        tasks.push(
+            sendNotification(
+                userId,
+                "level_up",
+                {
+                    level: nextLevel,
+                    xp: totalXP,
+                    message: `Subiste al nivel ${nextLevel}.`,
+                    link: `/profile/${userId}`,
+                },
+                { notificationId: `level_up_${nextLevel}` },
+            ),
+        );
     }
 
-    // Update XP/Level if changed significantly (or always to keep sync)
-    if (userData.xp !== totalXP || userData.level !== newLevel) {
-        updates.xp = totalXP;
-        updates.level = newLevel;
-        // Optional: levelUpAt timestamp?
-    }
+    newBadges.forEach((badgeId) => {
+        const badge = badgeDefinitionsById.get(badgeId);
+        const badgeName = normalizeString(badge?.name) || badgeId;
+        tasks.push(
+            sendNotification(
+                userId,
+                "badge_earned",
+                {
+                    badgeId,
+                    badgeName,
+                    badgeImageUrl: normalizeString(badge?.imageUrl) || null,
+                    message: `Has conseguido la medalla ${badgeName}.`,
+                    link: `/profile/${userId}`,
+                },
+                { notificationId: `badge_earned_${badgeId}` },
+            ),
+        );
+    });
 
-    if (Object.keys(updates).length > 0) {
-        await userRef.update(updates);
-        if (newBadges.length > 0) {
-            logger.info(`Badges awarded to ${userId}: ${newBadges.join(", ")}`);
-        }
-        if (userData.level !== newLevel) {
-            logger.info(`User ${userId} leveled up to ${newLevel} (XP: ${totalXP})`);
-        }
+    if (tasks.length > 0) {
+        await Promise.all(tasks);
     }
 }
 
-// --- Triggers ---
+async function checkBadges(userId) {
+    if (!userId) return null;
 
-// Trigger: When a review is created/updated/deleted
+    const userRef = db.collection("users").doc(userId);
+    const userSnapshot = await userRef.get();
+    if (!userSnapshot.exists) return null;
+
+    const userData = userSnapshot.data() || {};
+    const currentBadges = normalizeBadgeIds(userData.badges);
+
+    const badgesSnapshot = await db.collection("badges").where("active", "==", true).get();
+    const badgeDefinitions = badgesSnapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    const metrics = await buildGamificationMetrics(userId, userData, badgeDefinitions);
+    const resolvedState = resolveGamificationState(currentBadges, badgeDefinitions, metrics);
+
+    const previousLevel = safeNumber(userData.level) || calculateLevel(safeNumber(userData.xp));
+    const updates = {};
+
+    if (metrics.reviewedPlacesCount !== safeNumber(userData.reviewedPlacesCount)) {
+        updates.reviewedPlacesCount = metrics.reviewedPlacesCount;
+    }
+
+    if (resolvedState.newBadges.length > 0) {
+        updates.badges = admin.firestore.FieldValue.arrayUnion(...resolvedState.newBadges);
+        updates.lastBadgeEarnedAt = admin.firestore.FieldValue.serverTimestamp();
+    }
+
+    if (safeNumber(userData.xp) !== resolvedState.totalXP || previousLevel !== resolvedState.level) {
+        updates.xp = resolvedState.totalXP;
+        updates.level = resolvedState.level;
+        if (resolvedState.level > previousLevel) {
+            updates.lastLevelUpAt = admin.firestore.FieldValue.serverTimestamp();
+        }
+    }
+
+    const shouldPersist = Object.keys(updates).length > 0;
+    if (shouldPersist) {
+        await userRef.set(updates, { merge: true });
+    }
+
+    if (resolvedState.newBadges.length > 0 || resolvedState.level > previousLevel) {
+        await notifyGamificationChanges(
+            userId,
+            previousLevel,
+            resolvedState.level,
+            resolvedState.newBadges,
+            resolvedState.badgeDefinitionsById,
+            resolvedState.totalXP,
+        );
+    }
+
+    if (resolvedState.newBadges.length > 0) {
+        logger.info(`Badges awarded to ${userId}: ${resolvedState.newBadges.join(", ")}`);
+    }
+    if (resolvedState.level > previousLevel) {
+        logger.info(`User ${userId} leveled up to ${resolvedState.level} (XP: ${resolvedState.totalXP})`);
+    }
+
+    return {
+        xp: resolvedState.totalXP,
+        level: resolvedState.level,
+        newBadges: resolvedState.newBadges,
+        reviewedPlacesCount: metrics.reviewedPlacesCount,
+    };
+}
+
 const onReviewWritten = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
     const afterData = event.data?.after?.data();
     const beforeData = event.data?.before?.data();
+    const userId = normalizeString(afterData?.userId || beforeData?.userId);
 
-    // Determine User ID (from new data or old data if deleted)
-    const userId = afterData?.userId || beforeData?.userId;
+    if (!userId) return null;
 
-    if (userId) {
-        // We might want to delay this check or ensure stats are aggregated first.
-        // Since we have other triggers aggregating stats (hopefully), we can run this.
-        // ideally we wait a bit or use the fact that stats triggers run fast.
-        // For now, let's run it directly.
-        // Update photosCount aggregate
-        const userRef = db.collection("users").doc(userId);
-
-        let photosChange = 0;
-        const beforePhotos = beforeData?.images?.length || 0;
-        const afterPhotos = afterData?.images?.length || 0;
-
-        // If it was a create
-        if (!beforeData && afterData && afterPhotos > 0) photosChange = afterPhotos;
-        // If it was a delete
-        else if (beforeData && !afterData && beforePhotos > 0) photosChange = -beforePhotos;
-        // If update
-        else if (beforeData && afterData) photosChange = afterPhotos - beforePhotos;
-
-        if (photosChange !== 0) {
-            await userRef.update({
-                photosCount: admin.firestore.FieldValue.increment(photosChange)
-            });
-        }
-
-        await checkBadges(userId);
+    const photosChange = countReviewPhotos(afterData) - countReviewPhotos(beforeData);
+    if (photosChange !== 0) {
+        await db.collection("users").doc(userId).set({
+            photosCount: admin.firestore.FieldValue.increment(photosChange),
+        }, { merge: true });
     }
+
+    await checkBadges(userId);
+    return null;
 });
 
-// --- Admin Callable Functions ---
+const onListWritten = onDocumentWritten("lists/{listId}", async (event) => {
+    const beforeUserId = normalizeString(event.data?.before?.data()?.userId);
+    const afterUserId = normalizeString(event.data?.after?.data()?.userId);
+    const affectedUserIds = Array.from(new Set([beforeUserId, afterUserId].filter(Boolean)));
 
-/**
- * Recalculate stats, badges, and level for a specific user.
- * @param {object} data - { userId: string }
- */
+    if (affectedUserIds.length === 0) return null;
+
+    await Promise.all(affectedUserIds.map((uid) => checkBadges(uid)));
+    return null;
+});
+
+const onUserFollowingWritten = onDocumentWritten("users/{uid}/following/{targetUserId}", async (event) => {
+    const followerId = normalizeString(event.params.uid);
+    const targetUserId = normalizeString(event.params.targetUserId);
+    const affectedUserIds = Array.from(new Set([followerId, targetUserId].filter(Boolean)));
+
+    if (affectedUserIds.length === 0) return null;
+
+    await Promise.all(affectedUserIds.map((uid) => checkBadges(uid)));
+    return null;
+});
+
 const adminRecalculateUserGamification = onCall(async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+    if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in");
     await assertJefeAccess(request.auth.uid);
 
     const { userId } = request.data;
-    if (!userId) throw new HttpsError('invalid-argument', 'userId is required');
+    if (!userId) throw new HttpsError("invalid-argument", "userId is required");
 
     try {
         await checkBadges(userId);
         return { success: true, message: `Gamification recalculated for user ${userId}` };
     } catch (error) {
         logger.error("adminRecalculateUserGamification error", error);
-        throw new HttpsError('internal', error.message);
+        throw new HttpsError("internal", error.message);
     }
 });
 
-/**
- * Manually award or revoke a badge.
- * @param {object} data - { userId: string, badgeId: string, action: 'award' | 'revoke' }
- */
 const adminManageBadge = onCall(async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+    if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in");
     await assertJefeAccess(request.auth.uid);
 
     const { userId, badgeId, action } = request.data;
-    if (!userId || !badgeId || !['award', 'revoke'].includes(action)) {
-        throw new HttpsError('invalid-argument', 'Invalid arguments');
+    if (!userId || !badgeId || !["award", "revoke"].includes(action)) {
+        throw new HttpsError("invalid-argument", "Invalid arguments");
     }
 
     try {
-        const userRef = db.collection('users').doc(userId);
+        const userRef = db.collection("users").doc(userId);
 
-        if (action === 'award') {
-            await userRef.update({
+        if (action === "award") {
+            await userRef.set({
                 badges: admin.firestore.FieldValue.arrayUnion(badgeId),
-                lastBadgeEarnedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            // Recalculate to update XP derived from badges
+                lastBadgeEarnedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
             await checkBadges(userId);
         } else {
             await userRef.update({
-                badges: admin.firestore.FieldValue.arrayRemove(badgeId)
+                badges: admin.firestore.FieldValue.arrayRemove(badgeId),
             });
-            // Recalculate (might drop level if badge XP is removed)
             await checkBadges(userId);
         }
 
         return { success: true, message: `Badge ${badgeId} ${action}ed for user ${userId}` };
     } catch (error) {
         logger.error("adminManageBadge error", error);
-        throw new HttpsError('internal', error.message);
+        throw new HttpsError("internal", error.message);
     }
 });
 
-/**
- * GLOBAL: Recalculate gamification for ALL users.
- * WARNING: Heavy operation.
- */
-const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: "1GiB" }, async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in");
     await assertJefeAccess(request.auth.uid);
 
     const logs = [];
     logs.push(`Starting Global Gamification Recalculation at ${new Date().toISOString()}`);
 
     try {
-        const usersSnap = await db.collection('users').get();
+        const usersSnap = await db.collection("users").get();
         logs.push(`Found ${usersSnap.size} users.`);
 
         let processed = 0;
-        // Procesamiento secuencial para minimizar presión de memoria/CPU en función larga.
 
-        for (const doc of usersSnap.docs) {
+        for (const docSnap of usersSnap.docs) {
             try {
-                await checkBadges(doc.id);
-                processed++;
+                await checkBadges(docSnap.id);
+                processed += 1;
                 if (processed % 20 === 0) logs.push(`Processed ${processed}/${usersSnap.size} users...`);
             } catch (err) {
-                logs.push(`ERROR processing user ${doc.id}: ${err.message}`);
+                logs.push(`ERROR processing user ${docSnap.id}: ${err.message}`);
             }
         }
 
@@ -277,64 +444,58 @@ const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: '1
         return { success: true, logs };
     } catch (error) {
         logger.error("adminRecalculateAllGamification error", error);
-        throw new HttpsError('internal', error.message);
+        throw new HttpsError("internal", error.message);
     }
 });
 
-/**
- * Reset a user's gamification stats to zero.
- */
 const adminResetUserGamification = onCall(async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+    if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in");
     await assertJefeAccess(request.auth.uid);
 
     const { userId } = request.data;
-    if (!userId) throw new HttpsError('invalid-argument', 'userId is required');
+    if (!userId) throw new HttpsError("invalid-argument", "userId is required");
 
     try {
-        await db.collection('users').doc(userId).update({
+        await db.collection("users").doc(userId).update({
             xp: 0,
             level: 1,
             badges: [],
-            lastBadgeEarnedAt: null
-            // We do NOT reset reviewsCount/photosCount as those are real metrics.
+            lastBadgeEarnedAt: null,
+            lastLevelUpAt: null,
         });
         return { success: true, message: `Gamification reset for user ${userId}` };
     } catch (error) {
         logger.error("adminResetUserGamification error", error);
-        throw new HttpsError('internal', error.message);
+        throw new HttpsError("internal", error.message);
     }
 });
 
-/**
- * GLOBAL: Reset ALL users' gamification to zero.
- * WARNING: DESTRUCTIVE.
- */
-const adminResetAllGamification = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+const adminResetAllGamification = onCall({ timeoutSeconds: 540, memory: "1GiB" }, async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in");
     await assertJefeAccess(request.auth.uid);
 
     const logs = [];
     logs.push(`Starting Global Gamification RESET at ${new Date().toISOString()}`);
 
     try {
-        const usersSnap = await db.collection('users').get();
+        const usersSnap = await db.collection("users").get();
         logs.push(`Found ${usersSnap.size} users.`);
 
         let processed = 0;
         let batch = db.batch();
         let batchCount = 0;
 
-        for (const doc of usersSnap.docs) {
-            const userRef = db.collection('users').doc(doc.id);
+        for (const docSnap of usersSnap.docs) {
+            const userRef = db.collection("users").doc(docSnap.id);
             batch.update(userRef, {
                 xp: 0,
                 level: 1,
                 badges: [],
-                lastBadgeEarnedAt: null
+                lastBadgeEarnedAt: null,
+                lastLevelUpAt: null,
             });
-            batchCount++;
-            processed++;
+            batchCount += 1;
+            processed += 1;
 
             if (batchCount >= 400) {
                 await batch.commit();
@@ -353,17 +514,18 @@ const adminResetAllGamification = onCall({ timeoutSeconds: 540, memory: '1GiB' }
         return { success: true, logs };
     } catch (error) {
         logger.error("adminResetAllGamification error", error);
-        throw new HttpsError('internal', error.message);
+        throw new HttpsError("internal", error.message);
     }
 });
 
 module.exports = {
     onReviewWritten,
+    onListWritten,
+    onUserFollowingWritten,
     checkBadges,
     adminRecalculateUserGamification,
     adminManageBadge,
     adminRecalculateAllGamification,
     adminResetUserGamification,
-    adminResetAllGamification
+    adminResetAllGamification,
 };
-

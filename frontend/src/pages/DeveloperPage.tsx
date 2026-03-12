@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { BrandingManager } from '../components/developer/BrandingManager';
+import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -69,6 +70,7 @@ export const DeveloperPage: React.FC = () => {
     const [loadingBadges, setLoadingBadges] = useState(false);
     const [editingBadge, setEditingBadge] = useState<any | null>(null);
     const [badgeModalOpen, setBadgeModalOpen] = useState(false);
+    const [importingBadgePackId, setImportingBadgePackId] = useState<string | null>(null);
 
 
     useEffect(() => {
@@ -256,7 +258,17 @@ export const DeveloperPage: React.FC = () => {
         try {
             const q = query(collection(db, 'badges'));
             const snap = await getDocs(q);
-            setBadges(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            setBadges(
+                snap.docs.map((d) => {
+                    const data: any = d.data();
+                    return {
+                        id: d.id,
+                        ...data,
+                        description: data.description || data.descriptionPublic || '',
+                        descriptionPublic: data.descriptionPublic || data.description || '',
+                    };
+                }),
+            );
         } catch (error) {
             console.error("Error fetching badges:", error);
         } finally {
@@ -268,13 +280,64 @@ export const DeveloperPage: React.FC = () => {
         try {
             const { id, ...data } = badgeData;
             if (id) {
-                await setDoc(doc(db, 'badges', id), data, { merge: true });
+                const normalizedData = {
+                    ...data,
+                    description: data.description || data.descriptionPublic || '',
+                    descriptionPublic: data.descriptionPublic || data.description || '',
+                };
+                await setDoc(doc(db, 'badges', id), normalizedData, { merge: true });
             }
             fetchBadges();
             setBadgeModalOpen(false);
         } catch (error) {
             console.error("Error saving badge:", error);
             alert("Error saving badge");
+        }
+    };
+
+    const handleImportBadgePack = async (packId: string) => {
+        const pack = BADGE_PRESET_PACKS.find((item) => item.id === packId);
+        if (!pack) return;
+
+        if (!confirm(`Importar ${pack.badges.length} medallas del pack "${pack.name}"? Las existentes se actualizaran.`)) {
+            return;
+        }
+
+        setImportingBadgePackId(packId);
+        try {
+            await Promise.all(
+                pack.badges.map((badge) =>
+                    setDoc(doc(db, 'badges', badge.id), badge, { merge: true }),
+                ),
+            );
+            await fetchBadges();
+            alert(`Pack "${pack.name}" importado.`);
+        } catch (error: any) {
+            console.error('Error importing badge pack:', error);
+            alert(`Error importando pack: ${error?.message || 'desconocido'}`);
+        } finally {
+            setImportingBadgePackId(null);
+        }
+    };
+
+    const handleManualBadgeAction = async (action: 'award' | 'revoke') => {
+        const uid = (document.getElementById('manualAssignUserId') as HTMLInputElement | null)?.value?.trim();
+        const badgeId = (document.getElementById('manualAssignBadgeId') as HTMLSelectElement | null)?.value?.trim();
+        if (!uid || !badgeId) {
+            alert('Faltan datos');
+            return;
+        }
+
+        const verb = action === 'award' ? 'Asignar' : 'Revocar';
+        if (!confirm(`¿${verb} ${badgeId} a ${uid}?`)) return;
+
+        try {
+            const adminManageBadge = httpsCallable(functions, 'adminManageBadge');
+            await adminManageBadge({ userId: uid, badgeId, action });
+            alert(action === 'award' ? '✅ Medalla asignada' : '🗑️ Medalla revocada');
+        } catch (error: any) {
+            console.error(`Error trying to ${action} badge`, error);
+            alert(`Error: ${error?.message || 'desconocido'}`);
         }
     };
 
@@ -860,6 +923,50 @@ export const DeveloperPage: React.FC = () => {
                                         </div>
                                     </div>
 
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+                                        {BADGE_PRESET_PACKS.map((pack) => (
+                                            <div
+                                                key={pack.id}
+                                                className={`rounded-2xl border border-white/10 bg-gradient-to-br ${pack.theme} bg-[#151b2e] p-5`}
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div>
+                                                        <div className="text-[11px] uppercase tracking-[0.22em] text-amber-200/80 font-black">
+                                                            Catalogo recomendado
+                                                        </div>
+                                                        <h3 className="mt-2 text-lg font-bold text-white">{pack.name}</h3>
+                                                    </div>
+                                                    <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-200">
+                                                        {pack.badges.length} medallas
+                                                    </span>
+                                                </div>
+
+                                                <p className="mt-3 text-sm text-gray-300 min-h-[60px]">
+                                                    {pack.description}
+                                                </p>
+
+                                                <div className="mt-4 flex flex-wrap gap-2">
+                                                    {pack.badges.slice(0, 4).map((badge) => (
+                                                        <span
+                                                            key={badge.id}
+                                                            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2.5 py-1 text-[11px] text-gray-100"
+                                                        >
+                                                            <span>{badge.icon}</span>
+                                                            <span>{badge.name}</span>
+                                                        </span>
+                                                    ))}
+                                                </div>
+
+                                                <button
+                                                    onClick={() => handleImportBadgePack(pack.id)}
+                                                    disabled={importingBadgePackId === pack.id}
+                                                    className="mt-5 w-full rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold py-2.5 transition-colors"
+                                                >
+                                                    {importingBadgePackId === pack.id ? 'Importando...' : `Importar ${pack.name}`}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                     {/* --- MANUAL ASSIGNMENT TOOL --- */}
                                     <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 mb-8 relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-4 opacity-5">
@@ -891,41 +998,13 @@ export const DeveloperPage: React.FC = () => {
                                             </div>
                                             <div className="col-span-1 flex gap-2">
                                                 <button
-                                                    onClick={async () => {
-                                                        const uid = (document.getElementById('manualAssignUserId') as HTMLInputElement).value;
-                                                        const badgeId = (document.getElementById('manualAssignBadgeId') as HTMLSelectElement).value;
-                                                        if (!uid || !badgeId) return alert("Faltan datos");
-                                                        if (!confirm(`¿Asignar ${badgeId} a ${uid}?`)) return;
-
-                                                        try {
-                                                            await setDoc(doc(db, `users/${uid}/obtainedBadges/${badgeId}`), {
-                                                                obtainedAt: new Date(),
-                                                                assignedBy: 'admin',
-                                                                reason: 'Manual Assignment via Console'
-                                                            });
-                                                            alert("✅ Medalla Asignada");
-                                                        } catch (e: any) {
-                                                            alert("Error: " + e.message);
-                                                        }
-                                                    }}
+                                                    onClick={() => handleManualBadgeAction('award')}
                                                     className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors"
                                                 >
                                                     Asignar
                                                 </button>
                                                 <button
-                                                    onClick={async () => {
-                                                        const uid = (document.getElementById('manualAssignUserId') as HTMLInputElement).value;
-                                                        const badgeId = (document.getElementById('manualAssignBadgeId') as HTMLSelectElement).value;
-                                                        if (!uid || !badgeId) return alert("Faltan datos");
-                                                        if (!confirm(`¿REVOCAR ${badgeId} a ${uid}?`)) return;
-
-                                                        try {
-                                                            await deleteDoc(doc(db, `users/${uid}/obtainedBadges/${badgeId}`)); // Requires import deleteDoc
-                                                            alert("🗑️ Medalla Revocada");
-                                                        } catch (e: any) {
-                                                            alert("Error: " + e.message);
-                                                        }
-                                                    }}
+                                                    onClick={() => handleManualBadgeAction('revoke')}
                                                     className="px-4 py-2 bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white font-bold rounded-lg transition-colors border border-red-600/30"
                                                 >
                                                     Revocar
@@ -977,11 +1056,15 @@ export const DeveloperPage: React.FC = () => {
                                                         {badge.active === false && <span className="ml-2 text-[10px] bg-red-500/10 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold uppercase">INACTIVA</span>}
                                                     </div>
                                                 </div>
-                                                <p className="text-gray-400 text-sm mb-3 line-clamp-2 min-h-[40px]">{badge.description}</p>
+                                                <p className="text-gray-400 text-sm mb-3 line-clamp-2 min-h-[40px]">
+                                                    {badge.descriptionPublic || badge.description}
+                                                </p>
 
                                                 <div className="flex flex-wrap gap-2 text-xs font-mono text-gray-500">
                                                     <span className="bg-black/20 px-2 py-1 rounded border border-white/5">Type: {badge.type}</span>
                                                     {badge.threshold > 0 && <span className="bg-black/20 px-2 py-1 rounded border border-white/5">Thres: {badge.threshold}</span>}
+                                                    {badge.xpReward > 0 && <span className="bg-black/20 px-2 py-1 rounded border border-white/5">XP: {badge.xpReward}</span>}
+                                                    {badge.rarity && <span className="bg-black/20 px-2 py-1 rounded border border-white/5">Rareza: {badge.rarity}</span>}
                                                 </div>
                                             </div>
                                         ))}
@@ -1052,8 +1135,10 @@ export const DeveloperPage: React.FC = () => {
                                                                     onChange={e => setEditingBadge({ ...editingBadge, category: e.target.value })}
                                                                 >
                                                                     <option value="GENERAL">General</option>
+                                                                    <option value="CORE">Core</option>
                                                                     <option value="EXPERT">Expert</option>
                                                                     <option value="SPECIAL">Special</option>
+                                                                    <option value="FUNNY">Funny</option>
                                                                     <option value="HIDDEN">Hidden</option>
                                                                 </select>
                                                             </div>
@@ -1097,7 +1182,12 @@ export const DeveloperPage: React.FC = () => {
                                                                 >
                                                                     <option value="custom">Custom (Manual)</option>
                                                                     <option value="review_count">Contador Reseñas</option>
+                                                                    <option value="photo_count">Contador Fotos</option>
                                                                     <option value="place_count">Contador Lugares</option>
+                                                                    <option value="lists_count">Contador Listas</option>
+                                                                    <option value="followers_count">Contador Seguidores</option>
+                                                                    <option value="following_count">Contador Siguiendo</option>
+                                                                    <option value="level_reached">Nivel Alcanzado</option>
                                                                 </select>
                                                             </div>
                                                             <div className="col-span-1">
@@ -1118,6 +1208,19 @@ export const DeveloperPage: React.FC = () => {
                                                                     placeholder="🏆"
                                                                 />
                                                             </div>
+                                                        </div>
+
+                                                        <div className="max-w-[220px]">
+                                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">XP que aporta</label>
+                                                            <input
+                                                                type="number"
+                                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-amber-500"
+                                                                value={editingBadge?.xpReward || 50}
+                                                                onChange={e => setEditingBadge({ ...editingBadge, xpReward: parseInt(e.target.value) || 0 })}
+                                                            />
+                                                            <p className="mt-2 text-[11px] text-gray-500">
+                                                                Si no defines nada, el motor usa 50 XP por medalla.
+                                                            </p>
                                                         </div>
 
                                                         <div>
@@ -1325,3 +1428,5 @@ export const DeveloperPage: React.FC = () => {
         </>
     );
 };
+
+

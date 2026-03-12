@@ -10,24 +10,47 @@ const db = getFirestore();
  * @param {string} userId - The recipient's UID.
  * @param {string} type - 'new_follower', 'review_like', 'review_comment', 'place_closed'.
  * @param {object} payload - Data related to the notification (senderId, senderName, link, etc.).
+ * @param {object} options - Optional config. Supports { notificationId?: string } for idempotent writes.
  */
-async function sendNotification(userId, type, payload) {
+async function sendNotification(userId, type, payload, options = {}) {
     if (!userId) return;
 
     try {
-        await db.collection("users").doc(userId).collection("notifications").add({
+        const userRef = db.collection("users").doc(userId);
+        const notificationsRef = userRef.collection("notifications");
+        const notificationId = typeof options.notificationId === "string" ? options.notificationId.trim() : "";
+
+        if (notificationId) {
+            const notificationRef = notificationsRef.doc(notificationId);
+            const existingNotification = await notificationRef.get();
+            if (existingNotification.exists) {
+                return;
+            }
+
+            const batch = db.batch();
+            batch.set(notificationRef, {
+                type,
+                ...payload,
+                read: false,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            batch.set(userRef, {
+                unreadNotificationsCount: admin.firestore.FieldValue.increment(1)
+            }, { merge: true });
+            await batch.commit();
+            return;
+        }
+
+        await notificationsRef.add({
             type,
             ...payload,
             read: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        // Optionally update an unreadCount on the user doc if we want super fast access
-        // But for now, client-side count or simple query is okay. 
-        // Let's increment unreadCount for performance on the Bell icon.
-        await db.collection("users").doc(userId).update({
+        await userRef.set({
             unreadNotificationsCount: admin.firestore.FieldValue.increment(1)
-        });
+        }, { merge: true });
 
     } catch (error) {
         logger.error(`Error sending notification to ${userId}:`, error);

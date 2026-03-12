@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { X, Bell, Heart, UserPlus, MessageSquare, Star, Trash2 } from 'lucide-react';
-import { collection, query, orderBy, getDocs, doc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { X, Bell, Heart, UserPlus, MessageSquare, Star, Trash2, Award } from 'lucide-react';
+import { collection, query, orderBy, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -50,9 +50,18 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
 
     const getIcon = (type: string) => {
         switch (type) {
-            case 'like': return <Heart className="w-4 h-4 text-pink-500" />;
-            case 'follow': return <UserPlus className="w-4 h-4 text-indigo-500" />;
-            case 'comment': return <MessageSquare className="w-4 h-4 text-blue-500" />;
+            case 'like':
+            case 'review_like':
+                return <Heart className="w-4 h-4 text-pink-500" />;
+            case 'follow':
+            case 'new_follower':
+                return <UserPlus className="w-4 h-4 text-indigo-500" />;
+            case 'comment':
+            case 'review_comment':
+                return <MessageSquare className="w-4 h-4 text-blue-500" />;
+            case 'badge_earned':
+                return <Award className="w-4 h-4 text-amber-400" />;
+            case 'level_up':
             case 'system': return <Star className="w-4 h-4 text-amber-500" />;
             default: return <Bell className="w-4 h-4 text-gray-500" />;
         }
@@ -60,8 +69,15 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
 
     const getLink = (notification: any) => {
         if (notification.link) return notification.link;
-        if (notification.type === 'follow' && notification.fromUserId) return `/profile/${notification.fromUserId}`;
-        if (notification.type === 'like' && notification.placeId) return `/place/${notification.placeId}`;
+        if ((notification.type === 'follow' || notification.type === 'new_follower') && (notification.fromUserId || notification.senderId)) {
+            return `/profile/${notification.fromUserId || notification.senderId}`;
+        }
+        if ((notification.type === 'like' || notification.type === 'review_like') && notification.placeId) {
+            return `/place/${notification.placeId}`;
+        }
+        if (notification.type === 'level_up' || notification.type === 'badge_earned') {
+            return user ? `/profile/${user.uid}` : '#';
+        }
         return '#';
     }
 

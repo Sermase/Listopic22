@@ -1,50 +1,241 @@
-import React from 'react';
-import { useBadges } from '../../hooks/useBadges';
-import { Tag } from 'lucide-react';
+import React, { useMemo } from "react";
+import { Award, Lock, Sparkles } from "lucide-react";
+import { useBadges } from "../../hooks/useBadges";
+import { cn } from "../../lib/utils";
+import {
+  getBadgeProgress,
+  getBadgePublicDescription,
+  getBadgeXpReward,
+  type GamificationMetrics,
+} from "../../utils/gamification";
 
 interface BadgeDisplayProps {
-    earnedBadgeIds?: string[];
-    showEmpty?: boolean;
+  earnedBadgeIds?: string[];
+  showEmpty?: boolean;
+  variant?: "compact" | "showcase" | "detailed";
+  showLocked?: boolean;
+  metrics?: GamificationMetrics;
+  className?: string;
 }
 
-export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({ earnedBadgeIds = [], showEmpty = false }) => {
-    const { badges, loading } = useBadges();
+const renderBadgeFace = (
+  badge: { imageUrl?: string; name: string; icon?: string },
+  className: string,
+) => {
+  if (badge.imageUrl) {
+    return <img src={badge.imageUrl} alt={badge.name} className={className} />;
+  }
 
-    if (loading) return null; // Or a small skeleton
+  if (badge.icon) {
+    return <span className={className}>{badge.icon}</span>;
+  }
 
-    if (!earnedBadgeIds || earnedBadgeIds.length === 0) {
-        if (!showEmpty) return null;
-        return <div className="text-xs text-gray-500 italic">Sin medallas aún</div>;
-    }
+  return <Award className={className} />;
+};
 
-    // Filter only earned and active badges (unless we want to show historical ones even if inactive)
-    const earnedBadges = earnedBadgeIds
-        .map(id => badges.find(b => b.id === id))
-        .filter(b => !!b); // Remove undefined (if badge definition deleted)
+export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
+  earnedBadgeIds = [],
+  showEmpty = false,
+  variant = "compact",
+  showLocked = false,
+  metrics,
+  className,
+}) => {
+  const { badges, loading } = useBadges();
 
-    if (earnedBadges.length === 0 && !showEmpty) return null;
+  const earnedSet = useMemo(
+    () => new Set(earnedBadgeIds.filter((badgeId) => typeof badgeId === "string" && badgeId.trim().length > 0)),
+    [earnedBadgeIds],
+  );
+
+  const orderedBadges = useMemo(() => {
+    const activeBadges = badges.filter((badge) => badge.active !== false);
+    const visibleBadges = showLocked
+      ? activeBadges
+      : activeBadges.filter((badge) => earnedSet.has(badge.id));
+
+    return [...visibleBadges].sort((a, b) => {
+      const earnedDelta = Number(earnedSet.has(b.id)) - Number(earnedSet.has(a.id));
+      if (earnedDelta !== 0) return earnedDelta;
+
+      const thresholdDelta = (a.threshold || 0) - (b.threshold || 0);
+      if (thresholdDelta !== 0) return thresholdDelta;
+
+      return a.name.localeCompare(b.name, "es");
+    });
+  }, [badges, earnedSet, showLocked]);
+
+  if (loading) {
+    return null;
+  }
+
+  if (orderedBadges.length === 0) {
+    if (!showEmpty) return null;
 
     return (
-        <div className="flex flex-wrap gap-2">
-            {earnedBadges.map((badge) => (
-                <div
-                    key={badge!.id}
-                    className="group relative flex items-center justify-center p-1.5 bg-[#151b2e] border border-white/10 rounded-lg hover:border-amber-500/50 transition-colors cursor-help"
-                    title={`${badge!.name}: ${badge!.descriptionPublic}`}
-                >
-                    {badge!.imageUrl ? (
-                        <img src={badge!.imageUrl} alt={badge!.name} className="w-8 h-8 object-contain" />
-                    ) : (
-                        <Tag className="w-6 h-6 text-amber-500" />
-                    )}
-
-                    {/* Tooltip on Hover */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-black/90 backdrop-blur border border-white/10 rounded-lg p-2 text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                        <div className="text-indigo-400 font-bold text-xs mb-1">{badge!.name}</div>
-                        <div className="text-[10px] text-gray-300 leading-tight">{badge!.descriptionPublic}</div>
-                    </div>
-                </div>
-            ))}
-        </div>
+      <div className={cn("text-sm text-gray-500", className)}>
+        Sin medallas todavia
+      </div>
     );
+  }
+
+  if (variant === "compact") {
+    return (
+      <div className={cn("flex flex-wrap gap-2", className)}>
+        {orderedBadges.map((badge) => (
+          <div
+            key={badge.id}
+            className="group relative flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-400/20 bg-gradient-to-br from-[#24180d] via-[#3a2612] to-[#6a390d] shadow-[0_10px_30px_rgba(245,158,11,0.12)]"
+            title={`${badge.name}: ${getBadgePublicDescription(badge)}`}
+          >
+            {renderBadgeFace(
+              badge,
+              badge.imageUrl
+                ? "h-7 w-7 object-contain"
+                : badge.icon
+                  ? "text-xl"
+                  : "h-5 w-5 text-amber-100",
+            )}
+            <div className="pointer-events-none absolute -bottom-2 left-1/2 h-3 w-7 -translate-x-1/2 rounded-b-full bg-amber-950/70 blur-[1px]" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (variant === "showcase") {
+    return (
+      <div
+        className={cn(
+          "flex flex-wrap items-start justify-center gap-4 md:gap-5",
+          className,
+        )}
+      >
+        {orderedBadges.map((badge) => (
+          <div key={badge.id} className="flex w-[104px] flex-col items-center text-center">
+            <div className="relative pt-5">
+              <div className="absolute left-1/2 top-0 flex -translate-x-1/2 gap-2">
+                <span className="h-7 w-4 rounded-b-xl bg-gradient-to-b from-rose-300 to-rose-500 shadow-md" />
+                <span className="h-7 w-4 rounded-b-xl bg-gradient-to-b from-amber-100 to-amber-400 shadow-md" />
+              </div>
+              <div className="flex h-20 w-20 items-center justify-center rounded-full border border-amber-100/30 bg-gradient-to-br from-[#f8d26c] via-[#d9961f] to-[#8f4a06] shadow-[0_18px_38px_rgba(217,119,6,0.35)] ring-4 ring-amber-500/10">
+                {renderBadgeFace(
+                  badge,
+                  badge.imageUrl
+                    ? "h-10 w-10 object-contain"
+                    : badge.icon
+                      ? "text-3xl"
+                      : "h-8 w-8 text-white",
+                )}
+              </div>
+            </div>
+            <div className="mt-3 text-[11px] font-black uppercase tracking-[0.18em] text-amber-200">
+              {badge.name}
+            </div>
+            <div className="mt-1 text-[11px] leading-tight text-gray-400">
+              {getBadgePublicDescription(badge)}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("grid gap-3 md:grid-cols-2", className)}>
+      {orderedBadges.map((badge) => {
+        const isEarned = earnedSet.has(badge.id);
+        const progress = metrics
+          ? getBadgeProgress(badge, metrics, earnedBadgeIds)
+          : null;
+
+        return (
+          <article
+            key={badge.id}
+            className={cn(
+              "rounded-2xl border p-4 transition-colors",
+              isEarned
+                ? "border-amber-400/30 bg-gradient-to-br from-[#1d140b] via-[#22160d] to-[#302010]"
+                : "border-white/10 bg-[#151b2e]/70",
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={cn(
+                  "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border",
+                  isEarned
+                    ? "border-amber-300/30 bg-gradient-to-br from-[#f8d26c] via-[#d9961f] to-[#8f4a06] text-white"
+                    : "border-white/10 bg-black/20 text-gray-500",
+                )}
+              >
+                {renderBadgeFace(
+                  badge,
+                  badge.imageUrl
+                    ? "h-8 w-8 object-contain"
+                    : badge.icon
+                      ? "text-2xl"
+                      : "h-6 w-6",
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="text-sm font-black uppercase tracking-wide text-white">
+                    {badge.name}
+                  </h4>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                      isEarned
+                        ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                        : "border-white/10 bg-white/5 text-gray-400",
+                    )}
+                  >
+                    {isEarned ? (
+                      <>
+                        <Sparkles className="h-3 w-3" />
+                        Ganada
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-3 w-3" />
+                        Pendiente
+                      </>
+                    )}
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-200">
+                    +{getBadgeXpReward(badge)} XP
+                  </span>
+                </div>
+
+                <p className="mt-2 text-sm leading-relaxed text-gray-300">
+                  {getBadgePublicDescription(badge)}
+                </p>
+              </div>
+            </div>
+
+            {progress && progress.isTrackable && progress.progressLabel && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-gray-400">
+                  <span>{progress.metricLabel}</span>
+                  <span>{progress.progressLabel}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-black/30">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-[width]",
+                      isEarned
+                        ? "bg-gradient-to-r from-amber-300 via-amber-400 to-orange-500"
+                        : "bg-gradient-to-r from-indigo-400 to-cyan-400",
+                    )}
+                    style={{ width: `${Math.max(progress.ratio * 100, isEarned ? 100 : 8)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </article>
+        );
+      })}
+    </div>
+  );
 };

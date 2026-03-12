@@ -22,12 +22,18 @@ export interface UserProfileEntity {
     usernameLockedAt?: Record<string, unknown>;
     xp?: number;
     level?: number;
+    photosCount?: number;
     followersCount?: number;
     followingCount?: number;
     reviewsCount?: number;
-    badges?: Record<string, unknown>[]; // Or string[], using any[] for safety as I saw objects in gamification
+    badges?: Array<string | { id?: string }>;
     // Add other fields as needed based on legacy schema
     defaultDistanceKm?: number;
+    listCount?: number;
+    listsCount?: number;
+    publicListsCount?: number;
+    privateListsCount?: number;
+    reviewedPlacesCount?: number;
     followingListsCount?: number;
     followingUsersCount?: number;
     followingPlacesCount?: number;

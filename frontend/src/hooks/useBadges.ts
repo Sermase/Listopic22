@@ -5,12 +5,18 @@ import { db } from '../firebase';
 export interface Badge {
     id: string;
     name: string;
+    description?: string;
     descriptionPublic: string;
     descriptionLogic?: string;
+    logicNotes?: string;
     imageUrl?: string;
+    icon?: string;
     active: boolean;
     type?: string;
     threshold?: number;
+    xpReward?: number;
+    category?: string;
+    rarity?: string;
 }
 
 export const useBadges = () => {
@@ -23,12 +29,31 @@ export const useBadges = () => {
             try {
                 const q = query(collection(db, 'badges'));
                 const snap = await getDocs(q);
-                const fetchedBadges = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Badge));
+                const fetchedBadges = snap.docs.map((doc) => {
+                    const raw = doc.data() as Partial<Badge> & { description?: string };
+                    const description = typeof raw.description === 'string' ? raw.description : '';
+                    const descriptionPublic = typeof raw.descriptionPublic === 'string'
+                        ? raw.descriptionPublic
+                        : description;
+
+                    return {
+                        id: doc.id,
+                        ...raw,
+                        description,
+                        descriptionPublic,
+                        active: raw.active !== false,
+                        threshold: typeof raw.threshold === 'number'
+                            ? raw.threshold
+                            : Number(raw.threshold) || 0,
+                        xpReward: typeof raw.xpReward === 'number'
+                            ? raw.xpReward
+                            : Number(raw.xpReward) || undefined,
+                    } as Badge;
+                });
                 setBadges(fetchedBadges);
             } catch (err: unknown) {
                 console.error("Error fetching badges:", err);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setError((err as any).message);
+                setError(err instanceof Error ? err.message : "Error al cargar medallas");
             } finally {
                 setLoading(false);
             }

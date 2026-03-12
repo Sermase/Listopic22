@@ -67,6 +67,11 @@ import {
   updateUserProfilePreferences,
 } from "../services/UserProfileService";
 import { FollowersSection } from "../components/profile/FollowersSection";
+import {
+  buildGamificationMetrics,
+  getLevelInfo,
+  normalizeEarnedBadgeIds,
+} from "../utils/gamification";
 
 interface ListRatingStats {
   listId: string;
@@ -79,6 +84,8 @@ interface AdvancedProfileStats {
   totalReviews: number;
   averageRating: number;
   ratedListsCount: number;
+  uniquePlacesCount: number;
+  reviewsWithPhotoCount: number;
   // Map of listId to stats
   statsByList: Record<
     string,
@@ -102,12 +109,14 @@ interface FavoriteReviewSummary {
   score: number;
 }
 
-type DetailsModalTab = "lists" | "following" | "followers" | "stats";
+type DetailsModalTab = "lists" | "following" | "followers" | "stats" | "level";
 
 const EMPTY_ADVANCED_STATS: AdvancedProfileStats = {
   totalReviews: 0,
   averageRating: 0,
   ratedListsCount: 0,
+  uniquePlacesCount: 0,
+  reviewsWithPhotoCount: 0,
   statsByList: {},
 };
 
@@ -182,6 +191,11 @@ export const ProfilePage: React.FC = () => {
     setPreferencesTab(tab);
     setPreferencesError(null);
     setIsEditing(true);
+  };
+
+  const openDetailsModal = (tab: DetailsModalTab) => {
+    setDetailsModalTab(tab);
+    setIsDetailsModalOpen(true);
   };
 
   // Determine target user ID
@@ -439,10 +453,12 @@ export const ProfilePage: React.FC = () => {
 
         let totalScore = 0;
         let scoredReviewsCount = 0;
+        let reviewsWithPhotoCount = 0;
         const perListMap = new Map<
           string,
           { listName: string; reviewsCount: number; totalScore: number }
         >();
+        const uniquePlaceIds = new Set<string>();
         let favoriteCandidate: Record<string, any> | null = null;
         let favoriteCandidateDate = 0;
 
@@ -464,10 +480,39 @@ export const ProfilePage: React.FC = () => {
           return 0;
         };
 
+        const reviewHasPhoto = (review: Record<string, any>): boolean => {
+          const singlePhoto =
+            typeof review.photoUrl === "string" && review.photoUrl.trim().length > 0;
+          const photoArray =
+            Array.isArray(review.photos) &&
+            review.photos.some(
+              (photo: unknown) =>
+                typeof photo === "string" && photo.trim().length > 0,
+            );
+          const imagesArray =
+            Array.isArray(review.images) &&
+            review.images.some(
+              (photo: unknown) =>
+                typeof photo === "string" && photo.trim().length > 0,
+            );
+
+          return singlePhoto || photoArray || imagesArray;
+        };
+
         canonicalReviews.forEach((review) => {
           const rawScore = review.overallRating ?? review.rating ?? review.avgRating;
           const numericScore = typeof rawScore === "number" ? rawScore : Number(rawScore);
           const hasScore = typeof rawScore !== "undefined" && rawScore !== null && !Number.isNaN(numericScore);
+          const placeId =
+            typeof review.placeId === "string" ? review.placeId.trim() : "";
+
+          if (placeId) {
+            uniquePlaceIds.add(placeId);
+          }
+
+          if (reviewHasPhoto(review)) {
+            reviewsWithPhotoCount += 1;
+          }
 
           if (hasScore) {
             totalScore += numericScore;
@@ -583,6 +628,8 @@ export const ProfilePage: React.FC = () => {
             averageRating:
               scoredReviewsCount > 0 ? totalScore / scoredReviewsCount : 0,
             ratedListsCount: perList.length,
+            uniquePlacesCount: uniquePlaceIds.size,
+            reviewsWithPhotoCount,
             statsByList,
           });
           setFavoriteReview(favorite);
@@ -676,10 +723,88 @@ export const ProfilePage: React.FC = () => {
     return 0;
   };
 
+  const levelInfo = useMemo(
+    () => getLevelInfo(profile?.xp, profile?.level),
+    [profile?.level, profile?.xp],
+  );
+
+  const earnedBadgeIds = useMemo(
+    () => normalizeEarnedBadgeIds(profile?.badges),
+    [profile?.badges],
+  );
+
+  const gamificationMetrics = useMemo(
+    () =>
+      buildGamificationMetrics(profile, {
+        reviewsCount:
+          statsLoadedUserId === targetUserId
+            ? advancedStats.totalReviews
+            : undefined,
+        photosCount:
+          statsLoadedUserId === targetUserId
+            ? advancedStats.reviewsWithPhotoCount
+            : undefined,
+        placeCount:
+          statsLoadedUserId === targetUserId
+            ? advancedStats.uniquePlacesCount
+            : undefined,
+      }),
+    [advancedStats, profile, statsLoadedUserId, targetUserId],
+  );
+
   const displayedReviewsCount =
     statsLoadedUserId === targetUserId
       ? advancedStats.totalReviews
       : profile?.reviewsCount || 0;
+
+  const profileStatCards = useMemo(
+    () => [
+      {
+        id: "stats" as DetailsModalTab,
+        label: "Resenas",
+        value: displayedReviewsCount,
+        secondary: "Actividad",
+        accent: "default" as const,
+      },
+      {
+        id: "followers" as DetailsModalTab,
+        label: "Seguidores",
+        value: profile?.followersCount || 0,
+        secondary: "Comunidad",
+        accent: "default" as const,
+      },
+      {
+        id: "level" as DetailsModalTab,
+        label: "Nivel",
+        value: levelInfo.level,
+        secondary: `${Math.round(levelInfo.progressPercent)}% XP`,
+        accent: "level" as const,
+      },
+      {
+        id: "following" as DetailsModalTab,
+        label: "Siguiendo",
+        value: profile?.followingUsersCount || profile?.followingCount || 0,
+        secondary: "Red",
+        accent: "default" as const,
+      },
+      {
+        id: "lists" as DetailsModalTab,
+        label: "Listas",
+        value: profileListsCount,
+        secondary: "Coleccion",
+        accent: "default" as const,
+      },
+    ],
+    [
+      displayedReviewsCount,
+      levelInfo.level,
+      levelInfo.progressPercent,
+      profile?.followersCount,
+      profile?.followingCount,
+      profile?.followingUsersCount,
+      profileListsCount,
+    ],
+  );
 
   const sortedProfileReviews = useMemo(() => {
     const filteredReviews =
@@ -1395,99 +1520,47 @@ export const ProfilePage: React.FC = () => {
             )}
           </div>
 
-          {/* DASHBOARD CARD: STATS + LEVEL BENTO */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {/* Stats Grid */}
-            <div className="col-span-2 md:col-span-4 grid grid-cols-4 gap-2 md:gap-4 mb-2">
-              {[
-                { id: "stats", label: "Reseñas", value: displayedReviewsCount },
-                {
-                  id: "followers",
-                  label: "Seguidores",
-                  value: profile.followersCount || 0,
-                },
-                {
-                  id: "following",
-                  label: "Siguiendo",
-                  value:
-                    profile.followingUsersCount || profile.followingCount || 0,
-                },
-                { id: "lists", label: "Listas", value: profileListsCount },
-              ].map((stat, i) => (
-                <div
-                  key={i}
-                  onClick={() => {
-                    setDetailsModalTab(stat.id as DetailsModalTab);
-                    setIsDetailsModalOpen(true);
-                  }}
-                  className="glass-card flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl md:rounded-2xl transition hover:scale-105 hover:bg-white/5 duration-300 shadow-sm border border-white/5 cursor-pointer"
+          <div className="-mx-1 overflow-x-auto px-1 pb-2 hide-scrollbar">
+            <div className="grid min-w-[560px] grid-cols-5 gap-3">
+              {profileStatCards.map((stat) => (
+                <button
+                  key={stat.id}
+                  type="button"
+                  onClick={() => openDetailsModal(stat.id)}
+                  className={`group relative flex min-h-[108px] flex-col justify-between rounded-2xl border px-3 py-3 text-left transition-all hover:-translate-y-0.5 ${stat.accent === "level"
+                    ? "border-amber-400/35 bg-gradient-to-br from-[#26160a] via-[#44230d] to-[#6d340c] shadow-[0_18px_40px_rgba(245,158,11,0.18)]"
+                    : "border-white/10 bg-[#151b2e]/80 hover:border-indigo-400/35 hover:bg-[#19213a]"
+                    }`}
                 >
-                  <span className="text-white font-display font-bold text-lg md:text-3xl mb-1">
-                    {stat.value}
-                  </span>
-                  <span className="text-[9px] md:text-xs text-gray-400 uppercase tracking-wider text-center flex flex-col md:flex-row items-center gap-1">
+                  <span
+                    className={`text-[10px] font-black uppercase tracking-[0.22em] ${stat.accent === "level"
+                      ? "text-amber-100/90"
+                      : "text-gray-500 group-hover:text-gray-300"
+                      }`}
+                  >
                     {stat.label}
                   </span>
-                </div>
-              ))}
-            </div>
 
-            {/* Level Bar (Bento full width span) */}
-            {(() => {
-              const xp = profile.xp || 0;
-              const level = Math.floor(Math.sqrt(xp / 50)) + 1;
-              const nextLevelXp = 50 * Math.pow(level, 2);
-              const currentLevelBaseXp = 50 * Math.pow(level - 1, 2);
-              const progress = Math.min(
-                100,
-                Math.max(
-                  0,
-                  ((xp - currentLevelBaseXp) /
-                    (nextLevelXp - currentLevelBaseXp)) *
-                  100,
-                ),
-              );
-
-              return (
-                <div className="col-span-2 md:col-span-4 glass-card p-4 md:p-6 flex flex-col items-stretch gap-4 relative overflow-hidden border-indigo-500/20 bg-gradient-to-r from-[#151b2e] to-indigo-900/30">
-                  <div className="flex items-center gap-3 w-full">
-                    {/* Level Badge inside Level Card */}
-                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-bold text-white text-lg shadow-[0_4px_16px_rgba(245,158,11,0.4)] border border-white/20 z-10">
-                      {level}
+                  <div>
+                    <div className="text-2xl font-black leading-none text-white md:text-3xl">
+                      {stat.value}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-end mb-1.5">
-                        <span className="text-[10px] font-bold text-gray-400 tracking-wider">
-                          NIVEL {level}
-                        </span>
-                        <span className="text-[10px] text-amber-500 font-mono font-bold">
-                          {Math.floor(xp)} / {nextLevelXp} XP
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
+                    <div
+                      className={`mt-2 text-[11px] uppercase tracking-wide ${stat.accent === "level" ? "text-amber-100/80" : "text-gray-400"
+                        }`}
+                    >
+                      {stat.secondary}
                     </div>
                   </div>
 
-                  {/* BADGES SECTION IN BENTO */}
-                  {profile.badges && profile.badges.length > 0 && (
-                    <div className="mt-2 pt-4 border-t border-white/10 w-full">
-                      <BadgeDisplay
-                        earnedBadgeIds={
-                          profile.badges?.map((b: any) =>
-                            typeof b === "string" ? b : b.id,
-                          ) || []
-                        }
-                      />
+                  {stat.accent === "level" && (
+                    <div className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-sm font-black text-white">
+                      LV
                     </div>
                   )}
-                </div>
-              );
-            })()}
+                </button>
+              ))}
+            </div>
           </div>
 
         </div>
@@ -1498,7 +1571,7 @@ export const ProfilePage: React.FC = () => {
             className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
             onClick={() => setIsAvatarModalOpen(false)}
           >
-            <div className="relative max-w-sm w-full flex flex-col items-center gap-6" onClick={(e) => e.stopPropagation()}>
+            <div className="relative flex w-full max-w-2xl flex-col items-center gap-6" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => setIsAvatarModalOpen(false)}
                 className="absolute -top-12 right-0 md:-right-12 p-3 text-white/50 hover:text-white transition-colors bg-black/20 hover:bg-black/40 rounded-full"
@@ -1516,6 +1589,35 @@ export const ProfilePage: React.FC = () => {
                     className="w-full h-full object-cover"
                   />
                 </div>
+              </div>
+
+              <div className="w-full rounded-[2rem] border border-white/10 bg-[#151b2e]/70 p-5 md:p-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.28em] text-amber-200">
+                      Medallas
+                    </div>
+                    <div className="mt-1 text-sm text-gray-400">
+                      Debajo de la foto quedan como trofeos del perfil.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAvatarModalOpen(false);
+                      openDetailsModal("level");
+                    }}
+                    className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-amber-100 hover:bg-amber-500/20 transition-colors"
+                  >
+                    Ver nivel
+                  </button>
+                </div>
+
+                <BadgeDisplay
+                  earnedBadgeIds={earnedBadgeIds}
+                  showEmpty
+                  variant="showcase"
+                />
               </div>
 
               {profile.createdAt && (
@@ -2092,7 +2194,7 @@ export const ProfilePage: React.FC = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[#151b2e] flex items-center justify-between">
-                <h3 className="text-white font-bold text-lg">Actividad</h3>
+                <h3 className="text-white font-bold text-lg">Detalle del perfil</h3>
                 <button
                   onClick={() => setIsDetailsModalOpen(false)}
                   className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
@@ -2107,13 +2209,19 @@ export const ProfilePage: React.FC = () => {
                   onClick={() => setDetailsModalTab("stats")}
                   className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
-                  <BarChart3 className="w-4 h-4" /> Estadísticas
+                  <BarChart3 className="w-4 h-4" /> Resenas
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("followers")}
                   className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "followers" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
                   Seguidores
+                </button>
+                <button
+                  onClick={() => setDetailsModalTab("level")}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "level" ? "border-amber-500 text-amber-300" : "border-transparent text-gray-400 hover:text-white"}`}
+                >
+                  Nivel
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("following")}
@@ -2242,6 +2350,128 @@ export const ProfilePage: React.FC = () => {
                   </>
                 )}
 
+                {detailsModalTab === "level" && (
+                  <div className="space-y-4">
+                    <div className="overflow-hidden rounded-[2rem] border border-amber-400/20 bg-gradient-to-br from-[#24160b] via-[#3a210f] to-[#5f310d] p-5 md:p-6">
+                      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-white/15 bg-white/10 text-3xl font-black text-white shadow-[0_16px_36px_rgba(245,158,11,0.22)]">
+                            {levelInfo.level}
+                          </div>
+                          <div>
+                            <div className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-100/75">
+                              Nivel actual
+                            </div>
+                            <div className="mt-2 text-3xl font-black text-white">
+                              Nivel {levelInfo.level}
+                            </div>
+                            <div className="mt-1 text-sm text-amber-100/80">
+                              {levelInfo.xp} XP totales
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3 md:min-w-[320px]">
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                            <div className="text-[11px] uppercase tracking-wide text-amber-100/70">
+                              Progreso
+                            </div>
+                            <div className="mt-1 text-2xl font-black text-white">
+                              {Math.round(levelInfo.progressPercent)}%
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                            <div className="text-[11px] uppercase tracking-wide text-amber-100/70">
+                              Restante
+                            </div>
+                            <div className="mt-1 text-2xl font-black text-white">
+                              {levelInfo.remainingXp}
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                            <div className="text-[11px] uppercase tracking-wide text-amber-100/70">
+                              Medallas
+                            </div>
+                            <div className="mt-1 text-2xl font-black text-white">
+                              {earnedBadgeIds.length}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5">
+                        <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.22em] text-amber-100/75">
+                          <span>Progreso hasta el siguiente nivel</span>
+                          <span>
+                            {levelInfo.xp} / {levelInfo.nextLevelXp} XP
+                          </span>
+                        </div>
+                        <div className="h-3 overflow-hidden rounded-full bg-black/30">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-orange-500 shadow-[0_0_24px_rgba(245,158,11,0.45)]"
+                            style={{ width: `${levelInfo.progressPercent}%` }}
+                          />
+                        </div>
+                        <p className="mt-3 text-sm leading-relaxed text-amber-100/80">
+                          La XP suma resenas, fotos, listas creadas y medallas obtenidas.
+                          Las medallas de abajo explican cada hito y, cuando procede,
+                          muestran el progreso.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <div className="rounded-2xl border border-white/10 bg-[#151b2e]/70 p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-400">
+                          Resenas que cuentan
+                        </div>
+                        <div className="mt-2 text-3xl font-black text-white">
+                          {gamificationMetrics.reviewsCount}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-[#151b2e]/70 p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-400">
+                          Resenas con foto
+                        </div>
+                        <div className="mt-2 text-3xl font-black text-white">
+                          {gamificationMetrics.photosCount}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-[#151b2e]/70 p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-400">
+                          Lugares valorados
+                        </div>
+                        <div className="mt-2 text-3xl font-black text-white">
+                          {gamificationMetrics.placeCount}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-[#151b2e]/70 p-4 md:p-5">
+                      <div className="mb-4 flex items-center justify-between gap-3">
+                        <div>
+                          <h4 className="text-lg font-black text-white">
+                            Medallas y requisitos
+                          </h4>
+                          <p className="mt-1 text-sm text-gray-400">
+                            Las ganadas aparecen primero y las pendientes muestran progreso cuando se puede medir.
+                          </p>
+                        </div>
+                        <div className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-100">
+                          {earnedBadgeIds.length} ganadas
+                        </div>
+                      </div>
+
+                      <BadgeDisplay
+                        earnedBadgeIds={earnedBadgeIds}
+                        metrics={gamificationMetrics}
+                        showLocked
+                        variant="detailed"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {detailsModalTab === "lists" && (
                   <>
                     {loadingLists || loadingExtraLists ? (
@@ -2367,3 +2597,5 @@ export const ProfilePage: React.FC = () => {
     </div >
   );
 };
+
+
