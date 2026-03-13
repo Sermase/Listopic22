@@ -215,7 +215,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
     if (mobile) {
         return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4 pointer-events-auto">
                 <div
                     className="bg-[#151b2e] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh] mx-4"
                     onClick={(event) => event.stopPropagation()}
@@ -256,7 +256,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     }
 
     return (
-        <div className="absolute top-12 right-0 w-80 md:w-96 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in origin-top-right">
+        <div className="absolute top-12 right-0 w-80 md:w-96 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in origin-top-right pointer-events-auto">
             {panelContent}
         </div>
     );
