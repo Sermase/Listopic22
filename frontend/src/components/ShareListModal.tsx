@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, UserPlus, Check, Shield, Trash2, Users, Edit3, Eye } from 'lucide-react';
-import { collection, query, where, getDocs, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 
@@ -33,17 +33,39 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
     // Role Selection for new users
     const [selectedRole, setSelectedRole] = useState<'reader' | 'writer'>('reader');
 
-    // Internal state for guests to update UI immediately
+    // Internal state — stores UIDs
     const [readers, setReaders] = useState<string[]>(currentGuests);
     const [writers, setWriters] = useState<string[]>(currentEditors);
+    // Resolved display names: uid → username/displayName
+    const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
 
-    // Sync props to state when modal opens
+    // Sync props to state when modal opens and resolve UIDs to display names
     useEffect(() => {
         if (isOpen) {
             setReaders(currentGuests || []);
             setWriters(currentEditors || []);
             setSearchTerm('');
             setSearchResults([]);
+
+            const allUids = [...(currentGuests || []), ...(currentEditors || [])].filter(Boolean);
+            if (!allUids.length) return;
+            (async () => {
+                const map: Record<string, string> = {};
+                await Promise.all(allUids.map(async (uid) => {
+                    try {
+                        const snap = await getDoc(doc(db, 'users', uid));
+                        if (snap.exists()) {
+                            const d = snap.data();
+                            map[uid] = d.username || d.displayName || uid;
+                        } else {
+                            map[uid] = uid;
+                        }
+                    } catch {
+                        map[uid] = uid;
+                    }
+                }));
+                setResolvedNames(map);
+            })();
         }
     }, [isOpen, currentGuests, currentEditors]);
 
@@ -106,27 +128,25 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
         }
     };
 
-    const handleAddUser = async (userIdentifier: string) => {
-        // Add to the selected role list
+    // uid: Firebase Auth UID, displayName: username for display
+    const handleAddUser = async (uid: string, displayName: string) => {
         try {
             if (selectedRole === 'writer') {
                 await updateDoc(doc(db, 'lists', listId), {
-                    editors: arrayUnion(userIdentifier),
-                    guests: arrayRemove(userIdentifier) // Ensure strictly one role
+                    editors: arrayUnion(uid),
+                    guests: arrayRemove(uid)
                 });
-                setWriters(prev => [...prev, userIdentifier]);
-                setReaders(prev => prev.filter(g => g !== userIdentifier));
+                setWriters(prev => [...prev, uid]);
+                setReaders(prev => prev.filter(g => g !== uid));
             } else {
                 await updateDoc(doc(db, 'lists', listId), {
-                    guests: arrayUnion(userIdentifier),
-                    editors: arrayRemove(userIdentifier)
+                    guests: arrayUnion(uid),
+                    editors: arrayRemove(uid)
                 });
-                setReaders(prev => [...prev, userIdentifier]);
-                setWriters(prev => prev.filter(e => e !== userIdentifier));
+                setReaders(prev => [...prev, uid]);
+                setWriters(prev => prev.filter(e => e !== uid));
             }
-
-            // Do NOT reload, just update state (already done above)
-            // if (onUpdate) onUpdate(); // Optional background refresh
+            setResolvedNames(prev => ({ ...prev, [uid]: displayName }));
         } catch (error) {
             console.error("Error adding user:", error);
             alert("Error al añadir usuario");
@@ -250,7 +270,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                         {searchResults.length > 0 && (
                             <div className="mt-2 bg-[#0b1021] border border-white/5 rounded-lg overflow-hidden">
                                 {searchResults.map(u => {
-                                    const status = getUserStatus(u.username) || getUserStatus(u.email);
+                                    const status = getUserStatus(u.id);
 
                                     return (
                                         <div key={u.id} className="p-3 flex items-center justify-between hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
@@ -270,7 +290,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                                                 </span>
                                             ) : (
                                                 <button
-                                                    onClick={() => handleAddUser(u.username || u.email)}
+                                                    onClick={() => handleAddUser(u.id, u.username || u.displayName || u.id)}
                                                     className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${selectedRole === 'writer' ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} `}
                                                 >
                                                     <UserPlus className="w-3 h-3" /> Añadir
@@ -301,10 +321,10 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                                         <div key={idx} className="bg-[#0b1021] border border-white/5 rounded-lg p-3 flex items-center justify-between group">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${role === 'writer' ? 'bg-purple-500/20 text-purple-400' : 'bg-indigo-500/20 text-indigo-400'} `}>
-                                                    {identifier[0].toUpperCase()}
+                                                    {(resolvedNames[identifier] || identifier)[0]?.toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <span className="text-sm text-gray-300 block">{identifier}</span>
+                                                    <span className="text-sm text-gray-300 block">{resolvedNames[identifier] || identifier}</span>
                                                     <span className={`text-[10px] uppercase font-bold ${role === 'writer' ? 'text-purple-500' : 'text-indigo-500'} `}>{role === 'writer' ? 'Escritor' : 'Lector'}</span>
                                                 </div>
                                             </div>

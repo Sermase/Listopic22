@@ -6,6 +6,7 @@ import { AppConfigProvider } from './context/AppConfigContext';
 import { SeoManager } from './components/SeoManager';
 import { AuthProvider } from './context/AuthContext';
 import { FilterProvider } from './context/FilterContext';
+import { GamificationProvider } from './context/GamificationContext';
 import { StorageImageRecovery } from './components/StorageImageRecovery';
 
 const canRegisterServiceWorker = 'serviceWorker' in navigator
@@ -26,13 +27,15 @@ if (canRegisterServiceWorker) {
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AuthProvider>
-      <AppConfigProvider>
-        <FilterProvider>
-          <SeoManager />
-          <StorageImageRecovery />
-          <App />
-        </FilterProvider>
-      </AppConfigProvider>
+      <GamificationProvider>
+        <AppConfigProvider>
+          <FilterProvider>
+            <SeoManager />
+            <StorageImageRecovery />
+            <App />
+          </FilterProvider>
+        </AppConfigProvider>
+      </GamificationProvider>
     </AuthProvider>
   </React.StrictMode>,
 )

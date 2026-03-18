@@ -231,7 +231,7 @@ export const HomePage: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [user?.uid, user?.email, user?.displayName, user?.photoURL]);
+    }, [user?.uid, user?.email]);
 
     useEffect(() => {
         if (!user || !showProfileGate) return;
@@ -489,10 +489,11 @@ export const HomePage: React.FC = () => {
                         photoUrl: data.mainImageUrl || data.photoUrl,
                         rating: data.averageRating || data.googleRating || 0,
                         reviewsCount: data.reviewsCount || 0,
+                        closedStatus: data.closedStatus || null,
                         lat, lng,
                         items: [] // No specific items for these unless we fetch subcollections
                     };
-                }).filter(p => p.lat && p.lng && p.reviewsCount > 0); // Only places with location AND reviews
+                }).filter(p => p.lat && p.lng && p.reviewsCount > 0 && p.closedStatus !== 'permanently_closed'); // Only places with location AND reviews, exclude permanently closed
 
                 setExtraPlaces(mapped);
             } catch (e) {
@@ -530,6 +531,7 @@ export const HomePage: React.FC = () => {
                         photoUrl: r.placeMainImage || r.photoUrl,
                         rating: r.placeAverageRating || r.overallRating,
                         reviewsCount: 1,
+                        closedStatus: (r as any).placeClosedStatus || null,
                         lat, lng,
                         items: [] // Can populate if needed
                     });
@@ -547,8 +549,10 @@ export const HomePage: React.FC = () => {
             }
         });
 
-        // Sort: "Los lugares de más nota a menos."
-        return Array.from(uniquePlaces.values()).sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        // Sort: "Los lugares de más nota a menos." — exclude permanently closed from map
+        return Array.from(uniquePlaces.values())
+            .filter(p => p.closedStatus !== 'permanently_closed')
+            .sort((a, b) => (b.rating || 0) - (a.rating || 0));
     }, [reviewsInRange, extraPlaces, range, location, activeFilter]);
 
     const hasHomeMapCandidates = useMemo(() => {

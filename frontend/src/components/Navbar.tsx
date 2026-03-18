@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Archive, Bell, Compass, Menu, MessageSquare, Plus, Search, Share2, User, X } from 'lucide-react';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
@@ -44,6 +44,7 @@ export const Navbar: React.FC = () => {
     const [scrolled, setScrolled] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [notificationPanelMode, setNotificationPanelMode] = useState<'desktop' | 'mobile'>('desktop');
+    const bellRef = useRef<HTMLDivElement>(null);
     const [showHistory, setShowHistory] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -115,7 +116,20 @@ export const Navbar: React.FC = () => {
 
     useEffect(() => {
         setIsMenuOpen(false);
-    }, [location]);
+        setShowNotifications(false);
+    }, [location.pathname]);
+
+    // Click-outside: close desktop dropdown when clicking outside bell+panel
+    useEffect(() => {
+        if (!showNotifications || notificationPanelMode !== 'desktop') return;
+        const handler = (e: MouseEvent) => {
+            if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+                setShowNotifications(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showNotifications, notificationPanelMode]);
 
     useEffect(() => {
         if (!user) return;
@@ -195,7 +209,7 @@ export const Navbar: React.FC = () => {
                         </Link>
 
                         {user && (
-                            <div className="relative">
+                            <div className="relative" ref={bellRef}>
                                 <button
                                     onClick={() => {
                                         setNotificationPanelMode('desktop');

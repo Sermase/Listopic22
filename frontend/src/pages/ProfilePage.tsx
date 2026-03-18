@@ -381,12 +381,16 @@ export const ProfilePage: React.FC = () => {
           const pageRows = pageSnapshot.docs
             .map((reviewDoc): Record<string, any> | null => {
               const pathSegments = reviewDoc.ref.path.split("/");
-              const isCanonicalListReviewPath =
-                pathSegments.length === 4 &&
-                pathSegments[0] === "lists" &&
-                pathSegments[2] === "reviews";
+              // Accept canonical subcollection path (lists/{listId}/reviews/{id})
+              // and legacy root collection path (reviews/{id})
+              const isValidPath =
+                (pathSegments.length === 4 &&
+                  pathSegments[0] === "lists" &&
+                  pathSegments[2] === "reviews") ||
+                (pathSegments.length === 2 &&
+                  pathSegments[0] === "reviews");
 
-              if (!isCanonicalListReviewPath) {
+              if (!isValidPath) {
                 return null;
               }
 
@@ -1518,32 +1522,54 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
-              {profileStatCards.map((stat) => (
-                <button
-                  key={stat.id}
-                  type="button"
-                  onClick={() => openDetailsModal(stat.id)}
-                  className={`group flex min-h-[78px] sm:min-h-[108px] min-w-0 flex-col items-center justify-center rounded-2xl border px-1.5 py-2 text-center transition-all hover:-translate-y-0.5 sm:px-3 sm:py-3 ${stat.accent === "level"
-                    ? "border-amber-400/35 bg-gradient-to-br from-[#26160a] via-[#44230d] to-[#6d340c] shadow-[0_18px_40px_rgba(245,158,11,0.18)]"
-                    : "border-white/10 bg-[#151b2e]/80 hover:border-indigo-400/35 hover:bg-[#19213a]"
+            {profileStatCards.map((stat) => (
+              <button
+                key={stat.id}
+                type="button"
+                onClick={() => openDetailsModal(stat.id)}
+                className={`group relative flex min-h-[78px] sm:min-h-[108px] min-w-0 flex-col items-center justify-center rounded-2xl border px-1.5 py-2 text-center transition-all hover:-translate-y-0.5 sm:px-3 sm:py-3 ${stat.accent === "level"
+                  ? "overflow-hidden border-amber-400/35 bg-[#110804] shadow-[0_18px_40px_rgba(245,158,11,0.18)]"
+                  : "border-white/10 bg-[#151b2e]/80 hover:border-indigo-400/35 hover:bg-[#19213a]"
+                  }`}
+              >
+                {stat.accent === "level" && (
+                  <>
+                    {/* Unfilled vessel: subtle warm amber tint over the whole card */}
+                    <div
+                      className="pointer-events-none absolute inset-0"
+                      style={{ background: 'rgba(160, 100, 20, 0.10)' }}
+                    />
+                    {/* Filled liquid rising from bottom */}
+                    <div
+                      className="pointer-events-none absolute bottom-0 left-0 right-0 transition-all duration-1000 ease-out"
+                      style={{
+                        height: `${levelInfo.progressPercent}%`,
+                        background: `linear-gradient(0deg, hsl(28, 55%, 20%) 0%, hsl(35, 60%, 32%) 60%, hsl(40, 65%, 40%) 100%)`,
+                        boxShadow: `0 -2px 10px hsla(38, 60%, 35%, 0.30)`,
+                      }}
+                    />
+                  </>
+                )}
+                <span
+                  className={`relative z-10 text-[9px] sm:text-[10px] font-black uppercase leading-tight tracking-[0.14em] sm:tracking-[0.22em] ${stat.accent === "level"
+                    ? "text-amber-200/95"
+                    : "text-gray-500 group-hover:text-gray-300"
                     }`}
+                  style={stat.accent === "level" ? { textShadow: '0 1px 4px rgba(0,0,0,0.9)' } : undefined}
                 >
-                  <span
-                    className={`text-[9px] sm:text-[10px] font-black uppercase leading-tight tracking-[0.14em] sm:tracking-[0.22em] ${stat.accent === "level"
-                      ? "text-amber-100/90"
-                      : "text-gray-500 group-hover:text-gray-300"
-                      }`}
-                  >
-                    {stat.label}
-                  </span>
+                  {stat.label}
+                </span>
 
-                  <div className="mt-2 min-w-0">
-                    <div className="text-base font-black leading-none text-white sm:text-2xl md:text-3xl">
-                      {stat.value}
-                    </div>
+                <div className="relative z-10 mt-2 min-w-0 w-full">
+                  <div
+                    className="text-base font-black leading-none text-white sm:text-2xl md:text-3xl"
+                    style={stat.accent === "level" ? { textShadow: '0 1px 6px rgba(0,0,0,0.9)' } : undefined}
+                  >
+                    {stat.value}
                   </div>
-                </button>
-              ))}
+                </div>
+              </button>
+            ))}
           </div>
 
         </div>
@@ -2333,8 +2359,34 @@ export const ProfilePage: React.FC = () => {
                     <div className="overflow-hidden rounded-[2rem] border border-amber-400/20 bg-gradient-to-br from-[#24160b] via-[#3a210f] to-[#5f310d] p-5 md:p-6">
                       <div className="flex flex-col gap-5">
                         <div className="flex items-center gap-4">
-                          <div className="flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-white/15 bg-white/10 text-3xl font-black text-white shadow-[0_16px_36px_rgba(245,158,11,0.22)]">
-                            {levelInfo.level}
+                          {/* Dynamic gold-fill level box */}
+                          <div
+                            className="relative flex h-20 w-20 items-center justify-center rounded-[1.75rem] border overflow-hidden shrink-0 transition-all duration-1000"
+                            style={{
+                              borderColor: `hsla(${38 + (levelInfo.progressPercent / 100) * 8}, ${70 + (levelInfo.progressPercent / 100) * 30}%, ${58 - (levelInfo.progressPercent / 100) * 12}%, ${Math.max(0.15, levelInfo.progressPercent / 100 * 0.5)})`,
+                              boxShadow: `0 16px 36px hsla(${38 + (levelInfo.progressPercent / 100) * 8}, ${70 + (levelInfo.progressPercent / 100) * 30}%, ${58 - (levelInfo.progressPercent / 100) * 12}%, ${Math.max(0.1, levelInfo.progressPercent / 100 * 0.25)}), inset 0 0 20px hsla(38, 80%, 50%, ${levelInfo.progressPercent / 100 * 0.08})`,
+                            }}
+                          >
+                            {/* Gold fill from bottom */}
+                            <div
+                              className="absolute bottom-0 left-0 right-0 transition-all duration-1000 ease-out"
+                              style={{
+                                height: `${levelInfo.progressPercent}%`,
+                                background: `linear-gradient(0deg, hsl(${38 + (levelInfo.progressPercent / 100) * 8}, ${70 + (levelInfo.progressPercent / 100) * 30}%, ${58 - (levelInfo.progressPercent / 100) * 12}%) 0%, hsla(${38 + (levelInfo.progressPercent / 100) * 8}, ${70 + (levelInfo.progressPercent / 100) * 30}%, ${73 - (levelInfo.progressPercent / 100) * 12}%, 0.6) 100%)`,
+                                boxShadow: `0 -4px 20px hsla(38, 80%, 50%, ${levelInfo.progressPercent / 100 * 0.4})`,
+                              }}
+                            />
+                            {/* Level number overlay */}
+                            <span
+                              className="relative z-10 text-3xl font-black drop-shadow-md transition-colors duration-1000"
+                              style={{
+                                color: levelInfo.progressPercent > 50
+                                  ? 'hsl(38, 20%, 10%)'
+                                  : 'hsl(38, 60%, 83%)',
+                              }}
+                            >
+                              {levelInfo.level}
+                            </span>
                           </div>
                           <div>
                             <div className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-100/75">
@@ -2359,8 +2411,12 @@ export const ProfilePage: React.FC = () => {
                         </div>
                         <div className="h-3 overflow-hidden rounded-full bg-black/30">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-orange-500 shadow-[0_0_24px_rgba(245,158,11,0.45)]"
-                            style={{ width: `${levelInfo.progressPercent}%` }}
+                            className="h-full rounded-full transition-all duration-1000 ease-out"
+                            style={{
+                              width: `${levelInfo.progressPercent}%`,
+                              background: `linear-gradient(90deg, hsl(${38 + (levelInfo.progressPercent / 100) * 8}, ${50 + (levelInfo.progressPercent / 100) * 20}%, ${68 - (levelInfo.progressPercent / 100) * 8}%) 0%, hsl(${38 + (levelInfo.progressPercent / 100) * 8}, ${70 + (levelInfo.progressPercent / 100) * 30}%, ${58 - (levelInfo.progressPercent / 100) * 12}%) 100%)`,
+                              boxShadow: `0 0 12px hsla(38, 80%, 50%, ${Math.max(0.2, levelInfo.progressPercent / 100 * 0.5)})`,
+                            }}
                           />
                         </div>
                       </div>
@@ -2526,6 +2582,7 @@ export const ProfilePage: React.FC = () => {
         targetName={profile.displayName || profile.username || "Usuario"}
         targetType="user"
         itemName="Perfil de Usuario"
+        targetOwnerId={targetUserId!}
       />
       {
         isFlowOpen && (

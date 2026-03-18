@@ -22,6 +22,7 @@ interface ListItemCardProps {
         followersCount?: number;
         itemCount?: number;
         listId?: string;
+        placeClosedStatus?: string | null;
     };
     rank?: number;
     isGrid?: boolean;
@@ -194,22 +195,33 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
 
                         {/* Main Content Info */}
                         <div className="pointer-events-auto md:mt-auto">
-                            <h3 className="font-display font-bold text-sm sm:text-base md:text-xl text-[var(--text-primary)] md:text-white leading-tight mb-1 group-hover:text-indigo-500 md:group-hover:text-indigo-300 transition-colors line-clamp-2 md:drop-shadow-md">
-                                {item.placeId ? (
-                                    groupingMode === 'dish' ? (
-                                        <Link
-                                            to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`}
-                                            className="hover:underline inset-0"
-                                        >
-                                            {item.name}
-                                        </Link>
+                            <div className="flex items-start gap-2 flex-wrap mb-1">
+                                <h3 className="font-display font-bold text-sm sm:text-base md:text-xl text-[var(--text-primary)] md:text-white leading-tight group-hover:text-indigo-500 md:group-hover:text-indigo-300 transition-colors line-clamp-2 md:drop-shadow-md">
+                                    {item.placeId ? (
+                                        groupingMode === 'dish' ? (
+                                            <Link
+                                                to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`}
+                                                className="hover:underline inset-0"
+                                            >
+                                                {item.name}
+                                            </Link>
+                                        ) : (
+                                            <Link to={`/place/${item.placeId}`} className="hover:underline inset-0">{item.name}</Link>
+                                        )
                                     ) : (
-                                        <Link to={`/place/${item.placeId}`} className="hover:underline inset-0">{item.name}</Link>
-                                    )
-                                ) : (
-                                    <Link to={`/list/${item.id}`} className="hover:underline inset-0">{item.name}</Link>
+                                        <Link to={`/list/${item.id}`} className="hover:underline inset-0">{item.name}</Link>
+                                    )}
+                                </h3>
+                                {item.placeClosedStatus && (
+                                    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border shrink-0 mt-0.5 ${
+                                        item.placeClosedStatus === 'permanently_closed'
+                                            ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                                            : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                                    }`}>
+                                        {item.placeClosedStatus === 'permanently_closed' ? '🔒 Cerrado' : '⏰ Temp.'}
+                                    </span>
                                 )}
-                            </h3>
+                            </div>
 
                             {/* Author info (List only) */}
                             {item.authorName && !item.placeName && (

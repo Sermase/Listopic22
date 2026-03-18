@@ -159,6 +159,16 @@
         }
     }
 
+    @keyframes shimmer-sweep {
+        0% {
+            transform: translateX(-100%);
+        }
+
+        100% {
+            transform: translateX(200%);
+        }
+    }
+
     /* Legacy SVG Markers - remove default leaflet square bg if any */
     .legacy-map-marker,
     .user-location-marker {

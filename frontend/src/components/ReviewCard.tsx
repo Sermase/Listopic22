@@ -20,10 +20,12 @@ interface ReviewCardProps {
     onDelete?: (id: string) => void;
     onEdit?: (review: ReviewEntity) => void;
     reactionConfig?: { like?: string; dislike?: string }; // Text for animation (e.g. "ñam!")
+    placeClosedStatus?: string;
 }
 
 
-export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig }) => {
+export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp }) => {
+    const placeClosedStatus = placeClosedStatusProp || (review as any).placeClosedStatus || undefined;
     const { user } = useAuth();
     const navigate = useNavigate();
 
@@ -429,13 +431,24 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     {/* Title & Item */}
                     <div>
                         {review.placeName && (
-                            <Link
-                                to={`/place/${review.placeId}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="block font-display font-bold text-lg sm:text-xl text-gray-100 hover:text-indigo-400 transition-colors leading-tight mb-1"
-                            >
-                                {review.placeName}
-                            </Link>
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <Link
+                                    to={`/place/${review.placeId}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="font-display font-bold text-lg sm:text-xl text-gray-100 hover:text-indigo-400 transition-colors leading-tight"
+                                >
+                                    {review.placeName}
+                                </Link>
+                                {placeClosedStatus && (
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${
+                                        placeClosedStatus === 'permanently_closed'
+                                            ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                                            : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                                    }`}>
+                                        {placeClosedStatus === 'permanently_closed' ? '🔒 Cerrado' : '⏰ Cerrado temp.'}
+                                    </span>
+                                )}
+                            </div>
                         )}
                         <h3 className="text-sm font-medium text-indigo-400 group-hover:text-indigo-300 transition-colors">
                             {review.itemName}
@@ -601,6 +614,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 targetName={review.itemName || 'Reseña'}
                 itemName={review.placeName}
                 targetType="review"
+                targetOwnerId={review.userId || review.authorId}
             />
         </>
     );

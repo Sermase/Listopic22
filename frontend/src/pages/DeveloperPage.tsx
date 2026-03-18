@@ -4,9 +4,9 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { BrandingManager } from '../components/developer/BrandingManager';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
-import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw } from 'lucide-react';
 import { DeveloperItemModal } from '../components/developer/DeveloperItemModal';
 
 const FUNCTIONS_REGION = 'europe-west1';
@@ -51,7 +51,12 @@ export const DeveloperPage: React.FC = () => {
     // Reports State
     const [reports, setReports] = useState<any[]>([]);
     const [loadingReports, setLoadingReports] = useState(false);
-    const [reportFilter, setReportFilter] = useState<'pending' | 'resolved' | 'rejected'>('pending');
+    const [reportFilter, setReportFilter] = useState<'all' | 'pending' | 'resolved' | 'rejected'>('pending');
+    const [reportStats, setReportStats] = useState({ pending: 0, resolved: 0, rejected: 0, total: 0 });
+    const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+    const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+    const [syncingPlaceId, setSyncingPlaceId] = useState<string | null>(null);
+    const [syncResults, setSyncResults] = useState<Record<string, string>>({});
 
     // Algolia State
     const [algoliaLog, setAlgoliaLog] = useState<string[]>([]);
@@ -345,8 +350,23 @@ export const DeveloperPage: React.FC = () => {
     const fetchReports = async () => {
         setLoadingReports(true);
         try {
-            const snap = await getDocs(query(collection(db, 'reports'), firestoreLimit(50)));
-            setReports(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => b.createdAt?.seconds - a.createdAt?.seconds));
+            const constraints: any[] = [firestoreLimit(100)];
+            if (reportFilter !== 'all') {
+                constraints.push(where('status', '==', reportFilter));
+            }
+            const snap = await getDocs(query(collection(db, 'reports'), ...constraints));
+            const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+            setReports(docs);
+
+            // Fetch overall stats
+            const allSnap = await getDocs(query(collection(db, 'reports'), firestoreLimit(500)));
+            const allDocs = allSnap.docs.map(d => d.data());
+            setReportStats({
+                pending: allDocs.filter(d => !d.status || d.status === 'pending').length,
+                resolved: allDocs.filter(d => d.status === 'resolved').length,
+                rejected: allDocs.filter(d => d.status === 'rejected').length,
+                total: allDocs.length,
+            });
         } catch (error) {
             console.error("Error fetching reports:", error);
         } finally {
@@ -354,13 +374,68 @@ export const DeveloperPage: React.FC = () => {
         }
     };
 
-    const handleUpdateReportStatus = async (reportId: string, newStatus: string) => {
+    const handleUpdateReportStatus = async (reportId: string, newStatus: string, closedStatus?: string) => {
         try {
-            await updateDoc(doc(db, 'reports', reportId), { status: newStatus });
+            const notes = adminNotes[reportId] || '';
+            await updateDoc(doc(db, 'reports', reportId), {
+                status: newStatus,
+                resolvedAt: new Date(),
+                resolvedBy: user?.uid || 'admin',
+                ...(notes ? { adminNotes: notes } : {}),
+                ...(closedStatus ? { resolvedClosedStatus: closedStatus } : {}),
+            });
+
+            // If resolving a place closure report, update the place document + batch-update reviews
+            if (newStatus === 'resolved' && closedStatus) {
+                const report = reports.find(r => r.id === reportId);
+                if (report?.targetType === 'place' && report.targetId) {
+                    const placeTargetId = report.targetId;
+                    await updateDoc(doc(db, 'places', placeTargetId), {
+                        closedStatus,
+                        closedStatusUpdatedAt: new Date(),
+                    });
+
+                    // Batch-update root reviews so ReviewCard shows closed status everywhere
+                    try {
+                        const reviewsSnap = await getDocs(
+                            query(collection(db, 'reviews'), where('placeId', '==', placeTargetId), firestoreLimit(400))
+                        );
+                        const batch = writeBatch(db);
+                        reviewsSnap.docs.forEach(d => {
+                            batch.update(d.ref, { placeClosedStatus: closedStatus });
+                        });
+                        if (reviewsSnap.docs.length > 0) await batch.commit();
+                    } catch (batchErr) {
+                        console.warn('Could not batch-update reviews with closedStatus:', batchErr);
+                    }
+                }
+            }
+
             fetchReports();
         } catch (error) {
             console.error("Error updating report:", error);
-            alert("Error al actualizar reporte");
+        }
+    };
+
+    const handleSyncPlaceStatus = async (placeId: string) => {
+        setSyncingPlaceId(placeId);
+        try {
+            const { getFunctions: getF, httpsCallable: hc } = await import('firebase/functions');
+            const { getApp } = await import('firebase/app');
+            const fns = getF(getApp(), 'europe-west1');
+            const syncFn = hc(fns, 'syncPlaceStatusFromGoogle');
+            const result: any = await syncFn({ placeId });
+            const { businessStatus, closedStatus } = result.data;
+            const label = closedStatus === 'permanently_closed'
+                ? '🔒 Cerrado permanentemente'
+                : closedStatus === 'temporarily_closed'
+                    ? '⏰ Cerrado temporalmente'
+                    : `✅ Operativo (${businessStatus})`;
+            setSyncResults(prev => ({ ...prev, [placeId]: label }));
+        } catch (err: any) {
+            setSyncResults(prev => ({ ...prev, [placeId]: `Error: ${err.message}` }));
+        } finally {
+            setSyncingPlaceId(null);
         }
     };
 
@@ -404,7 +479,7 @@ export const DeveloperPage: React.FC = () => {
         if (activeTab === 'gamification') fetchBadges();
         if (activeTab === 'reports') fetchReports();
         if (activeTab === 'others') fetchOtherSettings();
-    }, [activeTab]);
+    }, [activeTab, reportFilter]);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -826,11 +901,10 @@ export const DeveloperPage: React.FC = () => {
 
                                     {otherSettingsMessage && (
                                         <div
-                                            className={`mb-4 p-3 rounded-lg border text-sm ${
-                                                otherSettingsMessage.type === 'success'
-                                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                                                    : 'bg-red-500/10 border-red-500/20 text-red-300'
-                                            }`}
+                                            className={`mb-4 p-3 rounded-lg border text-sm ${otherSettingsMessage.type === 'success'
+                                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                                                : 'bg-red-500/10 border-red-500/20 text-red-300'
+                                                }`}
                                         >
                                             {otherSettingsMessage.text}
                                         </div>
@@ -850,11 +924,10 @@ export const DeveloperPage: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => setOtherSettings((prev) => ({ ...prev, showRandomChoiceButton: !prev.showRandomChoiceButton }))}
-                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                                                        otherSettings.showRandomChoiceButton
-                                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                                            : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
-                                                    }`}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${otherSettings.showRandomChoiceButton
+                                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                        : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                                                        }`}
                                                 >
                                                     {otherSettings.showRandomChoiceButton ? 'ACTIVO' : 'INACTIVO'}
                                                 </button>
@@ -870,11 +943,10 @@ export const DeveloperPage: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => setOtherSettings((prev) => ({ ...prev, showProfileFavoriteBadge: !prev.showProfileFavoriteBadge }))}
-                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                                                        otherSettings.showProfileFavoriteBadge
-                                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                                            : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
-                                                    }`}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${otherSettings.showProfileFavoriteBadge
+                                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                        : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                                                        }`}
                                                 >
                                                     {otherSettings.showProfileFavoriteBadge ? 'ACTIVO' : 'INACTIVO'}
                                                 </button>
@@ -1350,74 +1422,262 @@ export const DeveloperPage: React.FC = () => {
                         {
                             activeTab === 'reports' && (
                                 <div className="max-w-6xl mx-auto space-y-6">
+                                    {/* Header */}
                                     <div className="flex items-center justify-between">
                                         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                                            <Flag className="w-6 h-6 text-red-500" /> Centro de Reportes
+                                            <Flag className="w-6 h-6 text-red-500" /> Centro de Moderación
                                         </h2>
                                         <button onClick={fetchReports} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white">
                                             <RefreshCw className={`w-4 h-4 ${loadingReports ? 'animate-spin' : ''}`} />
                                         </button>
                                     </div>
 
-                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden">
-                                        <table className="w-full text-left text-sm text-gray-300">
-                                            <thead className="bg-white/5 text-gray-100 font-bold uppercase text-xs">
-                                                <tr>
-                                                    <th className="p-4">Estado</th>
-                                                    <th className="p-4">Tipo</th>
-                                                    <th className="p-4">Target</th>
-                                                    <th className="p-4">Mensaje</th>
-                                                    <th className="p-4">Reportado Por</th>
-                                                    <th className="p-4">Fecha</th>
-                                                    <th className="p-4">Acciones</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-white/5">
-                                                {reports.map(report => (
-                                                    <tr key={report.id} className="hover:bg-white/5 transition-colors">
-                                                        <td className="p-4">
-                                                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${report.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                                report.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
-                                                                    'bg-yellow-500/20 text-yellow-400'
-                                                                }`}>
-                                                                {report.status || 'pending'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4 capitalize text-white">{report.targetType} - {report.issueType}</td>
-                                                        <td className="p-4 text-xs font-mono text-gray-500">
-                                                            {report.targetId} <br />
-                                                            <span className="text-indigo-400">{report.targetName}</span>
-                                                        </td>
-                                                        <td className="p-4 max-w-xs truncate" title={report.description}>{report.description || '-'}</td>
-                                                        <td className="p-4 text-xs">{report.reportedByUserId}</td>
-                                                        <td className="p-4 text-xs">{report.createdAt?.seconds ? new Date(report.createdAt.seconds * 1000).toLocaleDateString() : '-'}</td>
-                                                        <td className="p-4 flex gap-2">
-                                                            {report.status !== 'resolved' && (
-                                                                <button
-                                                                    onClick={() => handleUpdateReportStatus(report.id, 'resolved')}
-                                                                    className="p-1 hover:bg-emerald-500/20 text-emerald-500 rounded" title="Resolver"
-                                                                >
-                                                                    <CheckCircle className="w-4 h-4" />
-                                                                </button>
+                                    {/* Stats Cards */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        {[
+                                            { label: 'Pendientes', value: reportStats.pending, color: 'yellow', filter: 'pending' as const },
+                                            { label: 'Resueltos', value: reportStats.resolved, color: 'emerald', filter: 'resolved' as const },
+                                            { label: 'Rechazados', value: reportStats.rejected, color: 'red', filter: 'rejected' as const },
+                                            { label: 'Total', value: reportStats.total, color: 'indigo', filter: 'all' as const },
+                                        ].map(stat => (
+                                            <button
+                                                key={stat.label}
+                                                onClick={() => setReportFilter(stat.filter)}
+                                                className={`rounded-xl border p-4 text-left transition-all ${reportFilter === stat.filter
+                                                    ? `border-${stat.color}-500/40 bg-${stat.color}-500/10`
+                                                    : 'border-white/10 bg-[#151b2e]/60 hover:border-white/20'
+                                                    }`}
+                                            >
+                                                <div className="text-xs font-bold uppercase tracking-wider text-gray-400">{stat.label}</div>
+                                                <div className={`text-2xl font-black mt-1 text-${stat.color}-400`}>{stat.value}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Filter Tabs */}
+                                    <div className="flex gap-2 overflow-x-auto">
+                                        {(['pending', 'resolved', 'rejected', 'all'] as const).map(f => (
+                                            <button
+                                                key={f}
+                                                onClick={() => setReportFilter(f)}
+                                                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all whitespace-nowrap ${reportFilter === f
+                                                    ? 'bg-white/10 text-white border border-white/20'
+                                                    : 'text-gray-500 hover:text-gray-300 border border-transparent'
+                                                    }`}
+                                            >
+                                                {f === 'all' ? 'Todos' : f === 'pending' ? '⏳ Pendientes' : f === 'resolved' ? '✅ Resueltos' : '❌ Rechazados'}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Report Cards */}
+                                    <div className="space-y-3">
+                                        {loadingReports && (
+                                            <div className="flex items-center justify-center py-12">
+                                                <RefreshCw className="w-6 h-6 animate-spin text-gray-500" />
+                                            </div>
+                                        )}
+
+                                        {!loadingReports && reports.map(report => {
+                                            const isExpanded = expandedReportId === report.id;
+                                            const statusColor = report.status === 'resolved' ? 'emerald' : report.status === 'rejected' ? 'red' : 'yellow';
+                                            const typeIcons: Record<string, string> = { review: '📝', user: '👤', place: '📍', group: '👥' };
+
+                                            return (
+                                                <div
+                                                    key={report.id}
+                                                    className={`rounded-xl border overflow-hidden transition-all ${isExpanded ? 'border-white/20 bg-[#151b2e]' : 'border-white/10 bg-[#151b2e]/60 hover:border-white/15'
+                                                        }`}
+                                                >
+                                                    {/* Row summary */}
+                                                    <button
+                                                        onClick={() => setExpandedReportId(isExpanded ? null : report.id)}
+                                                        className="w-full text-left p-4 flex items-center gap-4"
+                                                    >
+                                                        {/* Status badge */}
+                                                        <span className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide bg-${statusColor}-500/15 text-${statusColor}-400 border border-${statusColor}-500/20`}>
+                                                            {report.status || 'pending'}
+                                                        </span>
+
+                                                        {/* Type icon */}
+                                                        <span className="text-lg shrink-0">{typeIcons[report.targetType] || '⚠️'}</span>
+
+                                                        {/* Main info */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-bold text-white truncate">{report.targetName || report.targetId}</span>
+                                                                <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 uppercase font-bold shrink-0">
+                                                                    {report.targetType}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-xs text-gray-500 mt-0.5 truncate">
+                                                                {report.issueType} · {report.description || 'Sin descripción'}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Date */}
+                                                        <span className="text-[11px] text-gray-500 shrink-0 hidden md:block">
+                                                            {report.createdAt?.seconds ? new Date(report.createdAt.seconds * 1000).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '-'}
+                                                        </span>
+
+                                                        {/* Expand chevron */}
+                                                        <svg className={`w-4 h-4 text-gray-500 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    </button>
+
+                                                    {/* Expanded detail */}
+                                                    {isExpanded && (
+                                                        <div className="border-t border-white/10 p-5 space-y-4 bg-black/20">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Target ID</div>
+                                                                    <div className="text-xs font-mono text-indigo-400 select-all break-all flex items-center gap-1.5">
+                                                                        <span>{report.targetId}</span>
+                                                                        {(() => {
+                                                                            const linkMap: Record<string, string> = {
+                                                                                place: `/place/${report.targetId}`,
+                                                                                user: `/profile/${report.targetId}`,
+                                                                                list: `/list/${report.targetId}`,
+                                                                            };
+                                                                            const href = linkMap[report.targetType];
+                                                                            return href ? (
+                                                                                <a href={href} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-400 hover:text-indigo-200 transition-colors">
+                                                                                    <ExternalLink className="w-3 h-3" />
+                                                                                </a>
+                                                                            ) : null;
+                                                                        })()}
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Tipo de Problema</div>
+                                                                    <div className="text-sm text-white capitalize">{report.issueType}</div>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Reportado por</div>
+                                                                    <div className="text-xs text-gray-300 flex items-center gap-1.5">
+                                                                        <a href={`/profile/${report.userId || report.reportedByUserId}`} target="_blank" rel="noopener noreferrer" className="font-mono text-gray-400 hover:text-indigo-300 transition-colors flex items-center gap-1">
+                                                                            <span className="select-all">{report.userId || report.reportedByUserId}</span>
+                                                                            <ExternalLink className="w-3 h-3 shrink-0" />
+                                                                        </a>
+                                                                        {(report.userName || report.reportedByName) && <span className="text-indigo-300">({report.userName || report.reportedByName})</span>}
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Fecha</div>
+                                                                    <div className="text-sm text-gray-300">
+                                                                        {report.createdAt?.seconds
+                                                                            ? new Date(report.createdAt.seconds * 1000).toLocaleString('es-ES')
+                                                                            : '-'}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {report.description && (
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Descripción del Reporter</div>
+                                                                    <div className="text-sm text-gray-200 bg-black/30 rounded-lg p-3 border border-white/5">
+                                                                        {report.description}
+                                                                    </div>
+                                                                </div>
                                                             )}
-                                                            {report.status !== 'rejected' && (
-                                                                <button
-                                                                    onClick={() => handleUpdateReportStatus(report.id, 'rejected')}
-                                                                    className="p-1 hover:bg-red-500/20 text-red-500 rounded" title="Rechazar"
-                                                                >
-                                                                    <X className="w-4 h-4" />
-                                                                </button>
+
+                                                            {/* Admin notes */}
+                                                            {(!report.status || report.status === 'pending') && (
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Notas del Admin (opcional)</div>
+                                                                    <textarea
+                                                                        value={adminNotes[report.id] || ''}
+                                                                        onChange={(e) => setAdminNotes(prev => ({ ...prev, [report.id]: e.target.value }))}
+                                                                        placeholder="Razón de la resolución, acciones tomadas..."
+                                                                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 h-16 resize-none"
+                                                                    />
+                                                                </div>
                                                             )}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {reports.length === 0 && !loadingReports && (
-                                                    <tr>
-                                                        <td colSpan={7} className="p-8 text-center text-gray-500">No hay reportes recientes.</td>
-                                                    </tr>
-                                                )}
-                                            </tbody>
-                                        </table>
+
+                                                            {report.adminNotes && (
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Notas del Admin</div>
+                                                                    <div className="text-sm text-amber-200 bg-amber-500/5 rounded-lg p-3 border border-amber-500/10">
+                                                                        {report.adminNotes}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Google Maps Sync (solo para lugares) */}
+                                                            {report.targetType === 'place' && (
+                                                                <div className="flex flex-col gap-2">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <button
+                                                                            onClick={() => handleSyncPlaceStatus(report.targetId)}
+                                                                            disabled={syncingPlaceId === report.targetId}
+                                                                            className="px-4 py-1.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 text-xs font-bold rounded-lg flex items-center gap-2 transition-colors border border-blue-500/30 disabled:opacity-50"
+                                                                        >
+                                                                            <RefreshCcw className={`w-3.5 h-3.5 ${syncingPlaceId === report.targetId ? 'animate-spin' : ''}`} />
+                                                                            Sync Google Maps
+                                                                        </button>
+                                                                        {syncResults[report.targetId] && (
+                                                                            <span className="text-xs text-gray-300">{syncResults[report.targetId]}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Actions */}
+                                                            <div className="flex flex-wrap gap-3 pt-2">
+                                                                {/* Place closure reports: show specific close buttons */}
+                                                                {report.status !== 'resolved' && report.issueType === 'place_closed' && report.targetType === 'place' ? (
+                                                                    <>
+                                                                        <button
+                                                                            onClick={() => handleUpdateReportStatus(report.id, 'resolved', 'permanently_closed')}
+                                                                            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                                                        >
+                                                                            <CheckCircle className="w-4 h-4" /> Cerrado permanentemente
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleUpdateReportStatus(report.id, 'resolved', 'temporarily_closed')}
+                                                                            className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                                                        >
+                                                                            <CheckCircle className="w-4 h-4" /> Cerrado temporalmente
+                                                                        </button>
+                                                                    </>
+                                                                ) : report.status !== 'resolved' ? (
+                                                                    <button
+                                                                        onClick={() => handleUpdateReportStatus(report.id, 'resolved')}
+                                                                        className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                                                    >
+                                                                        <CheckCircle className="w-4 h-4" /> Resolver
+                                                                    </button>
+                                                                ) : null}
+                                                                {report.status !== 'rejected' && (
+                                                                    <button
+                                                                        onClick={() => handleUpdateReportStatus(report.id, 'rejected')}
+                                                                        className="px-5 py-2 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors border border-red-500/30 hover:border-red-500"
+                                                                    >
+                                                                        <X className="w-4 h-4" /> Rechazar
+                                                                    </button>
+                                                                )}
+                                                                {report.status && report.status !== 'pending' && (
+                                                                    <button
+                                                                        onClick={() => handleUpdateReportStatus(report.id, 'pending')}
+                                                                        className="px-5 py-2 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-lg flex items-center gap-2 transition-colors border border-white/10"
+                                                                    >
+                                                                        Reabrir
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+
+                                        {!loadingReports && reports.length === 0 && (
+                                            <div className="rounded-xl border border-white/10 bg-[#151b2e]/60 p-12 text-center">
+                                                <Flag className="w-8 h-8 text-gray-600 mx-auto mb-3" />
+                                                <p className="text-gray-500 font-bold">No hay reportes {reportFilter !== 'all' ? `con estado "${reportFilter}"` : ''}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )
