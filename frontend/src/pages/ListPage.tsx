@@ -714,6 +714,7 @@ export const ListPage: React.FC = () => {
                                 {isActionsMenuOpen && dropdownPosition && (
                                     <div className="fixed w-52 bg-[#151b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 z-[200]"
                                         style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
+                                    >
                                         {user && list.userId !== user.uid && (
                                             <button
                                                 onClick={() => { toggleLike(); setIsActionsMenuOpen(false); }}

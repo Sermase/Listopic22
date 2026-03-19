@@ -1,11 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { createLegacyMarkerIcon } from '../utils/mapUtils';
+import { createRatingMarkerIcon, getRatingColor, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
+import type { MapLayerId } from '../utils/mapUtils';
 import { useLocation } from '../hooks/useLocation';
-import { Locate } from 'lucide-react';
+import { Locate, Layers, Check } from 'lucide-react';
 import L from 'leaflet';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // Component to handle User Location Marker & Range Circle
 const UserLocationFeatures = ({ range }: { range: number | null }) => {
@@ -104,6 +108,49 @@ interface MapViewProps {
     range?: number | null;
 }
 
+// Aplica un filtro CSS al tile pane del mapa (para capas claras/oscuras)
+function TileFilterApplier({ filter }: { filter?: string }) {
+    const map = useMap();
+    useEffect(() => {
+        const pane = map.getPane('tilePane') as HTMLElement | undefined;
+        if (pane) pane.style.filter = filter || '';
+    }, [filter, map]);
+    return null;
+}
+
+// Botón flotante para seleccionar la capa del mapa
+function LayerSelectorControl({ currentLayer, onLayerChange }: { currentLayer: MapLayerId; onLayerChange: (id: MapLayerId) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+        <div className="absolute top-4 right-4 z-[1000]">
+            <button
+                onClick={() => setIsOpen(v => !v)}
+                className={`flex items-center justify-center w-9 h-9 rounded-xl shadow-lg border transition-all ${isOpen ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                title="Cambiar capa del mapa"
+            >
+                <Layers className="w-4 h-4" />
+            </button>
+
+            {isOpen && (
+                <div className="absolute top-full right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden w-44 py-1">
+                    {(Object.entries(MAP_LAYERS) as [MapLayerId, typeof MAP_LAYERS[MapLayerId]][]).map(([id, layer]) => (
+                        <button
+                            key={id}
+                            onClick={() => { onLayerChange(id); setIsOpen(false); }}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors ${currentLayer === id ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-700 hover:bg-gray-50 font-medium'}`}
+                        >
+                            <span className="text-base leading-none">{layer.emoji}</span>
+                            <span className="flex-1 text-left">{layer.label}</span>
+                            {currentLayer === id && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function MapUpdater({ center, items, range, location }: { center: [number, number], items: any[], range: number | null, location: any }) {
     const map = useMap();
 
@@ -136,6 +183,35 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
 export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = [40.416, -3.703], range = null }) => {
 
     const { location } = useLocation();
+    const { user } = useAuth();
+
+    // Capa activa: lee localStorage primero (inmediato), luego Firestore (async)
+    const [currentLayer, setCurrentLayer] = useState<MapLayerId>(() => {
+        const stored = localStorage.getItem(MAP_LAYER_STORAGE_KEY) as MapLayerId | null;
+        return (stored && MAP_LAYERS[stored]) ? stored : DEFAULT_MAP_LAYER;
+    });
+
+    useEffect(() => {
+        if (!user || localStorage.getItem(MAP_LAYER_STORAGE_KEY)) return;
+        getDoc(doc(db, 'users', user.uid)).then(snap => {
+            if (!snap.exists()) return;
+            const pref = snap.data().mapLayerPreference as MapLayerId | undefined;
+            if (pref && MAP_LAYERS[pref]) {
+                setCurrentLayer(pref);
+                localStorage.setItem(MAP_LAYER_STORAGE_KEY, pref);
+            }
+        }).catch(() => {});
+    }, [user]);
+
+    const handleLayerChange = async (layerId: MapLayerId) => {
+        setCurrentLayer(layerId);
+        localStorage.setItem(MAP_LAYER_STORAGE_KEY, layerId);
+        if (user) {
+            try { await updateDoc(doc(db, 'users', user.uid), { mapLayerPreference: layerId }); } catch {}
+        }
+    };
+
+    const activeLayer = MAP_LAYERS[currentLayer];
 
     // Normalize Items based on input to match Interface
     const validItems: MapItem[] = items
@@ -161,81 +237,90 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
 
     return (
         <div className="h-full w-full relative z-0">
-            <MapContainer center={initialCenter} zoom={12} scrollWheelZoom={false} className="h-full w-full bg-[#0b1021]">
+            <MapContainer center={initialCenter} zoom={12} scrollWheelZoom={false} className="h-full w-full listopic-map">
                 <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    key={currentLayer}
+                    attribution={activeLayer.attribution}
+                    url={activeLayer.url}
                 />
+                <TileFilterApplier filter={activeLayer.tileFilter} />
 
                 <MapUpdater center={center} items={validItems} range={range} location={location} />
 
                 {/* User Location Features */}
                 <UserLocationFeatures range={range} />
                 <CustomLocateControl />
+                <LayerSelectorControl currentLayer={currentLayer} onLayerChange={handleLayerChange} />
 
                 {validItems.map((item) => (
                     <Marker
                         key={item.id}
                         position={[item.lat!, item.lng!]}
-                        icon={createLegacyMarkerIcon(item.rating || 0)}
+                        icon={createRatingMarkerIcon(item.rating || 0)}
                     >
-                        <Popup className="legacy-popup" closeButton={false} maxWidth={280} minWidth={260}>
-                            <div className="bg-[#0b1021]/95 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col w-[260px]">
-                                {/* Header Image */}
-                                <div className="relative h-36 w-full bg-gray-900 group">
-                                    {item.photoUrl ? (
-                                        <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                            <span className="text-gray-600 font-bold text-xs uppercase tracking-widest">Sin foto</span>
-                                        </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-transparent to-transparent opacity-90" />
-
-                                    {/* Rating Badge */}
-                                    <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-md border border-white/10 px-2 py-1 rounded-lg flex items-center gap-1">
-                                        <span className="text-yellow-400 text-xs">★</span>
-                                        <span className="text-white font-bold text-xs">{item.rating?.toFixed(1) || '-'}</span>
-                                    </div>
-                                </div>
-
-                                <div className="p-4 pt-1 relative z-10">
-                                    <h3 className="font-display font-bold text-lg text-white leading-tight mb-1 truncate">
-                                        {item.name}
-                                    </h3>
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider border border-white/5 px-1.5 py-0.5 rounded">
-                                            {item.reviewsCount} reseñas
-                                        </span>
-                                    </div>
-
-                                    {/* Sub Items List (List Mode) */}
-                                    {mode === 'list' && item.items && item.items.length > 0 ? (
-                                        <div className="space-y-1.5 mb-3">
-                                            {item.items.slice(0, 3).map((subItem, idx) => (
-                                                <div key={idx} className="flex items-center justify-between text-xs bg-white/5 px-2 py-1.5 rounded border border-white/5">
-                                                    <span className="text-gray-300 truncate pr-2 max-w-[150px]">{subItem.name}</span>
-                                                    <span className={`font-bold ${subItem.score >= 8 ? 'text-emerald-400' : 'text-indigo-400'}`}>
-                                                        {subItem.score.toFixed(1)}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                            {item.items.length > 3 && (
-                                                <div className="text-center text-[10px] text-gray-500 mt-1">
-                                                    +{item.items.length - 3} más
+                        <Popup className="listopic-popup" closeButton={false} maxWidth={270} minWidth={250}>
+                            {(() => {
+                                const { bg } = getRatingColor(item.rating || 0);
+                                const ratingText = item.rating ? item.rating.toFixed(1) : '-';
+                                return (
+                                    <div style={{ width: 250, borderRadius: 16, overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.9)', background: '#fff', fontFamily: "'Poppins', system-ui, sans-serif" }}>
+                                        {/* Header Image */}
+                                        <div style={{ position: 'relative', height: 120, background: '#e5e7eb' }}>
+                                            {item.photoUrl ? (
+                                                <img src={item.photoUrl} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            ) : (
+                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <span style={{ color: '#9ca3af', fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>Sin foto</span>
                                                 </div>
                                             )}
+                                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)' }} />
+                                            {/* Rating badge overlay */}
+                                            <div style={{ position: 'absolute', bottom: 8, right: 8, background: bg, color: '#fff', borderRadius: 8, padding: '3px 10px', fontWeight: 800, fontSize: 14, boxShadow: `0 2px 8px ${bg}80`, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <span style={{ fontSize: 11 }}>★</span>
+                                                {ratingText}
+                                            </div>
                                         </div>
-                                    ) : null}
 
-                                    <Link
-                                        to={`/place/${item.placeId || item.id}`}
-                                        className="block w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-center text-sm font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/25 active:scale-95 border border-indigo-500/50"
-                                    >
-                                        Ver detalles
-                                    </Link>
-                                </div>
-                            </div>
+                                        <div style={{ padding: '10px 14px 12px' }}>
+                                            <div style={{ fontWeight: 700, fontSize: 14, color: '#111827', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {item.name}
+                                            </div>
+                                            {item.reviewsCount ? (
+                                                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
+                                                    {item.reviewsCount} {item.reviewsCount === 1 ? 'reseña' : 'reseñas'}
+                                                </div>
+                                            ) : null}
+
+                                            {/* Sub Items List (List Mode) */}
+                                            {mode === 'list' && item.items && item.items.length > 0 && (
+                                                <div style={{ marginBottom: 10 }}>
+                                                    {item.items.slice(0, 3).map((subItem, idx) => {
+                                                        const { bg: subBg } = getRatingColor(subItem.score);
+                                                        return (
+                                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', background: '#f9fafb', borderRadius: 6, marginBottom: 3, fontSize: 12, border: '1px solid #f3f4f6' }}>
+                                                                <span style={{ color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>{subItem.name}</span>
+                                                                <span style={{ fontWeight: 700, color: subBg }}>{subItem.score.toFixed(1)}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {item.items.length > 3 && (
+                                                        <div style={{ textAlign: 'center', fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
+                                                            +{item.items.length - 3} más
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <Link
+                                                to={`/place/${item.placeId || item.id}`}
+                                                style={{ display: 'block', width: '100%', padding: '8px 0', background: '#4f46e5', color: '#fff', textAlign: 'center', fontWeight: 700, fontSize: 13, borderRadius: 10, textDecoration: 'none', boxSizing: 'border-box' }}
+                                            >
+                                                Ver detalles
+                                            </Link>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </Popup>
                     </Marker>
                 ))}

@@ -135,6 +135,7 @@ export const ProfilePage: React.FC = () => {
     "user",
   );
   const [editRange, setEditRange] = useState<string>("50"); // Default to 50 if undefined
+  const [editMapLayer, setEditMapLayer] = useState<string>("standard");
   const [editUsername, setEditUsername] = useState("");
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editName, setEditName] = useState("");
@@ -970,6 +971,9 @@ export const ProfilePage: React.FC = () => {
     if (profile?.defaultDistanceKm) {
       setEditRange(String(profile.defaultDistanceKm));
     }
+    if ((profile as any)?.mapLayerPreference) {
+      setEditMapLayer((profile as any).mapLayerPreference);
+    }
   }, [profile]);
 
   // Image Upload Handlers
@@ -1068,6 +1072,7 @@ export const ProfilePage: React.FC = () => {
           location: editLocation,
           bio: editBio,
           defaultDistanceKm: safeDistance,
+          mapLayerPreference: editMapLayer,
         },
       );
 
@@ -1075,6 +1080,7 @@ export const ProfilePage: React.FC = () => {
       // And CRUCIALLY update the context immediately so the UI reflects it without reload
       sessionStorage.removeItem("sessionRange");
       setRange(newRange);
+      localStorage.setItem("listopic_map_layer", editMapLayer);
 
       if (user.displayName !== result.displayName) {
         await updateProfile(user, { displayName: result.displayName });
@@ -1893,34 +1899,67 @@ export const ProfilePage: React.FC = () => {
                 )}
 
                 {preferencesTab === "search" && (
-                  <div>
-                    <h4 className="text-white font-bold mb-4 flex items-center gap-2">
-                      <Settings className="w-4 h-4 text-indigo-400" />{" "}
-                      Preferencias de busqueda
-                    </h4>
-                    <div className="flex flex-col gap-2 max-w-sm">
-                      <label className="text-gray-400 text-xs uppercase font-bold">
-                        Rango de distancia por defecto
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <select
-                          value={editRange}
-                          onChange={(e) => setEditRange(e.target.value)}
-                          className="bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500 w-full"
-                        >
-                          <option value="1">1 km</option>
-                          <option value="2">2 km</option>
-                          <option value="5">5 km</option>
-                          <option value="10">10 km</option>
-                          <option value="50">50 km</option>
-                          <option value="100">100 km</option>
-                          <option value="500">500 km</option>
-                          <option value="999999">Sin limite</option>
-                        </select>
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-white font-bold mb-4 flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-indigo-400" />{" "}
+                        Preferencias de busqueda
+                      </h4>
+                      <div className="flex flex-col gap-2 max-w-sm">
+                        <label className="text-gray-400 text-xs uppercase font-bold">
+                          Rango de distancia por defecto
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <select
+                            value={editRange}
+                            onChange={(e) => setEditRange(e.target.value)}
+                            className="bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500 w-full"
+                          >
+                            <option value="1">1 km</option>
+                            <option value="2">2 km</option>
+                            <option value="5">5 km</option>
+                            <option value="10">10 km</option>
+                            <option value="50">50 km</option>
+                            <option value="100">100 km</option>
+                            <option value="500">500 km</option>
+                            <option value="999999">Sin limite</option>
+                          </select>
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          Este rango se aplicara automaticamente cuando inicies
+                          nueva sesion.
+                        </p>
                       </div>
-                      <p className="text-[10px] text-gray-500 mt-1">
-                        Este rango se aplicara automaticamente cuando inicies
-                        nueva sesion.
+                    </div>
+
+                    <div>
+                      <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+                        <MapPinIcon className="w-4 h-4 text-indigo-400" /> Capa de mapa preferida
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2 max-w-sm">
+                        {([
+                          { id: 'standard', label: 'Estándar', emoji: '🗺️' },
+                          { id: 'light',    label: 'Claro',    emoji: '☀️' },
+                          { id: 'dark',     label: 'Oscuro',   emoji: '🌑' },
+                          { id: 'satellite',label: 'Satelital',emoji: '🛰️' },
+                        ] as const).map((layer) => (
+                          <button
+                            key={layer.id}
+                            type="button"
+                            onClick={() => setEditMapLayer(layer.id)}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                              editMapLayer === layer.id
+                                ? 'bg-indigo-600 border-indigo-500 text-white'
+                                : 'bg-black/20 border-white/10 text-gray-300 hover:border-indigo-500/50 hover:text-white'
+                            }`}
+                          >
+                            <span className="text-base">{layer.emoji}</span>
+                            {layer.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-2">
+                        Se aplicará automáticamente cada vez que abras el mapa.
                       </p>
                     </div>
                   </div>
