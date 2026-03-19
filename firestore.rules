@@ -38,7 +38,9 @@ service cloud.firestore {
             isJefe(request.auth.uid) ||
             isFollowingUser(list.userId) ||
             isFollowingList(listId) ||
-            isListFollower(listId)
+            isListFollower(listId) ||
+            (list.editors is list && list.editors.hasAny([request.auth.uid])) ||
+            (list.guests is list && list.guests.hasAny([request.auth.uid]))
           )
         )
       );
@@ -88,7 +90,7 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.listId is string
-                    && canWriteToList(request.resource.data.listId);
+                    && (canWriteToList(request.resource.data.listId) || canWriteToSublistOf(request.resource.data.listId));
       allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
     }
 
@@ -97,7 +99,8 @@ service cloud.firestore {
     // ===============================================
     match /users/{userId} {
       allow read: if true;
-      allow list: if request.auth != null && isJefe(request.auth.uid);
+      // Allow authenticated users to query by username/usernameLower for collaborator lookup
+      allow list: if request.auth != null;
       // Un usuario puede crear/editarse a sí mismo.
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && (
@@ -182,6 +185,21 @@ service cloud.firestore {
       );
     }
 
+    // Helper: permite escribir en una lista padre si el usuario tiene acceso de escritura
+    // en una de sus sublistas (identificada por sublistId en el documento a crear)
+    function canWriteToSublistOf(parentListId) {
+      let sid = request.resource.data.sublistId;
+      let sublist = (sid is string)
+        ? get(/databases/$(database)/documents/lists/$(sid)).data
+        : null;
+      return sublist != null &&
+             sublist.parentListId == parentListId &&
+             (
+               sublist.userId == request.auth.uid ||
+               (sublist.editors is list && sublist.editors.hasAny([request.auth.uid]))
+             );
+    }
+
     // ===============================================
     // REGLAS PARA LISTAS (`lists`) (ACTUALIZADAS)
     // ===============================================
@@ -190,6 +208,7 @@ service cloud.firestore {
                       (request.auth != null && (
                         resource.data.userId == request.auth.uid ||
                         (resource.data.get('editors', []).hasAny([request.auth.uid])) ||
+                        (resource.data.get('guests', []).hasAny([request.auth.uid])) ||
                         isJefe(request.auth.uid) ||
                         isFollowingUser(resource.data.userId) ||
                         isFollowingList(listId) ||
@@ -214,10 +233,11 @@ service cloud.firestore {
 
       match /reviews/{reviewId} {
         allow read: if (request.auth != null && resource.data.userId == request.auth.uid) || canReadListById(listId);
-        // CREATE: Validar que tenga permiso de ESCRITURA en la lista
-        allow create: if request.auth != null 
+        // CREATE: Validar que tenga permiso de ESCRITURA en la lista,
+        // o que tenga acceso de escritura en una sublista de esta lista
+        allow create: if request.auth != null
                          && request.resource.data.userId == request.auth.uid
-                         && canWriteToList(listId);
+                         && (canWriteToList(listId) || canWriteToSublistOf(listId));
         
         // UPDATE/DELETE: El autor o un jefe puede hacerlo.
         allow update: if request.auth != null && (
@@ -268,7 +288,7 @@ service cloud.firestore {
     // ===============================================
     match /places/{placeId} {
         allow read: if true;
-        allow list: if request.auth != null && isJefe(request.auth.uid);
+        allow list: if request.auth != null;
         allow create: if request.auth != null;
         // Permitir update si es Jefe O si solo está actualizando contadores/métricas específicas
         allow update: if request.auth != null && (

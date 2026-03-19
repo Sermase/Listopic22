@@ -45,6 +45,7 @@ export const GroupPage: React.FC = () => {
 
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [placeName, setPlaceName] = useState('');
+    const [placeClosedStatus, setPlaceClosedStatus] = useState<string | null>(null);
     const [primaryListCriteria, setPrimaryListCriteria] = useState<any[]>([]); // New: Store definition for ordering
     const [loading, setLoading] = useState(true);
 
@@ -100,6 +101,7 @@ export const GroupPage: React.FC = () => {
                 placeData = pSnap.data();
                 fetchedPlaceName = placeData.name;
                 setPlaceName(fetchedPlaceName);
+                setPlaceClosedStatus(placeData.closedStatus || null);
             }
 
             const [publicListsSnap, followingListsSnap, ownListsSnap] = await Promise.all([
@@ -556,6 +558,19 @@ export const GroupPage: React.FC = () => {
                     </div>
                 )}
 
+                {/* Back to list button */}
+                {fromListId && (
+                    <div className="absolute top-4 left-4 z-30">
+                        <Link
+                            to={`/list/${fromListId}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 text-white/90 hover:bg-black/60 backdrop-blur-sm transition-colors text-sm font-medium"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                            Volver a la lista
+                        </Link>
+                    </div>
+                )}
+
                 {/* Top Actions Menu */}
                 <div className="absolute top-4 right-4 z-30">
                     <div className="relative">
@@ -591,6 +606,15 @@ export const GroupPage: React.FC = () => {
                         {/* Title & Place Info */}
                         <div className="flex-1">
                             <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 shadow-sm text-shadow-lg leading-tight line-clamp-2">{decodedName}</h1>
+                            {placeClosedStatus && (
+                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${
+                                    placeClosedStatus === 'permanently_closed'
+                                        ? 'bg-red-500/20 border-red-500/40 text-red-300'
+                                        : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                                }`}>
+                                    ⚠ {placeClosedStatus === 'permanently_closed' ? 'Cerrado permanentemente' : 'Cerrado temporalmente'}
+                                </div>
+                            )}
                             <Link to={`/place/${placeId}`} className="text-lg md:text-xl text-indigo-300 hover:text-white flex items-center gap-2 font-medium transition-colors">
                                 <MapPin className="w-5 h-5 opacity-70 shrink-0" />
                                 <span className="underline decoration-indigo-500/30 underline-offset-4">{placeName || 'Lugar Desconocido'}</span>
@@ -808,7 +832,7 @@ export const GroupPage: React.FC = () => {
                     {reviews.length > 0 ? (
                         <div className="grid grid-cols-1 gap-8 animate-fade-in">
                             {reviews.slice(0, visibleCount).map(review => (
-                                <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} />
+                                <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
                             ))}
                             {visibleCount < reviews.length && (
                                 <div ref={loadMoreRef} className="py-4 flex justify-center">

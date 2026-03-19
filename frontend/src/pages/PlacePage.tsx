@@ -254,6 +254,16 @@ export const PlacePage: React.FC = () => {
                             <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 shadow-sm text-shadow-lg leading-tight line-clamp-2">
                                 {place.name}
                             </h1>
+                            {place.closedStatus && (
+                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${
+                                    place.closedStatus === 'permanently_closed'
+                                        ? 'bg-red-500/20 border-red-500/40 text-red-300'
+                                        : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                                }`}>
+                                    <AlertTriangle className="w-4 h-4" />
+                                    {place.closedStatus === 'permanently_closed' ? 'Cerrado permanentemente' : 'Cerrado temporalmente'}
+                                </div>
+                            )}
                             {place.address && (
                                 <p className="text-gray-200 flex items-center gap-2 text-sm sm:text-lg max-w-2xl font-light line-clamp-1">
                                     <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
@@ -544,6 +554,7 @@ export const PlacePage: React.FC = () => {
                                     review={review}
                                     reactionConfig={reactionConfig || undefined}
                                     onEdit={handleEditReview}
+                                    placeClosedStatus={place.closedStatus}
                                 />
                             ))}
                             {visibleCount < place.reviews.length && (

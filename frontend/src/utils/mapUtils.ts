@@ -1,65 +1,116 @@
 import L from 'leaflet';
 
-/**
- * Returns the hex color for a given rating score (0-10).
- * Matches legacy ListopicApp.uiUtils.getRatingHexColor logic.
- */
-export const getRatingHexColor = (score: number | string): string => {
-    const s = parseFloat(String(score));
-    if (isNaN(s)) return '#CCCCCC'; // Default Gray
-    if (s >= 9.0) return '#44d62c'; // High Green
-    if (s >= 8.0) return '#44d62c'; // High Green (Legacy behavior often grouped 8-10) - adjusting to match legacy if it had granular steps
-    if (s >= 7.0) return '#ffaa00'; // Orange/Yellowish
-    if (s >= 6.0) return '#ffaa00'; // Orange
-    if (s >= 5.0) return '#ffaa00'; // Fair
-    if (s > 0) return '#ff4d4d'; // Red
-    return '#CCCCCC';
+// ─── Capas de mapa disponibles ────────────────────────────────────────────────
+export type MapLayerId = 'standard' | 'light' | 'dark' | 'satellite';
+
+export interface MapLayerConfig {
+    label: string;
+    emoji: string;
+    url: string;
+    attribution: string;
+    tileFilter?: string; // filtro CSS opcional para el tile pane
+}
+
+export const MAP_LAYERS: Record<MapLayerId, MapLayerConfig> = {
+    standard: {
+        label: 'Estándar',
+        emoji: '🗺️',
+        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    },
+    light: {
+        label: 'Claro',
+        emoji: '☀️',
+        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        tileFilter: 'brightness(0.84) saturate(0.55) contrast(1.05)',
+    },
+    dark: {
+        label: 'Oscuro',
+        emoji: '🌑',
+        url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    },
+    satellite: {
+        label: 'Satelital',
+        emoji: '🛰️',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    },
 };
 
-/**
- * Creates a Leaflet DivIcon with the legacy SVG bubble design.
- */
-export const createLegacyMarkerIcon = (score: number): L.DivIcon => {
-    const color = getRatingHexColor(score);
-    const uniqueGradientId = `grad-${Math.random().toString(36).substr(2, 9)}`;
-    const scoreText = score % 1 === 0 ? score.toFixed(0) : score.toFixed(1);
+export const DEFAULT_MAP_LAYER: MapLayerId = 'standard';
+export const MAP_LAYER_STORAGE_KEY = 'listopic_map_layer';
 
-    // SVG mostly matches legacy createPlaceIconSvg
+/**
+ * Devuelve colores para un rating (0-10).
+ */
+export const getRatingColor = (score: number | string): { bg: string; glow: string; border: string } => {
+    const s = parseFloat(String(score));
+    if (isNaN(s) || s === 0) return { bg: '#94a3b8', glow: 'rgba(148,163,184,0.4)', border: '#94a3b8' };
+    if (s >= 8.5) return { bg: '#059669', glow: 'rgba(5,150,105,0.5)',   border: '#059669' };
+    if (s >= 7)   return { bg: '#10b981', glow: 'rgba(16,185,129,0.45)', border: '#10b981' };
+    if (s >= 5.5) return { bg: '#f59e0b', glow: 'rgba(245,158,11,0.45)', border: '#f59e0b' };
+    if (s >= 4)   return { bg: '#f97316', glow: 'rgba(249,115,22,0.45)', border: '#f97316' };
+    return           { bg: '#ef4444', glow: 'rgba(239,68,68,0.45)',   border: '#ef4444' };
+};
+
+/** @deprecated */
+export const getRatingHexColor = (score: number | string): string => getRatingColor(score).bg;
+
+/**
+ * Marcador estilo "lollipop": círculo blanco con borde de color + tallo fino.
+ * El texto del score aparece en el color del rating — muy legible y moderno.
+ */
+export const createRatingMarkerIcon = (score: number): L.DivIcon => {
+    const s = isNaN(score) ? 0 : score;
+    const { bg, glow } = getRatingColor(s);
+    const scoreText = s === 0 ? '?' : (s % 1 === 0 ? s.toFixed(0) : s.toFixed(1));
+
+    const r = 14;          // radio del círculo
+    const cx = 15;         // centro x (r + 1 stroke)
+    const cy = 15;         // centro y
+    const stemTop = cy + r + 1;
+    const stemBot = stemTop + 13;
+    const dotCy = stemBot + 2.5;
+    const totalW = 30;
+    const totalH = Math.ceil(dotCy + 3);
+
+    const fontSize = scoreText.length >= 3 ? 10 : 12;
+    const filterId = `sm-${scoreText.replace('.', '')}`;
+
     const svgHtml = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
-            <defs>
-                <linearGradient id="${uniqueGradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style="stop-color:${color}; stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:black; stop-opacity:0.4" />
-                </linearGradient>
-                <filter id="shadow-${uniqueGradientId}" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.4"/>
-                </filter>
-            </defs>
-            <path d="M20 0C9.5 0 1 8.5 1 19C1 31.5 18.5 48.5 20 50C21.5 48.5 39 31.5 39 19C39 8.5 30.5 0 20 0Z" 
-                  fill="url(#${uniqueGradientId})" 
-                  stroke="rgba(255,255,255,0.5)" 
-                  stroke-width="1.5"
-                  filter="url(#shadow-${uniqueGradientId})"/>
-            <circle cx="20" cy="19" r="14" fill="white" fill-opacity="0.2"/>
-            <text x="50%" y="43%" 
-                  dominant-baseline="middle" 
-                  text-anchor="middle" 
-                  font-family="'Poppins', sans-serif" 
-                  font-size="14" 
-                  font-weight="700" 
-                  fill="#FFFFFF"
-                  style="text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
-                  ${scoreText}
-            </text>
-        </svg>
-    `;
+<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" overflow="visible">
+  <defs>
+    <filter id="${filterId}" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="${bg}" flood-opacity="0.35"/>
+      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="rgba(0,0,0,0.18)" flood-opacity="1"/>
+    </filter>
+  </defs>
+  <!-- Tallo -->
+  <line x1="${cx}" y1="${stemTop}" x2="${cx}" y2="${stemBot}"
+        stroke="${bg}" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+  <!-- Punto inferior -->
+  <circle cx="${cx}" cy="${dotCy}" r="2.5" fill="${bg}" opacity="0.85"/>
+  <!-- Círculo blanco con borde de color -->
+  <circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="${bg}"
+          stroke-width="2.5" filter="url(#${filterId})"/>
+  <!-- Score en color del rating -->
+  <text x="${cx}" y="${cy + 1}"
+        dominant-baseline="middle" text-anchor="middle"
+        font-family="'Poppins','Inter',system-ui,sans-serif"
+        font-size="${fontSize}" font-weight="800" fill="${bg}">
+    ${scoreText}
+  </text>
+</svg>`;
 
     return L.divIcon({
         html: svgHtml,
-        className: 'legacy-map-marker', // We might need global CSS to ensure this has no default background
-        iconSize: [40, 50],
-        iconAnchor: [20, 50],
-        popupAnchor: [0, -50]
+        className: 'rating-marker',
+        iconSize: [totalW, totalH],
+        iconAnchor: [cx, totalH],
+        popupAnchor: [0, -(totalH + 4)]
     });
 };
+
+export const createLegacyMarkerIcon = createRatingMarkerIcon;

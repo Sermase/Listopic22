@@ -39,6 +39,8 @@ export interface PlaceDetails {
     };
     openingHours?: string[]; // Array of strings if available
     category?: string;
+    closedStatus?: string; // 'permanently_closed' | 'temporarily_closed' | null
+    googleBusinessStatus?: string;
 }
 
 
@@ -192,7 +194,8 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                     // Enrich Place Data for ReviewCard fallback
                     placeMainImage: placeData?.mainImageUrl || placeData?.photos?.[0],
                     placeName: placeData?.name || r.placeName,
-                    placeCity: placeData?.city || r.placeCity
+                    placeCity: placeData?.city || r.placeCity,
+                    placeClosedStatus: placeData?.closedStatus || null
                 };
             });
 
@@ -264,7 +267,9 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                 openingHours,
                 googleRating,
                 googleUserRatingCount,
-                category
+                category,
+                closedStatus: placeData?.closedStatus || undefined,
+                googleBusinessStatus: placeData?.googleBusinessStatus || undefined,
             });
 
         } catch (err: unknown) {

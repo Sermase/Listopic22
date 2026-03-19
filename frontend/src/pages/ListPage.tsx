@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation as useRouterLocation } from 'react-router-dom';
-import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft } from 'lucide-react';
+import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
+import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
 import { MapView } from '../components/MapView';
 import { AddReviewForm } from '../components/AddReviewForm';
@@ -30,16 +31,21 @@ export const ListPage: React.FC = () => {
     const [sortMode, setSortMode] = useState<'rating' | 'newest' | 'oldest' | 'count'>('rating');
     const { list, reviews, sublists, loading, error } = useListDetails(listId);
     const { user } = useAuth();
+    const { profile: currentUserProfile } = useUserProfile(user?.uid);
+    const isJefe = Boolean(currentUserProfile && (
+        (Array.isArray(currentUserProfile.userType) && currentUserProfile.userType.includes('jefe')) ||
+        currentUserProfile.userType === 'jefe'
+    ));
     const { location, calculateDistance, requestLocation } = useLocation();
+
+    // Can manage (edit/permissions): jefe always; for sublists also the owner
+    const canManageList = user && (list?.parentListId ? list.userId === user.uid : isJefe);
 
     const canAddReview = useMemo(() => {
         if (!user || !list) return false;
-        if (list.userId === user.uid) return true;
-        if (list.editors?.includes(user.uid)) return true;
-        if (list.isPublic && (list as any).publicAccess === 'writer') return true;
-        if (list.userId === user.uid) return true;
-        if (list.editors?.includes(user.uid)) return true;
-        if (list.isPublic) return true; // Open to public (authenticated)
+        if (list.userId === user.uid) return true;           // owner
+        if (list.editors?.includes(user.uid)) return true;  // editor/collaborator (UID)
+        if (list.isPublic && (list as any).publicAccess === 'writer') return true; // public write
         return false;
     }, [user, list]);
 
@@ -74,6 +80,10 @@ export const ListPage: React.FC = () => {
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isPublicShareModalOpen, setIsPublicShareModalOpen] = useState(false);
     const [isSublistsModalOpen, setIsSublistsModalOpen] = useState(false);
+    const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+    const actionsMenuRef = useRef<HTMLDivElement>(null);
+    const overflowBtnRef = useRef<HTMLButtonElement>(null);
+    const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
 
 
     // Range State from Context
@@ -98,6 +108,7 @@ export const ListPage: React.FC = () => {
 
     // Filter & Search State
     const [searchQuery, setSearchQuery] = useState('');
+    const [showUnavailable, setShowUnavailable] = useState(false);
 
     // Parent List Name (for Sublists)
     const [parentListName, setParentListName] = useState<string | null>(null);
@@ -133,6 +144,7 @@ export const ListPage: React.FC = () => {
             totalRating: number;
             count: number;
             criteriaSums: Record<string, number>;
+            placeClosedStatus?: string | null;
             lat?: number;
             lng?: number;
             latestReviewAt: number; // Timestamp for sorting
@@ -173,7 +185,8 @@ export const ListPage: React.FC = () => {
                     photoMaxLikes: -1,
                     maxScore: 0,
                     allTags: [],
-                    tags: []
+                    tags: [],
+                    placeClosedStatus: (review as any).placeClosedStatus || null,
                 };
             }
 
@@ -318,7 +331,8 @@ export const ListPage: React.FC = () => {
                     photoUrl: review.placeMainImage || review.photoUrl,
                     maxScore: 0,
                     items: [],
-                    reviewsCount: 0
+                    reviewsCount: 0,
+                    placeClosedStatus: (review as any).placeClosedStatus || null,
                 };
             }
 
@@ -375,6 +389,11 @@ export const ListPage: React.FC = () => {
             });
         }
 
+        // Filter permanently closed places (unless toggle enabled)
+        if (!showUnavailable) {
+            result = result.filter(item => (item as any).placeClosedStatus !== 'permanently_closed');
+        }
+
         // 2. Apply Search
         if (searchQuery) {
             const lowerQ = searchQuery.toLowerCase();
@@ -400,7 +419,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -409,6 +428,11 @@ export const ListPage: React.FC = () => {
         // Or re-apply filters (Search, Range, Rating).
 
         let result = mapItems;
+
+        // Hide permanently closed places from map
+        if (!showUnavailable) {
+            result = result.filter(item => (item as any).placeClosedStatus !== 'permanently_closed');
+        }
 
         if (filters.minRating > 0) {
             // Check if maxScore meets it? Or average? Assuming Max Score for now as it's the pin rating.
@@ -435,7 +459,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [mapItems, searchQuery, filters, range, location]);
+    }, [mapItems, searchQuery, filters, range, location, showUnavailable]);
 
     const hasListMapCandidates = useMemo(() => {
         return mapItems.some((item: any) => !!item?.lat && !!item?.lng);
@@ -453,6 +477,18 @@ export const ListPage: React.FC = () => {
             setRange(nextRange);
         }
     }, [isMapOpen, loading, range, location, hasListMapCandidates, filteredMapItems.length, setRange]);
+
+    // Close actions overflow menu when clicking outside
+    useEffect(() => {
+        if (!isActionsMenuOpen) return;
+        const handler = (e: MouseEvent) => {
+            if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+                setIsActionsMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [isActionsMenuOpen]);
 
     // Pagination
     const PAGE_SIZE = 24;
@@ -523,191 +559,210 @@ export const ListPage: React.FC = () => {
         <div className="min-h-screen bg-[#0b1021] pb-20 transition-colors duration-300">
             {/* Hero Section */}
             {/* Hero Section */}
-            <div className={`relative w-full ${list.mainImageUrl || list.photoUrl ? 'h-[40vh] min-h-[300px]' : 'h-[30vh] min-h-[250px]'} transition-all duration-700 overflow-hidden group`}>
+            <div className="relative w-full h-[40vh] min-h-[300px] transition-all duration-700 group">
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
 
-                {/* Background Image & Overlay */}
+                {/* Background Image & Overlay — overflow-hidden only on image wrapper */}
                 {(list.mainImageUrl || list.photoUrl) ? (
-                    <img
-                        src={list.mainImageUrl || list.photoUrl}
-                        alt={list.name}
-                        className="w-full h-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
-                    />
+                    <div className="absolute inset-0 overflow-hidden">
+                        <img
+                            src={list.mainImageUrl || list.photoUrl}
+                            alt={list.name}
+                            className="w-full h-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
+                        />
+                    </div>
                 ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-[#0b1021] to-[#0b1021]">
                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
                     </div>
                 )}
 
-                <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-8 pb-12 sm:pb-16 z-10 max-w-7xl mx-auto w-full">
-                    <div className="flex flex-col md:flex-row gap-6 md:items-end md:justify-between relative z-30">
-                        {/* Left Column: Title & Author */}
-                        <div className="flex-1 space-y-4">
-                            <div>
-                                {list.parentListId && (
-                                    <Link to={`/list/${list.parentListId}`} className="inline-flex items-center gap-1 text-indigo-300 hover:text-white text-xs font-bold uppercase tracking-wider mb-2 transition-colors">
-                                        <ArrowLeft className="w-4 h-4" />
-                                        Volver a {parentListName || 'Lista Principal'}
-                                    </Link>
-                                )}
-                                <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 leading-tight shadow-sm text-shadow-lg">
-                                    {list.name}
-                                </h1>
-                                {list.description && (
-                                    <p className="text-gray-300 text-sm sm:text-base max-w-2xl line-clamp-2 md:line-clamp-3 leading-relaxed drop-shadow-md">
-                                        {list.description}
-                                    </p>
-                                )}
-                            </div>
+                {/* Back link for sublists — pinned top-left, below navbar */}
+                {list.parentListId && (
+                    <Link
+                        to={`/list/${list.parentListId}`}
+                        className="absolute top-16 sm:top-20 left-4 sm:left-6 z-30 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 text-white/80 hover:text-white hover:bg-black/60 text-xs font-bold uppercase tracking-wider transition-colors"
+                    >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        {parentListName || 'Lista principal'}
+                    </Link>
+                )}
 
-                            <div className="flex flex-wrap items-center gap-4">
-                                {
-                                    /* Author Badge - Only for Sublists */
-                                }
-                                {list.parentListId && (
-                                    <Link to={`/profile/${list.userId}`} className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 hover:bg-black/50 transition-colors group/author">
-                                        <div className="w-5 h-5 rounded-full bg-indigo-500 overflow-hidden flex items-center justify-center text-[10px] text-white font-bold border border-white/20">
-                                            {list.authorName?.[0] ? list.authorName[0].toUpperCase() : '?'}
-                                        </div>
-                                        <span className="text-sm font-medium text-white/90 group-hover/author:text-white">
-                                            {list.authorName || 'Usuario'}
-                                        </span>
-                                    </Link>
-                                )}
-                                <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-pink-500 font-bold text-sm">
-                                    <Heart className={`w-3.5 h-3.5 ${user && (list as any).isLiked ? 'fill-current' : ''}`} />
-                                    <span>{likeCount}</span>
-                                </div>
+                <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-6 pb-10 sm:pb-14 z-10 max-w-7xl mx-auto w-full">
+
+                    {/* Title & description */}
+                    <h1 className="text-2xl sm:text-4xl md:text-5xl font-display font-bold text-white leading-tight mb-1 drop-shadow-lg">
+                        {list.name}
+                    </h1>
+                    {list.description && (
+                        <p className="text-gray-300/80 text-sm sm:text-base max-w-2xl line-clamp-2 leading-relaxed mb-3">
+                            {list.description}
+                        </p>
+                    )}
+
+                    {/* Status pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 mb-4">
+                        <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${list.parentListId ? 'bg-purple-500/15 border-purple-500/30 text-purple-300' : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'}`}>
+                            {list.parentListId ? 'Sublista' : 'Lista'}
+                        </span>
+                        {/* Public/private only shown on sublists (user-owned) or to jefe */}
+                        {(list.parentListId || isJefe) && (
+                            list.isPublic ? (
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Pública</span>
+                            ) : (
+                                <span className="px-2 py-0.5 rounded-md bg-red-500/15 border border-red-500/30 text-red-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm flex items-center gap-1">
+                                    <Lock className="w-2.5 h-2.5" /> Privada
+                                </span>
+                            )
+                        )}
+                        {/* Role pill — only on sublists */}
+                        {list.parentListId && (
+                            user?.uid === list.userId ? (
+                                <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Propietario</span>
+                            ) : user && list.editors?.includes(user.uid) ? (
+                                <span className="px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Editor</span>
+                            ) : user && (list as any).publicAccess === 'writer' ? (
+                                <span className="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Colaborador</span>
+                            ) : null
+                        )}
+                    </div>
+
+                    {/* Bottom action bar */}
+                    <div className="flex items-center justify-between gap-3">
+
+                        {/* Left: author (sublists) + likes */}
+                        <div className="flex items-center gap-2 min-w-0">
+                            {list.parentListId && (
+                                <Link
+                                    to={`/profile/${list.userId}`}
+                                    className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/10 hover:bg-black/50 transition-colors shrink-0"
+                                >
+                                    <div className="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center text-[9px] text-white font-bold">
+                                        {list.authorName?.[0]?.toUpperCase() ?? '?'}
+                                    </div>
+                                    <span className="text-xs font-medium text-white/80 max-w-[100px] truncate">{list.authorName || 'Usuario'}</span>
+                                </Link>
+                            )}
+                            <div className="flex items-center gap-1 bg-black/30 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/10 text-pink-400 text-xs font-bold shrink-0">
+                                <Heart className={`w-3 h-3 ${isLiked ? 'fill-current' : ''}`} />
+                                <span>{likeCount}</span>
                             </div>
                         </div>
 
-                        {/* Right Column: Status Badges & Actions */}
-                        <div className="flex flex-col gap-3 items-end w-full md:w-auto">
-                            {/* Badges Row - Moved to Right */}
-                            <div className="flex flex-wrap items-center gap-2">
-                                {/* Type Badge */}
-                                <span className={`px-2.5 py-0.5 rounded-md border text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm ${list.parentListId ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'}`}>
-                                    {list.parentListId ? 'Sublista' : 'Lista'}
-                                </span>
+                        {/* Right: actions */}
+                        <div className="flex items-center gap-2 shrink-0">
 
-                                {list.isPublic ? (
-                                    <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
-                                        Pública
-                                    </span>
-                                ) : (
-                                    <span className="px-2.5 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm flex items-center gap-1">
-                                        <Lock className="w-3 h-3" /> Privada
-                                    </span>
-                                )}
+                            {/* Primary CTA: Add Review — always visible */}
+                            {canAddReview && (
+                                <button
+                                    onClick={() => setIsAddModalOpen(true)}
+                                    className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    <span className="hidden xs:inline">Añadir</span>
+                                </button>
+                            )}
 
-                                {/* Role Bubbles */}
-                                {list.parentListId && user?.uid === list.userId && (
-                                    <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
-                                        Propietario
-                                    </span>
+                            {/* Desktop: secondary actions inline */}
+                            <div className="hidden md:flex items-center gap-2">
+                                {user && list.userId !== user.uid && (
+                                    <button onClick={toggleLike} className={`px-3 py-2 text-sm font-bold rounded-xl border flex items-center gap-1.5 transition-all ${isLiked ? 'border-white/20 text-white hover:border-pink-500 hover:text-pink-400' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>
+                                        <Heart className={`w-4 h-4 ${isLiked ? 'fill-current text-pink-400' : ''}`} />
+                                        {isLiked ? 'Guardada' : 'Guardar'}
+                                    </button>
                                 )}
-                                {list.parentListId && !user && list.isPublic && (
-                                    <span className="px-2.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
-                                        Visitante
-                                    </span>
-                                )}
-                                {(list.parentListId || (list.editors && list.editors.includes(user?.uid || ''))) && user && user.uid !== list.userId && (
-                                    <>
-                                        {list.editors?.includes(user?.uid) ? (
-                                            <span className="px-2.5 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
-                                                Editor
-                                            </span>
-                                        ) : (list as any).publicAccess === 'writer' ? (
-                                            <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
-                                                Colaborador
-                                            </span>
-                                        ) : (
-                                            <span className="px-2.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
-                                                Lector
-                                            </span>
+                                {!list.parentListId && (
+                                    <button onClick={() => setIsSublistsModalOpen(true)} className="px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all">
+                                        <ListIcon className="w-4 h-4" />
+                                        Sublistas
+                                        {sublists && sublists.length > 0 && (
+                                            <span className="bg-indigo-500/20 px-1.5 py-0.5 rounded text-[10px] border border-indigo-500/30 text-indigo-200">{sublists.length}</span>
                                         )}
+                                    </button>
+                                )}
+                                <button onClick={() => setIsPublicShareModalOpen(true)} className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white text-sm font-bold rounded-xl border border-white/10 flex items-center gap-1.5 transition-all">
+                                    <Share2 className="w-4 h-4" /> Compartir
+                                </button>
+                                {canManageList && (
+                                    <>
+                                        <button onClick={() => setIsShareModalOpen(true)} className="px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-sm font-bold rounded-xl border border-indigo-500/20 flex items-center gap-1.5 transition-all">
+                                            <Lock className="w-4 h-4" /> Permisos
+                                        </button>
+                                        <Link to={`/list/${list.id}/edit`} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-lg shadow-indigo-500/20">
+                                            <Edit3 className="w-4 h-4" /> Editar
+                                        </Link>
                                     </>
                                 )}
                             </div>
 
-                            {/* Action Buttons Row */}
-                            <div className="flex items-center gap-2">
-                                {user && list.userId === user.uid && (
-                                    <Link
-                                        to={`/list/${list.id}/edit`}
-                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all"
-                                    >
-                                        <Edit3 className="w-4 h-4" />
-                                        <span className="hidden sm:inline">Editar</span>
-                                    </Link>
-                                )}
-
+                            {/* Mobile: overflow menu — fixed position to escape hero stacking context */}
+                            <div className="md:hidden relative" ref={actionsMenuRef}>
                                 <button
-                                    onClick={() => setIsPublicShareModalOpen(true)}
-                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white text-sm font-bold rounded-xl border border-white/10 backdrop-blur-md flex items-center gap-2 transition-all"
+                                    ref={overflowBtnRef}
+                                    onClick={() => {
+                                        if (!isActionsMenuOpen && overflowBtnRef.current) {
+                                            const rect = overflowBtnRef.current.getBoundingClientRect();
+                                            setDropdownPosition({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                                        }
+                                        setIsActionsMenuOpen(v => !v);
+                                    }}
+                                    className="p-2 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 text-white hover:bg-black/60 transition-colors"
                                 >
-                                    <Share2 className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Compartir</span>
+                                    {isActionsMenuOpen ? <X className="w-5 h-5" /> : <MoreVertical className="w-5 h-5" />}
                                 </button>
 
-                                {user && list.userId === user.uid && (
-                                    <button
-                                        onClick={() => setIsShareModalOpen(true)}
-                                        className="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-sm font-bold rounded-xl border border-indigo-500/20 backdrop-blur-md flex items-center gap-2 transition-all"
+                                {isActionsMenuOpen && dropdownPosition && (
+                                    <div className="fixed w-52 bg-[#151b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 z-[200]"
+                                        style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
                                     >
-                                        <Lock className="w-4 h-4" />
-                                        <span className="hidden sm:inline">Permisos</span>
-                                    </button>
-                                )}
-
-                                {/* Like/Follow Button */}
-                                {user && list.userId !== user.uid && (
-                                    <button
-                                        onClick={toggleLike}
-                                        className={`px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all ${isLiked
-                                            ? 'bg-transparent border-white/20 text-white hover:border-pink-500 hover:text-pink-500'
-                                            : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
-                                            }`}
-                                    >
-                                        {isLiked ? (
+                                        {user && list.userId !== user.uid && (
+                                            <button
+                                                onClick={() => { toggleLike(); setIsActionsMenuOpen(false); }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
+                                            >
+                                                <Heart className={`w-4 h-4 shrink-0 ${isLiked ? 'fill-current text-pink-400' : ''}`} />
+                                                {isLiked ? 'Quitar de guardados' : 'Guardar lista'}
+                                            </button>
+                                        )}
+                                        {!list.parentListId && (
+                                            <button
+                                                onClick={() => { setIsSublistsModalOpen(true); setIsActionsMenuOpen(false); }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
+                                            >
+                                                <ListIcon className="w-4 h-4 shrink-0 text-indigo-400" />
+                                                Sublistas
+                                                {sublists && sublists.length > 0 && (
+                                                    <span className="ml-auto bg-indigo-500/20 text-indigo-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{sublists.length}</span>
+                                                )}
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => { setIsPublicShareModalOpen(true); setIsActionsMenuOpen(false); }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
+                                        >
+                                            <Share2 className="w-4 h-4 shrink-0 text-blue-400" />
+                                            Compartir
+                                        </button>
+                                        {canManageList && (
                                             <>
-                                                <Heart className="w-4 h-4 fill-current" />
-                                                <span className="hidden sm:inline">Guardada</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Heart className="w-4 h-4" />
-                                                <span className="hidden sm:inline">Guardar</span>
+                                                <button
+                                                    onClick={() => { setIsShareModalOpen(true); setIsActionsMenuOpen(false); }}
+                                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
+                                                >
+                                                    <Lock className="w-4 h-4 shrink-0 text-indigo-400" />
+                                                    Permisos
+                                                </button>
+                                                <Link
+                                                    to={`/list/${list.id}/edit`}
+                                                    onClick={() => setIsActionsMenuOpen(false)}
+                                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors"
+                                                >
+                                                    <Edit3 className="w-4 h-4 shrink-0 text-amber-400" />
+                                                    Editar lista
+                                                </Link>
                                             </>
                                         )}
-                                    </button>
-                                )}
-
-                                {/* Sublists Button (Only for Main Lists) */}
-                                {!list.parentListId && (
-                                    <button
-                                        onClick={() => setIsSublistsModalOpen(true)}
-                                        className="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-sm font-bold rounded-xl backdrop-blur-md flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-indigo-500/10"
-                                    >
-                                        <ListIcon className="w-4 h-4" />
-                                        <span>Sublistas</span>
-                                        {sublists && sublists.length > 0 && (
-                                            <span className="bg-indigo-500/20 px-1.5 py-0.5 rounded text-[10px] ml-1 border border-indigo-500/30 text-indigo-200">
-                                                {sublists.length}
-                                            </span>
-                                        )}
-                                    </button>
-                                )}
-
-                                {/* Add Review Button */}
-                                {canAddReview && (
-                                    <button
-                                        onClick={() => setIsAddModalOpen(true)}
-                                        className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        <span>Añadir Reseña</span>
-                                    </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -795,6 +850,19 @@ export const ListPage: React.FC = () => {
                                 title="Filtros"
                             >
                                 <ArrowDownWideNarrow className="w-4 h-4 rotate-180" />
+                            </button>
+
+                            {/* Toggle cerrados/no disponibles */}
+                            <button
+                                onClick={() => setShowUnavailable(prev => !prev)}
+                                className={`h-9 px-3 flex items-center gap-1.5 rounded-xl border transition-all text-xs font-bold active:scale-95 ${
+                                    showUnavailable
+                                        ? 'bg-red-500/20 border-red-500/30 text-red-400'
+                                        : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
+                                }`}
+                                title={showUnavailable ? 'Ocultar no disponibles' : 'Mostrar no disponibles'}
+                            >
+                                {showUnavailable ? '🔒' : '👁'} {showUnavailable ? 'Viendo todos' : 'No disp.'}
                             </button>
 
                             <div className="h-4 w-px bg-white/10 mx-1"></div>

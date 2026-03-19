@@ -671,7 +671,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         updatedAt: serverTimestamp()
                     }));
                 }
-                await Promise.all(updates);
+                // Use allSettled so a counter update failure (e.g. no write access to parent list)
+                // doesn't block the review creation success toast.
+                await Promise.allSettled(updates);
             }
 
             showToast({

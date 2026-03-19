@@ -240,6 +240,7 @@ export const useListDetails = (listId: string | undefined) => {
 
                         placeMainImage: place?.mainImageUrl || place?.photos?.[0],
                         placeAverageRating: place?.rating || place?.avgScore,
+                        placeClosedStatus: place?.closedStatus || null,
 
                         authorName: user?.username || user?.displayName || user?.name || review.authorName,
                         authorPhoto: user?.photoUrl || user?.photoURL || review.authorPhoto,

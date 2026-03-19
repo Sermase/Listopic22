@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { collection, addDoc, serverTimestamp, getDocs, doc, getDoc, query, limit, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight, UserPlus, Globe, Lock as LockIcon } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
 
 export const CreateSublistPage: React.FC = () => {
@@ -136,23 +136,61 @@ export const CreateSublistPage: React.FC = () => {
         setCustomTags(customTags.filter(t => t !== tag));
     };
 
-    // Guests State
-    const [guests, setGuests] = useState<string[]>([]);
+    // Editors/Collaborators (stored as {uid, username} — UID goes into Firestore editors[])
+    const [editors, setEditors] = useState<{ uid: string; username: string }[]>([]);
     const [guestInput, setGuestInput] = useState('');
+    const [guestLookupLoading, setGuestLookupLoading] = useState(false);
+    const [guestLookupError, setGuestLookupError] = useState<string | null>(null);
 
-    const handleAddGuest = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && guestInput.trim()) {
-            e.preventDefault();
-            const val = guestInput.trim();
-            if (!guests.includes(val)) {
-                setGuests([...guests, val]);
+    const resolveUsernameToUid = async (input: string): Promise<{ uid: string; username: string } | null> => {
+        const trimmed = input.trim().replace(/^@/, '');
+        if (!trimmed) return null;
+        try {
+            // Try by username field
+            const snap = await getDocs(query(collection(db, 'users'), where('username', '==', trimmed), limit(1)));
+            if (!snap.empty) {
+                const d = snap.docs[0];
+                return { uid: d.id, username: (d.data().username as string) || trimmed };
             }
-            setGuestInput('');
+            // Try case-insensitive via usernameLower
+            const snap2 = await getDocs(query(collection(db, 'users'), where('usernameLower', '==', trimmed.toLowerCase()), limit(1)));
+            if (!snap2.empty) {
+                const d = snap2.docs[0];
+                return { uid: d.id, username: (d.data().username as string) || trimmed };
+            }
+            return null;
+        } catch {
+            return null;
         }
     };
 
-    const removeGuest = (email: string) => {
-        setGuests(guests.filter(g => g !== email));
+    const handleAddGuest = async (e: React.KeyboardEvent) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const val = guestInput.trim();
+        if (!val) return;
+        setGuestLookupError(null);
+        setGuestLookupLoading(true);
+        const result = await resolveUsernameToUid(val);
+        setGuestLookupLoading(false);
+        if (!result) {
+            setGuestLookupError(`No se encontró el usuario "${val}"`);
+            return;
+        }
+        if (result.uid === user?.uid) {
+            setGuestLookupError('No puedes añadirte a ti mismo');
+            return;
+        }
+        if (editors.some(e => e.uid === result.uid)) {
+            setGuestLookupError('Este usuario ya está en la lista');
+            return;
+        }
+        setEditors(prev => [...prev, result]);
+        setGuestInput('');
+    };
+
+    const removeGuest = (uid: string) => {
+        setEditors(prev => prev.filter(e => e.uid !== uid));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -190,7 +228,7 @@ export const CreateSublistPage: React.FC = () => {
                 isPublic, // Legacy boolean
                 visibility: isPublic ? 'public' : 'private', // New explicit field
                 publicAccess: isPublic && isPublicWritable ? 'writer' : 'reader', // Consistent with EditListPage
-                guests, // Array of strings (emails/usernames)
+                editors: editors.map(e => e.uid), // UIDs of collaborators (checked by Firestore rules)
 
                 authorName: user.displayName || 'Anónimo',
                 photoUrl: finalPhotoUrl,
@@ -234,41 +272,55 @@ export const CreateSublistPage: React.FC = () => {
 
     // RENDER: Selection Mode
     if (!parentId) {
+        const filtered = mainLists.filter(l => l.name?.toLowerCase().includes(searchTerm.toLowerCase()));
         return (
-            <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-24 pb-20 px-4">
-                <div className="max-w-4xl mx-auto">
-                    <h1 className="text-3xl font-bold font-display text-white mb-2">Crear Sublista</h1>
-                    <p className="text-gray-400 mb-8">Selecciona una lista base para personalizarla con tus propios lugares.</p>
+            <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-20 pb-24 px-4">
+                <div className="max-w-2xl mx-auto">
+                    <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm mb-6 transition-colors">
+                        <ArrowLeft className="w-4 h-4" /> Volver
+                    </button>
 
-                    <div className="relative mb-8">
-                        <Search className="absolute left-4 top-3.5 text-gray-500 w-5 h-5" />
+                    <h1 className="text-2xl sm:text-3xl font-bold font-display text-white mb-1">Nueva Sublista</h1>
+                    <p className="text-gray-400 text-sm mb-6">Elige una lista base para construir tu versión personal.</p>
+
+                    <div className="relative mb-5">
+                        <Search className="absolute left-3.5 top-3 text-gray-500 w-4 h-4" />
                         <input
                             type="text"
-                            placeholder="Buscar listas principales..."
-                            className="w-full bg-[#151b2e] border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                            placeholder="Buscar lista..."
+                            className="w-full bg-[#151b2e] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
                     </div>
 
                     {loadingLists ? (
-                        <div className="text-center py-20"><Loader className="w-8 h-8 animate-spin mx-auto text-indigo-500" /></div>
+                        <div className="flex items-center justify-center py-20">
+                            <Loader className="w-7 h-7 animate-spin text-indigo-500" />
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <div className="text-center py-16 text-gray-500 text-sm">No hay listas que coincidan</div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {mainLists.filter(l => l.name.toLowerCase().includes(searchTerm.toLowerCase())).map(list => (
-                                <div key={list.id}
+                        <div className="space-y-2">
+                            {filtered.map(list => (
+                                <button
+                                    key={list.id}
+                                    type="button"
                                     onClick={() => navigate(`/create-sublist/${list.id}`)}
-                                    className="bg-[#151b2e] border border-white/10 rounded-xl p-4 hover:border-indigo-500/50 cursor-pointer transition-all hover:translate-x-1 group flex items-center gap-4"
+                                    className="w-full bg-[#151b2e] border border-white/8 active:bg-[#1a2035] hover:bg-[#1a2035] hover:border-indigo-500/40 rounded-2xl p-3 flex items-center gap-3 transition-all text-left group"
                                 >
-                                    <div className="w-16 h-16 bg-gray-800 rounded-lg overflow-hidden shrink-0">
-                                        {list.photoUrl && <img src={list.photoUrl} alt={list.name} className="w-full h-full object-cover" />}
+                                    <div className="w-14 h-14 bg-gray-800 rounded-xl overflow-hidden shrink-0">
+                                        {list.photoUrl
+                                            ? <img src={list.photoUrl} alt={list.name} className="w-full h-full object-cover" />
+                                            : <div className="w-full h-full flex items-center justify-center text-2xl">📋</div>
+                                        }
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-white truncate">{list.name}</h3>
-                                        <p className="text-xs text-gray-500 truncate">{list.itemCount} lugares • Por {list.authorName}</p>
+                                        <div className="font-semibold text-white truncate group-hover:text-indigo-300 transition-colors">{list.name}</div>
+                                        <div className="text-xs text-gray-500 mt-0.5">{list.itemCount || 0} lugares · {list.authorName || 'Anónimo'}</div>
                                     </div>
-                                    <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-indigo-400" />
-                                </div>
+                                    <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-indigo-400 transition-colors shrink-0" />
+                                </button>
                             ))}
                         </div>
                     )}
@@ -283,92 +335,93 @@ export const CreateSublistPage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-24 pb-20 px-4">
-            <div className="max-w-3xl mx-auto">
-                <button onClick={() => navigate('/create-sublist')} className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors">
-                    <ArrowLeft className="w-4 h-4 mr-2" /> Volver a selección
-                </button>
+        <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-20 pb-24 px-4">
+            <div className="max-w-2xl mx-auto">
 
-                <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10">
-                        {parentList.photoUrl && <img src={parentList.photoUrl} className="w-full h-full object-cover opacity-50" />}
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold font-display text-white">Nueva Sublista</h1>
-                        <p className="text-gray-400 text-sm">Basada en <span className="text-indigo-400">{parentList.name}</span></p>
+                {/* Back + parent info */}
+                <div className="flex items-center gap-3 mb-6">
+                    <button
+                        type="button"
+                        onClick={() => navigate('/create-sublist')}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    {parentList.photoUrl && (
+                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-white/10 shrink-0">
+                            <img src={parentList.photoUrl} className="w-full h-full object-cover opacity-60" alt="" />
+                        </div>
+                    )}
+                    <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Basada en</div>
+                        <div className="text-sm font-semibold text-indigo-300 truncate">{parentList.name}</div>
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Nombre de tu lista</label>
+                <h1 className="text-2xl sm:text-3xl font-bold font-display text-white mb-6">Nueva Sublista</h1>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+
+                    {/* Basic info */}
+                    <div className="bg-[#151b2e] rounded-2xl border border-white/8 overflow-hidden divide-y divide-white/5">
+                        <div className="p-4">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">Nombre</label>
                             <input
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                                className="w-full bg-transparent text-white text-base focus:outline-none placeholder-gray-600"
+                                placeholder="Mi versión de la lista..."
                                 required
                             />
                         </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Descripción</label>
+                        <div className="p-4">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">Descripción <span className="text-gray-600 normal-case font-normal">(opcional)</span></label>
                             <textarea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 min-h-[100px]"
-                                placeholder="Describe tu versión de esta lista..."
+                                className="w-full bg-transparent text-white text-sm focus:outline-none placeholder-gray-600 resize-none min-h-[72px]"
+                                placeholder="Describe tu versión..."
                             />
                         </div>
-
-                        {/* Image Upload */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Portada (Opcional)</label>
-                            <div className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:bg-white/5 transition-colors relative group">
+                        <div className="p-4">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Portada <span className="text-gray-600 normal-case font-normal">(opcional)</span></label>
+                            <div className="relative">
                                 {imagePreview ? (
-                                    <div className="relative h-48 w-full rounded-lg overflow-hidden">
+                                    <div className="relative h-36 w-full rounded-xl overflow-hidden">
                                         <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                                         <button
                                             type="button"
                                             onClick={() => { setImagePreview(null); setImageFile(null); }}
-                                            className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-red-500 transition-colors"
+                                            className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full text-white hover:bg-red-500 transition-colors"
                                         >
-                                            <X className="w-4 h-4" />
+                                            <X className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                 ) : (
-                                    <>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleImageChange}
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                        />
-                                        <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3 group-hover:text-indigo-500 transition-colors" />
-                                        <p className="text-gray-400 text-sm">Usar imagen personalizada</p>
-                                        <p className="text-gray-600 text-xs mt-1">Si no subes nada, se usará la de la lista original</p>
-                                    </>
+                                    <label className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-white/15 hover:border-indigo-500/40 hover:bg-white/3 cursor-pointer transition-colors">
+                                        <input type="file" accept="image/*" onChange={handleImageChange} className="sr-only" />
+                                        <ImageIcon className="w-5 h-5 text-gray-600" />
+                                        <span className="text-sm text-gray-400">Subir imagen — si no, se usa la del original</span>
+                                    </label>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-8">
+                    {/* Criteria & tags */}
+                    <div className="bg-[#151b2e] rounded-2xl border border-white/8 p-4 space-y-5">
                         <CriteriaBuilder criteria={criteria} onChange={setCriteria} />
-
-                        <div className="border-t border-white/5 pt-6"></div>
-
-                        <div>
-                            <h3 className="text-lg font-bold text-white mb-2">Etiquetas (Globales + Tuyas)</h3>
-                            <div className="flex flex-wrap gap-2 mb-3">
+                        <div className="border-t border-white/5 pt-4">
+                            <div className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Etiquetas</div>
+                            <div className="flex flex-wrap gap-1.5 mb-2">
                                 {fixedTags.map(tag => (
-                                    <span key={`fixed-${tag}`} className="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-full text-sm flex items-center gap-1 border border-white/5 cursor-not-allowed">
+                                    <span key={`fixed-${tag}`} className="bg-gray-700/40 text-gray-400 px-2.5 py-1 rounded-full text-xs border border-white/5 cursor-not-allowed">
                                         {tag}
                                     </span>
                                 ))}
                                 {customTags.map(tag => (
-                                    <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                                    <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-2.5 py-1 rounded-full text-xs flex items-center gap-1">
                                         {tag}
                                         <button type="button" onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
                                     </span>
@@ -379,96 +432,104 @@ export const CreateSublistPage: React.FC = () => {
                                 value={tagInput}
                                 onChange={(e) => setTagInput(e.target.value)}
                                 onKeyDown={addTag}
-                                placeholder="Añadir más tags..."
-                                className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                                placeholder="Añadir etiqueta y pulsar Enter..."
+                                className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
                             />
                         </div>
                     </div>
 
-                    {/* Permission & Visibility */}
-                    <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-6">
-                        <h3 className="text-lg font-bold text-white">Privacidad y Acceso</h3>
-
-                        {/* Visibility Toggle */}
-                        <div className="flex items-center gap-4">
+                    {/* Privacy */}
+                    <div className="bg-[#151b2e] rounded-2xl border border-white/8 p-4 space-y-4">
+                        <div className="text-xs font-bold uppercase tracking-wider text-gray-500">Privacidad</div>
+                        <div className="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
                                 onClick={() => setIsPublic(true)}
-                                className={`flex-1 p-4 rounded-xl border transition-all ${isPublic
-                                    ? 'bg-indigo-600/20 border-indigo-500 text-white'
-                                    : 'bg-[#0b1021] border-white/10 text-gray-400 hover:bg-white/5'}`}
+                                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${isPublic
+                                    ? 'bg-indigo-600/20 border-indigo-500/60 text-white'
+                                    : 'bg-[#0b1021] border-white/8 text-gray-400 hover:bg-white/5'}`}
                             >
-                                <span className="block font-bold">Pública</span>
-                                <span className="text-xs opacity-70">Visible para todos</span>
+                                <Globe className={`w-5 h-5 ${isPublic ? 'text-indigo-400' : 'text-gray-500'}`} />
+                                <span className="text-sm font-bold">Pública</span>
+                                <span className="text-[10px] opacity-60 text-center leading-tight">Visible para todos</span>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setIsPublic(false)}
-                                className={`flex-1 p-4 rounded-xl border transition-all ${!isPublic
-                                    ? 'bg-indigo-600/20 border-indigo-500 text-white'
-                                    : 'bg-[#0b1021] border-white/10 text-gray-400 hover:bg-white/5'}`}
+                                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${!isPublic
+                                    ? 'bg-indigo-600/20 border-indigo-500/60 text-white'
+                                    : 'bg-[#0b1021] border-white/8 text-gray-400 hover:bg-white/5'}`}
                             >
-                                <span className="block font-bold">Privada</span>
-                                <span className="text-xs opacity-70">Solo invitados</span>
+                                <LockIcon className={`w-5 h-5 ${!isPublic ? 'text-indigo-400' : 'text-gray-500'}`} />
+                                <span className="text-sm font-bold">Privada</span>
+                                <span className="text-[10px] opacity-60 text-center leading-tight">Solo colaboradores</span>
                             </button>
                         </div>
 
-                        {/* Public Write Access Toggle */}
                         {isPublic && (
-                            <div className="animate-fade-in mt-4 p-4 bg-[#0b1021]/50 rounded-xl border border-white/5 flex items-center justify-between">
-                                <div>
-                                    <h4 className="text-sm font-bold text-gray-200">Permitir Colaboración Pública</h4>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Si activas esto, cualquier usuario podrá añadir lugares a esta lista.
-                                    </p>
+                            <div className="p-3 bg-[#0b1021] rounded-xl border border-white/5 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="text-sm font-semibold text-gray-200">Colaboración pública</div>
+                                    <div className="text-xs text-gray-500 mt-0.5">Cualquier usuario puede añadir reseñas</div>
                                 </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
+                                <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input
                                         type="checkbox"
                                         checked={isPublicWritable}
                                         onChange={(e) => setIsPublicWritable(e.target.checked)}
                                         className="sr-only peer"
                                     />
-                                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
                             </div>
                         )}
 
-                        {/* Guest Management (Only relevant if Private usually, but technically can have guests on public too?) 
-                            The prompt implies guests for private lists mostly. */}
-                        {!isPublic && (
-                            <div className="animate-fade-in space-y-3">
-                                <label className="block text-sm font-medium text-gray-400">Invitados (Emails o Usuarios)</label>
-                                <div className="flex flex-wrap gap-2 mb-2 p-2 bg-[#0b1021] rounded-lg border border-white/10 min-h-[50px]">
-                                    {guests.map(g => (
-                                        <span key={g} className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-xs flex items-center gap-1">
-                                            {g}
-                                            <button type="button" onClick={() => removeGuest(g)} className="hover:text-white"><X className="w-3 h-3" /></button>
+                        {/* Collaborators (stored as editor UIDs) */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <UserPlus className="w-4 h-4 text-gray-500" />
+                                <span className="text-sm font-semibold text-gray-300">Colaboradores</span>
+                                {editors.length > 0 && (
+                                    <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">{editors.length}</span>
+                                )}
+                            </div>
+                            {editors.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {editors.map(e => (
+                                        <span key={e.uid} className="bg-purple-500/20 text-purple-300 px-2.5 py-1 rounded-full text-xs flex items-center gap-1">
+                                            @{e.username}
+                                            <button type="button" onClick={() => removeGuest(e.uid)} className="hover:text-white ml-0.5"><X className="w-3 h-3" /></button>
                                         </span>
                                     ))}
-                                    <input
-                                        type="text"
-                                        value={guestInput}
-                                        onChange={(e) => setGuestInput(e.target.value)}
-                                        onKeyDown={handleAddGuest}
-                                        placeholder="Escribe y pulsa Enter..."
-                                        className="bg-transparent text-white text-sm focus:outline-none min-w-[150px] flex-1"
-                                    />
                                 </div>
-                                <p className="text-xs text-gray-500">
-                                    Los invitados podrán ver la lista y añadir reseñas (si se habilita).
-                                </p>
+                            )}
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={guestInput}
+                                    onChange={(e) => { setGuestInput(e.target.value); setGuestLookupError(null); }}
+                                    onKeyDown={handleAddGuest}
+                                    placeholder="@usuario y pulsar Enter..."
+                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors pr-10"
+                                />
+                                {guestLookupLoading && (
+                                    <Loader className="absolute right-3 top-3 w-4 h-4 animate-spin text-indigo-400" />
+                                )}
                             </div>
-                        )}
+                            {guestLookupError && (
+                                <p className="text-xs text-red-400">{guestLookupError}</p>
+                            )}
+                            <p className="text-xs text-gray-600">Los colaboradores pueden ver y añadir reseñas aunque la lista sea privada.</p>
+                        </div>
                     </div>
 
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        {loading ? 'Creando Sublista...' : 'Crear Sublista'}
+                        {loading ? 'Creando...' : 'Crear Sublista'}
                     </button>
                 </form>
             </div>

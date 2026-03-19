@@ -159,11 +159,27 @@
         }
     }
 
-    /* Legacy SVG Markers - remove default leaflet square bg if any */
+    @keyframes shimmer-sweep {
+        0% {
+            transform: translateX(-100%);
+        }
+
+        100% {
+            transform: translateX(200%);
+        }
+    }
+
+    /* SVG Markers - remove default leaflet square bg */
     .legacy-map-marker,
+    .rating-marker,
     .user-location-marker {
         background: transparent !important;
         border: none !important;
+    }
+
+    /* El fondo del mapa y el filtro del tile se aplican dinámicamente desde MapView */
+    .listopic-map {
+        background: #c8cdd6 !important;
     }
 
     /* Leaflet Popup Overrides for Dark Theme */
