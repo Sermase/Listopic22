@@ -70,9 +70,18 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                     className="flex overflow-x-auto gap-2 px-4 pb-4 snap-x snap-mandatory hide-scrollbar scroll-smooth"
                 >
                     {loading ? (
-                        // Skeleton Loaders
                         Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="min-w-[280px] md:min-w-[320px] h-64 bg-white/5 rounded-2xl animate-pulse flex-shrink-0 snap-start" />
+                            <div key={i} className="min-w-[280px] md:min-w-[320px] flex-shrink-0 snap-start rounded-2xl overflow-hidden bg-white/5 animate-pulse">
+                                <div className="h-40 bg-white/10" />
+                                <div className="p-3 space-y-2">
+                                    <div className="h-4 bg-white/10 rounded w-3/4" />
+                                    <div className="h-3 bg-white/5 rounded w-1/2" />
+                                    <div className="flex gap-2 pt-1">
+                                        <div className="h-3 bg-white/5 rounded w-12" />
+                                        <div className="h-3 bg-white/5 rounded w-12" />
+                                    </div>
+                                </div>
+                            </div>
                         ))
                     ) : (
                         items.map((item, index) => (

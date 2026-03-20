@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, getDocs, Timestamp, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { queryCache } from '../lib/queryCache';
 
 export interface ListEntity {
     id: string;
@@ -67,6 +68,16 @@ export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', us
         const fetchLists = async () => {
             setLoading(true);
             try {
+                const cacheKey = filter === 'liked'
+                    ? `lists:liked:${userId}`
+                    : `lists:${filter}:${userId || ''}:${includePrivate}`;
+                const cached = queryCache.get<ListEntity[]>(cacheKey);
+                if (cached) {
+                    setLists(cached);
+                    setLoading(false);
+                    return;
+                }
+
                 let q;
                 const listsRef = collection(db, 'lists');
 
@@ -101,6 +112,7 @@ export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', us
                         .filter(snap => snap !== null && snap.exists())
                         .map(snap => ({ id: snap!.id, ...snap!.data() })) as ListEntity[];
 
+                    queryCache.set(cacheKey, fetchedLists);
                     setLists(fetchedLists);
                     return; // Done
                 }
@@ -135,6 +147,7 @@ export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', us
                     });
                 }
 
+                queryCache.set(cacheKey, fetchedLists);
                 setLists(fetchedLists);
             } catch (err: unknown) {
                 console.error("Error fetching lists:", err);

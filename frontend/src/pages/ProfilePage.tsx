@@ -1116,6 +1116,11 @@ export const ProfilePage: React.FC = () => {
   const handleFollowToggle = async () => {
     if (!user || !targetUserId) return;
     setFollowLoading(true);
+
+    // Optimistic update: cambia el estado antes de esperar Firestore
+    const prevState = isFollowing;
+    setIsFollowing(!prevState);
+
     try {
       const followingRef = doc(
         db,
@@ -1128,25 +1133,20 @@ export const ProfilePage: React.FC = () => {
       // This is now handled by the backend trigger 'onUserFollowingWrite' in 'functions/modules/social.js'
       // to ensure security and consistency.
 
-      if (isFollowing) {
-        // 1. Unfollow (Trigger delete)
+      if (prevState) {
         await deleteDoc(followingRef);
-        setIsFollowing(false);
       } else {
-        // 1. Follow (Trigger create)
         await setDoc(followingRef, {
           uid: targetUserId,
           followedAt: new Date(),
-          // Optional: Store snapshot for optimistic feed rendering
           displayName: profile?.displayName || profile?.username,
           photoUrl: profile?.photoUrl,
         });
-        setIsFollowing(true);
       }
     } catch (error) {
       console.error("Follow error:", error);
       alert("Error al seguir/dejar de seguir. Inténtalo de nuevo.");
-      setIsFollowing(!isFollowing); // Revert optimistic UI if failed
+      setIsFollowing(prevState); // Revert
     } finally {
       setFollowLoading(false);
     }

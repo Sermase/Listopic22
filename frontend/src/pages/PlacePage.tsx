@@ -210,8 +210,26 @@ export const PlacePage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen pt-32 px-4 flex justify-center bg-[#0b1021]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+            <div className="min-h-screen bg-[#0b1021] animate-pulse">
+                {/* Hero skeleton */}
+                <div className="h-[40vh] min-h-[300px] bg-white/5" />
+                <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-16 relative z-10">
+                    {/* Title & address */}
+                    <div className="h-10 bg-white/10 rounded w-2/3 mb-3" />
+                    <div className="h-5 bg-white/5 rounded w-1/3 mb-8" />
+                    {/* Stats row */}
+                    <div className="flex gap-4 mb-8">
+                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
+                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
+                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
+                    </div>
+                    {/* Review cards */}
+                    <div className="space-y-4">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-40 bg-white/5 rounded-2xl" />
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, query, where, getDocs, Timestamp, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ListEntity } from './useLists';
+import { queryCache } from '../lib/queryCache';
 
 export interface ReviewEntity {
     id: string;
@@ -66,6 +67,16 @@ export const useListDetails = (listId: string | undefined) => {
         const fetchData = async () => {
             setLoading(true);
             try {
+                const cacheKey = `listDetails:${listId}`;
+                const cached = queryCache.get<{ list: ListEntity; reviews: ReviewEntity[]; sublists: ListEntity[] }>(cacheKey);
+                if (cached) {
+                    setList(cached.list);
+                    setReviews(cached.reviews);
+                    setSublists(cached.sublists);
+                    setLoading(false);
+                    return;
+                }
+
                 // 1. Fetch List Metadata
                 const listRef = doc(db, 'lists', listId);
                 const listSnap = await getDoc(listRef);
@@ -76,7 +87,8 @@ export const useListDetails = (listId: string | undefined) => {
                     return;
                 }
 
-                setList({ id: listSnap.id, ...listSnap.data() } as ListEntity);
+                let finalList: ListEntity = { id: listSnap.id, ...listSnap.data() } as ListEntity;
+                setList(finalList);
                 const listData = listSnap.data();
                 const { getAuth } = await import('firebase/auth');
                 const currentUser = getAuth().currentUser;
@@ -88,6 +100,7 @@ export const useListDetails = (listId: string | undefined) => {
                         const parentSnap = await getDoc(doc(db, 'lists', listData.parentListId));
                         if (parentSnap.exists()) {
                             (listData as any).parentListName = parentSnap.data().name;
+                            finalList = { ...finalList, parentListName: parentSnap.data().name };
                             // Update the state as well
                             setList(prev => prev ? ({ ...prev, parentListName: parentSnap.data().name }) : null);
                         }
@@ -255,6 +268,7 @@ export const useListDetails = (listId: string | undefined) => {
                 });
 
                 setReviews(enrichedReviews);
+                let finalSublists: ListEntity[] = [];
 
                 // 3. Fetch Sublists
                 // Wrap in try/catch to avoid blocking main content if permissions fail (e.g. public list but restrictive list-query rules)
@@ -271,8 +285,8 @@ export const useListDetails = (listId: string | undefined) => {
                     }
 
                     const sublistsSnap = await getDocs(sublistsQ);
-                    const sublistsData = sublistsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ListEntity[];
-                    setSublists(sublistsData);
+                    finalSublists = sublistsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as ListEntity[];
+                    setSublists(finalSublists);
                 } catch (subErr: any) {
                     if (subErr.code === 'permission-denied') {
                         console.warn("Could not fetch sublists: Permission denied. (Private sublists hidden)");
@@ -283,6 +297,8 @@ export const useListDetails = (listId: string | undefined) => {
                     }
                     setSublists([]);
                 }
+
+                queryCache.set(cacheKey, { list: finalList, reviews: enrichedReviews, sublists: finalSublists });
 
             } catch (err: any) {
                 if (err.code === 'permission-denied') {

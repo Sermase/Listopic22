@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
+import { queryCache } from '../lib/queryCache';
 import { Save, Loader, Image as ImageIcon, X } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { type ListEntity } from '../hooks/useLists';
@@ -215,6 +216,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 listsCount: increment(1)
             }).catch(e => console.warn("Could not increment user list count", e));
 
+            queryCache.invalidate('lists:');
             showToast({
                 variant: 'success',
                 title: parentListId ? 'Sublista creada' : 'Lista creada',

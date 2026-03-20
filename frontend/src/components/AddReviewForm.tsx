@@ -8,6 +8,7 @@ import { Loader2, X, Image as ImageIcon, MapPin as MapPinIcon, Lock, Trash2 } fr
 import { PlaceSearch } from './PlaceSearch';
 import { PlaceService, type PlaceResult, transformToLegacyPlace } from '../services/PlaceService';
 import { ListSearch } from './ListSearch';
+import { queryCache, invalidateDoc } from '../lib/queryCache';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -675,6 +676,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 // doesn't block the review creation success toast.
                 await Promise.allSettled(updates);
             }
+
+            queryCache.invalidate('listDetails:' + finalListId);
+            queryCache.invalidate('reviews:');
+            if (finalPlaceId) queryCache.invalidate('placeDetails:' + finalPlaceId);
+            if (finalListId) invalidateDoc('lists', finalListId);
 
             showToast({
                 variant: 'success',
