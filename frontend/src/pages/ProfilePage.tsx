@@ -2002,10 +2002,10 @@ export const ProfilePage: React.FC = () => {
         <div className="mt-5 space-y-5 md:mt-8 md:space-y-6">
           {/* STICKY REVIEWS HEADER */}
           <div className="sticky top-14 md:top-16 z-30 bg-[#0b1021]/90 backdrop-blur-md border-b border-white/10 py-2.5 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-4 md:mb-6 rounded-t-3xl sm:rounded-none">
-            <div className="flex items-center justify-between gap-2 overflow-x-auto hide-scrollbar w-full">
+            <div className="flex items-center justify-between gap-2 w-full min-w-0">
 
-              <div className="flex items-center gap-2 flex-nowrap min-w-max">
-                <div className="inline-flex rounded-xl border border-white/10 bg-[#151b2e]/70 p-1">
+              <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                <div className="inline-flex rounded-xl border border-white/10 bg-[#151b2e]/70 p-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => setReviewSortMode("recent")}
@@ -2030,11 +2030,11 @@ export const ProfilePage: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="inline-flex rounded-xl border border-white/10 bg-[#151b2e]/70 p-1">
+                <div className="inline-flex rounded-xl border border-white/10 bg-[#151b2e]/70 p-1 min-w-0 max-w-[130px] sm:max-w-[200px]">
                   <select
                     value={reviewListFilter}
                     onChange={(e) => setReviewListFilter(e.target.value)}
-                    className="bg-transparent border-none text-xs font-bold text-gray-300 px-2 py-1 outline-none focus:ring-0 cursor-pointer text-center"
+                    className="bg-transparent border-none text-xs font-bold text-gray-300 px-2 py-1 outline-none focus:ring-0 cursor-pointer w-full min-w-0 truncate"
                   >
                     <option value="all" className="bg-[#151b2e] text-white">Listas</option>
                     {availableListsForFilter.map(list => (
@@ -2046,7 +2046,7 @@ export const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-nowrap min-w-max">
+              <div className="flex items-center gap-2 shrink-0">
 
                 <div className="inline-flex rounded-xl border border-white/10 bg-[#151b2e]/70 p-1">
                   <button
@@ -2164,22 +2164,29 @@ export const ProfilePage: React.FC = () => {
                             <img
                               src={photoUrl}
                               alt={review.placeName || review.itemName || "Lugar"}
-                              className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImage ? 'opacity-50 saturate-50' : ''}`}
+                              className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImage ? 'opacity-40 saturate-50' : ''}`}
                             />
-                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 pt-6">
-                              <span className="text-[10px] sm:text-xs text-white font-bold line-clamp-2 leading-tight drop-shadow-md">
+                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
+                              <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight drop-shadow-md">
                                 {review.placeName || review.itemName || "Lugar"}
-                              </span>
+                              </p>
+                              {review.itemName && review.itemName !== review.placeName && (
+                                <p className="text-[9px] sm:text-[10px] text-gray-400 line-clamp-1 leading-tight mt-0.5">
+                                  {review.itemName}
+                                </p>
+                              )}
                             </div>
                           </>
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-gradient-to-br from-[#151b2e] to-[#0b1021]">
-                            <span className="text-[10px] sm:text-xs font-bold text-gray-300 line-clamp-2">
+                            <span className="text-[10px] sm:text-xs font-bold text-gray-300 line-clamp-1">
                               {review.placeName || review.itemName || "Lugar"}
                             </span>
-                            <span className="text-[9px] text-gray-500 truncate w-full mt-1">
-                              {review.listName || "Lista"}
-                            </span>
+                            {review.itemName && review.itemName !== review.placeName && (
+                              <span className="text-[9px] text-gray-500 line-clamp-1 w-full mt-0.5">
+                                {review.itemName}
+                              </span>
+                            )}
                           </div>
                         )}
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />

@@ -1,10 +1,19 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Lock } from 'lucide-react';
 import { CreateListForm } from '../components/CreateListForm';
+import { useAuth } from '../context/AuthContext';
+import { useUserProfile } from '../hooks/useUserProfile';
 
 export const CreateListPage: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const { profile, loading } = useUserProfile(user?.uid);
+
+    const isJefe = Boolean(profile && (
+        (Array.isArray(profile.userType) && profile.userType.includes('jefe')) ||
+        profile.userType === 'jefe'
+    ));
 
     const handleSuccess = (newListId: string) => {
         navigate(`/list/${newListId}`);
@@ -13,6 +22,25 @@ export const CreateListPage: React.FC = () => {
     const handleCancel = () => {
         navigate(-1);
     };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#0b1021] flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    if (!isJefe) {
+        return (
+            <div className="min-h-screen bg-[#0b1021] text-gray-100 flex flex-col items-center justify-center gap-4">
+                <Lock className="w-12 h-12 text-gray-600" />
+                <h1 className="text-xl font-bold text-white">Acceso restringido</h1>
+                <p className="text-gray-400 text-sm">Solo el administrador puede crear listas principales.</p>
+                <button onClick={() => navigate(-1)} className="text-indigo-400 hover:text-indigo-300 text-sm mt-2">Volver</button>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-24 pb-20 px-4">

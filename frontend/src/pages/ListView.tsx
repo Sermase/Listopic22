@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useLists } from '../hooks/useLists';
 import { useLocation } from '../hooks/useLocation';
 import { ListCard } from '../components/ListCard';
-import { Search, MapPin, Filter } from 'lucide-react';
+import { Search, MapPin, Filter, List as ListIcon, LayoutGrid } from 'lucide-react';
 
 export const ListView: React.FC = () => {
     const { lists, loading, error } = useLists();
@@ -14,6 +15,7 @@ export const ListView: React.FC = () => {
     const [enableLocationFilter, setEnableLocationFilter] = useState(false);
 
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<'grid' | 'gallery'>('gallery');
 
     // Derived state: Unique Tags from available lists
     const uniqueTags = useMemo(() => {
@@ -63,7 +65,7 @@ export const ListView: React.FC = () => {
                 </div>
 
                 {/* Search & Filter Bar */}
-                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center">
                     <div className="relative group">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
                         <input
@@ -82,6 +84,24 @@ export const ListView: React.FC = () => {
                         <MapPin className="w-4 h-4" />
                         <span>Cerca de mí</span>
                     </button>
+
+                    {/* View Toggle */}
+                    <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                            title="Vista cuadrícula"
+                        >
+                            <ListIcon className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('gallery')}
+                            className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'gallery' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                            title="Vista galería"
+                        >
+                            <LayoutGrid className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -146,11 +166,54 @@ export const ListView: React.FC = () => {
                 </div>
             ) : (
                 <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredLists.map(list => (
-                            <ListCard key={list.id} list={list} />
-                        ))}
-                    </div>
+                    {viewMode === 'gallery' ? (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
+                            {filteredLists.map(list => {
+                                const imgUrl = list.mainImageUrl || list.photoUrl;
+                                const score = list.averageRating ?? list.avgScore;
+                                const count = list.reviewCount;
+                                const scoreColor = score >= 8 ? 'bg-emerald-500' : score >= 6 ? 'bg-amber-500' : score > 0 ? 'bg-red-500' : 'bg-gray-600';
+                                return (
+                                    <Link
+                                        key={list.id}
+                                        to={`/list/${list.id}`}
+                                        className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden border border-[#0b1021] hover:border-indigo-500 transition-colors block"
+                                    >
+                                        {imgUrl ? (
+                                            <img
+                                                src={imgUrl}
+                                                alt={list.name}
+                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">
+                                                <ListIcon className="w-8 h-8 text-gray-600" />
+                                            </div>
+                                        )}
+                                        {/* Gradient overlay */}
+                                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
+                                            <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-2 leading-tight">{list.name}</p>
+                                            {count != null && (
+                                                <p className="text-[9px] sm:text-[10px] text-gray-400 leading-tight mt-0.5">{count} reseñas</p>
+                                            )}
+                                        </div>
+                                        {/* Score bubble top-right */}
+                                        {score != null && score > 0 && (
+                                            <div className={`absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full ${scoreColor} flex items-center justify-center shadow-lg`}>
+                                                <span className="text-[9px] sm:text-[10px] font-bold text-white">{score.toFixed(1)}</span>
+                                            </div>
+                                        )}
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filteredLists.map(list => (
+                                <ListCard key={list.id} list={list} />
+                            ))}
+                        </div>
+                    )}
                     {filteredLists.length === 0 && (
                         <div className="text-center py-20">
                             <div className="w-16 h-16 bg-[#151b2e] rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
