@@ -60,8 +60,8 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[#151b2e] w-full h-full sm:h-auto sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-white/10 overflow-hidden flex flex-col sm:max-h-[90vh] transition-all">
+        <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="bg-[#151b2e] w-full h-full sm:h-auto sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-white/10 overflow-hidden flex flex-col sm:max-h-[90vh] transition-all" onClick={e => e.stopPropagation()}>
 
                 {/* Header with Tabs */}
                 <div className="border-b border-white/10 bg-white/5 flex-shrink-0">

@@ -878,6 +878,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                                 />
                                             </div>
+                                            {/* Min/Max labels */}
+                                            {(criterion.labelMin || criterion.labelMax) && (
+                                                <div className="flex justify-between mt-1">
+                                                    <span className="text-[10px] text-gray-500 italic">{criterion.labelMin}</span>
+                                                    <span className="text-[10px] text-gray-500 italic">{criterion.labelMax}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -907,12 +914,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                                 />
                                                             </div>
 
-                                                            {/* Interactive Input with Fixed Step 0.5 */}
                                                             <input
                                                                 type="range"
                                                                 min="0"
                                                                 max="10"
-                                                                step={0.5} // Enforce 0.5 step for non-ponderable
+                                                                step={criterion.step || 0.5}
                                                                 value={criteriaScores[criterion.id] || 0}
                                                                 onChange={(e) => {
                                                                     const val = parseFloat(e.target.value);
@@ -923,6 +929,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                                             />
                                                         </div>
+                                                        {/* Min/Max labels */}
+                                                        {(criterion.labelMin || criterion.labelMax) && (
+                                                            <div className="flex justify-between mt-1">
+                                                                <span className="text-[10px] text-gray-500 italic">{criterion.labelMin}</span>
+                                                                <span className="text-[10px] text-gray-500 italic">{criterion.labelMax}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useParams, Link, useLocation as useRouterLocation } from 'react-router-dom';
+import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
 import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
 import { useUserProfile } from '../hooks/useUserProfile';
@@ -10,6 +10,7 @@ import { FilterModal } from '../components/FilterModal';
 import { ShareListModal } from '../components/ShareListModal';
 import { ShareModal } from '../components/ShareModal';
 import { SublistsModal } from '../components/SublistsModal';
+import { EditListModal } from '../components/EditListModal';
 import { useAuth } from '../context/AuthContext';
 import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
 import { useLike } from '../hooks/useLike';
@@ -28,6 +29,7 @@ export interface FilterState {
 export const ListPage: React.FC = () => {
     const { listId } = useParams<{ listId: string }>();
     const routerLocation = useRouterLocation();
+    const navigate = useNavigate();
     const [sortMode, setSortMode] = useState<'rating' | 'newest' | 'oldest' | 'count'>('rating');
     const { list, reviews, sublists, loading, error } = useListDetails(listId);
     const { user } = useAuth();
@@ -81,6 +83,7 @@ export const ListPage: React.FC = () => {
     const [isPublicShareModalOpen, setIsPublicShareModalOpen] = useState(false);
     const [isSublistsModalOpen, setIsSublistsModalOpen] = useState(false);
     const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+    const [isEditListModalOpen, setIsEditListModalOpen] = useState(false);
     const actionsMenuRef = useRef<HTMLDivElement>(null);
     const overflowBtnRef = useRef<HTMLButtonElement>(null);
     const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
@@ -688,9 +691,9 @@ export const ListPage: React.FC = () => {
                                         <button onClick={() => setIsShareModalOpen(true)} className="px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-sm font-bold rounded-xl border border-indigo-500/20 flex items-center gap-1.5 transition-all">
                                             <Lock className="w-4 h-4" /> Permisos
                                         </button>
-                                        <Link to={`/list/${list.id}/edit`} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-lg shadow-indigo-500/20">
+                                        <button onClick={() => setIsEditListModalOpen(true)} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-lg shadow-indigo-500/20">
                                             <Edit3 className="w-4 h-4" /> Editar
-                                        </Link>
+                                        </button>
                                     </>
                                 )}
                             </div>
@@ -752,14 +755,13 @@ export const ListPage: React.FC = () => {
                                                     <Lock className="w-4 h-4 shrink-0 text-indigo-400" />
                                                     Permisos
                                                 </button>
-                                                <Link
-                                                    to={`/list/${list.id}/edit`}
-                                                    onClick={() => setIsActionsMenuOpen(false)}
+                                                <button
+                                                    onClick={() => { setIsActionsMenuOpen(false); setIsEditListModalOpen(true); }}
                                                     className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors"
                                                 >
                                                     <Edit3 className="w-4 h-4 shrink-0 text-amber-400" />
                                                     Editar lista
-                                                </Link>
+                                                </button>
                                             </>
                                         )}
                                     </div>
@@ -1032,6 +1034,16 @@ export const ListPage: React.FC = () => {
                     />
                 )
             }
+
+            {/* Edit List Modal */}
+            {isEditListModalOpen && listId && (
+                <EditListModal
+                    listId={listId}
+                    onClose={() => setIsEditListModalOpen(false)}
+                    onSaved={() => navigate(0)}
+                    onDeleted={() => navigate(list?.parentListId ? `/list/${list.parentListId}` : '/')}
+                />
+            )}
 
             <FilterModal
                 isOpen={isFilterModalOpen}

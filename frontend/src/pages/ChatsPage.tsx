@@ -478,8 +478,8 @@ export const ChatsPage: React.FC = () => {
             {/* Create Group Modal */}
             {
                 isGroupModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                        <div className="bg-[#151b2e] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl overflow-hidden">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) setIsGroupModalOpen(false); }}>
+                        <div className="bg-[#151b2e] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                             <div className="p-4 border-b border-white/5 flex justify-between items-center">
                                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                                     <Users className="w-5 h-5 text-indigo-400" /> Crear Grupo
@@ -529,8 +529,8 @@ export const ChatsPage: React.FC = () => {
             {/* Chat Info Modal */}
             {
                 isInfoModalOpen && activeChatObj && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                        <div className="bg-[#151b2e] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) setIsInfoModalOpen(false); }}>
+                        <div className="bg-[#151b2e] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                             <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0b1021]/50">
                                 <h2 className="text-lg font-bold text-white">Info. del Chat</h2>
                                 <button onClick={() => setIsInfoModalOpen(false)} className="text-gray-400 hover:text-white">

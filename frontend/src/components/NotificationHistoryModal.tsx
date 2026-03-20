@@ -82,8 +82,8 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
     }
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4">
-            <div className="bg-[#0b1021] w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-none md:border border-white/10">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="bg-[#0b1021] w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-none md:border border-white/10" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#151b2e]">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
                         <Bell className="w-5 h-5 text-indigo-400" />

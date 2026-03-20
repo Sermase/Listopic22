@@ -48,7 +48,8 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                         label: val.label,
                         minLabel: val.labelMin,
                         maxLabel: val.labelMax,
-                        isPonderable: val.ponderable !== false
+                        isPonderable: val.ponderable !== false,
+                        step: val.step ?? 0.5
                     });
                 }
             });
@@ -159,7 +160,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     label: c.label,
                     min: 0,
                     max: 10,
-                    step: 0.5, // Standard step
+                    step: c.step ?? 0.5,
                     labelMin: c.minLabel,
                     labelMax: c.maxLabel,
                     ponderable: c.isPonderable

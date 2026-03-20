@@ -7,6 +7,7 @@ export interface Criterion {
     minLabel: string;
     maxLabel: string;
     isPonderable: boolean;
+    step?: number;
     locked?: boolean;
 }
 
@@ -24,7 +25,8 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
             label: '',
             minLabel: 'Malo',
             maxLabel: 'Excelente',
-            isPonderable: true
+            isPonderable: true,
+            step: 0.5
         };
         onChange([...criteria, newCriterion]);
     };
@@ -73,36 +75,77 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-400 mb-1">
-                                        Nombre del Criterio {isLocked && '(Heredado)'}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={criterion.label}
-                                        onChange={(e) => updateCriterion(criterion.id, 'label', e.target.value)}
-                                        placeholder="Ej: Calidad del Café"
-                                        disabled={isLocked}
-                                        className={`w-full bg-[#0b1021] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    />
+                            <div className="space-y-3">
+                                {/* Row 1: name + ponderable + step */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                                            Nombre del Criterio {isLocked && '(Heredado)'}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={criterion.label}
+                                            onChange={(e) => updateCriterion(criterion.id, 'label', e.target.value)}
+                                            placeholder="Ej: Calidad del Café"
+                                            disabled={isLocked}
+                                            className={`w-full bg-[#0b1021] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center gap-4 mt-6 flex-wrap">
+                                        <label className={`flex items-center gap-2 ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={criterion.isPonderable}
+                                                onChange={(e) => updateCriterion(criterion.id, 'isPonderable', e.target.checked)}
+                                                disabled={isLocked}
+                                                className={`w-4 h-4 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[#0b1021] ${isLocked ? 'cursor-not-allowed' : ''}`}
+                                            />
+                                            <span className="text-sm text-gray-300">Afecta al promedio {isLocked && '(Fijo)'}</span>
+                                        </label>
+                                        <div className={`flex items-center gap-2 ${isLocked ? 'opacity-50' : ''}`}>
+                                            <span className="text-xs text-gray-400">Paso:</span>
+                                            <select
+                                                value={criterion.step ?? 0.5}
+                                                onChange={(e) => updateCriterion(criterion.id, 'step', parseFloat(e.target.value))}
+                                                disabled={isLocked}
+                                                className={`bg-[#0b1021] border border-white/10 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-indigo-500 ${isLocked ? 'cursor-not-allowed' : ''}`}
+                                            >
+                                                <option value={0.1}>0.1</option>
+                                                <option value={0.25}>0.25</option>
+                                                <option value={0.5}>0.5</option>
+                                                <option value={1}>1</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="flex items-center gap-4 mt-6">
-                                    <label className={`flex items-center gap-2 ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                {/* Row 2: min/max labels */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Etiqueta mínimo</label>
                                         <input
-                                            type="checkbox"
-                                            checked={criterion.isPonderable}
-                                            onChange={(e) => updateCriterion(criterion.id, 'isPonderable', e.target.checked)}
+                                            type="text"
+                                            value={criterion.minLabel}
+                                            onChange={(e) => updateCriterion(criterion.id, 'minLabel', e.target.value)}
+                                            placeholder="Ej: Malo"
                                             disabled={isLocked}
-                                            className={`w-4 h-4 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[#0b1021] ${isLocked ? 'cursor-not-allowed' : ''}`}
+                                            className={`w-full bg-[#0b1021] border border-white/10 rounded-lg px-3 py-2 text-gray-300 text-xs focus:outline-none focus:border-indigo-500 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         />
-                                        <span className="text-sm text-gray-300">Afecta al promedio {isLocked && '(Fijo)'}</span>
-                                    </label>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Etiqueta máximo</label>
+                                        <input
+                                            type="text"
+                                            value={criterion.maxLabel}
+                                            onChange={(e) => updateCriterion(criterion.id, 'maxLabel', e.target.value)}
+                                            placeholder="Ej: Excelente"
+                                            disabled={isLocked}
+                                            className={`w-full bg-[#0b1021] border border-white/10 rounded-lg px-3 py-2 text-gray-300 text-xs focus:outline-none focus:border-indigo-500 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* Advanced (Min/Max Labels) - Optional or expandable could go here */}
                         </div>
                     );
                 })}
