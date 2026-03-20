@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, X, AlertTriangle, Image as ImageIcon, ZoomIn
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, X, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
@@ -27,6 +27,8 @@ export const PlacePage: React.FC = () => {
     const fromListId = searchParams.get('listId');
 
     const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos'>('reviews');
+    const [reviewViewMode, setReviewViewMode] = useState<'list' | 'gallery'>('gallery');
+    const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -547,74 +549,159 @@ export const PlacePage: React.FC = () => {
 
 
                     {activeTab === 'reviews' && (
-                        <div className="grid grid-cols-1 gap-6 animate-fade-in">
-                            {place.reviews.slice(0, visibleCount).map(review => (
-                                <ReviewCard
-                                    key={review.id}
-                                    review={review}
-                                    reactionConfig={reactionConfig || undefined}
-                                    onEdit={handleEditReview}
-                                    placeClosedStatus={place.closedStatus}
-                                />
-                            ))}
-                            {visibleCount < place.reviews.length && (
-                                <div ref={loadMoreRef} className="py-4 flex justify-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                        <div className="animate-fade-in">
+                            {/* Reviews header with view toggle */}
+                            <div className="flex justify-end mb-4">
+                                <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
+                                    <button
+                                        onClick={() => setReviewViewMode('list')}
+                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'list' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                        title="Vista lista"
+                                    >
+                                        <ListIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setReviewViewMode('gallery')}
+                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'gallery' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                        title="Vista galería"
+                                    >
+                                        <LayoutGrid className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {reviewViewMode === 'gallery' ? (
+                                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
+                                    {place.reviews.slice(0, visibleCount).map(review => {
+                                        const score = (review as any).overallRating || 0;
+                                        const scoreColor = score >= 8 ? 'bg-emerald-500' : score >= 6 ? 'bg-amber-500' : 'bg-red-500';
+                                        const photoSrc = (review as any).photoUrl || (review as any).placeMainImage || null;
+                                        const isPlaceImg = !(review as any).photoUrl && !!(review as any).placeMainImage;
+                                        const isExpanded = expandedReviewId === (review as any).id;
+
+                                        if (isExpanded) {
+                                            return (
+                                                <div key={(review as any).id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[#151b2e] rounded-xl border border-indigo-500/50 p-2 sm:p-4 mb-2 shadow-2xl animate-fade-in relative">
+                                                    <button
+                                                        onClick={() => setExpandedReviewId(null)}
+                                                        className="absolute top-2 right-2 z-10 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white backdrop-blur-md transition-colors"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                    <ReviewCard
+                                                        review={review}
+                                                        reactionConfig={reactionConfig || undefined}
+                                                        onEdit={handleEditReview}
+                                                        placeClosedStatus={place.closedStatus}
+                                                    />
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <div
+                                                key={(review as any).id}
+                                                onClick={() => setExpandedReviewId((review as any).id)}
+                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[#0b1021] hover:border-indigo-500 transition-colors"
+                                            >
+                                                {photoSrc ? (
+                                                    <img
+                                                        src={photoSrc}
+                                                        alt={(review as any).authorName || ''}
+                                                        className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-40 saturate-50' : ''}`}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full bg-gradient-to-br from-[#151b2e] to-[#0b1021] flex items-center justify-center">
+                                                        <MessageSquare className="w-6 h-6 text-gray-600" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
+                                                    <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight">{(review as any).authorName || 'Anónimo'}</p>
+                                                </div>
+                                                <div className={`absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full ${scoreColor} flex items-center justify-center shadow-lg`}>
+                                                    <span className="text-[9px] sm:text-[10px] font-bold text-white">{score.toFixed(1)}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {visibleCount < place.reviews.length && (
+                                        <div ref={loadMoreRef} className="py-4 flex justify-center col-span-3 sm:col-span-4 lg:col-span-5">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-6">
+                                    {place.reviews.slice(0, visibleCount).map(review => (
+                                        <ReviewCard
+                                            key={(review as any).id}
+                                            review={review}
+                                            reactionConfig={reactionConfig || undefined}
+                                            onEdit={handleEditReview}
+                                            placeClosedStatus={place.closedStatus}
+                                        />
+                                    ))}
+                                    {visibleCount < place.reviews.length && (
+                                        <div ref={loadMoreRef} className="py-4 flex justify-center">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
                     )}
 
                     {activeTab === 'dishes' && (
-                        <div className="animate-fade-in glass-card p-6 sm:p-8">
-                            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                <ListIcon className="w-5 h-5 text-indigo-400" />
-                                Platos Destacados
-                            </h3>
-
+                        <div className="animate-fade-in">
                             {dishes && dishes.length > 0 ? (
-                                <div className="space-y-4">
-                                    {dishes.map((dish, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/20 transition-all hover:-translate-y-1 hover:shadow-lg group">
-                                            <Link
-                                                to={`/group/${placeId}/${encodeURIComponent(dish.name)}`}
-                                                className="flex items-center gap-4 flex-1 min-w-0"
-                                            >
-                                                <div className="w-14 h-14 rounded-xl bg-gray-800 overflow-hidden shrink-0 shadow-inner">
-                                                    {dish.photo ? (
-                                                        <img src={dish.photo} alt={dish.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-gray-600 font-bold text-xs bg-gradient-to-br from-gray-800 to-gray-900">
-                                                            IMG
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <h4 className="font-bold text-white group-hover:text-indigo-400 transition-colors text-lg truncate">{dish.name}</h4>
-                                                    <div className="flex items-center gap-2 text-sm text-gray-400 mt-0.5">
-                                                        <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">{dish.avg.toFixed(1)}</span>
-                                                        <span>• {dish.count} opiniones</span>
-                                                    </div>
-                                                </div>
-                                            </Link>
+                                <div className="bg-[#0d111f] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+                                    {/* Menu header */}
+                                    <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
+                                        <Utensils className="w-5 h-5 text-indigo-400" />
+                                        <span className="font-bold text-white tracking-wide text-sm uppercase">La Carta</span>
+                                        <span className="ml-auto text-xs text-gray-500">{dishes.length} platos</span>
+                                    </div>
+                                    <div className="divide-y divide-white/5">
+                                        {dishes.map((dish, idx) => {
+                                            const isTop = dish.avg >= 8.5 && idx < 3;
+                                            const scoreColor = dish.avg >= 8 ? 'text-emerald-400' : dish.avg >= 6 ? 'text-amber-400' : 'text-red-400';
+                                            return (
+                                                <Link
+                                                    key={idx}
+                                                    to={`/group/${placeId}/${encodeURIComponent(dish.name)}`}
+                                                    className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 hover:bg-white/5 transition-colors group"
+                                                >
+                                                    {/* Rank */}
+                                                    <span className="text-xs font-mono text-gray-600 w-4 shrink-0 text-right">{idx + 1}</span>
 
-                                            <button
-                                                onClick={() => {
-                                                    if (dish.listId) {
-                                                        setSelectedListId(dish.listId);
-                                                        setSelectedDishName(dish.name);
-                                                        setIsFlowOpen(true);
-                                                    } else {
-                                                        alert("No se pudo identificar la lista asociada a este plato.");
-                                                    }
-                                                }}
-                                                className="px-4 py-2 rounded-full bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20 active:scale-95 flex items-center gap-1.5 ml-4 shrink-0"
-                                            >
-                                                <Plus className="w-3.5 h-3.5" />
-                                                <span className="hidden sm:inline">Añadir Foto</span>
-                                            </button>
-                                        </div>
-                                    ))}
+                                                    {/* Photo thumbnail */}
+                                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-800 overflow-hidden shrink-0">
+                                                        {dish.photo ? (
+                                                            <img src={dish.photo} alt={dish.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center">
+                                                                <Utensils className="w-4 h-4 text-gray-600" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Name + meta */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="font-semibold text-white group-hover:text-indigo-300 transition-colors text-sm sm:text-base truncate">{dish.name}</span>
+                                                            {isTop && (
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">★ Top</span>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-xs text-gray-500">{dish.count} {dish.count === 1 ? 'opinión' : 'opiniones'}</span>
+                                                    </div>
+
+                                                    {/* Score */}
+                                                    <span className={`text-base sm:text-lg font-black font-mono ${scoreColor} shrink-0`}>{dish.avg.toFixed(1)}</span>
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="text-center py-10 text-gray-500">

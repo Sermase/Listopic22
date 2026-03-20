@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
-import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X } from 'lucide-react';
+import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
@@ -57,7 +57,7 @@ export const ListPage: React.FC = () => {
         visited: false,
         criteriaMin: {}
     });
-    const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+    const [viewMode, setViewMode] = useState<'list' | 'gallery'>('gallery');
     const [groupingMode, setGroupingMode] = useState<'place' | 'dish'>('dish');
 
     // Check for editId param
@@ -144,6 +144,8 @@ export const ListPage: React.FC = () => {
             placeCity?: string;
             placeAddress?: string;
             photoUrl?: string;
+            reviewPhotoUrl?: string;
+            placeMainImage?: string;
             totalRating: number;
             count: number;
             criteriaSums: Record<string, number>;
@@ -230,8 +232,11 @@ export const ListPage: React.FC = () => {
                 if (currentLikes > g.photoMaxLikes) {
                     g.photoMaxLikes = currentLikes;
                     g.photoUrl = review.photoUrl || review.placeMainImage;
+                    if (review.photoUrl) g.reviewPhotoUrl = review.photoUrl;
+                    if (review.placeMainImage && !g.placeMainImage) g.placeMainImage = review.placeMainImage;
                 }
             }
+            if (review.placeMainImage && !g.placeMainImage) g.placeMainImage = review.placeMainImage;
 
             // Handle Criteria
             if (review.scores) {
@@ -885,19 +890,16 @@ export const ListPage: React.FC = () => {
                                 <button
                                     onClick={() => setViewMode('list')}
                                     className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                    title="Vista lista"
                                 >
                                     <ListIcon className="w-3.5 h-3.5" />
                                 </button>
                                 <button
-                                    onClick={() => setViewMode('grid')}
-                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                    onClick={() => setViewMode('gallery')}
+                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'gallery' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                    title="Vista galería"
                                 >
-                                    <div className="w-3.5 h-3.5 grid grid-cols-2 gap-0.5 opacity-80">
-                                        <div className="bg-current rounded-[0.5px]"></div>
-                                        <div className="bg-current rounded-[0.5px]"></div>
-                                        <div className="bg-current rounded-[0.5px]"></div>
-                                        <div className="bg-current rounded-[0.5px]"></div>
-                                    </div>
+                                    <LayoutGrid className="w-3.5 h-3.5" />
                                 </button>
                             </div>
 
@@ -918,18 +920,77 @@ export const ListPage: React.FC = () => {
                 <div className="animate-fade-in">
                     {filteredItems.length > 0 ? (
                         <>
-                            <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col rounded-xl overflow-hidden border border-[var(--border-color)] divide-y divide-[var(--border-color)]"}>
+                            {viewMode === 'gallery' ? (
+                                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
+                                    {filteredItems.map((item, idx) => {
+                                        const rank = idx + 1;
+                                        const score = item.avgRating;
+                                        const scoreColor = score >= 8 ? 'bg-emerald-500' : score >= 6 ? 'bg-amber-500' : 'bg-red-500';
+                                        const primaryName = groupingMode === 'dish' ? (item.placeName || item.name) : item.name;
+                                        const secondaryName = groupingMode === 'dish' ? item.name : undefined;
+                                        const reviewPhoto = (item as any).reviewPhotoUrl;
+                                        const placeImg = (item as any).placeMainImage;
+                                        const photoSrc = reviewPhoto || placeImg || null;
+                                        const isPlaceImg = !reviewPhoto && !!placeImg;
+                                        const href = item.placeId
+                                            ? groupingMode === 'dish'
+                                                ? `/group/${item.placeId}/${encodeURIComponent(item.name)}?listId=${listId}`
+                                                : `/place/${item.placeId}`
+                                            : null;
+                                        const cardContent = (
+                                            <>
+                                                {photoSrc ? (
+                                                    <img
+                                                        src={photoSrc}
+                                                        alt={primaryName}
+                                                        className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-70 saturate-[0.6]' : ''}`}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">
+                                                        <Store className="w-8 h-8 text-gray-600" />
+                                                    </div>
+                                                )}
+                                                {/* Gradient overlay */}
+                                                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
+                                                    <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight">{primaryName}</p>
+                                                    {secondaryName && (
+                                                        <p className="text-[9px] sm:text-[10px] text-gray-400 line-clamp-1 leading-tight mt-0.5">{secondaryName}</p>
+                                                    )}
+                                                </div>
+                                                {/* Score bubble top-right */}
+                                                <div className={`absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full ${scoreColor} flex items-center justify-center shadow-lg`}>
+                                                    <span className="text-[9px] sm:text-[10px] font-bold text-white">{score.toFixed(1)}</span>
+                                                </div>
+                                                {/* Rank badge top-left for top 3 */}
+                                                {rank <= 3 && (
+                                                    <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shadow-lg text-[9px] sm:text-[10px] font-bold ${rank === 1 ? 'bg-amber-400 text-black' : rank === 2 ? 'bg-gray-300 text-black' : 'bg-amber-700 text-white'}`}>
+                                                        {rank}
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                        const cardClass = "group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[#0b1021] hover:border-indigo-500 transition-colors";
+                                        return href ? (
+                                            <Link key={item.id} to={href} className={cardClass}>{cardContent}</Link>
+                                        ) : (
+                                            <div key={item.id} className={cardClass}>{cardContent}</div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                            <div className="flex flex-col rounded-xl overflow-hidden border border-[var(--border-color)] divide-y divide-[var(--border-color)]">
                                 {filteredItems.map((item, idx) => (
                                     <ListItemCard
                                         key={item.id}
                                         item={item}
                                         rank={idx + 1}
-                                        isGrid={viewMode === 'grid'}
+                                        isGrid={false}
                                         groupingMode={groupingMode}
                                         listId={listId}
                                     />
                                 ))}
                             </div>
+                            )}
 
                             {/* Load More Button */}
                             {visibleCount < filteredItemsAll.length && (

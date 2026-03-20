@@ -3,7 +3,7 @@ import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, MoreVertical, Flag, Image as ImageIcon, ZoomIn } from 'lucide-react';
+import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, MoreVertical, Flag, Image as ImageIcon, ZoomIn, LayoutGrid } from 'lucide-react';
 import { Lightbox } from '../components/Lightbox';
 import { NonPonderableGauge } from '../components/NonPonderableGauge';
 import { ReportModal } from '../components/ReportModal';
@@ -66,6 +66,11 @@ export const GroupPage: React.FC = () => {
     // Lightbox
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+
+    // View mode for reviews
+    const [reviewViewMode, setReviewViewMode] = useState<'list' | 'gallery'>('gallery');
+    const [groupActiveTab, setGroupActiveTab] = useState<'reviews' | 'photos'>('reviews');
+    const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
 
     // Infinite Scroll
     const [visibleCount, setVisibleCount] = useState(4);
@@ -785,21 +790,38 @@ export const GroupPage: React.FC = () => {
                 {/* Main Content (Left) */}
                 <div className="order-2 lg:col-span-8 lg:order-first">
 
-                    {/* Photos (Horizontal Scroll -> Grid with Lightbox) */}
-                    {stats && stats.photos.length > 0 && (
-                        <div className="mb-8">
-                            <h3 className="font-bold text-white text-lg mb-4 flex items-center gap-2">
-                                <ImageIcon className="w-5 h-5 text-indigo-500" />
-                                Galería ({stats.photos.length})
-                            </h3>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {/* Tabs */}
+                    <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar px-1 py-2">
+                        <button
+                            onClick={() => setGroupActiveTab('reviews')}
+                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${groupActiveTab === 'reviews'
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
+                            }`}
+                        >
+                            <MessageSquare className="w-4 h-4" /> Opiniones ({reviews.length})
+                        </button>
+                        {stats && stats.photos.length > 0 && (
+                            <button
+                                onClick={() => setGroupActiveTab('photos')}
+                                className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${groupActiveTab === 'photos'
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                    : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
+                                }`}
+                            >
+                                <ImageIcon className="w-4 h-4" /> Fotos ({stats.photos.length})
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Photos Tab */}
+                    {groupActiveTab === 'photos' && stats && stats.photos.length > 0 && (
+                        <div className="animate-fade-in">
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
                                 {stats.photos.map((url, i) => (
                                     <div
                                         key={i}
-                                        onClick={() => {
-                                            setLightboxIndex(i);
-                                            setIsLightboxOpen(true);
-                                        }}
+                                        onClick={() => { setLightboxIndex(i); setIsLightboxOpen(true); }}
                                         className="aspect-square rounded-xl overflow-hidden cursor-pointer bg-gray-800 relative group border border-white/10"
                                     >
                                         <img src={url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={`Foto ${i}`} />
@@ -809,7 +831,6 @@ export const GroupPage: React.FC = () => {
                                     </div>
                                 ))}
                             </div>
-
                             <Lightbox
                                 isOpen={isLightboxOpen}
                                 onClose={() => setIsLightboxOpen(false)}
@@ -819,17 +840,87 @@ export const GroupPage: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Reviews Tab */}
+                    {groupActiveTab === 'reviews' && (<>
+
                     {/* Reviews Header */}
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <MessageSquare className="w-5 h-5 text-indigo-500" />
-                            Opiniones ({reviews.length})
-                        </h2>
-                        {/* Mobile 'Add' button could go here if needed, but Hero button covers it */}
+                    <div className="flex justify-end mb-4">
+                        <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
+                            <button
+                                onClick={() => setReviewViewMode('list')}
+                                className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'list' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                title="Vista lista"
+                            >
+                                <ListIcon className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                                onClick={() => setReviewViewMode('gallery')}
+                                className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'gallery' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                title="Vista galería"
+                            >
+                                <LayoutGrid className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Reviews Grid */}
                     {reviews.length > 0 ? (
+                        reviewViewMode === 'gallery' ? (
+                            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2 animate-fade-in">
+                                {reviews.slice(0, visibleCount).map(review => {
+                                    const score = review.overallRating || 0;
+                                    const scoreColor = score >= 8 ? 'bg-emerald-500' : score >= 6 ? 'bg-amber-500' : 'bg-red-500';
+                                    const photoSrc = review.photoUrl || (review as any).placeMainImage || null;
+                                    const isPlaceImg = !review.photoUrl && !!(review as any).placeMainImage;
+                                    const isExpanded = expandedReviewId === review.id;
+
+                                    if (isExpanded) {
+                                        return (
+                                            <div key={review.id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[#151b2e] rounded-xl border border-indigo-500/50 p-2 sm:p-4 mb-2 shadow-2xl animate-fade-in relative">
+                                                <button
+                                                    onClick={() => setExpandedReviewId(null)}
+                                                    className="absolute top-2 right-2 z-10 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white backdrop-blur-md transition-colors"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                                <ReviewCard review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div
+                                            key={review.id}
+                                            onClick={() => setExpandedReviewId(review.id)}
+                                            className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[#0b1021] hover:border-indigo-500 transition-colors"
+                                        >
+                                            {photoSrc ? (
+                                                <img
+                                                    src={photoSrc}
+                                                    alt={(review as any).authorName || ''}
+                                                    className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-40 saturate-50' : ''}`}
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">
+                                                    <MessageSquare className="w-6 h-6 text-gray-600" />
+                                                </div>
+                                            )}
+                                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
+                                                <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight">{(review as any).authorName || 'Anónimo'}</p>
+                                            </div>
+                                            <div className={`absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full ${scoreColor} flex items-center justify-center shadow-lg`}>
+                                                <span className="text-[9px] sm:text-[10px] font-bold text-white">{score.toFixed(1)}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {visibleCount < reviews.length && (
+                                    <div ref={loadMoreRef} className="py-4 flex justify-center col-span-3 sm:col-span-4 lg:col-span-5">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
                         <div className="grid grid-cols-1 gap-8 animate-fade-in">
                             {reviews.slice(0, visibleCount).map(review => (
                                 <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
@@ -840,6 +931,7 @@ export const GroupPage: React.FC = () => {
                                 </div>
                             )}
                         </div>
+                        )
                     ) : (
                         <div className="p-8 bg-[#151b2e] rounded-xl border border-white/10 text-center animate-fade-in">
                             <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
@@ -853,6 +945,7 @@ export const GroupPage: React.FC = () => {
                             </button>
                         </div>
                     )}
+                    </>)}
                 </div>
             </main>
 
