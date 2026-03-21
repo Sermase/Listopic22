@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { collection, collectionGroup, query, orderBy, limit, getDocs, doc, getDoc, where, startAfter } from 'firebase/firestore';
+import { collection, collectionGroup, query, orderBy, limit, getDocs, where, startAfter } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
+import { queryCache, getCachedDoc } from '../lib/queryCache';
 
 // Helper to dedup IDs
 const uniqueIds = (ids: (string | undefined)[]) => [...new Set(ids.filter((id): id is string => !!id))];
@@ -10,21 +11,10 @@ const uniqueIds = (ids: (string | undefined)[]) => [...new Set(ids.filter((id): 
 // Simplified batch fetcher
 const fetchDocsBatch = async (collectionName: string, ids: string[]) => {
     if (!ids.length) return {};
-    // Firestore 'in' limit is 10, preventing simplified batching for large sets without chunking
-    // For MVP, we'll fetch individually or use a simple loop if the set is small (20 reviews max means ~20 lists max)
     const docsMap: Record<string, any> = {};
     await Promise.all(ids.map(async (id) => {
-        try {
-            const snap = await getDoc(doc(db, collectionName, id));
-            if (snap.exists()) docsMap[id] = snap.data();
-        } catch (e: unknown) {
-            // Ignore permission/not-found errors which are expected for private lists/items
-
-            if ((e as any).code === 'permission-denied' || (e as any).code === 'not-found') {
-                return;
-            }
-            console.warn(`Failed to fetch ${collectionName} ${id}`, e);
-        }
+        const data = await getCachedDoc(collectionName, id);
+        if (data) docsMap[id] = data;
     }));
     return docsMap;
 };
@@ -198,6 +188,17 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
         console.log(`[useReviews] Fetching reviews. Type: ${type}, userId: ${userId}, listId: ${listId}, isLoadMore: ${isLoadMore}`);
 
         try {
+            if (!isLoadMore && type !== 'following') {
+                const cacheKey = `reviews:${type}:${userId || ''}:${listId || ''}`;
+                const cached = queryCache.get<ReviewEntity[]>(cacheKey);
+                if (cached) {
+                    setReviews(cached);
+                    setLoading(false);
+                    setLoadingMore(false);
+                    return;
+                }
+            }
+
             // Pre-check for following
             if (type === 'following') {
                 if (!followingIds || followingIds.length === 0) {
@@ -346,6 +347,11 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
 
             if (type === 'trending') {
                 enrichedReviews.sort((a, b) => (b.overallRating || 0) - (a.overallRating || 0));
+            }
+
+            if (!isLoadMore && type !== 'following') {
+                const cacheKey = `reviews:${type}:${userId || ''}:${listId || ''}`;
+                queryCache.set(cacheKey, enrichedReviews);
             }
 
             if (isLoadMore) {

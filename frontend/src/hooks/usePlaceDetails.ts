@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
+import { queryCache } from '../lib/queryCache';
 
 export interface PlaceDetails {
     placeId: string;
@@ -64,6 +65,14 @@ export const usePlaceDetails = (placeId: string | undefined) => {
 
         setLoading(true);
         try {
+            const cacheKey = `placeDetails:${placeId}`;
+            const cached = queryCache.get<PlaceDetails>(cacheKey);
+            if (cached) {
+                setPlace(cached);
+                setLoading(false);
+                return;
+            }
+
             // 1. Fetch detailed Place info from 'places' collection
             const placeDocRef = doc(db, 'places', placeId);
             const placeDocSnap = await getDoc(placeDocRef);
@@ -248,7 +257,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
             const googleUserRatingCount = placeData?.userRatingCount || placeData?.user_ratings_total;
             const category = placeData?.category || placeData?.types?.[0]; // Fallback to first type
 
-            setPlace({
+            const placeDetails: PlaceDetails = {
                 placeId,
                 name,
                 photoUrl,
@@ -270,7 +279,9 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                 category,
                 closedStatus: placeData?.closedStatus || undefined,
                 googleBusinessStatus: placeData?.googleBusinessStatus || undefined,
-            });
+            };
+            queryCache.set(cacheKey, placeDetails);
+            setPlace(placeDetails);
 
         } catch (err: unknown) {
             console.error("Error fetching place details:", err);

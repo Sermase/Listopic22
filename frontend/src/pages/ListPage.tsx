@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
 import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
@@ -33,6 +34,25 @@ export const ListPage: React.FC = () => {
     const [sortMode, setSortMode] = useState<'rating' | 'newest' | 'oldest' | 'count'>('rating');
     const { list, reviews, sublists, loading, error } = useListDetails(listId);
     const { user } = useAuth();
+
+    // OG meta tags for social sharing (WhatsApp, iMessage, etc.)
+    useEffect(() => {
+        if (!list) return;
+        const title = `${list.name} — Listopic`;
+        document.title = title;
+        const setMeta = (prop: string, content: string) => {
+            let el = document.querySelector(`meta[property="${prop}"]`);
+            if (!el) { el = document.createElement('meta'); el.setAttribute('property', prop); document.head.appendChild(el); }
+            el.setAttribute('content', content);
+        };
+        setMeta('og:title', title);
+        setMeta('og:description', (list as any).description || `${list.reviewCount} reseñas · ${list.name}`);
+        setMeta('og:url', window.location.href);
+        setMeta('og:type', 'website');
+        const img = (list as any).mainImageUrl || (list as any).photoUrl;
+        if (img) setMeta('og:image', img);
+        return () => { document.title = 'Listopic'; };
+    }, [list]);
     const { profile: currentUserProfile } = useUserProfile(user?.uid);
     const isJefe = Boolean(currentUserProfile && (
         (Array.isArray(currentUserProfile.userType) && currentUserProfile.userType.includes('jefe')) ||
@@ -506,18 +526,47 @@ export const ListPage: React.FC = () => {
         return filteredItemsAll.slice(0, visibleCount);
     }, [filteredItemsAll, visibleCount]);
 
+    // Virtual scrolling for list view
+    const listViewRef = useRef<HTMLDivElement>(null);
+    const parentOffsetRef = useRef(0);
+    useLayoutEffect(() => {
+        parentOffsetRef.current = listViewRef.current?.offsetTop ?? 0;
+    });
+    const listVirtualizer = useWindowVirtualizer({
+        count: filteredItems.length,
+        estimateSize: () => 130,
+        overscan: 4,
+        scrollMargin: parentOffsetRef.current,
+    });
+
     const handleLoadMore = () => {
         setVisibleCount(prev => prev + PAGE_SIZE);
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen pt-24 px-4 max-w-4xl mx-auto">
-                <div className="h-8 w-1/3 bg-gray-800 rounded animate-pulse mb-4"></div>
-                <div className="h-4 w-2/3 bg-gray-800 rounded animate-pulse mb-8"></div>
+            <div className="min-h-screen pt-24 px-4 max-w-4xl mx-auto animate-pulse">
+                {/* List header */}
+                <div className="h-8 w-2/5 bg-gray-800 rounded mb-3" />
+                <div className="h-4 w-3/5 bg-gray-700 rounded mb-2" />
+                <div className="h-4 w-1/4 bg-gray-700 rounded mb-8" />
+                {/* Stats row */}
+                <div className="flex gap-3 mb-8">
+                    <div className="h-8 w-20 bg-gray-800 rounded-full" />
+                    <div className="h-8 w-20 bg-gray-800 rounded-full" />
+                    <div className="h-8 w-20 bg-gray-800 rounded-full" />
+                </div>
+                {/* Item cards */}
                 <div className="space-y-4">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="h-48 bg-gray-800 rounded-xl animate-pulse"></div>
+                        <div key={i} className="flex gap-3 h-32 bg-gray-800 rounded-xl overflow-hidden">
+                            <div className="w-28 h-full bg-gray-700 shrink-0" />
+                            <div className="flex-1 p-3 space-y-2">
+                                <div className="h-5 bg-gray-700 rounded w-3/4" />
+                                <div className="h-3 bg-gray-700 rounded w-1/2" />
+                                <div className="h-3 bg-gray-700 rounded w-1/3" />
+                            </div>
+                        </div>
                     ))}
                 </div>
             </div>
@@ -978,16 +1027,33 @@ export const ListPage: React.FC = () => {
                                     })}
                                 </div>
                             ) : (
-                            <div className="flex flex-col rounded-xl overflow-hidden border border-[var(--border-color)] divide-y divide-[var(--border-color)]">
-                                {filteredItems.map((item, idx) => (
-                                    <ListItemCard
-                                        key={item.id}
-                                        item={item}
-                                        rank={idx + 1}
-                                        isGrid={false}
-                                        groupingMode={groupingMode}
-                                        listId={listId}
-                                    />
+                            <div
+                                ref={listViewRef}
+                                className="rounded-xl overflow-hidden border border-[var(--border-color)]"
+                                style={{ position: 'relative', height: `${listVirtualizer.getTotalSize()}px` }}
+                            >
+                                {listVirtualizer.getVirtualItems().map((virtualRow) => (
+                                    <div
+                                        key={filteredItems[virtualRow.index].id}
+                                        data-index={virtualRow.index}
+                                        ref={listVirtualizer.measureElement}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            width: '100%',
+                                            transform: `translateY(${virtualRow.start - listVirtualizer.options.scrollMargin}px)`,
+                                        }}
+                                        className={virtualRow.index > 0 ? 'border-t border-[var(--border-color)]' : ''}
+                                    >
+                                        <ListItemCard
+                                            item={filteredItems[virtualRow.index]}
+                                            rank={virtualRow.index + 1}
+                                            isGrid={false}
+                                            groupingMode={groupingMode}
+                                            listId={listId}
+                                        />
+                                    </div>
                                 ))}
                             </div>
                             )}

@@ -1,5 +1,6 @@
 import { db } from '../firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
+import { queryCache, invalidateDoc } from '../lib/queryCache';
 
 export const ReviewService = {
     /**
@@ -96,6 +97,11 @@ export const ReviewService = {
             }
 
             await Promise.all(updates);
+
+            queryCache.invalidate('listDetails:' + finalListId);
+            queryCache.invalidate('reviews:');
+            if (placeId) queryCache.invalidate('placeDetails:' + placeId);
+            if (finalListId) invalidateDoc('lists', finalListId);
 
         } catch (error) {
             console.error("Error in deleteReview service:", error);

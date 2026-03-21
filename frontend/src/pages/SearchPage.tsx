@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
     InstantSearch,
@@ -8,17 +8,34 @@ import {
     useRefinementList,
     Index
 } from 'react-instantsearch';
-import { Search, Map as MapIcon, Users, List as ListIcon, MessageCircle, Filter, X } from 'lucide-react';
+import { Search, Map as MapIcon, Users, List as ListIcon, MessageCircle, Filter, X, Clock } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import { SearchQueryParser } from '../services/SearchQueryParser';
 import { ListItemCard } from '../components/ListItemCard';
 // Note: You might need to import/create specific card adapters if the data shape differs significantly.
 
+const RECENT_SEARCHES_KEY = 'listopic_recent_searches';
+
+const getRecentSearches = (): string[] => {
+    try { return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]'); }
+    catch { return []; }
+};
+
+const saveRecentSearch = (term: string): void => {
+    const trimmed = term.trim();
+    if (trimmed.length < 2) return;
+    const current = getRecentSearches().filter(s => s !== trimmed);
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify([trimmed, ...current].slice(0, 5)));
+};
+
 // --- Custom Search Box (Real-time) ---
 const CustomSearchBox = (props: Record<string, unknown>) => {
     const { query, refine } = useSearchBox(props);
     const [inputValue, setInputValue] = useState(query);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [focused, setFocused] = useState(false);
+    const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
     // Sync local input if query changes externally
     useEffect(() => {
@@ -43,36 +60,114 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
         setInputValue(e.target.value);
     };
 
+    const handleFocus = () => {
+        setRecentSearches(getRecentSearches());
+        setFocused(true);
+    };
+
+    const handleBlur = () => {
+        setTimeout(() => setFocused(false), 150);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        saveRecentSearch(inputValue);
+        setRecentSearches(getRecentSearches());
         refine(inputValue);
     };
 
+    const selectSuggestion = (term: string) => {
+        setInputValue(term);
+        saveRecentSearch(term);
+        setRecentSearches(getRecentSearches());
+        refine(term);
+    };
+
+    const showRecent = focused && recentSearches.length > 0 && !inputValue;
+    const matchingRecent = focused && inputValue.length > 0
+        ? recentSearches.filter(s => s.toLowerCase().includes(inputValue.toLowerCase()))
+        : [];
+
     return (
-        <form onSubmit={handleSubmit} className="relative max-w-2xl mx-auto">
-            <input
-                type="text"
-                value={inputValue}
-                onChange={handleChange}
-                placeholder="Buscar listas, usuarios, trastiendas (@user, #tag)..."
-                className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-full py-4 pl-14 pr-6 text-white text-lg focus:outline-none focus:border-indigo-500 focus:bg-white/10 shadow-2xl placeholder-gray-400 transition-all hover:bg-white/10"
-            />
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
-            {inputValue && (
-                <button type="button" onClick={() => { setInputValue(''); refine(''); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-                    <X className="w-5 h-5" />
-                </button>
+        <div className="relative max-w-2xl mx-auto">
+            <form onSubmit={handleSubmit}>
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputValue}
+                    onChange={handleChange}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                    placeholder="Buscar listas, usuarios, trastiendas (@user, #tag)..."
+                    className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-full py-4 pl-14 pr-6 text-white text-lg focus:outline-none focus:border-indigo-500 focus:bg-white/10 shadow-2xl placeholder-gray-400 transition-all hover:bg-white/10"
+                />
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
+                {inputValue && (
+                    <button type="button" onClick={() => { setInputValue(''); refine(''); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                        <X className="w-5 h-5" />
+                    </button>
+                )}
+            </form>
+            {(showRecent || matchingRecent.length > 0) && (
+                <div className="absolute top-full mt-2 left-0 right-0 bg-[#151b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
+                    {showRecent && (
+                        <>
+                            <p className="px-4 pt-3 pb-1 text-xs text-gray-500 uppercase tracking-wider font-semibold">Búsquedas recientes</p>
+                            {recentSearches.map((term) => (
+                                <button
+                                    key={term}
+                                    onMouseDown={() => selectSuggestion(term)}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                                >
+                                    <Clock className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                                    <span className="truncate">{term}</span>
+                                </button>
+                            ))}
+                        </>
+                    )}
+                    {matchingRecent.length > 0 && (
+                        <>
+                            <p className="px-4 pt-3 pb-1 text-xs text-gray-500 uppercase tracking-wider font-semibold">Sugerencias</p>
+                            {matchingRecent.map((term) => (
+                                <button
+                                    key={term}
+                                    onMouseDown={() => selectSuggestion(term)}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                                >
+                                    <Search className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                                    <span className="truncate">{term}</span>
+                                </button>
+                            ))}
+                        </>
+                    )}
+                </div>
             )}
-        </form>
+        </div>
     );
 };
 
 // --- Custom Hits ---
 const CustomHits = ({ activeTab }: { activeTab: string }) => {
 
-    // Note: useInfiniteHits doesn't support 'limit' directly in the hook, 
+    // Note: useInfiniteHits doesn't support 'limit' directly in the hook,
     // but the parent <Configure hitsPerPage={limit} /> handles it.
     const { hits, isLastPage, showMore } = useInfiniteHits();
+    const loadMoreRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const sentinel = loadMoreRef.current;
+        if (!sentinel) return;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && !isLastPage) {
+                    showMore();
+                }
+            },
+            { threshold: 0.1 }
+        );
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [isLastPage, showMore]);
 
     // Filter Items by Image Requirement
     const filteredHits = useMemo(() => {
@@ -168,10 +263,8 @@ const CustomHits = ({ activeTab }: { activeTab: string }) => {
                 })}
             </div>
             {!isLastPage && (
-                <div className="flex justify-center mt-8">
-                    <button onClick={showMore} className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold transition-colors">
-                        Ver más
-                    </button>
+                <div ref={loadMoreRef} className="py-6 flex justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500" />
                 </div>
             )}
         </div>

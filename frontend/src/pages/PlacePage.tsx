@@ -22,6 +22,24 @@ export const PlacePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
     const { place, loading, error, refresh } = usePlaceDetails(placeId);
     const { user } = useAuth();
+
+    // OG meta tags for social sharing
+    useEffect(() => {
+        if (!place) return;
+        const title = `${place.name} — Listopic`;
+        document.title = title;
+        const setMeta = (prop: string, content: string) => {
+            let el = document.querySelector(`meta[property="${prop}"]`);
+            if (!el) { el = document.createElement('meta'); el.setAttribute('property', prop); document.head.appendChild(el); }
+            el.setAttribute('content', content);
+        };
+        setMeta('og:title', title);
+        setMeta('og:description', `${place.reviewCount} reseñas · ${place.address || place.name}`);
+        setMeta('og:url', window.location.href);
+        setMeta('og:type', 'website');
+        if (place.photoUrl) setMeta('og:image', place.photoUrl);
+        return () => { document.title = 'Listopic'; };
+    }, [place]);
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const fromListId = searchParams.get('listId');
@@ -210,8 +228,26 @@ export const PlacePage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen pt-32 px-4 flex justify-center bg-[#0b1021]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+            <div className="min-h-screen bg-[#0b1021] animate-pulse">
+                {/* Hero skeleton */}
+                <div className="h-[40vh] min-h-[300px] bg-white/5" />
+                <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-16 relative z-10">
+                    {/* Title & address */}
+                    <div className="h-10 bg-white/10 rounded w-2/3 mb-3" />
+                    <div className="h-5 bg-white/5 rounded w-1/3 mb-8" />
+                    {/* Stats row */}
+                    <div className="flex gap-4 mb-8">
+                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
+                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
+                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
+                    </div>
+                    {/* Review cards */}
+                    <div className="space-y-4">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-40 bg-white/5 rounded-2xl" />
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }

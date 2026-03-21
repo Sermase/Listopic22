@@ -13,6 +13,7 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { queryCache, invalidateDoc } from '../lib/queryCache';
 import { Save, Loader, X } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 
@@ -195,6 +196,9 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 await batch.commit();
             }
 
+            queryCache.invalidate('listDetails:' + listId);
+            queryCache.invalidate('lists:');
+            invalidateDoc('lists', listId);
             onSuccess();
         } catch (error) {
             console.error('Error updating list:', error);
@@ -209,6 +213,8 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
         setSaving(true);
         try {
             await deleteDoc(doc(db, 'lists', listId));
+            queryCache.invalidate('listDetails:' + listId);
+            queryCache.invalidate('lists:');
             (onDeleted || onSuccess)();
         } catch (error) {
             console.error('Error deleting list:', error);
