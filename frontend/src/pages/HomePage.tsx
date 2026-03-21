@@ -231,7 +231,7 @@ export const HomePage: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [user?.uid, user?.email]);
+    }, [user?.uid]);
 
     useEffect(() => {
         if (!user || !showProfileGate) return;

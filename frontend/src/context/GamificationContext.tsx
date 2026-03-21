@@ -93,7 +93,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return;
         }
 
-        const unsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+        const unsub = onSnapshot(doc(db, 'users', user.uid), { includeMetadataChanges: true }, (snap) => {
             if (!snap.exists()) return;
             const data = snap.data();
 
@@ -103,7 +103,16 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             setLevelInfo(newLevelInfo);
             setEarnedBadgeIds(newBadges);
 
-            // Skip triggering visuals on initial load
+            // Cache snapshots: silently update refs so the server snapshot
+            // compares against the correct baseline, but never trigger visuals.
+            if (snap.metadata.fromCache) {
+                prevXpRef.current = newLevelInfo.xp;
+                prevLevelRef.current = newLevelInfo.level;
+                prevBadgeIdsRef.current = new Set(newBadges);
+                return;
+            }
+
+            // First confirmed-from-server snapshot: treat as initial load baseline.
             if (isInitialLoadRef.current) {
                 prevXpRef.current = newLevelInfo.xp;
                 prevLevelRef.current = newLevelInfo.level;
