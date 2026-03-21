@@ -1112,10 +1112,46 @@ export const HomePage: React.FC = () => {
                     {activeTab === 'news' ? (
                         <div className="max-w-2xl mx-auto mt-12 pb-20">
                             {filteredItems.length === 0 ? (
-                                <div className="text-center text-gray-500 py-10 border border-white/5 rounded-xl bg-white/5 mx-4">
-                                    <p className="font-bold text-white mb-2">Tu feed está tranquilo</p>
-                                    <p className="text-sm">No hay actividad reciente de personas que sigues.</p>
-                                    <p className="text-xs mt-4 text-indigo-400">¡Explora y sigue a usuarios para ver sus reseñas aquí!</p>
+                                <div className="text-gray-500 py-10 border border-white/5 rounded-xl bg-white/5 mx-4 px-4">
+                                    <p className="font-bold text-white mb-1 text-center">Tu feed está tranquilo</p>
+                                    <p className="text-sm text-center mb-4">Sigue a estas personas para ver sus reseñas aquí</p>
+                                    {topUsers.length > 0 && !loadingUsers && (
+                                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                            {topUsers
+                                                .filter((topUser: any) => topUser.uid !== user?.uid)
+                                                .slice(0, 5)
+                                                .map((topUser: any) => (
+                                                    <Link
+                                                        key={topUser.uid}
+                                                        to={`/profile/${topUser.uid}`}
+                                                        className="bg-white/5 border border-white/10 rounded-xl p-3 text-center w-28 shrink-0 hover:bg-white/10 transition-colors"
+                                                    >
+                                                        {topUser.photoURL ? (
+                                                            <img
+                                                                src={topUser.photoURL}
+                                                                alt={topUser.displayName || topUser.username || '?'}
+                                                                className="w-12 h-12 rounded-full mx-auto mb-2 object-cover"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-12 h-12 rounded-full mx-auto mb-2 bg-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                                                                {(topUser.displayName || topUser.username || '?')[0].toUpperCase()}
+                                                            </div>
+                                                        )}
+                                                        <p className="text-white text-xs font-semibold truncate">
+                                                            {topUser.displayName || topUser.username || 'Usuario'}
+                                                        </p>
+                                                        <p className="text-gray-500 text-[10px] mt-0.5">
+                                                            {topUser.followersCount ?? 0} seguidores
+                                                        </p>
+                                                    </Link>
+                                                ))}
+                                        </div>
+                                    )}
+                                    <div className="text-center mt-4">
+                                        <Link to="/search?type=lists" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                                            Explorar listas →
+                                        </Link>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="space-y-8">

@@ -22,6 +22,24 @@ export const PlacePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
     const { place, loading, error, refresh } = usePlaceDetails(placeId);
     const { user } = useAuth();
+
+    // OG meta tags for social sharing
+    useEffect(() => {
+        if (!place) return;
+        const title = `${place.name} — Listopic`;
+        document.title = title;
+        const setMeta = (prop: string, content: string) => {
+            let el = document.querySelector(`meta[property="${prop}"]`);
+            if (!el) { el = document.createElement('meta'); el.setAttribute('property', prop); document.head.appendChild(el); }
+            el.setAttribute('content', content);
+        };
+        setMeta('og:title', title);
+        setMeta('og:description', `${place.reviewCount} reseñas · ${place.address || place.name}`);
+        setMeta('og:url', window.location.href);
+        setMeta('og:type', 'website');
+        if (place.photoUrl) setMeta('og:image', place.photoUrl);
+        return () => { document.title = 'Listopic'; };
+    }, [place]);
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const fromListId = searchParams.get('listId');

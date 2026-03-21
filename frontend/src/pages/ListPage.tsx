@@ -34,6 +34,25 @@ export const ListPage: React.FC = () => {
     const [sortMode, setSortMode] = useState<'rating' | 'newest' | 'oldest' | 'count'>('rating');
     const { list, reviews, sublists, loading, error } = useListDetails(listId);
     const { user } = useAuth();
+
+    // OG meta tags for social sharing (WhatsApp, iMessage, etc.)
+    useEffect(() => {
+        if (!list) return;
+        const title = `${list.name} — Listopic`;
+        document.title = title;
+        const setMeta = (prop: string, content: string) => {
+            let el = document.querySelector(`meta[property="${prop}"]`);
+            if (!el) { el = document.createElement('meta'); el.setAttribute('property', prop); document.head.appendChild(el); }
+            el.setAttribute('content', content);
+        };
+        setMeta('og:title', title);
+        setMeta('og:description', (list as any).description || `${list.reviewCount} reseñas · ${list.name}`);
+        setMeta('og:url', window.location.href);
+        setMeta('og:type', 'website');
+        const img = (list as any).mainImageUrl || (list as any).photoUrl;
+        if (img) setMeta('og:image', img);
+        return () => { document.title = 'Listopic'; };
+    }, [list]);
     const { profile: currentUserProfile } = useUserProfile(user?.uid);
     const isJefe = Boolean(currentUserProfile && (
         (Array.isArray(currentUserProfile.userType) && currentUserProfile.userType.includes('jefe')) ||

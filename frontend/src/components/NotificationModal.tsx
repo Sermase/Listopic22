@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { X, Bell, Heart, UserPlus, MessageSquare, Star, Award } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -87,6 +87,39 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         return '#';
     }
 
+    const groupedNotifications = useMemo(() => {
+        const groups: Record<string, any[]> = {};
+        notifications.forEach(n => {
+            const key = n.type + '__' + (n.link || n.fromUserId || n.placeId || '');
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(n);
+        });
+
+        return Object.values(groups)
+            .map(group => {
+                if (group.length === 1) return group[0];
+                const base = { ...group[0] };
+                const senderNames = group.map(n => n.senderName).filter(Boolean);
+                let senderText: string;
+                if (senderNames.length === 2) {
+                    senderText = `${senderNames[0]} y ${senderNames[1]}`;
+                } else if (senderNames.length >= 3) {
+                    senderText = `${senderNames[0]}, ${senderNames[1]} y ${senderNames.length - 2} más`;
+                } else {
+                    senderText = senderNames[0] || '';
+                }
+                base.senderName = senderText;
+                base.groupCount = group.length;
+                base.isGrouped = true;
+                return base;
+            })
+            .sort((a, b) => {
+                const aTs = a.createdAt?.seconds ?? 0;
+                const bTs = b.createdAt?.seconds ?? 0;
+                return bTs - aTs;
+            });
+    }, [notifications]);
+
     const mobileListContent = loading ? (
         <div className="py-10 text-center text-gray-500 text-sm">Cargando...</div>
     ) : notifications.length === 0 ? (
@@ -96,7 +129,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         </div>
     ) : (
         <div className="space-y-1">
-            {notifications.map(notification => (
+            {groupedNotifications.map(notification => (
                 <Link
                     key={notification.id}
                     to={getLink(notification)}
@@ -112,8 +145,15 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                         }`}
                 >
                     <div className="flex gap-3">
-                        <div className="mt-0.5 shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-black/20 border border-white/5">
-                            {getIcon(notification.type)}
+                        <div className="relative">
+                            <div className="mt-0.5 shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-black/20 border border-white/5">
+                                {getIcon(notification.type)}
+                            </div>
+                            {notification.groupCount > 1 && (
+                                <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                    {notification.groupCount}
+                                </span>
+                            )}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-200 leading-snug">
@@ -166,7 +206,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                     </div>
                 ) : (
                     <div className="divide-y divide-white/5">
-                        {notifications.map(notification => (
+                        {groupedNotifications.map(notification => (
                             <Link
                                 key={notification.id}
                                 to={getLink(notification)}
@@ -180,8 +220,15 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                                 className={`block p-4 hover:bg-white/5 transition-colors ${!notification.read ? 'bg-indigo-500/5' : ''}`}
                             >
                                 <div className="flex gap-3">
-                                    <div className={`mt-1 shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-black/20 border border-white/5`}>
-                                        {getIcon(notification.type)}
+                                    <div className="relative">
+                                        <div className={`mt-1 shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-black/20 border border-white/5`}>
+                                            {getIcon(notification.type)}
+                                        </div>
+                                        {notification.groupCount > 1 && (
+                                            <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                                {notification.groupCount}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-gray-200 leading-snug">
