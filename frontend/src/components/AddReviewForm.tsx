@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { db, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { Loader2, X, MapPin as MapPinIcon, Lock, Trash2 } from 'lucide-react';
+import { Loader2, X, MapPin as MapPinIcon, CheckCircle2, Lock, Trash2 } from 'lucide-react';
 import { PlaceSearch } from './PlaceSearch';
 import { PlaceService, type PlaceResult, transformToLegacyPlace } from '../services/PlaceService';
 import { ListSearch } from './ListSearch';
@@ -72,6 +72,15 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     // UX States
     const [ratingsTouched, setRatingsTouched] = useState(false);
     const [originalData, setOriginalData] = useState<string>(''); // JSON string for deep comparison
+
+    // Scroll preservation — prevents the modal from jumping when leaving text inputs
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const preserveScroll = () => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const top = el.scrollTop;
+        requestAnimationFrame(() => { el.scrollTop = top; });
+    };
 
     // Update internalListId if prop changes
     useEffect(() => {
@@ -781,7 +790,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 </div>
 
                 {/* ── Scrollable body ────────────────────────────── */}
-                <div className="overflow-y-auto flex-1 custom-scrollbar">
+                <div ref={scrollRef} className="overflow-y-auto flex-1 custom-scrollbar">
 
                     {/* ── Sección: ¿En qué lista? ─────────────────── */}
                     <div className="px-4 pt-4">
@@ -821,8 +830,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                         {/* ── Sección: ¿Dónde? ────────────────────── */}
                         <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#FF715B] flex items-center gap-1.5">
-                                <span>📍</span> ¿Dónde?
+                            <p className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 transition-colors duration-300 ${(selectedPlace || prefillPlaceId) ? 'text-[#3DD598]' : 'text-[#FF715B]'}`}>
+                                <span>{(selectedPlace || prefillPlaceId) ? '✅' : '📍'}</span> ¿Dónde?
                             </p>
                             {prefillPlaceId ? (
                                 <div className="flex items-center gap-3 bg-[#FF715B]/10 border border-[#FF715B]/20 p-3 rounded-xl">
@@ -844,7 +853,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     />
                                     {selectedPlace && (
                                         <div className="flex items-center gap-2 text-xs text-[#3DD598] bg-[#3DD598]/10 border border-[#3DD598]/20 px-3 py-2 rounded-xl animate-fade-in">
-                                            <MapPinIcon className="w-3 h-3 shrink-0" />
+                                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                                             <span className="font-semibold truncate">{selectedPlace.name}</span>
                                         </div>
                                     )}
@@ -862,6 +871,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     type="text"
                                     value={itemName}
                                     onChange={e => setItemName(e.target.value)}
+                                    onBlur={preserveScroll}
                                     placeholder="Ej: Pizza Margherita, Tacos al pastor..."
                                     disabled={!!prefillItemName}
                                     className={`w-full rounded-xl px-4 py-3 text-white text-sm focus:outline-none transition-all placeholder:text-gray-600
@@ -933,6 +943,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                     max="10"
                                                     step={criterion.step || 0.1}
                                                     value={val}
+                                                    onFocus={preserveScroll}
                                                     onChange={(e) => {
                                                         const newVal = parseFloat(e.target.value);
                                                         setCriteriaScores({ ...criteriaScores, [criterion.id]: newVal });
@@ -942,9 +953,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                     style={{ background: getSliderBg(val, true), '--thumb-color': color } as React.CSSProperties}
                                                 />
                                                 {(criterion.labelMin || criterion.labelMax) && (
-                                                    <div className="flex justify-between">
-                                                        <span className="text-[10px] text-gray-600 italic">{criterion.labelMin}</span>
-                                                        <span className="text-[10px] text-gray-600 italic">{criterion.labelMax}</span>
+                                                    <div className="flex justify-between gap-3">
+                                                        <span className="text-[10px] text-rose-500/70 italic leading-snug">{criterion.labelMin}</span>
+                                                        <span className="text-[10px] text-emerald-500/70 italic leading-snug text-right">{criterion.labelMax}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -970,6 +981,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                         max="10"
                                                         step={criterion.step || 0.5}
                                                         value={val}
+                                                        onFocus={preserveScroll}
                                                         onChange={(e) => {
                                                             const newVal = parseFloat(e.target.value);
                                                             setCriteriaScores({ ...criteriaScores, [criterion.id]: newVal });
@@ -979,9 +991,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                         style={{ background: getSliderBg(val, false), '--thumb-color': '#5C7CFA' } as React.CSSProperties}
                                                     />
                                                     {(criterion.labelMin || criterion.labelMax) && (
-                                                        <div className="flex justify-between">
-                                                            <span className="text-[10px] text-gray-600 italic">{criterion.labelMin}</span>
-                                                            <span className="text-[10px] text-gray-600 italic">{criterion.labelMax}</span>
+                                                        <div className="flex justify-between gap-3">
+                                                            <span className="text-[10px] text-indigo-400/50 italic leading-snug">{criterion.labelMin}</span>
+                                                            <span className="text-[10px] text-indigo-400/70 italic leading-snug text-right">{criterion.labelMax}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1007,6 +1019,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             <textarea
                                 value={comment}
                                 onChange={e => setComment(e.target.value)}
+                                onBlur={preserveScroll}
                                 placeholder="¿Qué te pareció? Los detalles que hacen la diferencia..."
                                 rows={3}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all placeholder:text-gray-600 resize-none"
