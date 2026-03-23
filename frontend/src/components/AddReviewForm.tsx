@@ -4,7 +4,7 @@ import { db, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { Loader2, X, Image as ImageIcon, MapPin as MapPinIcon, Lock, Trash2 } from 'lucide-react';
+import { Loader2, X, MapPin as MapPinIcon, Lock, Trash2 } from 'lucide-react';
 import { PlaceSearch } from './PlaceSearch';
 import { PlaceService, type PlaceResult, transformToLegacyPlace } from '../services/PlaceService';
 import { ListSearch } from './ListSearch';
@@ -715,294 +715,333 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const ponderableCriteria = criteriaList.filter(c => c.ponderable !== false);
     const nonPonderableCriteria = criteriaList.filter(c => c.ponderable === false);
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4">
-            <div className="bg-[#0b1021] w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-none md:border border-white/10">
+    // Rating helpers
+    const getRatingEmoji = (r: number) => {
+        if (r >= 9) return '🤩';
+        if (r >= 7) return '😍';
+        if (r >= 5) return '😊';
+        if (r >= 3) return '😐';
+        return '😬';
+    };
 
-                {/* Header */}
-                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#151b2e]">
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                        {isNew ? 'Nueva ReseÃ±a' : 'Editar ReseÃ±a'}
-                    </h2>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                        <X className="w-5 h-5 text-gray-400" />
+    const getRatingLabel = (r: number) => {
+        if (r >= 9) return 'Increíble';
+        if (r >= 7) return 'Muy bueno';
+        if (r >= 5) return 'Bueno';
+        if (r >= 3) return 'Regular';
+        return 'Mejorable';
+    };
+
+    const getSliderBg = (val: number, ponderable = true) => {
+        const pct = (val / 10) * 100;
+        const activeColor = ponderable ? `hsl(${val * 12}, 90%, 55%)` : '#5C7CFA';
+        return `linear-gradient(to right, ${activeColor} 0%, ${activeColor} ${pct}%, rgba(55,65,81,0.35) ${pct}%, rgba(55,65,81,0.35) 100%)`;
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/70 backdrop-blur-md animate-fade-in">
+            <div
+                className="bg-[#0b1021] w-full h-[96dvh] md:h-auto md:max-h-[90vh] md:max-w-2xl flex flex-col overflow-hidden rounded-t-3xl md:rounded-2xl"
+                style={{ boxShadow: '0 -8px 48px rgba(92,124,250,0.18), 0 0 0 1px rgba(255,255,255,0.06)' }}
+            >
+                {/* ── Header ─────────────────────────────────────── */}
+                <div
+                    className="relative flex items-center justify-between p-5 shrink-0 overflow-hidden"
+                    style={{ background: 'linear-gradient(135deg, #151c36 0%, #111828 100%)' }}
+                >
+                    {/* Decorative blobs */}
+                    <div className="absolute -top-8 -left-8 w-28 h-28 rounded-full opacity-25 pointer-events-none"
+                        style={{ background: 'radial-gradient(circle, #5C7CFA, transparent 70%)' }} />
+                    <div className="absolute -top-6 right-12 w-20 h-20 rounded-full opacity-20 pointer-events-none"
+                        style={{ background: 'radial-gradient(circle, #FF715B, transparent 70%)' }} />
+
+                    <div className="relative flex items-center gap-3">
+                        <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+                            style={{ background: 'linear-gradient(135deg, #5C7CFA, #9b51e0)' }}
+                        >
+                            {isNew ? '✍️' : '✏️'}
+                        </div>
+                        <div>
+                            <h2 className="text-base font-bold text-white font-display leading-tight">
+                                {isNew ? 'Nueva Reseña' : 'Editar Reseña'}
+                            </h2>
+                            {listData?.name && (
+                                <p className="text-xs text-indigo-300/60 mt-0.5">en {listData.name}</p>
+                            )}
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={onClose}
+                        className="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all hover:scale-105 active:scale-95"
+                    >
+                        <X className="w-4 h-4 text-gray-400" />
                     </button>
                 </div>
 
-                <div className="overflow-y-auto flex-1 custom-scrollbar relative">
-                    {/* List Selector Picker */}
-                    <div className="p-6 pb-0 space-y-2">
-                        {/* CHANGED: Logic for locking list if editing - use internalListId state properly */}
-                        {(!lockList && !editReviewId) ? (
-                            <>
-                                <label className="block text-xs font-bold uppercase text-gray-400 tracking-wider">Guardar en Lista <span className="text-red-400">*</span></label>
+                {/* ── Scrollable body ────────────────────────────── */}
+                <div className="overflow-y-auto flex-1 custom-scrollbar">
+
+                    {/* ── Sección: ¿En qué lista? ─────────────────── */}
+                    <div className="px-4 pt-4">
+                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
+                                <span>📋</span> ¿En qué lista?
+                            </p>
+                            {(!lockList && !editReviewId) ? (
                                 <ListSearch
                                     onSelect={(id) => {
                                         setInternalListId(id);
                                         if (onListChange) onListChange(id);
                                     }}
                                     selectedListId={internalListId}
-                                    placeName={selectedPlace?.name || itemName} // Use place name or item name for smart search
-                                    placeTypes={selectedPlace?.types} // Smart search by type
+                                    placeName={selectedPlace?.name || itemName}
+                                    placeTypes={selectedPlace?.types}
                                     suggestedListIds={suggestedListIds}
                                 />
-                            </>
-                        ) : internalListId ? (
-                            <div className="bg-[#151b2e] border border-white/10 p-3 rounded-lg flex justify-between items-center">
-                                <span className="text-sm text-gray-300">
-                                    Guardando en: <span className="text-indigo-400 font-bold">{listData?.name || 'Lista'}</span>
-                                </span>
-                                <Lock className="w-4 h-4 text-gray-500" />
-                            </div>
-                        ) : (
-                            <div className="p-2 border border-dashed border-red-500/30 text-red-400 text-xs rounded">
-                                Error: No hay lista seleccionada
-                            </div>
-                        )}
+                            ) : internalListId ? (
+                                <div className="flex items-center gap-3 bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl">
+                                    <div className="p-1.5 bg-indigo-500/20 rounded-lg shrink-0">
+                                        <Lock className="w-3.5 h-3.5 text-indigo-400" />
+                                    </div>
+                                    <span className="text-sm text-white font-semibold truncate">
+                                        {listData?.name || 'Lista seleccionada'}
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="p-3 border border-dashed border-red-500/30 text-red-400 text-xs rounded-xl">
+                                    Sin lista seleccionada
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    <form id="review-form" onSubmit={handleSubmit} className="space-y-6 p-6">
+                    <form id="review-form" onSubmit={handleSubmit} className="px-4 pb-4 pt-3 space-y-3">
 
-                        {/* 0. Place Search (Locked if Prefilled) */}
-                        {prefillPlaceId ? (
-                            <div className="space-y-2">
-                                <label className="block text-xs font-bold uppercase text-gray-400 tracking-wider">Lugar <span className="text-red-400">*</span></label>
-                                <div className="bg-[#1e2538] border border-white/10 rounded-xl p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
-                                            <MapPinIcon className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-white text-sm">{selectedPlace?.name || 'Cargando lugar...'}</div>
-                                            <div className="text-xs text-gray-500">{selectedPlace?.address || 'DirecciÃ³n no disponible'}</div>
-                                        </div>
+                        {/* ── Sección: ¿Dónde? ────────────────────── */}
+                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#FF715B] flex items-center gap-1.5">
+                                <span>📍</span> ¿Dónde?
+                            </p>
+                            {prefillPlaceId ? (
+                                <div className="flex items-center gap-3 bg-[#FF715B]/10 border border-[#FF715B]/20 p-3 rounded-xl">
+                                    <div className="p-2 bg-[#FF715B]/20 rounded-xl shrink-0">
+                                        <MapPinIcon className="w-4 h-4 text-[#FF715B]" />
                                     </div>
-                                    <div className="text-gray-500" title="Lugar fijo">
-                                        <Lock className="w-4 h-4" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-bold text-white truncate">{selectedPlace?.name || 'Cargando...'}</p>
+                                        <p className="text-xs text-gray-500 truncate">{selectedPlace?.address || ''}</p>
                                     </div>
+                                    <Lock className="w-3.5 h-3.5 text-gray-600 shrink-0" />
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                <label className="block text-xs font-bold uppercase text-gray-400 tracking-wider">Lugar <span className="text-red-400">*</span></label>
-                                <PlaceSearch
-                                    onSelect={setSelectedPlace}
-                                    prefillValue={selectedPlace?.name || prefillItemName}
-                                    placeholder="Buscar en el mapa (ej. Starbucks)..."
-                                />
-                                {selectedPlace && (
-                                    <div className="text-sm text-green-400 bg-green-400/10 p-2 rounded border border-green-400/20 flex items-center gap-2">
-                                        <MapPinIcon className="w-3 h-3" />
-                                        Seleccionado: {selectedPlace.name}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                            ) : (
+                                <div className="space-y-2">
+                                    <PlaceSearch
+                                        onSelect={setSelectedPlace}
+                                        prefillValue={selectedPlace?.name || prefillItemName}
+                                        placeholder="Busca el restaurante, bar, café... 🔍"
+                                    />
+                                    {selectedPlace && (
+                                        <div className="flex items-center gap-2 text-xs text-[#3DD598] bg-[#3DD598]/10 border border-[#3DD598]/20 px-3 py-2 rounded-xl animate-fade-in">
+                                            <MapPinIcon className="w-3 h-3 shrink-0" />
+                                            <span className="font-semibold truncate">{selectedPlace.name}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
-                        {/* 1. Item Name (Locked if Prefilled) */}
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1 tracking-wider">Â¿QuÃ© probaste? <span className="text-red-400">*</span></label>
+                        {/* ── Sección: ¿Qué probaste? ─────────────── */}
+                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#3DD598] flex items-center gap-1.5">
+                                <span>🍽️</span> ¿Qué probaste?
+                            </p>
                             <div className="relative">
                                 <input
                                     type="text"
                                     value={itemName}
                                     onChange={e => setItemName(e.target.value)}
-                                    placeholder="Ej: Pizza Margarita"
+                                    placeholder="Ej: Pizza Margherita, Tacos al pastor..."
                                     disabled={!!prefillItemName}
-                                    className={`w-full bg-[#0b1021] border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors ${prefillItemName
-                                        ? 'border-indigo-500/30 text-gray-300 cursor-not-allowed bg-[#151b2e]'
-                                        : 'border-white/10'
+                                    className={`w-full rounded-xl px-4 py-3 text-white text-sm focus:outline-none transition-all placeholder:text-gray-600
+                                        ${prefillItemName
+                                            ? 'bg-white/5 border border-white/10 cursor-not-allowed opacity-70'
+                                            : 'bg-white/5 border border-white/10 focus:border-indigo-500/60 focus:bg-indigo-500/5 focus:ring-1 focus:ring-indigo-500/20'
                                         }`}
                                 />
                                 {prefillItemName && (
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400" title="Nombre fijo">
-                                        <Lock className="w-4 h-4" />
-                                    </div>
+                                    <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
                                 )}
                             </div>
                         </div>
 
-                        {/* 3. Overall Rating (Read Only / Auto) */}
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Nota Global</label>
-                            <div className="flex items-center gap-4 bg-[#151b2e] p-4 rounded-xl border border-white/5">
-                                <div className={`text-4xl font-bold ${overallRating >= 7 ? 'text-green-400' : overallRating >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                    {overallRating}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                    Esta nota se calcula automÃ¡ticamente basÃ¡ndose en tus puntuaciones.
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 4. Detailed Criteria */}
+                        {/* ── Sección: Valoración ─────────────────── */}
                         {criteriaList.length > 0 ? (
-                            <div className="bg-white/5 p-5 rounded-2xl border border-white/5 space-y-6">
-                                <h3 className="text-base font-bold text-gray-200 flex items-center gap-2 mb-2">
-                                    ValoraciÃ³n Detallada <span className="text-red-400">*</span>
-                                </h3>
+                            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-5">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#F2C94C] flex items-center gap-1.5">
+                                        <span>⭐</span> Valoración
+                                    </p>
+                                    {isNew && !ratingsTouched && (
+                                        <span className="text-[10px] text-amber-400/60 italic animate-pulse">
+                                            Mueve los sliders ↓
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Overall Rating Badge */}
+                                <div
+                                    className="flex items-center gap-4 p-4 rounded-xl transition-all duration-500"
+                                    style={{
+                                        background: `linear-gradient(135deg, hsl(${overallRating * 12}, 80%, 10%) 0%, transparent 100%)`,
+                                        border: `1px solid hsl(${overallRating * 12}, 70%, 25%)`
+                                    }}
+                                >
+                                    <div
+                                        className="text-5xl font-black font-display transition-all duration-300 tabular-nums"
+                                        style={{ color: `hsl(${overallRating * 12}, 90%, 60%)` }}
+                                    >
+                                        {overallRating.toFixed(1)}
+                                    </div>
+                                    <div>
+                                        <div className="text-2xl leading-none mb-1">{getRatingEmoji(overallRating)}</div>
+                                        <div className="text-sm font-bold text-gray-200">{getRatingLabel(overallRating)}</div>
+                                        <div className="text-[11px] text-gray-500 mt-0.5">Calculado automáticamente</div>
+                                    </div>
+                                </div>
 
                                 {/* PONDERABLE CRITERIA */}
-                                <div className="space-y-6">
-                                    {ponderableCriteria.map((criterion) => (
-                                        <div key={criterion.id}>
-                                            <div className="flex justify-between mb-2">
-                                                <label className="text-sm text-gray-300 font-medium">{criterion.label || criterion.id}</label>
-                                                <span
-                                                    className="text-sm font-bold transition-colors duration-300"
-                                                    style={{ color: `hsl(${criteriaScores[criterion.id] * 12}, 90%, 50%)` }}
-                                                >
-                                                    {criteriaScores[criterion.id]}
-                                                </span>
-                                            </div>
-                                            <div className="relative w-full h-6 flex items-center">
-                                                {/* Track Background & Fill */}
-                                                <div className="absolute left-0 right-0 h-2 bg-gray-700/50 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full transition-all duration-300 rounded-full"
-                                                        style={{
-                                                            width: `${(criteriaScores[criterion.id] / 10) * 100}%`,
-                                                            background: `hsl(${criteriaScores[criterion.id] * 12}, 90%, 50%)`,
-                                                            boxShadow: `0 0 10px hsl(${criteriaScores[criterion.id] * 12}, 90%, 50%, 0.5)`
-                                                        }}
-                                                    />
+                                <div className="space-y-5">
+                                    {ponderableCriteria.map((criterion) => {
+                                        const val = criteriaScores[criterion.id] ?? 0;
+                                        const color = `hsl(${val * 12}, 90%, 55%)`;
+                                        return (
+                                            <div key={criterion.id} className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="text-sm font-semibold text-gray-300">{criterion.label || criterion.id}</label>
+                                                    <span
+                                                        className="text-sm font-black font-display tabular-nums transition-colors duration-300"
+                                                        style={{ color }}
+                                                    >
+                                                        {val}
+                                                    </span>
                                                 </div>
-
-                                                {/* Interactive Input */}
                                                 <input
                                                     type="range"
                                                     min="0"
                                                     max="10"
                                                     step={criterion.step || 0.1}
-                                                    value={criteriaScores[criterion.id] || 0}
+                                                    value={val}
                                                     onChange={(e) => {
-                                                        const val = parseFloat(e.target.value);
-                                                        const newScores = { ...criteriaScores, [criterion.id]: val };
-                                                        setCriteriaScores(newScores);
+                                                        const newVal = parseFloat(e.target.value);
+                                                        setCriteriaScores({ ...criteriaScores, [criterion.id]: newVal });
                                                         setRatingsTouched(true);
                                                     }}
-                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                    className="custom-range-slider"
+                                                    style={{ background: getSliderBg(val, true), '--thumb-color': color } as React.CSSProperties}
                                                 />
+                                                {(criterion.labelMin || criterion.labelMax) && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-[10px] text-gray-600 italic">{criterion.labelMin}</span>
+                                                        <span className="text-[10px] text-gray-600 italic">{criterion.labelMax}</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                            {/* Min/Max labels */}
-                                            {(criterion.labelMin || criterion.labelMax) && (
-                                                <div className="flex justify-between mt-1">
-                                                    <span className="text-[10px] text-gray-500 italic">{criterion.labelMin}</span>
-                                                    <span className="text-[10px] text-gray-500 italic">{criterion.labelMax}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
 
-                                {/* NON-PONDERABLE CRITERIA (Separate Section) */}
+                                {/* NON-PONDERABLE CRITERIA */}
                                 {nonPonderableCriteria.length > 0 && (
-                                    <>
-                                        <div className="border-t border-white/10 pt-4 mt-6">
-                                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Otros Detalles</h4>
-                                            <div className="space-y-6">
-                                                {nonPonderableCriteria.map((criterion) => (
-                                                    <div key={criterion.id}>
-                                                        <div className="flex justify-between mb-2">
-                                                            <label className="text-sm text-gray-300 font-medium">{criterion.label || criterion.id}</label>
-                                                            <span className="text-sm font-bold text-indigo-400">
-                                                                {criteriaScores[criterion.id]}
-                                                            </span>
-                                                        </div>
-                                                        <div className="relative w-full h-6 flex items-center">
-                                                            {/* Track Background & Fill (Neutral Color) */}
-                                                            <div className="absolute left-0 right-0 h-2 bg-gray-700/50 rounded-full overflow-hidden">
-                                                                <div
-                                                                    className="h-full transition-all duration-300 rounded-full bg-indigo-500/50"
-                                                                    style={{
-                                                                        width: `${(criteriaScores[criterion.id] / 10) * 100}%`
-                                                                    }}
-                                                                />
-                                                            </div>
-
-                                                            <input
-                                                                type="range"
-                                                                min="0"
-                                                                max="10"
-                                                                step={criterion.step || 0.5}
-                                                                value={criteriaScores[criterion.id] || 0}
-                                                                onChange={(e) => {
-                                                                    const val = parseFloat(e.target.value);
-                                                                    const newScores = { ...criteriaScores, [criterion.id]: val };
-                                                                    setCriteriaScores(newScores);
-                                                                    setRatingsTouched(true);
-                                                                }}
-                                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                                            />
-                                                        </div>
-                                                        {/* Min/Max labels */}
-                                                        {(criterion.labelMin || criterion.labelMax) && (
-                                                            <div className="flex justify-between mt-1">
-                                                                <span className="text-[10px] text-gray-500 italic">{criterion.labelMin}</span>
-                                                                <span className="text-[10px] text-gray-500 italic">{criterion.labelMax}</span>
-                                                            </div>
-                                                        )}
+                                    <div className="border-t border-white/5 pt-5 space-y-5">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Otros detalles</p>
+                                        {nonPonderableCriteria.map((criterion) => {
+                                            const val = criteriaScores[criterion.id] ?? 0;
+                                            return (
+                                                <div key={criterion.id} className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-sm font-semibold text-gray-300">{criterion.label || criterion.id}</label>
+                                                        <span className="text-sm font-black font-display tabular-nums text-indigo-400">{val}</span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </>
+                                                    <input
+                                                        type="range"
+                                                        min="0"
+                                                        max="10"
+                                                        step={criterion.step || 0.5}
+                                                        value={val}
+                                                        onChange={(e) => {
+                                                            const newVal = parseFloat(e.target.value);
+                                                            setCriteriaScores({ ...criteriaScores, [criterion.id]: newVal });
+                                                            setRatingsTouched(true);
+                                                        }}
+                                                        className="custom-range-slider"
+                                                        style={{ background: getSliderBg(val, false), '--thumb-color': '#5C7CFA' } as React.CSSProperties}
+                                                    />
+                                                    {(criterion.labelMin || criterion.labelMax) && (
+                                                        <div className="flex justify-between">
+                                                            <span className="text-[10px] text-gray-600 italic">{criterion.labelMin}</span>
+                                                            <span className="text-[10px] text-gray-600 italic">{criterion.labelMax}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 )}
                             </div>
                         ) : (
-                            <div className="p-8 border border-dashed border-white/10 rounded-xl text-center">
-                                <p className="text-gray-400 text-sm">
-                                    {listId ? 'Cargando criterios...' : 'Selecciona una lista para ver los criterios de valoraciÃ³n.'}
+                            <div className="rounded-2xl border border-dashed border-white/8 p-6 text-center space-y-2">
+                                <div className="text-2xl">⭐</div>
+                                <p className="text-gray-500 text-sm">
+                                    {internalListId ? 'Cargando criterios...' : 'Selecciona una lista para ver los criterios.'}
                                 </p>
                             </div>
                         )}
 
-                        {/* 5. Comment */}
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1 tracking-wider">Tu opiniÃ³n</label>
+                        {/* ── Sección: Tu opinión ─────────────────── */}
+                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#24A3FF] flex items-center gap-1.5">
+                                <span>💬</span> Tu opinión
+                            </p>
                             <textarea
                                 value={comment}
                                 onChange={e => setComment(e.target.value)}
-                                placeholder="Â¿QuÃ© te pareciÃ³?"
-                                rows={4}
-                                className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                placeholder="¿Qué te pareció? Los detalles que hacen la diferencia..."
+                                rows={3}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all placeholder:text-gray-600 resize-none"
                             />
+                            {comment.length > 0 && (
+                                <p className="text-right text-[10px] text-gray-600">{comment.length} caracteres</p>
+                            )}
                         </div>
 
-                        {/* 6. Photo */}
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Foto</label>
-
+                        {/* ── Sección: Foto ───────────────────────── */}
+                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#9b51e0] flex items-center gap-1.5">
+                                <span>📸</span> Foto
+                                <span className="normal-case font-normal tracking-normal text-gray-600 ml-1">(opcional)</span>
+                            </p>
                             {imagePreview ? (
-                                <div className="relative w-full h-48 rounded-xl overflow-hidden border border-white/10 group">
+                                <div className="relative w-full h-44 rounded-xl overflow-hidden border border-white/10 group">
                                     <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setImageFile(null);
-                                            setImagePreview(null);
-                                        }}
-                                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => { setImageFile(null); setImagePreview(null); }}
+                                        className="absolute bottom-3 right-3 bg-red-500 hover:bg-red-400 px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all active:scale-95"
                                     >
-                                        <div className="bg-red-500/80 p-2 rounded-full text-white">
-                                            <Trash2 className="w-6 h-6" />
-                                        </div>
+                                        <Trash2 className="w-3 h-3" /> Eliminar
                                     </button>
                                 </div>
                             ) : (
                                 <div
-                                    className="w-full h-48 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all group"
-                                    onDragOver={(e) => {
-                                        e.preventDefault();
-                                        e.currentTarget.classList.add('border-indigo-500', 'bg-indigo-500/10');
-                                    }}
-                                    onDragLeave={(e) => {
-                                        e.preventDefault();
-                                        e.currentTarget.classList.remove('border-indigo-500', 'bg-indigo-500/10');
-                                    }}
+                                    className="relative w-full h-28 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-500/40 hover:bg-purple-500/5 transition-all group"
+                                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-purple-500/60', 'bg-purple-500/10'); }}
+                                    onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-purple-500/60', 'bg-purple-500/10'); }}
                                     onDrop={(e) => {
                                         e.preventDefault();
-                                        e.currentTarget.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+                                        e.currentTarget.classList.remove('border-purple-500/60', 'bg-purple-500/10');
                                         const file = e.dataTransfer.files?.[0];
                                         if (file && file.type.startsWith('image/')) {
                                             setImageFile(file);
@@ -1013,71 +1052,88 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     }}
                                     onClick={() => document.getElementById('review-photo-upload')?.click()}
                                 >
-                                    <div className="bg-white/5 p-4 rounded-full mb-3 group-hover:scale-110 transition-transform">
-                                        <ImageIcon className="w-8 h-8 text-indigo-400" />
-                                    </div>
-                                    <p className="text-sm font-bold text-gray-300">Arrastra tu foto o haz clic</p>
-                                    <p className="text-xs text-gray-500 mt-1">Soporta JPG, PNG, WEBP</p>
-                                    <input
-                                        id="review-photo-upload"
-                                        type="file"
-                                        className="hidden"
-                                        accept="image/*"
-                                        onChange={handleImageChange}
-                                    />
+                                    <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">📷</div>
+                                    <p className="text-xs font-semibold text-gray-400">Arrastra o haz clic para subir</p>
+                                    <p className="text-[10px] text-gray-600 mt-0.5">JPG · PNG · WEBP</p>
+                                    <input id="review-photo-upload" type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
                                 </div>
                             )}
                         </div>
 
-                        {/* 7. Tags */}
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Etiquetas</label>
-                            <div className="flex flex-wrap gap-2">
-                                {listAvailableTags.map(tag => (
-                                    <button
-                                        type="button"
-                                        key={tag}
-                                        onClick={() => toggleTag(tag)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${customTags.includes(tag)
-                                            ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
-                                            : 'bg-[#1e2538] text-gray-400 hover:bg-white/5'
+                        {/* ── Sección: Etiquetas ──────────────────── */}
+                        {listAvailableTags.length > 0 && (
+                            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-[#3DD598] flex items-center gap-1.5">
+                                    <span>🏷️</span> Etiquetas
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {listAvailableTags.map(tag => (
+                                        <button
+                                            type="button"
+                                            key={tag}
+                                            onClick={() => toggleTag(tag)}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border active:scale-95 ${customTags.includes(tag)
+                                                ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-500/30 scale-[1.03]'
+                                                : 'bg-white/5 border-white/10 text-gray-400 hover:border-indigo-500/40 hover:text-gray-200'
                                             }`}
-                                    >
-                                        {tag}
-                                    </button>
-                                ))}
-                                {listAvailableTags.length === 0 && (
-                                    <p className="text-gray-500 text-xs italic">No hay etiquetas definidas en esta lista.</p>
-                                )}
+                                        >
+                                            {customTags.includes(tag) ? '✓ ' : ''}{tag}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {/* Error */}
+                        {error && (
+                            <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl animate-fade-in">
+                                <span className="shrink-0">⚠️</span>
+                                <span>{error}</span>
+                            </div>
+                        )}
 
                     </form>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="p-4 border-t border-white/10 bg-[#151b2e] flex justify-end gap-3">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-4 py-2 text-gray-400 hover:text-white font-medium transition-colors"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        type="submit"
-                        form="review-form"
-                        disabled={loading || !isValid || (!isNew && !isDirty)}
-                        className={`px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-all ${loading || !isValid || (!isNew && !isDirty)
-                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:scale-105'
-                            }`}
-                    >
-                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {isNew ? 'Publicar ReseÃ±a' : 'Guardar Cambios'}
-                    </button>
+                {/* ── Footer ─────────────────────────────────────── */}
+                <div
+                    className="px-4 py-3 border-t border-white/5 shrink-0"
+                    style={{ background: 'linear-gradient(180deg, #0c1124 0%, #0b1021 100%)' }}
+                >
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-4 py-3 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/5 border border-white/5 hover:border-white/10 transition-all active:scale-95 shrink-0"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            form="review-form"
+                            disabled={loading || !isValid || (!isNew && !isDirty)}
+                            className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]
+                                ${loading || !isValid || (!isNew && !isDirty)
+                                    ? 'bg-white/5 border border-white/5 text-gray-500 cursor-not-allowed'
+                                    : 'btn-primary'
+                                }`}
+                        >
+                            {loading
+                                ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>
+                                : isNew ? '✨ Publicar Reseña' : '💾 Guardar Cambios'
+                            }
+                        </button>
+                    </div>
+                    {!isValid && !loading && (
+                        <p className="text-center text-[10px] text-gray-600 mt-2">
+                            {(!selectedPlace && !prefillPlaceId) ? '📍 Elige un lugar · ' : ''}
+                            {!itemName.trim() ? '🍽️ Añade qué probaste · ' : ''}
+                            {!internalListId ? '📋 Selecciona una lista · ' : ''}
+                            {isNew && !ratingsTouched ? '⭐ Ajusta los sliders' : ''}
+                        </p>
+                    )}
                 </div>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 };
