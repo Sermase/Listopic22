@@ -953,9 +953,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                     style={{ background: getSliderBg(val, true), '--thumb-color': color } as React.CSSProperties}
                                                 />
                                                 {(criterion.labelMin || criterion.labelMax) && (
-                                                    <div className="flex justify-between gap-2">
-                                                        <span className="text-[10px] text-rose-500/70 italic truncate">{criterion.labelMin}</span>
-                                                        <span className="text-[10px] text-emerald-500/70 italic truncate text-right">{criterion.labelMax}</span>
+                                                    <div className="flex justify-between gap-3">
+                                                        <span className="text-[10px] text-rose-500/70 italic leading-snug">{criterion.labelMin}</span>
+                                                        <span className="text-[10px] text-emerald-500/70 italic leading-snug text-right">{criterion.labelMax}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -991,9 +991,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                         style={{ background: getSliderBg(val, false), '--thumb-color': '#5C7CFA' } as React.CSSProperties}
                                                     />
                                                     {(criterion.labelMin || criterion.labelMax) && (
-                                                        <div className="flex justify-between gap-2">
-                                                            <span className="text-[10px] text-indigo-400/50 italic truncate">{criterion.labelMin}</span>
-                                                            <span className="text-[10px] text-indigo-400/70 italic truncate text-right">{criterion.labelMax}</span>
+                                                        <div className="flex justify-between gap-3">
+                                                            <span className="text-[10px] text-indigo-400/50 italic leading-snug">{criterion.labelMin}</span>
+                                                            <span className="text-[10px] text-indigo-400/70 italic leading-snug text-right">{criterion.labelMax}</span>
                                                         </div>
                                                     )}
                                                 </div>
