@@ -781,7 +781,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 </div>
 
                 {/* ── Scrollable body ────────────────────────────── */}
-                <div className="overflow-y-auto flex-1 custom-scrollbar">
+                <div className="overflow-y-auto flex-1 custom-scrollbar overscroll-contain">
 
                     {/* ── Sección: ¿En qué lista? ─────────────────── */}
                     <div className="px-4 pt-4">
@@ -821,13 +821,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                         {/* ── Sección: ¿Dónde? ────────────────────── */}
                         <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#FF715B] flex items-center gap-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#24A3FF] flex items-center gap-1.5">
                                 <span>📍</span> ¿Dónde?
                             </p>
                             {prefillPlaceId ? (
-                                <div className="flex items-center gap-3 bg-[#FF715B]/10 border border-[#FF715B]/20 p-3 rounded-xl">
-                                    <div className="p-2 bg-[#FF715B]/20 rounded-xl shrink-0">
-                                        <MapPinIcon className="w-4 h-4 text-[#FF715B]" />
+                                <div className="flex items-center gap-3 bg-[#3DD598]/8 border border-[#3DD598]/20 p-3 rounded-xl">
+                                    <div className="w-8 h-8 rounded-full bg-[#3DD598]/15 flex items-center justify-center shrink-0">
+                                        <span className="text-[#3DD598] font-black text-sm">✓</span>
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-bold text-white truncate">{selectedPlace?.name || 'Cargando...'}</p>
@@ -843,9 +843,14 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         placeholder="Busca el restaurante, bar, café... 🔍"
                                     />
                                     {selectedPlace && (
-                                        <div className="flex items-center gap-2 text-xs text-[#3DD598] bg-[#3DD598]/10 border border-[#3DD598]/20 px-3 py-2 rounded-xl animate-fade-in">
-                                            <MapPinIcon className="w-3 h-3 shrink-0" />
-                                            <span className="font-semibold truncate">{selectedPlace.name}</span>
+                                        <div className="flex items-center gap-3 bg-[#3DD598]/8 border border-[#3DD598]/20 p-3 rounded-xl animate-fade-in">
+                                            <div className="w-7 h-7 rounded-full bg-[#3DD598]/15 flex items-center justify-center shrink-0">
+                                                <span className="text-[#3DD598] font-black text-xs">✓</span>
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-bold text-white truncate">{selectedPlace.name}</p>
+                                                {selectedPlace.address && <p className="text-[11px] text-gray-500 truncate">{selectedPlace.address}</p>}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -942,9 +947,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                     style={{ background: getSliderBg(val, true), '--thumb-color': color } as React.CSSProperties}
                                                 />
                                                 {(criterion.labelMin || criterion.labelMax) && (
-                                                    <div className="flex justify-between">
-                                                        <span className="text-[10px] text-gray-600 italic">{criterion.labelMin}</span>
-                                                        <span className="text-[10px] text-gray-600 italic">{criterion.labelMax}</span>
+                                                    <div className="flex justify-between gap-4 mt-0.5">
+                                                        <span className="text-[10px] text-red-400/50 italic truncate">{criterion.labelMin}</span>
+                                                        <span className="text-[10px] text-[#3DD598]/50 italic truncate text-right">{criterion.labelMax}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -1124,14 +1129,12 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             }
                         </button>
                     </div>
-                    {!isValid && !loading && (
-                        <p className="text-center text-[10px] text-gray-600 mt-2">
-                            {(!selectedPlace && !prefillPlaceId) ? '📍 Elige un lugar · ' : ''}
-                            {!itemName.trim() ? '🍽️ Añade qué probaste · ' : ''}
-                            {!internalListId ? '📋 Selecciona una lista · ' : ''}
-                            {isNew && !ratingsTouched ? '⭐ Ajusta los sliders' : ''}
-                        </p>
-                    )}
+                    <p className={`text-center text-[10px] text-gray-600 mt-2 transition-opacity duration-200 ${!isValid && !loading ? 'opacity-100' : 'opacity-0 select-none pointer-events-none'}`}>
+                        {(!selectedPlace && !prefillPlaceId) ? '📍 Elige un lugar · ' : ''}
+                        {!itemName.trim() ? '🍽️ Añade qué probaste · ' : ''}
+                        {!internalListId ? '📋 Selecciona una lista · ' : ''}
+                        {isNew && !ratingsTouched ? '⭐ Ajusta los sliders' : '\u00A0'}
+                    </p>
                 </div>
             </div>
         </div>
