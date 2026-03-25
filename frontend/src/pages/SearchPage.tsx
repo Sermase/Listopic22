@@ -13,12 +13,13 @@ import {
 } from 'react-instantsearch';
 import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
-    Filter, X, Clock, ChevronRight, Star, LocateFixed, Loader2
+    Filter, X, Clock, ChevronRight, Star, LocateFixed, Loader2, Columns2
 } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import { SearchQueryParser } from '../services/SearchQueryParser';
 import { ListItemCard } from '../components/ListItemCard';
+import { SearchMapView } from '../components/SearchMapView';
 import { useLocation } from '../hooks/useLocation';
 
 const RECENT_SEARCHES_KEY = 'listopic_recent_searches';
@@ -88,21 +89,14 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
     }, [inputValue, refine, query]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setInputValue(e.target.value);
-
-    const handleFocus = () => {
-        setRecentSearches(getRecentSearches());
-        setFocused(true);
-    };
-
+    const handleFocus = () => { setRecentSearches(getRecentSearches()); setFocused(true); };
     const handleBlur = () => setTimeout(() => setFocused(false), 150);
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         saveRecentSearch(inputValue);
         setRecentSearches(getRecentSearches());
         refine(inputValue);
     };
-
     const selectSuggestion = (term: string) => {
         setInputValue(term);
         saveRecentSearch(term);
@@ -202,6 +196,69 @@ const ActiveFiltersChips = () => {
     );
 };
 
+// --- Results Count ---
+const ResultsCount = () => {
+    const { nbHits, processingTimeMS } = useStats();
+    if (nbHits === 0) return null;
+    return (
+        <p className="text-xs text-gray-600 mb-3">
+            {nbHits.toLocaleString('es')} resultado{nbHits !== 1 ? 's' : ''}
+            <span className="ml-1 opacity-60">· {processingTimeMS}ms</span>
+        </p>
+    );
+};
+
+// --- Geo Search Bar ---
+const GEO_RADIUS_OPTIONS = [
+    { value: 2000, label: '2 km' },
+    { value: 5000, label: '5 km' },
+    { value: 10000, label: '10 km' },
+    { value: 20000, label: '20 km' },
+    { value: 50000, label: '50 km' },
+];
+
+const GeoSearchBar = ({
+    active, onToggle, radius, onRadiusChange, locationLoading, locationError
+}: {
+    active: boolean;
+    onToggle: () => void;
+    radius: number;
+    onRadiusChange: (r: number) => void;
+    locationLoading: boolean;
+    locationError: string | null;
+}) => (
+    <div className="flex items-center gap-2 flex-wrap mb-4">
+        <button
+            onClick={onToggle}
+            disabled={locationLoading}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all border ${
+                active
+                    ? 'bg-emerald-600/80 border-emerald-500/60 text-white shadow-lg shadow-emerald-900/20'
+                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+            }`}
+        >
+            {locationLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
+            Cerca de mí
+        </button>
+        {active && !locationError && (
+            <select
+                value={radius}
+                onChange={e => onRadiusChange(Number(e.target.value))}
+                className="bg-[#151b2e] border border-white/10 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+                {GEO_RADIUS_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+            </select>
+        )}
+        {locationError && active && (
+            <span className="text-xs text-red-400 flex items-center gap-1">
+                <X className="w-3 h-3" /> {locationError}
+            </span>
+        )}
+    </div>
+);
+
 // --- Empty State ---
 const EmptyState = ({ activeTab, onTabChange }: { activeTab: string; onTabChange?: (tab: string) => void }) => {
     const msg = EMPTY_STATE_MESSAGES[activeTab] || EMPTY_STATE_MESSAGES.all;
@@ -215,11 +272,8 @@ const EmptyState = ({ activeTab, onTabChange }: { activeTab: string; onTabChange
                     {Object.entries(TAB_LABELS)
                         .filter(([key]) => key !== activeTab)
                         .map(([key, label]) => (
-                            <button
-                                key={key}
-                                onClick={() => onTabChange(key)}
-                                className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                            >
+                            <button key={key} onClick={() => onTabChange(key)}
+                                className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
                                 Buscar en {label}
                             </button>
                         ))}
@@ -372,10 +426,8 @@ const FederatedSectionContent = ({
                     <h3 className="text-xl font-bold text-white">{title}</h3>
                     <span className="text-xs text-gray-600 font-medium">({hits.length})</span>
                 </div>
-                <button
-                    onClick={onViewAll}
-                    className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
-                >
+                <button onClick={onViewAll}
+                    className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300 transition-colors font-medium">
                     Ver todos <ChevronRight className="w-4 h-4" />
                 </button>
             </div>
@@ -393,72 +445,6 @@ const FederatedSection = ({
         <Configure hitsPerPage={3} />
         <FederatedSectionContent title={title} type={type} icon={icon} onViewAll={onViewAll} />
     </Index>
-);
-
-// --- Results Count ---
-const ResultsCount = () => {
-    const { nbHits, processingTimeMS } = useStats();
-    if (nbHits === 0) return null;
-    return (
-        <p className="text-xs text-gray-600 mb-3">
-            {nbHits.toLocaleString('es')} resultado{nbHits !== 1 ? 's' : ''}
-            <span className="ml-1 opacity-60">· {processingTimeMS}ms</span>
-        </p>
-    );
-};
-
-// --- Geo Search Bar ---
-const GEO_RADIUS_OPTIONS = [
-    { value: 2000, label: '2 km' },
-    { value: 5000, label: '5 km' },
-    { value: 10000, label: '10 km' },
-    { value: 20000, label: '20 km' },
-    { value: 50000, label: '50 km' },
-];
-
-const GeoSearchBar = ({
-    active, onToggle, radius, onRadiusChange, locationLoading, locationError
-}: {
-    active: boolean;
-    onToggle: () => void;
-    radius: number;
-    onRadiusChange: (r: number) => void;
-    locationLoading: boolean;
-    locationError: string | null;
-}) => (
-    <div className="flex items-center gap-2 flex-wrap mb-4">
-        <button
-            onClick={onToggle}
-            disabled={locationLoading}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all border ${
-                active
-                    ? 'bg-emerald-600/80 border-emerald-500/60 text-white shadow-lg shadow-emerald-900/20'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
-            }`}
-        >
-            {locationLoading
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <LocateFixed className="w-4 h-4" />
-            }
-            Cerca de mí
-        </button>
-        {active && !locationError && (
-            <select
-                value={radius}
-                onChange={e => onRadiusChange(Number(e.target.value))}
-                className="bg-[#151b2e] border border-white/10 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-            >
-                {GEO_RADIUS_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-            </select>
-        )}
-        {locationError && active && (
-            <span className="text-xs text-red-400 flex items-center gap-1">
-                <X className="w-3 h-3" /> {locationError}
-            </span>
-        )}
-    </div>
 );
 
 // --- Custom Refinement List ---
@@ -488,7 +474,51 @@ const CustomRefinementList = (props: Record<string, unknown> & { attribute: stri
     );
 };
 
+// --- Filter Content (shared between desktop sidebar and mobile modal) ---
+const FilterContent = ({ activeTab }: { activeTab: string }) => (
+    <>
+        {activeTab === 'lists' && (
+            <>
+                <CustomRefinementList attribute="availableTags" label="Etiquetas" />
+                <CustomRefinementList attribute="categories" label="Categoría" />
+            </>
+        )}
+        {activeTab === 'places' && (
+            <>
+                <CustomRefinementList attribute="city" label="Ciudad" />
+                <CustomRefinementList attribute="types" label="Tipo" />
+                <CustomRefinementList attribute="priceLevel" label="Precio" />
+                <CustomRefinementList attribute="serviceOptions" label="Servicios" />
+                <CustomRefinementList attribute="accessibilityOptions" label="Accesibilidad" />
+            </>
+        )}
+        {activeTab === 'users' && (
+            <>
+                <CustomRefinementList attribute="userType" label="Tipo de usuario" />
+                <CustomRefinementList attribute="badges" label="Insignias" />
+                <CustomRefinementList attribute="residence" label="Ciudad" />
+            </>
+        )}
+        {(activeTab === 'grouped_items' || activeTab === 'items') && (
+            <>
+                <CustomRefinementList attribute="placeCity" label="Ciudad" />
+                <CustomRefinementList attribute="listName" label="Lista" />
+                <CustomRefinementList attribute="groupTags" label="Etiquetas" />
+            </>
+        )}
+    </>
+);
 
+// ─── View mode type ────────────────────────────────────────────────────────────
+type ViewMode = 'list' | 'split' | 'map';
+
+const VIEW_MODES: { id: ViewMode; label: string; Icon: React.ElementType }[] = [
+    { id: 'list', label: 'Lista', Icon: ListIcon },
+    { id: 'split', label: 'Dividido', Icon: Columns2 },
+    { id: 'map', label: 'Mapa', Icon: MapIcon },
+];
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 export const SearchPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -499,6 +529,7 @@ export const SearchPage: React.FC = () => {
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [geoSearchActive, setGeoSearchActive] = useState(false);
     const [geoRadius, setGeoRadius] = useState(10000);
+    const [viewMode, setViewMode] = useState<ViewMode>('split');
 
     const { location, error: locationError, loading: locationLoading, requestLocation } = useLocation();
     const isGeoTab = activeTab === 'places' || activeTab === 'items';
@@ -508,12 +539,14 @@ export const SearchPage: React.FC = () => {
         setGeoSearchActive(prev => !prev);
     };
 
-    const parsedQuery = useMemo(() => SearchQueryParser.parse(queryParam), [queryParam]);
-
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
         setSearchParams({ q: queryParam, type: tab });
+        const geo = tab === 'places' || tab === 'items';
+        setViewMode(geo ? 'split' : 'list');
     };
+
+    const parsedQuery = useMemo(() => SearchQueryParser.parse(queryParam), [queryParam]);
 
     const algoliaFilters = useMemo(() => {
         const parts: string[] = [];
@@ -541,6 +574,32 @@ export const SearchPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] pb-20 pt-24 px-4">
+
+            {/* ── Mobile Filter Modal ───────────────────────────────────────────── */}
+            {isFiltersOpen && (
+                <div className="fixed inset-0 z-[200] lg:hidden">
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => setIsFiltersOpen(false)}
+                    />
+                    <div className="absolute right-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[#0f1629] border-l border-white/10 p-5 overflow-y-auto shadow-2xl flex flex-col">
+                        <div className="flex justify-between items-center mb-5 flex-shrink-0">
+                            <h3 className="text-white font-bold text-lg">Filtros</h3>
+                            <button onClick={() => setIsFiltersOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <InstantSearch
+                            searchClient={algoliaClient}
+                            indexName={INDEX_NAMES[activeTab as keyof typeof INDEX_NAMES] || INDEX_NAMES.lists}
+                            future={{ preserveSharedStateOnUnmount: true }}
+                        >
+                            <FilterContent activeTab={activeTab} />
+                        </InstantSearch>
+                    </div>
+                </div>
+            )}
+
             <InstantSearch
                 searchClient={algoliaClient}
                 indexName={INDEX_NAMES.lists}
@@ -552,7 +611,7 @@ export const SearchPage: React.FC = () => {
                     hitsPerPage={20}
                 />
 
-                {/* Hero Search */}
+                {/* ── Hero Search ───────────────────────────────────────────────── */}
                 <div className="max-w-4xl mx-auto mb-8 text-center">
                     <h1 className="text-3xl font-display font-bold text-white mb-6">
                         Explora todo en <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Listopic</span>
@@ -560,7 +619,7 @@ export const SearchPage: React.FC = () => {
                     <CustomSearchBox />
                 </div>
 
-                {/* Tabs */}
+                {/* ── Tabs ─────────────────────────────────────────────────────── */}
                 <div className="flex justify-center mb-8">
                     <div className="inline-flex items-center bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner overflow-x-auto max-w-[90vw] gap-1 hide-scrollbar">
                         <button
@@ -572,11 +631,8 @@ export const SearchPage: React.FC = () => {
                         {Object.keys(INDEX_NAMES).map(key => {
                             const Icon = TAB_ICONS[key] || Search;
                             return (
-                                <button
-                                    key={key}
-                                    onClick={() => handleTabChange(key)}
-                                    className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === key ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-                                >
+                                <button key={key} onClick={() => handleTabChange(key)}
+                                    className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === key ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>
                                     <Icon className="w-4 h-4" />
                                     {TAB_LABELS[key] || key}
                                 </button>
@@ -585,7 +641,7 @@ export const SearchPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Content */}
+                {/* ── Content ──────────────────────────────────────────────────── */}
                 {activeTab === 'all' ? (
                     <div className="container mx-auto max-w-7xl">
                         <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} onViewAll={() => handleTabChange('lists')} />
@@ -595,64 +651,58 @@ export const SearchPage: React.FC = () => {
                     </div>
                 ) : (
                     <Index indexName={INDEX_NAMES[activeTab as keyof typeof INDEX_NAMES]}>
+                        {/* Geo search override */}
                         {isGeoTab && geoSearchActive && location && (
                             <Configure
                                 aroundLatLng={`${location.latitude},${location.longitude}`}
                                 aroundRadius={geoRadius}
                             />
                         )}
-                        <div className="container mx-auto max-w-7xl flex flex-col lg:flex-row gap-8">
-                            {/* Filters Sidebar */}
-                            <div className={`lg:w-64 flex-shrink-0 ${isFiltersOpen ? 'block' : 'hidden lg:block'}`}>
-                                <div className="glass-card rounded-2xl border border-white/10 p-5 sticky top-24 shadow-xl">
-                                    <div className="flex justify-between items-center mb-4 lg:hidden">
-                                        <h3 className="text-white font-bold">Filtros</h3>
-                                        <button onClick={() => setIsFiltersOpen(false)}><X className="text-white" /></button>
-                                    </div>
 
-                                    {activeTab === 'lists' && (
-                                        <>
-                                            <CustomRefinementList attribute="availableTags" label="Etiquetas" />
-                                            <CustomRefinementList attribute="categories" label="Categoría" />
-                                        </>
-                                    )}
-                                    {activeTab === 'places' && (
-                                        <>
-                                            <CustomRefinementList attribute="city" label="Ciudad" />
-                                            <CustomRefinementList attribute="types" label="Tipo" />
-                                            <CustomRefinementList attribute="priceLevel" label="Precio" />
-                                            <CustomRefinementList attribute="serviceOptions" label="Servicios" />
-                                            <CustomRefinementList attribute="accessibilityOptions" label="Accesibilidad" />
-                                        </>
-                                    )}
-                                    {activeTab === 'users' && (
-                                        <>
-                                            <CustomRefinementList attribute="userType" label="Tipo de usuario" />
-                                            <CustomRefinementList attribute="badges" label="Insignias" />
-                                            <CustomRefinementList attribute="residence" label="Ciudad" />
-                                        </>
-                                    )}
-                                    {(activeTab === 'grouped_items' || activeTab === 'items') && (
-                                        <>
-                                            <CustomRefinementList attribute="placeCity" label="Ciudad" />
-                                            <CustomRefinementList attribute="listName" label="Lista" />
-                                            <CustomRefinementList attribute="groupTags" label="Etiquetas" />
-                                        </>
-                                    )}
+                        <div className="container mx-auto max-w-7xl flex flex-col lg:flex-row gap-8">
+
+                            {/* ── Desktop Sidebar ───────────────────────────────── */}
+                            <div className="hidden lg:block lg:w-64 flex-shrink-0">
+                                <div className="glass-card rounded-2xl border border-white/10 p-5 sticky top-24 shadow-xl">
+                                    <FilterContent activeTab={activeTab} />
                                 </div>
                             </div>
 
-                            {/* Results Area */}
+                            {/* ── Results Area ──────────────────────────────────── */}
                             <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-center mb-4 lg:hidden">
+
+                                {/* Controls row */}
+                                <div className="flex flex-wrap items-center gap-3 mb-4">
+                                    {/* Mobile: filter button */}
                                     <button
                                         onClick={() => setIsFiltersOpen(true)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-[#151b2e] border border-white/10 rounded-lg text-white font-bold text-sm"
+                                        className="lg:hidden flex items-center gap-2 px-4 py-2 bg-[#151b2e] border border-white/10 rounded-lg text-white font-bold text-sm"
                                     >
                                         <Filter className="w-4 h-4" /> Filtros
                                     </button>
+
+                                    {/* View mode toggle (only geo tabs) */}
+                                    {isGeoTab && (
+                                        <div className="ml-auto flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+                                            {VIEW_MODES.map(({ id, label, Icon }) => (
+                                                <button
+                                                    key={id}
+                                                    onClick={() => setViewMode(id)}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                        viewMode === id
+                                                            ? 'bg-indigo-600 text-white shadow-md'
+                                                            : 'text-gray-400 hover:text-white'
+                                                    }`}
+                                                >
+                                                    <Icon className="w-3.5 h-3.5" />
+                                                    <span className="hidden sm:inline">{label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
+                                {/* Geo bar */}
                                 {isGeoTab && (
                                     <GeoSearchBar
                                         active={geoSearchActive}
@@ -663,9 +713,31 @@ export const SearchPage: React.FC = () => {
                                         locationError={locationError}
                                     />
                                 )}
+
                                 <ActiveFiltersChips />
                                 <ResultsCount />
-                                <CustomHits activeTab={activeTab} onTabChange={handleTabChange} />
+
+                                {/* ── Main content: list / split / map ─────────── */}
+                                {isGeoTab && viewMode !== 'list' ? (
+                                    <div className={`flex gap-4 ${viewMode === 'map' ? 'h-[75vh]' : 'h-[600px]'}`}>
+                                        {/* Lista lateral (modo split) */}
+                                        {viewMode === 'split' && (
+                                            <div className="w-1/2 overflow-y-auto pr-1 scrollbar-thin">
+                                                <CustomHits activeTab={activeTab} onTabChange={handleTabChange} />
+                                            </div>
+                                        )}
+                                        {/* Mapa */}
+                                        <div className={viewMode === 'split' ? 'w-1/2' : 'w-full'}>
+                                            <SearchMapView
+                                                activeTab={activeTab}
+                                                isExpanded={viewMode === 'map'}
+                                                onToggleExpand={() => setViewMode(viewMode === 'map' ? 'split' : 'map')}
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <CustomHits activeTab={activeTab} onTabChange={handleTabChange} />
+                                )}
                             </div>
                         </div>
                     </Index>
