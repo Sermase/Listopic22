@@ -8,16 +8,18 @@ import {
     useRefinementList,
     useCurrentRefinements,
     useClearRefinements,
+    useStats,
     Index
 } from 'react-instantsearch';
 import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
-    Filter, X, Clock, ChevronRight, Star
+    Filter, X, Clock, ChevronRight, Star, LocateFixed, Loader2
 } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import { SearchQueryParser } from '../services/SearchQueryParser';
 import { ListItemCard } from '../components/ListItemCard';
+import { useLocation } from '../hooks/useLocation';
 
 const RECENT_SEARCHES_KEY = 'listopic_recent_searches';
 
@@ -393,6 +395,72 @@ const FederatedSection = ({
     </Index>
 );
 
+// --- Results Count ---
+const ResultsCount = () => {
+    const { nbHits, processingTimeMS } = useStats();
+    if (nbHits === 0) return null;
+    return (
+        <p className="text-xs text-gray-600 mb-3">
+            {nbHits.toLocaleString('es')} resultado{nbHits !== 1 ? 's' : ''}
+            <span className="ml-1 opacity-60">· {processingTimeMS}ms</span>
+        </p>
+    );
+};
+
+// --- Geo Search Bar ---
+const GEO_RADIUS_OPTIONS = [
+    { value: 2000, label: '2 km' },
+    { value: 5000, label: '5 km' },
+    { value: 10000, label: '10 km' },
+    { value: 20000, label: '20 km' },
+    { value: 50000, label: '50 km' },
+];
+
+const GeoSearchBar = ({
+    active, onToggle, radius, onRadiusChange, locationLoading, locationError
+}: {
+    active: boolean;
+    onToggle: () => void;
+    radius: number;
+    onRadiusChange: (r: number) => void;
+    locationLoading: boolean;
+    locationError: string | null;
+}) => (
+    <div className="flex items-center gap-2 flex-wrap mb-4">
+        <button
+            onClick={onToggle}
+            disabled={locationLoading}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all border ${
+                active
+                    ? 'bg-emerald-600/80 border-emerald-500/60 text-white shadow-lg shadow-emerald-900/20'
+                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+            }`}
+        >
+            {locationLoading
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <LocateFixed className="w-4 h-4" />
+            }
+            Cerca de mí
+        </button>
+        {active && !locationError && (
+            <select
+                value={radius}
+                onChange={e => onRadiusChange(Number(e.target.value))}
+                className="bg-[#151b2e] border border-white/10 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+                {GEO_RADIUS_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+            </select>
+        )}
+        {locationError && active && (
+            <span className="text-xs text-red-400 flex items-center gap-1">
+                <X className="w-3 h-3" /> {locationError}
+            </span>
+        )}
+    </div>
+);
+
 // --- Custom Refinement List ---
 const CustomRefinementList = (props: Record<string, unknown> & { attribute: string; label: string }) => {
     const { items, refine } = useRefinementList(props);
@@ -429,6 +497,16 @@ export const SearchPage: React.FC = () => {
 
     const [activeTab, setActiveTab] = useState(typeParam);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+    const [geoSearchActive, setGeoSearchActive] = useState(false);
+    const [geoRadius, setGeoRadius] = useState(10000);
+
+    const { location, error: locationError, loading: locationLoading, requestLocation } = useLocation();
+    const isGeoTab = activeTab === 'places' || activeTab === 'items';
+
+    const handleGeoToggle = () => {
+        if (!geoSearchActive && !location) requestLocation();
+        setGeoSearchActive(prev => !prev);
+    };
 
     const parsedQuery = useMemo(() => SearchQueryParser.parse(queryParam), [queryParam]);
 
@@ -517,6 +595,12 @@ export const SearchPage: React.FC = () => {
                     </div>
                 ) : (
                     <Index indexName={INDEX_NAMES[activeTab as keyof typeof INDEX_NAMES]}>
+                        {isGeoTab && geoSearchActive && location && (
+                            <Configure
+                                aroundLatLng={`${location.latitude},${location.longitude}`}
+                                aroundRadius={geoRadius}
+                            />
+                        )}
                         <div className="container mx-auto max-w-7xl flex flex-col lg:flex-row gap-8">
                             {/* Filters Sidebar */}
                             <div className={`lg:w-64 flex-shrink-0 ${isFiltersOpen ? 'block' : 'hidden lg:block'}`}>
@@ -569,7 +653,18 @@ export const SearchPage: React.FC = () => {
                                     </button>
                                 </div>
 
+                                {isGeoTab && (
+                                    <GeoSearchBar
+                                        active={geoSearchActive}
+                                        onToggle={handleGeoToggle}
+                                        radius={geoRadius}
+                                        onRadiusChange={setGeoRadius}
+                                        locationLoading={locationLoading}
+                                        locationError={locationError}
+                                    />
+                                )}
                                 <ActiveFiltersChips />
+                                <ResultsCount />
                                 <CustomHits activeTab={activeTab} onTabChange={handleTabChange} />
                             </div>
                         </div>
