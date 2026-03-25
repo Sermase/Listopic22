@@ -6,16 +6,52 @@ import {
     useSearchBox,
     useInfiniteHits,
     useRefinementList,
+    useCurrentRefinements,
+    useClearRefinements,
     Index
 } from 'react-instantsearch';
-import { Search, Map as MapIcon, Users, List as ListIcon, MessageCircle, Filter, X, Clock } from 'lucide-react';
+import {
+    Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
+    Filter, X, Clock, ChevronRight, Star
+} from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import { SearchQueryParser } from '../services/SearchQueryParser';
 import { ListItemCard } from '../components/ListItemCard';
-// Note: You might need to import/create specific card adapters if the data shape differs significantly.
 
 const RECENT_SEARCHES_KEY = 'listopic_recent_searches';
+
+const TAB_LABELS: Record<string, string> = {
+    lists: 'Listas',
+    places: 'Lugares',
+    users: 'Usuarios',
+    items: 'Items',
+};
+
+const FILTER_LABELS: Record<string, string> = {
+    availableTags: 'Etiqueta',
+    categories: 'Categoría',
+    city: 'Ciudad',
+    types: 'Tipo',
+    priceLevel: 'Precio',
+    serviceOptions: 'Servicio',
+    accessibilityOptions: 'Accesibilidad',
+    userType: 'Tipo usuario',
+    badges: 'Insignia',
+    placeCity: 'Ciudad',
+    listName: 'Lista',
+    groupTags: 'Etiqueta',
+    residence: 'Residencia',
+};
+
+const EMPTY_STATE_MESSAGES: Record<string, { title: string; hint: string }> = {
+    lists: { title: 'No se encontraron listas', hint: 'Prueba a buscar por nombre, etiqueta o categoría.' },
+    places: { title: 'No se encontraron lugares', hint: 'Prueba otra ciudad o tipo de lugar.' },
+    users: { title: 'No se encontraron usuarios', hint: 'Busca por nombre de usuario o prueba @nombre.' },
+    items: { title: 'No se encontraron items', hint: 'Prueba con #etiqueta o busca directamente el nombre del plato.' },
+    grouped_items: { title: 'No se encontraron items', hint: 'Prueba con #etiqueta o busca directamente el nombre del plato.' },
+    all: { title: 'Sin resultados', hint: 'Prueba con otras palabras o cambia los filtros.' },
+};
 
 const getRecentSearches = (): string[] => {
     try { return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]'); }
@@ -29,7 +65,7 @@ const saveRecentSearch = (term: string): void => {
     localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify([trimmed, ...current].slice(0, 5)));
 };
 
-// --- Custom Search Box (Real-time) ---
+// --- Custom Search Box ---
 const CustomSearchBox = (props: Record<string, unknown>) => {
     const { query, refine } = useSearchBox(props);
     const [inputValue, setInputValue] = useState(query);
@@ -37,37 +73,26 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
     const [focused, setFocused] = useState(false);
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
-    // Sync local input if query changes externally
     useEffect(() => {
-        if (query !== inputValue) {
-            setInputValue(query);
-        }
+        if (query !== inputValue) setInputValue(query);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 
-    // Debounced Refinement
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (inputValue !== query) {
-                refine(inputValue);
-            }
-        }, 300); // 300ms debounce
-
+            if (inputValue !== query) refine(inputValue);
+        }, 300);
         return () => clearTimeout(timer);
     }, [inputValue, refine, query]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setInputValue(e.target.value);
-    };
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setInputValue(e.target.value);
 
     const handleFocus = () => {
         setRecentSearches(getRecentSearches());
         setFocused(true);
     };
 
-    const handleBlur = () => {
-        setTimeout(() => setFocused(false), 150);
-    };
+    const handleBlur = () => setTimeout(() => setFocused(false), 150);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -98,7 +123,7 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
                     onChange={handleChange}
                     onFocus={handleFocus}
                     onBlur={handleBlur}
-                    placeholder="Buscar listas, usuarios, trastiendas (@user, #tag)..."
+                    placeholder="Buscar listas, lugares, usuarios... (@user, #tag)"
                     className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-full py-4 pl-14 pr-6 text-white text-lg focus:outline-none focus:border-indigo-500 focus:bg-white/10 shadow-2xl placeholder-gray-400 transition-all hover:bg-white/10"
                 />
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
@@ -114,11 +139,8 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
                         <>
                             <p className="px-4 pt-3 pb-1 text-xs text-gray-500 uppercase tracking-wider font-semibold">Búsquedas recientes</p>
                             {recentSearches.map((term) => (
-                                <button
-                                    key={term}
-                                    onMouseDown={() => selectSuggestion(term)}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
-                                >
+                                <button key={term} onMouseDown={() => selectSuggestion(term)}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
                                     <Clock className="w-4 h-4 text-gray-500 flex-shrink-0" />
                                     <span className="truncate">{term}</span>
                                 </button>
@@ -129,11 +151,8 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
                         <>
                             <p className="px-4 pt-3 pb-1 text-xs text-gray-500 uppercase tracking-wider font-semibold">Sugerencias</p>
                             {matchingRecent.map((term) => (
-                                <button
-                                    key={term}
-                                    onMouseDown={() => selectSuggestion(term)}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
-                                >
+                                <button key={term} onMouseDown={() => selectSuggestion(term)}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
                                     <Search className="w-4 h-4 text-gray-500 flex-shrink-0" />
                                     <span className="truncate">{term}</span>
                                 </button>
@@ -146,11 +165,111 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
     );
 };
 
-// --- Custom Hits ---
-const CustomHits = ({ activeTab }: { activeTab: string }) => {
+// --- Active Filters Chips ---
+const ActiveFiltersChips = () => {
+    const { items } = useCurrentRefinements();
+    const { refine: clearAll, canRefine } = useClearRefinements();
 
-    // Note: useInfiniteHits doesn't support 'limit' directly in the hook,
-    // but the parent <Configure hitsPerPage={limit} /> handles it.
+    if (!canRefine || items.length === 0) return null;
+
+    return (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+            <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Filtros:</span>
+            {items.map(item =>
+                item.refinements.map(refinement => (
+                    <button
+                        key={`${item.attribute}-${refinement.value}`}
+                        onClick={() => item.refine(refinement)}
+                        className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600/20 border border-indigo-500/30 rounded-full text-xs text-indigo-300 hover:bg-indigo-600/40 transition-colors"
+                    >
+                        <span className="text-indigo-500 font-semibold">
+                            {FILTER_LABELS[item.attribute] || item.attribute}:
+                        </span>
+                        {refinement.label}
+                        <X className="w-3 h-3 text-indigo-400 ml-0.5" />
+                    </button>
+                ))
+            )}
+            <button
+                onClick={clearAll}
+                className="flex items-center gap-1 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full text-xs text-red-400 hover:bg-red-500/20 transition-colors"
+            >
+                Limpiar todo <X className="w-3 h-3" />
+            </button>
+        </div>
+    );
+};
+
+// --- Empty State ---
+const EmptyState = ({ activeTab, onTabChange }: { activeTab: string; onTabChange?: (tab: string) => void }) => {
+    const msg = EMPTY_STATE_MESSAGES[activeTab] || EMPTY_STATE_MESSAGES.all;
+    return (
+        <div className="text-center py-16 px-4">
+            <div className="text-5xl mb-4">🔍</div>
+            <h3 className="text-white font-bold text-lg mb-1">{msg.title}</h3>
+            <p className="text-gray-500 text-sm mb-6">{msg.hint}</p>
+            {onTabChange && activeTab !== 'all' && (
+                <div className="flex flex-wrap justify-center gap-2">
+                    {Object.entries(TAB_LABELS)
+                        .filter(([key]) => key !== activeTab)
+                        .map(([key, label]) => (
+                            <button
+                                key={key}
+                                onClick={() => onTabChange(key)}
+                                className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                            >
+                                Buscar en {label}
+                            </button>
+                        ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- User Hit Card ---
+const UserHitCard = ({ hit }: { hit: any }) => (
+    <Link to={`/profile/${hit.objectID}`} className="block group">
+        <div className="glass-card rounded-2xl p-4 flex items-center gap-4 hover:scale-[1.02] transition-all duration-300 shadow-lg border border-white/5">
+            <div className="relative shrink-0">
+                <img
+                    src={hit.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(hit.username || '?')}&background=6366f1&color=fff`}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-white/10"
+                    alt={hit.username}
+                />
+            </div>
+            <div className="min-w-0 flex-1">
+                <h3 className="text-white font-bold text-base group-hover:text-indigo-400 transition-colors truncate">
+                    {hit.username}
+                </h3>
+                {hit.bio && <p className="text-gray-400 text-sm line-clamp-1 mt-0.5">{hit.bio}</p>}
+                <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3" /> {hit.followersCount || 0} seg.
+                    </span>
+                    {(hit.reviewsCount || 0) > 0 && (
+                        <span className="flex items-center gap-1">
+                            <Star className="w-3 h-3" /> {hit.reviewsCount} reseñas
+                        </span>
+                    )}
+                </div>
+                {hit.badges && hit.badges.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                        {(hit.badges as string[]).slice(0, 3).map((badge: string) => (
+                            <span key={badge} className="px-1.5 py-0.5 bg-amber-500/15 text-amber-400 border border-amber-500/20 rounded text-[10px] font-bold">
+                                {badge}
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-600 shrink-0" />
+        </div>
+    </Link>
+);
+
+// --- Custom Hits ---
+const CustomHits = ({ activeTab, onTabChange }: { activeTab: string; onTabChange?: (tab: string) => void }) => {
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -158,109 +277,72 @@ const CustomHits = ({ activeTab }: { activeTab: string }) => {
         const sentinel = loadMoreRef.current;
         if (!sentinel) return;
         const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting && !isLastPage) {
-                    showMore();
-                }
-            },
+            (entries) => { if (entries[0].isIntersecting && !isLastPage) showMore(); },
             { threshold: 0.1 }
         );
         observer.observe(sentinel);
         return () => observer.disconnect();
     }, [isLastPage, showMore]);
 
-    // Filter Items by Image Requirement
-    const filteredHits = useMemo(() => {
-        if (activeTab === 'grouped_items' || activeTab === 'items') {
-            return hits.filter((hit: any) =>
-                hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl || hit.image || hit.coverImage || (hit.photos && hit.photos[0]) || hit.picture
-            );
-        }
-        return hits;
-    }, [hits, activeTab]);
-
-    if (filteredHits.length === 0) {
-        // For specific tabs, show "No results". For Federated (handled by parent logic typically, but here we can return null if we want strict emptiness)
-        // If this is used inside FederatedSectionContent, returning null/message is handled there?
-        // No, current logic returns message.
-        if (activeTab === 'all') return null; // Should be handled by parent, but safe here.
-        return (
-            <div className="text-center py-10 text-gray-500">
-                No se encontraron resultados en esta categoría.
-            </div>
-        );
+    if (hits.length === 0) {
+        if (activeTab === 'all') return null;
+        return <EmptyState activeTab={activeTab} onTabChange={onTabChange} />;
     }
 
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(filteredHits as any[]).map((hit: any) => {
-                    // Removed Console Log
-                    return (
-                        <div key={hit.objectID}>
-                            {activeTab === 'users' ? (
-                                // User Card Adapter
-                                <Link to={`/profile/${hit.objectID}`} className="block group">
-                                    <div className="glass-card rounded-2xl p-4 flex items-center gap-4 hover:scale-105 transition-all duration-300 shadow-lg border border-white/5">
-                                        <img src={hit.photoUrl || `https://ui-avatars.com/api/?name=${hit.username}`} className="w-16 h-16 rounded-full object-cover" />
-                                        <div>
-                                            <h3 className="text-white font-bold text-lg group-hover:text-indigo-400 transition-colors">{hit.username}</h3>
-                                            {hit.bio && <p className="text-gray-400 text-sm line-clamp-1">{hit.bio}</p>}
-                                            <div className="flex gap-2 mt-1 text-xs text-gray-500">
-                                                <span>{hit.followersCount} seguidores</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Link>
-                            ) : activeTab === 'places' ? (
-                                // Place Card Adapter - NOW USING RICH LISTITEMCARD
-                                <ListItemCard
-                                    item={{
-                                        id: hit.objectID,
-                                        name: hit.name || hit.itemName,
-                                        photoUrl: hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl || hit.image || hit.coverImage || (hit.photos && hit.photos[0]) || hit.picture,
-                                        avgRating: hit.averageRating || hit.avgScore || 0,
-                                        reviewCount: hit.reviewCount || hit.itemCount || hit.userRatingsTotal || 0,
-                                        placeId: hit.objectID, // For places, the ID is the placeID
-                                        placeName: hit.name,
-                                        placeCity: hit.city || hit.placeCity,
-                                        // description: hit.description,
-                                        // No specific author for places usually
-                                    }}
-                                    isGrid={true}
-                                    groupingMode="place"
-                                />
-                            ) : (
-                                // Generic/List Item Adapter
-                                <ListItemCard
-                                    item={{
-                                        id: hit.objectID,
-                                        name: hit.name || hit.itemName,
-                                        photoUrl: hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl || hit.image || hit.coverImage || (hit.photos && hit.photos[0]) || hit.picture,
-                                        avgRating: hit.averageRating || hit.avgScore || 0,
-                                        reviewCount: hit.reviewCount || hit.itemCount || 0,
-                                        placeId: hit.placeId, // For items
-                                        placeName: hit.placeName, // For items
-                                        placeCity: hit.placeCity || hit.city, // For items
-                                        // description: hit.description,
-                                        authorName: hit.authorName || hit.ownerName, // For lists
-                                        authorPhoto: hit.authorPhoto || hit.ownerPhoto,
-                                        listName: hit.listName, // For items
-                                        listId: hit.listId, // For items (needed for link)
-                                        followersCount: hit.followersCount, // For lists
-                                        itemCount: hit.itemCount // For lists
-                                    }}
-                                    isGrid={true}
-                                    groupingMode={
-                                        activeTab === 'lists' ? 'list' :
-                                            (activeTab === 'grouped_items' || activeTab === 'items') ? 'dish' :
-                                                'place'
-                                    }
-                                />
-                            )}
-                        </div>
-                    );
-                })}
+                {(hits as any[]).map((hit: any) => (
+                    <div key={hit.objectID}>
+                        {activeTab === 'users' ? (
+                            <UserHitCard hit={hit} />
+                        ) : activeTab === 'places' ? (
+                            <ListItemCard
+                                item={{
+                                    id: hit.objectID,
+                                    name: hit.name || hit.itemName,
+                                    photoUrl: hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl,
+                                    avgRating: hit.averageRating || hit.avgScore || 0,
+                                    reviewCount: hit.reviewsCount || hit.reviewCount || 0,
+                                    placeId: hit.objectID,
+                                    placeName: hit.name,
+                                    placeCity: hit.city || hit.placeCity,
+                                    tags: hit.types || [],
+                                }}
+                                isGrid={true}
+                                groupingMode="place"
+                            />
+                        ) : (
+                            <ListItemCard
+                                item={{
+                                    id: hit.objectID,
+                                    name: hit.name || hit.itemName,
+                                    photoUrl: hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl,
+                                    avgRating: hit.averageRating || hit.avgGeneralScore || hit.avgScore || 0,
+                                    reviewCount: hit.reviewCount || hit.itemCount || 0,
+                                    placeId: hit.placeId,
+                                    placeName: hit.placeName,
+                                    placeCity: hit.placeCity || hit.city,
+                                    authorName: hit.authorName || hit.ownerName || hit.listOwnerName,
+                                    authorPhoto: hit.authorPhoto || hit.ownerPhoto,
+                                    listName: hit.listName,
+                                    listId: hit.listId,
+                                    followersCount: hit.followersCount,
+                                    itemCount: hit.itemCount,
+                                    tags: (activeTab === 'grouped_items' || activeTab === 'items')
+                                        ? (hit.groupTags || [])
+                                        : (hit.availableTags || []),
+                                }}
+                                isGrid={true}
+                                groupingMode={
+                                    activeTab === 'lists' ? 'list' :
+                                        (activeTab === 'grouped_items' || activeTab === 'items') ? 'dish' :
+                                            'place'
+                                }
+                            />
+                        )}
+                    </div>
+                ))}
             </div>
             {!isLastPage && (
                 <div ref={loadMoreRef} className="py-6 flex justify-center">
@@ -271,47 +353,45 @@ const CustomHits = ({ activeTab }: { activeTab: string }) => {
     );
 };
 
-// --- Federated Section Content ---
-// Separated to access useHits/useInfiniteHits context
-const FederatedSectionContent = ({ title, type, icon: Icon }: { title: string; type: string; icon: React.ElementType }) => {
+// --- Federated Section ---
+const FederatedSectionContent = ({
+    title, type, icon: Icon, onViewAll
+}: {
+    title: string; type: string; icon: React.ElementType; onViewAll: () => void;
+}) => {
     const { hits } = useInfiniteHits();
-
-    // Check if there are any hits AFTER filtering rules (e.g. images for items)
-    // We replicate the filter logic here or ensure CustomHits handles empty return gracefully.
-    // If CustomHits returns null/empty when filteredHits is 0, we can just check hits length here?
-    // WARNING: useInfiniteHits gives raw hits. If we suppress items without images in UI but they exist in hits,
-    // we might render a header with empty content if ALL hits are image-less.
-    // Let's apply valid hits check.
-
-    const validHits = type === 'grouped_items'
-        ? hits.filter((h: any) => h.mainImageUrl || h.photoUrl || h.thumbnailUrl || h.image || h.coverImage || (h.photos && h.photos[0]) || h.picture)
-        : hits;
-
-    if (validHits.length === 0) return null;
+    if (hits.length === 0) return null;
 
     return (
-        <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4 px-1">
-                <Icon className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-xl font-bold text-white">{title}</h3>
+        <div className="mb-10">
+            <div className="flex items-center justify-between mb-4 px-1">
+                <div className="flex items-center gap-2">
+                    <Icon className="w-5 h-5 text-indigo-400" />
+                    <h3 className="text-xl font-bold text-white">{title}</h3>
+                    <span className="text-xs text-gray-600 font-medium">({hits.length})</span>
+                </div>
+                <button
+                    onClick={onViewAll}
+                    className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
+                >
+                    Ver todos <ChevronRight className="w-4 h-4" />
+                </button>
             </div>
             <CustomHits activeTab={type} />
-            <div className="mt-4 text-center lg:text-left">
-                {/* Link to tab could go here */}
-            </div>
         </div>
     );
 };
 
-
-const FederatedSection = ({ indexName, title, type, icon: Icon }: { indexName: string; title: string; type: string; icon: React.ElementType }) => {
-    return (
-        <Index indexName={indexName}>
-            <Configure hitsPerPage={3} />
-            <FederatedSectionContent title={title} type={type} icon={Icon} />
-        </Index>
-    );
-};
+const FederatedSection = ({
+    indexName, title, type, icon, onViewAll
+}: {
+    indexName: string; title: string; type: string; icon: React.ElementType; onViewAll: () => void;
+}) => (
+    <Index indexName={indexName}>
+        <Configure hitsPerPage={3} />
+        <FederatedSectionContent title={title} type={type} icon={icon} onViewAll={onViewAll} />
+    </Index>
+);
 
 // --- Custom Refinement List ---
 const CustomRefinementList = (props: Record<string, unknown> & { attribute: string; label: string }) => {
@@ -344,32 +424,23 @@ const CustomRefinementList = (props: Record<string, unknown> & { attribute: stri
 export const SearchPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // URL Params
     const queryParam = searchParams.get('q') || '';
-    const typeParam = searchParams.get('type') || 'all'; // Default to 'all' now
+    const typeParam = searchParams.get('type') || 'all';
 
-    // Internal State
     const [activeTab, setActiveTab] = useState(typeParam);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
-    // Parse Query using Smart Parser
     const parsedQuery = useMemo(() => SearchQueryParser.parse(queryParam), [queryParam]);
 
-    // Handle Tab Change
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
         setSearchParams({ q: queryParam, type: tab });
     };
 
-    // Construct Filters string for Algolia
-    // e.g. "city:Madrid AND priceLevel:2"
     const algoliaFilters = useMemo(() => {
         const parts: string[] = [];
-
-        // Add User Filters from Smart Query
         Object.entries(parsedQuery.filters).forEach(([key, values]) => {
             let fieldName = key;
-            // Basic mappings...
             if (activeTab === 'places') {
                 if (key === 'service') fieldName = 'serviceOptions';
                 if (key === 'price') fieldName = 'priceLevel';
@@ -377,31 +448,29 @@ export const SearchPage: React.FC = () => {
             if (activeTab === 'grouped_items' || activeTab === 'items') {
                 if (key === 'city') fieldName = 'placeCity';
             }
-
             const group = values.map(v => `${fieldName}:"${v}"`).join(' OR ');
             if (group) parts.push(`(${group})`);
         });
-
-        if (activeTab === 'lists') {
-            // parts.push('isPublic:true'); 
-        }
-
         return parts.join(' AND ');
     }, [parsedQuery, activeTab]);
 
+    const TAB_ICONS: Record<string, React.ElementType> = {
+        lists: ListIcon,
+        places: MapIcon,
+        users: Users,
+        items: MessageCircle,
+    };
 
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] pb-20 pt-24 px-4">
-
             <InstantSearch
                 searchClient={algoliaClient}
-                indexName={INDEX_NAMES.lists} // Primary index for 'all' or 'lists', usually lists is fine as base
+                indexName={INDEX_NAMES.lists}
                 future={{ preserveSharedStateOnUnmount: true }}
             >
-                {/* Global Configuration for the Main Index (or shared query) */}
                 <Configure
                     query={parsedQuery.cleanedQuery}
-                    filters={activeTab === 'all' ? '' : algoliaFilters} // Only apply specific filters on tabs for now, or careful handling
+                    filters={activeTab === 'all' ? '' : algoliaFilters}
                     hitsPerPage={20}
                 />
 
@@ -418,42 +487,38 @@ export const SearchPage: React.FC = () => {
                     <div className="inline-flex items-center bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner overflow-x-auto max-w-[90vw] gap-1 hide-scrollbar">
                         <button
                             onClick={() => handleTabChange('all')}
-                            className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap capitalize ${activeTab === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-                                }`}
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
                         >
                             <Search className="w-4 h-4" /> Todo
                         </button>
-                        {Object.keys(INDEX_NAMES).map(key => (
-                            <button
-                                key={key}
-                                onClick={() => handleTabChange(key)}
-                                className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap capitalize ${activeTab === key ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-                                    }`}
-                            >
-                                {key === 'lists' && <ListIcon className="w-4 h-4" />}
-                                {key === 'places' && <MapIcon className="w-4 h-4" />}
-                                {key === 'users' && <Users className="w-4 h-4" />}
-                                {key === 'grouped_items' && <MessageCircle className="w-4 h-4" />}
-                                {key === 'items' ? 'Items' : key}
-                            </button>
-                        ))}
+                        {Object.keys(INDEX_NAMES).map(key => {
+                            const Icon = TAB_ICONS[key] || Search;
+                            return (
+                                <button
+                                    key={key}
+                                    onClick={() => handleTabChange(key)}
+                                    className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${activeTab === key ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    <Icon className="w-4 h-4" />
+                                    {TAB_LABELS[key] || key}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
-                {/* Content Area */}
+                {/* Content */}
                 {activeTab === 'all' ? (
-                    // --- View: ALL (Federated) ---
                     <div className="container mx-auto max-w-7xl">
-                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas Recomendadas" type="lists" icon={ListIcon} />
-                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} />
-                        <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} />
-                        <FederatedSection indexName={INDEX_NAMES.items} title="Items & Platos" type="grouped_items" icon={MessageCircle} />
+                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} onViewAll={() => handleTabChange('lists')} />
+                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} onViewAll={() => handleTabChange('places')} />
+                        <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} onViewAll={() => handleTabChange('users')} />
+                        <FederatedSection indexName={INDEX_NAMES.items} title="Items" type="grouped_items" icon={MessageCircle} onViewAll={() => handleTabChange('items')} />
                     </div>
                 ) : (
-                    // --- View: Specific Tab (Sidebar + Grid) ---
                     <Index indexName={INDEX_NAMES[activeTab as keyof typeof INDEX_NAMES]}>
                         <div className="container mx-auto max-w-7xl flex flex-col lg:flex-row gap-8">
-                            {/* Filters Sidebar (Desktop) */}
+                            {/* Filters Sidebar */}
                             <div className={`lg:w-64 flex-shrink-0 ${isFiltersOpen ? 'block' : 'hidden lg:block'}`}>
                                 <div className="glass-card rounded-2xl border border-white/10 p-5 sticky top-24 shadow-xl">
                                     <div className="flex justify-between items-center mb-4 lg:hidden">
@@ -461,12 +526,10 @@ export const SearchPage: React.FC = () => {
                                         <button onClick={() => setIsFiltersOpen(false)}><X className="text-white" /></button>
                                     </div>
 
-                                    {/* Facets per Tab */}
                                     {activeTab === 'lists' && (
                                         <>
                                             <CustomRefinementList attribute="availableTags" label="Etiquetas" />
                                             <CustomRefinementList attribute="categories" label="Categoría" />
-                                            {/* Legacy Facets to add if index supports: minReviews, minFollowers */}
                                         </>
                                     )}
                                     {activeTab === 'places' && (
@@ -480,22 +543,23 @@ export const SearchPage: React.FC = () => {
                                     )}
                                     {activeTab === 'users' && (
                                         <>
-                                            <CustomRefinementList attribute="userType" label="Tipo Usuario" />
-                                            {/* <CustomRefinementList attribute="badges" label="Insignias" /> */}
+                                            <CustomRefinementList attribute="userType" label="Tipo de usuario" />
+                                            <CustomRefinementList attribute="badges" label="Insignias" />
+                                            <CustomRefinementList attribute="residence" label="Ciudad" />
                                         </>
                                     )}
                                     {(activeTab === 'grouped_items' || activeTab === 'items') && (
                                         <>
                                             <CustomRefinementList attribute="placeCity" label="Ciudad" />
                                             <CustomRefinementList attribute="listName" label="Lista" />
-                                            <CustomRefinementList attribute="tags" label="Etiquetas" />
+                                            <CustomRefinementList attribute="groupTags" label="Etiquetas" />
                                         </>
                                     )}
                                 </div>
                             </div>
 
                             {/* Results Area */}
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-center mb-4 lg:hidden">
                                     <button
                                         onClick={() => setIsFiltersOpen(true)}
@@ -505,7 +569,8 @@ export const SearchPage: React.FC = () => {
                                     </button>
                                 </div>
 
-                                <CustomHits activeTab={activeTab} />
+                                <ActiveFiltersChips />
+                                <CustomHits activeTab={activeTab} onTabChange={handleTabChange} />
                             </div>
                         </div>
                     </Index>

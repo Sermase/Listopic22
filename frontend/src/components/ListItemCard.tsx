@@ -23,6 +23,7 @@ interface ListItemCardProps {
         itemCount?: number;
         listId?: string;
         placeClosedStatus?: string | null;
+        tags?: string[];
     };
     rank?: number;
     isGrid?: boolean;
@@ -231,6 +232,17 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                 </div>
                             )}
 
+                            {/* Tags */}
+                            {item.tags && item.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                    {item.tags.slice(0, 3).map(tag => (
+                                        <span key={tag} className="px-1.5 py-0.5 bg-white/10 md:bg-black/40 backdrop-blur-sm text-gray-300 border border-white/10 rounded text-[10px] font-medium truncate max-w-[80px]">
+                                            {tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
                             {/* Stats Row */}
                             <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-800 md:border-white/10 pt-2 mt-2">
                                 <div className="flex items-center gap-3 text-xs text-gray-500 md:text-gray-300 font-medium">
@@ -362,6 +374,17 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                 <span className="font-display font-bold text-base sm:text-lg text-white">{item.avgRating.toFixed(1)}</span>
                             </div>
                         </div>
+
+                        {/* Tags */}
+                        {item.tags && item.tags.length > 0 && criteriaPreview.length === 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                                {item.tags.slice(0, 4).map(tag => (
+                                    <span key={tag} className="px-1.5 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-[10px] font-medium">
+                                        {tag}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Mini Criteria Bars (Legacy Compact Style) */}
                         {criteriaPreview.length > 0 && (
