@@ -294,6 +294,7 @@ function transformListRecord(data, docId) {
         data.createdByName
     ].find((value) => isNonEmptyString(value)) || null;
     const ownerUsername = [data.ownerUsername, data.userHandle, data.username].find((value) => isNonEmptyString(value)) || null;
+    const coverImage = data.mainImageUrl || data.photoUrl || data.coverUrl || data.thumbnailUrl || data.imageUrl || null;
     const record = {
         objectID: docId,
         entityType: "list",
@@ -304,7 +305,10 @@ function transformListRecord(data, docId) {
         availableTags: tags,
         reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
         followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
-
+        authorName: ownerName,
+        authorUsername: ownerUsername,
+        thumbnailUrl: coverImage,
+        mainImageUrl: coverImage,
     }
     if (!record.country) {
         delete record.country;
@@ -320,10 +324,12 @@ function transformUserRecord(data, docId) {
         ? data.userType.filter(isNonEmptyString)
         : (isNonEmptyString(data.userType) ? [data.userType.trim()] : []);
     const badges = Array.isArray(data.badges) ? data.badges.filter(isNonEmptyString) : [];
+    const displayName = data.displayName || data.name || data.username || "";
     const record = {
         objectID: docId,
         entityType: "user",
         username: data.username || "",
+        displayName,
         bio: data.bio || "",
         userType: userTypeArray,
         residence: data.residence || null,

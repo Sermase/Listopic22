@@ -10,8 +10,10 @@ import {
     useClearRefinements,
     useStats,
     useSortBy,
+    useInstantSearch,
     Index
 } from 'react-instantsearch';
+import { Link } from 'react-router-dom';
 import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
     Filter, X, Clock, ChevronRight, Star, LocateFixed, Loader2,
@@ -154,16 +156,19 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
 
 const SortControl = ({ activeTab }: { activeTab: string }) => {
     const opts = SORT_OPTIONS[activeTab] || [];
-    // useSortBy requiere estar dentro del contexto Index correcto
     const { currentRefinement, refine } = useSortBy({ items: opts });
+    const { error } = useInstantSearch();
     if (opts.length <= 1) return null;
     return (
-        <div className="flex items-center gap-1.5">
-            <ArrowUpDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+        <div
+            className="flex items-center gap-1.5"
+            title={error ? 'Réplica no disponible — crear índice en Algolia' : undefined}
+        >
+            <ArrowUpDown className={`w-3.5 h-3.5 shrink-0 ${error ? 'text-amber-500' : 'text-gray-500'}`} />
             <select
                 value={currentRefinement}
                 onChange={e => refine(e.target.value)}
-                className="bg-transparent border-0 text-sm text-gray-400 hover:text-white focus:outline-none cursor-pointer pr-1"
+                className={`bg-transparent border-0 text-sm focus:outline-none cursor-pointer pr-1 ${error ? 'text-amber-400' : 'text-gray-400 hover:text-white'}`}
             >
                 {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -284,25 +289,31 @@ const EmptyState = ({ activeTab, onTabChange }: { activeTab: string; onTabChange
 
 // ─── User Hit Card ────────────────────────────────────────────────────────────
 
-const UserHitCard = ({ hit, selected, onHover }: { hit: any; selected: boolean; onHover: (id: string | null) => void }) => (
-    <a href={`/profile/${hit.objectID}`}
-        id={`hit-${hit.objectID}`}
-        onMouseEnter={() => onHover(hit.objectID)}
-        onMouseLeave={() => onHover(null)}
-        className={`block group rounded-2xl p-4 flex items-center gap-3 hover:scale-[1.01] transition-all duration-200 shadow-lg border glass-card ${selected ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-white/5'}`}>
-        <img src={hit.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(hit.username || '?')}&background=6366f1&color=fff`}
-            className="w-14 h-14 rounded-full object-cover border-2 border-white/10 shrink-0" alt={hit.username} />
-        <div className="min-w-0 flex-1">
-            <h3 className="text-white font-bold text-sm group-hover:text-indigo-400 transition-colors truncate">{hit.username}</h3>
-            {hit.bio && <p className="text-gray-400 text-xs line-clamp-1 mt-0.5">{hit.bio}</p>}
-            <div className="flex gap-3 mt-1.5 text-xs text-gray-600">
-                <span className="flex items-center gap-0.5"><Users className="w-3 h-3" /> {hit.followersCount || 0}</span>
-                {(hit.reviewsCount || 0) > 0 && <span className="flex items-center gap-0.5"><Star className="w-3 h-3" /> {hit.reviewsCount}</span>}
+const UserHitCard = ({ hit, selected, onHover }: { hit: any; selected: boolean; onHover: (id: string | null) => void }) => {
+    const displayName = hit.displayName || hit.username || '?';
+    return (
+        <Link to={`/profile/${hit.objectID}`}
+            id={`hit-${hit.objectID}`}
+            onMouseEnter={() => onHover(hit.objectID)}
+            onMouseLeave={() => onHover(null)}
+            className={`block group rounded-2xl p-4 flex items-center gap-3 hover:scale-[1.01] transition-all duration-200 shadow-lg border glass-card ${selected ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-white/5'}`}>
+            <img src={hit.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff`}
+                className="w-14 h-14 rounded-full object-cover border-2 border-white/10 shrink-0" alt={displayName} />
+            <div className="min-w-0 flex-1">
+                <h3 className="text-white font-bold text-sm group-hover:text-indigo-400 transition-colors truncate">{displayName}</h3>
+                {hit.username && hit.displayName && hit.username !== hit.displayName && (
+                    <p className="text-indigo-400/70 text-xs truncate">@{hit.username}</p>
+                )}
+                {hit.bio && <p className="text-gray-400 text-xs line-clamp-1 mt-0.5">{hit.bio}</p>}
+                <div className="flex gap-3 mt-1.5 text-xs text-gray-600">
+                    <span className="flex items-center gap-0.5"><Users className="w-3 h-3" /> {hit.followersCount || 0}</span>
+                    {(hit.reviewsCount || 0) > 0 && <span className="flex items-center gap-0.5"><Star className="w-3 h-3" /> {hit.reviewsCount}</span>}
+                </div>
             </div>
-        </div>
-        <ChevronRight className="w-4 h-4 text-gray-700 shrink-0" />
-    </a>
-);
+            <ChevronRight className="w-4 h-4 text-gray-700 shrink-0" />
+        </Link>
+    );
+};
 
 // ─── Custom Hits ──────────────────────────────────────────────────────────────
 
@@ -312,20 +323,25 @@ interface HitsProps {
     selectedHitId?: string | null;
     onHoverHit?: (id: string | null) => void;
     onSelectHit?: (id: string) => void;
+    /** Usa layout de lista compacta (para el panel lateral derecho) */
+    listLayout?: boolean;
+    /** Desactiva el scroll infinito (usado en sección federated) */
+    noInfiniteScroll?: boolean;
 }
 
-const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit }) => {
+const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false }) => {
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const sentinelRef = useRef<HTMLDivElement>(null);
     const hover = onHoverHit ?? (() => {});
 
     useEffect(() => {
+        if (noInfiniteScroll) return;
         const el = sentinelRef.current;
         if (!el) return;
         const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting && !isLastPage) showMore(); }, { threshold: 0.1 });
         obs.observe(el);
         return () => obs.disconnect();
-    }, [isLastPage, showMore]);
+    }, [noInfiniteScroll, isLastPage, showMore]);
 
     if (hits.length === 0) {
         if (activeTab === 'all') return null;
@@ -334,7 +350,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
 
     return (
         <div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className={listLayout ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'}>
                 {(hits as any[]).map(hit => {
                     const selected = selectedHitId === hit.objectID;
                     if (activeTab === 'users') {
@@ -370,7 +386,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                                         : activeTab === 'places' ? (hit.types || [])
                                         : (hit.availableTags || []),
                                 }}
-                                isGrid={true}
+                                isGrid={!listLayout}
                                 groupingMode={
                                     activeTab === 'lists' ? 'list' :
                                     (activeTab === 'grouped_items' || activeTab === 'items') ? 'dish' : 'place'
@@ -380,7 +396,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                     );
                 })}
             </div>
-            {!isLastPage && (
+            {!noInfiniteScroll && !isLastPage && (
                 <div ref={sentinelRef} className="py-8 flex justify-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-500" />
                 </div>
@@ -406,7 +422,7 @@ const FedSectionContent = ({ title, type, icon: Icon, onViewAll }: { title: stri
                     Ver todos <ChevronRight className="w-4 h-4" />
                 </button>
             </div>
-            <CustomHits activeTab={type} />
+            <CustomHits activeTab={type} noInfiniteScroll />
         </div>
     );
 };
@@ -417,6 +433,45 @@ const FederatedSection = ({ indexName, title, type, icon, onViewAll }: { indexNa
         <FedSectionContent title={title} type={type} icon={icon} onViewAll={onViewAll} />
     </Index>
 );
+
+// ─── Geo Controls (reutilizable) ──────────────────────────────────────────────
+
+const GeoControls = ({
+    isGeoTab, geoActive, geoRadius, locLoading, locError,
+    onToggleGeo, onRadiusChange,
+}: {
+    isGeoTab: boolean;
+    geoActive: boolean;
+    geoRadius: number;
+    locLoading: boolean;
+    locError: string | null;
+    onToggleGeo: () => void;
+    onRadiusChange: (v: number) => void;
+}) => {
+    if (!isGeoTab) return null;
+    return (
+        <div className="flex items-center gap-2">
+            <button
+                onClick={onToggleGeo}
+                disabled={locLoading}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${geoActive ? 'bg-emerald-600/80 border-emerald-500/50 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}
+            >
+                {locLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LocateFixed className="w-3.5 h-3.5" />}
+                Cerca de mí
+            </button>
+            {geoActive && !locError && (
+                <select
+                    value={geoRadius}
+                    onChange={e => onRadiusChange(Number(e.target.value))}
+                    className="bg-[#151b2e] border border-white/10 rounded-full px-3 py-1.5 text-xs text-white focus:outline-none"
+                >
+                    {GEO_RADIUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+            )}
+            {locError && geoActive && <span className="text-xs text-red-400">{locError}</span>}
+        </div>
+    );
+};
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -429,7 +484,7 @@ export const SearchPage: React.FC = () => {
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const [geoActive, setGeoActive] = useState(false);
     const [geoRadius, setGeoRadius] = useState(10000);
-    const [mapExpanded, setMapExpanded] = useState(false);       // mini → full
+    const [mapExpanded, setMapExpanded] = useState(false);
     const [selectedHitId, setSelectedHitId] = useState<string | null>(null);
     const [hoveredHitId, setHoveredHitId] = useState<string | null>(null);
 
@@ -439,7 +494,9 @@ export const SearchPage: React.FC = () => {
     const handleTabChange = useCallback((tab: string) => {
         setActiveTab(tab);
         setSearchParams({ q: queryParam, type: tab });
-        setMapExpanded(false);
+        // Solo cerrar el mapa si pasamos a una pestaña sin geo (users, lists)
+        const newIsGeoTab = tab === 'places' || tab === 'items';
+        if (!newIsGeoTab) setMapExpanded(false);
         setSelectedHitId(null);
     }, [queryParam, setSearchParams]);
 
@@ -448,6 +505,11 @@ export const SearchPage: React.FC = () => {
         const el = document.getElementById(`hit-${id}`);
         el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, []);
+
+    const toggleGeo = useCallback(() => {
+        if (!geoActive && !location) requestLocation();
+        setGeoActive(p => !p);
+    }, [geoActive, location, requestLocation]);
 
     const parsedQuery = useMemo(() => SearchQueryParser.parse(queryParam), [queryParam]);
     const algoliaFilters = useMemo(() => {
@@ -461,6 +523,19 @@ export const SearchPage: React.FC = () => {
         });
         return parts.join(' AND ');
     }, [parsedQuery, activeTab]);
+
+    // Props comunes para SearchMapView
+    const mapSharedProps = {
+        activeTab,
+        selectedHitId,
+        hoveredHitId,
+        onMarkerClick: handleMarkerClick,
+        geoActive,
+        geoRadius,
+        location,
+        onLocate: toggleGeo,
+        locLoading,
+    };
 
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] pb-20 pt-20">
@@ -516,7 +591,7 @@ export const SearchPage: React.FC = () => {
 
                         {/* ── Mobile filter modal ───────────────────────────── */}
                         {mobileFiltersOpen && (
-                            <div className="fixed inset-0 z-[200] lg:hidden">
+                            <div className="fixed inset-0 z-[2000] lg:hidden">
                                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileFiltersOpen(false)} />
                                 <div className="absolute right-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[#0f1629] border-l border-white/10 p-5 overflow-y-auto shadow-2xl">
                                     <div className="flex justify-between items-center mb-5">
@@ -528,8 +603,67 @@ export const SearchPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* ── 2-column desktop layout ───────────────────────── */}
-                        <div className="flex gap-0 px-4 lg:px-8">
+                        {/* ══════════════════════════════════════════════════════
+                            DESKTOP 3-PANEL: mapa expandido en tabs geo
+                        ═══════════════════════════════════════════════════════ */}
+                        {isGeoTab && mapExpanded && (
+                            <div className="hidden lg:flex gap-4 px-4 lg:px-8" style={{ height: 'calc(100vh - 9rem)' }}>
+
+                                {/* Panel izquierdo: filtros */}
+                                <aside className="w-56 xl:w-64 flex-shrink-0 flex flex-col overflow-hidden">
+                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto flex-1">
+                                        <h3 className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-4">Filtros</h3>
+                                        <FilterContent activeTab={activeTab} />
+                                    </div>
+                                </aside>
+
+                                {/* Panel central: controles + mapa */}
+                                <div className="flex-1 min-w-0 flex flex-col gap-2 overflow-hidden">
+                                    <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
+                                        <GeoControls
+                                            isGeoTab={isGeoTab}
+                                            geoActive={geoActive}
+                                            geoRadius={geoRadius}
+                                            locLoading={locLoading}
+                                            locError={locError}
+                                            onToggleGeo={toggleGeo}
+                                            onRadiusChange={setGeoRadius}
+                                        />
+                                        <div className="ml-auto flex items-center gap-4">
+                                            <ResultsCount />
+                                            <SortControl activeTab={activeTab} />
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 min-h-0">
+                                        <SearchMapView
+                                            mode="full"
+                                            {...mapSharedProps}
+                                            onToggleExpand={() => setMapExpanded(false)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Panel derecho: resultados con scroll */}
+                                <div className="w-72 xl:w-80 flex-shrink-0 flex flex-col overflow-hidden">
+                                    <ActiveFiltersChips />
+                                    <div className="flex-1 overflow-y-auto mt-2 pr-1">
+                                        <CustomHits
+                                            activeTab={activeTab}
+                                            onTabChange={handleTabChange}
+                                            selectedHitId={selectedHitId}
+                                            onHoverHit={setHoveredHitId}
+                                            onSelectHit={id => setSelectedHitId(prev => prev === id ? null : id)}
+                                            listLayout={true}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ══════════════════════════════════════════════════════
+                            LAYOUT ESTÁNDAR: móvil siempre, desktop sin mapa expandido
+                        ═══════════════════════════════════════════════════════ */}
+                        <div className={`flex gap-0 px-4 lg:px-8 ${isGeoTab && mapExpanded ? 'lg:hidden' : ''}`}>
 
                             {/* LEFT PANEL: mini-map + filtros */}
                             <aside className="hidden lg:flex flex-col gap-4 w-64 xl:w-72 flex-shrink-0 mr-6">
@@ -539,16 +673,13 @@ export const SearchPage: React.FC = () => {
                                     {isGeoTab && !mapExpanded && (
                                         <SearchMapView
                                             mode="mini"
-                                            activeTab={activeTab}
-                                            selectedHitId={selectedHitId}
-                                            hoveredHitId={hoveredHitId}
-                                            onMarkerClick={handleMarkerClick}
+                                            {...mapSharedProps}
                                             onToggleExpand={() => setMapExpanded(true)}
                                         />
                                     )}
 
                                     {/* Filtros */}
-                                    <div className="glass-card rounded-2xl border border-white/10 p-4">
+                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto max-h-[calc(100vh-12rem)]">
                                         <h3 className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-4">Filtros</h3>
                                         <FilterContent activeTab={activeTab} />
                                     </div>
@@ -560,32 +691,31 @@ export const SearchPage: React.FC = () => {
 
                                 {/* Controls bar */}
                                 <div className="flex flex-wrap items-center gap-3 mb-3">
-                                    {/* Mobile: filtros + geo */}
+                                    {/* Mobile: filtros + mapa */}
                                     <div className="flex items-center gap-2 lg:hidden">
                                         <button onClick={() => setMobileFiltersOpen(true)}
                                             className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-400">
                                             <Filter className="w-4 h-4" /> Filtros
                                         </button>
+                                        {isGeoTab && (
+                                            <button
+                                                onClick={() => setMapExpanded(p => !p)}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${mapExpanded ? 'bg-indigo-600/20 border-indigo-500/30 text-indigo-400' : 'bg-white/5 border-white/10 text-gray-400'}`}>
+                                                <MapIcon className="w-4 h-4" /> Mapa
+                                            </button>
+                                        )}
                                     </div>
 
                                     {/* Geo: cerca de mí */}
-                                    {isGeoTab && (
-                                        <div className="flex items-center gap-2">
-                                            <button onClick={() => { if (!geoActive && !location) requestLocation(); setGeoActive(p => !p); }}
-                                                disabled={locLoading}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${geoActive ? 'bg-emerald-600/80 border-emerald-500/50 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}>
-                                                {locLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LocateFixed className="w-3.5 h-3.5" />}
-                                                Cerca de mí
-                                            </button>
-                                            {geoActive && !locError && (
-                                                <select value={geoRadius} onChange={e => setGeoRadius(Number(e.target.value))}
-                                                    className="bg-[#151b2e] border border-white/10 rounded-full px-3 py-1.5 text-xs text-white focus:outline-none">
-                                                    {GEO_RADIUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                                </select>
-                                            )}
-                                            {locError && geoActive && <span className="text-xs text-red-400">{locError}</span>}
-                                        </div>
-                                    )}
+                                    <GeoControls
+                                        isGeoTab={isGeoTab}
+                                        geoActive={geoActive}
+                                        geoRadius={geoRadius}
+                                        locLoading={locLoading}
+                                        locError={locError}
+                                        onToggleGeo={toggleGeo}
+                                        onRadiusChange={setGeoRadius}
+                                    />
 
                                     {/* Ordenar + Contador */}
                                     <div className="ml-auto flex items-center gap-4">
@@ -597,15 +727,12 @@ export const SearchPage: React.FC = () => {
                                 {/* Filtros activos */}
                                 <ActiveFiltersChips />
 
-                                {/* ── Mapa expandido ───────────────────── */}
+                                {/* ── Mapa expandido (mobile) ───────────────── */}
                                 {isGeoTab && mapExpanded && (
                                     <div className="mb-6 h-[65vh] min-h-[400px]">
                                         <SearchMapView
                                             mode="full"
-                                            activeTab={activeTab}
-                                            selectedHitId={selectedHitId}
-                                            hoveredHitId={hoveredHitId}
-                                            onMarkerClick={handleMarkerClick}
+                                            {...mapSharedProps}
                                             onToggleExpand={() => setMapExpanded(false)}
                                         />
                                     </div>

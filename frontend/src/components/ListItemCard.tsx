@@ -120,36 +120,23 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
 
     // --- Render Content ---
     return (
-        <article className={`group relative glass-card 
+        <article className={`group relative glass-card
             ${isGrid
-                ? 'flex flex-row md:flex-col h-32 md:h-72' // Grid mode: Fixed height horizontal on mobile, Vertical on desktop
+                ? 'flex flex-row min-h-[120px] md:min-h-[148px]'
                 : 'flex flex-row min-h-[120px]'}`}>
 
-            {/* --- GRID MODE (Rich Background Card - DESKTOP ONLY / Horizontal Mobile) --- */}
+            {/* --- GRID MODE (Horizontal compact — same on mobile and desktop) --- */}
             {isGrid ? (
                 <>
-                    {/* Desktop View (Background Image Card) - Hidden on Mobile */}
-                    <div className="hidden md:block absolute inset-0 bg-gray-900">
+                    {/* Thumbnail */}
+                    <div className="w-28 md:w-36 shrink-0 self-stretch relative bg-gray-800">
                         {item.photoUrl ? (
-                            <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-60 group-hover:scale-105 transition-all duration-500" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-700">
-                                <MapPin className="w-12 h-12 opacity-20" />
-                            </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-transparent" />
-                    </div>
-
-                    {/* Mobile View (Thumbnail Left) - Visible Only on Mobile */}
-                    <div className="md:hidden w-28 h-28 shrink-0 relative bg-gray-800">
-                        {item.photoUrl ? (
-                            <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
+                            <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-700">
                                 <MapPin className="w-8 h-8 opacity-20" />
                             </div>
                         )}
-                        {/* Rank on Mobile Image */}
                         {rank && (
                             <div className="absolute top-0 left-0 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-br-lg">
                                 #{rank}
@@ -157,127 +144,100 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                         )}
                     </div>
 
-                    {/* Content Container */}
-                    <div className="relative flex-1 p-3 md:p-4 flex flex-col justify-between md:absolute md:inset-0 md:justify-end z-20 min-w-0">
+                    {/* Content area */}
+                    <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
 
-                        {/* Tags - Top Left (Desktop) / Inline Top (Mobile) */}
-                        <div className="flex flex-wrap gap-2 mb-1 md:mb-3 items-center md:absolute md:top-3 md:left-3 md:z-30 md:max-w-[90%] pointer-events-none">
-
-                            {/* List Badge */}
+                        {/* Context badges */}
+                        <div className="flex flex-wrap gap-1 mb-1">
                             {item.listName && (
-                                <div className="pointer-events-auto shadow-sm md:shadow-lg">
-                                    {item.listId ? (
-                                        <Link
-                                            to={`/list/${item.listId}`}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold bg-black/60 backdrop-blur-md text-indigo-300 border border-white/10 truncate hover:text-indigo-200 transition-colors shadow-sm"
-                                        >
-                                            {item.listName}
-                                        </Link>
-                                    ) : (
-                                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold bg-black/60 backdrop-blur-md text-indigo-300 border border-white/10 truncate shadow-sm">
-                                            {item.listName}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Place Badge */}
-                            {(item.placeName || item.placeCity || item.placeAddress) && (
-                                <div className="pointer-events-auto">
-                                    <span className="inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold bg-black/60 backdrop-blur-md text-white border border-white/10 truncate shadow-sm">
-                                        <MapPin className="w-3 h-3 mr-1 text-emerald-400" />
-                                        {item.placeName || item.placeCity || item.placeAddress?.split(',')[0]}
+                                item.listId ? (
+                                    <Link
+                                        to={`/list/${item.listId}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 truncate hover:text-indigo-200 transition-colors max-w-[120px]"
+                                    >
+                                        {item.listName}
+                                    </Link>
+                                ) : (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 truncate max-w-[120px]">
+                                        {item.listName}
                                     </span>
-                                </div>
+                                )
+                            )}
+                            {(item.placeName || item.placeCity) && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/5 text-gray-300 border border-white/10 truncate max-w-[120px]">
+                                    <MapPin className="w-2.5 h-2.5 mr-0.5 text-emerald-400 shrink-0" />
+                                    {item.placeName || item.placeCity}
+                                </span>
                             )}
                         </div>
 
-
-                        {/* Main Content Info */}
-                        <div className="pointer-events-auto md:mt-auto">
-                            <div className="flex items-start gap-2 flex-wrap mb-1">
-                                <h3 className="font-display font-bold text-sm sm:text-base md:text-xl text-[var(--text-primary)] md:text-white leading-tight group-hover:text-indigo-500 md:group-hover:text-indigo-300 transition-colors line-clamp-2 md:drop-shadow-md">
-                                    {item.placeId ? (
-                                        groupingMode === 'dish' ? (
-                                            <Link
-                                                to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`}
-                                                className="hover:underline inset-0"
-                                            >
-                                                {item.name}
-                                            </Link>
-                                        ) : (
-                                            <Link to={`/place/${item.placeId}`} className="hover:underline inset-0">{item.name}</Link>
-                                        )
+                        {/* Title */}
+                        <div className="mb-1">
+                            <h3 className="font-display font-bold text-sm md:text-base text-[var(--text-primary)] leading-tight group-hover:text-indigo-500 transition-colors line-clamp-2">
+                                {item.placeId ? (
+                                    groupingMode === 'dish' ? (
+                                        <Link to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`} className="hover:underline">{item.name}</Link>
                                     ) : (
-                                        <Link to={`/list/${item.id}`} className="hover:underline inset-0">{item.name}</Link>
-                                    )}
-                                </h3>
-                                {item.placeClosedStatus && (
-                                    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border shrink-0 mt-0.5 ${
-                                        item.placeClosedStatus === 'permanently_closed'
-                                            ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                                            : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
-                                    }`}>
-                                        {item.placeClosedStatus === 'permanently_closed' ? '🔒 Cerrado' : '⏰ Temp.'}
+                                        <Link to={`/place/${item.placeId}`} className="hover:underline">{item.name}</Link>
+                                    )
+                                ) : (
+                                    <Link to={`/list/${item.id}`} className="hover:underline">{item.name}</Link>
+                                )}
+                            </h3>
+                            {item.placeClosedStatus && (
+                                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border mt-0.5 ${
+                                    item.placeClosedStatus === 'permanently_closed'
+                                        ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                                        : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                                }`}>
+                                    {item.placeClosedStatus === 'permanently_closed' ? '🔒 Cerrado' : '⏰ Temp.'}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Author (lists) */}
+                        {item.authorName && !item.placeName && (
+                            <div className="flex items-center gap-1 mb-1">
+                                {item.authorPhoto && <img src={item.authorPhoto} className="w-4 h-4 rounded-full" alt="" />}
+                                <span className="text-gray-500 text-xs truncate">por <span className="text-gray-400 font-medium">{item.authorName}</span></span>
+                            </div>
+                        )}
+
+                        {/* Tags (max 3 on mobile, 4 on desktop) */}
+                        {item.tags && item.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-1">
+                                {item.tags.slice(0, 3).map(tag => (
+                                    <span key={tag} className="px-1.5 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded text-[10px] font-medium truncate max-w-[72px]">{tag}</span>
+                                ))}
+                                {item.tags.length > 3 && (
+                                    <span className="hidden md:inline px-1.5 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded text-[10px]">{item.tags[3]}</span>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Stats + Score */}
+                        <div className="flex items-center justify-between border-t border-white/5 pt-1.5 mt-auto">
+                            <div className="flex items-center gap-2.5 text-xs text-gray-500 font-medium">
+                                {(item.reviewCount > 0 || (groupingMode !== 'place' && groupingMode !== 'dish')) && (
+                                    <span className="flex items-center gap-0.5">
+                                        <Users className="w-3 h-3 text-indigo-400" />
+                                        {item.followersCount !== undefined ? item.followersCount : item.reviewCount}
+                                    </span>
+                                )}
+                                {item.itemCount !== undefined && (
+                                    <span className="flex items-center gap-0.5">
+                                        <MapPin className="w-3 h-3 text-indigo-400" /> {item.itemCount}
                                     </span>
                                 )}
                             </div>
-
-                            {/* Author info (List only) */}
-                            {item.authorName && !item.placeName && (
-                                <div className="flex items-center gap-1.5 opacity-90 mb-1">
-                                    {item.authorPhoto && <img src={item.authorPhoto} className="w-4 h-4 rounded-full border border-gray-200 md:border-white/20" alt="" />}
-                                    <span className="text-gray-500 md:text-gray-300 text-xs">por <span className="text-gray-700 md:text-white font-medium">{item.authorName}</span></span>
+                            {groupingMode !== 'list' && (
+                                <div className={`flex items-center justify-center w-7 h-7 rounded-lg ${getScoreColor(item.avgRating)} font-bold text-white text-xs shrink-0`}>
+                                    {item.avgRating.toFixed(1)}
                                 </div>
                             )}
-
-                            {/* Tags */}
-                            {item.tags && item.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                    {item.tags.slice(0, 3).map(tag => (
-                                        <span key={tag} className="px-1.5 py-0.5 bg-white/10 md:bg-black/40 backdrop-blur-sm text-gray-300 border border-white/10 rounded text-[10px] font-medium truncate max-w-[80px]">
-                                            {tag}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Stats Row */}
-                            <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-800 md:border-white/10 pt-2 mt-2">
-                                <div className="flex items-center gap-3 text-xs text-gray-500 md:text-gray-300 font-medium">
-                                    {(item.reviewCount > 0 || (groupingMode !== 'place' && groupingMode !== 'dish')) && (
-                                        <span className="flex items-center gap-1">
-                                            <Users className="w-3 h-3 text-indigo-500 md:text-indigo-400" />
-                                            {item.followersCount !== undefined ? item.followersCount : item.reviewCount}
-                                        </span>
-                                    )}
-                                    {item.itemCount !== undefined && (
-                                        <span className="flex items-center gap-1">
-                                            <MapPin className="w-3 h-3 text-indigo-500 md:text-indigo-400" /> {item.itemCount}
-                                        </span>
-                                    )}
-                                </div>
-                                {/* Score */}
-                                {groupingMode !== 'list' && (
-                                    <div className={`flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-lg ${getScoreColor(item.avgRating)} shadow-sm md:shadow-lg font-bold text-white text-xs md:text-sm`}>
-                                        {item.avgRating.toFixed(1)}
-                                    </div>
-                                )}
-                            </div>
                         </div>
                     </div>
-
-                    {/* Desktop Rank Badge (Top Right) */}
-                    {rank && (
-                        <div className={`hidden md:block absolute top-0 right-0 z-20 px-3 py-1.5 rounded-bl-xl font-bold text-xs shadow-lg backdrop-blur-md
-                            ${rank === 1 ? 'bg-yellow-500/80 text-white' :
-                                rank === 2 ? 'bg-gray-400/80 text-white' :
-                                    rank === 3 ? 'bg-orange-500/80 text-white' :
-                                        'bg-black/40 text-white border-l border-b border-white/10'}`}>
-                            #{rank}
-                        </div>
-                    )}
                 </>
             ) : (
                 /* --- LIST MODE (Horizontal Compact) --- */
