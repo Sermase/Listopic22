@@ -27,20 +27,30 @@ export const ReviewService = {
                 }
             }
 
-            const rootRef = doc(db, 'reviews', reviewId);
-            const rootSnap = await getDoc(rootRef);
-            if (rootSnap.exists()) {
-                refsToDelete.push(rootRef);
-                if (!reviewData) reviewData = rootSnap.data();
+            // Root collection may not be readable for legacy reviews with only authorId.
+            // Wrap in try-catch to gracefully skip if permissions fail.
+            try {
+                const rootRef = doc(db, 'reviews', reviewId);
+                const rootSnap = await getDoc(rootRef);
+                if (rootSnap.exists()) {
+                    refsToDelete.push(rootRef);
+                    if (!reviewData) reviewData = rootSnap.data();
 
-                const rootListId = rootSnap.data().listId;
-                if (rootListId && (!listId || rootListId !== listId)) {
-                    const movedCanonicalRef = doc(db, 'lists', rootListId, 'reviews', reviewId);
-                    const movedCanonicalSnap = await getDoc(movedCanonicalRef);
-                    if (movedCanonicalSnap.exists()) {
-                        refsToDelete.push(movedCanonicalRef);
-                        reviewData = movedCanonicalSnap.data();
+                    const rootListId = rootSnap.data().listId;
+                    if (rootListId && (!listId || rootListId !== listId)) {
+                        const movedCanonicalRef = doc(db, 'lists', rootListId, 'reviews', reviewId);
+                        const movedCanonicalSnap = await getDoc(movedCanonicalRef);
+                        if (movedCanonicalSnap.exists()) {
+                            refsToDelete.push(movedCanonicalRef);
+                            reviewData = movedCanonicalSnap.data();
+                        }
                     }
+                }
+            } catch (readErr: any) {
+                if (readErr?.code === 'permission-denied') {
+                    console.warn(`[deleteReview] No read access to root reviews/${reviewId}, skipping root path.`);
+                } else {
+                    throw readErr;
                 }
             }
 

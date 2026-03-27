@@ -355,7 +355,10 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
             }
 
             if (isLoadMore) {
-                setReviews(prev => [...prev, ...enrichedReviews]);
+                setReviews(prev => {
+                    const existingIds = new Set(prev.map(r => r.id));
+                    return [...prev, ...enrichedReviews.filter(r => !existingIds.has(r.id))];
+                });
             } else {
                 setReviews(enrichedReviews);
             }
@@ -387,7 +390,10 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
                     }
 
                     if (isLoadMore) {
-                        setReviews(prev => [...prev, ...enrichedFallback]);
+                        setReviews(prev => {
+                            const existingIds = new Set(prev.map(r => r.id));
+                            return [...prev, ...enrichedFallback.filter(r => !existingIds.has(r.id))];
+                        });
                     } else {
                         setReviews(enrichedFallback);
                     }

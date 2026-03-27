@@ -231,11 +231,23 @@ export const ProfilePage: React.FC = () => {
     fetchMore,
     hasMore,
     loadingMore,
-  } = useReviews({ type: "recent", userId: targetUserId });
+  } = useReviews({ type: "recent", userId: targetUserId, limit: reviewViewMode === "gallery" ? 10 : 3 });
   const [localReviews, setLocalReviews] = useState<any[]>([]);
 
   // Infinite Scroll Effect (Must be after useReviews)
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
+
+  // Refs so the observer callback always reads the latest values without
+  // needing to re-create the observer. fetchMoreRef avoids the observer
+  // effect depending on `fetchMore` (which changes reference every render).
+  const hasMoreRef = React.useRef(hasMore);
+  const isFetchingRef = React.useRef(false); // synchronous guard against double-fire
+  const fetchMoreRef = React.useRef(fetchMore);
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+  useEffect(() => { fetchMoreRef.current = fetchMore; }, [fetchMore]);
+  // Reset synchronous guard when the load finishes.
+  useEffect(() => { if (!loadingMore) isFetchingRef.current = false; }, [loadingMore]);
+
   useEffect(() => {
     if (activeTab !== "reviews" || loadingReviews) return;
     const target = loadMoreRef.current;
@@ -243,8 +255,9 @@ export const ProfilePage: React.FC = () => {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore) {
-          fetchMore();
+        if (entries[0].isIntersecting && hasMoreRef.current && !isFetchingRef.current) {
+          isFetchingRef.current = true; // block synchronously before any re-render
+          fetchMoreRef.current();
         }
       },
       { threshold: 0.1 },
@@ -252,14 +265,10 @@ export const ProfilePage: React.FC = () => {
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [
-    activeTab,
-    hasMore,
-    loadingMore,
-    loadingReviews,
-    localReviews.length,
-    fetchMore,
-  ]);
+    // fetchMore intentionally omitted — we access it via fetchMoreRef
+    // localReviews.length > 0 ensures the observer re-runs once reviews populate the DOM
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, loadingReviews, localReviews.length > 0]);
 
   // Additional List States
   const [followedLists, setFollowedLists] = useState<any[]>([]);
@@ -664,6 +673,7 @@ export const ProfilePage: React.FC = () => {
 
   const handleDeleteReview = (id: string) => {
     setLocalReviews((prev) => prev.filter((r) => r.id !== id));
+    setExpandedReviewIds((prev) => prev.filter((rid) => rid !== id));
     setExpandedReviewIds((prev) => prev.filter((reviewId) => reviewId !== id));
     setStatsLoadedUserId(null);
   };
@@ -1230,7 +1240,9 @@ export const ProfilePage: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
               <div className="min-w-0 md:flex-1 md:pr-4">
                 <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-white leading-tight break-words line-clamp-2">
-                  {profile.displayName || profile.username || "Usuario"}
+                  {profile.displayName || profile.username ||
+                    ([profile.name, profile.surnames].filter(Boolean).join(' ')) ||
+                    "Usuario"}
                 </h1>
                 {profile.username && (
                   <p className="text-sm sm:text-base md:text-lg text-indigo-400 font-normal truncate mt-1">
@@ -2128,16 +2140,17 @@ export const ProfilePage: React.FC = () => {
                       return (
                         <div
                           key={review.id}
-                          className="col-span-3 md:col-span-4 lg:col-span-5 bg-[#151b2e] rounded-xl border border-indigo-500/50 p-2 sm:p-4 mb-2 shadow-2xl animate-fade-in relative"
+                          className="col-span-3 md:col-span-4 lg:col-span-5 bg-[#151b2e] rounded-xl border border-indigo-500/50 mb-2 shadow-2xl animate-fade-in"
                         >
-                          <button
-                            onClick={() => {
-                              setExpandedReviewIds([]);
-                            }}
-                            className="absolute top-2 right-2 sm:top-4 sm:right-4 z-10 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white backdrop-blur-md transition-colors"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
+                          <div className="flex justify-end px-3 pt-2">
+                            <button
+                              onClick={() => setExpandedReviewIds([])}
+                              className="p-1.5 bg-black/40 hover:bg-black/70 rounded-full text-gray-400 hover:text-white transition-colors"
+                              title="Cerrar"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
                           <ReviewCard
                             review={review}
                             onDelete={handleDeleteReview}
