@@ -407,7 +407,8 @@ export const GroupPage: React.FC = () => {
                             id: lid,
                             name: d.name,
                             author: d.authorName,
-                            parentListId: d.parentListId
+                            parentListId: d.parentListId,
+                            photoUrl: d.photoUrl || d.mainImageUrl || d.thumbnailUrl || d.coverUrl || d.imageUrl || undefined
                         });
                     }
                 } catch (e) { }

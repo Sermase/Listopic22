@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db, storage } from '../../firebase';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { X, Save, Image as ImageIcon, UploadCloud, AlertCircle } from 'lucide-react';
+import { X, Save, Image as ImageIcon, UploadCloud, AlertCircle, RefreshCcw, RefreshCw } from 'lucide-react';
 
 interface DeveloperItemModalProps {
     isOpen: boolean;
@@ -10,6 +10,7 @@ interface DeveloperItemModalProps {
     collectionName: string;
     item: any | null;
     onSaved: () => void;
+    onUpdateFromGoogle?: () => Promise<void>;
 }
 
 export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
@@ -17,10 +18,12 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
     onClose,
     collectionName,
     item,
-    onSaved
+    onSaved,
+    onUpdateFromGoogle,
 }) => {
     const [jsonStr, setJsonStr] = useState('{}');
     const [isSaving, setIsSaving] = useState(false);
+    const [isUpdatingGoogle, setIsUpdatingGoogle] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Image upload state
@@ -60,6 +63,19 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
             setError(err.message || "Error al guardar el documento");
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleUpdateFromGoogle = async () => {
+        if (!onUpdateFromGoogle) return;
+        setIsUpdatingGoogle(true);
+        setError(null);
+        try {
+            await onUpdateFromGoogle();
+        } catch (err: any) {
+            setError(err.message || 'Error al actualizar desde Google');
+        } finally {
+            setIsUpdatingGoogle(false);
         }
     };
 
@@ -254,6 +270,18 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
 
                 {/* Footer */}
                 <div className="p-6 border-t border-white/10 flex justify-end gap-3 shrink-0 bg-[#0a0c10]/50">
+                    {collectionName === 'places' && onUpdateFromGoogle && (
+                        <button
+                            onClick={handleUpdateFromGoogle}
+                            disabled={isUpdatingGoogle || isSaving}
+                            className="px-5 py-2 rounded-lg bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 disabled:opacity-50 text-green-400 font-bold transition-colors flex items-center gap-2 mr-auto"
+                        >
+                            {isUpdatingGoogle
+                                ? <RefreshCw className="w-4 h-4 animate-spin" />
+                                : <RefreshCcw className="w-4 h-4" />}
+                            {isUpdatingGoogle ? 'Actualizando...' : 'Actualizar desde Google'}
+                        </button>
+                    )}
                     <button
                         onClick={onClose}
                         className="px-6 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold transition-colors"

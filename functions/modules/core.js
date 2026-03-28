@@ -1186,7 +1186,7 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
 
     // Añadimos campos de accesibilidad y opciones de servicio (si el endpoint legacy los soporta, serán devueltos)
     // Usamos solo campos soportados por el endpoint legacy de Place Details
-    const fields = "name,place_id,formatted_address,geometry,url,photos,price_level,website,international_phone_number,address_components,rating,user_ratings_total,types";
+    const fields = "name,place_id,formatted_address,geometry,url,photos,price_level,website,international_phone_number,address_components,rating,user_ratings_total,types,business_status";
     const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeid}&key=${apiKey}&fields=${fields}&language=es`;
 
     try {
@@ -1256,6 +1256,11 @@ const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
           // Estos campos pueden rellenarse vía otras fuentes o con endpoints v1 en el futuro
           accessibility: resolveAccessibilityPayload(accessibilityOptions, existingData.accessibility),
           serviceOptions: existingData.serviceOptions || null,
+          googleBusinessStatus: result.business_status || null,
+          closedStatus: result.business_status === 'CLOSED_PERMANENTLY' ? 'permanently_closed'
+            : result.business_status === 'CLOSED_TEMPORARILY' ? 'temporarily_closed'
+            : null,
+          closedStatusUpdatedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(), lastGoogleSync: FieldValue.serverTimestamp(),
         };
 

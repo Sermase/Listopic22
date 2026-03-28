@@ -912,7 +912,7 @@ export const ProfilePage: React.FC = () => {
     return (
       <div className="space-y-2">
         {lists.map((list) => {
-          const listImage = list.mainImageUrl || list.photoUrl || "";
+          const listImage = list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl || "";
           return (
             <Link
               key={list.id}

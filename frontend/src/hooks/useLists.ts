@@ -11,6 +11,9 @@ export interface ListEntity {
     authorName?: string;
     photoUrl?: string; // List cover or icon
     mainImageUrl?: string; // Legacy/DB field
+    thumbnailUrl?: string;
+    coverUrl?: string;
+    imageUrl?: string;
     createdAt: Timestamp;
     updatedAt?: Timestamp;
     parentListId?: string; // For sublists

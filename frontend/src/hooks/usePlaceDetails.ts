@@ -122,13 +122,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
             });
 
             const globalReviews = globalReviewsSnap.docs
-                .map(doc => ({ id: doc.id, ...(doc.data() as Record<string, unknown>) } as ReviewEntity))
-                .filter(r => {
-                    // Show if: It's own review, or it's public, or its list is a candidate
-                    return r.userId === currentUser?.uid || r.authorId === currentUser?.uid ||
-                        r.visibility === 'public' ||
-                        (r.listId && candidateListIds.includes(r.listId));
-                });
+                .map(doc => ({ id: doc.id, ...(doc.data() as Record<string, unknown>) } as ReviewEntity));
 
             reviewsByList.push(globalReviews);
 
@@ -181,7 +175,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                                     name: d.name,
                                     authorName: d.authorName,
                                     parentListId: d.parentListId,
-                                    photoUrl: d.photoUrl
+                                    photoUrl: d.photoUrl || d.mainImageUrl || d.thumbnailUrl || d.coverUrl || d.imageUrl || undefined
                                 });
                             }
                         }

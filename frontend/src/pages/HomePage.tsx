@@ -486,7 +486,7 @@ export const HomePage: React.FC = () => {
                         placeId: d.id,
                         name: data.name,
                         address: data.address || data.formatted_address,
-                        photoUrl: data.mainImageUrl || data.photoUrl,
+                        photoUrl: data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl,
                         rating: data.averageRating || data.googleRating || 0,
                         reviewsCount: data.reviewsCount || 0,
                         closedStatus: data.closedStatus || null,
@@ -993,9 +993,9 @@ export const HomePage: React.FC = () => {
                             loading={loadingLists}
                             renderItem={(list: any, index: number) => (
                                 <Link to={`/list/${list.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
-                                    {(list.mainImageUrl || list.photoUrl) ? (
+                                    {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl) ? (
                                         <div className="absolute inset-0">
-                                            <img src={list.mainImageUrl || list.photoUrl} alt={list.name} className="w-full h-full object-cover" />
+                                            <img src={list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl} alt={list.name} className="w-full h-full object-cover" />
                                             <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent" />
                                         </div>
                                     ) : (

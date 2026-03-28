@@ -261,6 +261,7 @@ function hasGroupedListMetadataChanged(beforeData, afterData) {
 
 function transformPlaceRecord(data, docId) {
     if (!data) return null;
+    const coverImage = data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl || null;
     const record = {
         objectID: docId,
         entityType: "place",
@@ -273,7 +274,8 @@ function transformPlaceRecord(data, docId) {
         averageRating: typeof data.averageRating === "number" ? data.averageRating : 0,
         reviewsCount: typeof data.reviewsCount === "number" ? data.reviewsCount : 0,
         priceLevel: typeof data.priceLevel === "number" ? data.priceLevel : null,
-        mainImageUrl: data.mainImageUrl || null,
+        mainImageUrl: coverImage,
+        thumbnailUrl: coverImage,
         _geoloc: data.location && isNumber(data.location.latitude) && isNumber(data.location.longitude)
             ? { lat: data.location.latitude, lng: data.location.longitude }
             : undefined

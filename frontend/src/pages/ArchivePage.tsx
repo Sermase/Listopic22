@@ -62,7 +62,7 @@ export const ArchivePage: React.FC = () => {
                     type: data.type || data.entityType || 'other',
                     name: data.name || data.title || data.itemName || 'Sin nombre',
                     subtitle: data.subtitle,
-                    photoUrl: data.photoUrl || data.imageUrl,
+                    photoUrl: data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl,
                     route: route || '#',
                     placeId: data.placeId,
                     listId: data.listId,

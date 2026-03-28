@@ -7,6 +7,7 @@ import {
 import { ShareModal } from '../components/ShareModal';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { usePlaceDetails } from '../hooks/usePlaceDetails';
+import { PlaceService } from '../services/PlaceService';
 import { ReviewCard } from '../components/ReviewCard';
 import { MapView } from '../components/MapView';
 import { useAuth } from '../context/AuthContext';
@@ -43,6 +44,9 @@ export const PlacePage: React.FC = () => {
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const fromListId = searchParams.get('listId');
+
+    const [syncing, setSyncing] = useState(false);
+    const [syncError, setSyncError] = useState<string | null>(null);
 
     const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos'>('reviews');
     const [reviewViewMode, setReviewViewMode] = useState<'list' | 'gallery'>('gallery');
@@ -252,13 +256,46 @@ export const PlacePage: React.FC = () => {
         );
     }
 
+    const handleSyncFromGoogle = async () => {
+        if (!placeId || !user) return;
+        setSyncing(true);
+        setSyncError(null);
+        try {
+            const idToken = await user.getIdToken();
+            await PlaceService.ensurePlaceSyncedWithBackend(placeId, idToken);
+            refresh();
+        } catch (err: any) {
+            setSyncError(err.message || 'Error al sincronizar con Google');
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     if (error || !place) {
         return (
             <div className="min-h-screen pt-32 px-4 text-center bg-[#0b1021]">
-                <h2 className="text-2xl font-bold text-red-400">Lugar no encontrado</h2>
-                <Link to="/search" className="text-indigo-400 mt-4 inline-block hover:underline">
-                    Volver a buscar
-                </Link>
+                <MapPin className="w-16 h-16 text-white/20 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-white mb-2">Lugar no encontrado</h2>
+                <p className="text-gray-400 mb-6 max-w-sm mx-auto text-sm">
+                    Este lugar aún no está en Listopic.
+                    {user ? ' Puedes sincronizarlo desde Google Maps.' : ' Inicia sesión para añadirlo.'}
+                </p>
+                {syncError && <p className="text-red-400 text-sm mb-4">{syncError}</p>}
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    {user && (
+                        <button
+                            onClick={handleSyncFromGoogle}
+                            disabled={syncing}
+                            className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold transition-colors flex items-center gap-2 mx-auto"
+                        >
+                            {syncing ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <MapPin className="w-4 h-4" />}
+                            {syncing ? 'Sincronizando...' : 'Sincronizar desde Google'}
+                        </button>
+                    )}
+                    <Link to="/search" className="px-5 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-indigo-400 font-bold transition-colors flex items-center gap-2 justify-center">
+                        Volver a buscar
+                    </Link>
+                </div>
             </div>
         );
     }

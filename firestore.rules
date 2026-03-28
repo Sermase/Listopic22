@@ -73,21 +73,13 @@ service cloud.firestore {
     }
 
     // ===============================================
-    // REGLA PARA COLLECTION GROUP 'reviews' (RESPETA PRIVACIDAD DE LISTAS)
-    // ===============================================
-    // ===============================================
     // REGLA PARA COLLECTION GROUP 'reviews'
     // ===============================================
-    // Collection-group reviews inherits access from specific list rules.
+    // Cualquier usuario autenticado puede leer reseñas (colección raíz y subcollections).
+    // Las reseñas son contenido social público; la privacidad se gestiona en el nivel de la lista.
 
-    // Reglas para la colección 'reviews' (permite queries collectionGroup y colecciones raíz)
     match /{path=**}/reviews/{reviewId} {
-      allow read: if request.auth != null && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.authorId == request.auth.uid ||
-        isJefe(request.auth.uid) ||
-        (resource.data.listId is string && canReadListById(resource.data.listId))
-      );
+      allow read: if request.auth != null;
       allow create: if request.auth != null
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.listId is string

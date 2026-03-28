@@ -49,7 +49,7 @@ export const ListPage: React.FC = () => {
         setMeta('og:description', (list as any).description || `${list.reviewCount} reseñas · ${list.name}`);
         setMeta('og:url', window.location.href);
         setMeta('og:type', 'website');
-        const img = (list as any).mainImageUrl || (list as any).photoUrl;
+        const img = (list as any).thumbnailUrl || (list as any).mainImageUrl || (list as any).photoUrl || (list as any).coverUrl || (list as any).imageUrl;
         if (img) setMeta('og:image', img);
         return () => { document.title = 'Listopic'; };
     }, [list]);
@@ -610,7 +610,7 @@ export const ListPage: React.FC = () => {
     const listShareSubtitle = list.parentListId && parentListName
         ? `${listTypeLabel} de ${parentListName}`
         : listTypeLabel;
-    const listShareImage = list.mainImageUrl || list.photoUrl || undefined;
+    const listShareImage = list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl || undefined;
 
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20 transition-colors duration-300">
@@ -620,10 +620,10 @@ export const ListPage: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
 
                 {/* Background Image & Overlay — overflow-hidden only on image wrapper */}
-                {(list.mainImageUrl || list.photoUrl) ? (
+                {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl) ? (
                     <div className="absolute inset-0 overflow-hidden">
                         <img
-                            src={list.mainImageUrl || list.photoUrl}
+                            src={list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl}
                             alt={list.name}
                             className="w-full h-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
                         />

@@ -369,7 +369,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                                 item={{
                                     id: hit.objectID,
                                     name: hit.name || hit.itemName,
-                                    photoUrl: hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl,
+                                    photoUrl: hit.thumbnailUrl || hit.mainImageUrl || hit.photoUrl || hit.coverUrl || hit.imageUrl,
                                     avgRating: hit.averageRating || hit.avgGeneralScore || 0,
                                     reviewCount: hit.reviewsCount || hit.reviewCount || hit.itemCount || 0,
                                     placeId: activeTab === 'places' ? hit.objectID : hit.placeId,

@@ -558,6 +558,31 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     }
                 } catch (placeErr) {
                     console.error("Failed to sync place with backend via new logic:", placeErr);
+                    // Fallback: Si el backend falla o da timeout, creamos un documento básico desde el frontend para que la reseña no quede "huérfana".
+                    try {
+                        const placeRef = doc(db, 'places', finalPlaceId);
+                        const placeSnap = await getDoc(placeRef);
+                        if (!placeSnap.exists()) {
+                            await setDoc(placeRef, {
+                                name: selectedPlace.name,
+                                name_normalized: selectedPlace.name.toLowerCase(),
+                                address: finalPlaceAddress,
+                                address_normalized: finalPlaceAddress.toLowerCase(),
+                                location: { latitude: finalPlaceLat, longitude: finalPlaceLng },
+                                coordinates: { latitude: finalPlaceLat, longitude: finalPlaceLng },
+                                googlePlaceId: finalPlaceId,
+                                types: selectedPlace.types || (selectedPlace.type ? [selectedPlace.type] : ['establishment']),
+                                createdAt: serverTimestamp(),
+                                updatedAt: serverTimestamp(),
+                                followersCount: 0,
+                                reviewsCount: 0,
+                                averageRating: null
+                            });
+                            console.log("Created fallback place document directly from frontend.");
+                        }
+                    } catch (fallbackErr) {
+                        console.error("Fallback place creation failed:", fallbackErr);
+                    }
                 }
             }
             const isSublist = !!listData?.parentListId;

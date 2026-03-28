@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { BrandingManager } from '../components/developer/BrandingManager';
 import { ListsManagerTab } from '../components/developer/ListsManagerTab';
+import { PlacesManagerTab } from '../components/developer/PlacesManagerTab';
+import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
@@ -24,7 +26,7 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places'>('console');
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     // Other Settings State
@@ -440,6 +442,17 @@ export const DeveloperPage: React.FC = () => {
         }
     };
 
+    const handleUpdatePlaceFromGoogle = async () => {
+        if (!selectedItem || !user) throw new Error('Sin datos de lugar o autenticación');
+        const idToken = await user.getIdToken();
+        const googleId = selectedItem.googlePlaceId || selectedItem.id;
+        await PlaceService.ensurePlaceSyncedWithBackend(googleId, idToken);
+        // Refresh the selected item from Firestore
+        const snap = await getDoc(doc(db, 'places', selectedItem.id));
+        if (snap.exists()) setSelectedItem({ id: snap.id, ...snap.data() });
+        handleConsoleSearch();
+    };
+
     const fetchOtherSettings = async () => {
         setOtherSettingsLoading(true);
         setOtherSettingsMessage(null);
@@ -570,6 +583,12 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'lists' ? 'border-indigo-400 bg-indigo-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <ListIcon className="w-5 h-5" /> Listas
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('places'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'places' ? 'border-green-500 bg-green-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <MapPin className="w-5 h-5" /> Lugares
                         </button>
                     </nav>
 
@@ -732,6 +751,7 @@ export const DeveloperPage: React.FC = () => {
                                     collectionName={consoleParams.collection}
                                     item={selectedItem}
                                     onSaved={handleConsoleSearch}
+                                    onUpdateFromGoogle={consoleParams.collection === 'places' ? handleUpdatePlaceFromGoogle : undefined}
                                 />
                             </div >
                         )}
@@ -1692,6 +1712,10 @@ export const DeveloperPage: React.FC = () => {
 
                         {activeTab === 'lists' && (
                             <ListsManagerTab />
+                        )}
+
+                        {activeTab === 'places' && (
+                            <PlacesManagerTab />
                         )}
                     </main >
                 </div >

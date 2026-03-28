@@ -37,7 +37,7 @@ export const PlaceService = {
         console.log(`[PlaceService] Syncing place ${placeId} with backend...`);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
 
         try {
             const response = await fetch(url, {

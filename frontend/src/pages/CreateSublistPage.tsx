@@ -199,7 +199,7 @@ export const CreateSublistPage: React.FC = () => {
         setLoading(true);
 
         try {
-            const finalPhotoUrl = imagePreview || parentList.photoUrl || '';
+            const finalPhotoUrl = imagePreview || parentList.thumbnailUrl || parentList.mainImageUrl || parentList.photoUrl || parentList.coverUrl || parentList.imageUrl || '';
 
             const criteriaDefinitionMap: Record<string, any> = {};
             criteria.forEach(c => {
@@ -310,8 +310,8 @@ export const CreateSublistPage: React.FC = () => {
                                     className="w-full bg-[#151b2e] border border-white/8 active:bg-[#1a2035] hover:bg-[#1a2035] hover:border-indigo-500/40 rounded-2xl p-3 flex items-center gap-3 transition-all text-left group"
                                 >
                                     <div className="w-14 h-14 bg-gray-800 rounded-xl overflow-hidden shrink-0">
-                                        {list.photoUrl
-                                            ? <img src={list.photoUrl} alt={list.name} className="w-full h-full object-cover" />
+                                        {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl)
+                                            ? <img src={list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl} alt={list.name} className="w-full h-full object-cover" />
                                             : <div className="w-full h-full flex items-center justify-center text-2xl">📋</div>
                                         }
                                     </div>
@@ -347,9 +347,9 @@ export const CreateSublistPage: React.FC = () => {
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
-                    {parentList.photoUrl && (
+                    {(parentList.thumbnailUrl || parentList.mainImageUrl || parentList.photoUrl || parentList.coverUrl || parentList.imageUrl) && (
                         <div className="w-10 h-10 rounded-lg overflow-hidden border border-white/10 shrink-0">
-                            <img src={parentList.photoUrl} className="w-full h-full object-cover opacity-60" alt="" />
+                            <img src={parentList.thumbnailUrl || parentList.mainImageUrl || parentList.photoUrl || parentList.coverUrl || parentList.imageUrl} className="w-full h-full object-cover opacity-60" alt="" />
                         </div>
                     )}
                     <div className="min-w-0">
