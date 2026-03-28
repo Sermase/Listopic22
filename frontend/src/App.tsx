@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation as useRouterLocation } from 'react-router-dom';
 import React, { Suspense } from 'react';
 import { ToastProvider } from './context/ToastContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -23,19 +23,60 @@ const ArchivePage = React.lazy(() => import('./pages/ArchivePage').then(m => ({ 
 const ChatsPage = React.lazy(() => import('./pages/ChatsPage').then(m => ({ default: m.ChatsPage })));
 const CreateReviewPage = React.lazy(() => import('./pages/CreateReviewPage').then(m => ({ default: m.CreateReviewPage })));
 
-
 // Activating location request globally
 const LocationActivator = () => {
   useLocation();
   return null;
 };
 
-// Loading Fallback
+// Loading Fallback (shown on first lazy-chunk load)
 const PageLoader = () => (
   <div className="min-h-screen pt-32 flex justify-center bg-[#0b1021]">
     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
   </div>
 );
+
+// All routes wrapped so we can key by pathname for enter animations
+const AppRoutes = () => {
+  const location = useRouterLocation();
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <main key={location.pathname} className="animate-fade-in">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/list/:listId" element={<ListPage />} />
+          <Route path="/list/:listId/edit" element={<EditListPage />} />
+
+          {/* List Creation Flow (Protected) */}
+          <Route path="/create" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
+          <Route path="/create-list" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
+
+          {/* Sublist Creation Flow */}
+          <Route path="/create-sublist" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
+          <Route path="/create-sublist/:parentId" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
+          <Route path="/create-review" element={<ProtectedRoute><CreateReviewPage /></ProtectedRoute>} />
+
+          <Route path="/users" element={<UsersPage />} />
+          <Route path="/place/:placeId" element={<PlacePage />} />
+          <Route path="/group/:placeId" element={<GroupPage />} />
+          <Route path="/group/:placeId/:itemName" element={<GroupPage />} />
+          <Route path="/debug" element={<DebugView />} />
+          <Route path="/developer" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Protected Profile Pages */}
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/profile/:userId" element={<ProfilePage />} />
+
+          <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
+          <Route path="/chats" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
+          <Route path="/chats/:chatId" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
+        </Routes>
+      </main>
+    </Suspense>
+  );
+};
 
 function App() {
   return (
@@ -44,41 +85,7 @@ function App() {
       <Router>
         <div className="min-h-screen bg-[#0b1021] text-gray-100 font-sans selection:bg-indigo-500/30">
           <Navbar />
-          <main>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/list/:listId" element={<ListPage />} />
-                <Route path="/list/:listId/edit" element={<EditListPage />} />
-
-                {/* List Creation Flow (Protected) */}
-                <Route path="/create" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
-                <Route path="/create-list" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
-
-                {/* Sublist Creation Flow */}
-                <Route path="/create-sublist" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
-                <Route path="/create-sublist/:parentId" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
-                <Route path="/create-review" element={<ProtectedRoute><CreateReviewPage /></ProtectedRoute>} />
-
-                <Route path="/users" element={<UsersPage />} />
-                <Route path="/place/:placeId" element={<PlacePage />} />
-                <Route path="/group/:placeId" element={<GroupPage />} />
-                <Route path="/group/:placeId/:itemName" element={<GroupPage />} />
-                <Route path="/debug" element={<DebugView />} />
-                <Route path="/developer" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />
-                <Route path="/login" element={<LoginPage />} />
-
-                {/* Protected Profile Pages */}
-                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                <Route path="/profile/:userId" element={<ProfilePage />} />
-
-                <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
-                <Route path="/chats" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
-                <Route path="/chats/:chatId" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
-              </Routes>
-            </Suspense>
-          </main>
+          <AppRoutes />
         </div>
       </Router>
     </ToastProvider>
