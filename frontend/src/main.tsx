@@ -24,6 +24,10 @@ if (canRegisterServiceWorker) {
   });
 }
 
+// Remove the static boot overlay once React takes over
+const bootOverlay = document.getElementById('lp-boot');
+if (bootOverlay) bootOverlay.remove();
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AuthProvider>

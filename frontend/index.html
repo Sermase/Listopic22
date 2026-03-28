@@ -12,6 +12,20 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Listopic</title>
+  <style>
+    body { margin: 0; background: #0b1021; }
+    @keyframes lp-spin { to { transform: rotate(360deg); } }
+    #lp-boot {
+      position: fixed; inset: 0; background: #0b1021;
+      display: flex; align-items: center; justify-content: center; z-index: 9999;
+    }
+    #lp-boot-spinner {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 3px solid rgba(99,102,241,0.2);
+      border-top-color: #6366f1;
+      animation: lp-spin 0.75s linear infinite;
+    }
+  </style>
   <!-- Default Open Graph Tags (Will be updated by SeoManager) -->
   <meta property="og:title" content="Listopic" />
   <meta property="og:description" content="Comparte y descubre listas." />
@@ -20,6 +34,7 @@
 </head>
 
 <body>
+  <div id="lp-boot"><div id="lp-boot-spinner"></div></div>
   <div id="root"></div>
   <script>
     window.__listopicDeferredInstallPrompt = null;

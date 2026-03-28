@@ -1111,7 +1111,11 @@ export const HomePage: React.FC = () => {
                     {/* 5. Resenas / Feed */}
                     {activeTab === 'news' ? (
                         <div className="max-w-2xl mx-auto mt-12 pb-20">
-                            {filteredItems.length === 0 ? (
+                            {(loadingReviews && filteredItems.length === 0) ? (
+                                <div className="flex justify-center py-16">
+                                    <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                                </div>
+                            ) : filteredItems.length === 0 ? (
                                 <div className="text-gray-500 py-10 border border-white/5 rounded-xl bg-white/5 mx-4 px-4">
                                     <p className="font-bold text-white mb-1 text-center">Tu feed está tranquilo</p>
                                     <p className="text-sm text-center mb-4">Sigue a estas personas para ver sus reseñas aquí</p>
@@ -1154,7 +1158,7 @@ export const HomePage: React.FC = () => {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="space-y-8">
+                                <div className="space-y-8" key="feed">
                                     {filteredItems.slice(0, visibleCount).map((review: any) => (
                                         <ReviewCard key={review.id} review={review} />
                                     ))}
