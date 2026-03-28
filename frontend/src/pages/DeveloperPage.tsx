@@ -4,10 +4,11 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { BrandingManager } from '../components/developer/BrandingManager';
 import { ListsManagerTab } from '../components/developer/ListsManagerTab';
 import { PlacesManagerTab } from '../components/developer/PlacesManagerTab';
+import { ReviewsManagerTab } from '../components/developer/ReviewsManagerTab';
 import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
-import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw } from 'lucide-react';
 import { DeveloperItemModal } from '../components/developer/DeveloperItemModal';
@@ -26,7 +27,7 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews'>('console');
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     // Other Settings State
@@ -60,6 +61,7 @@ export const DeveloperPage: React.FC = () => {
     const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
     const [syncingPlaceId, setSyncingPlaceId] = useState<string | null>(null);
     const [syncResults, setSyncResults] = useState<Record<string, string>>({});
+    const [markingUnavailable, setMarkingUnavailable] = useState<Record<string, boolean>>({});
 
     // Algolia State
     const [algoliaLog, setAlgoliaLog] = useState<string[]>([]);
@@ -442,6 +444,29 @@ export const DeveloperPage: React.FC = () => {
         }
     };
 
+    // Parse placeId from a group report targetId (format: "{placeId}_{elementName}")
+    const groupReportPlaceId = (targetId: string) => {
+        const idx = targetId.indexOf('_');
+        return idx > 0 ? targetId.substring(0, idx) : targetId;
+    };
+
+    const handleMarkItemUnavailable = async (report: any) => {
+        const placeId = groupReportPlaceId(report.targetId);
+        const elementName = report.targetName;
+        if (!placeId || !elementName) return;
+        setMarkingUnavailable(prev => ({ ...prev, [report.id]: true }));
+        try {
+            await updateDoc(doc(db, 'places', placeId), {
+                unavailableItems: arrayUnion(elementName)
+            });
+            await handleUpdateReportStatus(report.id, 'resolved');
+        } catch (err: any) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setMarkingUnavailable(prev => ({ ...prev, [report.id]: false }));
+        }
+    };
+
     const handleUpdatePlaceFromGoogle = async () => {
         if (!selectedItem || !user) throw new Error('Sin datos de lugar o autenticación');
         const idToken = await user.getIdToken();
@@ -589,6 +614,12 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'places' ? 'border-green-500 bg-green-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <MapPin className="w-5 h-5" /> Lugares
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('reviews'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'reviews' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <MessageSquare className="w-5 h-5" /> Reseñas
                         </button>
                     </nav>
 
@@ -1650,6 +1681,45 @@ export const DeveloperPage: React.FC = () => {
                                                                 </div>
                                                             )}
 
+                                                            {/* Acciones específicas para grupos (elemento/lugar) */}
+                                                            {report.targetType === 'group' && (() => {
+                                                                const placeId = groupReportPlaceId(report.targetId);
+                                                                return (
+                                                                    <div className="flex flex-col gap-2 p-3 bg-amber-500/5 border border-amber-500/15 rounded-lg">
+                                                                        <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">Acciones sobre el elemento</p>
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                            <a
+                                                                                href={`/place/${placeId}`}
+                                                                                target="_blank"
+                                                                                rel="noreferrer"
+                                                                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors border border-white/10"
+                                                                            >
+                                                                                <ExternalLink className="w-3.5 h-3.5" /> Ver lugar
+                                                                            </a>
+                                                                            {(report.issueType === 'item_not_available' || report.issueType === 'incorrect_info') && report.status !== 'resolved' && (
+                                                                                <button
+                                                                                    onClick={() => handleMarkItemUnavailable(report)}
+                                                                                    disabled={markingUnavailable[report.id]}
+                                                                                    className="px-3 py-1.5 bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors border border-orange-500/30 disabled:opacity-50"
+                                                                                >
+                                                                                    {markingUnavailable[report.id] ? 'Marcando...' : `Marcar "${report.targetName}" no disponible`}
+                                                                                </button>
+                                                                            )}
+                                                                            {report.issueType === 'place_closed' && (
+                                                                                <button
+                                                                                    onClick={() => handleSyncPlaceStatus(placeId)}
+                                                                                    disabled={syncingPlaceId === placeId}
+                                                                                    className="px-3 py-1.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors border border-blue-500/30 disabled:opacity-50"
+                                                                                >
+                                                                                    <RefreshCcw className={`w-3.5 h-3.5 ${syncingPlaceId === placeId ? 'animate-spin' : ''}`} />
+                                                                                    Sync lugar desde Google
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+
                                                             {/* Actions */}
                                                             <div className="flex flex-wrap gap-3 pt-2">
                                                                 {/* Place closure reports: show specific close buttons */}
@@ -1716,6 +1786,10 @@ export const DeveloperPage: React.FC = () => {
 
                         {activeTab === 'places' && (
                             <PlacesManagerTab />
+                        )}
+
+                        {activeTab === 'reviews' && (
+                            <ReviewsManagerTab />
                         )}
                     </main >
                 </div >

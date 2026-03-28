@@ -148,7 +148,7 @@ function toUnixSeconds(value) {
 function compactRecord(record) {
     const result = {};
     for (const [key, value] of Object.entries(record)) {
-        if (value === undefined) {
+        if (value === undefined || value === null) {
             continue;
         }
         if (Array.isArray(value)) {

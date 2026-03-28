@@ -46,6 +46,7 @@ export const GroupPage: React.FC = () => {
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [placeName, setPlaceName] = useState('');
     const [placeClosedStatus, setPlaceClosedStatus] = useState<string | null>(null);
+    const [unavailableItems, setUnavailableItems] = useState<string[]>([]);
     const [primaryListCriteria, setPrimaryListCriteria] = useState<any[]>([]); // New: Store definition for ordering
     const [loading, setLoading] = useState(true);
 
@@ -107,6 +108,7 @@ export const GroupPage: React.FC = () => {
                 fetchedPlaceName = placeData.name;
                 setPlaceName(fetchedPlaceName);
                 setPlaceClosedStatus(placeData.closedStatus || null);
+                setUnavailableItems(placeData.unavailableItems || []);
             }
 
             const [publicListsSnap, followingListsSnap, ownListsSnap] = await Promise.all([
@@ -621,6 +623,11 @@ export const GroupPage: React.FC = () => {
                                     ⚠ {placeClosedStatus === 'permanently_closed' ? 'Cerrado permanentemente' : 'Cerrado temporalmente'}
                                 </div>
                             )}
+                            {unavailableItems.includes(decodedName) && (
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border bg-gray-500/20 border-gray-500/40 text-gray-300 ml-2">
+                                    ✕ No disponible actualmente
+                                </div>
+                            )}
                             <Link to={`/place/${placeId}`} className="text-lg md:text-xl text-indigo-300 hover:text-white flex items-center gap-2 font-medium transition-colors">
                                 <MapPin className="w-5 h-5 opacity-70 shrink-0" />
                                 <span className="underline decoration-indigo-500/30 underline-offset-4">{placeName || 'Lugar Desconocido'}</span>
@@ -674,7 +681,7 @@ export const GroupPage: React.FC = () => {
                 <div className="order-1 lg:col-span-4 lg:order-last space-y-6">
 
                     {/* Actions Row */}
-                    <div className="bg-[#151b2e] p-3 rounded-xl border border-white/10 grid grid-cols-2 gap-3">
+                    <div className="bg-[#151b2e] p-3 rounded-xl border border-white/10 grid grid-cols-3 gap-3">
                         <button
                             onClick={() => setIsSaveModalOpen(true)}
                             className="bg-[#1e2538] hover:bg-[#2a3449] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
@@ -689,6 +696,14 @@ export const GroupPage: React.FC = () => {
                         >
                             <Share2 className="w-6 h-6 group-hover:scale-110 transition-transform text-indigo-400" />
                             <span className="text-xs font-bold tracking-wide">COMPARTIR</span>
+                        </button>
+
+                        <button
+                            onClick={() => setShowReportModal(true)}
+                            className="bg-[#1e2538] hover:bg-red-500/10 text-gray-200 hover:text-red-400 rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 hover:border-red-500/20 group"
+                        >
+                            <Flag className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                            <span className="text-xs font-bold tracking-wide">REPORTAR</span>
                         </button>
                     </div>
 

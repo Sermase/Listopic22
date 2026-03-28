@@ -193,6 +193,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
                                     <option value="duplicate">Lugar duplicado</option>
                                 </>
                             )}
+                            {targetType === 'group' && (
+                                <>
+                                    <option value="item_not_available">El elemento ya no está disponible</option>
+                                    <option value="place_closed">El lugar ha cerrado</option>
+                                    <option value="incorrect_info">Información incorrecta sobre el elemento</option>
+                                    <option value="wrong_place">Elemento asociado al lugar incorrecto</option>
+                                </>
+                            )}
                             {targetType === 'user' && (
                                 <>
                                     <option value="harassment">Acoso o intimidación</option>
