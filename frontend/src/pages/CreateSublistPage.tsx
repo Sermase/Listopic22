@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { collection, addDoc, serverTimestamp, getDocs, doc, getDoc, query, limit, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight, UserPlus, Globe, Lock as LockIcon } from 'lucide-react';
+import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight, UserPlus, Globe, Lock as LockIcon, Smile } from 'lucide-react';
+import { TagEmojiPicker, splitTagEmoji, buildTagString } from '../components/TagEmojiPicker';
 import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
 
 export const CreateSublistPage: React.FC = () => {
@@ -34,6 +35,8 @@ export const CreateSublistPage: React.FC = () => {
     const [customTags, setCustomTags] = useState<string[]>([]);
     const [fixedTags, setFixedTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
+    const [tagIcon, setTagIcon] = useState('');
+    const [showTagEmojiPicker, setShowTagEmojiPicker] = useState(false);
 
     const [loading, setLoading] = useState(false);
 
@@ -125,12 +128,22 @@ export const CreateSublistPage: React.FC = () => {
     const addTag = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && tagInput.trim()) {
             e.preventDefault();
-            const val = tagInput.trim();
-            if (!customTags.includes(val) && !fixedTags.includes(val)) {
+            const val = buildTagString(tagIcon, tagInput);
+            if (val && !customTags.includes(val) && !fixedTags.includes(val)) {
                 setCustomTags([...customTags, val]);
             }
             setTagInput('');
+            setTagIcon('');
         }
+    };
+
+    const commitAddTag = () => {
+        const val = buildTagString(tagIcon, tagInput);
+        if (val && !customTags.includes(val) && !fixedTags.includes(val)) {
+            setCustomTags([...customTags, val]);
+        }
+        setTagInput('');
+        setTagIcon('');
     };
     const removeTag = (tag: string) => {
         setCustomTags(customTags.filter(t => t !== tag));
@@ -420,21 +433,52 @@ export const CreateSublistPage: React.FC = () => {
                                         {tag}
                                     </span>
                                 ))}
-                                {customTags.map(tag => (
-                                    <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-2.5 py-1 rounded-full text-xs flex items-center gap-1">
-                                        {tag}
-                                        <button type="button" onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
-                                    </span>
-                                ))}
+                                {customTags.map(tag => {
+                                    const { icon, label } = splitTagEmoji(tag);
+                                    return (
+                                        <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5">
+                                            {icon && <span>{icon}</span>}
+                                            <span>{label || tag}</span>
+                                            <button type="button" aria-label={`Eliminar etiqueta ${tag}`} onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
+                                        </span>
+                                    );
+                                })}
                             </div>
-                            <input
-                                type="text"
-                                value={tagInput}
-                                onChange={(e) => setTagInput(e.target.value)}
-                                onKeyDown={addTag}
-                                placeholder="Añadir etiqueta y pulsar Enter..."
-                                className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
-                            />
+                            <div className="relative flex gap-2">
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTagEmojiPicker(p => !p)}
+                                        className="h-full px-3 bg-[#0b1021] border border-white/10 rounded-xl text-base hover:bg-white/5 transition-colors flex items-center"
+                                        aria-label="Elegir icono"
+                                    >
+                                        {tagIcon || <Smile className="w-4 h-4 text-gray-500" />}
+                                    </button>
+                                    {showTagEmojiPicker && (
+                                        <TagEmojiPicker
+                                            onSelect={e => { setTagIcon(e); setShowTagEmojiPicker(false); }}
+                                            onClose={() => setShowTagEmojiPicker(false)}
+                                        />
+                                    )}
+                                </div>
+                                <input
+                                    type="text"
+                                    value={tagInput}
+                                    onChange={e => setTagInput(e.target.value)}
+                                    onKeyDown={addTag}
+                                    placeholder="Nombre del tag y Enter..."
+                                    className="flex-1 bg-[#0b1021] border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                                />
+                                {tagInput.trim() && (
+                                    <button
+                                        type="button"
+                                        onClick={commitAddTag}
+                                        className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white text-xs font-bold transition-colors"
+                                    >
+                                        Añadir
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
 

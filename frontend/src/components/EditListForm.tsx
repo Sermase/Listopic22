@@ -14,8 +14,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { queryCache, invalidateDoc } from '../lib/queryCache';
-import { Save, Loader, X } from 'lucide-react';
+import { Save, Loader, X, Smile } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
+import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
 
 interface EditListFormProps {
     listId: string;
@@ -46,8 +47,12 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const [criteria, setCriteria] = useState<Criterion[]>([]);
     const [customTags, setCustomTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
+    const [tagIcon, setTagIcon] = useState('');
+    const [showTagEmojiPicker, setShowTagEmojiPicker] = useState(false);
     const [editingTag, setEditingTag] = useState<string | null>(null);
-    const [editingTagValue, setEditingTagValue] = useState('');
+    const [editingTagLabel, setEditingTagLabel] = useState('');
+    const [editingTagIcon, setEditingTagIcon] = useState('');
+    const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
     const [tagRenames, setTagRenames] = useState<Map<string, string>>(new Map());
     const [inheritedCriteriaIds, setInheritedCriteriaIds] = useState<string[]>([]);
     const [inheritedTags, setInheritedTags] = useState<string[]>([]);
@@ -124,10 +129,18 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const addTag = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && tagInput.trim()) {
             e.preventDefault();
-            const val = tagInput.trim();
-            if (!customTags.includes(val)) setCustomTags([...customTags, val]);
+            const val = buildTagString(tagIcon, tagInput);
+            if (val && !customTags.includes(val)) setCustomTags([...customTags, val]);
             setTagInput('');
+            setTagIcon('');
         }
+    };
+
+    const commitAddTag = () => {
+        const val = buildTagString(tagIcon, tagInput);
+        if (val && !customTags.includes(val)) setCustomTags([...customTags, val]);
+        setTagInput('');
+        setTagIcon('');
     };
 
     const removeTag = (tag: string) => {
@@ -138,16 +151,17 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
     const startEditTag = (tag: string) => {
         if (inheritedTags.includes(tag)) return;
+        const { icon, label } = splitTagEmoji(tag);
         setEditingTag(tag);
-        setEditingTagValue(tag);
+        setEditingTagIcon(icon);
+        setEditingTagLabel(label);
     };
 
     const commitTagEdit = () => {
         if (!editingTag) return;
-        const newVal = editingTagValue.trim();
+        const newVal = buildTagString(editingTagIcon, editingTagLabel);
         if (newVal && newVal !== editingTag && !customTags.includes(newVal)) {
             setCustomTags(customTags.map(t => t === editingTag ? newVal : t));
-            // Track the rename chain: if editingTag was already renamed from an original, keep the original
             setTagRenames(prev => {
                 const m = new Map(prev);
                 const originalKey = [...m.entries()].find(([, v]) => v === editingTag)?.[0] ?? editingTag;
@@ -156,12 +170,16 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             });
         }
         setEditingTag(null);
-        setEditingTagValue('');
+        setEditingTagLabel('');
+        setEditingTagIcon('');
+        setShowEditEmojiPicker(false);
     };
 
     const cancelTagEdit = () => {
         setEditingTag(null);
-        setEditingTagValue('');
+        setEditingTagLabel('');
+        setEditingTagIcon('');
+        setShowEditEmojiPicker(false);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -230,7 +248,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 const toUpdate: { ref: any; newTags: string[] }[] = [];
                 reviewDocs.forEach((d) => {
                     const data = d.data();
-                    const currentTags: string[] = data.userTags || data.tags || [];
+                    const currentTags: string[] = data.tags || data.userTags || [];
                     let updated = [...currentTags];
                     let changed = false;
                     renameEntries.forEach(([oldTag, newTag]) => {
@@ -243,7 +261,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 for (let i = 0; i < toUpdate.length; i += 450) {
                     const batch = writeBatch(db);
                     toUpdate.slice(i, i + 450).forEach(({ ref, newTags }) =>
-                        batch.update(ref, { userTags: newTags })
+                        batch.update(ref, { tags: newTags })
                     );
                     await batch.commit();
                 }
@@ -395,50 +413,93 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     <div className="flex flex-wrap gap-2 mb-3">
                         {customTags.map(tag => {
                             const isLocked = inheritedTags.includes(tag);
+                            const { icon, label } = splitTagEmoji(tag);
                             if (editingTag === tag) {
                                 return (
-                                    <span key={tag} className="flex items-center gap-1 bg-indigo-500/30 border border-indigo-400/50 rounded-full px-2 py-0.5">
+                                    <span key={tag} className="relative flex items-center gap-1 bg-indigo-500/30 border border-indigo-400/50 rounded-full px-2 py-0.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowEditEmojiPicker(p => !p)}
+                                            className="text-base w-6 h-6 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors shrink-0"
+                                            aria-label="Elegir icono"
+                                        >
+                                            {editingTagIcon || <Smile className="w-3.5 h-3.5 text-gray-400" />}
+                                        </button>
+                                        {showEditEmojiPicker && (
+                                            <TagEmojiPicker
+                                                onSelect={e => { setEditingTagIcon(e); setShowEditEmojiPicker(false); }}
+                                                onClose={() => setShowEditEmojiPicker(false)}
+                                            />
+                                        )}
                                         <input
                                             autoFocus
                                             type="text"
-                                            value={editingTagValue}
-                                            onChange={e => setEditingTagValue(e.target.value)}
+                                            value={editingTagLabel}
+                                            onChange={e => setEditingTagLabel(e.target.value)}
                                             onKeyDown={e => {
                                                 if (e.key === 'Enter') { e.preventDefault(); commitTagEdit(); }
                                                 if (e.key === 'Escape') cancelTagEdit();
                                             }}
                                             onBlur={commitTagEdit}
-                                            className="bg-transparent text-white text-sm outline-none w-28"
+                                            className="bg-transparent text-white text-sm outline-none w-24"
                                         />
                                     </span>
                                 );
                             }
                             return (
-                                <span key={tag} className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${isLocked ? 'bg-indigo-900/40 text-indigo-300 border border-indigo-500/30' : 'bg-indigo-500/20 text-indigo-300'}`}>
+                                <span key={tag} className={`px-3 py-1 rounded-full text-sm flex items-center gap-1.5 ${isLocked ? 'bg-indigo-900/40 text-indigo-300 border border-indigo-500/30' : 'bg-indigo-500/20 text-indigo-300'}`}>
                                     <button
                                         type="button"
                                         onClick={() => startEditTag(tag)}
                                         disabled={isLocked}
-                                        className="disabled:cursor-default"
+                                        className="flex items-center gap-1.5 disabled:cursor-default"
                                         aria-label={`Editar etiqueta ${tag}`}
                                     >
-                                        #{tag}
+                                        {icon && <span>{icon}</span>}
+                                        <span>{label || tag}</span>
                                     </button>
                                     {!isLocked && (
-                                        <button type="button" aria-label={`Eliminar etiqueta ${tag}`} onClick={() => removeTag(tag)} className="hover:text-white ml-1"><X className="w-3 h-3" /></button>
+                                        <button type="button" aria-label={`Eliminar etiqueta ${tag}`} onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
                                     )}
                                 </span>
                             );
                         })}
                     </div>
-                    <input
-                        type="text"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={addTag}
-                        placeholder="Escribe y presiona Enter para añadir tag..."
-                        className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-                    />
+                    <div className="relative flex gap-2">
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowTagEmojiPicker(p => !p)}
+                                className="h-full px-3 bg-[#0b1021] border border-white/10 rounded-lg text-lg hover:bg-white/5 transition-colors flex items-center"
+                                aria-label="Elegir icono para el tag"
+                            >
+                                {tagIcon || <Smile className="w-4 h-4 text-gray-500" />}
+                            </button>
+                            {showTagEmojiPicker && (
+                                <TagEmojiPicker
+                                    onSelect={e => { setTagIcon(e); setShowTagEmojiPicker(false); }}
+                                    onClose={() => setShowTagEmojiPicker(false)}
+                                />
+                            )}
+                        </div>
+                        <input
+                            type="text"
+                            value={tagInput}
+                            onChange={e => setTagInput(e.target.value)}
+                            onKeyDown={addTag}
+                            placeholder="Nombre del tag y Enter para añadir..."
+                            className="flex-1 bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                        />
+                        {tagInput.trim() && (
+                            <button
+                                type="button"
+                                onClick={commitAddTag}
+                                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white text-sm font-bold transition-colors"
+                            >
+                                Añadir
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
