@@ -23,17 +23,17 @@ interface AddReviewFormProps {
 }
 
 const REVIEW_CREATE_TOASTS = [
-    'Tu veredicto ya esta en la mesa.',
-    'Resena publicada: criterio fino y sin titubeos.',
+    'Tu veredicto ya está en la mesa.',
+    'Reseña publicada: criterio fino y sin titubeos.',
     'Nuevo punto en el mapa del buen gusto.',
     'Anotado. El ranking acaba de ponerse interesante.',
 ] as const;
 
 const REVIEW_EDIT_TOASTS = [
-    'Cambios guardados. Ajuste de precision aplicado.',
-    'Revision lista: tu ranking respira mas orden.',
-    'Actualizacion hecha. El criterio subio un nivel.',
-    'Editado con exito: caos bajo control.',
+    'Cambios guardados. Ajuste de precisión aplicado.',
+    'Revisión lista: tu ranking respira más orden.',
+    'Actualización hecha. El criterio subió un nivel.',
+    'Editado con éxito: caos bajo control.',
 ] as const;
 
 const pickRandom = <T,>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)];
@@ -402,6 +402,16 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             return;
         }
 
+        if (itemName.trim().length > 150) {
+            setError("El nombre del item no puede superar los 150 caracteres");
+            return;
+        }
+
+        if (comment.length > 2000) {
+            setError("La opinión no puede superar los 2000 caracteres");
+            return;
+        }
+
         if (!selectedPlace && !prefillPlaceId && !editReviewId) {
             setError("Por favor selecciona un lugar (Restaurante, etc.)");
             return;
@@ -718,7 +728,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
             showToast({
                 variant: 'success',
-                title: isNew ? 'Resena publicada' : 'Cambios guardados',
+                title: isNew ? 'Reseña publicada' : 'Cambios guardados',
                 message: isNew ? pickRandom(REVIEW_CREATE_TOASTS) : pickRandom(REVIEW_EDIT_TOASTS),
             });
             onSuccess();
@@ -730,7 +740,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             showToast({
                 variant: 'error',
                 title: 'No se pudo guardar',
-                message: 'Hubo un problema al guardar la resena. Intentalo de nuevo en unos segundos.',
+                message: 'Hubo un problema al guardar la reseña. Inténtalo de nuevo en unos segundos.',
             });
         } finally {
             setLoading(false);
@@ -773,9 +783,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/70 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md animate-fade-in">
             <div
-                className="bg-[#0b1021] w-full h-[96dvh] md:h-auto md:max-h-[90vh] md:max-w-2xl flex flex-col overflow-hidden rounded-t-3xl md:rounded-2xl"
+                className="bg-[#0b1021] w-full mx-0 sm:mx-4 sm:max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col overflow-hidden sm:rounded-2xl"
                 style={{ boxShadow: '0 -8px 48px rgba(92,124,250,0.18), 0 0 0 1px rgba(255,255,255,0.06)' }}
             >
                 {/* ── Header ─────────────────────────────────────── */}
@@ -807,6 +817,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     </div>
 
                     <button
+                        aria-label="Cerrar"
                         onClick={onClose}
                         className="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all hover:scale-105 active:scale-95"
                     >
@@ -897,6 +908,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     value={itemName}
                                     onChange={e => setItemName(e.target.value)}
                                     onBlur={preserveScroll}
+                                    maxLength={150}
                                     placeholder="Ej: Pizza Margherita, Tacos al pastor..."
                                     disabled={!!prefillItemName}
                                     className={`w-full rounded-xl px-4 py-3 text-white text-sm focus:outline-none transition-all placeholder:text-gray-600
@@ -1045,12 +1057,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 value={comment}
                                 onChange={e => setComment(e.target.value)}
                                 onBlur={preserveScroll}
+                                maxLength={2000}
                                 placeholder="¿Qué te pareció? Los detalles que hacen la diferencia..."
                                 rows={3}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all placeholder:text-gray-600 resize-none"
                             />
                             {comment.length > 0 && (
-                                <p className="text-right text-[10px] text-gray-600">{comment.length} caracteres</p>
+                                <p className={`text-right text-[10px] ${comment.length > 1800 ? 'text-amber-500' : 'text-gray-600'}`}>{comment.length}/2000</p>
                             )}
                         </div>
 
@@ -1142,7 +1155,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-3 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/5 border border-white/5 hover:border-white/10 transition-all active:scale-95 shrink-0"
+                            className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/5 border border-white/5 hover:border-white/10 transition-all active:scale-95"
                         >
                             Cancelar
                         </button>

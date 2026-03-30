@@ -263,7 +263,7 @@ export const CreateSublistPage: React.FC = () => {
             showToast({
                 variant: 'error',
                 title: 'No se pudo crear la sublista',
-                message: 'No conseguimos guardar la sublista. Intentalo otra vez.',
+                message: 'No conseguimos guardar la sublista. Inténtalo otra vez.',
             });
         } finally {
             setLoading(false);

@@ -779,7 +779,7 @@ export const ProfilePage: React.FC = () => {
     () => [
       {
         id: "stats" as DetailsModalTab,
-        label: "Resenas",
+        label: "Reseñas",
         value: displayedReviewsCount,
         accent: "default" as const,
       },
@@ -1272,9 +1272,9 @@ export const ProfilePage: React.FC = () => {
                         <Settings className="w-5 h-5" />
                       </button>
                       <button
+                        aria-label="Compartir perfil"
                         onClick={() => setIsShareModalOpen(true)}
                         className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
-                        title="Compartir perfil"
                       >
                         <Share2 className="w-5 h-5" />
                       </button>
@@ -1324,6 +1324,7 @@ export const ProfilePage: React.FC = () => {
 
                       <div className="relative">
                         <button
+                          aria-label="Más opciones"
                           onClick={() => setIsMenuOpen(!isMenuOpen)}
                           className="px-3 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
                         >
@@ -1600,6 +1601,7 @@ export const ProfilePage: React.FC = () => {
           >
             <div className="relative flex w-full max-w-2xl flex-col items-center gap-6" onClick={(e) => e.stopPropagation()}>
               <button
+                aria-label="Cerrar"
                 onClick={() => setIsAvatarModalOpen(false)}
                 className="absolute -top-12 right-0 md:-right-12 p-3 text-white/50 hover:text-white transition-colors bg-black/20 hover:bg-black/40 rounded-full"
               >
@@ -2272,7 +2274,7 @@ export const ProfilePage: React.FC = () => {
                   onClick={() => setDetailsModalTab("stats")}
                   className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
-                  <BarChart3 className="w-4 h-4" /> Resenas
+                  <BarChart3 className="w-4 h-4" /> Reseñas
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("followers")}
@@ -2484,7 +2486,7 @@ export const ProfilePage: React.FC = () => {
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                       <div className="rounded-2xl border border-white/10 bg-[#151b2e]/70 p-4">
                         <div className="text-[11px] uppercase tracking-wide text-gray-400">
-                          Resenas que cuentan
+                          Reseñas que cuentan
                         </div>
                         <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.reviewsCount}
@@ -2492,7 +2494,7 @@ export const ProfilePage: React.FC = () => {
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-[#151b2e]/70 p-4">
                         <div className="text-[11px] uppercase tracking-wide text-gray-400">
-                          Resenas con foto
+                          Reseñas con foto
                         </div>
                         <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.photosCount}

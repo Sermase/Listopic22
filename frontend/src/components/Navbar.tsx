@@ -275,6 +275,7 @@ export const Navbar: React.FC = () => {
                             </Link>
                         )}
                         <button
+                            aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
                             className="p-2 text-gray-300 hover:text-white transition-colors z-50 relative"
                         >

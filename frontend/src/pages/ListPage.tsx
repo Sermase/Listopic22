@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
 import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid } from 'lucide-react';
@@ -645,7 +646,7 @@ export const ListPage: React.FC = () => {
                     </Link>
                 )}
 
-                <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-6 pb-10 sm:pb-14 z-10 max-w-7xl mx-auto w-full">
+                <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-6 pb-10 sm:pb-14 z-30 max-w-7xl mx-auto w-full">
 
                     {/* Title & description */}
                     <h1 className="text-2xl sm:text-4xl md:text-5xl font-display font-bold text-white leading-tight mb-1 drop-shadow-lg">
@@ -768,8 +769,8 @@ export const ListPage: React.FC = () => {
                                     {isActionsMenuOpen ? <X className="w-5 h-5" /> : <MoreVertical className="w-5 h-5" />}
                                 </button>
 
-                                {isActionsMenuOpen && dropdownPosition && (
-                                    <div className="fixed w-52 bg-[#151b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 z-[200]"
+                                {isActionsMenuOpen && dropdownPosition && createPortal(
+                                    <div className="fixed w-52 bg-[#151b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 z-[9999]"
                                         style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
                                     >
                                         {user && list.userId !== user.uid && (
@@ -818,7 +819,8 @@ export const ListPage: React.FC = () => {
                                                 </button>
                                             </>
                                         )}
-                                    </div>
+                                    </div>,
+                                    document.body
                                 )}
                             </div>
                         </div>

@@ -21,10 +21,12 @@ interface EditListFormProps {
     listId: string;
     onSuccess: () => void;
     onCancel: () => void;
-    onDeleted?: () => void; // called after deletion; if not provided, same as onSuccess
+    onDeleted?: () => void;
+    formId?: string;
+    onSavingChange?: (saving: boolean) => void;
 }
 
-export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, onCancel, onDeleted }) => {
+export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, onCancel, onDeleted, formId, onSavingChange }) => {
     const { user } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
 
@@ -44,6 +46,9 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const [criteria, setCriteria] = useState<Criterion[]>([]);
     const [customTags, setCustomTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
+    const [editingTag, setEditingTag] = useState<string | null>(null);
+    const [editingTagValue, setEditingTagValue] = useState('');
+    const [tagRenames, setTagRenames] = useState<Map<string, string>>(new Map());
     const [inheritedCriteriaIds, setInheritedCriteriaIds] = useState<string[]>([]);
     const [inheritedTags, setInheritedTags] = useState<string[]>([]);
 
@@ -128,11 +133,49 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const removeTag = (tag: string) => {
         if (inheritedTags.includes(tag)) return;
         setCustomTags(customTags.filter(t => t !== tag));
+        setTagRenames(prev => { const m = new Map(prev); m.delete(tag); return m; });
+    };
+
+    const startEditTag = (tag: string) => {
+        if (inheritedTags.includes(tag)) return;
+        setEditingTag(tag);
+        setEditingTagValue(tag);
+    };
+
+    const commitTagEdit = () => {
+        if (!editingTag) return;
+        const newVal = editingTagValue.trim();
+        if (newVal && newVal !== editingTag && !customTags.includes(newVal)) {
+            setCustomTags(customTags.map(t => t === editingTag ? newVal : t));
+            // Track the rename chain: if editingTag was already renamed from an original, keep the original
+            setTagRenames(prev => {
+                const m = new Map(prev);
+                const originalKey = [...m.entries()].find(([, v]) => v === editingTag)?.[0] ?? editingTag;
+                m.set(originalKey, newVal);
+                return m;
+            });
+        }
+        setEditingTag(null);
+        setEditingTagValue('');
+    };
+
+    const cancelTagEdit = () => {
+        setEditingTag(null);
+        setEditingTagValue('');
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
+        onSavingChange?.(true);
+
+        // Flush any tag text pending in the input
+        let finalTags = customTags;
+        if (tagInput.trim() && !customTags.includes(tagInput.trim())) {
+            finalTags = [...customTags, tagInput.trim()];
+            setCustomTags(finalTags);
+            setTagInput('');
+        }
 
         try {
             const docRef = doc(db, 'lists', listId);
@@ -159,8 +202,52 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 publicAccess: isPublic ? publicAccess : 'reader',
                 visibility: newVisibility,
                 criteriaDefinition: criteriaDefinitionMap,
-                availableTags: customTags
+                availableTags: finalTags
             });
+
+            // Propagate tag renames to reviews
+            if (tagRenames.size > 0) {
+                const renameEntries = Array.from(tagRenames.entries());
+                const safeQuery = async (load: () => Promise<any>) => {
+                    try { return await load(); } catch { return null; }
+                };
+
+                const reviewSnapshots = await Promise.all([
+                    safeQuery(() => getDocs(collection(db, 'lists', listId, 'reviews'))),
+                    safeQuery(() => getDocs(query(collection(db, 'reviews'), where('listId', '==', listId)))),
+                    ...(parentListId ? [
+                        safeQuery(() => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId)))),
+                        safeQuery(() => getDocs(query(collection(db, 'reviews'), where('sublistId', '==', listId))))
+                    ] : [])
+                ]);
+
+                const reviewDocs = new Map<string, any>();
+                reviewSnapshots.forEach(snap => {
+                    if (!snap) return;
+                    snap.docs.forEach((d: any) => reviewDocs.set(d.ref.path, d));
+                });
+
+                const toUpdate: { ref: any; newTags: string[] }[] = [];
+                reviewDocs.forEach((d) => {
+                    const data = d.data();
+                    const currentTags: string[] = data.userTags || data.tags || [];
+                    let updated = [...currentTags];
+                    let changed = false;
+                    renameEntries.forEach(([oldTag, newTag]) => {
+                        const idx = updated.indexOf(oldTag);
+                        if (idx !== -1) { updated[idx] = newTag; changed = true; }
+                    });
+                    if (changed) toUpdate.push({ ref: d.ref, newTags: updated });
+                });
+
+                for (let i = 0; i < toUpdate.length; i += 450) {
+                    const batch = writeBatch(db);
+                    toUpdate.slice(i, i + 450).forEach(({ ref, newTags }) =>
+                        batch.update(ref, { userTags: newTags })
+                    );
+                    await batch.commit();
+                }
+            }
 
             // Sync visibility to reviews
             const safeGetDocs = async (load: () => Promise<any>) => {
@@ -205,6 +292,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             alert('Error al guardar cambios');
         } finally {
             setSaving(false);
+            onSavingChange?.(false);
         }
     };
 
@@ -232,7 +320,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id={formId} onSubmit={handleSubmit} className="space-y-6">
             <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-6">
                 {/* Name */}
                 <div>
@@ -307,11 +395,37 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     <div className="flex flex-wrap gap-2 mb-3">
                         {customTags.map(tag => {
                             const isLocked = inheritedTags.includes(tag);
+                            if (editingTag === tag) {
+                                return (
+                                    <span key={tag} className="flex items-center gap-1 bg-indigo-500/30 border border-indigo-400/50 rounded-full px-2 py-0.5">
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            value={editingTagValue}
+                                            onChange={e => setEditingTagValue(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') { e.preventDefault(); commitTagEdit(); }
+                                                if (e.key === 'Escape') cancelTagEdit();
+                                            }}
+                                            onBlur={commitTagEdit}
+                                            className="bg-transparent text-white text-sm outline-none w-28"
+                                        />
+                                    </span>
+                                );
+                            }
                             return (
                                 <span key={tag} className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${isLocked ? 'bg-indigo-900/40 text-indigo-300 border border-indigo-500/30' : 'bg-indigo-500/20 text-indigo-300'}`}>
-                                    #{tag}
+                                    <button
+                                        type="button"
+                                        onClick={() => startEditTag(tag)}
+                                        disabled={isLocked}
+                                        className="disabled:cursor-default"
+                                        aria-label={`Editar etiqueta ${tag}`}
+                                    >
+                                        #{tag}
+                                    </button>
                                     {!isLocked && (
-                                        <button type="button" onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
+                                        <button type="button" aria-label={`Eliminar etiqueta ${tag}`} onClick={() => removeTag(tag)} className="hover:text-white ml-1"><X className="w-3 h-3" /></button>
                                     )}
                                 </span>
                             );
@@ -328,22 +442,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-4">
-                <button type="button" onClick={onCancel} className="btn-glass flex-1 py-4 text-base">
-                    Cancelar
-                </button>
-                <button
-                    type="submit"
-                    disabled={saving}
-                    className="flex-1 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                    {saving ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                    {saving ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
-            </div>
-
-            {/* Delete */}
+            {/* Delete (siempre visible en el contenido) */}
             <div className="pt-4 border-t border-white/5 text-center">
                 <button
                     type="button"
@@ -354,6 +453,23 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     Eliminar lista permanentemente
                 </button>
             </div>
+
+            {/* Actions inline (solo cuando no hay formId externo) */}
+            {!formId && (
+                <div className="flex gap-4">
+                    <button type="button" onClick={onCancel} className="btn-glass flex-1 py-4 text-base">
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={saving}
+                        className="flex-1 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {saving ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                        {saving ? 'Guardando...' : 'Guardar Cambios'}
+                    </button>
+                </div>
+            )}
         </form>
     );
 };

@@ -221,7 +221,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 variant: 'success',
                 title: parentListId ? 'Sublista creada' : 'Lista creada',
                 message: parentListId
-                    ? 'Tu sublista ya esta lista para recibir comparaciones finas.'
+                    ? 'Tu sublista ya está lista para recibir comparaciones finas.'
                     : 'Lista publicada. El orden acaba de ganar otra batalla.',
             });
             onSuccess(docRef.id);
@@ -312,6 +312,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                                 <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                                 <button
                                     type="button"
+                                    aria-label="Eliminar imagen"
                                     onClick={() => { setImagePreview(null); }}
                                     className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-red-500 transition-colors"
                                 >
@@ -356,7 +357,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                         {customTags.map(tag => (
                             <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-sm flex items-center gap-1">
                                 {tag}
-                                <button type="button" onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
+                                <button type="button" aria-label={`Eliminar etiqueta ${tag}`} onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
                             </span>
                         ))}
                     </div>
