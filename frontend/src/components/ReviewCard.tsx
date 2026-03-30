@@ -151,18 +151,23 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         checkLike();
     }, [user, review.id, review.listId]);
 
-    // Close menu on click outside
+    // Close menu on click outside or Escape
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setIsMenuOpen(false);
             }
         };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setIsMenuOpen(false);
+        };
         if (isMenuOpen) {
             document.addEventListener("mousedown", handleClickOutside);
+            document.addEventListener("keydown", handleKeyDown);
         }
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleKeyDown);
         };
     }, [isMenuOpen]);
 
@@ -317,6 +322,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
                         <div className="relative z-20 shrink-0 self-start mt-1" ref={menuRef}>
                             <button
+                                aria-label="Más opciones"
                                 className="text-gray-500 hover:text-white transition-colors p-1"
                                 onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
                             >
@@ -541,16 +547,16 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
                     <div className="flex items-center gap-3">
                         <button
+                            aria-label="Guardar en archivo"
                             className="text-gray-500 hover:text-indigo-400 transition-colors p-1"
                             onClick={(e) => { e.stopPropagation(); setIsSaveModalOpen(true); }}
-                            title="Guardar"
                         >
                             <Bookmark className="w-5 h-5 stroke-[1.5]" />
                         </button>
                         <button
+                            aria-label="Compartir reseña"
                             className="text-gray-500 hover:text-white transition-colors p-1"
                             onClick={handleShareClick}
-                            title="Compartir"
                         >
                             <Share2 className="w-5 h-5 stroke-[1.5]" />
                         </button>

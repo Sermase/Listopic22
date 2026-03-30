@@ -1272,9 +1272,9 @@ export const ProfilePage: React.FC = () => {
                         <Settings className="w-5 h-5" />
                       </button>
                       <button
+                        aria-label="Compartir perfil"
                         onClick={() => setIsShareModalOpen(true)}
                         className="p-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
-                        title="Compartir perfil"
                       >
                         <Share2 className="w-5 h-5" />
                       </button>
@@ -1324,6 +1324,7 @@ export const ProfilePage: React.FC = () => {
 
                       <div className="relative">
                         <button
+                          aria-label="Más opciones"
                           onClick={() => setIsMenuOpen(!isMenuOpen)}
                           className="px-3 py-2.5 rounded-xl bg-[#151b2e] border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
                         >
@@ -1600,6 +1601,7 @@ export const ProfilePage: React.FC = () => {
           >
             <div className="relative flex w-full max-w-2xl flex-col items-center gap-6" onClick={(e) => e.stopPropagation()}>
               <button
+                aria-label="Cerrar"
                 onClick={() => setIsAvatarModalOpen(false)}
                 className="absolute -top-12 right-0 md:-right-12 p-3 text-white/50 hover:text-white transition-colors bg-black/20 hover:bg-black/40 rounded-full"
               >

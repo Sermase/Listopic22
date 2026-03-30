@@ -64,6 +64,7 @@ export const useListDetails = (listId: string | undefined) => {
             return;
         }
 
+        let cancelled = false;
         const fetchData = async () => {
             setLoading(true);
             try {
@@ -301,19 +302,21 @@ export const useListDetails = (listId: string | undefined) => {
                 queryCache.set(cacheKey, { list: finalList, reviews: enrichedReviews, sublists: finalSublists });
 
             } catch (err: any) {
+                if (cancelled) return;
                 if (err.code === 'permission-denied') {
-                    console.debug("Permission denied for list", listId); // Debug level
-                    setError('private'); // Specific error code
+                    console.debug("Permission denied for list", listId);
+                    setError('private');
                 } else {
                     console.error("Error fetching list details:", err);
                     setError(err.message);
                 }
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
         fetchData();
+        return () => { cancelled = true; };
     }, [listId]);
 
     return { list, reviews, sublists, loading, error };

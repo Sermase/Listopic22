@@ -402,6 +402,16 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             return;
         }
 
+        if (itemName.trim().length > 150) {
+            setError("El nombre del item no puede superar los 150 caracteres");
+            return;
+        }
+
+        if (comment.length > 2000) {
+            setError("La opinión no puede superar los 2000 caracteres");
+            return;
+        }
+
         if (!selectedPlace && !prefillPlaceId && !editReviewId) {
             setError("Por favor selecciona un lugar (Restaurante, etc.)");
             return;
@@ -807,6 +817,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     </div>
 
                     <button
+                        aria-label="Cerrar"
                         onClick={onClose}
                         className="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all hover:scale-105 active:scale-95"
                     >
@@ -897,6 +908,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     value={itemName}
                                     onChange={e => setItemName(e.target.value)}
                                     onBlur={preserveScroll}
+                                    maxLength={150}
                                     placeholder="Ej: Pizza Margherita, Tacos al pastor..."
                                     disabled={!!prefillItemName}
                                     className={`w-full rounded-xl px-4 py-3 text-white text-sm focus:outline-none transition-all placeholder:text-gray-600
@@ -1045,12 +1057,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 value={comment}
                                 onChange={e => setComment(e.target.value)}
                                 onBlur={preserveScroll}
+                                maxLength={2000}
                                 placeholder="¿Qué te pareció? Los detalles que hacen la diferencia..."
                                 rows={3}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all placeholder:text-gray-600 resize-none"
                             />
                             {comment.length > 0 && (
-                                <p className="text-right text-[10px] text-gray-600">{comment.length} caracteres</p>
+                                <p className={`text-right text-[10px] ${comment.length > 1800 ? 'text-amber-500' : 'text-gray-600'}`}>{comment.length}/2000</p>
                             )}
                         </div>
 

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
@@ -56,8 +56,10 @@ export const usePlaceDetails = (placeId: string | undefined) => {
     const [place, setPlace] = useState<PlaceDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const cancelledRef = React.useRef(false);
 
     const fetchPlaceDetails = async () => {
+        cancelledRef.current = false;
         if (!placeId) {
             setLoading(false);
             return;
@@ -134,6 +136,8 @@ export const usePlaceDetails = (placeId: string | undefined) => {
             }
 
             const reviews = Array.from(reviewMap.values()).sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+
+            if (cancelledRef.current) return;
 
             if (reviews.length === 0 && !placeData) {
                 setError("No se encontraron datos para este lugar.");
@@ -278,16 +282,18 @@ export const usePlaceDetails = (placeId: string | undefined) => {
             setPlace(placeDetails);
 
         } catch (err: unknown) {
+            if (cancelledRef.current) return;
             console.error("Error fetching place details:", err);
-
             setError((err as any).message);
         } finally {
-            setLoading(false);
+            if (!cancelledRef.current) setLoading(false);
         }
     };
 
     useEffect(() => {
+        cancelledRef.current = false;
         fetchPlaceDetails();
+        return () => { cancelledRef.current = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [placeId]);
 

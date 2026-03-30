@@ -335,6 +335,7 @@ export const HomePage: React.FC = () => {
 
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews, fetchMore, hasMore, loadingMore } = useReviews(reviewSortParam);
+    const fetchMoreRef = React.useRef(fetchMore);
     const { users: topUsers, loading: loadingUsers } = useUsers();
     const homeContentLoading = loadingLists || loadingReviews || loadingUsers;
 
@@ -346,21 +347,28 @@ export const HomePage: React.FC = () => {
         return () => window.clearInterval(intervalId);
     }, [homeContentLoading]);
 
+    useEffect(() => { fetchMoreRef.current = fetchMore; }, [fetchMore]);
+
+    const activeTabRef = React.useRef(activeTab);
+    useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+    const hasMoreRef = React.useRef(hasMore);
+    useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+    const loadingMoreRef = React.useRef(loadingMore);
+    useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
+
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
             if (entries[0].isIntersecting) {
-                // Increase locally visible count
                 setVisibleCount(prev => prev + 5);
-                // Also trigger backend fetch if we are running out of local items and the backend has more
-                if (activeTab === 'news' && !loadingMore && hasMore) {
-                    fetchMore();
+                if (activeTabRef.current === 'news' && !loadingMoreRef.current && hasMoreRef.current) {
+                    fetchMoreRef.current();
                 }
             }
         }, { threshold: 0.5 });
 
         if (loadMoreRef.current) observer.observe(loadMoreRef.current);
         return () => observer.disconnect();
-    }, [activeTab, visibleCount, hasMore, loadingMore, fetchMore]); // Re-attach when dependencies change
+    }, []); // El observer se crea una sola vez; los refs mantienen valores actualizados
     // Reset count when tab/filter changes
     useEffect(() => {
         setVisibleCount(4);

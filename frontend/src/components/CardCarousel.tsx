@@ -48,6 +48,7 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                 {/* Scroll Buttons */}
                 {/* Scroll Buttons (Glassmorphism) */}
                 <button
+                    aria-label="Anterior"
                     onClick={() => {
                         document.getElementById(`carousel-${title.replace(/\s+/g, '-')}`)?.scrollBy({ left: -320, behavior: 'smooth' });
                     }}
@@ -56,6 +57,7 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                     <ChevronRight className="w-6 h-6 rotate-180" />
                 </button>
                 <button
+                    aria-label="Siguiente"
                     onClick={() => {
                         document.getElementById(`carousel-${title.replace(/\s+/g, '-')}`)?.scrollBy({ left: 320, behavior: 'smooth' });
                     }}
@@ -83,6 +85,10 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                                 </div>
                             </div>
                         ))
+                    ) : items.length === 0 ? (
+                        <div className="w-full px-4 py-8 text-center text-gray-600 text-sm">
+                            Sin resultados por ahora
+                        </div>
                     ) : (
                         items.map((item, index) => (
                             <div key={index} className={`${itemClassName} flex-shrink-0 snap-start`}>
