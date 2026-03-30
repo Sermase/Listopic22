@@ -779,7 +779,7 @@ export const ProfilePage: React.FC = () => {
     () => [
       {
         id: "stats" as DetailsModalTab,
-        label: "Resenas",
+        label: "Reseñas",
         value: displayedReviewsCount,
         accent: "default" as const,
       },
@@ -2272,7 +2272,7 @@ export const ProfilePage: React.FC = () => {
                   onClick={() => setDetailsModalTab("stats")}
                   className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
-                  <BarChart3 className="w-4 h-4" /> Resenas
+                  <BarChart3 className="w-4 h-4" /> Reseñas
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("followers")}
@@ -2484,7 +2484,7 @@ export const ProfilePage: React.FC = () => {
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                       <div className="rounded-2xl border border-white/10 bg-[#151b2e]/70 p-4">
                         <div className="text-[11px] uppercase tracking-wide text-gray-400">
-                          Resenas que cuentan
+                          Reseñas que cuentan
                         </div>
                         <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.reviewsCount}
@@ -2492,7 +2492,7 @@ export const ProfilePage: React.FC = () => {
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-[#151b2e]/70 p-4">
                         <div className="text-[11px] uppercase tracking-wide text-gray-400">
-                          Resenas con foto
+                          Reseñas con foto
                         </div>
                         <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.photosCount}

@@ -4,7 +4,8 @@
       "Bash(find c:/Users/icaa/Documents/Proyectos/Listopic/frontend -name *earch*)",
       "Bash(find c:/Users/icaa/Documents/Proyectos/Listopic -path *functions* -type d)",
       "Bash(firebase deploy:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(grep -n \"btn-primary\\\\|btn-glass\" /home/sermase/Documentos/GitHub/Listopic22/frontend/src/components/*.tsx)"
     ]
   }
 }

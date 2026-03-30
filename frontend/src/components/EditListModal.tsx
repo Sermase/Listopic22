@@ -22,7 +22,7 @@ export const EditListModal: React.FC<EditListModalProps> = ({ listId, onClose, o
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-y-auto py-8 px-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm overflow-y-auto py-8 px-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div className="w-full max-w-2xl bg-[#0b1021] rounded-2xl border border-white/10 p-6 relative" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-white">Editar Lista</h2>

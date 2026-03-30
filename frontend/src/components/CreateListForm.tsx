@@ -221,7 +221,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 variant: 'success',
                 title: parentListId ? 'Sublista creada' : 'Lista creada',
                 message: parentListId
-                    ? 'Tu sublista ya esta lista para recibir comparaciones finas.'
+                    ? 'Tu sublista ya está lista para recibir comparaciones finas.'
                     : 'Lista publicada. El orden acaba de ganar otra batalla.',
             });
             onSuccess(docRef.id);

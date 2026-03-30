@@ -104,11 +104,11 @@ const HERO_SUBTITLE_TEMPLATES = [
 const HERO_HIGHLIGHT_REGEX = /(\[\[[^\]]+\]\])/g;
 const HERO_HIGHLIGHT_STYLES = ['text-indigo-400', 'text-purple-400', 'text-cyan-300'] as const;
 const HOME_LOADING_MESSAGES = [
-    'Ajustando rankings con precision artesanal...',
+    'Ajustando rankings con precisión artesanal...',
     'Buscando joyas ocultas cerca de ti...',
-    'Ordenando gustos con paciencia diplomatica...',
-    'Calentando motores para la proxima recomendacion...',
-    'Poniendo criterio donde antes habia caos...',
+    'Ordenando gustos con paciencia diplomática...',
+    'Calentando motores para la próxima recomendación...',
+    'Poniendo criterio donde antes había caos...',
     'Preparando tu dosis de comparaciones finas...',
 ] as const;
 
