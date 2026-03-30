@@ -4,7 +4,8 @@ import { useToast } from '../context/ToastContext';
 import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 import { queryCache } from '../lib/queryCache';
-import { Save, Loader, Image as ImageIcon, X } from 'lucide-react';
+import { Save, Loader, Image as ImageIcon, X, Smile } from 'lucide-react';
+import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { type ListEntity } from '../hooks/useLists';
 
@@ -67,6 +68,8 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
     }, [parentCriteria]);
 
     const [customTags, setCustomTags] = useState<string[]>(initialData?.availableTags || []);
+    const [tagIcon, setTagIcon] = useState('');
+    const [showTagEmojiPicker, setShowTagEmojiPicker] = useState(false);
     const [fixedTags, setFixedTags] = useState<string[]>(parentTags || initialData?.fixedTags || []);
     const [tagInput, setTagInput] = useState('');
 
@@ -92,9 +95,14 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
         if (!categoryId) return;
         const selectedCat = categories.find(c => c.id === categoryId);
         if (selectedCat) {
-            // 1. Prefill Tags
+            // 1. Prefill Tags as pre-selected but removable
             if (selectedCat['fixed-tags'] && Array.isArray(selectedCat['fixed-tags'])) {
-                setFixedTags(selectedCat['fixed-tags']);
+                const catTags: string[] = (selectedCat['fixed-tags'] as string[]).filter(t => !fixedTags.includes(t));
+                setCustomTags(prev => {
+                    // Category tags first, preserve any extra tags the user already added
+                    const userExtras = prev.filter(t => !catTags.includes(t));
+                    return [...catTags, ...userExtras];
+                });
             }
 
             // 2. Prefill Criteria
@@ -133,12 +141,22 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
     const addTag = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && tagInput.trim()) {
             e.preventDefault();
-            const val = tagInput.trim();
-            if (!customTags.includes(val) && !fixedTags.includes(val)) {
+            const val = buildTagString(tagIcon, tagInput);
+            if (val && !customTags.includes(val) && !fixedTags.includes(val)) {
                 setCustomTags([...customTags, val]);
             }
             setTagInput('');
+            setTagIcon('');
         }
+    };
+
+    const commitAddTag = () => {
+        const val = buildTagString(tagIcon, tagInput);
+        if (val && !customTags.includes(val) && !fixedTags.includes(val)) {
+            setCustomTags([...customTags, val]);
+        }
+        setTagInput('');
+        setTagIcon('');
     };
 
     const removeTag = (tag: string) => {
@@ -286,11 +304,6 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                         ))}
                     </select>
-                    {categoryId && categories.find(c => c.id === categoryId)?.['fixed-tags'] && (
-                        <p className="text-xs text-indigo-400 mt-2">
-                            Incluye etiquetas automáticas: {categories.find(c => c.id === categoryId)['fixed-tags'].join(', ')}
-                        </p>
-                    )}
                 </div>
 
                 <div>
@@ -346,7 +359,12 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 {/* Tags */}
                 <div>
                     <h3 className="text-lg font-bold text-white mb-2">Etiquetas (Tags)</h3>
-                    <p className="text-sm text-gray-400 mb-4">Ayuda a otros a filtrar tu lista (ej. #Barato, #Terraza).</p>
+                    <p className="text-sm text-gray-400 mb-4">
+                        Ayuda a otros a filtrar tu lista.
+                        {categoryId && categories.find(c => c.id === categoryId)?.['fixed-tags']?.length > 0 && (
+                            <span className="text-indigo-400 ml-1">Se han preseleccionado las etiquetas sugeridas de la categoría — puedes quitarlas o añadir más.</span>
+                        )}
+                    </p>
 
                     <div className="flex flex-wrap gap-2 mb-3">
                         {fixedTags.map(tag => (
@@ -354,22 +372,53 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                                 {tag}
                             </span>
                         ))}
-                        {customTags.map(tag => (
-                            <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-sm flex items-center gap-1">
-                                {tag}
-                                <button type="button" aria-label={`Eliminar etiqueta ${tag}`} onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
-                            </span>
-                        ))}
+                        {customTags.map(tag => {
+                            const { icon, label } = splitTagEmoji(tag);
+                            return (
+                                <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-sm flex items-center gap-1.5">
+                                    {icon && <span>{icon}</span>}
+                                    <span>{label || tag}</span>
+                                    <button type="button" aria-label={`Eliminar etiqueta ${tag}`} onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
+                                </span>
+                            );
+                        })}
                     </div>
 
-                    <input
-                        type="text"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={addTag}
-                        placeholder="Escribe un tag y presiona Enter..."
-                        className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-                    />
+                    <div className="relative flex gap-2">
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowTagEmojiPicker(p => !p)}
+                                className="h-full px-3 bg-[#0b1021] border border-white/10 rounded-lg text-lg hover:bg-white/5 transition-colors flex items-center"
+                                aria-label="Elegir icono para el tag"
+                            >
+                                {tagIcon || <Smile className="w-4 h-4 text-gray-500" />}
+                            </button>
+                            {showTagEmojiPicker && (
+                                <TagEmojiPicker
+                                    onSelect={e => { setTagIcon(e); setShowTagEmojiPicker(false); }}
+                                    onClose={() => setShowTagEmojiPicker(false)}
+                                />
+                            )}
+                        </div>
+                        <input
+                            type="text"
+                            value={tagInput}
+                            onChange={e => setTagInput(e.target.value)}
+                            onKeyDown={addTag}
+                            placeholder="Nombre del tag y Enter para añadir..."
+                            className="flex-1 bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                        />
+                        {tagInput.trim() && (
+                            <button
+                                type="button"
+                                onClick={commitAddTag}
+                                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white text-sm font-bold transition-colors"
+                            >
+                                Añadir
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 

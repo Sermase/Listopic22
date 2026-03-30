@@ -282,11 +282,22 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
                 setHasMore(pagedSlice.length >= (customLimit || 10));
 
             } else {
-                // Public feeds should only include public-list reviews; avoid global collectionGroup
-                // queries because private-list documents would invalidate the whole query.
                 if (!userId && !listId) {
-                    rawReviews = await fetchPublicReviewsFromListSubcollections(type, {
-                        pageLimit: customLimit || 6
+                    // Explore/trending: single collectionGroup query, mucho más eficiente que fan-out.
+                    // Requiere regla Firestore: allow read if resource.data.visibility == 'public'
+                    const pageSize = customLimit || 20;
+                    const snap = await getDocs(
+                        query(
+                            collectionGroup(db, 'reviews'),
+                            where('visibility', '==', 'public'),
+                            orderBy('createdAt', 'desc'),
+                            limit(pageSize)
+                        )
+                    );
+                    rawReviews = snap.docs.map(d => {
+                        const data = d.data() as any;
+                        const resolvedListId = data.listId || d.ref.parent.parent?.id;
+                        return { id: d.id, ...data, listId: resolvedListId } as ReviewEntity;
                     });
                     setHasMore(false);
                 } else {

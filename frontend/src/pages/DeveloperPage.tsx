@@ -5,6 +5,7 @@ import { BrandingManager } from '../components/developer/BrandingManager';
 import { ListsManagerTab } from '../components/developer/ListsManagerTab';
 import { PlacesManagerTab } from '../components/developer/PlacesManagerTab';
 import { ReviewsManagerTab } from '../components/developer/ReviewsManagerTab';
+import { TagsManagerTab } from '../components/developer/TagsManagerTab';
 import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
@@ -27,7 +28,7 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags'>('console');
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     // Other Settings State
@@ -620,6 +621,12 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'reviews' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <MessageSquare className="w-5 h-5" /> Reseñas
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('tags'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'tags' ? 'border-pink-500 bg-pink-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <Tag className="w-5 h-5" /> Etiquetas
                         </button>
                     </nav>
 
@@ -1790,6 +1797,9 @@ export const DeveloperPage: React.FC = () => {
 
                         {activeTab === 'reviews' && (
                             <ReviewsManagerTab />
+                        )}
+                        {activeTab === 'tags' && (
+                            <TagsManagerTab />
                         )}
                     </main >
                 </div >

@@ -624,10 +624,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                 // Author / Ownership Fields
                 userId: user.uid,
-                authorId: user.uid,
-                authorUid: user.uid,
-                ownerId: user.uid,
-                creatorId: user.uid,
                 authorName: authorNameToPersist,
                 authorPhoto: authorPhotoToPersist,
 
@@ -640,7 +636,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                 // User input / Tags / Interactions
                 tags: customTags,
-                userTags: customTags,
                 reactionCounts: { like: 0, dislike: 0 },
                 photoUrl: finalPhotoUrl,
                 updatedAt: serverTimestamp(),

@@ -2,12 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { db } from '../../firebase';
 import {
     collection, collectionGroup, query, where, getDocs,
-    limit as firestoreLimit, deleteDoc, doc, updateDoc, documentId
+    limit as firestoreLimit, deleteDoc, doc, updateDoc, documentId,
+    writeBatch, deleteField
 } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import {
     RefreshCw, Trash2, ChevronUp, ChevronDown, ArrowUpDown,
-    ExternalLink, Star, User, MapPin, FileText, X, Save, AlertCircle, ChevronRight
+    ExternalLink, Star, User, MapPin, FileText, X, Save, AlertCircle, ChevronRight,
+    ShieldCheck, Wrench
 } from 'lucide-react';
 
 type SortField = 'createdAt' | 'overallRating' | 'authorName' | 'placeName';
@@ -290,6 +292,17 @@ const SearchBar: React.FC<{ filters: SearchFilters; onChange: (f: SearchFilters)
     );
 };
 
+// ─── Audit ─────────────────────────────────────────────────────────────────────
+
+interface AuditIssue {
+    review: any;
+    issues: string[];
+    fixable: boolean;
+    patch: Record<string, any>;
+    needsEnrichment: boolean;
+    needsPlaceEnrichment: boolean;
+}
+
 // ─── Main Tab ──────────────────────────────────────────────────────────────────
 
 export const ReviewsManagerTab: React.FC = () => {
@@ -305,6 +318,9 @@ export const ReviewsManagerTab: React.FC = () => {
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [log, setLog] = useState<string[]>([]);
     const [editingReview, setEditingReview] = useState<any | null>(null);
+    const [auditIssues, setAuditIssues] = useState<AuditIssue[]>([]);
+    const [auditDone, setAuditDone] = useState(false);
+    const [repairing, setRepairing] = useState(false);
 
     const addLog = (msg: string) => setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 49)]);
 
@@ -396,6 +412,196 @@ export const ReviewsManagerTab: React.FC = () => {
     const handleOpen = (review: any) => {
         if (review.placeId) window.open(`/place/${review.placeId}`, '_blank');
         else if (review.listId) window.open(`/list/${review.listId}`, '_blank');
+    };
+
+    // ── Audit ──
+    const runAudit = () => {
+        if (reviews.length === 0) return;
+        const issues: AuditIssue[] = [];
+        const AUTHOR_FIELDS = ['authorId', 'authorUid', 'ownerId', 'creatorId'] as const;
+
+        for (const r of reviews) {
+            const found: string[] = [];
+            const patch: Record<string, any> = {};
+            let needsEnrichment = false;
+
+            for (const field of AUTHOR_FIELDS) {
+                if (r[field] === undefined) continue;
+                if (!r.userId) {
+                    // userId vacío → migrar desde este campo
+                    found.push(`sin userId → migrar desde ${field}`);
+                    patch.userId = r[field];
+                    patch[field] = deleteField();
+                } else if (r[field] === r.userId) {
+                    // idéntico → redundante, borrar
+                    found.push(`${field} redundante (= userId)`);
+                    patch[field] = deleteField();
+                } else {
+                    // distinto → conflicto, no tocar
+                    found.push(`⚠ conflicto: ${field} ≠ userId — revisión manual`);
+                }
+            }
+
+            if (r.userTags !== undefined) {
+                if (r.tags !== undefined) {
+                    const merged = [...new Set([...(Array.isArray(r.tags) ? r.tags : []), ...(Array.isArray(r.userTags) ? r.userTags : [])])];
+                    found.push(`userTags + tags → fusionar en tags (${merged.length} tags)`);
+                    patch.tags = merged;
+                } else {
+                    found.push(`userTags → mover a tags (${Array.isArray(r.userTags) ? r.userTags.length : 0} tags)`);
+                    patch.tags = r.userTags;
+                }
+                patch.userTags = deleteField();
+            }
+
+            if (!r.authorName && (r.userId || patch.userId)) {
+                found.push('authorName vacío → enriquecer desde perfil');
+                needsEnrichment = true;
+            }
+
+            let needsPlaceEnrichment = false;
+            if (r.placeId) {
+                const missingPlaceFields: string[] = [];
+                if (!r.placeName) missingPlaceFields.push('placeName');
+                if (!r.placeAddress) missingPlaceFields.push('placeAddress');
+                if (!r.placeLat || !r.placeLng) missingPlaceFields.push('coordenadas');
+                if (missingPlaceFields.length > 0) {
+                    found.push(`lugar incompleto: falta ${missingPlaceFields.join(', ')}`);
+                    needsPlaceEnrichment = true;
+                }
+            }
+
+            if (!r.userId && !patch.userId) found.push('sin userId (sin campo para migrar)');
+            if (!r.placeId) found.push('sin placeId');
+            if (!r.listId) found.push('sin listId');
+
+            if (found.length > 0) {
+                const fixable = Object.keys(patch).length > 0 || needsEnrichment || needsPlaceEnrichment;
+                issues.push({ review: r, issues: found, fixable, patch, needsEnrichment, needsPlaceEnrichment });
+            }
+        }
+
+        setAuditIssues(issues);
+        setAuditDone(true);
+        addLog(`Auditoría: ${issues.length} reseñas con problemas de ${reviews.length} analizadas.`);
+    };
+
+    const repairAuditIssues = async () => {
+        const fixable = auditIssues.filter(i => i.fixable);
+        if (fixable.length === 0) return;
+        const enrichCount = fixable.filter(i => i.needsEnrichment).length;
+        const placeEnrichCount = fixable.filter(i => i.needsPlaceEnrichment).length;
+        if (!confirm(`¿Reparar ${fixable.length} reseñas?\n• Normalizar campos de autor (authorId, authorUid, ownerId, creatorId)\n• Limpiar tags duplicados${enrichCount > 0 ? `\n• Enriquecer authorName en ${enrichCount} reseñas` : ''}${placeEnrichCount > 0 ? `\n• Completar datos de lugar en ${placeEnrichCount} reseñas` : ''}`)) return;
+
+        setRepairing(true);
+        try {
+            // 1. Enriquecer authorName: fetchar perfiles de usuario necesarios
+            const userNameMap: Record<string, string> = {};
+            const userIdsToFetch = [
+                ...new Set(
+                    fixable
+                        .filter(i => i.needsEnrichment)
+                        .map(i => i.review.userId || i.patch.userId)
+                        .filter(Boolean)
+                )
+            ] as string[];
+
+            if (userIdsToFetch.length > 0) {
+                addLog(`Buscando nombres de ${userIdsToFetch.length} usuarios...`);
+                const chunks: string[][] = [];
+                for (let i = 0; i < userIdsToFetch.length; i += 10) chunks.push(userIdsToFetch.slice(i, i + 10));
+                await Promise.all(chunks.map(async chunk => {
+                    try {
+                        const snap = await getDocs(query(collection(db, 'users'), where(documentId(), 'in', chunk)));
+                        snap.docs.forEach(d => {
+                            const data = d.data();
+                            const name = (typeof data.username === 'string' ? data.username.trim() : '')
+                                || (typeof data.displayName === 'string' ? data.displayName.trim() : '');
+                            if (name) userNameMap[d.id] = name;
+                        });
+                    } catch { /* skip */ }
+                }));
+                addLog(`Nombres encontrados: ${Object.keys(userNameMap).length} / ${userIdsToFetch.length}`);
+            }
+
+            // 2. Fetch place data for enrichment
+            const placeDataMap: Record<string, any> = {};
+            const placeIdsToFetch = [
+                ...new Set(
+                    fixable
+                        .filter(i => i.needsPlaceEnrichment)
+                        .map(i => i.review.placeId)
+                        .filter(Boolean)
+                )
+            ] as string[];
+
+            if (placeIdsToFetch.length > 0) {
+                addLog(`Buscando datos de ${placeIdsToFetch.length} lugares...`);
+                const placeChunks: string[][] = [];
+                for (let i = 0; i < placeIdsToFetch.length; i += 10) placeChunks.push(placeIdsToFetch.slice(i, i + 10));
+                await Promise.all(placeChunks.map(async chunk => {
+                    try {
+                        const snap = await getDocs(query(collection(db, 'places'), where(documentId(), 'in', chunk)));
+                        snap.docs.forEach(d => { placeDataMap[d.id] = d.data(); });
+                    } catch { /* skip */ }
+                }));
+                addLog(`Lugares encontrados: ${Object.keys(placeDataMap).length} / ${placeIdsToFetch.length}`);
+            }
+
+            // 3. Batch updates
+            const BATCH_SIZE = 450;
+            let repaired = 0;
+
+            for (let i = 0; i < fixable.length; i += BATCH_SIZE) {
+                const batch = writeBatch(db);
+                const chunk = fixable.slice(i, i + BATCH_SIZE);
+
+                for (const item of chunk) {
+                    const r = item.review;
+                    const finalPatch = { ...item.patch };
+
+                    if (item.needsEnrichment) {
+                        const uid = r.userId || finalPatch.userId;
+                        if (uid && userNameMap[uid]) finalPatch.authorName = userNameMap[uid];
+                    }
+
+                    if (item.needsPlaceEnrichment && r.placeId && placeDataMap[r.placeId]) {
+                        const p = placeDataMap[r.placeId];
+                        const lat = p.coordinates?.latitude ?? p.location?.latitude ?? p.lat ?? 0;
+                        const lng = p.coordinates?.longitude ?? p.location?.longitude ?? p.lng ?? 0;
+                        if (!r.placeName && p.name) finalPatch.placeName = p.name;
+                        if (!r.placeAddress && (p.address || p.formatted_address)) finalPatch.placeAddress = p.address || p.formatted_address || '';
+                        if (!r.placeLat && lat) finalPatch.placeLat = lat;
+                        if (!r.placeLng && lng) finalPatch.placeLng = lng;
+                    }
+
+                    if (Object.keys(finalPatch).length === 0) continue;
+
+                    let docRef;
+                    if (r._path) {
+                        docRef = doc(db, r._path);
+                    } else if (r.listId) {
+                        docRef = doc(db, 'lists', r.listId, 'reviews', r.id);
+                    } else {
+                        docRef = doc(db, 'reviews', r.id);
+                    }
+                    batch.update(docRef, finalPatch);
+                    repaired++;
+                }
+
+                await batch.commit();
+                addLog(`Lote ${Math.floor(i / BATCH_SIZE) + 1}: ${chunk.length} reseñas reparadas.`);
+            }
+
+            addLog(`✓ Reparación completada: ${repaired} reseñas actualizadas.`);
+            setAuditIssues([]);
+            setAuditDone(false);
+            await loadReviews();
+        } catch (err: any) {
+            addLog(`Error en reparación: ${err.message}`);
+        } finally {
+            setRepairing(false);
+        }
     };
 
     // ── Filtering ──
@@ -707,6 +913,149 @@ export const ReviewsManagerTab: React.FC = () => {
                     <span className="text-blue-400 font-bold">R</span> = colección raíz &nbsp;·&nbsp;
                     <span className="text-purple-400 font-bold">S</span> = subcolección de lista
                 </p>
+            )}
+
+            {/* ── Auditoría ── */}
+            {reviews.length > 0 && (
+                <div className="border border-white/10 rounded-xl overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 py-4 bg-white/[0.02] border-b border-white/10">
+                        <div className="flex items-center gap-3">
+                            <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                            <div>
+                                <h3 className="text-sm font-bold text-white">Auditoría de datos</h3>
+                                <p className="text-xs text-gray-500">Detecta campos redundantes y datos inconsistentes</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={runAudit}
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-bold text-sm transition-colors"
+                        >
+                            <ShieldCheck className="w-4 h-4" />
+                            Analizar
+                        </button>
+                    </div>
+
+                    {auditDone && (
+                        <div className="p-5 space-y-4">
+                            {/* Summary cards */}
+                            {(() => {
+                                const fixable = auditIssues.filter(i => i.fixable);
+                                const redundant = auditIssues.filter(i => i.issues.some(x => x.includes('redundante')));
+                                const migrate = auditIssues.filter(i => i.issues.some(x => x.includes('migrar desde')));
+                                const conflict = auditIssues.filter(i => i.issues.some(x => x.includes('conflicto')));
+                                const missingName = auditIssues.filter(i => i.needsEnrichment);
+                                const dupTags = auditIssues.filter(i => i.issues.some(x => x.includes('userTags')));
+                                const noUserId = auditIssues.filter(i => i.issues.some(x => x === 'sin userId (sin campo para migrar)'));
+                                const noPlaceId = auditIssues.filter(i => i.issues.some(x => x === 'sin placeId'));
+                                const noListId = auditIssues.filter(i => i.issues.some(x => x === 'sin listId'));
+
+                                return (
+                                    <>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                            {[
+                                                { label: 'Campos redundantes', count: redundant.length, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20', title: 'authorId/authorUid/ownerId/creatorId === userId → se borrarán' },
+                                                { label: 'A migrar (sin userId)', count: migrate.length, color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20', title: 'userId vacío → se copiará desde authorId/authorUid' },
+                                                { label: 'Conflictos', count: conflict.length, color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20', title: 'authorId ≠ userId → revisión manual' },
+                                                { label: 'Sin nombre', count: missingName.length, color: 'text-sky-400', bg: 'bg-sky-500/10 border-sky-500/20', title: 'authorName vacío → se enriquecerá desde el perfil' },
+                                            ].map(({ label, count, color, bg, title }) => (
+                                                <div key={label} className={`border rounded-lg p-3 ${bg}`} title={title}>
+                                                    <div className={`text-2xl font-bold ${color}`}>{count}</div>
+                                                    <div className="text-xs text-gray-400 mt-0.5">{label}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {(() => {
+                                            const placeIncomplete = auditIssues.filter(i => i.needsPlaceEnrichment);
+                                            return (
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                    {[
+                                                        { label: 'userTags → migrar', count: dupTags.length, color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', title: 'userTags se moverá/fusionará en tags' },
+                                                        { label: 'Lugar incompleto', count: placeIncomplete.length, color: 'text-teal-400', bg: 'bg-teal-500/10 border-teal-500/20', title: 'Falta placeName, placeAddress o coordenadas' },
+                                                        { label: 'Sin placeId', count: noPlaceId.length, color: 'text-gray-400', bg: 'bg-white/5 border-white/10', title: 'Revisión manual' },
+                                                        { label: 'Sin listId', count: noListId.length, color: 'text-gray-400', bg: 'bg-white/5 border-white/10', title: 'Revisión manual' },
+                                                    ].map(({ label, count, color, bg, title }) => (
+                                                        <div key={label} className={`border rounded-lg p-3 ${bg}`} title={title}>
+                                                            <div className={`text-xl font-bold ${color}`}>{count}</div>
+                                                            <div className="text-xs text-gray-400 mt-0.5">{label}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })()}
+                                        {noUserId.length > 0 && (
+                                            <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs">
+                                                <AlertCircle className="w-4 h-4 shrink-0" />
+                                                <span><strong>{noUserId.length}</strong> reseñas sin userId y sin ningún campo para migrar — revisión manual necesaria.</span>
+                                            </div>
+                                        )}
+
+                                        {auditIssues.length === 0 ? (
+                                            <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold py-2">
+                                                <ShieldCheck className="w-4 h-4" />
+                                                Todo limpio — no se encontraron problemas.
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {fixable.length > 0 && (
+                                                    <div className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                                        <div className="flex items-center gap-2 text-amber-300 text-sm">
+                                                            <Wrench className="w-4 h-4 shrink-0" />
+                                                            <span><strong>{fixable.length}</strong> reparables · normaliza campos, migra userId, enriquece nombres</span>
+                                                        </div>
+                                                        <button
+                                                            onClick={repairAuditIssues}
+                                                            disabled={repairing}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-lg text-white text-xs font-bold transition-colors shrink-0"
+                                                        >
+                                                            {repairing
+                                                                ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Reparando...</>
+                                                                : <><Wrench className="w-3 h-3" />Reparar automáticamente</>
+                                                            }
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Issue list */}
+                                                <div className="max-h-64 overflow-y-auto space-y-1.5">
+                                                    {auditIssues.map(item => (
+                                                        <div
+                                                            key={item.review.id}
+                                                            className={`flex items-start gap-3 p-3 rounded-lg border text-xs ${
+                                                                item.fixable
+                                                                    ? 'bg-amber-500/5 border-amber-500/15'
+                                                                    : 'bg-white/[0.02] border-white/5'
+                                                            }`}
+                                                        >
+                                                            <div className="font-mono text-gray-500 shrink-0 pt-0.5 w-32 truncate" title={item.review.id}>
+                                                                {item.review.id}
+                                                            </div>
+                                                            <div className="flex-1 space-y-0.5">
+                                                                {item.issues.map((issue, i) => (
+                                                                    <div key={i} className="flex items-center gap-1.5">
+                                                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                                                            issue.includes('sin ') ? 'bg-red-500' : 'bg-amber-500'
+                                                                        }`} />
+                                                                        <span className="text-gray-300">{issue}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            {item.fixable && (
+                                                                <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-bold shrink-0">
+                                                                    AUTO
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    )}
+                </div>
             )}
 
             {editingReview && (

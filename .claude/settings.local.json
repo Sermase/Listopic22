@@ -6,7 +6,12 @@
       "Bash(firebase deploy:*)",
       "Bash(npx tsc:*)",
       "Bash(grep -n \"btn-primary\\\\|btn-glass\" /home/sermase/Documentos/GitHub/Listopic22/frontend/src/components/*.tsx)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(grep:*)",
+      "Bash(find /home/sermase/Documentos/GitHub/Listopic22/functions -name *.ts -o -name *.js)",
+      "Bash(find /home/sermase/Documentos/GitHub/Listopic22 -type f -name constants* -o -name config*)",
+      "Bash(find /home/sermase/Documentos/GitHub/Listopic22 -type f \\\\\\(-name *.json -o -name *.csv \\\\\\) -size +10k -not -path */node_modules/* -not -path */dist/*)",
+      "Bash(xargs ls:*)"
     ]
   }
 }
