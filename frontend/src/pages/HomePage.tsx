@@ -328,10 +328,17 @@ export const HomePage: React.FC = () => {
 
     const reviewSortParam = useMemo(() => {
         console.log(`[HomePage] Building reviewSortParam. Tab: ${activeTab}, followingIds length: ${followingIds.length}`);
-        return activeTab === 'explore'
-            ? { type: 'trending' as const, limit: 100 } // Fetch more for geo-filtering
-            : { type: 'following' as const, followingIds, limit: 10 }; // Fetch a smaller chunk initially to allow pagination
-    }, [activeTab, followingIds]);
+        if (activeTab === 'explore') {
+            const months = appConfig.homeReviewsMonths;
+            if (months > 0) {
+                const sinceDate = new Date();
+                sinceDate.setMonth(sinceDate.getMonth() - months);
+                return { type: 'trending' as const, sinceDate };
+            }
+            return { type: 'trending' as const, limit: 1000 }; // 0 meses = sin límite temporal, cota de seguridad
+        }
+        return { type: 'following' as const, followingIds, limit: 10 };
+    }, [activeTab, followingIds, appConfig.homeReviewsMonths]);
 
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews, fetchMore, hasMore, loadingMore } = useReviews(reviewSortParam);
@@ -610,45 +617,50 @@ export const HomePage: React.FC = () => {
     }, [activeTab, range, location, loadingReviews, hasHomeMapCandidates, filteredPlaces.length, setRange]);
 
     // 6. Derived Users (Synthesized from content IN RANGE)
-    // "Así aparecerán usuarios, ordenados de más resñas dentro de ese rango a menos."
     const activeUsersInRange = useMemo(() => {
+        // Sin rango activo: usar reviewsCount real del documento de usuario (dato exacto)
+        if (range === null) {
+            return topUsers
+                .filter(u => (u.reviewsCount || 0) > 0)
+                .map(u => ({
+                    ...u,
+                    reviewsInRangeCount: u.reviewsCount || 0
+                }));
+        }
+
+        // Con rango activo: derivar conteo de las reseñas fetched dentro del rango
         const userStats = new Map<string, { count: number, user: any }>();
 
-        // Agregate counts from REVIEWS visible in current range
         reviewsInRange.forEach(r => {
-            const uid = r.userId || r.authorId;
+            const uid = (r as any).userId || (r as any).authorId;
             if (uid) {
                 if (!userStats.has(uid)) {
-                    // Try to find full metadata from topUsers if available, else build minimal
                     const meta = topUsers.find(u => u.uid === uid) || {
                         uid,
-                        displayName: r.authorName || 'Usuario',
-                        photoUrl: r.authorPhoto,
+                        displayName: (r as any).authorName || 'Usuario',
+                        photoUrl: (r as any).authorPhoto,
                         username: 'user',
-                        followersCount: 0 // We don't use this for sorting anymore
+                        followersCount: 0
                     };
                     userStats.set(uid, { count: 0, user: meta });
                 }
-
                 const entry = userStats.get(uid)!;
                 entry.count++;
-                // If we found a photo here and didn't have one, update it
-                if (!entry.user.photoUrl && r.authorPhoto) {
-                    entry.user.photoUrl = r.authorPhoto;
+                if (!entry.user.photoUrl && (r as any).authorPhoto) {
+                    entry.user.photoUrl = (r as any).authorPhoto;
                 }
             }
         });
 
-        // Convert map to array, filter > 0, sort by count desc
         return Array.from(userStats.values())
             .filter(item => item.count > 0)
             .sort((a, b) => b.count - a.count)
             .map(item => ({
                 ...item.user,
-                reviewsInRangeCount: item.count // Attach the specific count
+                reviewsInRangeCount: item.count
             }));
 
-    }, [reviewsInRange, topUsers]);
+    }, [reviewsInRange, topUsers, range]);
 
     // 7. Lists with Range Stats
     const listsWithRangeStats = useMemo(() => {
