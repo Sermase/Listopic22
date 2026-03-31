@@ -35,6 +35,7 @@ export const DeveloperPage: React.FC = () => {
     const [otherSettings, setOtherSettings] = useState({
         showRandomChoiceButton: true,
         showProfileFavoriteBadge: true,
+        homeReviewsMonths: 12,
     });
     const [otherSettingsLoading, setOtherSettingsLoading] = useState(false);
     const [otherSettingsSaving, setOtherSettingsSaving] = useState(false);
@@ -488,6 +489,7 @@ export const DeveloperPage: React.FC = () => {
             setOtherSettings({
                 showRandomChoiceButton: typeof data.showRandomChoiceButton === 'boolean' ? data.showRandomChoiceButton : true,
                 showProfileFavoriteBadge: typeof data.showProfileFavoriteBadge === 'boolean' ? data.showProfileFavoriteBadge : true,
+                homeReviewsMonths: typeof data.homeReviewsMonths === 'number' ? data.homeReviewsMonths : 12,
             });
         } catch (error: any) {
             console.error('Error fetching other settings:', error);
@@ -504,6 +506,7 @@ export const DeveloperPage: React.FC = () => {
             await setDoc(doc(db, 'config', 'app'), {
                 showRandomChoiceButton: otherSettings.showRandomChoiceButton,
                 showProfileFavoriteBadge: otherSettings.showProfileFavoriteBadge,
+                homeReviewsMonths: otherSettings.homeReviewsMonths,
                 updatedAt: new Date(),
             }, { merge: true });
             setOtherSettingsMessage({ type: 'success', text: 'Ajustes guardados correctamente.' });
@@ -1015,6 +1018,27 @@ export const DeveloperPage: React.FC = () => {
                                                 >
                                                     {otherSettings.showProfileFavoriteBadge ? 'ACTIVO' : 'INACTIVO'}
                                                 </button>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-black/20">
+                                                <div>
+                                                    <div className="text-sm font-bold text-white">Ventana temporal de reseñas (Home)</div>
+                                                    <div className="text-xs text-gray-400">
+                                                        Reseñas de los últimos N meses que se cargan en la página principal. 0 = sin límite (carga todo).
+                                                    </div>
+                                                </div>
+                                                <select
+                                                    value={otherSettings.homeReviewsMonths}
+                                                    onChange={(e) => setOtherSettings((prev) => ({ ...prev, homeReviewsMonths: Number(e.target.value) }))}
+                                                    className="bg-[#0b1021] border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm font-bold focus:outline-none focus:border-indigo-500 shrink-0"
+                                                >
+                                                    <option value={1}>1 mes</option>
+                                                    <option value={3}>3 meses</option>
+                                                    <option value={6}>6 meses</option>
+                                                    <option value={12}>12 meses</option>
+                                                    <option value={24}>24 meses</option>
+                                                    <option value={0}>Sin límite</option>
+                                                </select>
                                             </div>
 
                                             <div className="pt-2">

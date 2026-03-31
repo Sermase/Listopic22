@@ -5,25 +5,52 @@ export interface Location {
     longitude: number;
 }
 
+const LOCATION_CACHE_KEY = 'listopic_location';
+
+function readCachedLocation(): Location | null {
+    try {
+        const raw = sessionStorage.getItem(LOCATION_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.latitude === 'number' && typeof parsed.longitude === 'number') {
+            return parsed as Location;
+        }
+    } catch {
+        // ignore parse errors
+    }
+    return null;
+}
+
+function writeCachedLocation(loc: Location) {
+    try {
+        sessionStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(loc));
+    } catch {
+        // ignore storage errors
+    }
+}
+
 export const useLocation = () => {
-    const [location, setLocation] = useState<Location | null>(null);
+    const [location, setLocation] = useState<Location | null>(() => readCachedLocation());
     const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(() => readCachedLocation() === null);
 
     useEffect(() => {
+        // If we already have a cached location, skip the API call
+        if (location !== null) return;
+
         if (!navigator.geolocation) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setError('Geolocalización no soportada por el navegador');
-             
             setLoading(false);
             return;
         }
 
         const success = (position: GeolocationPosition) => {
-            setLocation({
+            const loc: Location = {
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude
-            });
+            };
+            writeCachedLocation(loc);
+            setLocation(loc);
             setLoading(false);
         };
 
@@ -32,8 +59,8 @@ export const useLocation = () => {
             setLoading(false);
         };
 
-        // Solicitar ubicación al montar
         navigator.geolocation.getCurrentPosition(success, fail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Fórmula del Haversine para calcular distancia en km
@@ -64,10 +91,12 @@ export const useLocation = () => {
         }
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                setLocation({
+                const loc: Location = {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude
-                });
+                };
+                writeCachedLocation(loc);
+                setLocation(loc);
                 setLoading(false);
             },
             (err) => {

@@ -12,6 +12,7 @@ export interface AppConfig {
     keywords: string;
     showRandomChoiceButton: boolean;
     showProfileFavoriteBadge: boolean;
+    homeReviewsMonths: number; // 0 = sin límite de tiempo, >0 = meses hacia atrás
 }
 
 const defaultConfig: AppConfig = {
@@ -22,6 +23,7 @@ const defaultConfig: AppConfig = {
     keywords: 'listas, lugares, recomendaciones, social, mapas',
     showRandomChoiceButton: true,
     showProfileFavoriteBadge: true,
+    homeReviewsMonths: 12,
 };
 
 const AppConfigContext = createContext<AppConfig>(defaultConfig);
@@ -45,6 +47,9 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     showProfileFavoriteBadge: typeof data.showProfileFavoriteBadge === 'boolean'
                         ? data.showProfileFavoriteBadge
                         : defaultConfig.showProfileFavoriteBadge,
+                    homeReviewsMonths: typeof data.homeReviewsMonths === 'number'
+                        ? data.homeReviewsMonths
+                        : defaultConfig.homeReviewsMonths,
                 } as AppConfig);
             }
         }, (error) => {

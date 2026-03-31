@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { collection, collectionGroup, query, orderBy, limit, getDocs, where, startAfter } from 'firebase/firestore';
+import { collection, collectionGroup, query, orderBy, limit, getDocs, where, startAfter, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 import { queryCache, getCachedDoc } from '../lib/queryCache';
@@ -162,11 +162,12 @@ export interface UseReviewsOptions {
     listId?: string;
     followingIds?: string[];
     limit?: number;
+    sinceDate?: Date; // Si se pasa, filtra por createdAt >= sinceDate (sin límite fijo)
 }
 
 export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 'following' = 'recent') => {
     // Normalize options
-    const { type = 'recent', userId, listId, followingIds, limit: customLimit } = typeof options === 'string' ? { type: options } : options;
+    const { type = 'recent', userId, listId, followingIds, limit: customLimit, sinceDate } = typeof options === 'string' ? { type: options } : options;
 
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [loading, setLoading] = useState(true);
@@ -283,17 +284,16 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
 
             } else {
                 if (!userId && !listId) {
-                    // Explore/trending: single collectionGroup query, mucho más eficiente que fan-out.
-                    // Requiere regla Firestore: allow read if resource.data.visibility == 'public'
-                    const pageSize = customLimit || 20;
-                    const snap = await getDocs(
-                        query(
-                            collectionGroup(db, 'reviews'),
-                            where('visibility', '==', 'public'),
-                            orderBy('createdAt', 'desc'),
-                            limit(pageSize)
-                        )
-                    );
+                    // Explore/trending: single collectionGroup query.
+                    // Si se pasa sinceDate, filtra por ventana temporal (sin límite fijo de docs).
+                    // Si no, usa customLimit o 20 como seguridad.
+                    const constraints: Parameters<typeof query>[1][] = [orderBy('createdAt', 'desc')];
+                    if (sinceDate) {
+                        constraints.push(where('createdAt', '>=', Timestamp.fromDate(sinceDate)));
+                    } else {
+                        constraints.push(limit(customLimit || 20));
+                    }
+                    const snap = await getDocs(query(collectionGroup(db, 'reviews'), ...constraints));
                     rawReviews = snap.docs.map(d => {
                         const data = d.data() as any;
                         const resolvedListId = data.listId || d.ref.parent.parent?.id;
@@ -428,7 +428,7 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
         // Reset and fetch when filters change
         fetchReviews(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [type, userId, listId, JSON.stringify(followingIds)]); // Deep compare followingIds
+    }, [type, userId, listId, JSON.stringify(followingIds), sinceDate?.getTime()]); // Deep compare followingIds
 
     return {
         reviews,

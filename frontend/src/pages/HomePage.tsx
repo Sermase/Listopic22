@@ -328,10 +328,17 @@ export const HomePage: React.FC = () => {
 
     const reviewSortParam = useMemo(() => {
         console.log(`[HomePage] Building reviewSortParam. Tab: ${activeTab}, followingIds length: ${followingIds.length}`);
-        return activeTab === 'explore'
-            ? { type: 'trending' as const, limit: 100 } // Fetch more for geo-filtering
-            : { type: 'following' as const, followingIds, limit: 10 }; // Fetch a smaller chunk initially to allow pagination
-    }, [activeTab, followingIds]);
+        if (activeTab === 'explore') {
+            const months = appConfig.homeReviewsMonths;
+            if (months > 0) {
+                const sinceDate = new Date();
+                sinceDate.setMonth(sinceDate.getMonth() - months);
+                return { type: 'trending' as const, sinceDate };
+            }
+            return { type: 'trending' as const, limit: 1000 }; // 0 meses = sin límite temporal, cota de seguridad
+        }
+        return { type: 'following' as const, followingIds, limit: 10 };
+    }, [activeTab, followingIds, appConfig.homeReviewsMonths]);
 
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews, fetchMore, hasMore, loadingMore } = useReviews(reviewSortParam);
@@ -610,45 +617,50 @@ export const HomePage: React.FC = () => {
     }, [activeTab, range, location, loadingReviews, hasHomeMapCandidates, filteredPlaces.length, setRange]);
 
     // 6. Derived Users (Synthesized from content IN RANGE)
-    // "Así aparecerán usuarios, ordenados de más resñas dentro de ese rango a menos."
     const activeUsersInRange = useMemo(() => {
+        // Sin rango activo: usar reviewsCount real del documento de usuario (dato exacto)
+        if (range === null) {
+            return topUsers
+                .filter(u => (u.reviewsCount || 0) > 0)
+                .map(u => ({
+                    ...u,
+                    reviewsInRangeCount: u.reviewsCount || 0
+                }));
+        }
+
+        // Con rango activo: derivar conteo de las reseñas fetched dentro del rango
         const userStats = new Map<string, { count: number, user: any }>();
 
-        // Agregate counts from REVIEWS visible in current range
         reviewsInRange.forEach(r => {
-            const uid = r.userId || r.authorId;
+            const uid = (r as any).userId || (r as any).authorId;
             if (uid) {
                 if (!userStats.has(uid)) {
-                    // Try to find full metadata from topUsers if available, else build minimal
                     const meta = topUsers.find(u => u.uid === uid) || {
                         uid,
-                        displayName: r.authorName || 'Usuario',
-                        photoUrl: r.authorPhoto,
+                        displayName: (r as any).authorName || 'Usuario',
+                        photoUrl: (r as any).authorPhoto,
                         username: 'user',
-                        followersCount: 0 // We don't use this for sorting anymore
+                        followersCount: 0
                     };
                     userStats.set(uid, { count: 0, user: meta });
                 }
-
                 const entry = userStats.get(uid)!;
                 entry.count++;
-                // If we found a photo here and didn't have one, update it
-                if (!entry.user.photoUrl && r.authorPhoto) {
-                    entry.user.photoUrl = r.authorPhoto;
+                if (!entry.user.photoUrl && (r as any).authorPhoto) {
+                    entry.user.photoUrl = (r as any).authorPhoto;
                 }
             }
         });
 
-        // Convert map to array, filter > 0, sort by count desc
         return Array.from(userStats.values())
             .filter(item => item.count > 0)
             .sort((a, b) => b.count - a.count)
             .map(item => ({
                 ...item.user,
-                reviewsInRangeCount: item.count // Attach the specific count
+                reviewsInRangeCount: item.count
             }));
 
-    }, [reviewsInRange, topUsers]);
+    }, [reviewsInRange, topUsers, range]);
 
     // 7. Lists with Range Stats
     const listsWithRangeStats = useMemo(() => {
@@ -734,139 +746,10 @@ export const HomePage: React.FC = () => {
         toggleRange();
     };
 
-    const shouldHoldHomeForGate = authLoading || (Boolean(user) && (
-        !gateChecked
-        || gateLoading
-        || gateResolvedForUserId !== user?.uid
-    ));
-
-    if (shouldHoldHomeForGate) {
+    if (authLoading) {
         return (
             <div className="min-h-screen bg-[#0b1021] flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
-            </div>
-        );
-    }
-
-    if (user && showProfileGate && !profileGateVisible) {
-        return (
-            <div className="min-h-screen bg-[#0b1021] flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
-            </div>
-        );
-    }
-
-    if (user && showProfileGate && profileGateVisible) {
-        return (
-            <div className="min-h-screen bg-[#0b1021] px-4 py-12 flex items-center justify-center">
-                <div className="w-full max-w-2xl bg-[#151b2e] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Completa tu perfil</h2>
-                    <p className="text-gray-400 text-sm mb-6">
-                        Antes de entrar en Home necesitas un username válido.
-                    </p>
-
-                    <form onSubmit={handleCompleteProfileSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                Username (obligatorio)
-                            </label>
-                            <input
-                                type="text"
-                                value={gateForm.username}
-                                onChange={(e) => handleGateFieldChange('username', e.target.value)}
-                                maxLength={USERNAME_MAX_LENGTH}
-                                required
-                                className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                placeholder="sin espacios, máximo 18"
-                            />
-                            <p className="text-[11px] text-amber-300 mt-2">
-                                El username es único, no puede tener espacios y no se podrá cambiar después.
-                            </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                    Display Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={gateForm.displayName}
-                                    onChange={(e) => handleGateFieldChange('displayName', e.target.value)}
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                    placeholder="por defecto será el username"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                    Nombre
-                                </label>
-                                <input
-                                    type="text"
-                                    value={gateForm.name}
-                                    onChange={(e) => handleGateFieldChange('name', e.target.value)}
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                    placeholder="opcional"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                    Apellidos
-                                </label>
-                                <input
-                                    type="text"
-                                    value={gateForm.surnames}
-                                    onChange={(e) => handleGateFieldChange('surnames', e.target.value)}
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                    placeholder="opcional"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                    Lugar
-                                </label>
-                                <input
-                                    type="text"
-                                    value={gateForm.location}
-                                    onChange={(e) => handleGateFieldChange('location', e.target.value)}
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                    placeholder="opcional"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                Biografía
-                            </label>
-                            <textarea
-                                value={gateForm.bio}
-                                onChange={(e) => handleGateFieldChange('bio', e.target.value)}
-                                rows={4}
-                                className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                placeholder="opcional"
-                            />
-                        </div>
-
-                        {gateError && (
-                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-200">
-                                {gateError}
-                            </div>
-                        )}
-
-                        <button
-                            type="submit"
-                            disabled={gateSubmitting}
-                            className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {gateSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                            Guardar y continuar
-                        </button>
-                    </form>
-                </div>
             </div>
         );
     }
@@ -1206,6 +1089,120 @@ export const HomePage: React.FC = () => {
                 >
                     <Dice5 className="w-4 h-4" />
                 </button>
+            )}
+
+            {/* Profile gate — overlay modal, solo aparece si el username es realmente inválido */}
+            {user && showProfileGate && profileGateVisible && (
+                <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-12">
+                    <div className="w-full max-w-2xl bg-[#151b2e] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Completa tu perfil</h2>
+                        <p className="text-gray-400 text-sm mb-6">
+                            Antes de continuar necesitas un username válido.
+                        </p>
+
+                        <form onSubmit={handleCompleteProfileSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                    Username (obligatorio)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={gateForm.username}
+                                    onChange={(e) => handleGateFieldChange('username', e.target.value)}
+                                    maxLength={USERNAME_MAX_LENGTH}
+                                    required
+                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                    placeholder="sin espacios, máximo 18"
+                                />
+                                <p className="text-[11px] text-amber-300 mt-2">
+                                    El username es único, no puede tener espacios y no se podrá cambiar después.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                        Display Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={gateForm.displayName}
+                                        onChange={(e) => handleGateFieldChange('displayName', e.target.value)}
+                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                        placeholder="por defecto será el username"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                        Nombre
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={gateForm.name}
+                                        onChange={(e) => handleGateFieldChange('name', e.target.value)}
+                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                        placeholder="opcional"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                        Apellidos
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={gateForm.surnames}
+                                        onChange={(e) => handleGateFieldChange('surnames', e.target.value)}
+                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                        placeholder="opcional"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                        Lugar
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={gateForm.location}
+                                        onChange={(e) => handleGateFieldChange('location', e.target.value)}
+                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                        placeholder="opcional"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                    Biografía
+                                </label>
+                                <textarea
+                                    value={gateForm.bio}
+                                    onChange={(e) => handleGateFieldChange('bio', e.target.value)}
+                                    rows={4}
+                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                    placeholder="opcional"
+                                />
+                            </div>
+
+                            {gateError && (
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-200">
+                                    {gateError}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={gateSubmitting}
+                                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {gateSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                Guardar y continuar
+                            </button>
+                        </form>
+                    </div>
+                </div>
             )}
         </div >
     );
