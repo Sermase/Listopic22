@@ -829,7 +829,7 @@ export const ListPage: React.FC = () => {
             </div>
 
             {/* Map Collapsible */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 relative -mt-8 sm:-mt-12 z-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 relative -mt-8 sm:-mt-12 z-40">
                 <div className="glass-card rounded-xl overflow-hidden transition-all duration-300 shadow-2xl">
                     <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[#151b2e]/60 border-b border-white/5">
                         <button
