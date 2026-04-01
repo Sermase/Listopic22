@@ -626,6 +626,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 userId: user.uid,
                 authorName: authorNameToPersist,
                 authorPhoto: authorPhotoToPersist,
+                authorUserType: userProfile?.userType ?? [],
 
                 // Item details
                 itemName: itemName.trim(),

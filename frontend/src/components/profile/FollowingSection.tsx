@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, getDocs, where, documentId } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Link } from 'react-router-dom';
+import { getUserTypeGradient } from '../UserAvatar';
 
 interface FollowingSectionProps {
     targetUserId: string;
@@ -97,12 +98,14 @@ export const FollowingSection: React.FC<FollowingSectionProps> = ({
                                 onClick={() => onNavigateToProfile?.()}
                                 className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[#151b2e]/70 hover:border-indigo-500/40 hover:bg-white/5 transition-all"
                             >
-                                <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-gray-800">
-                                    <img
-                                        src={item.photoUrl || item.photoURL || `https://ui-avatars.com/api/?name=${item.username || item.displayName || 'U'}`}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                        alt={username}
-                                    />
+                                <div className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 p-[2px] bg-gradient-to-tr ${getUserTypeGradient(item.userType)}`}>
+                                    <div className="w-full h-full rounded-md overflow-hidden bg-gray-800 border border-[#0b1021]">
+                                        <img
+                                            src={item.photoUrl || item.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.username || item.displayName || 'U')}`}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                            alt={username}
+                                        />
+                                    </div>
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <h4 className="text-white font-black text-base truncate">{username}</h4>

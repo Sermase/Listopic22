@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Users, UserPlus, MessageCircle } from 'lucide-react';
 import { type UserProfileEntity } from '../hooks/useUserProfile';
+import { getUserTypeGradient } from './UserAvatar';
 
 interface UserCardProps {
     user: UserProfileEntity;
@@ -11,7 +12,7 @@ export const UserCard: React.FC<UserCardProps> = ({ user }) => {
     return (
         <Link to={`/profile/${user.uid}`} className="group relative bg-[#151b2e] rounded-xl p-6 flex flex-col items-center border border-white/5 hover:border-indigo-500/50 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10">
             {/* Avatar */}
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 p-1 mb-4 group-hover:scale-110 transition-transform">
+            <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${getUserTypeGradient(user.userType)} p-1 mb-4 group-hover:scale-110 transition-transform`}>
                 <div className="w-full h-full rounded-full bg-[#151b2e] overflow-hidden flex items-center justify-center border-2 border-[#151b2e]">
                     {user.photoUrl ? (
                         <img src={user.photoUrl} alt={user.displayName} className="w-full h-full object-cover" />

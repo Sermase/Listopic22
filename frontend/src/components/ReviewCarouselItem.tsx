@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, User } from 'lucide-react';
 import { type ReviewEntity } from '../hooks/useListDetails';
+import { getUserTypeGradient } from './UserAvatar';
 
 interface ReviewCarouselItemProps {
     review: ReviewEntity;
@@ -46,12 +47,14 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
                     <div className="flex flex-col items-start gap-1.5 max-w-[70%]">
                         {/* Author Bubble */}
                         <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/10 rounded-full pr-3 pl-1 py-1 shadow-lg">
-                            <div className="w-6 h-6 rounded-full overflow-hidden border border-white/20 flex-shrink-0 bg-gray-700">
+                            <div className={`w-6 h-6 rounded-full overflow-hidden flex-shrink-0 p-[1.5px] bg-gradient-to-tr ${getUserTypeGradient((review as any).authorUserType)}`}>
+                                <div className="w-full h-full rounded-full overflow-hidden bg-gray-800 border border-[#0b1021]">
                                 <img
-                                    src={review.authorPhoto || `https://ui-avatars.com/api/?name=${review.authorName || 'User'}`}
+                                    src={review.authorPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.authorName || 'User')}`}
                                     alt={review.authorName}
                                     className="w-full h-full object-cover"
                                 />
+                                </div>
                             </div>
                             <span className="text-[10px] font-bold text-white truncate leading-none">
                                 {review.authorName || 'Anónimo'}
@@ -101,14 +104,24 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
                     </span>
                 </div>
 
-                {/* Tags (New) */}
+                {/* Tags */}
                 {review.tags && review.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
-                        {review.tags.slice(0, 2).map((tag, idx) => (
-                            <span key={idx} className="px-1.5 py-0.5 text-[9px] rounded-full bg-white/10 border border-white/10 text-gray-300">
-                                {tag}
-                            </span>
-                        ))}
+                        {review.tags.slice(0, 2).map((tag, idx) => {
+                            const tagColors = [
+                                'bg-indigo-500/20 border-indigo-500/30 text-indigo-300',
+                                'bg-purple-500/20 border-purple-500/30 text-purple-300',
+                                'bg-cyan-500/20 border-cyan-500/30 text-cyan-300',
+                                'bg-emerald-500/20 border-emerald-500/30 text-emerald-300',
+                                'bg-amber-500/20 border-amber-500/30 text-amber-300',
+                                'bg-rose-500/20 border-rose-500/30 text-rose-300',
+                            ];
+                            return (
+                                <span key={idx} className={`px-1.5 py-0.5 text-[9px] rounded-full border ${tagColors[idx % tagColors.length]}`}>
+                                    {tag}
+                                </span>
+                            );
+                        })}
                     </div>
                 )}
             </div>

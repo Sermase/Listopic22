@@ -1220,7 +1220,20 @@ export const ProfilePage: React.FC = () => {
         <div className="flex flex-row items-center md:items-start gap-3 md:gap-8 mb-3 md:mb-4">
           {/* Avatar (Left) */}
           <div className="group relative shrink-0 cursor-pointer" onClick={() => setIsAvatarModalOpen(true)}>
-            <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen" />
+            {(() => {
+              const types: string[] = Array.isArray(profile.userType) ? profile.userType : (profile.userType ? [profile.userType] : []);
+              const isJefe = types.includes('jefe');
+              const isCritico = types.includes('critico');
+              const isBot = types.includes('bot');
+              const gradient = isJefe
+                ? 'from-emerald-400 via-green-400 to-teal-400'
+                : isCritico
+                ? 'from-yellow-400 via-amber-400 to-orange-400'
+                : isBot
+                ? 'from-slate-300 via-gray-300 to-zinc-400'
+                : 'from-indigo-500 via-purple-500 to-pink-500';
+              return <div className={`absolute -inset-1 rounded-full bg-gradient-to-r ${gradient} opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen`} />;
+            })()}
             <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
               <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-[3px] border-[#0b1021] shadow-2xl relative">
                 <img

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User, Heart, MessageSquare, Flag } from 'lucide-react';
 import { ReviewComments } from './ReviewComments';
+import { UserAvatar } from './UserAvatar';
 import { doc, setDoc, deleteDoc, getDoc, collection, onSnapshot, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 import { type ReviewEntity } from '../hooks/useListDetails';
@@ -269,20 +270,14 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         <Link
                             to={review.userId ? `/profile/${review.userId}` : '#'}
                             onClick={(e) => e.stopPropagation()}
-                            className="block relative group/avatar z-10 shrink-0"
+                            className="block z-10 shrink-0"
                         >
-                            <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 rounded-full blur-[2px] opacity-70 group-hover/avatar:opacity-100 transition-opacity" />
-                            <div className="relative w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500">
-                                <div className="w-full h-full rounded-full border-2 border-[#0b1021] overflow-hidden bg-gray-800">
-                                    {review.authorPhoto ? (
-                                        <img src={review.authorPhoto} alt="User" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                            <User className="w-5 h-5" />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                            <UserAvatar
+                                photoUrl={review.authorPhoto}
+                                displayName={review.authorName}
+                                userType={(review as any).authorUserType}
+                                size="md"
+                            />
                         </Link>
 
                         <div className="flex flex-col leading-tight z-10 min-w-0 flex-1">

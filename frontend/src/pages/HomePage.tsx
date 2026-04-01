@@ -8,10 +8,11 @@ import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
-import { Map as MapIcon, ChevronDown, Heart, MapPin, List as ListIcon, MessageCircle, Layers, Users, Loader2, Dice5 } from 'lucide-react';
+import { UserAvatar } from '../components/UserAvatar';
+import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Dice5, Star, Clock, Flame, TrendingUp } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
-import { collection, query, getDocs, limit, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, getDocs, limit, doc, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { updateProfile } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
@@ -342,6 +343,19 @@ export const HomePage: React.FC = () => {
 
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews, fetchMore, hasMore, loadingMore } = useReviews(reviewSortParam);
+
+    const [botUserIds, setBotUserIds] = useState<Set<string>>(new Set());
+    useEffect(() => {
+        const fetchBots = async () => {
+            try {
+                const snap = await getDocs(query(collection(db, 'users'), where('userType', 'array-contains', 'bot')));
+                setBotUserIds(new Set(snap.docs.map(d => d.id)));
+            } catch {
+                // non-blocking
+            }
+        };
+        fetchBots();
+    }, []);
     const fetchMoreRef = React.useRef(fetchMore);
     const { users: topUsers, loading: loadingUsers } = useUsers();
     const homeContentLoading = loadingLists || loadingReviews || loadingUsers;
@@ -426,13 +440,15 @@ export const HomePage: React.FC = () => {
     // We need the FULL list for calcs, not just the sliced one for display
     const reviewsInRange = useMemo(() => {
         return reviews.filter(r => {
+            const uid = (r as any).userId || (r as any).authorId;
+            if (uid && botUserIds.has(uid)) return false;
             const matchesCategory = checkCategory(r);
             const lat = (r as any).placeLat || (r as any).lat;
             const lng = (r as any).placeLng || (r as any).lng;
             const matchesDist = checkDistance(lat, lng);
             return matchesCategory && matchesDist;
         });
-    }, [reviews, activeFilter, range, location]);
+    }, [reviews, activeFilter, range, location, botUserIds]);
 
     const filteredItems = useMemo(() => {
         const base = [...reviewsInRange];
@@ -621,7 +637,7 @@ export const HomePage: React.FC = () => {
         // Sin rango activo: usar reviewsCount real del documento de usuario (dato exacto)
         if (range === null) {
             return topUsers
-                .filter(u => (u.reviewsCount || 0) > 0)
+                .filter(u => (u.reviewsCount || 0) > 0 && !botUserIds.has(u.uid))
                 .map(u => ({
                     ...u,
                     reviewsInRangeCount: u.reviewsCount || 0
@@ -872,8 +888,6 @@ export const HomePage: React.FC = () => {
 
 
                     {activeTab === 'explore' && (<>
-                        {/* 1. Listas */
-                        }
                         {/* 1. Listas */}
                         <CardCarousel
                             title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
@@ -882,6 +896,8 @@ export const HomePage: React.FC = () => {
                                 ? listsWithRangeStats.sort((a, b) => (b.reviewsInRangeCount ?? b.reviewCount ?? 0) - (a.reviewsInRangeCount ?? a.reviewCount ?? 0)).slice(0, 10)
                                 : filteredLists}
                             loading={loadingLists}
+                            icon={<ListIcon className="w-5 h-5 text-blue-400" />}
+                            accentClass="bg-blue-500/20"
                             renderItem={(list: any, index: number) => (
                                 <Link to={`/list/${list.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
                                     {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl) ? (
@@ -923,53 +939,64 @@ export const HomePage: React.FC = () => {
                         <CardCarousel
                             title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos Items"}
                             viewAllLink={`/search?type=items&sort=${activeTab === 'explore' ? 'top_rated' : 'latest'}`}
-                            items={filteredItems} // filteredItems are likely top rated in 'explore' mode already via useReviews('trending')
+                            items={filteredItems}
                             loading={loadingReviews}
+                            icon={<Star className="w-5 h-5 text-amber-400" />}
+                            accentClass="bg-amber-500/20"
                             renderItem={(item: any) => (
                                 <ReviewCarouselItem review={item} variant="item" />
                             )}
                         />
 
-                        {/* 3. NEW: Reseñas Recientes (Strictly by Date) */}
+                        {/* 3. Reseñas Recientes */}
                         <CardCarousel
                             title="Reseñas recientes"
                             viewAllLink="/search?type=items&sort=latest"
                             items={recentReviewsInRange}
                             loading={loadingReviews}
+                            icon={<Clock className="w-5 h-5 text-cyan-400" />}
+                            accentClass="bg-cyan-500/20"
                             renderItem={(item: any) => (
                                 <ReviewCarouselItem review={item} variant="review" />
                             )}
                         />
 
-                        {/* 3. Usuarios activos */}
+                        {/* 4. Usuarios activos */}
                         <CardCarousel
                             title="Usuarios activos"
                             viewAllLink="/search?type=users"
                             items={activeUsersInRange}
-                            loading={loadingUsers} // Technically we are deriving this from reviews now, but loadingUsers is still a fine proxy or we could use loadingReviews
+                            loading={loadingUsers}
                             itemClassName="w-auto mr-3"
-                            renderItem={(user: any) => (
-                                <Link to={`/profile/${user.uid}`} className="flex flex-col items-center gap-1 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
-                                    <div className="relative w-16 h-16 md:w-20 md:h-20">
-                                        <img src={user.photoUrl || `https://ui-avatars.com/api/?name=${user.displayName}`} alt="User" className="w-full h-full rounded-full object-cover border-2 border-transparent group-hover:border-white transition-all" />
-                                    </div>
-                                    <div className="text-center w-full">
-                                        <h4 className="text-white font-bold text-xs truncate w-full">{user.displayName}</h4>
-                                        <p className="text-gray-500 text-[10px] truncate">@{user.username || 'user'}</p>
+                            icon={<TrendingUp className="w-5 h-5 text-purple-400" />}
+                            accentClass="bg-purple-500/20"
+                            renderItem={(u: any) => (
+                                <Link to={`/profile/${u.uid}`} className="flex flex-col items-center gap-1 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
+                                    <UserAvatar
+                                        photoUrl={u.photoUrl}
+                                        displayName={u.displayName}
+                                        userType={u.userType}
+                                        size="lg"
+                                    />
+                                    <div className="text-center w-full mt-1">
+                                        <h4 className="text-white font-bold text-xs truncate w-full">{u.displayName}</h4>
+                                        <p className="text-gray-500 text-[10px] truncate">@{u.username || 'user'}</p>
                                         <p className="text-[9px] text-indigo-400 font-medium mt-0.5">
-                                            {user.reviewsInRangeCount ?? 0} Reseñas
+                                            {u.reviewsInRangeCount ?? 0} Reseñas
                                         </p>
                                     </div>
                                 </Link>
                             )}
                         />
 
-                        {/* 4. Lugares top */}
+                        {/* 5. Lugares top */}
                         <CardCarousel
                             title={activeTab === 'explore' ? "Lugares top" : "Nuevos Lugares"}
                             viewAllLink={`/search?type=places&sort=${activeTab === 'explore' ? 'rating' : 'latest'}`}
                             items={filteredPlaces}
                             loading={loadingReviews}
+                            icon={<Flame className="w-5 h-5 text-rose-400" />}
+                            accentClass="bg-rose-500/20"
                             renderItem={(place: any) => (
                                 <Link to={`/place/${place.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
                                     {place.photoUrl ? (
@@ -1069,10 +1096,11 @@ export const HomePage: React.FC = () => {
                             items={carouselReviews}
                             loading={loadingReviews}
                             itemClassName="w-auto"
-                            renderItem={
-                                (review: any) => (
-                                    <ReviewCarouselItem review={review} />
-                                )}
+                            icon={<Star className="w-5 h-5 text-rose-400" />}
+                            accentClass="bg-rose-500/20"
+                            renderItem={(review: any) => (
+                                <ReviewCarouselItem review={review} />
+                            )}
                         />
                     )}
 

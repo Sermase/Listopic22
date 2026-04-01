@@ -10,6 +10,8 @@ interface CardCarouselProps {
     renderItem: (item: any, index: number) => React.ReactNode;
     loading?: boolean;
     itemClassName?: string;
+    icon?: React.ReactNode;
+    accentClass?: string;
 }
 
 export const CardCarousel: React.FC<CardCarouselProps> = ({
@@ -19,25 +21,34 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
     items,
     renderItem,
     loading,
-    itemClassName = "min-w-[200px] md:min-w-[240px]"
+    itemClassName = "min-w-[200px] md:min-w-[240px]",
+    icon,
+    accentClass = "bg-white/10",
 }) => {
     return (
         <section className="py-2">
             <div className="container mx-auto px-4 mb-4 flex items-end justify-between">
-                <div>
-                    <h2 className="text-xl md:text-2xl font-display font-bold text-white mb-1">
-                        {title}
-                    </h2>
-                    {subtitle && (
-                        <p className="text-sm text-gray-400 font-medium">
-                            {subtitle}
-                        </p>
+                <div className="flex items-center gap-3">
+                    {icon && (
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${accentClass}`}>
+                            {icon}
+                        </div>
                     )}
+                    <div>
+                        <h2 className="text-xl md:text-2xl font-display font-bold text-white mb-1">
+                            {title}
+                        </h2>
+                        {subtitle && (
+                            <p className="text-sm text-gray-400 font-medium">
+                                {subtitle}
+                            </p>
+                        )}
+                    </div>
                 </div>
                 {viewAllLink && (
                     <Link
                         to={viewAllLink}
-                        className="text-sm font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
+                        className="text-sm font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors shrink-0"
                     >
                         Ver todo <ChevronRight className="w-4 h-4" />
                     </Link>
@@ -45,7 +56,6 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
             </div>
 
             <div className="relative group">
-                {/* Scroll Buttons */}
                 {/* Scroll Buttons (Glassmorphism) */}
                 <button
                     aria-label="Anterior"
@@ -97,9 +107,6 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                         ))
                     )}
                 </div>
-
-                {/* Fade Edges */}
-
             </div>
         </section>
     );
