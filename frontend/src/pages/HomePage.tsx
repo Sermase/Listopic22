@@ -8,10 +8,11 @@ import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
+import { UserAvatar } from '../components/UserAvatar';
 import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Dice5, Star, Clock, Flame, TrendingUp } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
-import { collection, query, getDocs, limit, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, getDocs, limit, doc, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { updateProfile } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
@@ -342,6 +343,19 @@ export const HomePage: React.FC = () => {
 
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews, fetchMore, hasMore, loadingMore } = useReviews(reviewSortParam);
+
+    const [botUserIds, setBotUserIds] = useState<Set<string>>(new Set());
+    useEffect(() => {
+        const fetchBots = async () => {
+            try {
+                const snap = await getDocs(query(collection(db, 'users'), where('userType', 'array-contains', 'bot')));
+                setBotUserIds(new Set(snap.docs.map(d => d.id)));
+            } catch {
+                // non-blocking
+            }
+        };
+        fetchBots();
+    }, []);
     const fetchMoreRef = React.useRef(fetchMore);
     const { users: topUsers, loading: loadingUsers } = useUsers();
     const homeContentLoading = loadingLists || loadingReviews || loadingUsers;
@@ -426,13 +440,15 @@ export const HomePage: React.FC = () => {
     // We need the FULL list for calcs, not just the sliced one for display
     const reviewsInRange = useMemo(() => {
         return reviews.filter(r => {
+            const uid = (r as any).userId || (r as any).authorId;
+            if (uid && botUserIds.has(uid)) return false;
             const matchesCategory = checkCategory(r);
             const lat = (r as any).placeLat || (r as any).lat;
             const lng = (r as any).placeLng || (r as any).lng;
             const matchesDist = checkDistance(lat, lng);
             return matchesCategory && matchesDist;
         });
-    }, [reviews, activeFilter, range, location]);
+    }, [reviews, activeFilter, range, location, botUserIds]);
 
     const filteredItems = useMemo(() => {
         const base = [...reviewsInRange];
@@ -621,7 +637,7 @@ export const HomePage: React.FC = () => {
         // Sin rango activo: usar reviewsCount real del documento de usuario (dato exacto)
         if (range === null) {
             return topUsers
-                .filter(u => (u.reviewsCount || 0) > 0)
+                .filter(u => (u.reviewsCount || 0) > 0 && !botUserIds.has(u.uid))
                 .map(u => ({
                     ...u,
                     reviewsInRangeCount: u.reviewsCount || 0
@@ -954,16 +970,19 @@ export const HomePage: React.FC = () => {
                             itemClassName="w-auto mr-3"
                             icon={<TrendingUp className="w-5 h-5 text-purple-400" />}
                             accentClass="bg-purple-500/20"
-                            renderItem={(user: any) => (
-                                <Link to={`/profile/${user.uid}`} className="flex flex-col items-center gap-1 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
-                                    <div className="relative w-16 h-16 md:w-20 md:h-20">
-                                        <img src={user.photoUrl || `https://ui-avatars.com/api/?name=${user.displayName}`} alt="User" className="w-full h-full rounded-full object-cover border-2 border-transparent group-hover:border-white transition-all" />
-                                    </div>
-                                    <div className="text-center w-full">
-                                        <h4 className="text-white font-bold text-xs truncate w-full">{user.displayName}</h4>
-                                        <p className="text-gray-500 text-[10px] truncate">@{user.username || 'user'}</p>
+                            renderItem={(u: any) => (
+                                <Link to={`/profile/${u.uid}`} className="flex flex-col items-center gap-1 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
+                                    <UserAvatar
+                                        photoUrl={u.photoUrl}
+                                        displayName={u.displayName}
+                                        userType={u.userType}
+                                        size="lg"
+                                    />
+                                    <div className="text-center w-full mt-1">
+                                        <h4 className="text-white font-bold text-xs truncate w-full">{u.displayName}</h4>
+                                        <p className="text-gray-500 text-[10px] truncate">@{u.username || 'user'}</p>
                                         <p className="text-[9px] text-indigo-400 font-medium mt-0.5">
-                                            {user.reviewsInRangeCount ?? 0} Reseñas
+                                            {u.reviewsInRangeCount ?? 0} Reseñas
                                         </p>
                                     </div>
                                 </Link>

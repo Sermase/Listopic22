@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, User } from 'lucide-react';
 import { type ReviewEntity } from '../hooks/useListDetails';
+import { getUserTypeGradient } from './UserAvatar';
 
 interface ReviewCarouselItemProps {
     review: ReviewEntity;
@@ -46,12 +47,14 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
                     <div className="flex flex-col items-start gap-1.5 max-w-[70%]">
                         {/* Author Bubble */}
                         <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/10 rounded-full pr-3 pl-1 py-1 shadow-lg">
-                            <div className="w-6 h-6 rounded-full overflow-hidden border border-white/20 flex-shrink-0 bg-gray-700">
+                            <div className={`w-6 h-6 rounded-full overflow-hidden flex-shrink-0 p-[1.5px] bg-gradient-to-tr ${getUserTypeGradient((review as any).authorUserType)}`}>
+                                <div className="w-full h-full rounded-full overflow-hidden bg-gray-800 border border-[#0b1021]">
                                 <img
-                                    src={review.authorPhoto || `https://ui-avatars.com/api/?name=${review.authorName || 'User'}`}
+                                    src={review.authorPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.authorName || 'User')}`}
                                     alt={review.authorName}
                                     className="w-full h-full object-cover"
                                 />
+                                </div>
                             </div>
                             <span className="text-[10px] font-bold text-white truncate leading-none">
                                 {review.authorName || 'Anónimo'}

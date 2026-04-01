@@ -11,6 +11,7 @@ export interface UserEntity {
     followersCount?: number;
     publicListsCount?: number;
     reviewsCount?: number;
+    userType?: string | string[];
 }
 
 export const useUsers = () => {

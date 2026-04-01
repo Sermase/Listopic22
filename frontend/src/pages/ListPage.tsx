@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 're
 import { createPortal } from 'react-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
-import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid } from 'lucide-react';
+import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Bot, Star } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
@@ -17,7 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
 import { useLike } from '../hooks/useLike';
 import { useLocation } from '../hooks/useLocation';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
 
@@ -134,6 +134,42 @@ export const ListPage: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [showUnavailable, setShowUnavailable] = useState(false);
 
+    // User role filters
+    const [showBotReviews, setShowBotReviews] = useState(false);
+    const [criticOnly, setCriticOnly] = useState(false);
+    const [authorRolesMap, setAuthorRolesMap] = useState<Map<string, string[]>>(new Map());
+
+    useEffect(() => {
+        if (!reviews.length) return;
+        const uids = [...new Set(reviews.map(r => r.userId || (r as any).authorId).filter(Boolean))];
+        if (!uids.length) return;
+
+        const fetchRoles = async () => {
+            const map = new Map<string, string[]>();
+            // Batch in groups of 10 (Firestore limit per 'in' query)
+            const chunks: string[][] = [];
+            for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
+            for (const chunk of chunks) {
+                try {
+                    // Fetch each user doc individually (simple, no composite index needed)
+                    await Promise.all(chunk.map(async uid => {
+                        const snap = await getDoc(doc(db, 'users', uid));
+                        if (snap.exists()) {
+                            const ut = snap.data().userType ?? [];
+                        const roles = Array.isArray(ut) ? ut : [ut];
+                            map.set(uid, roles);
+                        }
+                    }));
+                } catch (e) {
+                    // non-blocking
+                }
+            }
+            setAuthorRolesMap(map);
+        };
+
+        fetchRoles();
+    }, [reviews]);
+
     // Parent List Name (for Sublists)
     const [parentListName, setParentListName] = useState<string | null>(null);
     useEffect(() => {
@@ -156,6 +192,17 @@ export const ListPage: React.FC = () => {
     // --- Aggregation Logic (Ranked List View & Map Data) ---
     const groupedItems = useMemo(() => {
         if (!reviews.length) return [];
+
+        // Apply user-role filters before grouping
+        const visibleReviews = reviews.filter(r => {
+            const uid = r.userId || (r as any).authorId;
+            const roles = authorRolesMap.get(uid) ?? [];
+            const isBot = roles.includes('bot');
+            const isCritico = roles.includes('critico');
+            if (isBot && !showBotReviews) return false;
+            if (criticOnly && !isCritico) return false;
+            return true;
+        });
 
         const groups: Record<string, {
             id: string;
@@ -182,7 +229,7 @@ export const ListPage: React.FC = () => {
             tags: string[]; // Final consensus tags
         }> = {};
 
-        reviews.forEach(review => {
+        visibleReviews.forEach(review => {
             let key = review.placeId || (review.itemName ? review.itemName.trim().toLowerCase() : 'unknown');
 
             // Grouping Mode Logic
@@ -322,7 +369,7 @@ export const ListPage: React.FC = () => {
             }
             return 0;
         });
-    }, [reviews, list, groupingMode, sortMode, user]);
+    }, [reviews, list, groupingMode, sortMode, user, authorRolesMap, showBotReviews, criticOnly]);
 
     // Unique Tags for Filter UI
     const availableGroupTags = useMemo(() => {
@@ -921,6 +968,34 @@ export const ListPage: React.FC = () => {
                                 title={showUnavailable ? 'Ocultar no disponibles' : 'Mostrar no disponibles'}
                             >
                                 {showUnavailable ? '🔒' : '👁'} {showUnavailable ? 'Viendo todos' : 'No disp.'}
+                            </button>
+
+                            {/* Toggle bots */}
+                            <button
+                                onClick={() => setShowBotReviews(prev => !prev)}
+                                className={`h-9 px-3 flex items-center gap-1.5 rounded-xl border transition-all text-xs font-bold active:scale-95 ${
+                                    showBotReviews
+                                        ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400'
+                                        : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
+                                }`}
+                                title={showBotReviews ? 'Ocultar reseñas de bots' : 'Mostrar reseñas de bots'}
+                            >
+                                <Bot className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">{showBotReviews ? 'Con bots' : 'Bots'}</span>
+                            </button>
+
+                            {/* Toggle críticos */}
+                            <button
+                                onClick={() => setCriticOnly(prev => !prev)}
+                                className={`h-9 px-3 flex items-center gap-1.5 rounded-xl border transition-all text-xs font-bold active:scale-95 ${
+                                    criticOnly
+                                        ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                                        : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
+                                }`}
+                                title={criticOnly ? 'Mostrando solo críticos' : 'Ver solo reseñas de críticos'}
+                            >
+                                <Star className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">{criticOnly ? 'Solo críticos' : 'Críticos'}</span>
                             </button>
 
                             <div className="h-4 w-px bg-white/10 mx-1"></div>

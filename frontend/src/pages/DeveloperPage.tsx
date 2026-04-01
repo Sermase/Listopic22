@@ -6,6 +6,7 @@ import { ListsManagerTab } from '../components/developer/ListsManagerTab';
 import { PlacesManagerTab } from '../components/developer/PlacesManagerTab';
 import { ReviewsManagerTab } from '../components/developer/ReviewsManagerTab';
 import { TagsManagerTab } from '../components/developer/TagsManagerTab';
+import { UsersManagerTab } from '../components/developer/UsersManagerTab';
 import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
@@ -28,7 +29,7 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios'>('console');
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     // Other Settings State
@@ -263,6 +264,40 @@ export const DeveloperPage: React.FC = () => {
     };
 
 
+
+    const handleBackfillAuthorUserType = async () => {
+        if (!confirm('¿Seguro? Esto iterará TODAS las reseñas de todas las listas y puede tardar varios minutos.')) return;
+        setProcessingMaintenance(true);
+        setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando backfill de authorUserType...`, ...prev]);
+        try {
+            // Build uid -> userType map from all users
+            const usersSnap = await getDocs(collection(db, 'users'));
+            const userTypeMap = new Map<string, any>();
+            usersSnap.docs.forEach(d => userTypeMap.set(d.id, d.data().userType ?? []));
+            setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ${usersSnap.size} usuarios cargados.`, ...prev]);
+
+            const listsSnap = await getDocs(collection(db, 'lists'));
+            let total = 0, updated = 0;
+            for (const listDoc of listsSnap.docs) {
+                const reviewsSnap = await getDocs(collection(db, 'lists', listDoc.id, 'reviews'));
+                for (const reviewDoc of reviewsSnap.docs) {
+                    total++;
+                    const data = reviewDoc.data();
+                    const uid = data.userId || data.authorId;
+                    if (!uid) continue;
+                    const userType = userTypeMap.get(uid);
+                    if (userType === undefined) continue;
+                    await updateDoc(doc(db, 'lists', listDoc.id, 'reviews', reviewDoc.id), { authorUserType: userType });
+                    updated++;
+                }
+            }
+            setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ✅ Backfill completado: ${updated}/${total} reseñas actualizadas.`, ...prev]);
+        } catch (err: any) {
+            setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ❌ Error: ${err.message}`, ...prev]);
+        } finally {
+            setProcessingMaintenance(false);
+        }
+    };
 
     // --- Badge Management Functions ---
     const fetchBadges = async () => {
@@ -631,6 +666,12 @@ export const DeveloperPage: React.FC = () => {
                         >
                             <Tag className="w-5 h-5" /> Etiquetas
                         </button>
+                        <button
+                            onClick={() => { setActiveTab('usuarios'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'usuarios' ? 'border-indigo-500 bg-indigo-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <Users className="w-5 h-5" /> Usuarios
+                        </button>
                     </nav>
 
                     {/* Main Content */}
@@ -943,6 +984,21 @@ export const DeveloperPage: React.FC = () => {
                                                 Recalcular Lugar
                                             </button>
                                         </div>
+                                    </div>
+
+                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                            <Users className="w-5 h-5 text-amber-400" /> Backfill de Tipos de Autor
+                                        </h3>
+                                        <p className="text-gray-400 mb-4 text-sm">Rellena el campo <code className="text-amber-300 bg-black/30 px-1 rounded">authorUserType</code> en todas las reseñas existentes consultando el <code className="text-amber-300 bg-black/30 px-1 rounded">userType</code> de cada autor. Puede tardar varios minutos.</p>
+                                        <button
+                                            onClick={handleBackfillAuthorUserType}
+                                            disabled={processingMaintenance}
+                                            className="px-6 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                        >
+                                            {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+                                            Backfill authorUserType
+                                        </button>
                                     </div>
 
                                     <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs h-96 overflow-y-auto">
@@ -1824,6 +1880,9 @@ export const DeveloperPage: React.FC = () => {
                         )}
                         {activeTab === 'tags' && (
                             <TagsManagerTab />
+                        )}
+                        {activeTab === 'usuarios' && (
+                            <UsersManagerTab />
                         )}
                     </main >
                 </div >
