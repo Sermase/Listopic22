@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Sliders, Star, Trash2, Check, ArrowUpDown } from 'lucide-react';
+import { X, Sliders, Star, Trash2, Check, ArrowUpDown, EyeOff } from 'lucide-react';
 import type { FilterState } from '../pages/ListPage';
 
 interface FilterModalProps {
@@ -13,6 +13,8 @@ interface FilterModalProps {
     availableTags: string[];
     selectedTags: string[];
     setSelectedTags: (tags: string[]) => void;
+    showUnavailable?: boolean;
+    setShowUnavailable?: (v: boolean) => void;
 }
 
 export const FilterModal: React.FC<FilterModalProps> = ({
@@ -25,7 +27,9 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     setSortMode,
     availableTags,
     selectedTags,
-    setSelectedTags
+    setSelectedTags,
+    showUnavailable,
+    setShowUnavailable,
 }) => {
     const [activeTab, setActiveTab] = React.useState<'filters' | 'sort'>('filters');
 
@@ -60,8 +64,8 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-[#151b2e] w-full h-full sm:h-auto sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-white/10 overflow-hidden flex flex-col sm:max-h-[90vh] transition-all" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="bg-[#151b2e] w-full sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-white/10 overflow-hidden flex flex-col max-h-[calc(100dvh-4rem)] sm:max-h-[90vh] rounded-t-2xl transition-all" onClick={e => e.stopPropagation()}>
 
                 {/* Header with Tabs */}
                 <div className="border-b border-white/10 bg-white/5 flex-shrink-0">
@@ -197,6 +201,17 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.hasPhoto ? 'translate-x-6' : 'translate-x-1'}`}></div>
                                     </div>
                                 </label>
+                                {setShowUnavailable && (
+                                    <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
+                                        <span className="text-gray-300 text-sm font-medium flex items-center gap-2">
+                                            <EyeOff className="w-4 h-4 text-red-400" /> Mostrar no disponibles
+                                        </span>
+                                        <div className={`w-11 h-6 rounded-full relative transition-colors ${showUnavailable ? 'bg-red-600' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
+                                            <input type="checkbox" className="hidden" checked={!!showUnavailable} onChange={(e) => setShowUnavailable(e.target.checked)} />
+                                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${showUnavailable ? 'translate-x-6' : 'translate-x-1'}`}></div>
+                                        </div>
+                                    </label>
+                                )}
                             </div>
                         </>
                     ) : (
@@ -217,7 +232,6 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                         ${sortMode === option.id ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-[#0b1021] border-white/10 text-gray-400 hover:border-white/30 hover:text-white hover:bg-white/5'}`}
                                 >
                                     <span className="flex items-center gap-3">
-                                        {/* Icon could be dynamic based on option if desired */}
                                         {option.label}
                                     </span>
                                     {sortMode === option.id && <div className="w-2.5 h-2.5 rounded-full bg-white shadow-glow"></div>}
