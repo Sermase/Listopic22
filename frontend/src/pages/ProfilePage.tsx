@@ -65,6 +65,7 @@ import { isUsernameValid } from "../utils/username";
 import {
   isUserProfileServiceError,
   updateUserProfilePreferences,
+  propagateAuthorFieldsToReviews,
 } from "../services/UserProfileService";
 import { FollowersSection } from "../components/profile/FollowersSection";
 import {
@@ -1025,6 +1026,8 @@ export const ProfilePage: React.FC = () => {
         },
         { merge: true },
       );
+
+      propagateAuthorFieldsToReviews(user.uid, { authorPhoto: downloadURL });
 
       // Reload to show changes (simple approach)
       window.location.reload();

@@ -5,6 +5,7 @@ import {
     limit as firestoreLimit, orderBy, getDoc
 } from 'firebase/firestore';
 import { Search, X, Bot, Award, User, RefreshCw, Shield, ChevronDown, ChevronUp, Loader2, Star } from 'lucide-react';
+import { propagateAuthorFieldsToReviews } from '../../services/UserProfileService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,6 +85,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSaved, available
                 userType: newUserType,
                 badges: badges,
             });
+            propagateAuthorFieldsToReviews(user.uid, { authorUserType: newUserType });
             onSaved({ ...user, userType: newUserType, badges: badges });
         } catch (e: any) {
             setError(e.message || 'Error al guardar');
