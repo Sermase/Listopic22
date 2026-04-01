@@ -9,7 +9,9 @@ import {
     runTransaction,
     serverTimestamp,
     setDoc,
+    updateDoc,
     where,
+    writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { buildUsernameSuggestion, getUsernameValidationError, normalizeUsername } from '../utils/username';
@@ -483,5 +485,38 @@ export const updateUserProfilePreferences = async (
         ...(!userData.usernameLockedAt ? { usernameLockedAt: serverTimestamp() } : {}),
     }, { merge: true });
 
+    // Fire-and-forget: propagate name changes to existing reviews
+    propagateAuthorFieldsToReviews(seed.uid, { authorName: username });
+
     return { username, displayName };
+};
+
+/**
+ * Propagates author fields to all reviews written by a user.
+ * Only updates the fields you pass (undefined fields are skipped).
+ */
+export const propagateAuthorFieldsToReviews = async (
+    uid: string,
+    fields: { authorName?: string; authorPhoto?: string; authorUserType?: string | string[] },
+): Promise<void> => {
+    const listsSnap = await getDocs(collection(db, 'lists'));
+    const BATCH_LIMIT = 500;
+    let batch = writeBatch(db);
+    let count = 0;
+
+    for (const listDoc of listsSnap.docs) {
+        const reviewsSnap = await getDocs(
+            query(collection(db, 'lists', listDoc.id, 'reviews'), where('userId', '==', uid))
+        );
+        for (const reviewDoc of reviewsSnap.docs) {
+            batch.update(reviewDoc.ref, fields);
+            count++;
+            if (count === BATCH_LIMIT) {
+                await batch.commit();
+                batch = writeBatch(db);
+                count = 0;
+            }
+        }
+    }
+    if (count > 0) await batch.commit();
 };
