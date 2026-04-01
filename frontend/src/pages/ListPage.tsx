@@ -107,6 +107,7 @@ export const ListPage: React.FC = () => {
     const [isEditListModalOpen, setIsEditListModalOpen] = useState(false);
     const actionsMenuRef = useRef<HTMLDivElement>(null);
     const overflowBtnRef = useRef<HTMLButtonElement>(null);
+    const dropdownPortalRef = useRef<HTMLDivElement>(null);
     const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
 
 
@@ -558,7 +559,10 @@ export const ListPage: React.FC = () => {
     useEffect(() => {
         if (!isActionsMenuOpen) return;
         const handler = (e: MouseEvent) => {
-            if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+            const target = e.target as Node;
+            const insideBtn = actionsMenuRef.current?.contains(target);
+            const insidePortal = dropdownPortalRef.current?.contains(target);
+            if (!insideBtn && !insidePortal) {
                 setIsActionsMenuOpen(false);
             }
         };
@@ -757,14 +761,14 @@ export const ListPage: React.FC = () => {
                         {/* Right: actions */}
                         <div className="flex items-center gap-2 shrink-0">
 
-                            {/* Primary CTA: Add Review — always visible */}
+                            {/* Primary CTA: Add Review */}
                             {canAddReview && (
                                 <button
                                     onClick={() => setIsAddModalOpen(true)}
                                     className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    <span className="hidden xs:inline">Añadir</span>
+                                    <span>+ Añadir reseña</span>
                                 </button>
                             )}
 
@@ -817,7 +821,7 @@ export const ListPage: React.FC = () => {
                                 </button>
 
                                 {isActionsMenuOpen && dropdownPosition && createPortal(
-                                    <div className="fixed w-52 bg-[#151b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 z-[9999]"
+                                    <div ref={dropdownPortalRef} className="fixed w-52 bg-[#151b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 z-[9999]"
                                         style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
                                     >
                                         {user && list.userId !== user.uid && (
@@ -951,29 +955,20 @@ export const ListPage: React.FC = () => {
                             {/* Filter */}
                             <button
                                 onClick={() => setIsFilterModalOpen(true)}
-                                className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 hover:text-white transition-all active:scale-95"
+                                className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
+                                    filters.minRating > 0 || filters.hasPhoto || filters.visited || selectedTags.length > 0 || Object.values(filters.criteriaMin || {}).some(v => v > 0)
+                                        ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
+                                        : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
+                                }`}
                                 title="Filtros"
                             >
                                 <ArrowDownWideNarrow className="w-4 h-4 rotate-180" />
                             </button>
 
-                            {/* Toggle cerrados/no disponibles */}
-                            <button
-                                onClick={() => setShowUnavailable(prev => !prev)}
-                                className={`h-9 px-3 flex items-center gap-1.5 rounded-xl border transition-all text-xs font-bold active:scale-95 ${
-                                    showUnavailable
-                                        ? 'bg-red-500/20 border-red-500/30 text-red-400'
-                                        : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
-                                }`}
-                                title={showUnavailable ? 'Ocultar no disponibles' : 'Mostrar no disponibles'}
-                            >
-                                {showUnavailable ? '🔒' : '👁'} {showUnavailable ? 'Viendo todos' : 'No disp.'}
-                            </button>
-
                             {/* Toggle bots */}
                             <button
                                 onClick={() => setShowBotReviews(prev => !prev)}
-                                className={`h-9 px-3 flex items-center gap-1.5 rounded-xl border transition-all text-xs font-bold active:scale-95 ${
+                                className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
                                     showBotReviews
                                         ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400'
                                         : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
@@ -981,13 +976,12 @@ export const ListPage: React.FC = () => {
                                 title={showBotReviews ? 'Ocultar reseñas de bots' : 'Mostrar reseñas de bots'}
                             >
                                 <Bot className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">{showBotReviews ? 'Con bots' : 'Bots'}</span>
                             </button>
 
                             {/* Toggle críticos */}
                             <button
                                 onClick={() => setCriticOnly(prev => !prev)}
-                                className={`h-9 px-3 flex items-center gap-1.5 rounded-xl border transition-all text-xs font-bold active:scale-95 ${
+                                className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
                                     criticOnly
                                         ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
                                         : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
@@ -995,10 +989,9 @@ export const ListPage: React.FC = () => {
                                 title={criticOnly ? 'Mostrando solo críticos' : 'Ver solo reseñas de críticos'}
                             >
                                 <Star className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">{criticOnly ? 'Solo críticos' : 'Críticos'}</span>
                             </button>
 
-                            <div className="h-4 w-px bg-white/10 mx-1"></div>
+                            <div className="h-4 w-px bg-white/10 mx-1 hidden xs:block"></div>
 
                             {/* Grouping Toggle */}
                             <button
@@ -1009,7 +1002,7 @@ export const ListPage: React.FC = () => {
                                 <Store className="w-4 h-4" />
                             </button>
 
-                            <div className="h-4 w-px bg-white/10 mx-1"></div>
+                            <div className="h-4 w-px bg-white/10 mx-1 hidden xs:block"></div>
 
                             {/* View Toggle */}
                             <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/5">
@@ -1028,17 +1021,6 @@ export const ListPage: React.FC = () => {
                                     <LayoutGrid className="w-3.5 h-3.5" />
                                 </button>
                             </div>
-
-                            {/* Add Actions */}
-                            {canAddReview && (
-                                <button
-                                    onClick={() => setIsAddModalOpen(true)}
-                                    className="ml-2 h-9 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 hover:scale-105 transition-all"
-                                >
-                                    <Plus className="w-3.5 h-3.5" />
-                                    <span className="hidden sm:inline">Añadir</span>
-                                </button>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -1260,6 +1242,8 @@ export const ListPage: React.FC = () => {
                 availableTags={availableGroupTags}
                 selectedTags={selectedTags}
                 setSelectedTags={setSelectedTags}
+                showUnavailable={showUnavailable}
+                setShowUnavailable={setShowUnavailable}
             />
         </div >
     );
