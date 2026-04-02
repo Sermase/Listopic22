@@ -1161,6 +1161,9 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             </div>
                         </div>
                     )}
+                </div>
+            </div>
+
             {isPreviewOpen && previewImage && (
                 <div
                     className="fixed inset-0 z-[115] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
