@@ -192,6 +192,9 @@ const normalizeTags = (values?: string[]) => {
     return values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)).slice(0, 4);
 };
 
+const deltaColor = (delta: number) => delta > 0 ? '#34d399' : delta < 0 ? '#f87171' : '#94a3b8';
+const deltaSign = (delta: number) => delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1);
+
 const getCoverBackground = (src: string, position = 'center center'): React.CSSProperties => ({
     backgroundImage: `url(${JSON.stringify(src)})`,
     backgroundSize: 'cover',
@@ -392,6 +395,8 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 score: review.overallRating,
                 authorName: review.authorName,
                 authorPhoto: review.authorPhoto,
+                authorUserType: (review as any).authorUserType,
+                city: review.placeCity,
                 criteriaStats: buildCriteriaStats(review.scores, review.criteriaDefinition),
                 tags: review.userTags || review.tags,
             };
@@ -407,6 +412,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 route: place.placeId ? `/place/${place.placeId}` : undefined,
                 url: placeUrl,
                 imageUrl: place.photoUrl,
+                city: place.city,
                 score: place.avgScore,
             };
         }
@@ -425,6 +431,17 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     const subtitleText = entity.subtitle || '';
     const descriptionText = (review?.comment || entity.description || '').trim();
     const authorLabel = review?.authorName || entity.authorName || (entity.type === 'profile' ? entity.title : 'Comunidad Listopic');
+    const cityLabel = entity.city || review?.placeCity || place?.city || '';
+    const placeLabel = isReviewShare ? (review?.placeName || entity.subtitle || '') : '';
+    const locationLine = [placeLabel, cityLabel].filter(Boolean).join(' · ');
+    const authorUserType = entity.authorUserType || (review as any)?.authorUserType;
+    const authorGradient = (() => {
+        const types: string[] = Array.isArray(authorUserType) ? authorUserType : authorUserType ? [authorUserType] : [];
+        if (types.includes('jefe')) return 'linear-gradient(135deg, #34d399, #4ade80, #2dd4bf)';
+        if (types.includes('critico')) return 'linear-gradient(135deg, #facc15, #f59e0b, #fb923c)';
+        if (types.includes('bot')) return 'linear-gradient(135deg, #cbd5e1, #94a3b8, #a1a1aa)';
+        return 'linear-gradient(135deg, #6366f1, #a855f7, #ec4899)';
+    })();
 
     const criteriaStats = useMemo(() => {
         if (entity.criteriaStats?.length) {
@@ -504,6 +521,13 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         entity.badgeLabel && entity.badgeLabel !== entityLabel ? entity.badgeLabel : null,
         !isReviewShare ? reviewCountLabel : null,
     ].filter((value): value is string => Boolean(value));
+
+    // Helper: find reference (list average) score for a given criterion key
+    const getRefScore = (key: string): number | null => {
+        if (!referenceCriteriaStats?.length) return null;
+        const ref = referenceCriteriaStats.find(r => r.key === key);
+        return ref != null && Number.isFinite(ref.score) ? ref.score : null;
+    };
 
     const footerDescription = descriptionText || (
         isReviewShare
@@ -737,17 +761,67 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             }
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.60) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 46%, rgba(0,0,0,0.97) 100%)' }} />
 
-                            {/* Top: category badges */}
-                            <div style={{ position: 'absolute', top: '56px', left: '54px', right: '54px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                                {infoChips.map((chip) => (
-                                    <div key={chip} style={{
-                                        padding: '0 22px', height: '46px', borderRadius: '9999px',
-                                        background: 'rgba(0,0,0,0.54)', border: '1px solid rgba(255,255,255,0.20)',
-                                        color: '#ffffff', fontSize: '19px', fontWeight: 800,
-                                        display: 'inline-flex', alignItems: 'center',
-                                        letterSpacing: '0.05em', textTransform: 'uppercase' as const,
-                                    }}>{chip}</div>
-                                ))}
+                            {/* Top: RESEÑA label (reviews) or category chips (other) */}
+                            <div style={{ position: 'absolute', top: '56px', left: '54px', right: '54px' }}>
+                                {isReviewShare ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                                        {/* "RESEÑA" pill */}
+                                        <div style={{
+                                            display: 'inline-flex', alignItems: 'center',
+                                            padding: '0 22px', height: '46px', borderRadius: '9999px',
+                                            background: 'rgba(0,0,0,0.54)', border: '1px solid rgba(255,255,255,0.20)',
+                                            color: '#ffffff', fontSize: '19px', fontWeight: 800,
+                                            letterSpacing: '0.08em', textTransform: 'uppercase' as const,
+                                            alignSelf: 'flex-start',
+                                        }}>RESEÑA</div>
+
+                                        {/* Author row */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                            {/* Avatar with gradient ring */}
+                                            <div style={{
+                                                width: '64px', height: '64px', borderRadius: '16px',
+                                                padding: '2px', flexShrink: 0,
+                                                background: authorGradient,
+                                            }}>
+                                                <div style={{
+                                                    width: '100%', height: '100%', borderRadius: '14px',
+                                                    overflow: 'hidden', background: '#1e293b',
+                                                }}>
+                                                    {avatarImage
+                                                        ? <div style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
+                                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: '24px' }}>
+                                                            {(authorLabel || 'L').slice(0, 1).toUpperCase()}
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+
+                                            {/* Author info */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                                                <div style={{ fontSize: '24px', fontWeight: 900, color: '#ffffff', lineHeight: 1, textShadow: '0 1px 8px rgba(0,0,0,0.6)' }}>
+                                                    {authorLabel}
+                                                </div>
+                                                {locationLine && (
+                                                    <div style={{ fontSize: '18px', fontWeight: 600, color: 'rgba(255,255,255,0.72)', lineHeight: 1 }}>
+                                                        {locationLine}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                                        {infoChips.map((chip) => (
+                                            <div key={chip} style={{
+                                                padding: '0 22px', height: '46px', borderRadius: '9999px',
+                                                background: 'rgba(0,0,0,0.54)', border: '1px solid rgba(255,255,255,0.20)',
+                                                color: '#ffffff', fontSize: '19px', fontWeight: 800,
+                                                display: 'inline-flex', alignItems: 'center',
+                                                letterSpacing: '0.05em', textTransform: 'uppercase' as const,
+                                            }}>{chip}</div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Bottom: score + title + author strip */}
@@ -775,36 +849,80 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                         {subtitleText}
                                     </p>
                                 )}
-                                {/* Author + brand glass strip */}
+                                {/* Criteria with reference delta */}
+                                {criteriaStats.length > 0 && (
+                                    <div style={{
+                                        marginTop: '28px', padding: '20px 24px', borderRadius: '24px',
+                                        background: 'rgba(0,0,0,0.48)', border: '1px solid rgba(255,255,255,0.10)',
+                                        display: 'flex', flexDirection: 'column',
+                                    }}>
+                                        {criteriaStats.map((stat, i) => {
+                                            const ref = getRefScore(stat.key);
+                                            const delta = ref != null ? stat.score - ref : null;
+                                            return (
+                                                <div key={stat.key} style={{
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                    padding: '9px 0',
+                                                    borderBottom: i < criteriaStats.length - 1 ? '1px solid rgba(255,255,255,0.08)' : 'none',
+                                                }}>
+                                                    <span style={{ fontSize: '18px', fontWeight: 600, color: 'rgba(255,255,255,0.75)', flex: 1 }}>{truncateLabel(stat.label, 22)}</span>
+                                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexShrink: 0 }}>
+                                                        {delta != null && (
+                                                            <span style={{ fontSize: '15px', fontWeight: 700, color: deltaColor(delta) }}>{deltaSign(delta)}</span>
+                                                        )}
+                                                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff', fontVariantNumeric: 'tabular-nums' }}>
+                                                            {formatScore(stat.score)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                {tagList.length > 0 && criteriaStats.length === 0 && (
+                                    <div style={{ marginTop: '24px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                        {tagList.map((tag) => (
+                                            <div key={tag} style={{
+                                                padding: '0 18px', height: '40px', borderRadius: '9999px',
+                                                background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.20)',
+                                                color: 'rgba(255,255,255,0.90)', fontSize: '17px', fontWeight: 700,
+                                                display: 'inline-flex', alignItems: 'center',
+                                            }}>#{truncateLabel(tag, 18)}</div>
+                                        ))}
+                                    </div>
+                                )}
+                                {/* Brand strip (author already shown top for reviews) */}
                                 <div style={{
                                     marginTop: '44px', display: 'flex', alignItems: 'center',
-                                    justifyContent: 'space-between', gap: '16px',
+                                    justifyContent: isReviewShare ? 'flex-end' : 'space-between', gap: '16px',
                                     padding: '18px 24px', borderRadius: '28px',
                                     background: 'rgba(0,0,0,0.50)', border: '1px solid rgba(255,255,255,0.12)',
                                 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0 }}>
-                                        <div style={{
-                                            width: '60px', height: '60px', borderRadius: '9999px', overflow: 'hidden',
-                                            border: '2px solid rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.14)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            color: '#ffffff', fontWeight: 900, fontSize: '24px', flexShrink: 0,
-                                        }}>
-                                            {avatarImage
-                                                ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
-                                                : (authorLabel || 'L').slice(0, 1).toUpperCase()
-                                            }
-                                        </div>
-                                        <div style={{ minWidth: 0 }}>
-                                            <div style={{ fontSize: '25px', fontWeight: 800, color: '#ffffff', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {authorLabel}
+                                    {!isReviewShare && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0 }}>
+                                            <div style={{
+                                                width: '60px', height: '60px', borderRadius: '9999px', overflow: 'hidden',
+                                                border: '2px solid rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.14)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                color: '#ffffff', fontWeight: 900, fontSize: '24px', flexShrink: 0,
+                                            }}>
+                                                {avatarImage
+                                                    ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
+                                                    : (authorLabel || 'L').slice(0, 1).toUpperCase()
+                                                }
                                             </div>
-                                            {createdAtLabel && (
-                                                <div style={{ fontSize: '17px', fontWeight: 600, color: 'rgba(255,255,255,0.50)', marginTop: '5px' }}>
-                                                    {createdAtLabel}
+                                            <div style={{ minWidth: 0 }}>
+                                                <div style={{ fontSize: '25px', fontWeight: 800, color: '#ffffff', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {authorLabel}
                                                 </div>
-                                            )}
+                                                {createdAtLabel && (
+                                                    <div style={{ fontSize: '17px', fontWeight: 600, color: 'rgba(255,255,255,0.50)', marginTop: '5px' }}>
+                                                        {createdAtLabel}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '11px', flexShrink: 0 }}>
                                         {config.logoType === 'image' && config.logoUrl
                                             ? <img src={config.logoUrl} alt={brandName} style={{ width: '34px', height: '34px', objectFit: 'contain' }} />
@@ -884,47 +1002,79 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             <div style={{
                                 flex: 1, background: theme.footerBg,
                                 borderTop: `3px solid ${theme.accent}`,
-                                padding: '26px 42px 32px',
-                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px',
+                                padding: '28px 42px 32px',
+                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '16px',
                             }}>
-                                <p style={{
-                                    margin: 0, color: theme.textSecondary, fontSize: '22px', fontWeight: 500, lineHeight: 1.5,
-                                    display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden', flex: 1,
-                                }}>{footerDescription}</p>
-
-                                {tagList.length > 0 && (
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                        {tagList.map((tag) => (
-                                            <div key={tag} style={{
-                                                padding: '0 14px', height: '36px', borderRadius: '9999px',
-                                                background: theme.chipBg, border: `1px solid ${theme.chipBorder}`,
-                                                color: theme.textMuted, fontSize: '14px', fontWeight: 700,
-                                                display: 'inline-flex', alignItems: 'center',
-                                            }}>#{truncateLabel(tag, 20)}</div>
-                                        ))}
+                                {/* Criteria stats if available, else description */}
+                                {criteriaStats.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                                        {criteriaStats.map((stat, i) => {
+                                            const ref = getRefScore(stat.key);
+                                            const delta = ref != null ? stat.score - ref : null;
+                                            return (
+                                                <div key={stat.key} style={{
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                    padding: '12px 0',
+                                                    borderBottom: i < criteriaStats.length - 1 ? `1px solid ${theme.border}` : 'none',
+                                                }}>
+                                                    <span style={{ fontSize: '18px', fontWeight: 600, color: theme.textSecondary, flex: 1 }}>{truncateLabel(stat.label, 24)}</span>
+                                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexShrink: 0 }}>
+                                                        {delta != null && (
+                                                            <span style={{ fontSize: '14px', fontWeight: 700, color: deltaColor(delta) }}>{deltaSign(delta)}</span>
+                                                        )}
+                                                        <span style={{ fontSize: '24px', fontWeight: 900, color: theme.accent, fontVariantNumeric: 'tabular-nums' }}>
+                                                            {formatScore(stat.score)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '16px' }}>
+                                        {tagList.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                {tagList.map((tag) => (
+                                                    <div key={tag} style={{
+                                                        padding: '0 16px', height: '38px', borderRadius: '9999px',
+                                                        background: theme.chipBg, border: `1px solid ${theme.chipBorder}`,
+                                                        color: theme.accent, fontSize: '16px', fontWeight: 700,
+                                                        display: 'inline-flex', alignItems: 'center',
+                                                    }}>#{truncateLabel(tag, 20)}</div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <p style={{
+                                            margin: 0, color: theme.textSecondary, fontSize: '20px', fontWeight: 500, lineHeight: 1.5,
+                                        }}>{footerDescription}</p>
                                     </div>
                                 )}
 
+                                {/* Author + brand */}
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
                                         <div style={{
-                                            width: '52px', height: '52px', borderRadius: '9999px', overflow: 'hidden',
-                                            border: `2px solid ${theme.border}`, background: theme.accentSoft,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            color: theme.textPrimary, fontWeight: 900, fontSize: '20px', flexShrink: 0,
+                                            width: '52px', height: '52px', borderRadius: '13px',
+                                            padding: '2px', background: authorGradient, flexShrink: 0,
                                         }}>
-                                            {avatarImage
-                                                ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
-                                                : (authorLabel || 'L').slice(0, 1).toUpperCase()
-                                            }
+                                            <div style={{
+                                                width: '100%', height: '100%', borderRadius: '11px', overflow: 'hidden',
+                                                background: theme.cardBg,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                color: theme.textPrimary, fontWeight: 900, fontSize: '20px',
+                                            }}>
+                                                {avatarImage
+                                                    ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
+                                                    : (authorLabel || 'L').slice(0, 1).toUpperCase()
+                                                }
+                                            </div>
                                         </div>
                                         <div style={{ minWidth: 0 }}>
                                             <div style={{ color: theme.textPrimary, fontSize: '20px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {authorLabel}
                                             </div>
-                                            <div style={{ color: theme.textMuted, fontSize: '14px', fontWeight: 600 }}>
-                                                {createdAtLabel ?? 'Compartido desde Listopic'}
+                                            <div style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>
+                                                {locationLine || createdAtLabel || 'Compartido desde Listopic'}
                                             </div>
                                         </div>
                                     </div>
@@ -1021,40 +1171,55 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                             {subtitleText}
                                         </p>
                                     )}
-                                    {criteriaStats.slice(0, 4).length > 0 && (
-                                        <div style={{ marginTop: '28px', display: 'flex', flexDirection: 'column' }}>
-                                            {criteriaStats.slice(0, 4).map((stat) => (
-                                                <div key={stat.key} style={{
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                    gap: '10px', padding: '13px 0',
-                                                    borderBottom: `1px solid ${theme.border}`,
-                                                }}>
-                                                    <span style={{ fontSize: '15px', fontWeight: 700, color: theme.textSecondary }}>{truncateLabel(stat.label, 18)}</span>
-                                                    <span style={{ fontSize: '22px', fontWeight: 900, color: theme.textPrimary, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                                                        {formatScore(stat.score)}
-                                                    </span>
-                                                </div>
-                                            ))}
+                                    {criteriaStats.length > 0 && (
+                                        <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column' }}>
+                                            {criteriaStats.map((stat, i) => {
+                                                const ref = getRefScore(stat.key);
+                                                const delta = ref != null ? stat.score - ref : null;
+                                                return (
+                                                    <div key={stat.key} style={{
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                        gap: '10px', padding: '11px 0',
+                                                        borderBottom: i < criteriaStats.length - 1 ? `1px solid ${theme.border}` : 'none',
+                                                    }}>
+                                                        <span style={{ fontSize: '14px', fontWeight: 700, color: theme.textSecondary, flex: 1 }}>{truncateLabel(stat.label, 20)}</span>
+                                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexShrink: 0 }}>
+                                                            {delta != null && (
+                                                                <span style={{ fontSize: '13px', fontWeight: 700, color: deltaColor(delta) }}>{deltaSign(delta)}</span>
+                                                            )}
+                                                            <span style={{ fontSize: '20px', fontWeight: 900, color: theme.textPrimary, fontVariantNumeric: 'tabular-nums' }}>
+                                                                {formatScore(stat.score)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Author */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
-                                    <div style={{
-                                        width: '46px', height: '46px', borderRadius: '9999px', overflow: 'hidden',
-                                        border: `2px solid ${theme.border}`, background: theme.accentSoft,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: theme.textPrimary, fontWeight: 900, fontSize: '18px', flexShrink: 0,
-                                    }}>
-                                        {avatarImage
-                                            ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
-                                            : (authorLabel || 'L').slice(0, 1).toUpperCase()
-                                        }
+                                    <div style={{ background: authorGradient, borderRadius: '13px', padding: '2px', flexShrink: 0 }}>
+                                        <div style={{
+                                            width: '42px', height: '42px', borderRadius: '11px', overflow: 'hidden',
+                                            background: theme.accentSoft,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            color: theme.textPrimary, fontWeight: 900, fontSize: '18px',
+                                        }}>
+                                            {avatarImage
+                                                ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
+                                                : (authorLabel || 'L').slice(0, 1).toUpperCase()
+                                            }
+                                        </div>
                                     </div>
                                     <div>
                                         <div style={{ fontSize: '17px', fontWeight: 800, color: theme.textPrimary, lineHeight: 1 }}>{authorLabel}</div>
-                                        {createdAtLabel && <div style={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, marginTop: '3px' }}>{createdAtLabel}</div>}
+                                        {(locationLine || createdAtLabel) && (
+                                            <div style={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, marginTop: '3px' }}>
+                                                {locationLine || createdAtLabel}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1070,7 +1235,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             display: 'flex', flexDirection: 'column',
                         }}>
                             {/* Image */}
-                            <div style={{ position: 'relative', height: '756px', flexShrink: 0 }}>
+                            <div style={{ position: 'relative', height: '520px', flexShrink: 0 }}>
                                 {heroImage
                                     ? <div role="img" aria-label={titleText} style={{ position: 'absolute', inset: 0, ...getCoverBackground(heroImage) }} />
                                     : <div style={{ position: 'absolute', inset: 0, background: theme.heroFallback }} />
@@ -1093,7 +1258,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             <div style={{
                                 flex: 1, background: '#ffffff',
                                 padding: '24px 32px 28px',
-                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px',
                             }}>
                                 {/* Title + score */}
                                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px' }}>
@@ -1125,25 +1290,72 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                     )}
                                 </div>
 
+                                {/* Criteria stats — all, with reference delta */}
+                                {criteriaStats.length > 0 && (
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        {criteriaStats.map((stat, i) => {
+                                            const ref = getRefScore(stat.key);
+                                            const delta = ref != null ? stat.score - ref : null;
+                                            return (
+                                                <div key={stat.key} style={{
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                    padding: '8px 0',
+                                                    borderBottom: i < criteriaStats.length - 1 ? '1px solid rgba(15,23,42,0.07)' : 'none',
+                                                }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#475569', flex: 1 }}>{truncateLabel(stat.label, 26)}</span>
+                                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px', flexShrink: 0 }}>
+                                                        {delta != null && (
+                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: deltaColor(delta) }}>{deltaSign(delta)}</span>
+                                                        )}
+                                                        <span style={{ fontSize: '17px', fontWeight: 900, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                                                            {formatScore(stat.score)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Tags */}
+                                {tagList.length > 0 && criteriaStats.length === 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                                        {tagList.map((tag) => (
+                                            <div key={tag} style={{
+                                                padding: '0 12px', height: '30px', borderRadius: '9999px',
+                                                background: 'rgba(15,23,42,0.06)', border: '1px solid rgba(15,23,42,0.10)',
+                                                color: '#475569', fontSize: '12px', fontWeight: 700,
+                                                display: 'inline-flex', alignItems: 'center',
+                                            }}>#{truncateLabel(tag, 20)}</div>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {/* Author + brand */}
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                                        <div style={{
-                                            width: '42px', height: '42px', borderRadius: '9999px', overflow: 'hidden',
-                                            border: '2px solid rgba(15,23,42,0.12)', background: 'rgba(15,23,42,0.06)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            color: '#0f172a', fontWeight: 900, fontSize: '17px', flexShrink: 0,
-                                        }}>
-                                            {avatarImage
-                                                ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
-                                                : (authorLabel || 'L').slice(0, 1).toUpperCase()
-                                            }
+                                        <div style={{ background: authorGradient, borderRadius: '11px', padding: '2px', flexShrink: 0 }}>
+                                            <div style={{
+                                                width: '38px', height: '38px', borderRadius: '9px', overflow: 'hidden',
+                                                background: 'rgba(15,23,42,0.06)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                color: '#0f172a', fontWeight: 900, fontSize: '17px',
+                                            }}>
+                                                {avatarImage
+                                                    ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
+                                                    : (authorLabel || 'L').slice(0, 1).toUpperCase()
+                                                }
+                                            </div>
                                         </div>
                                         <div style={{ minWidth: 0 }}>
                                             <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {authorLabel}
                                             </div>
-                                            {createdAtLabel && <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8' }}>{createdAtLabel}</div>}
+                                            {(locationLine || createdAtLabel) && (
+                                                <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8' }}>
+                                                    {locationLine || createdAtLabel}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>

@@ -10,6 +10,7 @@ export interface PlaceDetails {
     name: string;
     photoUrl?: string;
     address?: string;
+    city?: string;
     avgScore: number;
     reviewCount: number;
     reviews: ReviewEntity[];
@@ -214,6 +215,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
             const name = placeData?.name || reviews[0]?.itemName || "Lugar";
             const photoUrl = placeData?.mainImageUrl || placeData?.photos?.[0] || reviews.find(r => r.photoUrl)?.photoUrl;
             const address = placeData?.formattedAddress || placeData?.address;
+            const city = placeData?.city || reviews.find(r => r.placeCity)?.placeCity;
 
             let coords = undefined;
             if (placeData?.location) {
@@ -260,6 +262,7 @@ export const usePlaceDetails = (placeId: string | undefined) => {
                 name,
                 photoUrl,
                 address,
+                city,
                 avgScore,
                 reviewCount: reviews.length,
                 reviews: enrichedReviews,

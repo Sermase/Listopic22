@@ -29,6 +29,8 @@ export interface ShareEntityPayload {
     reviewCount?: number;
     authorName?: string;
     authorPhoto?: string;
+    authorUserType?: string | string[];
+    city?: string;
     criteriaStats?: ShareCriteriaStat[];
     referenceCriteriaStats?: ShareCriteriaStat[];
     referenceLabel?: string;

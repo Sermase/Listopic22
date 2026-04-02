@@ -45,6 +45,7 @@ export const GroupPage: React.FC = () => {
 
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [placeName, setPlaceName] = useState('');
+    const [placeCity, setPlaceCity] = useState('');
     const [placeClosedStatus, setPlaceClosedStatus] = useState<string | null>(null);
     const [unavailableItems, setUnavailableItems] = useState<string[]>([]);
     const [primaryListCriteria, setPrimaryListCriteria] = useState<any[]>([]); // New: Store definition for ordering
@@ -107,6 +108,7 @@ export const GroupPage: React.FC = () => {
                 placeData = pSnap.data();
                 fetchedPlaceName = placeData.name;
                 setPlaceName(fetchedPlaceName);
+                if (placeData.city) setPlaceCity(placeData.city);
                 setPlaceClosedStatus(placeData.closedStatus || null);
                 setUnavailableItems(placeData.unavailableItems || []);
             }
@@ -1037,6 +1039,7 @@ export const GroupPage: React.FC = () => {
                         : [],
                     referenceLabel: primaryListName || 'Media de la lista',
                     tags: stats?.tags,
+                    city: placeCity || undefined,
                 }}
             />
 
