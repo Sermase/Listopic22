@@ -474,7 +474,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 place={place}
                 review={review}
                 shareEntity={resolvedShareEntity}
-                variant={selectedCardVariant || 'cinematic'}
+                variant={selectedCardVariant || 'story'}
                 triggerRef={shareCardTriggerRef}
                 onRequestClose={handleRequestClose}
             />
