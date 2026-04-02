@@ -950,12 +950,12 @@ export const ListPage: React.FC = () => {
                         </div>
 
                         {/* Actions Island */}
-                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 border-white/5 pt-2 sm:pt-0">
+                        <div className="flex items-center w-full border-t sm:border-t-0 border-white/5 pt-2 sm:pt-0">
 
-                            {/* Filter */}
+                            {/* Left: Filter */}
                             <button
                                 onClick={() => setIsFilterModalOpen(true)}
-                                className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
+                                className={`h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
                                     filters.minRating > 0 || filters.hasPhoto || filters.visited || selectedTags.length > 0 || Object.values(filters.criteriaMin || {}).some(v => v > 0)
                                         ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
                                         : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
@@ -965,47 +965,48 @@ export const ListPage: React.FC = () => {
                                 <ArrowDownWideNarrow className="w-4 h-4 rotate-180" />
                             </button>
 
-                            {/* Toggle bots */}
-                            <button
-                                onClick={() => setShowBotReviews(prev => !prev)}
-                                className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
-                                    showBotReviews
-                                        ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400'
-                                        : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
-                                }`}
-                                title={showBotReviews ? 'Ocultar reseñas de bots' : 'Mostrar reseñas de bots'}
-                            >
-                                <Bot className="w-3.5 h-3.5" />
-                            </button>
+                            {/* Center: Bot, Críticos, Agrupación */}
+                            <div className="flex items-center gap-2 flex-1 justify-center">
 
-                            {/* Toggle críticos */}
-                            <button
-                                onClick={() => setCriticOnly(prev => !prev)}
-                                className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
-                                    criticOnly
-                                        ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
-                                        : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
-                                }`}
-                                title={criticOnly ? 'Mostrando solo críticos' : 'Ver solo reseñas de críticos'}
-                            >
-                                <Star className="w-3.5 h-3.5" />
-                            </button>
+                                {/* Toggle bots */}
+                                <button
+                                    onClick={() => setShowBotReviews(prev => !prev)}
+                                    className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
+                                        showBotReviews
+                                            ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400'
+                                            : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
+                                    }`}
+                                    title={showBotReviews ? 'Ocultar reseñas de bots' : 'Mostrar reseñas de bots'}
+                                >
+                                    <Bot className="w-3.5 h-3.5" />
+                                </button>
 
-                            <div className="h-4 w-px bg-white/10 mx-1 hidden xs:block"></div>
+                                {/* Toggle críticos */}
+                                <button
+                                    onClick={() => setCriticOnly(prev => !prev)}
+                                    className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
+                                        criticOnly
+                                            ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                                            : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
+                                    }`}
+                                    title={criticOnly ? 'Mostrando solo críticos' : 'Ver solo reseñas de críticos'}
+                                >
+                                    <Star className="w-3.5 h-3.5" />
+                                </button>
 
-                            {/* Grouping Toggle */}
-                            <button
-                                onClick={() => setGroupingMode(prev => prev === 'place' ? 'dish' : 'place')}
-                                className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all ${groupingMode === 'place' ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'}`}
-                                title={groupingMode === 'place' ? "Agrupado por Lugar" : "Ver Platos Sueltos"}
-                            >
-                                <Store className="w-4 h-4" />
-                            </button>
+                                {/* Grouping Toggle */}
+                                <button
+                                    onClick={() => setGroupingMode(prev => prev === 'place' ? 'dish' : 'place')}
+                                    className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all ${groupingMode === 'place' ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'}`}
+                                    title={groupingMode === 'place' ? "Agrupado por Lugar" : "Ver Platos Sueltos"}
+                                >
+                                    <Store className="w-4 h-4" />
+                                </button>
 
-                            <div className="h-4 w-px bg-white/10 mx-1 hidden xs:block"></div>
+                            </div>
 
-                            {/* View Toggle */}
-                            <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/5">
+                            {/* Right: View Toggle */}
+                            <div className="flex-shrink-0 flex bg-black/20 rounded-xl p-0.5 border border-white/5">
                                 <button
                                     onClick={() => setViewMode('list')}
                                     className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
@@ -1021,6 +1022,7 @@ export const ListPage: React.FC = () => {
                                     <LayoutGrid className="w-3.5 h-3.5" />
                                 </button>
                             </div>
+
                         </div>
                     </div>
                 </div>
