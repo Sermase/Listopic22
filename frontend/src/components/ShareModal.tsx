@@ -65,29 +65,29 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const cardVariantOptions: Array<{ id: ShareCardVariant; label: string; description: string; swatch: string }> = [
         {
-            id: 'cinematic',
-            label: 'Cinematica',
-            description: 'Dramatica, con brillo y contraste alto.',
-            swatch: 'linear-gradient(135deg, #0f172a, #1d4ed8)'
+            id: 'story',
+            label: 'Story',
+            description: 'Imagen a pantalla completa con score grande. Ideal para Instagram Stories.',
+            swatch: 'linear-gradient(160deg, #0a0e1a 0%, #0f2040 55%, #1a3a6b 100%)',
+        },
+        {
+            id: 'post',
+            label: 'Post',
+            description: 'Foto arriba, panel oscuro abajo con el score en tipografía dominante.',
+            swatch: 'linear-gradient(160deg, #0d1220 0%, #1a2a44 50%, #f97316 100%)',
+        },
+        {
+            id: 'editorial',
+            label: 'Editorial',
+            description: 'Foto a la izquierda, columna de criterios y score a la derecha.',
+            swatch: 'linear-gradient(160deg, #0f0f1a 0%, #2a1858 55%, #a78bfa 100%)',
         },
         {
             id: 'clean',
-            label: 'Limpia',
-            description: 'Minimalista, elegante y muy legible.',
-            swatch: 'linear-gradient(135deg, #1e293b, #334155)'
+            label: 'Polaroid',
+            description: 'Fondo blanco, imagen centrada y datos limpios debajo.',
+            swatch: 'linear-gradient(160deg, #ffffff 0%, #f0ece4 55%, #d8d0c4 100%)',
         },
-        {
-            id: 'punchy',
-            label: 'Punchy',
-            description: 'Mas viva, con color fuerte para stories.',
-            swatch: 'linear-gradient(135deg, #7c3aed, #06b6d4)'
-        },
-        {
-            id: 'spotify',
-            label: 'Music',
-            description: 'Inspirada en shares de Spotify, foco en contraste y ritmo.',
-            swatch: 'linear-gradient(135deg, #052e16, #22c55e)'
-        }
     ];
 
     const inferLocalRoute = (rawUrl: string): string | undefined => {

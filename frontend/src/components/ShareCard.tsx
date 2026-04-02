@@ -9,7 +9,7 @@ import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
 
-export type ShareCardVariant = 'cinematic' | 'clean' | 'punchy' | 'spotify';
+export type ShareCardVariant = 'story' | 'post' | 'editorial' | 'clean';
 
 interface ShareCardProps {
     place?: PlaceDetails;
@@ -41,81 +41,85 @@ type VariantTheme = {
 };
 
 const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
-    cinematic: {
-        cardBg: '#071225',
-        footerBg: 'rgba(7, 18, 37, 0.96)',
-        heroFallback: 'linear-gradient(145deg, #0b1730 0%, #10264a 56%, #071225 100%)',
-        textPrimary: '#f8fafc',
-        textSecondary: '#dbeafe',
-        textMuted: '#bfdbfe',
+    // Full-bleed story: image fills the whole card, all info floats on top
+    story: {
+        cardBg: '#0a0e1a',
+        footerBg: 'rgba(10,14,26,0.96)',
+        heroFallback: 'linear-gradient(145deg, #0b1730 0%, #0f2040 56%, #060e1c 100%)',
+        textPrimary: '#ffffff',
+        textSecondary: 'rgba(255,255,255,0.85)',
+        textMuted: 'rgba(255,255,255,0.55)',
         accent: '#60a5fa',
-        accentSoft: 'rgba(96,165,250,0.28)',
-        border: 'rgba(148,163,184,0.2)',
-        badgeBg: 'rgba(8, 20, 42, 0.66)',
-        badgeText: '#dbeafe',
-        panelBg: 'rgba(6, 18, 37, 0.82)',
-        chipBg: 'rgba(148,163,184,0.12)',
-        chipBorder: 'rgba(148,163,184,0.14)',
+        accentSoft: 'rgba(96,165,250,0.22)',
+        border: 'rgba(255,255,255,0.14)',
+        badgeBg: 'rgba(0,0,0,0.52)',
+        badgeText: '#ffffff',
+        panelBg: 'rgba(0,0,0,0.50)',
+        chipBg: 'rgba(255,255,255,0.12)',
+        chipBorder: 'rgba(255,255,255,0.16)',
         referenceStroke: 'rgba(255,255,255,0.74)',
         referenceFill: 'rgba(255,255,255,0.06)',
-        shadow: '0 34px 90px rgba(2, 6, 23, 0.38)',
+        shadow: '0 40px 100px rgba(0,0,0,0.60)',
     },
+    // Magazine post: image top 62%, dark panel with big typographic score
+    post: {
+        cardBg: '#0d1220',
+        footerBg: '#0d1220',
+        heroFallback: 'linear-gradient(145deg, #0d1830 0%, #18305a 52%, #0a1020 100%)',
+        textPrimary: '#f8fafc',
+        textSecondary: '#cbd5e1',
+        textMuted: '#64748b',
+        accent: '#f97316',
+        accentSoft: 'rgba(249,115,22,0.18)',
+        border: 'rgba(255,255,255,0.07)',
+        badgeBg: 'rgba(0,0,0,0.58)',
+        badgeText: '#ffffff',
+        panelBg: 'rgba(13,18,32,0.94)',
+        chipBg: 'rgba(249,115,22,0.10)',
+        chipBorder: 'rgba(249,115,22,0.18)',
+        referenceStroke: 'rgba(255,255,255,0.74)',
+        referenceFill: 'rgba(255,255,255,0.06)',
+        shadow: '0 40px 100px rgba(0,0,0,0.55)',
+    },
+    // Editorial split: image left column, dark panel right with dominant score
+    editorial: {
+        cardBg: '#0f0f1a',
+        footerBg: '#0f0f1a',
+        heroFallback: 'linear-gradient(145deg, #1a1030 0%, #2a1858 52%, #0f0f1a 100%)',
+        textPrimary: '#ffffff',
+        textSecondary: 'rgba(255,255,255,0.82)',
+        textMuted: 'rgba(255,255,255,0.50)',
+        accent: '#a78bfa',
+        accentSoft: 'rgba(167,139,250,0.18)',
+        border: 'rgba(255,255,255,0.10)',
+        badgeBg: 'rgba(0,0,0,0.48)',
+        badgeText: 'rgba(255,255,255,0.92)',
+        panelBg: 'rgba(20,12,42,0.97)',
+        chipBg: 'rgba(167,139,250,0.12)',
+        chipBorder: 'rgba(167,139,250,0.18)',
+        referenceStroke: 'rgba(255,255,255,0.74)',
+        referenceFill: 'rgba(255,255,255,0.06)',
+        shadow: '0 40px 100px rgba(0,0,0,0.58)',
+    },
+    // Polaroid: white card, image top 70%, clean info strip below
     clean: {
-        cardBg: '#f6f1e8',
-        footerBg: 'rgba(247, 242, 234, 0.98)',
-        heroFallback: 'linear-gradient(145deg, #efe7d8 0%, #e5dcc8 55%, #f7f3eb 100%)',
+        cardBg: '#ffffff',
+        footerBg: '#ffffff',
+        heroFallback: 'linear-gradient(145deg, #e8e2d8 0%, #d8d0c4 55%, #f0ece4 100%)',
         textPrimary: '#0f172a',
         textSecondary: '#334155',
-        textMuted: '#6b7280',
-        accent: '#4f46e5',
-        accentSoft: 'rgba(79,70,229,0.16)',
-        border: 'rgba(51,65,85,0.14)',
-        badgeBg: 'rgba(249, 246, 240, 0.9)',
-        badgeText: '#312e81',
-        panelBg: 'rgba(248, 244, 237, 0.92)',
-        chipBg: 'rgba(79,70,229,0.06)',
-        chipBorder: 'rgba(79,70,229,0.12)',
-        referenceStroke: 'rgba(51,65,85,0.52)',
-        referenceFill: 'rgba(51,65,85,0.06)',
-        shadow: '0 28px 72px rgba(15, 23, 42, 0.16)',
-    },
-    punchy: {
-        cardBg: '#081328',
-        footerBg: 'rgba(8, 19, 40, 0.96)',
-        heroFallback: 'linear-gradient(145deg, #0c1832 0%, #1d3a64 48%, #0f172a 100%)',
-        textPrimary: '#ecfeff',
-        textSecondary: '#cffafe',
-        textMuted: '#a5f3fc',
-        accent: '#22d3ee',
-        accentSoft: 'rgba(34,211,238,0.26)',
-        border: 'rgba(45,212,191,0.2)',
-        badgeBg: 'rgba(6, 24, 41, 0.66)',
-        badgeText: '#a5f3fc',
-        panelBg: 'rgba(7, 24, 41, 0.8)',
-        chipBg: 'rgba(34,211,238,0.1)',
-        chipBorder: 'rgba(34,211,238,0.14)',
-        referenceStroke: 'rgba(255,255,255,0.74)',
-        referenceFill: 'rgba(255,255,255,0.06)',
-        shadow: '0 34px 90px rgba(8, 14, 35, 0.45)',
-    },
-    spotify: {
-        cardBg: '#07180e',
-        footerBg: 'rgba(7, 24, 14, 0.96)',
-        heroFallback: 'linear-gradient(145deg, #0b1f13 0%, #14532d 52%, #052e16 100%)',
-        textPrimary: '#f0fdf4',
-        textSecondary: '#dcfce7',
-        textMuted: '#bbf7d0',
-        accent: '#22c55e',
-        accentSoft: 'rgba(34,197,94,0.24)',
-        border: 'rgba(74,222,128,0.22)',
-        badgeBg: 'rgba(5, 24, 12, 0.7)',
-        badgeText: '#bbf7d0',
-        panelBg: 'rgba(5, 24, 12, 0.82)',
-        chipBg: 'rgba(34,197,94,0.1)',
-        chipBorder: 'rgba(74,222,128,0.12)',
-        referenceStroke: 'rgba(255,255,255,0.74)',
-        referenceFill: 'rgba(255,255,255,0.06)',
-        shadow: '0 34px 90px rgba(2, 12, 5, 0.42)',
+        textMuted: '#94a3b8',
+        accent: '#0f172a',
+        accentSoft: 'rgba(15,23,42,0.08)',
+        border: 'rgba(15,23,42,0.08)',
+        badgeBg: 'rgba(255,255,255,0.90)',
+        badgeText: '#0f172a',
+        panelBg: 'rgba(248,248,252,0.95)',
+        chipBg: 'rgba(15,23,42,0.06)',
+        chipBorder: 'rgba(15,23,42,0.10)',
+        referenceStroke: 'rgba(15,23,42,0.50)',
+        referenceFill: 'rgba(15,23,42,0.05)',
+        shadow: '0 30px 80px rgba(15,23,42,0.20)',
     },
 };
 
@@ -126,11 +130,12 @@ const DEFAULT_ENTITY: ShareEntityPayload = {
     url: typeof window !== 'undefined' ? window.location.origin : '',
 };
 
-const EXPORT_WIDTH = 1080;
-const EXPORT_HEIGHT = 1600;
-const LANDSCAPE_EXPORT_WIDTH = 1600;
-const LANDSCAPE_EXPORT_HEIGHT = 1200;
-const LANDSCAPE_SWITCH_RATIO = 1.08;
+const VARIANT_DIMENSIONS: Record<ShareCardVariant, { width: number; height: number; previewRatio: string }> = {
+    story:     { width: 1080, height: 1920, previewRatio: '9 / 16' },
+    post:      { width: 1080, height: 1350, previewRatio: '4 / 5' },
+    editorial: { width: 1080, height: 1350, previewRatio: '4 / 5' },
+    clean:     { width: 1080, height: 1080, previewRatio: '1 / 1' },
+};
 
 const isSupportedEntityType = (value: unknown): value is ShareEntityType => {
     return ['place', 'group', 'list', 'sublist', 'profile', 'app', 'review', 'link'].includes(String(value));
@@ -353,7 +358,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     place,
     review,
     shareEntity,
-    variant = 'cinematic',
+    variant = 'story',
     triggerRef,
     onRequestClose,
 }) => {
@@ -366,7 +371,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     const [localImages, setLocalImages] = useState<{ hero: string; avatar: string }>({ hero: '', avatar: '' });
     const [referenceCriteriaStats, setReferenceCriteriaStats] = useState<ShareCriteriaStat[]>([]);
     const [referenceLabel, setReferenceLabel] = useState<string>('');
-    const [heroSize, setHeroSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
     const CARD_GENERATION_TIMEOUT_MS = 20000;
 
     const entity = useMemo<ShareEntityPayload>(() => {
@@ -409,7 +413,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         return DEFAULT_ENTITY;
     }, [place, review, shareEntity]);
 
-    const theme = VARIANT_THEMES[variant] || VARIANT_THEMES.cinematic;
+    const theme = VARIANT_THEMES[variant] || VARIANT_THEMES.story;
     const score = review?.overallRating ?? place?.avgScore ?? entity.score;
     const scoreColor = scoreBubbleColor(score);
     const heroImage = localImages.hero || review?.photoUrl || place?.photoUrl || entity.imageUrl || '';
@@ -436,25 +440,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
 
         return buildCriteriaStats(review?.scores, review?.criteriaDefinition);
     }, [entity.criteriaStats, review]);
-
-    useEffect(() => {
-        const source = review?.photoUrl || place?.photoUrl || entity.imageUrl;
-        if (!source) {
-            setHeroSize({ width: 0, height: 0 });
-            return;
-        }
-
-        let cancelled = false;
-        void loadImageDimensions(source).then((dimensions) => {
-            if (!cancelled) {
-                setHeroSize(dimensions);
-            }
-        });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [entity.imageUrl, place?.photoUrl, review?.photoUrl]);
 
     useEffect(() => {
         if (entity.referenceCriteriaStats?.length) {
@@ -502,50 +487,22 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         };
     }, [entity.referenceCriteriaStats, entity.referenceLabel, entity.type, review?.listId]);
 
-    const radarStats = criteriaStats.slice(0, 8);
-    const summaryStats = criteriaStats.slice(0, 4);
-    const hasRadar = radarStats.length >= 3;
-    const hasFooterInsights = hasRadar || summaryStats.length > 0;
     const isReviewShare = entity.type === 'review' || Boolean(review);
-    const heroAspectRatio = heroSize.width > 0 && heroSize.height > 0 ? heroSize.width / heroSize.height : 0;
-    const isLandscapeCard = heroAspectRatio >= LANDSCAPE_SWITCH_RATIO;
-    const exportWidth = isLandscapeCard ? LANDSCAPE_EXPORT_WIDTH : EXPORT_WIDTH;
-    const exportHeight = isLandscapeCard ? LANDSCAPE_EXPORT_HEIGHT : EXPORT_HEIGHT;
-    const previewAspectRatio = isLandscapeCard ? '4 / 3' : '3 / 4';
+    const { width: exportWidth, height: exportHeight, previewRatio: previewAspectRatio } = VARIANT_DIMENSIONS[variant];
     const reviewCountLabel = formatReviewCount(entity.reviewCount);
     const entityLabel = getShareEntityLabel(entity.type);
     const scoreLabel = getScoreLabel(entity.type);
     const tagList = normalizeTags(entity.tags || review?.userTags || review?.tags);
     const brandName = config.appName || 'Listopic';
-    const radarPanelSize = isLandscapeCard ? 286 : 238;
-    const titleFontSize = isLandscapeCard
-        ? (titleText.length > 54 ? '58px' : titleText.length > 38 ? '70px' : '84px')
-        : (titleText.length > 54 ? '52px' : titleText.length > 38 ? '62px' : '74px');
-    const authorNameSize = titleText.length > 44 ? '32px' : '38px';
-    const heroTextMaxWidth = isLandscapeCard ? '72%' : '80%';
-    const alignedReferenceStats = radarStats
-        .map((stat) => {
-            const match = referenceCriteriaStats.find((reference) => reference.key === stat.key);
-            return match ? { ...match, label: stat.label } : null;
-        })
-        .filter((stat): stat is ShareCriteriaStat => Boolean(stat));
-    const referenceSummaryStats = summaryStats
-        .map((stat) => {
-            const match = referenceCriteriaStats.find((reference) => reference.key === stat.key);
-            return match ? { ...match, label: stat.label } : null;
-        })
-        .filter((stat): stat is ShareCriteriaStat => Boolean(stat));
-
+    // Per-variant title font sizes
+    const storyTitleSize = titleText.length > 40 ? '70px' : titleText.length > 22 ? '86px' : '104px';
+    const postTitleSize = titleText.length > 50 ? '42px' : titleText.length > 30 ? '54px' : '66px';
+    const editorialTitleSize = titleText.length > 50 ? '26px' : titleText.length > 30 ? '34px' : '42px';
+    const cleanTitleSize = titleText.length > 40 ? '36px' : titleText.length > 22 ? '46px' : '54px';
     const infoChips = [
         entityLabel,
         entity.badgeLabel && entity.badgeLabel !== entityLabel ? entity.badgeLabel : null,
         !isReviewShare ? reviewCountLabel : null,
-    ].filter((value): value is string => Boolean(value));
-
-    const footerFacts = [
-        createdAtLabel || null,
-        reviewCountLabel,
-        criteriaStats.length ? `${criteriaStats.length} criterio${criteriaStats.length === 1 ? '' : 's'}` : null,
     ].filter((value): value is string => Boolean(value));
 
     const footerDescription = descriptionText || (
@@ -674,17 +631,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             );
 
             setLocalImages({ hero: heroBlob, avatar: avatarBlob });
-            const nextHeroSource = heroBlob || review?.photoUrl || place?.photoUrl || entity.imageUrl;
-            if (nextHeroSource) {
-                const measuredHeroSize = await withTimeout(
-                    loadImageDimensions(nextHeroSource),
-                    CARD_GENERATION_TIMEOUT_MS,
-                    'Tiempo de espera agotado al medir la imagen.',
-                );
-                if (measuredHeroSize.width > 0 && measuredHeroSize.height > 0) {
-                    setHeroSize(measuredHeroSize);
-                }
-            }
             await new Promise((resolve) => setTimeout(resolve, 100));
             if (!captureRef.current) return;
 
@@ -773,579 +719,448 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                         width: `${exportWidth}px`,
                         height: `${exportHeight}px`,
                         position: 'relative',
-                        background: 'transparent',
                         fontFamily: "'Manrope', sans-serif",
-                        padding: isLandscapeCard ? '28px' : '36px',
+                        padding: variant === 'clean' ? '0' : '28px',
                         boxSizing: 'border-box',
                     }}
                 >
-                    <div
-                        style={{
-                            position: 'relative',
-                            width: '100%',
-                            height: '100%',
-                            borderRadius: '58px',
-                            overflow: 'hidden',
-                            background: theme.cardBg,
-                            border: `1px solid ${theme.border}`,
-                            boxShadow: theme.shadow,
-                            display: 'grid',
-                            gridTemplateRows: 'minmax(0, 1fr) auto',
-                        }}
-                    >
-                        <div style={{ position: 'relative', minHeight: 0 }}>
-                            {heroImage ? (
-                                <div
-                                    role="img"
-                                    aria-label={titleText}
-                                    style={{
-                                        position: 'absolute',
-                                        inset: 0,
-                                        ...getCoverBackground(heroImage),
-                                    }}
-                                />
-                            ) : (
-                                <div style={{ width: '100%', height: '100%', background: theme.heroFallback }} />
-                            )}
+                    {/* ─── STORY: full-bleed 9:16 ─── */}
+                    {variant === 'story' && (
+                        <div style={{
+                            position: 'relative', width: '100%', height: '100%',
+                            borderRadius: '56px', overflow: 'hidden',
+                            background: theme.cardBg, boxShadow: theme.shadow,
+                        }}>
+                            {heroImage
+                                ? <div role="img" aria-label={titleText} style={{ position: 'absolute', inset: 0, ...getCoverBackground(heroImage) }} />
+                                : <div style={{ position: 'absolute', inset: 0, background: theme.heroFallback }} />
+                            }
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.60) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 46%, rgba(0,0,0,0.97) 100%)' }} />
 
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    background: 'linear-gradient(180deg, rgba(2,6,23,0.16) 0%, rgba(2,6,23,0.3) 32%, rgba(2,6,23,0.78) 100%)',
-                                }}
-                            />
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    top: '-90px',
-                                    right: '-60px',
-                                    width: '320px',
-                                    height: '320px',
-                                    borderRadius: '9999px',
-                                    background: `radial-gradient(circle, ${theme.accentSoft} 0%, transparent 72%)`,
-                                }}
-                            />
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    bottom: '-110px',
-                                    left: '-70px',
-                                    width: '360px',
-                                    height: '360px',
-                                    borderRadius: '9999px',
-                                    background: `radial-gradient(circle, ${theme.accentSoft} 0%, transparent 72%)`,
-                                }}
-                            />
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    top: '30px',
-                                    left: '30px',
-                                    right: '30px',
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    justifyContent: 'space-between',
-                                    gap: '16px',
-                                }}
-                            >
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', maxWidth: isLandscapeCard ? '78%' : '72%' }}>
-                                    {infoChips.map((chip) => (
-                                        <div
-                                            key={chip}
-                                            style={{
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                height: '48px',
-                                                padding: '0 18px',
-                                                borderRadius: '999px',
-                                                background: theme.badgeBg,
-                                                color: theme.badgeText,
-                                                border: `1px solid ${theme.border}`,
-                                                fontWeight: 800,
-                                                fontSize: '18px',
-                                                lineHeight: 1.05,
-                                                textAlign: 'center',
-                                            }}
-                                        >
-                                            {chip}
-                                        </div>
-                                    ))}
-                                </div>
+                            {/* Top: category badges */}
+                            <div style={{ position: 'absolute', top: '56px', left: '54px', right: '54px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                                {infoChips.map((chip) => (
+                                    <div key={chip} style={{
+                                        padding: '0 22px', height: '46px', borderRadius: '9999px',
+                                        background: 'rgba(0,0,0,0.54)', border: '1px solid rgba(255,255,255,0.20)',
+                                        color: '#ffffff', fontSize: '19px', fontWeight: 800,
+                                        display: 'inline-flex', alignItems: 'center',
+                                        letterSpacing: '0.05em', textTransform: 'uppercase' as const,
+                                    }}>{chip}</div>
+                                ))}
+                            </div>
 
+                            {/* Bottom: score + title + author strip */}
+                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 56px 60px' }}>
                                 {hasScore && (
-                                    <div
-                                        style={{
-                                            width: '124px',
-                                            height: '124px',
-                                            borderRadius: '9999px',
-                                            border: `4px solid ${scoreColor}`,
-                                            background: 'rgba(2,6,23,0.82)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            boxShadow: `0 0 28px ${scoreColor}55`,
-                                            flexShrink: 0,
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                width: '100%',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                textAlign: 'center',
-                                                gap: '2px',
-                                                transform: 'translateY(-2px)',
-                                            }}
-                                        >
-                                            <span
-                                                style={{
-                                                    display: 'block',
-                                                    width: '100%',
-                                                    color: '#ffffff',
-                                                    fontWeight: 900,
-                                                    fontSize: '44px',
-                                                    lineHeight: 0.9,
-                                                    fontVariantNumeric: 'tabular-nums',
-                                                }}
-                                            >
-                                                {formatScore(score)}
-                                            </span>
-                                            <span
-                                                style={{
-                                                    display: 'block',
-                                                    width: '100%',
-                                                    color: '#dbeafe',
-                                                    fontWeight: 800,
-                                                    fontSize: '12px',
-                                                    letterSpacing: '0.18em',
-                                                    lineHeight: 1,
-                                                }}
-                                            >
-                                                {scoreLabel}
-                                            </span>
+                                    <div style={{ marginBottom: '22px' }}>
+                                        <div style={{
+                                            fontSize: '152px', fontWeight: 900, lineHeight: 0.85,
+                                            color: scoreColor, letterSpacing: '-0.04em',
+                                            fontVariantNumeric: 'tabular-nums',
+                                            textShadow: `0 0 70px ${scoreColor}44`,
+                                        }}>{formatScore(score)}</div>
+                                        <div style={{ marginTop: '10px', fontSize: '18px', fontWeight: 900, color: 'rgba(255,255,255,0.48)', letterSpacing: '0.26em', textTransform: 'uppercase' as const }}>
+                                            {scoreLabel}
                                         </div>
                                     </div>
                                 )}
-                            </div>
-
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    left: '32px',
-                                    bottom: '34px',
-                                    maxWidth: heroTextMaxWidth,
-                                    color: '#f8fafc',
-                                    textShadow: '0 10px 24px rgba(2, 6, 23, 0.44)',
-                                }}
-                            >
-                                <h1
-                                    style={{
-                                        margin: 0,
-                                        fontSize: titleFontSize,
-                                        lineHeight: 0.98,
-                                        letterSpacing: '-0.03em',
-                                        fontWeight: 900,
-                                        wordBreak: 'break-word',
-                                    }}
-                                >
-                                    {titleText}
-                                </h1>
-
+                                <h1 style={{
+                                    margin: 0, fontSize: storyTitleSize, fontWeight: 900, lineHeight: 0.93,
+                                    letterSpacing: '-0.03em', color: '#ffffff', wordBreak: 'break-word', maxWidth: '88%',
+                                    textShadow: '0 2px 28px rgba(0,0,0,0.45)',
+                                }}>{titleText}</h1>
                                 {subtitleText && (
-                                    <p
-                                        style={{
-                                            margin: '14px 0 0',
-                                            color: 'rgba(255,255,255,0.88)',
-                                            fontWeight: 700,
-                                            fontSize: '28px',
-                                            lineHeight: 1.2,
-                                            wordBreak: 'break-word',
-                                        }}
-                                    >
+                                    <p style={{ margin: '22px 0 0', fontSize: '27px', fontWeight: 600, color: 'rgba(255,255,255,0.74)', letterSpacing: '-0.01em' }}>
                                         {subtitleText}
                                     </p>
                                 )}
-
-                                {isReviewShare && (
-                                    <div
-                                        style={{
-                                            marginTop: '26px',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '14px',
-                                            padding: '15px 18px',
-                                            borderRadius: '28px',
-                                            background: 'rgba(7, 18, 37, 0.44)',
-                                            border: '1px solid rgba(255,255,255,0.12)',
-                                            boxShadow: '0 18px 30px rgba(2,6,23,0.24)',
-                                            maxWidth: '100%',
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                width: '74px',
-                                                height: '74px',
-                                                borderRadius: '9999px',
-                                                overflow: 'hidden',
-                                                border: '2px solid rgba(255,255,255,0.2)',
-                                                background: 'rgba(255,255,255,0.08)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontWeight: 900,
-                                                fontSize: '28px',
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            {avatarImage ? (
-                                                <div
-                                                    role="img"
-                                                    aria-label={authorLabel}
-                                                    style={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        ...getCoverBackground(avatarImage),
-                                                    }}
-                                                />
-                                            ) : (
-                                                (authorLabel || 'L').slice(0, 1).toUpperCase()
-                                            )}
+                                {/* Author + brand glass strip */}
+                                <div style={{
+                                    marginTop: '44px', display: 'flex', alignItems: 'center',
+                                    justifyContent: 'space-between', gap: '16px',
+                                    padding: '18px 24px', borderRadius: '28px',
+                                    background: 'rgba(0,0,0,0.50)', border: '1px solid rgba(255,255,255,0.12)',
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0 }}>
+                                        <div style={{
+                                            width: '60px', height: '60px', borderRadius: '9999px', overflow: 'hidden',
+                                            border: '2px solid rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.14)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            color: '#ffffff', fontWeight: 900, fontSize: '24px', flexShrink: 0,
+                                        }}>
+                                            {avatarImage
+                                                ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
+                                                : (authorLabel || 'L').slice(0, 1).toUpperCase()
+                                            }
                                         </div>
-
-                                        <div
-                                            style={{
-                                                minWidth: 0,
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'center',
-                                                alignItems: 'center',
-                                                textAlign: 'center',
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    fontSize: authorNameSize,
-                                                    fontWeight: 900,
-                                                    lineHeight: 1,
-                                                    wordBreak: 'break-word',
-                                                }}
-                                            >
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ fontSize: '25px', fontWeight: 800, color: '#ffffff', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {authorLabel}
                                             </div>
-                                            <div style={{ marginTop: '6px', fontSize: '17px', fontWeight: 700, color: 'rgba(255,255,255,0.74)', lineHeight: 1.1 }}>
-                                                {createdAtLabel ? `Publicada el ${createdAtLabel}` : 'Compartida desde Listopic'}
-                                            </div>
+                                            {createdAtLabel && (
+                                                <div style={{ fontSize: '17px', fontWeight: 600, color: 'rgba(255,255,255,0.50)', marginTop: '5px' }}>
+                                                    {createdAtLabel}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                )}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '11px', flexShrink: 0 }}>
+                                        {config.logoType === 'image' && config.logoUrl
+                                            ? <img src={config.logoUrl} alt={brandName} style={{ width: '34px', height: '34px', objectFit: 'contain' }} />
+                                            : (
+                                                <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 52%, #4f46e5 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <div style={{ width: '13px', height: '13px', borderRadius: '9999px', background: '#ffffff' }} />
+                                                </div>
+                                            )
+                                        }
+                                        <div style={{ fontSize: '21px', fontWeight: 900, color: 'rgba(255,255,255,0.88)', letterSpacing: '-0.02em' }}>{brandName}</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    )}
 
-                        <div
-                            style={{
-                                background: theme.footerBg,
-                                borderTop: `1px solid ${theme.border}`,
-                                padding: isLandscapeCard ? '22px 28px 26px' : '22px 26px 28px',
-                                display: 'grid',
-                                gridTemplateColumns: hasFooterInsights
-                                    ? (isLandscapeCard ? 'minmax(0, 1.62fr) minmax(300px, 0.46fr)' : 'minmax(0, 1.38fr) minmax(252px, 0.58fr)')
-                                    : '1fr',
-                                gap: isLandscapeCard ? '16px' : '14px',
-                            }}
-                        >
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
-                                <p
-                                    style={{
-                                        margin: 0,
-                                        color: theme.textSecondary,
-                                        fontWeight: 600,
-                                        fontSize: '22px',
-                                        lineHeight: 1.48,
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: isLandscapeCard ? 5 : 6,
-                                        WebkitBoxOrient: 'vertical',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        paddingBottom: '8px',
-                                    }}
-                                >
-                                    {footerDescription}
-                                </p>
+                    {/* ─── POST: magazine 4:5, image top + dark panel ─── */}
+                    {variant === 'post' && (
+                        <div style={{
+                            position: 'relative', width: '100%', height: '100%',
+                            borderRadius: '44px', overflow: 'hidden',
+                            background: theme.cardBg, boxShadow: theme.shadow,
+                            display: 'flex', flexDirection: 'column',
+                        }}>
+                            {/* Image section */}
+                            <div style={{ position: 'relative', height: '828px', flexShrink: 0 }}>
+                                {heroImage
+                                    ? <div role="img" aria-label={titleText} style={{ position: 'absolute', inset: 0, ...getCoverBackground(heroImage) }} />
+                                    : <div style={{ position: 'absolute', inset: 0, background: theme.heroFallback }} />
+                                }
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0) 32%, rgba(0,0,0,0.90) 100%)' }} />
+
+                                {/* Category badges */}
+                                <div style={{ position: 'absolute', top: '36px', left: '42px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                    {infoChips.map((chip) => (
+                                        <div key={chip} style={{
+                                            padding: '0 18px', height: '38px', borderRadius: '9999px',
+                                            background: 'rgba(0,0,0,0.58)', border: '1px solid rgba(255,255,255,0.16)',
+                                            color: '#ffffff', fontSize: '15px', fontWeight: 800,
+                                            display: 'inline-flex', alignItems: 'center',
+                                            letterSpacing: '0.06em', textTransform: 'uppercase' as const,
+                                        }}>{chip}</div>
+                                    ))}
+                                </div>
+
+                                {/* Title (left) + BIG score (right) */}
+                                <div style={{ position: 'absolute', bottom: '28px', left: '42px', right: '42px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '20px' }}>
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                        <h1 style={{
+                                            margin: 0, fontSize: postTitleSize, fontWeight: 900, lineHeight: 0.93,
+                                            letterSpacing: '-0.03em', color: '#ffffff', wordBreak: 'break-word',
+                                            textShadow: '0 2px 20px rgba(0,0,0,0.5)',
+                                        }}>{titleText}</h1>
+                                        {subtitleText && (
+                                            <p style={{ margin: '14px 0 0', fontSize: '22px', fontWeight: 600, color: 'rgba(255,255,255,0.70)' }}>
+                                                {subtitleText}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {hasScore && (
+                                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                            <div style={{
+                                                fontSize: '128px', fontWeight: 900, lineHeight: 0.85,
+                                                color: theme.accent, letterSpacing: '-0.05em',
+                                                fontVariantNumeric: 'tabular-nums',
+                                                textShadow: `0 0 56px ${theme.accent}44`,
+                                            }}>{formatScore(score)}</div>
+                                            <div style={{ fontSize: '13px', fontWeight: 900, color: 'rgba(255,255,255,0.44)', letterSpacing: '0.24em', textTransform: 'uppercase' as const, marginTop: '6px' }}>
+                                                {scoreLabel}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Footer panel */}
+                            <div style={{
+                                flex: 1, background: theme.footerBg,
+                                borderTop: `3px solid ${theme.accent}`,
+                                padding: '26px 42px 32px',
+                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px',
+                            }}>
+                                <p style={{
+                                    margin: 0, color: theme.textSecondary, fontSize: '22px', fontWeight: 500, lineHeight: 1.5,
+                                    display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden', flex: 1,
+                                }}>{footerDescription}</p>
 
                                 {tagList.length > 0 && (
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                         {tagList.map((tag) => (
-                                            <div
-                                                key={tag}
-                                                style={{
-                                                    padding: '0 12px',
-                                                    borderRadius: '999px',
-                                                    background: theme.chipBg,
-                                                    border: `1px solid ${theme.chipBorder}`,
-                                                    color: theme.textPrimary,
-                                                    fontSize: '15px',
-                                                    fontWeight: 700,
-                                                    lineHeight: 1.05,
-                                                    height: '38px',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                }}
-                                            >
-                                                #{truncateLabel(tag, 20)}
-                                            </div>
+                                            <div key={tag} style={{
+                                                padding: '0 14px', height: '36px', borderRadius: '9999px',
+                                                background: theme.chipBg, border: `1px solid ${theme.chipBorder}`,
+                                                color: theme.textMuted, fontSize: '14px', fontWeight: 700,
+                                                display: 'inline-flex', alignItems: 'center',
+                                            }}>#{truncateLabel(tag, 20)}</div>
                                         ))}
                                     </div>
                                 )}
 
-                                {!isReviewShare && (entity.authorName || avatarImage) && (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                                        <div
-                                            style={{
-                                                width: '52px',
-                                                height: '52px',
-                                                borderRadius: '9999px',
-                                                overflow: 'hidden',
-                                                background: theme.accentSoft,
-                                                border: `1px solid ${theme.border}`,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                color: theme.textPrimary,
-                                                fontWeight: 900,
-                                                fontSize: '20px',
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            {avatarImage ? (
-                                                <div
-                                                    role="img"
-                                                    aria-label={authorLabel}
-                                                    style={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        ...getCoverBackground(avatarImage),
-                                                    }}
-                                                />
-                                            ) : (
-                                                (authorLabel || 'L').slice(0, 1).toUpperCase()
-                                            )}
+                                        <div style={{
+                                            width: '52px', height: '52px', borderRadius: '9999px', overflow: 'hidden',
+                                            border: `2px solid ${theme.border}`, background: theme.accentSoft,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            color: theme.textPrimary, fontWeight: 900, fontSize: '20px', flexShrink: 0,
+                                        }}>
+                                            {avatarImage
+                                                ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
+                                                : (authorLabel || 'L').slice(0, 1).toUpperCase()
+                                            }
                                         </div>
-
                                         <div style={{ minWidth: 0 }}>
-                                            <div
-                                                style={{
-                                                    color: theme.textPrimary,
-                                                    fontSize: '20px',
-                                                    fontWeight: 800,
-                                                    whiteSpace: 'nowrap',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                }}
-                                            >
+                                            <div style={{ color: theme.textPrimary, fontSize: '20px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {authorLabel}
                                             </div>
-                                            <div style={{ color: theme.textMuted, fontSize: '15px', fontWeight: 700 }}>
-                                                Compartido desde Listopic
+                                            <div style={{ color: theme.textMuted, fontSize: '14px', fontWeight: 600 }}>
+                                                {createdAtLabel ?? 'Compartido desde Listopic'}
                                             </div>
                                         </div>
                                     </div>
-                                )}
-                            </div>
-
-                            {hasRadar ? (
-                                <div
-                                    style={{
-                                        padding: isLandscapeCard ? '10px 10px' : '10px',
-                                        borderRadius: '24px',
-                                        background: theme.panelBg,
-                                        border: `1px solid ${theme.border}`,
-                                        boxShadow: '0 14px 28px rgba(2,6,23,0.1)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        alignSelf: 'start',
-                                    }}
-                                    aria-label={alignedReferenceStats.length > 0 ? `${referenceLabel || 'Media de la lista'} comparada con la ${'rese\u00f1a'}` : 'Resumen de criterios'}
-                                >
-                                    <RadarChart
-                                        stats={radarStats}
-                                        referenceStats={alignedReferenceStats}
-                                        accent={theme.accent}
-                                        gridColor={theme.border}
-                                        referenceStroke={theme.referenceStroke}
-                                        referenceFill={theme.referenceFill}
-                                        maxSize={radarPanelSize}
-                                    />
-                                </div>
-                            ) : summaryStats.length > 0 ? (
-                                <div
-                                    style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                                        gap: '10px',
-                                        alignContent: 'start',
-                                    }}
-                                >
-                                    {summaryStats.map((stat) => (
-                                        <div
-                                            key={stat.key}
-                                            style={{
-                                                padding: '14px 14px 12px',
-                                                borderRadius: '22px',
-                                                background: theme.chipBg,
-                                                border: `1px solid ${theme.chipBorder}`,
-                                                minHeight: '112px',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'center',
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                                                <span
-                                                    style={{
-                                                        color: theme.textPrimary,
-                                                        fontSize: '14px',
-                                                        fontWeight: 800,
-                                                        lineHeight: 1.15,
-                                                    }}
-                                                >
-                                                    {truncateLabel(stat.label, 16)}
-                                                </span>
-                                                <span
-                                                    style={{
-                                                        color: theme.textPrimary,
-                                                        fontSize: '20px',
-                                                        fontWeight: 900,
-                                                        flexShrink: 0,
-                                                        fontVariantNumeric: 'tabular-nums',
-                                                    }}
-                                                >
-                                                    {formatScore(stat.score)}
-                                                </span>
-                                            </div>
-                                            <div
-                                                style={{
-                                                    marginTop: '12px',
-                                                    height: '8px',
-                                                    borderRadius: '999px',
-                                                    background: 'rgba(148,163,184,0.18)',
-                                                    overflow: 'hidden',
-                                                    position: 'relative',
-                                                }}
-                                            >
-                                                {referenceSummaryStats.find((reference) => reference.key === stat.key) && (
-                                                    <div
-                                                        style={{
-                                                            position: 'absolute',
-                                                            top: 0,
-                                                            bottom: 0,
-                                                            left: `${clampScore(referenceSummaryStats.find((reference) => reference.key === stat.key)?.score || 0) * 10}%`,
-                                                            width: '3px',
-                                                            marginLeft: '-1px',
-                                                            background: theme.referenceStroke,
-                                                            boxShadow: `0 0 5px ${theme.referenceStroke}`,
-                                                            zIndex: 2,
-                                                        }}
-                                                    />
-                                                )}
-                                                <div
-                                                    style={{
-                                                        height: '100%',
-                                                        width: `${clampScore(stat.score) * 10}%`,
-                                                        borderRadius: '999px',
-                                                        background: theme.accent,
-                                                    }}
-                                                />
-                                            </div>
-                                            {typeof stat.count === 'number' && stat.count > 0 && (
-                                                <div style={{ marginTop: '8px', color: theme.textMuted, fontSize: '12px', fontWeight: 700 }}>
-                                                    {stat.count} voto{stat.count === 1 ? '' : 's'}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                                        {config.logoType === 'image' && config.logoUrl
+                                            ? <img src={config.logoUrl} alt={brandName} style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
+                                            : (
+                                                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 52%, #4f46e5 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <div style={{ width: '15px', height: '15px', borderRadius: '9999px', background: '#ffffff' }} />
                                                 </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : null}
-
-                            <div
-                                style={{
-                                    gridColumn: '1 / -1',
-                                    display: 'flex',
-                                    alignItems: 'flex-end',
-                                    justifyContent: 'space-between',
-                                    gap: '18px',
-                                    paddingTop: '4px',
-                                }}
-                            >
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                    {footerFacts.map((fact) => (
-                                        <div
-                                            key={fact}
-                                            style={{
-                                                padding: '0 12px',
-                                                borderRadius: '999px',
-                                                background: theme.chipBg,
-                                                border: `1px solid ${theme.chipBorder}`,
-                                                color: theme.textMuted,
-                                                fontSize: '14px',
-                                                fontWeight: 800,
-                                                lineHeight: 1.05,
-                                                height: '38px',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                            }}
-                                        >
-                                            {fact}
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'right', flexShrink: 0 }}>
-                                    {config.logoType === 'image' && config.logoUrl ? (
-                                        <img
-                                            src={config.logoUrl}
-                                            alt={brandName}
-                                            style={{ width: '42px', height: '42px', objectFit: 'contain', flexShrink: 0 }}
-                                        />
-                                    ) : (
-                                        <div
-                                            style={{
-                                                position: 'relative',
-                                                width: '42px',
-                                                height: '42px',
-                                                borderRadius: '14px',
-                                                background: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 52%, #4f46e5 100%)',
-                                                boxShadow: '0 12px 26px rgba(37,99,235,0.28)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            <div style={{ width: '16px', height: '16px', borderRadius: '999px', background: '#ffffff' }} />
-                                        </div>
-                                    )}
-                                    <div>
-                                        <div style={{ color: theme.textPrimary, fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em' }}>
-                                            {brandName}
-                                        </div>
-                                        <div style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 700, marginTop: '4px', letterSpacing: '0.06em' }}>
-                                        listopic.app
+                                            )
+                                        }
+                                        <div>
+                                            <div style={{ color: theme.textPrimary, fontSize: '20px', fontWeight: 900, letterSpacing: '-0.02em' }}>{brandName}</div>
+                                            <div style={{ color: theme.textMuted, fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em' }}>listopic.app</div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
+                    )}
 
+                    {/* ─── EDITORIAL: split columns 4:5 ─── */}
+                    {variant === 'editorial' && (
+                        <div style={{
+                            position: 'relative', width: '100%', height: '100%',
+                            borderRadius: '44px', overflow: 'hidden',
+                            background: theme.cardBg, boxShadow: theme.shadow,
+                            display: 'flex', flexDirection: 'row',
+                        }}>
+                            {/* Left: image */}
+                            <div style={{ position: 'relative', width: '622px', flexShrink: 0 }}>
+                                {heroImage
+                                    ? <div role="img" aria-label={titleText} style={{ position: 'absolute', inset: 0, ...getCoverBackground(heroImage) }} />
+                                    : <div style={{ position: 'absolute', inset: 0, background: theme.heroFallback }} />
+                                }
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 100%)' }} />
+                                <div style={{ position: 'absolute', top: '36px', left: '36px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                    {infoChips.map((chip) => (
+                                        <div key={chip} style={{
+                                            padding: '0 16px', height: '36px', borderRadius: '9999px',
+                                            background: 'rgba(0,0,0,0.56)', border: '1px solid rgba(255,255,255,0.16)',
+                                            color: '#ffffff', fontSize: '14px', fontWeight: 800,
+                                            display: 'inline-flex', alignItems: 'center',
+                                            letterSpacing: '0.06em', textTransform: 'uppercase' as const,
+                                        }}>{chip}</div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Right: editorial panel */}
+                            <div style={{
+                                flex: 1, background: theme.panelBg,
+                                padding: '46px 38px 46px 40px',
+                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                            }}>
+                                {/* Brand */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                                    {config.logoType === 'image' && config.logoUrl
+                                        ? <img src={config.logoUrl} alt={brandName} style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+                                        : (
+                                            <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 52%, #4f46e5 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '9999px', background: '#ffffff' }} />
+                                            </div>
+                                        )
+                                    }
+                                    <div style={{ fontSize: '16px', fontWeight: 900, color: theme.textMuted }}>{brandName}</div>
+                                </div>
+
+                                {/* Center: score + title + criteria */}
+                                <div>
+                                    {hasScore && (
+                                        <>
+                                            <div style={{
+                                                fontSize: '160px', fontWeight: 900, lineHeight: 0.85,
+                                                color: theme.textPrimary, letterSpacing: '-0.05em',
+                                                fontVariantNumeric: 'tabular-nums',
+                                            }}>{formatScore(score)}</div>
+                                            <div style={{ marginTop: '18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ width: '48px', height: '4px', borderRadius: '2px', background: theme.accent }} />
+                                                <span style={{ fontSize: '13px', fontWeight: 900, color: theme.textMuted, letterSpacing: '0.22em', textTransform: 'uppercase' as const }}>
+                                                    {scoreLabel}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+                                    <h1 style={{
+                                        margin: hasScore ? '26px 0 0' : '0',
+                                        fontSize: editorialTitleSize, fontWeight: 900, lineHeight: 1.0,
+                                        letterSpacing: '-0.02em', color: theme.textPrimary, wordBreak: 'break-word',
+                                    }}>{titleText}</h1>
+                                    {subtitleText && (
+                                        <p style={{ margin: '13px 0 0', fontSize: '17px', fontWeight: 600, color: theme.textMuted, lineHeight: 1.4 }}>
+                                            {subtitleText}
+                                        </p>
+                                    )}
+                                    {criteriaStats.slice(0, 4).length > 0 && (
+                                        <div style={{ marginTop: '28px', display: 'flex', flexDirection: 'column' }}>
+                                            {criteriaStats.slice(0, 4).map((stat) => (
+                                                <div key={stat.key} style={{
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                    gap: '10px', padding: '13px 0',
+                                                    borderBottom: `1px solid ${theme.border}`,
+                                                }}>
+                                                    <span style={{ fontSize: '15px', fontWeight: 700, color: theme.textSecondary }}>{truncateLabel(stat.label, 18)}</span>
+                                                    <span style={{ fontSize: '22px', fontWeight: 900, color: theme.textPrimary, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                                                        {formatScore(stat.score)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Author */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+                                    <div style={{
+                                        width: '46px', height: '46px', borderRadius: '9999px', overflow: 'hidden',
+                                        border: `2px solid ${theme.border}`, background: theme.accentSoft,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: theme.textPrimary, fontWeight: 900, fontSize: '18px', flexShrink: 0,
+                                    }}>
+                                        {avatarImage
+                                            ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
+                                            : (authorLabel || 'L').slice(0, 1).toUpperCase()
+                                        }
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '17px', fontWeight: 800, color: theme.textPrimary, lineHeight: 1 }}>{authorLabel}</div>
+                                        {createdAtLabel && <div style={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, marginTop: '3px' }}>{createdAtLabel}</div>}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ─── CLEAN: polaroid 1:1 ─── */}
+                    {variant === 'clean' && (
+                        <div style={{
+                            position: 'relative', width: '100%', height: '100%',
+                            borderRadius: '36px', overflow: 'hidden',
+                            background: '#ffffff', boxShadow: theme.shadow,
+                            display: 'flex', flexDirection: 'column',
+                        }}>
+                            {/* Image */}
+                            <div style={{ position: 'relative', height: '756px', flexShrink: 0 }}>
+                                {heroImage
+                                    ? <div role="img" aria-label={titleText} style={{ position: 'absolute', inset: 0, ...getCoverBackground(heroImage) }} />
+                                    : <div style={{ position: 'absolute', inset: 0, background: theme.heroFallback }} />
+                                }
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0) 70%, rgba(0,0,0,0.22) 100%)' }} />
+                                <div style={{ position: 'absolute', top: '28px', left: '28px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {infoChips.map((chip) => (
+                                        <div key={chip} style={{
+                                            padding: '0 16px', height: '34px', borderRadius: '9999px',
+                                            background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(0,0,0,0.08)',
+                                            color: '#0f172a', fontSize: '13px', fontWeight: 800,
+                                            display: 'inline-flex', alignItems: 'center',
+                                            letterSpacing: '0.05em', textTransform: 'uppercase' as const,
+                                        }}>{chip}</div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* White info strip */}
+                            <div style={{
+                                flex: 1, background: '#ffffff',
+                                padding: '24px 32px 28px',
+                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                            }}>
+                                {/* Title + score */}
+                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px' }}>
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                        <h1 style={{
+                                            margin: 0, fontSize: cleanTitleSize, fontWeight: 900, lineHeight: 0.95,
+                                            letterSpacing: '-0.03em', color: '#0f172a', wordBreak: 'break-word',
+                                        }}>{titleText}</h1>
+                                        {subtitleText && (
+                                            <p style={{ margin: '10px 0 0', fontSize: '17px', fontWeight: 600, color: '#64748b', lineHeight: 1.3 }}>
+                                                {subtitleText}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {hasScore && (
+                                        <div style={{
+                                            width: '82px', height: '82px', borderRadius: '9999px',
+                                            border: `3px solid ${scoreColor}`, background: `${scoreColor}14`,
+                                            display: 'flex', flexDirection: 'column',
+                                            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        }}>
+                                            <span style={{ fontSize: '28px', fontWeight: 900, color: scoreColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                                                {formatScore(score)}
+                                            </span>
+                                            <span style={{ fontSize: '10px', fontWeight: 800, color: scoreColor, letterSpacing: '0.12em', opacity: 0.8 }}>
+                                                {scoreLabel}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Author + brand */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                        <div style={{
+                                            width: '42px', height: '42px', borderRadius: '9999px', overflow: 'hidden',
+                                            border: '2px solid rgba(15,23,42,0.12)', background: 'rgba(15,23,42,0.06)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            color: '#0f172a', fontWeight: 900, fontSize: '17px', flexShrink: 0,
+                                        }}>
+                                            {avatarImage
+                                                ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} />
+                                                : (authorLabel || 'L').slice(0, 1).toUpperCase()
+                                            }
+                                        </div>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {authorLabel}
+                                            </div>
+                                            {createdAtLabel && <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8' }}>{createdAtLabel}</div>}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                        {config.logoType === 'image' && config.logoUrl
+                                            ? <img src={config.logoUrl} alt={brandName} style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+                                            : (
+                                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 52%, #4f46e5 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <div style={{ width: '12px', height: '12px', borderRadius: '9999px', background: '#ffffff' }} />
+                                                </div>
+                                            )
+                                        }
+                                        <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>{brandName}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
             {isPreviewOpen && previewImage && (
                 <div
                     className="fixed inset-0 z-[115] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
@@ -1353,7 +1168,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 >
                     <div
                         className="bg-[#151b2e] rounded-2xl w-full border border-white/10 overflow-hidden shadow-2xl"
-                        style={{ maxWidth: isLandscapeCard ? '960px' : '430px' }}
+                        style={{ maxWidth: variant === 'editorial' ? '680px' : variant === 'story' ? '380px' : '430px' }}
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="p-4 border-b border-white/10 flex justify-between items-center">
