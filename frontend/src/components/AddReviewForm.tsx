@@ -1259,11 +1259,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     setProcessedPhotos(photos);
                     setIsPhotoEditorOpen(false);
                 }}
-                onPublish={(photos) => {
-                    setProcessedPhotos(photos);
-                    setIsPhotoEditorOpen(false);
-                    handleSubmit(null, photos);
-                }}
                 onClose={() => setIsPhotoEditorOpen(false)}
             />
         )}
