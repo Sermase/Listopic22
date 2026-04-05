@@ -11,7 +11,8 @@
       "Bash(find /home/sermase/Documentos/GitHub/Listopic22/functions -name *.ts -o -name *.js)",
       "Bash(find /home/sermase/Documentos/GitHub/Listopic22 -type f -name constants* -o -name config*)",
       "Bash(find /home/sermase/Documentos/GitHub/Listopic22 -type f \\\\\\(-name *.json -o -name *.csv \\\\\\) -size +10k -not -path */node_modules/* -not -path */dist/*)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(npm list:*)"
     ]
   }
 }

@@ -13,6 +13,7 @@ export interface ReviewEntity {
     comment: string;
     overallRating: number;
     photoUrl?: string;
+    photoUrls?: string[];
     userId: string;
     authorName?: string;
     authorPhoto?: string;

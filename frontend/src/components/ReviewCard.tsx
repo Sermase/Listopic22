@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User, Heart, MessageSquare, Flag } from 'lucide-react';
+import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User, Heart, MessageSquare, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ReviewComments } from './ReviewComments';
 import { UserAvatar } from './UserAvatar';
 import { doc, setDoc, deleteDoc, getDoc, collection, onSnapshot, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
@@ -41,6 +41,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [carouselIdx, setCarouselIdx] = useState(0);
 
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -373,7 +374,14 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 </div>
 
                 {/* 2. Main Visual: Large Image with Overlay Bubble (Also for fallback) */}
-                <div className={`relative w-[calc(100%-1.5rem)] mx-auto rounded-[1.25rem] overflow-hidden bg-gray-900 shadow-inner group/image ${review.photoUrl ? 'aspect-auto' : 'h-32 sm:h-40'}`}>
+                {(() => {
+                    const allPhotos = review.photoUrls?.length ? review.photoUrls : (review.photoUrl ? [review.photoUrl] : []);
+                    const hasPhotos = allPhotos.length > 0;
+                    const goLeft = (e: React.MouseEvent) => { e.stopPropagation(); setCarouselIdx(i => (i - 1 + allPhotos.length) % allPhotos.length); };
+                    const goRight = (e: React.MouseEvent) => { e.stopPropagation(); setCarouselIdx(i => (i + 1) % allPhotos.length); };
+                    const safeIdx = Math.min(carouselIdx, Math.max(0, allPhotos.length - 1));
+                    return (
+                <div className={`relative w-[calc(100%-1.5rem)] mx-auto rounded-[1.25rem] overflow-hidden bg-gray-900 shadow-inner group/image ${hasPhotos ? 'aspect-auto' : 'h-32 sm:h-40'}`}>
 
                     {/* "Ñam!" Animation Overlay */}
                     {showAnimation && (
@@ -386,12 +394,31 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         </div>
                     )}
 
-                    {review.photoUrl ? (
-                        <img
-                            src={review.photoUrl}
-                            alt={review.itemName}
-                            className="w-full h-auto object-cover block"
-                        />
+                    {hasPhotos ? (
+                        <>
+                            <img
+                                src={allPhotos[safeIdx]}
+                                alt={review.itemName}
+                                className="w-full h-auto object-cover block"
+                            />
+                            {allPhotos.length > 1 && (
+                                <>
+                                    <button onClick={goLeft} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full p-1.5 transition-all">
+                                        <ChevronLeft className="w-4 h-4 text-white" />
+                                    </button>
+                                    <button onClick={goRight} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full p-1.5 transition-all">
+                                        <ChevronRight className="w-4 h-4 text-white" />
+                                    </button>
+                                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
+                                        {allPhotos.map((_, i) => (
+                                            <button key={i} onClick={e => { e.stopPropagation(); setCarouselIdx(i); }}
+                                                className={`w-1.5 h-1.5 rounded-full transition-all ${i === safeIdx ? 'bg-white scale-125' : 'bg-white/40'}`}
+                                            />
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </>
                     ) : (
                         review.placeMainImage ? (
                             <img src={review.placeMainImage} alt={review.placeName} className="w-full h-full object-cover object-center opacity-60 group-hover/image:scale-105 transition-transform duration-700" />
@@ -403,7 +430,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     )}
 
                     {/* Overlay Bubbles Container - Always visible now if we have fallback image or legitimate image */}
-                    <div className={`absolute ${review.photoUrl ? 'top-4 right-4 flex-col items-end gap-2' : 'top-1/2 -translate-y-1/2 right-4 flex-row items-center gap-3'} flex z-10`}>
+                    <div className={`absolute ${(review.photoUrls?.length || review.photoUrl) ? 'top-4 right-4 flex-col items-end gap-2' : 'top-1/2 -translate-y-1/2 right-4 flex-row items-center gap-3'} flex z-10`}>
 
                         {/* City Bubble (Overlay) */}
                         {(review as any).placeCity && (
@@ -426,6 +453,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         </div>
                     </div>
                 </div>
+                    );
+                })()}
 
                 {/* 3. Content Body */}
                 <div className="p-4 pt-3 space-y-3 flex-1">
