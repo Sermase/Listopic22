@@ -27,7 +27,18 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
     useEffect(() => {
         if (isVisible) {
             setPhase('entering');
-            const t1 = window.setTimeout(() => setPhase('visible'), 50);
+            const t1 = window.setTimeout(() => {
+                setPhase('visible');
+                import('canvas-confetti').then((confetti) => {
+                    confetti.default({
+                        particleCount: 75,
+                        spread: 70,
+                        origin: { y: 0 },
+                        colors: ['#FFD700', '#FFA500', '#FF8C00']
+                    });
+                });
+                if (navigator.vibrate) navigator.vibrate([20, 10, 20]);
+            }, 50);
             const t2 = window.setTimeout(() => setPhase('leaving'), 5000);
             const t3 = window.setTimeout(() => {
                 setPhase('hidden');

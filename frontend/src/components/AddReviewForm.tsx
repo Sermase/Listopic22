@@ -80,6 +80,20 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [originalData, setOriginalData] = useState<string>(''); // JSON string for deep comparison
 
     const scrollRef = useRef<HTMLDivElement>(null);
+    const headerTouchStartY = useRef<number | null>(null);
+
+    const handleHeaderTouchStart = (e: React.TouchEvent) => {
+        headerTouchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleHeaderTouchEnd = (e: React.TouchEvent) => {
+        if (headerTouchStartY.current === null) return;
+        const delta = e.changedTouches[0].clientY - headerTouchStartY.current;
+        if (delta > 80) {
+            onClose(); // Swipe down to close
+        }
+        headerTouchStartY.current = null;
+    };
 
     const handlePointerDown = (e: React.PointerEvent) => {
         // If the user taps on something that is NOT a text input/textarea, blur the active element.
@@ -99,8 +113,33 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         if (listId) setInternalListId(listId);
     }, [listId]);
 
-    // Validation Logic
     const isNew = !editReviewId;
+
+    // Draft Logic: Restore
+    useEffect(() => {
+        if (isNew) {
+            const draftStr = localStorage.getItem(`listopic_review_draft_${internalListId || 'global'}`);
+            if (draftStr) {
+                try {
+                    const draft = JSON.parse(draftStr);
+                    if (draft.itemName && !prefillItemName) setItemName(draft.itemName);
+                    if (draft.comment) setComment(draft.comment);
+                    if (draft.criteriaScores) { setCriteriaScores(draft.criteriaScores); }
+                    if (draft.ratingsTouched) setRatingsTouched(draft.ratingsTouched);
+                } catch (e) { }
+            }
+        }
+    }, [isNew, internalListId, prefillItemName]);
+
+    // Draft Logic: Save
+    useEffect(() => {
+        if (!isNew || (!ratingsTouched && !itemName && !comment)) return;
+        const timeout = setTimeout(() => {
+            const draft = { itemName, comment, criteriaScores, ratingsTouched };
+            localStorage.setItem(`listopic_review_draft_${internalListId || 'global'}`, JSON.stringify(draft));
+        }, 500);
+        return () => clearTimeout(timeout);
+    }, [itemName, comment, criteriaScores, isNew, internalListId, ratingsTouched]);
 
     const isValid = useMemo(() => {
         // 1. Place is required
@@ -758,6 +797,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 title: isNew ? 'Reseña publicada' : 'Cambios guardados',
                 message: isNew ? pickRandom(REVIEW_CREATE_TOASTS) : pickRandom(REVIEW_EDIT_TOASTS),
             });
+            localStorage.removeItem(`listopic_review_draft_${finalListId || 'global'}`);
             onSuccess();
             onClose();
 
@@ -1011,6 +1051,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                             const newVal = parseFloat(e.target.value);
                                                             setCriteriaScores({ ...criteriaScores, [criterion.id]: newVal });
                                                             setRatingsTouched(true);
+                                                            navigator.vibrate?.(10);
                                                         }}
                                                         className="custom-range-slider"
                                                         style={{ background: getSliderBg(val, true), '--thumb-color': color } as React.CSSProperties}
@@ -1048,6 +1089,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                                 const newVal = parseFloat(e.target.value);
                                                                 setCriteriaScores({ ...criteriaScores, [criterion.id]: newVal });
                                                                 setRatingsTouched(true);
+                                                                navigator.vibrate?.(10);
                                                             }}
                                                             className="custom-range-slider"
                                                             style={{ background: getSliderBg(val, false), '--thumb-color': '#5C7CFA' } as React.CSSProperties}
