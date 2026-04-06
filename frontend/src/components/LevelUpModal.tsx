@@ -13,7 +13,7 @@ interface LevelUpModalProps {
 
 /**
  * Elegant level-up celebration modal.
- * No confetti — just a refined gold fill animation with intensity that grows as the bar fills.
+ * Triggers gold fill animation followed by 3D confetti and haptic pulses.
  */
 export const LevelUpModal: React.FC<LevelUpModalProps> = ({
     isOpen,
@@ -47,6 +47,20 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({
         // Phase 3: Complete
         const t3 = window.setTimeout(() => {
             setAnimPhase('complete');
+            const isLvlUp = previousLevel > 0 && levelInfo.level > previousLevel;
+            if (isLvlUp) {
+                import('canvas-confetti').then((confetti) => {
+                    confetti.default({
+                        particleCount: 150,
+                        spread: 80,
+                        origin: { y: 0.6 },
+                        colors: ['#FFD700', '#FFA500', '#FF8C00', '#FF4500']
+                    });
+                });
+                if (navigator.vibrate) navigator.vibrate([15, 30, 20]);
+            } else {
+                if (navigator.vibrate) navigator.vibrate([10]);
+            }
         }, 1800);
 
         return () => {

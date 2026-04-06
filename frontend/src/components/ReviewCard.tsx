@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User, Heart, MessageSquare, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ReviewComments } from './ReviewComments';
 import { UserAvatar } from './UserAvatar';
+import { ProgressiveImage } from './ProgressiveImage';
 import { doc, setDoc, deleteDoc, getDoc, collection, onSnapshot, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 import { type ReviewEntity } from '../hooks/useListDetails';
@@ -381,78 +382,75 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     const goRight = (e: React.MouseEvent) => { e.stopPropagation(); setCarouselIdx(i => (i + 1) % allPhotos.length); };
                     const safeIdx = Math.min(carouselIdx, Math.max(0, allPhotos.length - 1));
                     return (
-                <div className={`relative w-[calc(100%-1.5rem)] mx-auto rounded-[1.25rem] overflow-hidden bg-gray-900 shadow-inner group/image ${hasPhotos ? 'aspect-auto' : 'h-32 sm:h-40'}`}>
+                        <div className={`relative w-[calc(100%-1.5rem)] mx-auto rounded-[1.25rem] overflow-hidden bg-gray-900 shadow-inner group/image ${hasPhotos ? 'aspect-auto' : 'h-32 sm:h-40'}`}>
 
-                    {/* "Ñam!" Animation Overlay */}
-                    {showAnimation && (
-                        <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
-                            <div className="bg-black/60 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 shadow-2xl animate-bounce-in">
-                                <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 drop-shadow-sm filter">
-                                    {likeText}
-                                </span>
-                            </div>
-                        </div>
-                    )}
 
-                    {hasPhotos ? (
-                        <>
-                            <img
-                                src={allPhotos[safeIdx]}
-                                alt={review.itemName}
-                                className="w-full h-auto object-cover block"
-                            />
-                            {allPhotos.length > 1 && (
+
+                            {hasPhotos ? (
                                 <>
-                                    <button onClick={goLeft} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full p-1.5 transition-all">
-                                        <ChevronLeft className="w-4 h-4 text-white" />
-                                    </button>
-                                    <button onClick={goRight} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full p-1.5 transition-all">
-                                        <ChevronRight className="w-4 h-4 text-white" />
-                                    </button>
-                                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
-                                        {allPhotos.map((_, i) => (
-                                            <button key={i} onClick={e => { e.stopPropagation(); setCarouselIdx(i); }}
-                                                className={`w-1.5 h-1.5 rounded-full transition-all ${i === safeIdx ? 'bg-white scale-125' : 'bg-white/40'}`}
-                                            />
-                                        ))}
-                                    </div>
+                                    <ProgressiveImage
+                                        src={allPhotos[safeIdx]}
+                                        alt={review.itemName}
+                                        containerClassName="w-full h-auto"
+                                        className="w-full h-auto object-cover block"
+                                    />
+                                    {allPhotos.length > 1 && (
+                                        <>
+                                            <button onClick={goLeft} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full p-1.5 transition-all">
+                                                <ChevronLeft className="w-4 h-4 text-white" />
+                                            </button>
+                                            <button onClick={goRight} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full p-1.5 transition-all">
+                                                <ChevronRight className="w-4 h-4 text-white" />
+                                            </button>
+                                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
+                                                {allPhotos.map((_, i) => (
+                                                    <button key={i} onClick={e => { e.stopPropagation(); setCarouselIdx(i); }}
+                                                        className={`w-1.5 h-1.5 rounded-full transition-all ${i === safeIdx ? 'bg-white scale-125' : 'bg-white/40'}`}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
                                 </>
+                            ) : (
+                                review.placeMainImage ? (
+                                    <ProgressiveImage
+                                        src={review.placeMainImage}
+                                        alt={review.placeName}
+                                        containerClassName="w-full h-full"
+                                        className="w-full h-full object-cover object-center opacity-60 group-hover/image:scale-105 transition-transform duration-700"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
+                                        <MapPin className="w-8 h-8 mb-1 opacity-20" />
+                                    </div>
+                                )
                             )}
-                        </>
-                    ) : (
-                        review.placeMainImage ? (
-                            <img src={review.placeMainImage} alt={review.placeName} className="w-full h-full object-cover object-center opacity-60 group-hover/image:scale-105 transition-transform duration-700" />
-                        ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
-                                <MapPin className="w-8 h-8 mb-1 opacity-20" />
-                            </div>
-                        )
-                    )}
 
-                    {/* Overlay Bubbles Container - Always visible now if we have fallback image or legitimate image */}
-                    <div className={`absolute ${(review.photoUrls?.length || review.photoUrl) ? 'top-4 right-4 flex-col items-end gap-2' : 'top-1/2 -translate-y-1/2 right-4 flex-row items-center gap-3'} flex z-10`}>
+                            {/* Overlay Bubbles Container - Always visible now if we have fallback image or legitimate image */}
+                            <div className={`absolute ${(review.photoUrls?.length || review.photoUrl) ? 'top-4 right-4 flex-col items-end gap-2' : 'top-1/2 -translate-y-1/2 right-4 flex-row items-center gap-3'} flex z-10`}>
 
-                        {/* City Bubble (Overlay) */}
-                        {(review as any).placeCity && (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md shadow-lg transform transition-transform group-hover:scale-105">
-                                <MapPin className="w-3.5 h-3.5 text-white/90" />
-                                <span className="text-white font-bold text-xs uppercase tracking-wide">{(review as any).placeCity}</span>
-                            </div>
-                        )}
+                                {/* City Bubble (Overlay) */}
+                                {(review as any).placeCity && (
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md shadow-lg transform transition-transform group-hover:scale-105">
+                                        <MapPin className="w-3.5 h-3.5 text-white/90" />
+                                        <span className="text-white font-bold text-xs uppercase tracking-wide">{(review as any).placeCity}</span>
+                                    </div>
+                                )}
 
-                        {/* The "Living" Score Bubble */}
-                        <div className={`relative w-16 h-16 flex items-center justify-center animate-blob transition-all duration-500 group-hover:scale-110`}>
-                            {/* Inner Gradient Blob */}
-                            <div className={`absolute inset-0 bg-gradient-to-br ${bubbleColor} opacity-90 blur-sm rounded-full`} />
-                            {/* Core Bubble */}
-                            <div className={`relative w-full h-full bg-gradient-to-br ${bubbleColor} flex items-center justify-center shadow-lg border-2 border-white/10 backdrop-blur-sm rounded-full`}>
-                                <span className="text-white font-display font-bold text-2xl drop-shadow-md">
-                                    {review.overallRating?.toFixed(1) || '-'}
-                                </span>
+                                {/* The "Living" Score Bubble */}
+                                <div className={`relative w-16 h-16 flex items-center justify-center animate-blob transition-all duration-500 group-hover:scale-110`}>
+                                    {/* Inner Gradient Blob */}
+                                    <div className={`absolute inset-0 bg-gradient-to-br ${bubbleColor} opacity-90 blur-sm rounded-full`} />
+                                    {/* Core Bubble */}
+                                    <div className={`relative w-full h-full bg-gradient-to-br ${bubbleColor} flex items-center justify-center shadow-lg border-2 border-white/10 backdrop-blur-sm rounded-full`}>
+                                        <span className="text-white font-display font-bold text-2xl drop-shadow-md">
+                                            {review.overallRating?.toFixed(1) || '-'}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
                     );
                 })()}
 
@@ -470,11 +468,10 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                     {review.placeName}
                                 </Link>
                                 {placeClosedStatus && (
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${
-                                        placeClosedStatus === 'permanently_closed'
-                                            ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                                            : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
-                                    }`}>
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${placeClosedStatus === 'permanently_closed'
+                                        ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                                        : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                                        }`}>
                                         {placeClosedStatus === 'permanently_closed' ? '🔒 Cerrado' : '⏰ Cerrado temp.'}
                                     </span>
                                 )}
@@ -554,11 +551,22 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 <div className="px-4 py-3 border-t border-white/5 bg-white/[0.02] flex items-center justify-between mt-auto relative z-10">
                     <div className="flex items-center gap-4">
                         <button
-                            className={`flex items-center gap-1.5 transition-all group/btn ${liked ? 'text-pink-500 scale-105' : 'text-gray-400 hover:text-pink-500'}`}
+                            className={`flex items-center gap-1.5 transition-all group/btn ${liked ? 'text-pink-500 scale-105' : 'text-gray-400 hover:text-pink-500'} relative`}
                             onClick={handleLike}
                         >
                             <ThumbsUp className={`w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5] ${liked ? 'fill-current' : ''}`} />
-                            <span className="text-sm font-semibold">{likeCount > 0 ? likeCount : ''}</span>
+                            <span className="text-sm font-semibold relative overflow-hidden h-5 min-w-[12px] flex items-center justify-center">
+                                {showAnimation ? (
+                                    <span className="animate-[fade-in_0.3s_ease-out_forwards]">{likeCount > 0 ? likeCount : ''}</span>
+                                ) : (
+                                    <span>{likeCount > 0 ? likeCount : ''}</span>
+                                )}
+                            </span>
+                            {showAnimation && (
+                                <span className="absolute -top-7 left-1/2 -translate-x-1/2 text-pink-500 font-extrabold text-xs whitespace-nowrap pointer-events-none drop-shadow-md animate-[float-up_0.8s_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
+                                    {likeText}
+                                </span>
+                            )}
                         </button>
                         <button
                             className={`flex items-center gap-1.5 transition-colors group/btn ${showComments ? 'text-indigo-400' : 'text-gray-400 hover:text-indigo-400'}`}

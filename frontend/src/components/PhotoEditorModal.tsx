@@ -2,7 +2,33 @@ import React, { useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
-import { ArrowLeft, ArrowRight, Star, Plus, X, Loader2 } from 'lucide-react';
+import { Plus, X, Loader2, Star } from 'lucide-react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+const SortablePhoto = ({ p, i, activeIdx, setActiveIdx, removePhoto }: any) => {
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: p.id });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        border: `2px solid ${activeIdx === i ? '#6366f1' : 'rgba(255,255,255,0.1)'}`
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners}
+            onClick={() => setActiveIdx(i)}
+            className="relative shrink-0 w-14 h-14 rounded-xl overflow-hidden cursor-pointer touch-none transition-shadow hover:shadow-lg">
+            <img src={p.src} alt="" className="w-full h-full object-cover pointer-events-none" />
+            {i === 0 && <div className="absolute top-1 left-1 bg-amber-500 rounded-full p-0.5 shadow-sm"><Star className="w-2.5 h-2.5 fill-current text-white" /></div>}
+            <button onPointerDown={e => { e.stopPropagation(); removePhoto(i); }}
+                className="absolute top-1 right-1 rounded-full p-0.5 transition-colors z-10"
+                style={{ background: 'rgba(0,0,0,0.7)' }}>
+                <X className="w-2.5 h-2.5 text-white" />
+            </button>
+        </div>
+    );
+};
 
 export interface ProcessedPhoto {
     dataUrl: string;
@@ -91,10 +117,31 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
         setActiveIdx(prev => Math.max(0, idx <= prev ? prev - 1 : prev));
     };
 
-    const swap = (a: number, b: number) => {
-        setPhotos(prev => { const arr = [...prev];[arr[a], arr[b]] = [arr[b], arr[a]]; return arr; });
-        setActiveIdx(b);
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+        useSensor(KeyboardSensor)
+    );
+
+    const handleDragEnd = (event: any) => {
+        const { active, over } = event;
+        if (over && active.id !== over.id) {
+            const oldIndex = photos.findIndex(i => i.id === active.id);
+            const newIndex = photos.findIndex(i => i.id === over.id);
+
+            setPhotos(items => arrayMove(items, oldIndex, newIndex));
+
+            if (activeIdx === oldIndex) {
+                setActiveIdx(newIndex);
+            } else if (oldIndex < activeIdx && newIndex >= activeIdx) {
+                setActiveIdx(activeIdx - 1);
+            } else if (oldIndex > activeIdx && newIndex <= activeIdx) {
+                setActiveIdx(activeIdx + 1);
+            }
+        }
     };
+
+    const headerTouchStartY = useRef<number | null>(null);
 
     const handleConfirm = async () => {
         if (!photos.length) { onConfirm([]); return; }
@@ -112,11 +159,16 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
     };
 
     return createPortal(
-        <div className="fixed top-0 left-0 w-full h-[100dvh] z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center sm:p-6">
+        <div className="fixed top-0 left-0 w-full h-[100dvh] z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center sm:p-6 animate-slide-up-modal sm:animate-fade-in origin-bottom sm:origin-center">
             <div className="w-full h-full max-w-2xl bg-[#0b1021] sm:rounded-2xl shadow-2xl overflow-hidden" style={{ display: 'grid', gridTemplateRows: 'auto 1fr auto', boxShadow: '0 0 0 1px rgba(255,255,255,0.06)' }}>
                 {/* Fila 1: Header */}
                 <div style={{ background: 'linear-gradient(135deg, #151c36 0%, #111828 100%)', position: 'relative', overflow: 'hidden' }}
-                    className="flex shrink-0 items-center justify-between p-5">
+                    className="flex shrink-0 items-center justify-between p-5 touch-pan-x"
+                    onTouchStart={e => { headerTouchStartY.current = e.touches[0].clientY; }}
+                    onTouchEnd={e => {
+                        if (headerTouchStartY.current !== null && e.changedTouches[0].clientY - headerTouchStartY.current > 80) onClose();
+                        headerTouchStartY.current = null;
+                    }}>
                     <div style={{ position: 'absolute', top: -32, left: -32, width: 112, height: 112, borderRadius: '50%', background: 'radial-gradient(circle, #5C7CFA, transparent 70%)', opacity: 0.25, pointerEvents: 'none' }} />
                     <div className="relative flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
@@ -176,25 +228,14 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                     </div>
 
                     {/* Miniaturas */}
-                    <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto">
-                        {photos.map((p, i) => (
-                            <div key={p.id} onClick={() => setActiveIdx(i)}
-                                style={{ border: `2px solid ${activeIdx === i ? '#6366f1' : 'rgba(255,255,255,0.1)'}` }}
-                                className="relative shrink-0 w-14 h-14 rounded-xl overflow-hidden cursor-pointer transition-all">
-                                <img src={p.src} alt="" className="w-full h-full object-cover" />
-                                {i === 0 && <div className="absolute top-1 left-1 bg-amber-500 rounded-full p-0.5"><Star className="w-2.5 h-2.5 fill-current text-white" /></div>}
-                                <button onClick={e => { e.stopPropagation(); removePhoto(i); }}
-                                    className="absolute top-1 right-1 rounded-full p-0.5 transition-colors"
-                                    style={{ background: 'rgba(0,0,0,0.7)' }}>
-                                    <X className="w-2.5 h-2.5 text-white" />
-                                </button>
-                                <div className="absolute bottom-0.5 inset-x-0.5 flex justify-between">
-                                    {i > 0 && <button onClick={e => { e.stopPropagation(); swap(i - 1, i); }} className="rounded p-0.5" style={{ background: 'rgba(0,0,0,0.6)' }}><ArrowLeft className="w-2.5 h-2.5 text-white" /></button>}
-                                    <div className="flex-1" />
-                                    {i < photos.length - 1 && <button onClick={e => { e.stopPropagation(); swap(i, i + 1); }} className="rounded p-0.5" style={{ background: 'rgba(0,0,0,0.6)' }}><ArrowRight className="w-2.5 h-2.5 text-white" /></button>}
-                                </div>
-                            </div>
-                        ))}
+                    <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto touch-pan-x">
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                            <SortableContext items={photos.map(p => p.id)} strategy={horizontalListSortingStrategy}>
+                                {photos.map((p, i) => (
+                                    <SortablePhoto key={p.id} p={p} i={i} activeIdx={activeIdx} setActiveIdx={setActiveIdx} removePhoto={removePhoto} />
+                                ))}
+                            </SortableContext>
+                        </DndContext>
                         {photos.length < 3 && (
                             <button onClick={() => fileInputRef.current?.click()}
                                 className="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center transition-all"
