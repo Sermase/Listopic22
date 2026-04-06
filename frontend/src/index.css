@@ -189,6 +189,11 @@
         animation: blob 8s ease-in-out infinite, float 8s ease-in-out infinite;
     }
 
+    @keyframes halo-pulse {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 0.8; }
+    }
+
     @keyframes float {
         0% {
             transform: translateY(0px) rotate(0deg);

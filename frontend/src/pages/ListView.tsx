@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useLists } from '../hooks/useLists';
 import { useLocation } from '../hooks/useLocation';
 import { ListCard } from '../components/ListCard';
+import { ProgressiveImage } from '../components/ProgressiveImage';
 import { Search, MapPin, Filter, List as ListIcon, LayoutGrid } from 'lucide-react';
 
 export const ListView: React.FC = () => {
@@ -180,9 +181,10 @@ export const ListView: React.FC = () => {
                                         className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden border border-[#0b1021] hover:border-indigo-500 transition-colors block"
                                     >
                                         {imgUrl ? (
-                                            <img
+                                            <ProgressiveImage
                                                 src={imgUrl}
                                                 alt={list.name}
+                                                containerClassName="w-full h-full"
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
                                         ) : (

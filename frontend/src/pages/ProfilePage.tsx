@@ -50,6 +50,7 @@ import { Skeleton } from "../components/Skeleton";
 import { FastAverageColor } from "fast-average-color";
 import { ChatService } from "../services/ChatService";
 import { FollowingSection } from "../components/profile/FollowingSection";
+import { ProgressiveImage } from "../components/ProgressiveImage";
 import { BadgeDisplay } from "../components/profile/BadgeDisplay";
 import { MapView } from "../components/MapView";
 import {
@@ -948,9 +949,10 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-gray-800">
                 {listImage ? (
-                  <img
+                  <ProgressiveImage
                     src={listImage}
                     alt={list.name}
+                    containerClassName="w-full h-full"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
                 ) : (
@@ -1255,8 +1257,7 @@ export const ProfilePage: React.FC = () => {
             : dominantColor ? `linear-gradient(to bottom, ${dominantColor}, #0b1021)` : undefined,
         }}
       >
-        <div className="absolute inset-0 bg-[#0b1021]/60 blur-xl"></div>
-        <div className="absolute inset-0 bg-[#0b1021]/60 blur-xl"></div>
+        <div className="absolute inset-0 bg-[#0b1021]/30 blur-xl"></div>
         {/* Removed top-right buttons from here */}
       </div>
 
@@ -1280,20 +1281,36 @@ export const ProfilePage: React.FC = () => {
                 return <div className={`absolute -inset-1 rounded-full bg-gradient-to-r ${gradient} opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen`} />;
               }
 
-              if (dominantColor) {
-                return <div className="absolute -inset-1 rounded-full opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen" style={{ backgroundColor: dominantColor }} />;
-              }
-
-              return <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen" />;
+              return (
+                <div className="absolute -inset-1 rounded-full">
+                  {/* Capa base: siempre visible, se atenúa cuando llega el color dominante */}
+                  <div
+                    className="absolute inset-0 rounded-full blur-md animate-blob mix-blend-screen"
+                    style={{
+                      backgroundColor: 'rgb(139, 92, 246)',
+                      opacity: dominantColor ? 0.35 : 0.7,
+                      transition: 'opacity 2s ease-in-out',
+                    }}
+                  />
+                  {/* Capa dominante: entra suavemente y pulsa en bucle */}
+                  <div
+                    className="absolute inset-0 rounded-full blur-md mix-blend-screen"
+                    style={{
+                      backgroundColor: dominantColor || 'transparent',
+                      animation: dominantColor ? 'halo-pulse 3.5s ease-in-out infinite' : 'none',
+                      opacity: dominantColor ? undefined : 0,
+                      transition: 'opacity 2s ease-in-out',
+                    }}
+                  />
+                </div>
+              );
             })()}
             <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
               <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-[3px] border-[#0b1021] shadow-2xl relative">
-                <img
-                  src={
-                    profile.photoUrl ||
-                    `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || "User"}`
-                  }
+                <ProgressiveImage
+                  src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || "User"}`}
                   alt={profile.username}
+                  containerClassName="w-full h-full"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -1422,9 +1439,10 @@ export const ProfilePage: React.FC = () => {
                     <div className="relative w-11 h-11 shrink-0">
                       <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
                         {favoriteReview.photoUrl ? (
-                          <img
+                          <ProgressiveImage
                             src={favoriteReview.photoUrl}
                             alt={favoriteReview.itemName}
+                            containerClassName="w-full h-full"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
                         ) : (
@@ -1473,9 +1491,10 @@ export const ProfilePage: React.FC = () => {
               <div className="relative w-11 h-11 shrink-0">
                 <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
                   {favoriteReview.photoUrl ? (
-                    <img
+                    <ProgressiveImage
                       src={favoriteReview.photoUrl}
                       alt={favoriteReview.itemName}
+                      containerClassName="w-full h-full"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   ) : (
@@ -1674,12 +1693,10 @@ export const ProfilePage: React.FC = () => {
               </button>
               <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-full bg-[#0b1021] p-2 shadow-[0_0_50px_rgba(99,102,241,0.2)]">
                 <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-4 border-[#0b1021]">
-                  <img
-                    src={
-                      profile.photoUrl ||
-                      `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || "User"}`
-                    }
+                  <ProgressiveImage
+                    src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || "User"}`}
                     alt={profile.username}
+                    containerClassName="w-full h-full"
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -1948,12 +1965,10 @@ export const ProfilePage: React.FC = () => {
                             ) : null}
 
                             <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 grayscale group-hover:grayscale-0 transition-all">
-                              <img
-                                src={
-                                  profile.photoUrl ||
-                                  `https://ui-avatars.com/api/?name=${profile.displayName}`
-                                }
+                              <ProgressiveImage
+                                src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName}`}
                                 alt="Custom"
+                                containerClassName="w-full h-full"
                                 className="w-full h-full object-cover"
                               />
                             </div>
@@ -2213,12 +2228,9 @@ export const ProfilePage: React.FC = () => {
               ) : reviewViewMode === "gallery" ? (
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
                   {sortedProfileReviews.map((review: any) => {
-                    const hasPhotos =
-                      review.photos &&
-                      Array.isArray(review.photos) &&
-                      review.photos.length > 0;
-                    const isPlaceImage = !hasPhotos && !review.photoUrl && !!review.placeMainImage;
-                    const photoUrl = review.photoUrl || (hasPhotos ? review.photos[0] : null) || review.placeMainImage || null;
+                    const firstPhoto = review.photoUrls?.[0] || review.photoUrl || review.photos?.[0] || null;
+                    const isPlaceImage = !firstPhoto && !!review.placeMainImage;
+                    const photoUrl = firstPhoto || review.placeMainImage || null;
                     const score =
                       typeof review.overallRating === "number"
                         ? review.overallRating
@@ -2263,9 +2275,10 @@ export const ProfilePage: React.FC = () => {
                       >
                         {photoUrl ? (
                           <>
-                            <img
+                            <ProgressiveImage
                               src={photoUrl}
                               alt={review.placeName || review.itemName || "Lugar"}
+                              containerClassName="w-full h-full"
                               className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImage ? 'opacity-40 saturate-50' : ''}`}
                             />
                             <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">

@@ -5,6 +5,7 @@ import { useLists } from '../hooks/useLists';
 import { useUsers } from '../hooks/useUsers';
 import { useReviews } from '../hooks/useReviews';
 import { ReviewCard } from '../components/ReviewCard';
+import { ProgressiveImage } from '../components/ProgressiveImage';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
@@ -902,7 +903,7 @@ export const HomePage: React.FC = () => {
                                 <Link to={`/list/${list.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
                                     {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl) ? (
                                         <div className="absolute inset-0">
-                                            <img src={list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl} alt={list.name} className="w-full h-full object-cover" />
+                                            <ProgressiveImage src={list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl} alt={list.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
                                             <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent" />
                                         </div>
                                     ) : (
@@ -1001,7 +1002,7 @@ export const HomePage: React.FC = () => {
                                 <Link to={`/place/${place.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
                                     {place.photoUrl ? (
                                         <div className="absolute inset-0">
-                                            <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover" />
+                                            <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
                                             <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
                                         </div>
                                     ) : (
@@ -1049,10 +1050,11 @@ export const HomePage: React.FC = () => {
                                                         className="bg-white/5 border border-white/10 rounded-xl p-3 text-center w-28 shrink-0 hover:bg-white/10 transition-colors"
                                                     >
                                                         {topUser.photoURL ? (
-                                                            <img
+                                                            <ProgressiveImage
                                                                 src={topUser.photoURL}
                                                                 alt={topUser.displayName || topUser.username || '?'}
-                                                                className="w-12 h-12 rounded-full mx-auto mb-2 object-cover"
+                                                                containerClassName="w-12 h-12 rounded-full mx-auto mb-2 overflow-hidden"
+                                                                className="w-full h-full object-cover"
                                                             />
                                                         ) : (
                                                             <div className="w-12 h-12 rounded-full mx-auto mb-2 bg-indigo-600 flex items-center justify-center text-white font-bold text-lg">
