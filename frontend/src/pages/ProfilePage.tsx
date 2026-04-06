@@ -1257,8 +1257,7 @@ export const ProfilePage: React.FC = () => {
             : dominantColor ? `linear-gradient(to bottom, ${dominantColor}, #0b1021)` : undefined,
         }}
       >
-        <div className="absolute inset-0 bg-[#0b1021]/60 blur-xl"></div>
-        <div className="absolute inset-0 bg-[#0b1021]/60 blur-xl"></div>
+        <div className="absolute inset-0 bg-[#0b1021]/30 blur-xl"></div>
         {/* Removed top-right buttons from here */}
       </div>
 
