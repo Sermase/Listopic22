@@ -79,13 +79,19 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [ratingsTouched, setRatingsTouched] = useState(false);
     const [originalData, setOriginalData] = useState<string>(''); // JSON string for deep comparison
 
-    // Scroll preservation — prevents the modal from jumping when leaving text inputs
     const scrollRef = useRef<HTMLDivElement>(null);
-    const preserveScroll = () => {
-        const el = scrollRef.current;
-        if (!el) return;
-        const top = el.scrollTop;
-        requestAnimationFrame(() => { el.scrollTop = top; });
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+        // If the user taps on something that is NOT a text input/textarea, blur the active element.
+        // This dismisses the mobile keyboard immediately and prevents browser scroll jumps.
+        if (e.target instanceof HTMLElement) {
+            const tag = e.target.tagName;
+            const type = (e.target as HTMLInputElement).type;
+            const isTextInput = tag === 'TEXTAREA' || (tag === 'INPUT' && (type === 'text' || type === 'url' || type === 'search'));
+            if (!isTextInput && document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+        }
     };
 
     // Update internalListId if prop changes
@@ -848,7 +854,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     </div>
 
                     {/* ── Scrollable body ────────────────────────────── */}
-                    <div ref={scrollRef} className="overflow-y-auto flex-1 custom-scrollbar">
+                    <div ref={scrollRef} className="overflow-y-auto flex-1 custom-scrollbar" onPointerDown={handlePointerDown}>
 
                         {/* ── Sección: ¿En qué lista? ─────────────────── */}
                         <div className="px-4 pt-4">
@@ -929,7 +935,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         type="text"
                                         value={itemName}
                                         onChange={e => setItemName(e.target.value)}
-                                        onBlur={preserveScroll}
                                         maxLength={150}
                                         placeholder="Ej: Pizza Margherita, Tacos al pastor..."
                                         disabled={!!prefillItemName}
@@ -1002,7 +1007,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                         max="10"
                                                         step={criterion.step || 0.1}
                                                         value={val}
-                                                        onFocus={preserveScroll}
                                                         onChange={(e) => {
                                                             const newVal = parseFloat(e.target.value);
                                                             setCriteriaScores({ ...criteriaScores, [criterion.id]: newVal });
@@ -1040,7 +1044,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                             max="10"
                                                             step={criterion.step || 0.5}
                                                             value={val}
-                                                            onFocus={preserveScroll}
                                                             onChange={(e) => {
                                                                 const newVal = parseFloat(e.target.value);
                                                                 setCriteriaScores({ ...criteriaScores, [criterion.id]: newVal });
@@ -1078,7 +1081,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 <textarea
                                     value={comment}
                                     onChange={e => setComment(e.target.value)}
-                                    onBlur={preserveScroll}
                                     maxLength={2000}
                                     placeholder="¿Qué te pareció? Los detalles que hacen la diferencia..."
                                     rows={3}
