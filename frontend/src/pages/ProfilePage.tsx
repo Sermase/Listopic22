@@ -1280,11 +1280,13 @@ export const ProfilePage: React.FC = () => {
                 return <div className={`absolute -inset-1 rounded-full bg-gradient-to-r ${gradient} opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen`} />;
               }
 
-              if (dominantColor) {
-                return <div className="absolute -inset-1 rounded-full opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen" style={{ backgroundColor: dominantColor }} />;
-              }
-
-              return <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen" />;
+              return <div
+                className="absolute -inset-1 rounded-full opacity-70 blur-md group-hover:opacity-100 animate-blob mix-blend-screen"
+                style={{
+                  backgroundColor: dominantColor || 'rgb(139, 92, 246)',
+                  transition: 'background-color 1.8s ease-in-out, opacity 0.5s ease',
+                }}
+              />;
             })()}
             <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
               <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-[3px] border-[#0b1021] shadow-2xl relative">
