@@ -427,6 +427,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     const hasScore = Number.isFinite(score as number);
     const createdAtLabel = toReadableDate(review);
 
+    const isReviewShare = entity.type === 'review' || Boolean(review);
     const titleText = entity.title || 'Listopic';
     const subtitleText = entity.subtitle || '';
     const descriptionText = (review?.comment || entity.description || '').trim();
@@ -504,7 +505,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         };
     }, [entity.referenceCriteriaStats, entity.referenceLabel, entity.type, review?.listId]);
 
-    const isReviewShare = entity.type === 'review' || Boolean(review);
     const { width: exportWidth, height: exportHeight, previewRatio: previewAspectRatio } = VARIANT_DIMENSIONS[variant];
     const reviewCountLabel = formatReviewCount(entity.reviewCount);
     const entityLabel = getShareEntityLabel(entity.type);

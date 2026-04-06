@@ -46,6 +46,8 @@ import { signOut, updateProfile } from "firebase/auth";
 import { ReviewCard } from "../components/ReviewCard";
 import { AddReviewForm } from "../components/AddReviewForm";
 import { ShareModal } from "../components/ShareModal";
+import { Skeleton } from "../components/Skeleton";
+import { FastAverageColor } from "fast-average-color";
 import { ChatService } from "../services/ChatService";
 import { FollowingSection } from "../components/profile/FollowingSection";
 import { BadgeDisplay } from "../components/profile/BadgeDisplay";
@@ -204,17 +206,9 @@ export const ProfilePage: React.FC = () => {
   const targetUserId = paramUserId || user?.uid;
   const isOwnProfile = user?.uid === targetUserId;
 
-  useEffect(() => {
-    setStatsLoadedUserId(null);
-    setStatsError(null);
-    setAdvancedStats(EMPTY_ADVANCED_STATS);
-    setFavoriteReview(null);
-    setIsDetailsModalOpen(false);
-    setDetailsModalTab("stats");
-    setIsAvatarModalOpen(false);
-  }, [targetUserId]);
+  const [dominantColor, setDominantColor] = useState<string | null>(null);
 
-  // Hooks
+  // Hooks need to be before effects
   const {
     profile,
     loading: loadingProfile,
@@ -224,7 +218,39 @@ export const ProfilePage: React.FC = () => {
     "recent",
     targetUserId,
     isOwnProfile,
-  ); // Pass isOwnProfile to include private
+  );
+
+  useEffect(() => {
+    setStatsLoadedUserId(null);
+    setStatsError(null);
+    setAdvancedStats(EMPTY_ADVANCED_STATS);
+    setFavoriteReview(null);
+    setIsDetailsModalOpen(false);
+    setDetailsModalTab("stats");
+    setIsAvatarModalOpen(false);
+    setDominantColor(null);
+  }, [targetUserId]);
+
+  useEffect(() => {
+    if (profile?.photoUrl) {
+      const fac = new FastAverageColor();
+      // Use crossOrigin anonymous to avoid canvas tainting for Firebase Storage images
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.src = profile.photoUrl;
+
+      img.onload = () => {
+        fac.getColorAsync(img)
+          .then((color) => {
+            setDominantColor(color.rgba);
+          })
+          .catch((e) => {
+            console.log("FAC Error:", e);
+          });
+      };
+    }
+  }, [profile?.photoUrl]);
+
   const {
     reviews: fetchedReviews,
     loading: loadingReviews,
@@ -1175,8 +1201,26 @@ export const ProfilePage: React.FC = () => {
 
   if (loadingProfile) {
     return (
-      <div className="min-h-screen pt-32 text-center text-gray-500">
-        Cargando perfil...
+      <div className="min-h-screen bg-[#0b1021] pb-20">
+        <div className="h-56 sm:h-64 relative bg-[#0b1021]">
+          <Skeleton className="w-full h-full opacity-30" />
+        </div>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-[7.5rem] sm:-mt-32 z-10">
+          <div className="flex flex-row items-center md:items-start gap-3 md:gap-8 mb-3 md:mb-4">
+            <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2 shrink-0">
+              <Skeleton className="w-full h-full rounded-full border-[3px] border-[#0b1021]" />
+            </div>
+            <div className="flex-1 mt-0 sm:mt-4 md:mt-12 flex flex-col gap-2">
+              <Skeleton className="w-48 h-8 rounded-lg" />
+              <Skeleton className="w-32 h-5 rounded-md" />
+            </div>
+          </div>
+          <div className="flex gap-4 mt-6">
+            <Skeleton className="w-16 h-12 rounded-lg" />
+            <Skeleton className="w-16 h-12 rounded-lg" />
+            <Skeleton className="w-16 h-12 rounded-lg" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -1205,13 +1249,11 @@ export const ProfilePage: React.FC = () => {
       {/* Header / Banner */}
       <div
         className={`h-56 sm:h-64 relative bg-gradient-to-b from-indigo-900/40 to-[#0b1021] ${profile.photoUrl ? "bg-cover bg-center" : ""}`}
-        style={
-          profile.photoUrl
-            ? {
-              backgroundImage: `linear-gradient(to bottom, rgba(11,16,33,0.3), #0b1021), url(${profile.photoUrl})`,
-            }
-            : {}
-        }
+        style={{
+          backgroundImage: profile.photoUrl
+            ? `linear-gradient(to bottom, ${dominantColor ? `rgba(${dominantColor.split(',').slice(0, 3).join(',')}, 0.3)` : 'rgba(11,16,33,0.3)'}, #0b1021), url(${profile.photoUrl})`
+            : dominantColor ? `linear-gradient(to bottom, ${dominantColor}, #0b1021)` : undefined,
+        }}
       >
         <div className="absolute inset-0 bg-[#0b1021]/60 blur-xl"></div>
         <div className="absolute inset-0 bg-[#0b1021]/60 blur-xl"></div>
@@ -1228,14 +1270,21 @@ export const ProfilePage: React.FC = () => {
               const isJefe = types.includes('jefe');
               const isCritico = types.includes('critico');
               const isBot = types.includes('bot');
-              const gradient = isJefe
-                ? 'from-emerald-400 via-green-400 to-teal-400'
-                : isCritico
-                ? 'from-yellow-400 via-amber-400 to-orange-400'
-                : isBot
-                ? 'from-slate-300 via-gray-300 to-zinc-400'
-                : 'from-indigo-500 via-purple-500 to-pink-500';
-              return <div className={`absolute -inset-1 rounded-full bg-gradient-to-r ${gradient} opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen`} />;
+
+              if (isJefe || isCritico || isBot) {
+                const gradient = isJefe
+                  ? 'from-emerald-400 via-green-400 to-teal-400'
+                  : isCritico
+                    ? 'from-yellow-400 via-amber-400 to-orange-400'
+                    : 'from-slate-300 via-gray-300 to-zinc-400';
+                return <div className={`absolute -inset-1 rounded-full bg-gradient-to-r ${gradient} opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen`} />;
+              }
+
+              if (dominantColor) {
+                return <div className="absolute -inset-1 rounded-full opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen" style={{ backgroundColor: dominantColor }} />;
+              }
+
+              return <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-blob mix-blend-screen" />;
             })()}
             <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[#0b1021] p-1.5 md:p-2">
               <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-[3px] border-[#0b1021] shadow-2xl relative">
@@ -1969,19 +2018,18 @@ export const ProfilePage: React.FC = () => {
                       <div className="grid grid-cols-2 gap-2 max-w-sm">
                         {([
                           { id: 'standard', label: 'Estándar', emoji: '🗺️' },
-                          { id: 'light',    label: 'Claro',    emoji: '☀️' },
-                          { id: 'dark',     label: 'Oscuro',   emoji: '🌑' },
-                          { id: 'satellite',label: 'Satelital',emoji: '🛰️' },
+                          { id: 'light', label: 'Claro', emoji: '☀️' },
+                          { id: 'dark', label: 'Oscuro', emoji: '🌑' },
+                          { id: 'satellite', label: 'Satelital', emoji: '🛰️' },
                         ] as const).map((layer) => (
                           <button
                             key={layer.id}
                             type="button"
                             onClick={() => setEditMapLayer(layer.id)}
-                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-                              editMapLayer === layer.id
-                                ? 'bg-indigo-600 border-indigo-500 text-white'
-                                : 'bg-black/20 border-white/10 text-gray-300 hover:border-indigo-500/50 hover:text-white'
-                            }`}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${editMapLayer === layer.id
+                              ? 'bg-indigo-600 border-indigo-500 text-white'
+                              : 'bg-black/20 border-white/10 text-gray-300 hover:border-indigo-500/50 hover:text-white'
+                              }`}
                           >
                             <span className="text-base">{layer.emoji}</span>
                             {layer.label}
@@ -2118,9 +2166,32 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           {loadingReviews ? (
-            <div className="py-20 text-center text-gray-500">
-              Cargando reseñas...
-            </div>
+            reviewViewMode === "gallery" ? (
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="aspect-square relative overflow-hidden rounded-md sm:rounded-lg">
+                    <Skeleton className="w-full h-full" />
+                  </div>
+                ))}
+              </div>
+            ) : reviewViewMode === "map" ? (
+              <div className="h-[500px] w-full rounded-2xl overflow-hidden border border-white/10 relative">
+                <Skeleton className="w-full h-full" />
+              </div>
+            ) : (
+              <div className="space-y-4 pt-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="bg-[#151b2e] rounded-2xl border border-white/5 overflow-hidden p-4 sm:p-5 flex gap-4">
+                    <Skeleton className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl shrink-0" />
+                    <div className="flex-1 space-y-3 py-1">
+                      <Skeleton className="h-5 sm:h-6 w-3/4 rounded" />
+                      <Skeleton className="h-4 w-1/2 rounded" />
+                      <Skeleton className="h-10 w-full mt-2 rounded-lg" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           ) : sortedProfileReviews.length === 0 ? (
             <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-xl">
               <p className="text-gray-500">No hay reseñas recientes.</p>
@@ -2549,8 +2620,16 @@ export const ProfilePage: React.FC = () => {
                 {detailsModalTab === "lists" && (
                   <>
                     {loadingLists || loadingExtraLists ? (
-                      <div className="py-20 text-center text-gray-500">
-                        Cargando listas...
+                      <div className="space-y-3 pt-4">
+                        {[...Array(4)].map((_, i) => (
+                          <div key={i} className="flex gap-4 p-3 bg-[#151b2e] rounded-xl border border-white/5 items-center">
+                            <Skeleton className="w-12 h-12 rounded-lg shrink-0" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="w-2/3 h-5 rounded-md" />
+                              <Skeleton className="w-1/3 h-4 rounded" />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <div className="space-y-6">
