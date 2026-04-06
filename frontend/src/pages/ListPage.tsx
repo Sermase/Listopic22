@@ -6,6 +6,7 @@ import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clo
 import { useListDetails } from '../hooks/useListDetails';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
+import { ProgressiveImage } from '../components/ProgressiveImage';
 import { MapView } from '../components/MapView';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { FilterModal } from '../components/FilterModal';
@@ -1050,9 +1051,10 @@ export const ListPage: React.FC = () => {
                                         const cardContent = (
                                             <>
                                                 {photoSrc ? (
-                                                    <img
+                                                    <ProgressiveImage
                                                         src={photoSrc}
                                                         alt={primaryName}
+                                                        containerClassName="w-full h-full"
                                                         className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-70 saturate-[0.6]' : ''}`}
                                                     />
                                                 ) : (

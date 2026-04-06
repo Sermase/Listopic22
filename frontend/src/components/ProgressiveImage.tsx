@@ -17,7 +17,7 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({ src, alt, cl
         <div className={`relative overflow-hidden ${containerClassName || ''}`}>
             {/* Skeleton Pulse */}
             <div
-                className={`absolute inset-0 bg-[#1c2438] animate-pulse transition-opacity duration-700 ${loaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                className={`absolute inset-0 bg-[#1c2438] transition-opacity duration-700 ${loaded ? 'opacity-0 pointer-events-none' : 'animate-pulse opacity-100'}`}
             />
             {/* Image */}
             <img

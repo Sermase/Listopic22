@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, MoreVertical, Flag, Image as ImageIcon, ZoomIn, LayoutGrid } from 'lucide-react';
 import { Lightbox } from '../components/Lightbox';
+import { ProgressiveImage } from '../components/ProgressiveImage';
 import { NonPonderableGauge } from '../components/NonPonderableGauge';
 import { ReportModal } from '../components/ReportModal';
 import { ReviewCard } from '../components/ReviewCard';
@@ -842,7 +843,7 @@ export const GroupPage: React.FC = () => {
                                         onClick={() => { setLightboxIndex(i); setIsLightboxOpen(true); }}
                                         className="aspect-square rounded-xl overflow-hidden cursor-pointer bg-gray-800 relative group border border-white/10"
                                     >
-                                        <img src={url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={`Foto ${i}`} />
+                                        <ProgressiveImage src={url} alt={`Foto ${i}`} containerClassName="w-full h-full" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                             <ZoomIn className="w-6 h-6 text-white drop-shadow-md" />
                                         </div>

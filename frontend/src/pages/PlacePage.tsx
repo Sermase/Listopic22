@@ -5,6 +5,7 @@ import {
     Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, X, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
+import { ProgressiveImage } from '../components/ProgressiveImage';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { usePlaceDetails } from '../hooks/usePlaceDetails';
 import { PlaceService } from '../services/PlaceService';
@@ -897,7 +898,7 @@ export const PlacePage: React.FC = () => {
                                                 }}
                                                 className="aspect-square rounded-xl overflow-hidden bg-gray-800 cursor-pointer group relative border border-white/5 hover:border-indigo-500/50 transition-all"
                                             >
-                                                <img src={photo} alt="Lugar" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                <ProgressiveImage src={photo} alt="Lugar" containerClassName="w-full h-full" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                                     <div className="bg-black/50 backdrop-blur-sm p-2 rounded-full text-white">
                                                         <ZoomIn className="w-5 h-5" />
