@@ -419,6 +419,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         return DEFAULT_ENTITY;
     }, [place, review, shareEntity]);
 
+    const isReviewShare = entity.type === 'review' || Boolean(review);
     const theme = VARIANT_THEMES[variant] || VARIANT_THEMES.story;
     const score = review?.overallRating ?? place?.avgScore ?? entity.score;
     const scoreColor = scoreBubbleColor(score);
@@ -504,7 +505,6 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         };
     }, [entity.referenceCriteriaStats, entity.referenceLabel, entity.type, review?.listId]);
 
-    const isReviewShare = entity.type === 'review' || Boolean(review);
     const { width: exportWidth, height: exportHeight, previewRatio: previewAspectRatio } = VARIANT_DIMENSIONS[variant];
     const reviewCountLabel = formatReviewCount(entity.reviewCount);
     const entityLabel = getShareEntityLabel(entity.type);
