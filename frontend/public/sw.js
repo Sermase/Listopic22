@@ -35,6 +35,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Skip Firebase Auth reserved paths
+  if (url.pathname.startsWith('/__/auth/')) return;
+
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(async () => {

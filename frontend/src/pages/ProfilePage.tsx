@@ -1256,7 +1256,7 @@ export const ProfilePage: React.FC = () => {
             src={profile.photoUrl}
             alt={profile.displayName || profile.username || ''}
             containerClassName="absolute inset-0"
-            className="w-full h-full object-cover opacity-80"
+            className="w-full h-full object-cover object-[center_30%] opacity-80"
             onLoad={() => setHeroProfileReady(true)}
           />
         ) : (
