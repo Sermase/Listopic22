@@ -44,6 +44,7 @@ export const GroupPage: React.FC = () => {
         }
     }, [itemName, placeId, navigate]);
 
+    const [heroReady, setHeroReady] = useState(false);
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [placeName, setPlaceName] = useState('');
     const [placeCity, setPlaceCity] = useState('');
@@ -524,8 +525,22 @@ export const GroupPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen pt-safe-32 flex justify-center bg-[#0b1021]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+            <div className="min-h-screen bg-[#0b1021] animate-pulse">
+                <div className="h-[40vh] min-h-[300px] bg-white/5 animate-hero-from-left" />
+                <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-16 relative z-10">
+                    <div className="h-10 bg-white/10 rounded w-2/3 mb-3" />
+                    <div className="h-5 bg-white/5 rounded w-1/3 mb-8" />
+                    <div className="flex gap-4 mb-8">
+                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
+                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
+                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-1">
+                        {[1,2,3,4,5,6].map(i => (
+                            <div key={i} className="aspect-square bg-white/5 rounded-lg" />
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }
@@ -559,10 +574,10 @@ export const GroupPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20">
             {/* Hero */}
-            <div className="relative h-[40vh] min-h-[300px] w-full overflow-hidden group">
+            <div className={`relative h-[40vh] min-h-[300px] w-full overflow-hidden group ${heroReady || !stats?.mainPhoto ? 'animate-hero-from-left' : ''}`}>
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
                 {stats?.mainPhoto ? (
-                    <img src={stats.mainPhoto} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" alt={decodedName} />
+                    <ProgressiveImage src={stats.mainPhoto} alt={decodedName} containerClassName="absolute inset-0" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" onLoad={() => setHeroReady(true)} />
                 ) : (
                     <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                         <MessageSquare className="w-20 h-20 text-white/20" />

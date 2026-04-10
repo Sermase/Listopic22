@@ -208,6 +208,7 @@ export const ProfilePage: React.FC = () => {
   const isOwnProfile = user?.uid === targetUserId;
 
   const [dominantColor, setDominantColor] = useState<string | null>(null);
+  const [heroProfileReady, setHeroProfileReady] = useState(false);
 
   // Hooks need to be before effects
   const {
@@ -1249,16 +1250,20 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0b1021] pb-20">
       {/* Header / Banner */}
-      <div
-        className={`h-56 sm:h-64 relative bg-gradient-to-b from-indigo-900/40 to-[#0b1021] ${profile.photoUrl ? "bg-cover bg-center" : ""}`}
-        style={{
-          backgroundImage: profile.photoUrl
-            ? `linear-gradient(to bottom, ${dominantColor ? `rgba(${dominantColor.split(',').slice(0, 3).join(',')}, 0.3)` : 'rgba(11,16,33,0.3)'}, #0b1021), url(${profile.photoUrl})`
-            : dominantColor ? `linear-gradient(to bottom, ${dominantColor}, #0b1021)` : undefined,
-        }}
-      >
-        <div className="absolute inset-0 bg-[#0b1021]/30 blur-xl"></div>
-        {/* Removed top-right buttons from here */}
+      <div className={`h-56 sm:h-64 relative overflow-hidden ${heroProfileReady || !profile.photoUrl ? 'animate-hero-from-right' : ''}`}>
+        {profile.photoUrl ? (
+          <ProgressiveImage
+            src={profile.photoUrl}
+            alt={profile.displayName || profile.username || ''}
+            containerClassName="absolute inset-0"
+            className="w-full h-full object-cover opacity-80"
+            onLoad={() => setHeroProfileReady(true)}
+          />
+        ) : (
+          <div className="absolute inset-0"
+            style={{ background: dominantColor ? `linear-gradient(to bottom, ${dominantColor}, #0b1021)` : 'linear-gradient(to bottom, rgba(49,46,129,0.4), #0b1021)' }} />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#0b1021]" />
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-[7.5rem] sm:-mt-32 z-10">

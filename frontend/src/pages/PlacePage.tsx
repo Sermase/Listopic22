@@ -46,6 +46,7 @@ export const PlacePage: React.FC = () => {
     const searchParams = new URLSearchParams(location.search);
     const fromListId = searchParams.get('listId');
 
+    const [heroReady, setHeroReady] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [syncError, setSyncError] = useState<string | null>(null);
 
@@ -311,11 +312,11 @@ export const PlacePage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20">
             {/* Hero */}
-            <div className="relative h-[40vh] min-h-[300px] w-full overflow-hidden group">
+            <div className={`relative h-[40vh] min-h-[300px] w-full overflow-hidden group ${heroReady || !place.photoUrl ? 'animate-hero-from-right' : ''}`}>
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
 
                 {place.photoUrl ? (
-                    <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" />
+                    <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="absolute inset-0" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" onLoad={() => setHeroReady(true)} />
                 ) : (
                     <div className="w-full h-full bg-gradient-to-br from-indigo-900 to-gray-900 flex items-center justify-center">
                         <MapPin className="w-20 h-20 text-white/20" />

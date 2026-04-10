@@ -45,8 +45,27 @@ const ScrollToTop = () => {
 
 // Loading Fallback (shown on first lazy-chunk load)
 const PageLoader = () => (
-  <div className="min-h-screen pt-32 flex justify-center bg-[#0b1021]">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+  <div className="min-h-screen bg-[#0b1021] animate-pulse">
+    <div className="h-[40vh] min-h-[300px] bg-white/5" />
+    <div className="px-4 pt-6 space-y-4 max-w-4xl mx-auto">
+      <div className="h-8 bg-white/10 rounded w-1/2" />
+      <div className="h-4 bg-white/5 rounded w-1/3" />
+      <div className="flex gap-3 pt-2">
+        <div className="h-8 w-20 bg-white/10 rounded-full" />
+        <div className="h-8 w-20 bg-white/10 rounded-full" />
+      </div>
+      <div className="space-y-3 pt-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="flex gap-3 h-24 bg-white/5 rounded-xl overflow-hidden">
+            <div className="w-24 h-full bg-white/10 shrink-0" />
+            <div className="flex-1 p-3 space-y-2">
+              <div className="h-4 bg-white/10 rounded w-3/4" />
+              <div className="h-3 bg-white/5 rounded w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   </div>
 );
 

@@ -135,14 +135,54 @@
 }
 
 @layer utilities {
-    /* Page-level fade: only opacity, no transform — avoids creating a stacking context
-       that would trap modal z-indices below the Navbar */
+    /* Page-level entry animation: fade + margin-top slide.
+       Uses margin-top instead of transform to avoid creating a stacking context
+       (transform would trap modal z-indices below the Navbar). */
     .animate-page-fade {
-        animation: page-fade 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        animation: page-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
-    @keyframes page-fade {
-        from { opacity: 0; }
-        to   { opacity: 1; }
+    @keyframes page-enter {
+        from {
+            opacity: 0;
+            margin-top: 16px;
+        }
+        to {
+            opacity: 1;
+            margin-top: 0px;
+        }
+    }
+
+    /* Hero entry animations — slide from each direction */
+    .animate-hero-from-left {
+        animation: hero-from-left 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes hero-from-left {
+        from { opacity: 0; clip-path: inset(0 100% 0 0); }
+        to   { opacity: 1; clip-path: inset(0 0% 0 0); }
+    }
+
+    .animate-hero-from-right {
+        animation: hero-from-right 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes hero-from-right {
+        from { opacity: 0; clip-path: inset(0 0 0 100%); }
+        to   { opacity: 1; clip-path: inset(0 0 0 0%); }
+    }
+
+    .animate-hero-from-bottom {
+        animation: hero-from-bottom 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes hero-from-bottom {
+        from { opacity: 0; clip-path: inset(100% 0 0 0); }
+        to   { opacity: 1; clip-path: inset(0% 0 0 0); }
+    }
+
+    .animate-hero-from-top {
+        animation: hero-from-top 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes hero-from-top {
+        from { opacity: 0; clip-path: inset(0 0 100% 0); }
+        to   { opacity: 1; clip-path: inset(0 0 0% 0); }
     }
 
     /* Safe-area-aware top padding for page containers.

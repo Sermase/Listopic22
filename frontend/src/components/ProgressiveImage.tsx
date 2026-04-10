@@ -6,7 +6,7 @@ interface ProgressiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement
     containerClassName?: string;
 }
 
-export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({ src, alt, className, containerClassName, ...props }) => {
+export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({ src, alt, className, containerClassName, onLoad: onLoadProp, ...props }) => {
     const [loaded, setLoaded] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
 
@@ -29,7 +29,7 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({ src, alt, cl
                 ref={imgRef}
                 src={src}
                 alt={alt || ''}
-                onLoad={() => setLoaded(true)}
+                onLoad={(e) => { setLoaded(true); onLoadProp?.(e); }}
                 className={`transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'} ${className || ''}`}
                 {...props}
             />
