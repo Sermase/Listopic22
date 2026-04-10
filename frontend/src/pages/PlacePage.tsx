@@ -316,7 +316,7 @@ export const PlacePage: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
 
                 {place.photoUrl ? (
-                    <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="absolute inset-0" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" onLoad={() => setHeroReady(true)} />
+                    <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="absolute inset-0" className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-1000" onLoad={() => setHeroReady(true)} />
                 ) : (
                     <div className="w-full h-full bg-gradient-to-br from-indigo-900 to-gray-900 flex items-center justify-center">
                         <MapPin className="w-20 h-20 text-white/20" />
@@ -332,11 +332,10 @@ export const PlacePage: React.FC = () => {
                                 {place.name}
                             </h1>
                             {place.closedStatus && (
-                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${
-                                    place.closedStatus === 'permanently_closed'
+                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${place.closedStatus === 'permanently_closed'
                                         ? 'bg-red-500/20 border-red-500/40 text-red-300'
                                         : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                                }`}>
+                                    }`}>
                                     <AlertTriangle className="w-4 h-4" />
                                     {place.closedStatus === 'permanently_closed' ? 'Cerrado permanentemente' : 'Cerrado temporalmente'}
                                 </div>

@@ -1250,7 +1250,7 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0b1021] pb-20">
       {/* Header / Banner */}
-      <div className={`h-56 sm:h-64 relative overflow-hidden ${heroProfileReady || !profile.photoUrl ? 'animate-hero-from-right' : ''}`}>
+      <div className={`h-56 md:h-80 relative overflow-hidden ${heroProfileReady || !profile.photoUrl ? 'animate-hero-from-right' : ''}`}>
         {profile.photoUrl ? (
           <ProgressiveImage
             src={profile.photoUrl}

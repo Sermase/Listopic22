@@ -577,7 +577,7 @@ export const GroupPage: React.FC = () => {
             <div className={`relative h-[40vh] min-h-[300px] w-full overflow-hidden group ${heroReady || !stats?.mainPhoto ? 'animate-hero-from-right' : ''}`}>
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
                 {stats?.mainPhoto ? (
-                    <ProgressiveImage src={stats.mainPhoto} alt={decodedName} containerClassName="absolute inset-0" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" onLoad={() => setHeroReady(true)} />
+                    <ProgressiveImage src={stats.mainPhoto} alt={decodedName} containerClassName="absolute inset-0" className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-1000" onLoad={() => setHeroReady(true)} />
                 ) : (
                     <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                         <MessageSquare className="w-20 h-20 text-white/20" />
@@ -634,8 +634,8 @@ export const GroupPage: React.FC = () => {
                             <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 shadow-sm text-shadow-lg leading-tight line-clamp-2">{decodedName}</h1>
                             {placeClosedStatus && (
                                 <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${placeClosedStatus === 'permanently_closed'
-                                        ? 'bg-red-500/20 border-red-500/40 text-red-300'
-                                        : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                                    ? 'bg-red-500/20 border-red-500/40 text-red-300'
+                                    : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
                                     }`}>
                                     ⚠ {placeClosedStatus === 'permanently_closed' ? 'Cerrado permanentemente' : 'Cerrado temporalmente'}
                                 </div>
