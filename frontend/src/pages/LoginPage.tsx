@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithRedirect, signInWithPopup, getRedirectResult, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 
 export const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -10,16 +11,22 @@ export const LoginPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
 
     React.useEffect(() => {
-        getRedirectResult(auth)
-            .then((result) => {
-                if (result?.user) {
-                    navigate('/');
-                }
-            })
-            .catch((err) => {
-                console.error("Redirect Auth Error:", err);
-                setError("No se pudo completar el inicio de sesión con Google.");
-            });
+        // Only handle redirect results on native apps
+        if (Capacitor.isNativePlatform()) {
+            getRedirectResult(auth)
+                .then((result) => {
+                    if (result?.user) {
+                        navigate('/');
+                    }
+                })
+                .catch((err) => {
+                    console.group("Detailed Redirect Auth Error");
+                    console.error("Error Code:", err.code);
+                    console.error("Error Message:", err.message);
+                    console.groupEnd();
+                    setError(`Error de autenticación: ${err.message || 'No se pudo completar el inicio de sesión'}`);
+                });
+        }
     }, [navigate]);
 
     // Auth State
@@ -33,9 +40,18 @@ export const LoginPage: React.FC = () => {
         setError(null);
         try {
             const provider = new GoogleAuthProvider();
-            await signInWithRedirect(auth, provider);
+            if (Capacitor.isNativePlatform()) {
+                await signInWithRedirect(auth, provider);
+            } else {
+                // Use Popup on Web to avoid cross-domain redirect issues
+                const result = await signInWithPopup(auth, provider);
+                if (result.user) {
+                    navigate('/');
+                }
+                setLoading(false);
+            }
         } catch (err: any) {
-            console.error(err);
+            console.error("Google Login Error:", err);
             setError("Error al iniciar sesión con Google. Inténtalo de nuevo.");
             setLoading(false);
         }
