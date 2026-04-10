@@ -6,7 +6,7 @@ import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDPEW5zXtvfnD0XtdmXSkMBZrsFdO-tmsg",
-    authDomain: "listopic.firebaseapp.com",
+    authDomain: "listopic.es",
     projectId: "listopic",
     storageBucket: "listopic.firebasestorage.app",
     messagingSenderId: "851333213702",

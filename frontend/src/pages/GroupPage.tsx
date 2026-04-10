@@ -577,7 +577,7 @@ export const GroupPage: React.FC = () => {
             <div className={`relative h-[40vh] min-h-[300px] w-full overflow-hidden group ${heroReady || !stats?.mainPhoto ? 'animate-hero-from-right' : ''}`}>
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
                 {stats?.mainPhoto ? (
-                    <ProgressiveImage src={stats.mainPhoto} alt={decodedName} containerClassName="absolute inset-0" className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-1000" onLoad={() => setHeroReady(true)} />
+                    <ProgressiveImage src={stats.mainPhoto} alt={decodedName} containerClassName="absolute inset-0" className="w-full h-full object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-700" onLoad={() => setHeroReady(true)} />
                 ) : (
                     <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                         <MessageSquare className="w-20 h-20 text-white/20" />

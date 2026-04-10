@@ -1250,20 +1250,20 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0b1021] pb-20">
       {/* Header / Banner */}
-      <div className={`h-56 md:h-80 relative overflow-hidden ${heroProfileReady || !profile.photoUrl ? 'animate-hero-from-right' : ''}`}>
+      <div className={`h-[40vh] min-h-[300px] relative overflow-hidden group ${heroProfileReady || !profile.photoUrl ? 'animate-hero-from-right' : ''}`}>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
         {profile.photoUrl ? (
           <ProgressiveImage
             src={profile.photoUrl}
             alt={profile.displayName || profile.username || ''}
             containerClassName="absolute inset-0"
-            className="w-full h-full object-cover object-[center_30%] opacity-80"
+            className="w-full h-full object-cover object-center opacity-80 transition-transform duration-700 group-hover:scale-105"
             onLoad={() => setHeroProfileReady(true)}
           />
         ) : (
           <div className="absolute inset-0"
             style={{ background: dominantColor ? `linear-gradient(to bottom, ${dominantColor}, #0b1021)` : 'linear-gradient(to bottom, rgba(49,46,129,0.4), #0b1021)' }} />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#0b1021]" />
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-[7.5rem] sm:-mt-32 z-10">
