@@ -8,6 +8,43 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:851333213702:android:d83ad00b57c580803d5d87",
+        "android_client_info": {
+          "package_name": "app.listopic.web"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "851333213702-17b4t6gmui3slkn33jtt7p5bqbutvtis.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "app.listopic.web",
+            "certificate_hash": "fa8bd25cb4cf530fea79da47d5da59948b82b174"
+          }
+        },
+        {
+          "client_id": "851333213702-27vea5btfh1342jqhcmd02gi76aeijru.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDSlFQUEoWApJG5enYX5O67KCQXAzCuqNQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "851333213702-27vea5btfh1342jqhcmd02gi76aeijru.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:851333213702:android:149cbb57389eade83d5d87",
         "android_client_info": {
           "package_name": "com.listopic.app"
