@@ -251,7 +251,7 @@ export const ChatsPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[var(--bg-primary)] pt-20 flex h-screen overflow-hidden">
+        <div className="min-h-screen bg-[var(--bg-primary)] pt-safe-20 flex h-screen overflow-hidden">
             {/* Chat List Sidebar */}
             <div className={`w-full md:w-80 lg:w-96 bg-[#151b2e] border-r border-white/10 flex flex-col ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
                 <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#151b2e]">

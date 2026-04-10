@@ -1709,14 +1709,22 @@ async function recalculateListReviewMetrics(listId) {
     ? Number((totalOverall / overallCount).toFixed(2))
     : null;
 
+  // Merge tags from reviews with tags already defined in the list document.
+  // Never remove tags the owner defined — only add ones found in reviews.
+  const listSnap = await listRef.get();
+  const existingTags = listSnap.exists && Array.isArray(listSnap.data().availableTags)
+    ? listSnap.data().availableTags
+    : [];
+  existingTags.forEach(tag => availableTags.add(tag));
+
   const updateData = {
     reviewCount: reviewsSnap.size,
     averageRating,
     criteriaAverages,
     criteriaAveragesUpdatedAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
-    availableTags: Array.from(availableTags).sort(), // Save Tags!
-    itemCount: itemCount > 0 ? itemCount : undefined // Update item count from groups if available
+    availableTags: Array.from(availableTags).sort(),
+    itemCount: itemCount > 0 ? itemCount : undefined
   };
 
   await listRef.update(updateData);

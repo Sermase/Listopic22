@@ -12,7 +12,12 @@
       "Bash(find /home/sermase/Documentos/GitHub/Listopic22 -type f -name constants* -o -name config*)",
       "Bash(find /home/sermase/Documentos/GitHub/Listopic22 -type f \\\\\\(-name *.json -o -name *.csv \\\\\\) -size +10k -not -path */node_modules/* -not -path */dist/*)",
       "Bash(xargs ls:*)",
-      "Bash(npm list:*)"
+      "Bash(npm list:*)",
+      "Bash(firebase --version)",
+      "Bash(npm run:*)",
+      "Bash(npx cap:*)",
+      "Bash(sed -i 's/fixed md:static inset-y-0 left-0 z-40 w-64 bg-\\\\[#121624\\\\] border-r border-white\\\\/5 flex flex-col pt-safe-20 md:pt-6/fixed md:static inset-y-0 left-0 z-40 w-64 bg-[#121624] border-r border-white\\\\/5 flex flex-col pt-20 md:pt-6/' /home/sermase/Documentos/GitHub/Listopic22/frontend/src/pages/DeveloperPage.tsx)",
+      "Bash(sed -i 's/from-\\\\[#0b1021\\\\] via-\\\\[#0b1021\\\\]\\\\/60 to-transparent pt-safe-20/from-[#0b1021] via-[#0b1021]\\\\/60 to-transparent pt-20/g' /home/sermase/Documentos/GitHub/Listopic22/frontend/src/pages/GroupPage.tsx /home/sermase/Documentos/GitHub/Listopic22/frontend/src/pages/PlacePage.tsx)"
     ]
   }
 }

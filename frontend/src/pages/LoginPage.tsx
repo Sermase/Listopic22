@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';
 
@@ -8,6 +8,19 @@ export const LoginPage: React.FC = () => {
     const navigate = useNavigate();
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+
+    React.useEffect(() => {
+        getRedirectResult(auth)
+            .then((result) => {
+                if (result?.user) {
+                    navigate('/');
+                }
+            })
+            .catch((err) => {
+                console.error("Redirect Auth Error:", err);
+                setError("No se pudo completar el inicio de sesión con Google.");
+            });
+    }, [navigate]);
 
     // Auth State
     const [isRegistering, setIsRegistering] = useState(false);
@@ -20,8 +33,7 @@ export const LoginPage: React.FC = () => {
         setError(null);
         try {
             const provider = new GoogleAuthProvider();
-            await signInWithPopup(auth, provider);
-            navigate('/');
+            await signInWithRedirect(auth, provider);
         } catch (err: any) {
             console.error(err);
             setError("Error al iniciar sesión con Google. Inténtalo de nuevo.");

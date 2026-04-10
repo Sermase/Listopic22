@@ -524,7 +524,7 @@ export const GroupPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen pt-32 flex justify-center bg-[#0b1021]">
+            <div className="min-h-screen pt-safe-32 flex justify-center bg-[#0b1021]">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
             </div>
         );
@@ -895,12 +895,13 @@ export const GroupPage: React.FC = () => {
 
                                     if (isExpanded) {
                                         return (
-                                            <div key={review.id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[#151b2e] rounded-xl border border-indigo-500/50 p-2 sm:p-4 mb-2 shadow-2xl animate-fade-in relative">
+                                            <div key={review.id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[#151b2e] rounded-xl border border-indigo-500/50 mb-2 shadow-2xl animate-fade-in">
                                                 <button
                                                     onClick={() => setExpandedReviewId(null)}
-                                                    className="absolute top-2 right-2 z-10 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white backdrop-blur-md transition-colors"
+                                                    className="w-full flex justify-center pt-2 pb-1"
+                                                    aria-label="Plegar reseña"
                                                 >
-                                                    <X className="w-4 h-4" />
+                                                    <div className="w-10 h-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
                                                 </button>
                                                 <ReviewCard review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
                                             </div>

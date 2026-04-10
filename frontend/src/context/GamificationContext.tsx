@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { arrayUnion, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { getLevelInfo, normalizeEarnedBadgeIds, type LevelInfo } from '../utils/gamification';
@@ -27,29 +27,6 @@ interface GamificationContextValue {
 
 const GamificationContext = createContext<GamificationContextValue | null>(null);
 
-// Persistent deduplication so notifications only ever show once per device
-const SHOWN_BADGES_KEY = 'lp_shown_badges';
-const SHOWN_LEVEL_KEY = 'lp_shown_level';
-
-function getSessionShownBadges(): Set<string> {
-    try { return new Set(JSON.parse(localStorage.getItem(SHOWN_BADGES_KEY) || '[]')); }
-    catch { return new Set(); }
-}
-function markSessionBadgeShown(id: string) {
-    try {
-        const s = getSessionShownBadges(); s.add(id);
-        localStorage.setItem(SHOWN_BADGES_KEY, JSON.stringify([...s]));
-    } catch { /* ignore */ }
-}
-function getSessionShownLevel(): number {
-    try { return parseInt(localStorage.getItem(SHOWN_LEVEL_KEY) || '0', 10); }
-    catch { return 0; }
-}
-function markSessionLevelShown(level: number) {
-    try { localStorage.setItem(SHOWN_LEVEL_KEY, String(level)); }
-    catch { /* ignore */ }
-}
-
 export const useGamification = (): GamificationContextValue => {
     const ctx = useContext(GamificationContext);
     if (!ctx) throw new Error('useGamification must be used within GamificationProvider');
@@ -75,25 +52,22 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const [badgeQueue, setBadgeQueue] = useState<BadgeNotification[]>([]);
     const [activeBadge, setActiveBadge] = useState<BadgeNotification | null>(null);
 
-    // Refs for detecting changes (don't trigger on initial load)
-    const prevXpRef = useRef<number | null>(null);
-    const prevLevelRef = useRef<number | null>(null);
-    const prevBadgeIdsRef = useRef<Set<string> | null>(null);
+    // Tracks whether the first server snapshot has been processed
     const isInitialLoadRef = useRef(true);
+    const prevXpRef = useRef<number>(0);
 
     // Real-time listener on user profile
     useEffect(() => {
         if (!user?.uid) {
             setLevelInfo(getLevelInfo(0));
             setEarnedBadgeIds([]);
-            prevXpRef.current = null;
-            prevLevelRef.current = null;
-            prevBadgeIdsRef.current = null;
             isInitialLoadRef.current = true;
             return;
         }
 
-        const unsub = onSnapshot(doc(db, 'users', user.uid), { includeMetadataChanges: true }, (snap) => {
+        const userRef = doc(db, 'users', user.uid);
+
+        const unsub = onSnapshot(userRef, { includeMetadataChanges: true }, (snap) => {
             if (!snap.exists()) return;
             const data = snap.data();
 
@@ -103,44 +77,49 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             setLevelInfo(newLevelInfo);
             setEarnedBadgeIds(newBadges);
 
-            // Cache snapshots: silently update refs so the server snapshot
-            // compares against the correct baseline, but never trigger visuals.
-            if (snap.metadata.fromCache) {
-                prevXpRef.current = newLevelInfo.xp;
-                prevLevelRef.current = newLevelInfo.level;
-                prevBadgeIdsRef.current = new Set(newBadges);
-                return;
-            }
+            // Skip cache snapshots and pending-write confirmations silently
+            if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
 
-            // First confirmed-from-server snapshot: treat as initial load baseline.
+            // Firestore-persisted notification state (survives reinstalls)
+            const notifiedLevel: number = data.notifiedLevel ?? 0;
+            const notifiedBadgeSet = new Set<string>(data.notifiedBadges ?? []);
+
             if (isInitialLoadRef.current) {
-                prevXpRef.current = newLevelInfo.xp;
-                prevLevelRef.current = newLevelInfo.level;
-                prevBadgeIdsRef.current = new Set(newBadges);
+                // First server snapshot: silently bring Firestore notification state up to date
+                // so old notifications never replay on app restart or reinstall.
                 isInitialLoadRef.current = false;
+
+                const updates: Record<string, unknown> = {};
+                if (newLevelInfo.level > notifiedLevel) {
+                    updates.notifiedLevel = newLevelInfo.level;
+                }
+                const unseenBadges = newBadges.filter(id => !notifiedBadgeSet.has(id));
+                if (unseenBadges.length > 0) {
+                    updates.notifiedBadges = arrayUnion(...unseenBadges);
+                }
+                if (Object.keys(updates).length > 0) {
+                    updateDoc(userRef, updates).catch(() => { /* ignore */ });
+                }
+                prevXpRef.current = newLevelInfo.xp;
                 return;
             }
 
-            // Detect level up
-            const prevLevel = prevLevelRef.current ?? newLevelInfo.level;
-            const prevXp = prevXpRef.current ?? newLevelInfo.xp;
-            if (newLevelInfo.level > prevLevel && newLevelInfo.level > getSessionShownLevel()) {
-                markSessionLevelShown(newLevelInfo.level);
+            // In-session: show level-up notification only if Firestore hasn't recorded it yet
+            if (newLevelInfo.level > notifiedLevel) {
+                updateDoc(userRef, { notifiedLevel: newLevelInfo.level }).catch(() => { /* ignore */ });
                 setLevelUpData({
-                    xpGained: newLevelInfo.xp - prevXp,
-                    previousLevel: prevLevel,
+                    xpGained: newLevelInfo.xp - prevXpRef.current,
+                    previousLevel: notifiedLevel,
                     trigger: '¡Subiste de nivel!',
                 });
                 setShowLevelUpModal(true);
             }
+            prevXpRef.current = newLevelInfo.xp;
 
-            // Detect new badges (skip ones already shown this session)
-            const prevBadgeSet = prevBadgeIdsRef.current ?? new Set<string>();
-            const sessionShown = getSessionShownBadges();
-            const newBadgeEntries = newBadges.filter(id => !prevBadgeSet.has(id) && !sessionShown.has(id));
-
+            // In-session: show badge notifications for badges not yet recorded in Firestore
+            const newBadgeEntries = newBadges.filter(id => !notifiedBadgeSet.has(id));
             if (newBadgeEntries.length > 0) {
-                newBadgeEntries.forEach(markSessionBadgeShown);
+                updateDoc(userRef, { notifiedBadges: arrayUnion(...newBadgeEntries) }).catch(() => { /* ignore */ });
                 const notifications: BadgeNotification[] = newBadgeEntries.map(id => ({
                     id,
                     name: id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
@@ -148,11 +127,6 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 }));
                 setBadgeQueue(prev => [...prev, ...notifications]);
             }
-
-            // Update refs
-            prevXpRef.current = newLevelInfo.xp;
-            prevLevelRef.current = newLevelInfo.level;
-            prevBadgeIdsRef.current = new Set(newBadges);
         }, (error) => {
             console.warn('GamificationProvider: onSnapshot error', error);
         });

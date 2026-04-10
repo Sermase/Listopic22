@@ -538,7 +538,7 @@ export const SearchPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[var(--bg-primary)] pb-20 pt-20">
+        <div className="min-h-screen bg-[var(--bg-primary)] pt-safe-20 pb-20">
             <InstantSearch
                 searchClient={algoliaClient}
                 indexName={INDEX_NAMES.lists}

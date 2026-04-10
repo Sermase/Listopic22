@@ -598,7 +598,7 @@ export const ListPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen pt-24 px-4 max-w-4xl mx-auto animate-pulse">
+            <div className="min-h-screen pt-safe-24 px-4 max-w-4xl mx-auto animate-pulse">
                 {/* List header */}
                 <div className="h-8 w-2/5 bg-gray-800 rounded mb-3" />
                 <div className="h-4 w-3/5 bg-gray-700 rounded mb-2" />
@@ -629,7 +629,7 @@ export const ListPage: React.FC = () => {
     if (error || !list) {
         if (error === 'private') {
             return (
-                <div className="min-h-screen pt-40 px-4 text-center">
+                <div className="min-h-screen pt-safe-40 px-4 text-center">
                     <div className="bg-[#151b2e] border border-white/10 rounded-2xl p-8 max-w-md mx-auto">
                         <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Lock className="w-8 h-8 text-gray-400" />
@@ -648,7 +648,7 @@ export const ListPage: React.FC = () => {
         }
 
         return (
-            <div className="min-h-screen pt-24 px-4 text-center">
+            <div className="min-h-screen pt-safe-24 px-4 text-center">
                 <h2 className="text-2xl font-bold text-red-400 mb-2">Error</h2>
                 <p className="text-gray-400">{error || "Lista no encontrada"}</p>
                 <Link to="/search" className="mt-4 inline-block text-indigo-400 hover:text-indigo-300">

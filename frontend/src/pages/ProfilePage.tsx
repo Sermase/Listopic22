@@ -1195,7 +1195,7 @@ export const ProfilePage: React.FC = () => {
 
   if (!targetUserId) {
     return (
-      <div className="min-h-screen pt-40 px-4 text-center text-gray-400">
+      <div className="min-h-screen pt-safe-40 px-4 text-center text-gray-400">
         Debes iniciar sesión para ver tu perfil.
       </div>
     );
@@ -1229,7 +1229,7 @@ export const ProfilePage: React.FC = () => {
 
   if (errorProfile || !profile) {
     return (
-      <div className="min-h-screen pt-40 px-4 text-center">
+      <div className="min-h-screen pt-safe-40 px-4 text-center">
         <div className="text-2xl text-white font-bold mb-4">
           Perfil no encontrado
         </div>
@@ -1680,17 +1680,18 @@ export const ProfilePage: React.FC = () => {
         {/* Avatar Enlarged Modal with "Miembro desde" */}
         {isAvatarModalOpen && profile && (
           <div
-            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
+            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-page-fade"
             onClick={() => setIsAvatarModalOpen(false)}
           >
+            <button
+              aria-label="Cerrar"
+              onClick={() => setIsAvatarModalOpen(false)}
+              className="fixed right-4 p-3 text-white/50 hover:text-white transition-colors bg-black/30 hover:bg-black/60 rounded-full z-[151]"
+              style={{ top: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+            >
+              <X className="w-6 h-6" />
+            </button>
             <div className="relative flex w-full max-w-2xl flex-col items-center gap-6" onClick={(e) => e.stopPropagation()}>
-              <button
-                aria-label="Cerrar"
-                onClick={() => setIsAvatarModalOpen(false)}
-                className="absolute -top-12 right-0 md:-right-12 p-3 text-white/50 hover:text-white transition-colors bg-black/20 hover:bg-black/40 rounded-full"
-              >
-                <X className="w-6 h-6" />
-              </button>
               <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-full bg-[#0b1021] p-2 shadow-[0_0_50px_rgba(99,102,241,0.2)]">
                 <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-4 border-[#0b1021]">
                   <ProgressiveImage
@@ -1740,14 +1741,14 @@ export const ProfilePage: React.FC = () => {
         {/* Preferences Modal */}
         {isEditing && isOwnProfile && (
           <div
-            className="fixed inset-0 z-[130] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+            className="fixed inset-0 z-[130] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
             onClick={() => !savingPreferences && setIsEditing(false)}
           >
             <div
               className="w-full h-full md:h-[88vh] md:max-h-[88vh] md:max-w-3xl rounded-none md:rounded-2xl border-0 md:border border-white/10 bg-[#151b2e] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[#151b2e] flex items-center justify-between">
+              <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[#151b2e] flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
                 <div>
                   <h3 className="text-white font-bold text-lg">
                     Preferencias de perfil
@@ -2243,15 +2244,13 @@ export const ProfilePage: React.FC = () => {
                           key={review.id}
                           className="col-span-3 md:col-span-4 lg:col-span-5 bg-[#151b2e] rounded-xl border border-indigo-500/50 mb-2 shadow-2xl animate-fade-in"
                         >
-                          <div className="flex justify-end px-3 pt-2">
-                            <button
-                              onClick={() => setExpandedReviewIds([])}
-                              className="p-1.5 bg-black/40 hover:bg-black/70 rounded-full text-gray-400 hover:text-white transition-colors"
-                              title="Cerrar"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => setExpandedReviewIds([])}
+                            className="w-full flex justify-center pt-2 pb-1"
+                            aria-label="Plegar reseña"
+                          >
+                            <div className="w-10 h-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
+                          </button>
                           <ReviewCard
                             review={review}
                             onDelete={handleDeleteReview}
@@ -2351,14 +2350,14 @@ export const ProfilePage: React.FC = () => {
       {
         isDetailsModalOpen && (
           <div
-            className="fixed inset-0 z-[140] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+            className="fixed inset-0 z-[140] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
             onClick={() => setIsDetailsModalOpen(false)}
           >
             <div
               className="w-full h-full md:h-[88vh] md:max-h-[88vh] md:max-w-2xl rounded-none md:rounded-3xl border-0 md:border border-white/10 bg-[#151b2e] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[#151b2e] flex items-center justify-between">
+              <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[#151b2e] flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
                 <h3 className="text-white font-bold text-lg">Detalle del perfil</h3>
                 <button
                   onClick={() => setIsDetailsModalOpen(false)}

@@ -168,7 +168,7 @@ export const Navbar: React.FC = () => {
     const mobileCreateButtonClass = "w-full flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4 text-lg font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:from-emerald-400 hover:to-teal-400";
 
     return (
-        <header className="fixed top-0 w-full z-50 px-3 pt-2 sm:px-5 sm:pt-3 transition-all duration-500 pointer-events-none">
+        <header className="fixed top-0 w-full z-50 px-3 sm:px-5 transition-all duration-500 pointer-events-none" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)' }}>
             <div
                 className={`pointer-events-auto max-w-7xl mx-auto transition-all duration-500 rounded-3xl md:rounded-[2rem]
                 ${scrolled || isMenuOpen
@@ -286,7 +286,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             {isMenuOpen && (
-                <div className="fixed inset-0 top-[68px] bg-[#060913]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto">
+                <div className="fixed inset-x-0 bottom-0 bg-[#060913]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto rounded-t-3xl" style={{ top: 'calc(env(safe-area-inset-top) + 68px)' }}>
                     <div className="space-y-4 bg-[#151b2e]/60 p-6 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5 mt-4">
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-gray-100">

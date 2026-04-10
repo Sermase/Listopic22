@@ -146,10 +146,10 @@ export const ArchivePage: React.FC = () => {
         return items.filter(i => i.type === filterType);
     };
 
-    if (!user) return <div className="pt-32 text-center text-gray-500">Inicia sesión para ver tu archivo.</div>;
+    if (!user) return <div className="pt-safe-32 text-center text-gray-500">Inicia sesión para ver tu archivo.</div>;
 
     return (
-        <div className="min-h-screen bg-[#0b1021] pt-24 pb-20 px-4 sm:px-6">
+        <div className="min-h-screen bg-[#0b1021] pt-safe-24 pb-20 px-4 sm:px-6">
             <div className="max-w-4xl mx-auto">
                 <header className="mb-8 flex justify-between items-end">
                     <div>

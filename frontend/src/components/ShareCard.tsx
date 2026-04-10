@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Check, Copy, Download, Share2, X } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import type { PlaceDetails } from '../hooks/usePlaceDetails';
@@ -131,10 +134,10 @@ const DEFAULT_ENTITY: ShareEntityPayload = {
 };
 
 const VARIANT_DIMENSIONS: Record<ShareCardVariant, { width: number; height: number; previewRatio: string }> = {
-    story:     { width: 1080, height: 1920, previewRatio: '9 / 16' },
-    post:      { width: 1080, height: 1350, previewRatio: '4 / 5' },
+    story: { width: 1080, height: 1920, previewRatio: '9 / 16' },
+    post: { width: 1080, height: 1350, previewRatio: '4 / 5' },
     editorial: { width: 1080, height: 1350, previewRatio: '4 / 5' },
-    clean:     { width: 1080, height: 1080, previewRatio: '1 / 1' },
+    clean: { width: 1080, height: 1080, previewRatio: '1 / 1' },
 };
 
 const isSupportedEntityType = (value: unknown): value is ShareEntityType => {
@@ -237,125 +240,125 @@ const RadarChart: React.FC<{
     referenceFill,
     maxSize = 320,
 }) => {
-    if (stats.length < 3) return null;
-    const size = 320;
-    const center = 160;
-    const radius = 124;
-    const levels = [0.25, 0.5, 0.75, 1];
-    const angleStep = (Math.PI * 2) / stats.length;
+        if (stats.length < 3) return null;
+        const size = 320;
+        const center = 160;
+        const radius = 124;
+        const levels = [0.25, 0.5, 0.75, 1];
+        const angleStep = (Math.PI * 2) / stats.length;
 
-    const getPoint = (angle: number, currentRadius: number) => ({
-        x: center + Math.cos(angle) * currentRadius,
-        y: center + Math.sin(angle) * currentRadius,
-    });
+        const getPoint = (angle: number, currentRadius: number) => ({
+            x: center + Math.cos(angle) * currentRadius,
+            y: center + Math.sin(angle) * currentRadius,
+        });
 
-    const axes = stats.map((stat, index) => {
-        const angle = (-Math.PI / 2) + (index * angleStep);
-        const axisPoint = getPoint(angle, radius);
+        const axes = stats.map((stat, index) => {
+            const angle = (-Math.PI / 2) + (index * angleStep);
+            const axisPoint = getPoint(angle, radius);
 
-        return {
-            angle,
-            axisPoint,
-        };
-    });
+            return {
+                angle,
+                axisPoint,
+            };
+        });
 
-    const gridPolygons = levels.map((level) => (
-        axes
-            .map(({ angle }) => {
-                const point = getPoint(angle, radius * level);
+        const gridPolygons = levels.map((level) => (
+            axes
+                .map(({ angle }) => {
+                    const point = getPoint(angle, radius * level);
+                    return `${point.x},${point.y}`;
+                })
+                .join(' ')
+        ));
+
+        const alignedReference = referenceStats
+            ?.map((reference) => {
+                const axis = stats.find((stat) => stat.key === reference.key);
+                return axis ? reference : null;
+            })
+            .filter((reference): reference is ShareCriteriaStat => Boolean(reference));
+
+        const dataPolygon = axes
+            .map(({ angle }, index) => {
+                const point = getPoint(angle, radius * (clampScore(stats[index].score) / 10));
                 return `${point.x},${point.y}`;
             })
-            .join(' ')
-    ));
+            .join(' ');
 
-    const alignedReference = referenceStats
-        ?.map((reference) => {
-            const axis = stats.find((stat) => stat.key === reference.key);
-            return axis ? reference : null;
-        })
-        .filter((reference): reference is ShareCriteriaStat => Boolean(reference));
+        const referencePolygon = axes
+            .map(({ angle }, index) => {
+                const match = alignedReference?.find((reference) => reference.key === stats[index].key);
+                const point = getPoint(angle, radius * (clampScore(match?.score || 0) / 10));
+                return `${point.x},${point.y}`;
+            })
+            .join(' ');
 
-    const dataPolygon = axes
-        .map(({ angle }, index) => {
-            const point = getPoint(angle, radius * (clampScore(stats[index].score) / 10));
-            return `${point.x},${point.y}`;
-        })
-        .join(' ');
-
-    const referencePolygon = axes
-        .map(({ angle }, index) => {
-            const match = alignedReference?.find((reference) => reference.key === stats[index].key);
-            const point = getPoint(angle, radius * (clampScore(match?.score || 0) / 10));
-            return `${point.x},${point.y}`;
-        })
-        .join(' ');
-
-    return (
-        <div style={{ width: '100%', maxWidth: `${maxSize}px`, aspectRatio: '1 / 1', margin: '0 auto' }}>
-            <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: '100%', display: 'block' }}>
-                {gridPolygons.map((polygon, index) => (
-                    <polygon
-                        key={`grid-${levels[index]}`}
-                        points={polygon}
-                        fill="none"
-                        stroke={gridColor}
-                        strokeWidth={index === gridPolygons.length - 1 ? 1.5 : 1}
-                    />
-                ))}
-
-                {axes.map(({ axisPoint }, index) => (
-                    <line
-                        key={`axis-${index}`}
-                        x1={center}
-                        y1={center}
-                        x2={axisPoint.x}
-                        y2={axisPoint.y}
-                        stroke={gridColor}
-                        strokeWidth="1"
-                    />
-                ))}
-
-                {alignedReference && alignedReference.length > 0 && (
-                    <>
+        return (
+            <div style={{ width: '100%', maxWidth: `${maxSize}px`, aspectRatio: '1 / 1', margin: '0 auto' }}>
+                <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: '100%', display: 'block' }}>
+                    {gridPolygons.map((polygon, index) => (
                         <polygon
-                            points={referencePolygon}
-                            fill={referenceFill}
-                            stroke={referenceStroke}
-                            strokeWidth="2"
-                            strokeDasharray="6 5"
+                            key={`grid-${levels[index]}`}
+                            points={polygon}
+                            fill="none"
+                            stroke={gridColor}
+                            strokeWidth={index === gridPolygons.length - 1 ? 1.5 : 1}
                         />
-                        {axes.map(({ angle }, index) => {
-                            const match = alignedReference.find((reference) => reference.key === stats[index].key);
-                            const point = getPoint(angle, radius * (clampScore(match?.score || 0) / 10));
-                            return (
-                                <circle
-                                    key={`reference-dot-${stats[index].key}`}
-                                    cx={point.x}
-                                    cy={point.y}
-                                    r="3.5"
-                                    fill={referenceStroke}
-                                />
-                            );
-                        })}
-                    </>
-                )}
+                    ))}
 
-                <polygon
-                    points={dataPolygon}
-                    fill={accent}
-                    fillOpacity="0.18"
-                    stroke={accent}
-                    strokeWidth="3"
-                />
+                    {axes.map(({ axisPoint }, index) => (
+                        <line
+                            key={`axis-${index}`}
+                            x1={center}
+                            y1={center}
+                            x2={axisPoint.x}
+                            y2={axisPoint.y}
+                            stroke={gridColor}
+                            strokeWidth="1"
+                        />
+                    ))}
 
-                {axes.map(({ angle }, index) => {
-                    const point = getPoint(angle, radius * (clampScore(stats[index].score) / 10));
-                    return <circle key={`dot-${stats[index].key}`} cx={point.x} cy={point.y} r="4.8" fill={accent} />;
-                })}
-            </svg>
-        </div>
-    );
-};
+                    {alignedReference && alignedReference.length > 0 && (
+                        <>
+                            <polygon
+                                points={referencePolygon}
+                                fill={referenceFill}
+                                stroke={referenceStroke}
+                                strokeWidth="2"
+                                strokeDasharray="6 5"
+                            />
+                            {axes.map(({ angle }, index) => {
+                                const match = alignedReference.find((reference) => reference.key === stats[index].key);
+                                const point = getPoint(angle, radius * (clampScore(match?.score || 0) / 10));
+                                return (
+                                    <circle
+                                        key={`reference-dot-${stats[index].key}`}
+                                        cx={point.x}
+                                        cy={point.y}
+                                        r="3.5"
+                                        fill={referenceStroke}
+                                    />
+                                );
+                            })}
+                        </>
+                    )}
+
+                    <polygon
+                        points={dataPolygon}
+                        fill={accent}
+                        fillOpacity="0.18"
+                        stroke={accent}
+                        strokeWidth="3"
+                    />
+
+                    {axes.map(({ angle }, index) => {
+                        const point = getPoint(angle, radius * (clampScore(stats[index].score) / 10));
+                        return <circle key={`dot-${stats[index].key}`} cx={point.x} cy={point.y} r="4.8" fill={accent} />;
+                    })}
+                </svg>
+            </div>
+        );
+    };
 
 export const ShareCard: React.FC<ShareCardProps> = ({
     place,
@@ -539,20 +542,36 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                     : 'Compartido desde Listopic.'
     );
 
-    const loadAsBlobUrl = async (url?: string): Promise<string> => {
+    const loadAsDataUrl = async (url?: string): Promise<string> => {
         if (!url) return '';
-        const cacheBustedUrl = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
         try {
-            const response = await fetch(cacheBustedUrl);
-            const blob = await response.blob();
-            return URL.createObjectURL(blob);
+            const res = await fetch(url);
+            const blob = await res.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
         } catch {
-            return cacheBustedUrl;
+            return url;
         }
     };
 
-    const clearBlobUrl = (url?: string) => {
-        if (url && url.startsWith('blob:')) URL.revokeObjectURL(url);
+    const captureDirectly = async (node: HTMLDivElement) => {
+        if (document.fonts?.ready) {
+            try { await document.fonts.ready; } catch { /* ignore */ }
+        }
+        return html2canvas(node, {
+            useCORS: true,
+            scale: 2,
+            backgroundColor: null,
+            logging: false,
+            width: exportWidth,
+            height: exportHeight,
+            windowWidth: exportWidth,
+            windowHeight: exportHeight,
+        });
     };
 
     const renderIsolatedCanvas = async (node: HTMLDivElement) => {
@@ -570,9 +589,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
 
         try {
             const frameDocument = iframe.contentDocument;
-            if (!frameDocument) {
-                throw new Error('No iframe document available');
-            }
+            if (!frameDocument) throw new Error('No iframe document available');
 
             frameDocument.open();
             frameDocument.write('<!DOCTYPE html><html><head></head><body style="margin:0;background:transparent;"></body></html>');
@@ -598,11 +615,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             )));
 
             if (frameDocument.fonts?.ready) {
-                try {
-                    await frameDocument.fonts.ready;
-                } catch {
-                    // Ignore font loading issues and continue with fallback fonts.
-                }
+                try { await frameDocument.fonts.ready; } catch { /* ignore */ }
             }
 
             return await html2canvas(clonedNode, {
@@ -615,6 +628,9 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 windowWidth: exportWidth,
                 windowHeight: exportHeight,
             });
+        } catch {
+            // Fallback: capture directly without iframe (needed for Android WebView)
+            return captureDirectly(node);
         } finally {
             iframe.remove();
         }
@@ -642,24 +658,21 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         setShareFeedback(null);
 
         try {
-            clearBlobUrl(localImages.hero);
-            clearBlobUrl(localImages.avatar);
-
-            const [heroBlob, avatarBlob] = await withTimeout(
+            const [heroData, avatarData] = await withTimeout(
                 Promise.all([
-                    loadAsBlobUrl(review?.photoUrl || place?.photoUrl || entity.imageUrl),
-                    loadAsBlobUrl(review?.authorPhoto || entity.authorPhoto || (entity.type === 'profile' ? entity.imageUrl : undefined)),
+                    loadAsDataUrl(review?.photoUrl || place?.photoUrl || entity.imageUrl),
+                    loadAsDataUrl(review?.authorPhoto || entity.authorPhoto || (entity.type === 'profile' ? entity.imageUrl : undefined)),
                 ]),
                 CARD_GENERATION_TIMEOUT_MS,
                 'Tiempo de espera agotado al preparar las imagenes.',
             );
 
-            setLocalImages({ hero: heroBlob, avatar: avatarBlob });
-            await new Promise((resolve) => setTimeout(resolve, 100));
+            setLocalImages({ hero: heroData, avatar: avatarData });
+            await new Promise((resolve) => setTimeout(resolve, 200));
             if (!captureRef.current) return;
 
             const canvas = await withTimeout(
-                renderIsolatedCanvas(captureRef.current),
+                Capacitor.isNativePlatform() ? captureDirectly(captureRef.current) : renderIsolatedCanvas(captureRef.current),
                 CARD_GENERATION_TIMEOUT_MS,
                 'Tiempo de espera agotado al generar la tarjeta.',
             );
@@ -697,6 +710,23 @@ export const ShareCard: React.FC<ShareCardProps> = ({
         const fileName = `listopic-card-${fileSlug || 'share'}.png`;
 
         try {
+            if (Capacitor.isNativePlatform()) {
+                const base64Data = previewImage.split(',')[1];
+                const savedFile = await Filesystem.writeFile({
+                    path: fileName,
+                    data: base64Data,
+                    directory: Directory.Cache
+                });
+                await Share.share({
+                    title: titleText,
+                    text: subtitleText || 'Compartido desde Listopic',
+                    url: savedFile.uri,
+                    dialogTitle: 'Compartir Listopic'
+                });
+                setShareFeedback('Tarjeta compartida');
+                return;
+            }
+
             const file = await dataUrlToFile(previewImage, fileName);
             const canShareFiles = typeof navigator !== 'undefined'
                 && typeof navigator.canShare === 'function'

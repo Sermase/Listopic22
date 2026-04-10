@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface ProgressiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
     src: string;
@@ -8,9 +8,14 @@ interface ProgressiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement
 
 export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({ src, alt, className, containerClassName, ...props }) => {
     const [loaded, setLoaded] = useState(false);
+    const imgRef = useRef<HTMLImageElement>(null);
 
     useEffect(() => {
-        setLoaded(false); // reset if src changes
+        setLoaded(false);
+        // Si la imagen ya estaba en caché, onLoad no se dispara
+        if (imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
+            setLoaded(true);
+        }
     }, [src]);
 
     return (
@@ -21,9 +26,9 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({ src, alt, cl
             />
             {/* Image */}
             <img
+                ref={imgRef}
                 src={src}
                 alt={alt || ''}
-                loading="lazy"
                 onLoad={() => setLoaded(true)}
                 className={`transition-opacity duration-700 ease-in-out ${loaded ? 'opacity-100' : 'opacity-0'} ${className || ''}`}
                 {...props}

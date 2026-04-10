@@ -8,7 +8,7 @@ export const UsersPage: React.FC = () => {
     const { users, loading } = useUsers();
 
     return (
-        <div className="min-h-screen bg-[#0b1021] pt-24 pb-20 px-4 sm:px-6">
+        <div className="min-h-screen bg-[#0b1021] pt-safe-24 pb-20 px-4 sm:px-6">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-12 text-center">
                     <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">

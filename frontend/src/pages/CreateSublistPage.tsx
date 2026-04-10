@@ -287,7 +287,7 @@ export const CreateSublistPage: React.FC = () => {
     if (!parentId) {
         const filtered = mainLists.filter(l => l.name?.toLowerCase().includes(searchTerm.toLowerCase()));
         return (
-            <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-20 pb-24 px-4">
+            <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-safe-20 pb-24 px-4">
                 <div className="max-w-2xl mx-auto">
                     <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm mb-6 transition-colors">
                         <ArrowLeft className="w-4 h-4" /> Volver
@@ -344,11 +344,11 @@ export const CreateSublistPage: React.FC = () => {
 
     // RENDER: Creation Form
     if (!parentList) {
-        return <div className="min-h-screen bg-[#0b1021] pt-24 flex justify-center"><Loader className="animate-spin text-white" /></div>;
+        return <div className="min-h-screen bg-[#0b1021] pt-safe-24 flex justify-center"><Loader className="animate-spin text-white" /></div>;
     }
 
     return (
-        <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-20 pb-24 px-4">
+        <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-safe-20 pb-24 px-4">
             <div className="max-w-2xl mx-auto">
 
                 {/* Back + parent info */}

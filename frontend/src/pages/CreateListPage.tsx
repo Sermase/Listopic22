@@ -43,7 +43,7 @@ export const CreateListPage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-24 pb-20 px-4">
+        <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-safe-24 pb-20 px-4">
             <div className="max-w-3xl mx-auto">
                 <button onClick={handleCancel} className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors">
                     <ArrowLeft className="w-4 h-4 mr-2" /> Cancelar

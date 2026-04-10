@@ -570,13 +570,13 @@ export const DeveloperPage: React.FC = () => {
     // Update active tab logic if needed
 
     if (loadingProfile || isAuthorized === null) {
-        return <div className="min-h-screen pt-24 text-center text-gray-500">Verificando permisos...</div>;
+        return <div className="min-h-screen pt-safe-24 text-center text-gray-500">Verificando permisos...</div>;
     }
 
     return (
         <>
             {!isAuthorized ? (
-                <div className="flex flex-col items-center justify-center h-[calc(100vh-80px)] p-6 text-center pt-24">
+                <div className="flex flex-col items-center justify-center h-[calc(100vh-80px)] p-6 text-center pt-safe-24">
                     <AlertCircle className="w-16 h-16 text-red-500 mb-4 opacity-80" />
                     <h2 className="text-2xl font-bold text-white mb-2">Acceso Restringido</h2>
                     <p className="text-gray-500 max-w-md">Esta área es exclusiva para administradores del sistema.</p>

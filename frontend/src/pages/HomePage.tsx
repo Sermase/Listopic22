@@ -571,13 +571,17 @@ export const HomePage: React.FC = () => {
             }
         });
 
-        // 2. Add Extra Places (if not already present)
+        // 2. Add Extra Places (if not already present, or update photo if missing)
         extraPlaces.forEach(p => {
             if (!uniquePlaces.has(p.id)) {
                 // Check distance filter for these too!
                 if (checkDistance(p.lat, p.lng)) {
                     uniquePlaces.set(p.id, p);
                 }
+            } else if (!uniquePlaces.get(p.id).photoUrl && p.photoUrl) {
+                const existing = uniquePlaces.get(p.id);
+                existing.photoUrl = p.photoUrl;
+                uniquePlaces.set(p.id, existing);
             }
         });
 
@@ -773,7 +777,7 @@ export const HomePage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[#0b1021] pb-20 font-sans">
-            <div className="pt-24 px-4 pb-6">
+            <div className="pt-safe-24 px-4 pb-6">
 
                 {/* Hero Section (Clean) */}
                 <div className="max-w-4xl mx-auto mb-10 text-center pt-8 relative z-10">

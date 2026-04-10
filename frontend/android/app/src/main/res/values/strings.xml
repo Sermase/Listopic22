@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Listopic</string>
+    <string name="title_activity_main">Listopic</string>
+    <string name="package_name">app.listopic.web</string>
+    <string name="custom_url_scheme">app.listopic.web</string>
+</resources>
