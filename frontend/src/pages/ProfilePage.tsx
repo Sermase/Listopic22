@@ -1685,7 +1685,7 @@ export const ProfilePage: React.FC = () => {
         {/* Avatar Enlarged Modal with "Miembro desde" */}
         {isAvatarModalOpen && profile && (
           <div
-            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-page-fade"
+            className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-page-fade"
             onClick={() => setIsAvatarModalOpen(false)}
           >
             <button
@@ -1746,7 +1746,7 @@ export const ProfilePage: React.FC = () => {
         {/* Preferences Modal */}
         {isEditing && isOwnProfile && (
           <div
-            className="fixed inset-0 z-[130] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
+            className="fixed inset-0 z-[200] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
             onClick={() => !savingPreferences && setIsEditing(false)}
           >
             <div
@@ -2355,7 +2355,7 @@ export const ProfilePage: React.FC = () => {
       {
         isDetailsModalOpen && (
           <div
-            className="fixed inset-0 z-[140] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
+            className="fixed inset-0 z-[210] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
             onClick={() => setIsDetailsModalOpen(false)}
           >
             <div
