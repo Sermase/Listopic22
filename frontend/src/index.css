@@ -140,7 +140,7 @@
        Uses margin-top instead of transform to avoid creating a stacking context
        (transform would trap modal z-indices below the Navbar). */
     .animate-page-fade {
-        animation: page-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        animation: page-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     @keyframes page-enter {
@@ -155,7 +155,7 @@
 
     /* Hero entry animations — slide from each direction */
     .animate-hero-from-left {
-        animation: hero-from-left 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation: hero-from-left 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     @keyframes hero-from-left {
@@ -171,7 +171,7 @@
     }
 
     .animate-hero-from-right {
-        animation: hero-from-right 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation: hero-from-right 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     @keyframes hero-from-right {
