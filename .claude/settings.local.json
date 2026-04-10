@@ -20,7 +20,11 @@
       "Bash(sed -i 's/from-\\\\[#0b1021\\\\] via-\\\\[#0b1021\\\\]\\\\/60 to-transparent pt-safe-20/from-[#0b1021] via-[#0b1021]\\\\/60 to-transparent pt-20/g' /home/sermase/Documentos/GitHub/Listopic22/frontend/src/pages/GroupPage.tsx /home/sermase/Documentos/GitHub/Listopic22/frontend/src/pages/PlacePage.tsx)",
       "Bash(npx @capacitor/assets --version)",
       "Bash(identify /home/sermase/Documentos/GitHub/Listopic22/frontend/public/icon-512.png)",
-      "Bash(npx @capacitor/assets generate --android)"
+      "Bash(npx @capacitor/assets generate --android)",
+      "Bash(./gradlew signingReport)",
+      "Read(//home/sermase/Android/Sdk/**)",
+      "Read(//home/sermase/Android/**)",
+      "Bash(snap list:*)"
     ]
   }
 }
