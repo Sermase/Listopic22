@@ -43,7 +43,8 @@ export const LoginPage: React.FC = () => {
             }
         } catch (err: any) {
             console.error("Google Login Error:", err);
-            setError("Error al iniciar sesión con Google. Inténtalo de nuevo.");
+            const msg = err?.message || err?.code || JSON.stringify(err) || 'Error desconocido';
+            setError(`Error Google: ${msg}`);
         } finally {
             setLoading(false);
         }
