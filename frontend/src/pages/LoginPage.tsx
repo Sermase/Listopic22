@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleAuthProvider, signInWithPopup, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
+import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
 export const LoginPage: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+
+    // Navegar cuando Firebase confirme el usuario en el contexto
+    useEffect(() => {
+        if (user) navigate('/');
+    }, [user, navigate]);
 
 
     // Auth State
@@ -26,17 +33,13 @@ export const LoginPage: React.FC = () => {
                 // Native Google Sign-In via Capacitor plugin
                 const { credential: nativeCredential } = await FirebaseAuthentication.signInWithGoogle();
                 const credential = GoogleAuthProvider.credential(nativeCredential?.idToken);
-                const result = await signInWithCredential(auth, credential);
-                if (result.user) {
-                    navigate('/');
-                }
+                await signInWithCredential(auth, credential);
+                // Navigation handled by useEffect when auth context updates
             } else {
                 // Web: popup to avoid cross-domain redirect issues
                 const provider = new GoogleAuthProvider();
-                const result = await signInWithPopup(auth, provider);
-                if (result.user) {
-                    navigate('/');
-                }
+                await signInWithPopup(auth, provider);
+                // Navigation handled by useEffect when auth context updates
             }
         } catch (err: any) {
             console.error("Google Login Error:", err);
@@ -64,7 +67,7 @@ export const LoginPage: React.FC = () => {
                 // Login
                 await signInWithEmailAndPassword(auth, email, password);
             }
-            navigate('/');
+            // Navigation handled by useEffect when auth context updates
         } catch (err: any) {
             console.error(err);
             let msg = "Error de autenticación.";
