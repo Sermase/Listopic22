@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Mail, Shield, Star, List, MapPin, Users } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { Footer } from '../components/Footer';
 
 const openExternal = (url: string) => {
     window.open(url, '_blank', 'noopener noreferrer');
@@ -16,6 +17,7 @@ export const AboutPage: React.FC = () => {
     };
 
     return (
+        <>
         <div className="min-h-screen bg-[#0b1021] pb-16">
             {/* Hero */}
             <div className="relative h-48 overflow-hidden">
@@ -114,10 +116,9 @@ export const AboutPage: React.FC = () => {
                 </Link>
 
                 {/* Footer */}
-                <p className="text-center text-xs text-gray-600 pt-2 pb-4">
-                    © {new Date().getFullYear()} Istari Core · Listopic v1.0
-                </p>
             </div>
         </div>
+        <Footer />
+        </>
     );
 };

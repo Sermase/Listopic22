@@ -18,6 +18,7 @@ import { db } from '../firebase';
 import { updateProfile } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
 import { useAppConfig } from '../context/AppConfigContext';
+import { Footer } from '../components/Footer';
 import {
     completeUserProfileSetup,
     getUsernameGateStatus,
@@ -776,6 +777,7 @@ export const HomePage: React.FC = () => {
     }
 
     return (
+        <>
         <div className="min-h-screen bg-[#0b1021] pb-20 font-sans">
             <div className="pt-safe-24 px-4 pb-6">
 
@@ -1239,5 +1241,7 @@ export const HomePage: React.FC = () => {
                 </div>
             )}
         </div >
+        <Footer />
+        </>
     );
 };
