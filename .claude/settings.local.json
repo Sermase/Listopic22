@@ -24,7 +24,10 @@
       "Bash(./gradlew signingReport)",
       "Read(//home/sermase/Android/Sdk/**)",
       "Read(//home/sermase/Android/**)",
-      "Bash(snap list:*)"
+      "Bash(snap list:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)"
     ]
   }
 }
