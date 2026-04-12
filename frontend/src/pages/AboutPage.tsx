@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Mail, Shield, Star, List, MapPin, Users } from 'lucide-react';
+import { ChevronRight, ExternalLink, Mail, Shield, Star, List, MapPin, Users } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Footer } from '../components/Footer';
 
@@ -75,27 +75,35 @@ export const AboutPage: React.FC = () => {
                 </button>
 
                 {/* Istari Core */}
-                <div className="bg-[#151b2e]/60 border border-white/10 rounded-3xl p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                            <span className="text-indigo-400 font-bold text-sm">IC</span>
+                <Link
+                    to="/istari-core"
+                    className="flex items-center justify-between p-5 bg-[#151b2e]/60 border border-white/10 rounded-3xl hover:border-violet-500/30 hover:bg-violet-500/5 transition-all group"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0">
+                            <img src="/images/istari-core-logo.png" alt="Istari Core" className="w-full h-full object-contain" />
                         </div>
                         <div>
-                            <h2 className="text-base font-bold text-white">Istari Core</h2>
-                            <p className="text-xs text-gray-500">Desarrollador</p>
+                            <p className="text-sm font-bold text-white">Istari Core</p>
+                            <p className="text-xs text-gray-500">Desarrollador · Misión, Visión y Valores</p>
                         </div>
                     </div>
-                    <p className="text-gray-300 text-sm leading-relaxed mb-4">
-                        Listopic es desarrollado y mantenido por Istari Core. Nuestro objetivo es crear herramientas útiles, sencillas y bien diseñadas para el día a día.
-                    </p>
-                    <a
-                        href="mailto:istaricore@gmail.com"
-                        className="inline-flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
-                    >
-                        <Mail className="w-4 h-4" />
-                        istaricore@gmail.com
-                    </a>
-                </div>
+                    <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-violet-400 transition-colors shrink-0" />
+                </Link>
+
+                {/* Contacto */}
+                <a
+                    href="mailto:istaricore@gmail.com"
+                    className="flex items-center gap-4 p-5 bg-[#151b2e]/60 border border-white/10 rounded-3xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group"
+                >
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                        <Mail className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-white">Contacto</p>
+                        <p className="text-xs text-gray-500">istaricore@gmail.com</p>
+                    </div>
+                </a>
 
                 {/* Privacidad */}
                 <Link

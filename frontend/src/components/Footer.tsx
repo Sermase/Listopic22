@@ -36,6 +36,9 @@ export const Footer: React.FC<{ compact?: boolean }> = ({ compact }) => {
                         <Link to="/privacy" className="text-gray-500 hover:text-white transition-colors">
                             Política de Privacidad
                         </Link>
+                        <Link to="/istari-core" className="text-gray-500 hover:text-white transition-colors">
+                            Istari Core
+                        </Link>
                         <a href="mailto:istaricore@gmail.com" className="text-gray-500 hover:text-white transition-colors">
                             Contacto
                         </a>

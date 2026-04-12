@@ -29,6 +29,7 @@ const ChatsPage = React.lazy(() => import('./pages/ChatsPage').then(m => ({ defa
 const CreateReviewPage = React.lazy(() => import('./pages/CreateReviewPage').then(m => ({ default: m.CreateReviewPage })));
 const AboutPage = React.lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const IstariCorePage = React.lazy(() => import('./pages/IstariCorePage').then(m => ({ default: m.IstariCorePage })));
 
 // Activating location request globally
 const LocationActivator = () => {
@@ -148,6 +149,7 @@ const AppRoutes = () => {
             {/* Public info pages */}
             <Route path="/about" element={<AboutPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/istari-core" element={<IstariCorePage />} />
           </Routes>
         </div>
       </main>
