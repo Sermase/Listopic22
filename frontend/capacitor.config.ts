@@ -5,6 +5,10 @@ const config: CapacitorConfig = {
   appName: 'Listopic',
   webDir: 'dist',
   backgroundColor: '#0b1021',
+  server: {
+    androidScheme: 'https',
+    hostname: 'listopic.es',
+  },
   plugins: {
     SplashScreen: {
       launchAutoHide: false,
