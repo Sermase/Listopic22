@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
+import { Footer } from '../components/Footer';
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <section className="mb-8">
@@ -16,7 +17,8 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
 
 export const PrivacyPage: React.FC = () => {
     return (
-        <div className="min-h-screen bg-[#0b1021] pb-16">
+        <>
+        <div className="min-h-screen bg-[#0b1021] pb-8">
             {/* Header */}
             <div className="relative h-40 bg-gradient-to-br from-indigo-900/60 via-[#0b1021] to-[#0b1021] flex items-end">
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] to-transparent" />
@@ -138,5 +140,7 @@ export const PrivacyPage: React.FC = () => {
                 </div>
             </div>
         </div>
+        <Footer compact />
+        </>
     );
 };

@@ -25,7 +25,7 @@ export const Footer: React.FC<{ compact?: boolean }> = ({ compact }) => {
                             </div>
                             <span className="text-base font-display font-bold text-white">Listopic</span>
                         </div>
-                        <p className="text-xs text-gray-600">© {new Date().getFullYear()} Istari Core</p>
+                        <p className="text-xs text-gray-600">{new Date().getFullYear()} Istari Core</p>
                     </div>
 
                     {/* Links */}
@@ -34,7 +34,10 @@ export const Footer: React.FC<{ compact?: boolean }> = ({ compact }) => {
                             Sobre Listopic
                         </Link>
                         <Link to="/privacy" className="text-gray-500 hover:text-white transition-colors">
-                            Política de Privacidad
+                            Privacidad
+                        </Link>
+                        <Link to="/terms" className="text-gray-500 hover:text-white transition-colors">
+                            Términos de Uso
                         </Link>
                         <Link to="/istari-core" className="text-gray-500 hover:text-white transition-colors">
                             Istari Core

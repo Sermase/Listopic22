@@ -404,7 +404,7 @@ export const Navbar: React.FC = () => {
                         >
                             <Info className="w-5 h-5 text-indigo-400" /> Sobre Listopic
                         </button>
-                        <p className="pb-4 text-center text-gray-600 text-xs">© {new Date().getFullYear()} Istari Core</p>
+                        <p className="pb-4 text-center text-gray-600 text-xs">{new Date().getFullYear()} Istari Core</p>
                     </div>
                 </div>
             )}

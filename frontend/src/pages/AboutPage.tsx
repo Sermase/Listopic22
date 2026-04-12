@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, ExternalLink, Mail, Shield, Star, List, MapPin, Users } from 'lucide-react';
+import { ChevronRight, ExternalLink, FileText, Mail, Shield, Star, List, MapPin, Users } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Footer } from '../components/Footer';
 
@@ -123,7 +123,23 @@ export const AboutPage: React.FC = () => {
                     <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-indigo-400 transition-colors shrink-0" />
                 </Link>
 
-                {/* Footer */}
+                {/* Términos */}
+                <Link
+                    to="/terms"
+                    className="flex items-center justify-between p-5 bg-[#151b2e]/60 border border-white/10 rounded-3xl hover:border-violet-500/30 hover:bg-violet-500/5 transition-all group"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                            <FileText className="w-5 h-5 text-violet-400" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-white">Términos de Uso</p>
+                            <p className="text-xs text-gray-500">Condiciones del servicio</p>
+                        </div>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-violet-400 transition-colors shrink-0" />
+                </Link>
+
             </div>
         </div>
         <Footer compact />

@@ -30,6 +30,7 @@ const CreateReviewPage = React.lazy(() => import('./pages/CreateReviewPage').the
 const AboutPage = React.lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const IstariCorePage = React.lazy(() => import('./pages/IstariCorePage').then(m => ({ default: m.IstariCorePage })));
+const TermsPage = React.lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
 
 // Activating location request globally
 const LocationActivator = () => {
@@ -150,6 +151,7 @@ const AppRoutes = () => {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/istari-core" element={<IstariCorePage />} />
+            <Route path="/terms" element={<TermsPage />} />
           </Routes>
         </div>
       </main>
