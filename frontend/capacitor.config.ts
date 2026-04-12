@@ -6,6 +6,10 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   backgroundColor: '#0b1021',
   plugins: {
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ['google.com'],
+    },
     SplashScreen: {
       launchAutoHide: false,
       backgroundColor: '#0b1021',

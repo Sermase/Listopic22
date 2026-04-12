@@ -1,33 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleAuthProvider, signInWithRedirect, signInWithPopup, getRedirectResult, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
 export const LoginPage: React.FC = () => {
     const navigate = useNavigate();
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    React.useEffect(() => {
-        // Only handle redirect results on native apps
-        if (Capacitor.isNativePlatform()) {
-            getRedirectResult(auth)
-                .then((result) => {
-                    if (result?.user) {
-                        navigate('/');
-                    }
-                })
-                .catch((err) => {
-                    console.group("Detailed Redirect Auth Error");
-                    console.error("Error Code:", err.code);
-                    console.error("Error Message:", err.message);
-                    console.groupEnd();
-                    setError(`Error de autenticación: ${err.message || 'No se pudo completar el inicio de sesión'}`);
-                });
-        }
-    }, [navigate]);
 
     // Auth State
     const [isRegistering, setIsRegistering] = useState(false);
@@ -39,20 +22,26 @@ export const LoginPage: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const provider = new GoogleAuthProvider();
             if (Capacitor.isNativePlatform()) {
-                await signInWithRedirect(auth, provider);
+                // Native Google Sign-In via Capacitor plugin
+                const { credential: nativeCredential } = await FirebaseAuthentication.signInWithGoogle();
+                const credential = GoogleAuthProvider.credential(nativeCredential?.idToken);
+                const result = await signInWithCredential(auth, credential);
+                if (result.user) {
+                    navigate('/');
+                }
             } else {
-                // Use Popup on Web to avoid cross-domain redirect issues
+                // Web: popup to avoid cross-domain redirect issues
+                const provider = new GoogleAuthProvider();
                 const result = await signInWithPopup(auth, provider);
                 if (result.user) {
                     navigate('/');
                 }
-                setLoading(false);
             }
         } catch (err: any) {
             console.error("Google Login Error:", err);
             setError("Error al iniciar sesión con Google. Inténtalo de nuevo.");
+        } finally {
             setLoading(false);
         }
     };
