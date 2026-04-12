@@ -7,9 +7,9 @@ const InstagramIcon = () => (
     </svg>
 );
 
-export const Footer: React.FC = () => {
+export const Footer: React.FC<{ compact?: boolean }> = ({ compact }) => {
     return (
-        <footer className="w-full border-t border-white/5 bg-[#0d1225] mt-16">
+        <footer className={`w-full border-t border-white/5 bg-[#0d1225] ${compact ? 'mt-4' : 'mt-16'}`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
                 {/* Desktop: 3 columnas / Mobile: apilado centrado */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">

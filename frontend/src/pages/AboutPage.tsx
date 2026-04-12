@@ -18,12 +18,12 @@ export const AboutPage: React.FC = () => {
 
     return (
         <>
-        <div className="min-h-screen bg-[#0b1021] pb-16">
-            {/* Hero */}
-            <div className="relative h-48 overflow-hidden">
+        <div className="min-h-screen bg-[#0b1021] pb-8">
+            {/* Hero — padding-top para compensar la navbar fija */}
+            <div className="relative overflow-hidden" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4rem)' }}>
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/50 via-cyan-900/20 to-[#0b1021]" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-transparent to-transparent" />
-                <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
+                <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 pt-10 pb-12">
                     <div className="relative mb-3">
                         <div className="absolute inset-0 bg-blue-600 blur-2xl opacity-30 rounded-2xl" />
                         <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-xl">
@@ -35,7 +35,7 @@ export const AboutPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="max-w-2xl mx-auto px-4 sm:px-6 -mt-4 space-y-4">
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 space-y-4">
 
                 {/* Qué es Listopic */}
                 <div className="bg-[#151b2e]/60 border border-white/10 rounded-3xl p-6">
@@ -118,7 +118,7 @@ export const AboutPage: React.FC = () => {
                 {/* Footer */}
             </div>
         </div>
-        <Footer />
+        <Footer compact />
         </>
     );
 };
