@@ -7,7 +7,7 @@
             "namespace": "android_app",
             "package_name": "app.listopic.web",
             "sha256_cert_fingerprints": [
-                "REEMPLAZA_ESTO_CON_TU_HUELLA_SHA256"
+                "fa8bd25cb4cf530fea79da47d5da59948b82b174"
             ]
         }
     }
