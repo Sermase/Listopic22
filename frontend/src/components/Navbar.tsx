@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Archive, Bell, Compass, Menu, MessageSquare, Plus, Search, Share2, User, X } from 'lucide-react';
+import { Archive, Bell, Compass, Info, Menu, MessageSquare, Plus, Search, Share2, User, X } from 'lucide-react';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
 import { usePwaInstall } from '../hooks/usePwaInstall';
+import { Capacitor } from '@capacitor/core';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { NotificationModal } from './NotificationModal';
 import { ShareModal } from './ShareModal';
@@ -388,8 +389,22 @@ export const Navbar: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="mt-auto pt-8 pb-4 text-center text-gray-500 text-sm flex-shrink-0">
-                        <p>© 2026 Listopic App</p>
+                    <div className="mt-auto pt-6 flex-shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsMenuOpen(false);
+                                if (Capacitor.isNativePlatform()) {
+                                    window.open('https://listopic.es/about', '_blank', 'noopener noreferrer');
+                                } else {
+                                    window.location.href = '/about';
+                                }
+                            }}
+                            className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-gray-200 transition-colors mb-4"
+                        >
+                            <Info className="w-5 h-5 text-indigo-400" /> Sobre Listopic
+                        </button>
+                        <p className="pb-4 text-center text-gray-600 text-xs">© {new Date().getFullYear()} Istari Core</p>
                     </div>
                 </div>
             )}

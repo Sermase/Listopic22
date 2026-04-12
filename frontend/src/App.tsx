@@ -27,6 +27,8 @@ const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then(m => ({ 
 const ArchivePage = React.lazy(() => import('./pages/ArchivePage').then(m => ({ default: m.ArchivePage })));
 const ChatsPage = React.lazy(() => import('./pages/ChatsPage').then(m => ({ default: m.ChatsPage })));
 const CreateReviewPage = React.lazy(() => import('./pages/CreateReviewPage').then(m => ({ default: m.CreateReviewPage })));
+const AboutPage = React.lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
+const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 
 // Activating location request globally
 const LocationActivator = () => {
@@ -142,6 +144,10 @@ const AppRoutes = () => {
             <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
             <Route path="/chats" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
             <Route path="/chats/:chatId" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
+
+            {/* Public info pages */}
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
           </Routes>
         </div>
       </main>
