@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { X, Bell, Heart, UserPlus, MessageSquare, Star, Award } from 'lucide-react';
-import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -27,7 +27,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         // Subscribe to notifications
         const q = query(
             collection(db, 'users', user.uid, 'notifications'),
-            orderBy('createdAt', 'desc'),
+            orderBy('updatedAt', 'desc'),
             limit(20)
         );
 
@@ -44,12 +44,17 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
     const handleMarkAllRead = async () => {
         if (!user) return;
-        const unreadBatch = notifications.filter(n => !n.read);
-        if (unreadBatch.length === 0) return;
+        const unread = notifications.filter(n => !n.read);
+        if (unread.length === 0) return;
 
         const batch = writeBatch(db);
-        unreadBatch.forEach(n => {
-            batch.update(doc(db, 'users', user.uid, 'notifications', n.id), { read: true });
+        unread.forEach(n => {
+            const ref = doc(db, 'users', user.uid, 'notifications', n.id);
+            if (n.deletedOnRead) {
+                batch.delete(ref);
+            } else {
+                batch.update(ref, { read: true });
+            }
         });
         await batch.commit();
     };
@@ -64,7 +69,10 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 return <UserPlus className="w-4 h-4 text-indigo-500" />;
             case 'comment':
             case 'review_comment':
+            case 'new_message':
                 return <MessageSquare className="w-4 h-4 text-blue-500" />;
+            case 'list_follow':
+                return <Bell className="w-4 h-4 text-cyan-500" />;
             case 'badge_earned':
                 return <Award className="w-4 h-4 text-amber-400" />;
             case 'level_up':
@@ -114,8 +122,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 return base;
             })
             .sort((a, b) => {
-                const aTs = a.createdAt?.seconds ?? 0;
-                const bTs = b.createdAt?.seconds ?? 0;
+                const aTs = a.updatedAt?.seconds ?? a.createdAt?.seconds ?? 0;
+                const bTs = b.updatedAt?.seconds ?? b.createdAt?.seconds ?? 0;
                 return bTs - aTs;
             });
     }, [notifications]);
@@ -135,7 +143,11 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                     to={getLink(notification)}
                     onClick={() => {
                         if (!notification.read && user) {
-                            updateDoc(doc(db, 'users', user.uid, 'notifications', notification.id), { read: true });
+                            if (notification.deletedOnRead) {
+                                deleteDoc(doc(db, 'users', user.uid, 'notifications', notification.id));
+                            } else {
+                                updateDoc(doc(db, 'users', user.uid, 'notifications', notification.id), { read: true });
+                            }
                         }
                         onClose();
                     }}
@@ -149,21 +161,20 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                             <div className="mt-0.5 shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-black/20 border border-white/5">
                                 {getIcon(notification.type)}
                             </div>
-                            {notification.groupCount > 1 && (
+                            {(notification.count > 1 || notification.groupCount > 1) && (
                                 <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                                    {notification.groupCount}
+                                    {notification.count || notification.groupCount}
                                 </span>
                             )}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-200 leading-snug">
-                                {notification.senderName && <span className="font-bold text-white">{notification.senderName} </span>}
-                                {notification.message || 'Nueva notificaciÃ³n'}
+                                {notification.message || 'Nueva notificación'}
                             </p>
                             <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-500">
                                 <span>
-                                    {notification.createdAt?.seconds
-                                        ? new Date(notification.createdAt.seconds * 1000).toLocaleDateString()
+                                    {(notification.updatedAt?.seconds || notification.createdAt?.seconds)
+                                        ? new Date((notification.updatedAt?.seconds || notification.createdAt?.seconds) * 1000).toLocaleDateString()
                                         : 'Hace un momento'}
                                 </span>
                                 {!notification.read && (
@@ -211,9 +222,12 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                                 key={notification.id}
                                 to={getLink(notification)}
                                 onClick={() => {
-                                    // Mark as read on click
                                     if (!notification.read && user) {
-                                        updateDoc(doc(db, 'users', user.uid, 'notifications', notification.id), { read: true });
+                                        if (notification.deletedOnRead) {
+                                            deleteDoc(doc(db, 'users', user.uid, 'notifications', notification.id));
+                                        } else {
+                                            updateDoc(doc(db, 'users', user.uid, 'notifications', notification.id), { read: true });
+                                        }
                                     }
                                     onClose();
                                 }}
@@ -224,19 +238,18 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                                         <div className={`mt-1 shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-black/20 border border-white/5`}>
                                             {getIcon(notification.type)}
                                         </div>
-                                        {notification.groupCount > 1 && (
+                                        {(notification.count > 1 || notification.groupCount > 1) && (
                                             <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                                                {notification.groupCount}
+                                                {notification.count || notification.groupCount}
                                             </span>
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-gray-200 leading-snug">
-                                            {notification.senderName && <span className="font-bold text-white">{notification.senderName} </span>}
                                             {notification.message || 'Nueva notificación'}
                                         </p>
                                         <span className="text-xs text-gray-500 mt-1 block">
-                                            {notification.createdAt?.seconds ? new Date(notification.createdAt.seconds * 1000).toLocaleDateString() : 'Hace un momento'}
+                                            {(notification.updatedAt?.seconds || notification.createdAt?.seconds) ? new Date((notification.updatedAt?.seconds || notification.createdAt?.seconds) * 1000).toLocaleDateString() : 'Hace un momento'}
                                         </span>
                                     </div>
                                     {!notification.read && (
