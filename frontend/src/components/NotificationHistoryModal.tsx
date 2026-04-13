@@ -20,7 +20,7 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
             try {
                 const q = query(
                     collection(db, 'users', user.uid, 'notifications'),
-                    orderBy('createdAt', 'desc')
+                    orderBy('updatedAt', 'desc')
                 );
                 const snap = await getDocs(q);
                 setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -58,7 +58,10 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                 return <UserPlus className="w-4 h-4 text-indigo-500" />;
             case 'comment':
             case 'review_comment':
+            case 'new_message':
                 return <MessageSquare className="w-4 h-4 text-blue-500" />;
+            case 'list_follow':
+                return <Bell className="w-4 h-4 text-cyan-500" />;
             case 'badge_earned':
                 return <Award className="w-4 h-4 text-amber-400" />;
             case 'level_up':
@@ -116,13 +119,17 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                                         </div>
                                         <div>
                                             <p className="text-gray-200 text-sm md:text-base leading-relaxed">
-                                                {notification.senderName && <span className="font-bold text-white">{notification.senderName} </span>}
                                                 {notification.message}
+                                                {notification.count > 1 && (
+                                                    <span className="ml-2 text-xs bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full font-medium">
+                                                        ×{notification.count}
+                                                    </span>
+                                                )}
                                             </p>
                                             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
                                                 <span>
-                                                    {notification.createdAt?.seconds
-                                                        ? new Date(notification.createdAt.seconds * 1000).toLocaleString()
+                                                    {(notification.updatedAt?.seconds || notification.createdAt?.seconds)
+                                                        ? new Date((notification.updatedAt?.seconds || notification.createdAt?.seconds) * 1000).toLocaleString()
                                                         : 'Fecha desconocida'}
                                                 </span>
                                                 {notification.placeName && <span className="text-indigo-400 font-medium">{notification.placeName}</span>}
