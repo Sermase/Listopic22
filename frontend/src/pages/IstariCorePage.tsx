@@ -26,7 +26,7 @@ export const IstariCorePage: React.FC = () => {
                         alt="Istari Core"
                         className="w-28 sm:w-36 h-auto object-contain mb-4 drop-shadow-[0_0_30px_rgba(139,92,246,0.4)]"
                     />
-                    <p className="text-gray-400 text-sm max-w-xs">Construimos herramientas con alma.</p>
+                    <p className="text-gray-400 text-sm max-w-xs">Un proyecto, una persona, muchas ganas.</p>
                 </div>
             </div>
 
@@ -41,7 +41,7 @@ export const IstariCorePage: React.FC = () => {
                         <h2 className="text-base font-bold text-white uppercase tracking-widest text-xs text-indigo-400">Misión</h2>
                     </div>
                     <p className="text-gray-300 text-sm leading-relaxed">
-                        Crear productos digitales que la gente quiera usar de verdad — útiles, bien diseñados y honestos. Herramientas que resuelvan problemas reales sin añadir ruido innecesario.
+                        Hacer cosas que merezca la pena usar. Sin más. Útiles, bien hechas, honestas sobre lo que son. Si alguien abre la app y piensa "esto sí que funciona", ya hemos cumplido.
                     </p>
                 </div>
 
@@ -54,7 +54,7 @@ export const IstariCorePage: React.FC = () => {
                         <h2 className="text-base font-bold text-white uppercase tracking-widest text-xs text-violet-400">Visión</h2>
                     </div>
                     <p className="text-gray-300 text-sm leading-relaxed">
-                        Un estudio pequeño con impacto grande. Queremos demostrar que se pueden construir productos excelentes disfrutando de cada paso del camino — sin prisa, sin atajos, saboreando el proceso tanto como el resultado.
+                        Seguir siendo pequeños y hacer cosas buenas. No hay prisa por crecer, hay ganas de hacerlo bien. Si dentro de diez años alguien sigue usando algo que construimos hoy, eso es más que suficiente.
                     </p>
                 </div>
 
@@ -68,34 +68,34 @@ export const IstariCorePage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <ValueCard
-                            emoji="🎯"
-                            title="Simplicidad deliberada"
-                            text="Lo más difícil es hacer algo simple. Cada decisión de diseño busca quitar, no añadir."
+                            emoji="✂️"
+                            title="Quitar es más difícil que añadir"
+                            text="Cualquiera mete un botón más. La parte complicada es decidir que algo no hace falta y tener el valor de no ponerlo."
                         />
                         <ValueCard
-                            emoji="🎨"
-                            title="El detalle importa"
-                            text="La diferencia entre bueno y memorable está en los detalles que nadie pide pero todos notan."
+                            emoji="🔍"
+                            title="Los detalles que nadie pide"
+                            text="La animación que dura 200ms en vez de 300. El texto que dice exactamente lo correcto. Nadie lo pide, pero se nota cuando falta."
                         />
                         <ValueCard
                             emoji="🕹️"
-                            title="Disfruta el proceso"
-                            text="No hay destino que justifique un camino sin alma. Construimos con curiosidad, humor y ganas de aprender."
+                            title="Que sea divertido hacerlo"
+                            text="Si construir esto se convierte en una obligación, algo ha ido mal. El día que deje de apetecer, paramos y lo pensamos."
                         />
                         <ValueCard
-                            emoji="🌱"
-                            title="Crece despacio, crece bien"
-                            text="Sin atajos. Cada versión mejor que la anterior, dando pasos conscientes y saboreando cada hito."
+                            emoji="🐢"
+                            title="Sin prisa"
+                            text="No hay inversores, no hay fecha límite artificial. Eso es un lujo y lo sabemos. Lo usamos para hacerlo bien."
                         />
                         <ValueCard
-                            emoji="🤝"
-                            title="Honestidad"
-                            text="Con los usuarios, con el producto y con nosotros mismos. Prometemos lo que podemos cumplir."
+                            emoji="🪞"
+                            title="Decir la verdad"
+                            text="Beta es beta. Un bug es un bug. No llamamos 'característica en desarrollo' a algo que simplemente no funciona."
                         />
                         <ValueCard
-                            emoji="✨"
-                            title="Magia en lo cotidiano"
-                            text="Las mejores herramientas hacen sentir al usuario que tiene superpoderes. Eso es lo que perseguimos."
+                            emoji="⚡"
+                            title="Que se note el cariño"
+                            text="Hay apps que se sienten frías y apps que se sienten vivas. No sabemos explicar bien la diferencia, pero sí reconocerla."
                         />
                     </div>
                 </div>

@@ -33,7 +33,10 @@
       "Read(//usr/local/bin/**)",
       "Bash(firebase login:*)",
       "Bash(exit 0)",
-      "Bash(echo \"EXIT: $?\")"
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(node -e \"require\\('jspdf'\\)\")",
+      "Bash(./node_modules/.bin/tsc -p tsconfig.app.json --noEmit --skipLibCheck)",
+      "Bash(/home/sermase/Documentos/GitHub/Listopic22/frontend/node_modules/.bin/tsc -p /home/sermase/Documentos/GitHub/Listopic22/frontend/tsconfig.app.json --noEmit --skipLibCheck)"
     ]
   }
 }

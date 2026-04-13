@@ -12,8 +12,9 @@ import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown } from 'lucide-react';
 import { DeveloperItemModal } from '../components/developer/DeveloperItemModal';
+import { UserDataExportTab } from '../components/developer/UserDataExportTab';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -29,7 +30,7 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd'>('console');
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     // Other Settings State
@@ -671,6 +672,12 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'usuarios' ? 'border-indigo-500 bg-indigo-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Users className="w-5 h-5" /> Usuarios
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('rgpd'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'rgpd' ? 'border-violet-500 bg-violet-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <FileDown className="w-5 h-5" /> RGPD / Datos
                         </button>
                     </nav>
 
@@ -1883,6 +1890,9 @@ export const DeveloperPage: React.FC = () => {
                         )}
                         {activeTab === 'usuarios' && (
                             <UsersManagerTab />
+                        )}
+                        {activeTab === 'rgpd' && (
+                            <UserDataExportTab />
                         )}
                     </main >
                 </div >
