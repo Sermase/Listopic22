@@ -36,7 +36,15 @@
       "Bash(echo \"EXIT: $?\")",
       "Bash(node -e \"require\\('jspdf'\\)\")",
       "Bash(./node_modules/.bin/tsc -p tsconfig.app.json --noEmit --skipLibCheck)",
-      "Bash(/home/sermase/Documentos/GitHub/Listopic22/frontend/node_modules/.bin/tsc -p /home/sermase/Documentos/GitHub/Listopic22/frontend/tsconfig.app.json --noEmit --skipLibCheck)"
+      "Bash(/home/sermase/Documentos/GitHub/Listopic22/frontend/node_modules/.bin/tsc -p /home/sermase/Documentos/GitHub/Listopic22/frontend/tsconfig.app.json --noEmit --skipLibCheck)",
+      "Bash(node -e \"require\\('@capacitor/push-notifications'\\); console.log\\('ok'\\)\")",
+      "Bash(git commit:*)",
+      "Bash(xmllint --noout /home/sermase/Documentos/GitHub/Listopic22/frontend/android/app/src/main/AndroidManifest.xml)",
+      "Bash(node -e \"require\\('./modules/notifications'\\); console.log\\('ok'\\)\")",
+      "Bash(node --input-type=module --eval \"\")",
+      "Bash(node -c /home/sermase/Documentos/GitHub/Listopic22/functions/modules/notifications.js)",
+      "Bash(node -c /home/sermase/Documentos/GitHub/Listopic22/functions/modules/chat.js)",
+      "Bash(node -c /home/sermase/Documentos/GitHub/Listopic22/functions/modules/social.js)"
     ]
   }
 }

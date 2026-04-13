@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
 import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, UserPlus, X, Users, User, ExternalLink } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import type { ShareEntityPayload } from '../types/share';
@@ -104,11 +104,15 @@ export const ChatsPage: React.FC = () => {
         if (chatId) {
             setActiveChat(chatId);
             setMobileView('chat');
+            // Borrar notificación de chat al abrirlo
+            if (user) {
+                deleteDoc(doc(db, 'users', user.uid, 'notifications', `msg_${chatId}`)).catch(() => {});
+            }
         } else {
             setActiveChat(null);
             setMobileView('list');
         }
-    }, [chatId]);
+    }, [chatId, user]);
 
     // Load messages for active chat
     useEffect(() => {

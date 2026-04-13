@@ -379,19 +379,27 @@ export const HomePage: React.FC = () => {
     const loadingMoreRef = React.useRef(loadingMore);
     useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
 
+    const isFetchingRef = React.useRef(false);
+    useEffect(() => { if (!loadingMore) isFetchingRef.current = false; }, [loadingMore]);
+
     useEffect(() => {
+        if (loadingReviews) return;
+        const target = loadMoreRef.current;
+        if (!target) return;
+
         const observer = new IntersectionObserver((entries) => {
             if (entries[0].isIntersecting) {
                 setVisibleCount(prev => prev + 5);
-                if (activeTabRef.current === 'news' && !loadingMoreRef.current && hasMoreRef.current) {
+                if (activeTabRef.current === 'news' && hasMoreRef.current && !isFetchingRef.current && !loadingMoreRef.current) {
+                    isFetchingRef.current = true;
                     fetchMoreRef.current();
                 }
             }
-        }, { threshold: 0.5 });
+        }, { threshold: 0.1 });
 
-        if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+        observer.observe(target);
         return () => observer.disconnect();
-    }, []); // El observer se crea una sola vez; los refs mantienen valores actualizados
+    }, [activeTab, loadingReviews, reviews.length > 0]);
     // Reset count when tab/filter changes
     useEffect(() => {
         setVisibleCount(4);
@@ -778,470 +786,470 @@ export const HomePage: React.FC = () => {
 
     return (
         <>
-        <div className="min-h-screen bg-[#0b1021] pb-20 font-sans">
-            <div className="pt-safe-24 px-4 pb-6">
+            <div className="min-h-screen bg-[#0b1021] pb-20 font-sans">
+                <div className="pt-safe-24 px-4 pb-6">
 
-                {/* Hero Section (Clean) */}
-                <div className="max-w-4xl mx-auto mb-10 text-center pt-8 relative z-10">
-                    <div className="absolute top-0 left-1/4 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" />
-                    <div className="absolute top-10 right-1/4 w-72 h-72 bg-purple-500/20 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" style={{ animationDelay: '2s' }} />
-                    <h1 className="text-5xl md:text-[5.5rem] font-black tracking-tighter mb-4 select-none leading-[1.1]">
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 drop-shadow-md">
-                            LISTOPIC
-                        </span>
-                    </h1>
-                    <p className="text-lg md:text-2xl text-gray-400 font-light tracking-wide max-w-2xl mx-auto leading-relaxed">
-                        {parsedHeroSubtitle.map((segment) => (
-                            segment.isHighlight ? (
-                                <span key={segment.key} className={`${segment.className} font-bold`}>
-                                    {segment.text}
-                                </span>
-                            ) : (
-                                <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
-                            )
-                        ))}
-                    </p>
-
-                </div>
-
-                {/* Navigation Pills */}
-                <div className="flex justify-center mt-8 gap-4">
-                    <div className="inline-flex bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner">
-                        <button
-                            onClick={() => setActiveTab('explore')}
-                            className={`relative px-8 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${activeTab === 'explore'
-                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_4px_14px_0_rgba(99,102,241,0.39)] scale-100'
-                                : 'text-gray-400 hover:text-white hover:bg-white/10 scale-[0.98]'
-                                }`}
-                        >
-                            Explorar
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('news')}
-                            className={`relative px-8 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${activeTab === 'news'
-                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_4px_14px_0_rgba(99,102,241,0.39)] scale-100'
-                                : 'text-gray-400 hover:text-white hover:bg-white/10 scale-[0.98]'
-                                }`}
-                        >
-                            Novedades
-                        </button>
-                    </div>
-                </div>
-
-                {homeContentLoading && (
-                    <div className="mt-4 flex justify-center">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-[#151b2e]/90 text-sm text-gray-300">
-                            <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
-                            <span>{HOME_LOADING_MESSAGES[loadingMessageIndex]}</span>
-                        </div>
-                    </div>
-                )}
-
-                {/* Filter Chips (Categories) */}
-                <div className="flex flex-wrap justify-between items-center mt-8 gap-4">
-                    <div className="flex-1"></div>
-
-
-                </div>
-
-
-                {/* Map Collapsible */}
-                {activeTab === 'explore' && (
-                    <div className="max-w-7xl mx-auto mb-8">
-                        <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
-                            <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[#1e2538]/50">
-                                <button
-                                    onClick={() => setIsMapOpen(!isMapOpen)}
-                                    className="flex items-center gap-2 hover:text-white transition-colors flex-1 text-left"
-                                >
-                                    <MapIcon className="w-5 h-5 text-gray-400" />
-                                    <span className="font-bold text-sm">Mapa</span>
-                                </button>
-
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleToggleRange(); }}
-                                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
-                                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
-                                            : 'bg-[#0b1021] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
-                                            }`}
-                                    >
-                                        <MapPin className="w-3 h-3" />
-                                        {getRangeLabel()}
-                                    </button>
-
-                                    <button
-                                        onClick={() => setIsMapOpen(!isMapOpen)}
-                                        className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white transition-colors"
-                                    >
-                                        {isMapOpen ? 'Ocultar' : 'Ver Mapa'}
-                                        <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isMapOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-                                <div className="overflow-hidden min-h-0">
-                                    <div className="h-[400px] border-t border-white/10 relative">
-                                        <MapView items={filteredPlaces} mode="global" range={range} />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="max-w-[95%] mx-auto space-y-1">
-
-
-                    {activeTab === 'explore' && (<>
-                        {/* 1. Listas */}
-                        <CardCarousel
-                            title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
-                            viewAllLink={`/search?type=lists&sort=${activeTab === 'explore' ? 'most_reviewed' : 'latest'}`}
-                            items={activeTab === 'explore'
-                                ? listsWithRangeStats.sort((a, b) => (b.reviewsInRangeCount ?? b.reviewCount ?? 0) - (a.reviewsInRangeCount ?? a.reviewCount ?? 0)).slice(0, 10)
-                                : filteredLists}
-                            loading={loadingLists}
-                            icon={<ListIcon className="w-5 h-5 text-blue-400" />}
-                            accentClass="bg-blue-500/20"
-                            renderItem={(list: any, index: number) => (
-                                <Link to={`/list/${list.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
-                                    {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl) ? (
-                                        <div className="absolute inset-0">
-                                            <ProgressiveImage src={list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl} alt={list.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
-                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-full h-full bg-zinc-800" />
-                                    )}
-
-                                    <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white uppercase tracking-wider backdrop-blur-sm" title="Total de lugares en la lista">
-                                        {list.itemCount}
-                                    </div>
-                                    <div className="absolute top-2 left-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
-                                        #{index + 1}
-                                    </div>
-
-                                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                                        <h3 className="text-white font-bold text-sm leading-tight mb-1 drop-shadow-sm line-clamp-1">{list.name}</h3>
-
-                                        {/* Stats Row: Reviews, Followers */}
-                                        <div className="flex items-center gap-4 opacity-90 text-xs text-gray-300 font-medium">
-                                            <div className="flex items-center gap-1.5" title="Reseñas dentro de tu rango de distancia">
-                                                <MessageCircle className="w-3.5 h-3.5 text-indigo-400" />
-                                                <span>{list.reviewsInRangeCount !== undefined ? list.reviewsInRangeCount : (list.reviewCount || 0)}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5" title="Seguidores de la lista">
-                                                <Users className="w-3.5 h-3.5 text-rose-400" />
-                                                <span>{list.followersCount || 0}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Link>
-                            )}
-                        />
-
-                        {/* 2. Items */}
-                        <CardCarousel
-                            title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos Items"}
-                            viewAllLink={`/search?type=items&sort=${activeTab === 'explore' ? 'top_rated' : 'latest'}`}
-                            items={filteredItems}
-                            loading={loadingReviews}
-                            icon={<Star className="w-5 h-5 text-amber-400" />}
-                            accentClass="bg-amber-500/20"
-                            renderItem={(item: any) => (
-                                <ReviewCarouselItem review={item} variant="item" />
-                            )}
-                        />
-
-                        {/* 3. Reseñas Recientes */}
-                        <CardCarousel
-                            title="Reseñas recientes"
-                            viewAllLink="/search?type=items&sort=latest"
-                            items={recentReviewsInRange}
-                            loading={loadingReviews}
-                            icon={<Clock className="w-5 h-5 text-cyan-400" />}
-                            accentClass="bg-cyan-500/20"
-                            renderItem={(item: any) => (
-                                <ReviewCarouselItem review={item} variant="review" />
-                            )}
-                        />
-
-                        {/* 4. Usuarios activos */}
-                        <CardCarousel
-                            title="Usuarios activos"
-                            viewAllLink="/search?type=users"
-                            items={activeUsersInRange}
-                            loading={loadingUsers}
-                            itemClassName="w-auto mr-3"
-                            icon={<TrendingUp className="w-5 h-5 text-purple-400" />}
-                            accentClass="bg-purple-500/20"
-                            renderItem={(u: any) => (
-                                <Link to={`/profile/${u.uid}`} className="flex flex-col items-center gap-1 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
-                                    <UserAvatar
-                                        photoUrl={u.photoUrl}
-                                        displayName={u.displayName}
-                                        userType={u.userType}
-                                        size="lg"
-                                    />
-                                    <div className="text-center w-full mt-1">
-                                        <h4 className="text-white font-bold text-xs truncate w-full">{u.displayName}</h4>
-                                        <p className="text-gray-500 text-[10px] truncate">@{u.username || 'user'}</p>
-                                        <p className="text-[9px] text-indigo-400 font-medium mt-0.5">
-                                            {u.reviewsInRangeCount ?? 0} Reseñas
-                                        </p>
-                                    </div>
-                                </Link>
-                            )}
-                        />
-
-                        {/* 5. Lugares top */}
-                        <CardCarousel
-                            title={activeTab === 'explore' ? "Lugares top" : "Nuevos Lugares"}
-                            viewAllLink={`/search?type=places&sort=${activeTab === 'explore' ? 'rating' : 'latest'}`}
-                            items={filteredPlaces}
-                            loading={loadingReviews}
-                            icon={<Flame className="w-5 h-5 text-rose-400" />}
-                            accentClass="bg-rose-500/20"
-                            renderItem={(place: any) => (
-                                <Link to={`/place/${place.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
-                                    {place.photoUrl ? (
-                                        <div className="absolute inset-0">
-                                            <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
-                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-full h-full bg-blue-900/20" />
-                                    )}
-
-                                    <div className="absolute top-2 right-2 bg-teal-600 px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-sm">
-                                        {place.rating?.toFixed(1) || 9.5}
-                                    </div>
-
-                                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                                        <h3 className="text-white font-bold text-sm leading-tight mb-1 truncate">{place.name}</h3>
-                                        <p className="text-gray-300 text-[10px] flex items-center gap-1 opacity-80">
-                                            <MapPin className="w-3 h-3" /> {place.address?.split(',')[0]}
-                                        </p>
-                                    </div>
-                                </Link>
-                            )}
-                        />
-
-
-                    </>)}
-
-
-                    {/* 5. Resenas / Feed */}
-                    {activeTab === 'news' ? (
-                        <div className="max-w-2xl mx-auto mt-12 pb-20">
-                            {(loadingReviews && filteredItems.length === 0) ? (
-                                <div className="flex justify-center py-16">
-                                    <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
-                                </div>
-                            ) : filteredItems.length === 0 ? (
-                                <div className="text-gray-500 py-10 border border-white/5 rounded-xl bg-white/5 mx-4 px-4">
-                                    <p className="font-bold text-white mb-1 text-center">Tu feed está tranquilo</p>
-                                    <p className="text-sm text-center mb-4">Sigue a estas personas para ver sus reseñas aquí</p>
-                                    {topUsers.length > 0 && !loadingUsers && (
-                                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                                            {topUsers
-                                                .filter((topUser: any) => topUser.uid !== user?.uid)
-                                                .slice(0, 5)
-                                                .map((topUser: any) => (
-                                                    <Link
-                                                        key={topUser.uid}
-                                                        to={`/profile/${topUser.uid}`}
-                                                        className="bg-white/5 border border-white/10 rounded-xl p-3 text-center w-28 shrink-0 hover:bg-white/10 transition-colors"
-                                                    >
-                                                        {topUser.photoURL ? (
-                                                            <ProgressiveImage
-                                                                src={topUser.photoURL}
-                                                                alt={topUser.displayName || topUser.username || '?'}
-                                                                containerClassName="w-12 h-12 rounded-full mx-auto mb-2 overflow-hidden"
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <div className="w-12 h-12 rounded-full mx-auto mb-2 bg-indigo-600 flex items-center justify-center text-white font-bold text-lg">
-                                                                {(topUser.displayName || topUser.username || '?')[0].toUpperCase()}
-                                                            </div>
-                                                        )}
-                                                        <p className="text-white text-xs font-semibold truncate">
-                                                            {topUser.displayName || topUser.username || 'Usuario'}
-                                                        </p>
-                                                        <p className="text-gray-500 text-[10px] mt-0.5">
-                                                            {topUser.followersCount ?? 0} seguidores
-                                                        </p>
-                                                    </Link>
-                                                ))}
-                                        </div>
-                                    )}
-                                    <div className="text-center mt-4">
-                                        <Link to="/search?type=lists" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-                                            Explorar listas →
-                                        </Link>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-8" key="feed">
-                                    {filteredItems.slice(0, visibleCount).map((review: any) => (
-                                        <ReviewCard key={review.id} review={review} />
-                                    ))}
-                                    {(visibleCount < filteredItems.length || hasMore) && (
-                                        <div ref={loadMoreRef} className="py-8 flex justify-center">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-
-                        <CardCarousel
-                            title="Reseñas que gustan"
-                            viewAllLink="/search?type=items&sort=top_liked"
-                            items={carouselReviews}
-                            loading={loadingReviews}
-                            itemClassName="w-auto"
-                            icon={<Star className="w-5 h-5 text-rose-400" />}
-                            accentClass="bg-rose-500/20"
-                            renderItem={(review: any) => (
-                                <ReviewCarouselItem review={review} />
-                            )}
-                        />
-                    )}
-
-                </div>
-            </div>
-
-            {appConfig.showRandomChoiceButton && (
-                <button
-                    type="button"
-                    onClick={handleSurpriseChoice}
-                    className="fixed bottom-5 right-4 sm:bottom-6 sm:right-5 z-40 h-11 w-11 rounded-full border-2 border-amber-300/90 bg-indigo-600 text-amber-100 shadow-lg shadow-amber-500/25 hover:bg-indigo-500 transition-colors flex items-center justify-center"
-                    title="Plan al azar"
-                    aria-label="Plan al azar"
-                >
-                    <Dice5 className="w-4 h-4" />
-                </button>
-            )}
-
-            {/* Profile gate — overlay modal, solo aparece si el username es realmente inválido */}
-            {user && showProfileGate && profileGateVisible && (
-                <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-12">
-                    <div className="w-full max-w-2xl bg-[#151b2e] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
-                        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Completa tu perfil</h2>
-                        <p className="text-gray-400 text-sm mb-6">
-                            Antes de continuar necesitas un username válido.
+                    {/* Hero Section (Clean) */}
+                    <div className="max-w-4xl mx-auto mb-10 text-center pt-8 relative z-10">
+                        <div className="absolute top-0 left-1/4 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" />
+                        <div className="absolute top-10 right-1/4 w-72 h-72 bg-purple-500/20 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" style={{ animationDelay: '2s' }} />
+                        <h1 className="text-5xl md:text-[5.5rem] font-black tracking-tighter mb-4 select-none leading-[1.1]">
+                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 drop-shadow-md">
+                                LISTOPIC
+                            </span>
+                        </h1>
+                        <p className="text-lg md:text-2xl text-gray-400 font-light tracking-wide max-w-2xl mx-auto leading-relaxed">
+                            {parsedHeroSubtitle.map((segment) => (
+                                segment.isHighlight ? (
+                                    <span key={segment.key} className={`${segment.className} font-bold`}>
+                                        {segment.text}
+                                    </span>
+                                ) : (
+                                    <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
+                                )
+                            ))}
                         </p>
 
-                        <form onSubmit={handleCompleteProfileSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                    Username (obligatorio)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={gateForm.username}
-                                    onChange={(e) => handleGateFieldChange('username', e.target.value)}
-                                    maxLength={USERNAME_MAX_LENGTH}
-                                    required
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                    placeholder="sin espacios, máximo 18"
-                                />
-                                <p className="text-[11px] text-amber-300 mt-2">
-                                    El username es único, no puede tener espacios y no se podrá cambiar después.
-                                </p>
-                            </div>
+                    </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                        Display Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={gateForm.displayName}
-                                        onChange={(e) => handleGateFieldChange('displayName', e.target.value)}
-                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                        placeholder="por defecto será el username"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                        Nombre
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={gateForm.name}
-                                        onChange={(e) => handleGateFieldChange('name', e.target.value)}
-                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                        placeholder="opcional"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                        Apellidos
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={gateForm.surnames}
-                                        onChange={(e) => handleGateFieldChange('surnames', e.target.value)}
-                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                        placeholder="opcional"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                        Lugar
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={gateForm.location}
-                                        onChange={(e) => handleGateFieldChange('location', e.target.value)}
-                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                        placeholder="opcional"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                    Biografía
-                                </label>
-                                <textarea
-                                    value={gateForm.bio}
-                                    onChange={(e) => handleGateFieldChange('bio', e.target.value)}
-                                    rows={4}
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                    placeholder="opcional"
-                                />
-                            </div>
-
-                            {gateError && (
-                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-200">
-                                    {gateError}
-                                </div>
-                            )}
-
+                    {/* Navigation Pills */}
+                    <div className="flex justify-center mt-8 gap-4">
+                        <div className="inline-flex bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner">
                             <button
-                                type="submit"
-                                disabled={gateSubmitting}
-                                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                onClick={() => setActiveTab('explore')}
+                                className={`relative px-8 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${activeTab === 'explore'
+                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_4px_14px_0_rgba(99,102,241,0.39)] scale-100'
+                                    : 'text-gray-400 hover:text-white hover:bg-white/10 scale-[0.98]'
+                                    }`}
                             >
-                                {gateSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                                Guardar y continuar
+                                Explorar
                             </button>
-                        </form>
+                            <button
+                                onClick={() => setActiveTab('news')}
+                                className={`relative px-8 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${activeTab === 'news'
+                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_4px_14px_0_rgba(99,102,241,0.39)] scale-100'
+                                    : 'text-gray-400 hover:text-white hover:bg-white/10 scale-[0.98]'
+                                    }`}
+                            >
+                                Novedades
+                            </button>
+                        </div>
+                    </div>
+
+                    {homeContentLoading && (
+                        <div className="mt-4 flex justify-center">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-[#151b2e]/90 text-sm text-gray-300">
+                                <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                                <span>{HOME_LOADING_MESSAGES[loadingMessageIndex]}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Filter Chips (Categories) */}
+                    <div className="flex flex-wrap justify-between items-center mt-8 gap-4">
+                        <div className="flex-1"></div>
+
+
+                    </div>
+
+
+                    {/* Map Collapsible */}
+                    {activeTab === 'explore' && (
+                        <div className="max-w-7xl mx-auto mb-8">
+                            <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
+                                <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[#1e2538]/50">
+                                    <button
+                                        onClick={() => setIsMapOpen(!isMapOpen)}
+                                        className="flex items-center gap-2 hover:text-white transition-colors flex-1 text-left"
+                                    >
+                                        <MapIcon className="w-5 h-5 text-gray-400" />
+                                        <span className="font-bold text-sm">Mapa</span>
+                                    </button>
+
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleToggleRange(); }}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
+                                                ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
+                                                : 'bg-[#0b1021] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
+                                                }`}
+                                        >
+                                            <MapPin className="w-3 h-3" />
+                                            {getRangeLabel()}
+                                        </button>
+
+                                        <button
+                                            onClick={() => setIsMapOpen(!isMapOpen)}
+                                            className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white transition-colors"
+                                        >
+                                            {isMapOpen ? 'Ocultar' : 'Ver Mapa'}
+                                            <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isMapOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                                    <div className="overflow-hidden min-h-0">
+                                        <div className="h-[400px] border-t border-white/10 relative">
+                                            <MapView items={filteredPlaces} mode="global" range={range} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="max-w-[95%] mx-auto space-y-1">
+
+
+                        {activeTab === 'explore' && (<>
+                            {/* 1. Listas */}
+                            <CardCarousel
+                                title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
+                                viewAllLink={`/search?type=lists&sort=${activeTab === 'explore' ? 'most_reviewed' : 'latest'}`}
+                                items={activeTab === 'explore'
+                                    ? listsWithRangeStats.sort((a, b) => (b.reviewsInRangeCount ?? b.reviewCount ?? 0) - (a.reviewsInRangeCount ?? a.reviewCount ?? 0)).slice(0, 10)
+                                    : filteredLists}
+                                loading={loadingLists}
+                                icon={<ListIcon className="w-5 h-5 text-blue-400" />}
+                                accentClass="bg-blue-500/20"
+                                renderItem={(list: any, index: number) => (
+                                    <Link to={`/list/${list.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
+                                        {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl) ? (
+                                            <div className="absolute inset-0">
+                                                <ProgressiveImage src={list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl} alt={list.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
+                                                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent" />
+                                            </div>
+                                        ) : (
+                                            <div className="w-full h-full bg-zinc-800" />
+                                        )}
+
+                                        <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white uppercase tracking-wider backdrop-blur-sm" title="Total de lugares en la lista">
+                                            {list.itemCount}
+                                        </div>
+                                        <div className="absolute top-2 left-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
+                                            #{index + 1}
+                                        </div>
+
+                                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                                            <h3 className="text-white font-bold text-sm leading-tight mb-1 drop-shadow-sm line-clamp-1">{list.name}</h3>
+
+                                            {/* Stats Row: Reviews, Followers */}
+                                            <div className="flex items-center gap-4 opacity-90 text-xs text-gray-300 font-medium">
+                                                <div className="flex items-center gap-1.5" title="Reseñas dentro de tu rango de distancia">
+                                                    <MessageCircle className="w-3.5 h-3.5 text-indigo-400" />
+                                                    <span>{list.reviewsInRangeCount !== undefined ? list.reviewsInRangeCount : (list.reviewCount || 0)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5" title="Seguidores de la lista">
+                                                    <Users className="w-3.5 h-3.5 text-rose-400" />
+                                                    <span>{list.followersCount || 0}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                )}
+                            />
+
+                            {/* 2. Items */}
+                            <CardCarousel
+                                title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos Items"}
+                                viewAllLink={`/search?type=items&sort=${activeTab === 'explore' ? 'top_rated' : 'latest'}`}
+                                items={filteredItems}
+                                loading={loadingReviews}
+                                icon={<Star className="w-5 h-5 text-amber-400" />}
+                                accentClass="bg-amber-500/20"
+                                renderItem={(item: any) => (
+                                    <ReviewCarouselItem review={item} variant="item" />
+                                )}
+                            />
+
+                            {/* 3. Reseñas Recientes */}
+                            <CardCarousel
+                                title="Reseñas recientes"
+                                viewAllLink="/search?type=items&sort=latest"
+                                items={recentReviewsInRange}
+                                loading={loadingReviews}
+                                icon={<Clock className="w-5 h-5 text-cyan-400" />}
+                                accentClass="bg-cyan-500/20"
+                                renderItem={(item: any) => (
+                                    <ReviewCarouselItem review={item} variant="review" />
+                                )}
+                            />
+
+                            {/* 4. Usuarios activos */}
+                            <CardCarousel
+                                title="Usuarios activos"
+                                viewAllLink="/search?type=users"
+                                items={activeUsersInRange}
+                                loading={loadingUsers}
+                                itemClassName="w-auto mr-3"
+                                icon={<TrendingUp className="w-5 h-5 text-purple-400" />}
+                                accentClass="bg-purple-500/20"
+                                renderItem={(u: any) => (
+                                    <Link to={`/profile/${u.uid}`} className="flex flex-col items-center gap-1 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
+                                        <UserAvatar
+                                            photoUrl={u.photoUrl}
+                                            displayName={u.displayName}
+                                            userType={u.userType}
+                                            size="lg"
+                                        />
+                                        <div className="text-center w-full mt-1">
+                                            <h4 className="text-white font-bold text-xs truncate w-full">{u.displayName}</h4>
+                                            <p className="text-gray-500 text-[10px] truncate">@{u.username || 'user'}</p>
+                                            <p className="text-[9px] text-indigo-400 font-medium mt-0.5">
+                                                {u.reviewsInRangeCount ?? 0} Reseñas
+                                            </p>
+                                        </div>
+                                    </Link>
+                                )}
+                            />
+
+                            {/* 5. Lugares top */}
+                            <CardCarousel
+                                title={activeTab === 'explore' ? "Lugares top" : "Nuevos Lugares"}
+                                viewAllLink={`/search?type=places&sort=${activeTab === 'explore' ? 'rating' : 'latest'}`}
+                                items={filteredPlaces}
+                                loading={loadingReviews}
+                                icon={<Flame className="w-5 h-5 text-rose-400" />}
+                                accentClass="bg-rose-500/20"
+                                renderItem={(place: any) => (
+                                    <Link to={`/place/${place.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
+                                        {place.photoUrl ? (
+                                            <div className="absolute inset-0">
+                                                <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
+                                                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
+                                            </div>
+                                        ) : (
+                                            <div className="w-full h-full bg-blue-900/20" />
+                                        )}
+
+                                        <div className="absolute top-2 right-2 bg-teal-600 px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-sm">
+                                            {place.rating?.toFixed(1) || 9.5}
+                                        </div>
+
+                                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                                            <h3 className="text-white font-bold text-sm leading-tight mb-1 truncate">{place.name}</h3>
+                                            <p className="text-gray-300 text-[10px] flex items-center gap-1 opacity-80">
+                                                <MapPin className="w-3 h-3" /> {place.address?.split(',')[0]}
+                                            </p>
+                                        </div>
+                                    </Link>
+                                )}
+                            />
+
+
+                        </>)}
+
+
+                        {/* 5. Resenas / Feed */}
+                        {activeTab === 'news' ? (
+                            <div className="max-w-2xl mx-auto mt-12 pb-20">
+                                {(loadingReviews && filteredItems.length === 0) ? (
+                                    <div className="flex justify-center py-16">
+                                        <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                                    </div>
+                                ) : filteredItems.length === 0 ? (
+                                    <div className="text-gray-500 py-10 border border-white/5 rounded-xl bg-white/5 mx-4 px-4">
+                                        <p className="font-bold text-white mb-1 text-center">Tu feed está tranquilo</p>
+                                        <p className="text-sm text-center mb-4">Sigue a estas personas para ver sus reseñas aquí</p>
+                                        {topUsers.length > 0 && !loadingUsers && (
+                                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                                {topUsers
+                                                    .filter((topUser: any) => topUser.uid !== user?.uid)
+                                                    .slice(0, 5)
+                                                    .map((topUser: any) => (
+                                                        <Link
+                                                            key={topUser.uid}
+                                                            to={`/profile/${topUser.uid}`}
+                                                            className="bg-white/5 border border-white/10 rounded-xl p-3 text-center w-28 shrink-0 hover:bg-white/10 transition-colors"
+                                                        >
+                                                            {topUser.photoURL ? (
+                                                                <ProgressiveImage
+                                                                    src={topUser.photoURL}
+                                                                    alt={topUser.displayName || topUser.username || '?'}
+                                                                    containerClassName="w-12 h-12 rounded-full mx-auto mb-2 overflow-hidden"
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-12 h-12 rounded-full mx-auto mb-2 bg-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                                                                    {(topUser.displayName || topUser.username || '?')[0].toUpperCase()}
+                                                                </div>
+                                                            )}
+                                                            <p className="text-white text-xs font-semibold truncate">
+                                                                {topUser.displayName || topUser.username || 'Usuario'}
+                                                            </p>
+                                                            <p className="text-gray-500 text-[10px] mt-0.5">
+                                                                {topUser.followersCount ?? 0} seguidores
+                                                            </p>
+                                                        </Link>
+                                                    ))}
+                                            </div>
+                                        )}
+                                        <div className="text-center mt-4">
+                                            <Link to="/search?type=lists" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                                                Explorar listas →
+                                            </Link>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-8" key="feed">
+                                        {filteredItems.slice(0, visibleCount).map((review: any) => (
+                                            <ReviewCard key={review.id} review={review} />
+                                        ))}
+                                        {(visibleCount < filteredItems.length || hasMore) && (
+                                            <div ref={loadMoreRef} className="py-8 flex justify-center">
+                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+
+                            <CardCarousel
+                                title="Reseñas que gustan"
+                                viewAllLink="/search?type=items&sort=top_liked"
+                                items={carouselReviews}
+                                loading={loadingReviews}
+                                itemClassName="w-auto"
+                                icon={<Star className="w-5 h-5 text-rose-400" />}
+                                accentClass="bg-rose-500/20"
+                                renderItem={(review: any) => (
+                                    <ReviewCarouselItem review={review} />
+                                )}
+                            />
+                        )}
+
                     </div>
                 </div>
-            )}
-        </div >
-        <Footer />
+
+                {appConfig.showRandomChoiceButton && (
+                    <button
+                        type="button"
+                        onClick={handleSurpriseChoice}
+                        className="fixed bottom-5 right-4 sm:bottom-6 sm:right-5 z-40 h-11 w-11 rounded-full border-2 border-amber-300/90 bg-indigo-600 text-amber-100 shadow-lg shadow-amber-500/25 hover:bg-indigo-500 transition-colors flex items-center justify-center"
+                        title="Plan al azar"
+                        aria-label="Plan al azar"
+                    >
+                        <Dice5 className="w-4 h-4" />
+                    </button>
+                )}
+
+                {/* Profile gate — overlay modal, solo aparece si el username es realmente inválido */}
+                {user && showProfileGate && profileGateVisible && (
+                    <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-12">
+                        <div className="w-full max-w-2xl bg-[#151b2e] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
+                            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Completa tu perfil</h2>
+                            <p className="text-gray-400 text-sm mb-6">
+                                Antes de continuar necesitas un username válido.
+                            </p>
+
+                            <form onSubmit={handleCompleteProfileSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                        Username (obligatorio)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={gateForm.username}
+                                        onChange={(e) => handleGateFieldChange('username', e.target.value)}
+                                        maxLength={USERNAME_MAX_LENGTH}
+                                        required
+                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                        placeholder="sin espacios, máximo 18"
+                                    />
+                                    <p className="text-[11px] text-amber-300 mt-2">
+                                        El username es único, no puede tener espacios y no se podrá cambiar después.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                            Display Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={gateForm.displayName}
+                                            onChange={(e) => handleGateFieldChange('displayName', e.target.value)}
+                                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            placeholder="por defecto será el username"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                            Nombre
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={gateForm.name}
+                                            onChange={(e) => handleGateFieldChange('name', e.target.value)}
+                                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            placeholder="opcional"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                            Apellidos
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={gateForm.surnames}
+                                            onChange={(e) => handleGateFieldChange('surnames', e.target.value)}
+                                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            placeholder="opcional"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                            Lugar
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={gateForm.location}
+                                            onChange={(e) => handleGateFieldChange('location', e.target.value)}
+                                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            placeholder="opcional"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
+                                        Biografía
+                                    </label>
+                                    <textarea
+                                        value={gateForm.bio}
+                                        onChange={(e) => handleGateFieldChange('bio', e.target.value)}
+                                        rows={4}
+                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                        placeholder="opcional"
+                                    />
+                                </div>
+
+                                {gateError && (
+                                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-200">
+                                        {gateError}
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={gateSubmitting}
+                                    className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {gateSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    Guardar y continuar
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                )}
+            </div >
+            <Footer />
         </>
     );
 };

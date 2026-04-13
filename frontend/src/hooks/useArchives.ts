@@ -9,7 +9,8 @@ export interface ArchiveEntity {
     description?: string;
     createdAt: unknown;
     itemCount: number;
-    // For UI ease, we might want to preview images, but that's complex to maintain.
+    emoji?: string;
+    color?: string;
 }
 
 export interface SavedItemEntity {
@@ -22,6 +23,8 @@ export interface SavedItemEntity {
     savedAt: unknown;
     subtitle?: string; // e.g., Place name for a review
     route: string; // Pre-calculated route to navigate to
+    lat?: number;
+    lng?: number;
 }
 
 export const useArchives = () => {
@@ -59,19 +62,36 @@ export const useArchives = () => {
     }, [user]);
 
     // Create a new archive
-    const createArchive = async (name: string) => {
+    const createArchive = async (name: string, emoji?: string, color?: string) => {
         if (!user) return null;
         try {
             const newRef = doc(collection(db, 'users', user.uid, 'archives'));
-            await setDoc(newRef, {
+            const data: any = {
                 name,
                 createdAt: serverTimestamp(),
                 itemCount: 0
-            });
+            };
+            if (emoji) data.emoji = emoji;
+            if (color) data.color = color;
+            await setDoc(newRef, data);
             await fetchArchives(); // Refresh
             return newRef.id;
         } catch (error) {
             console.error("Error creating archive:", error);
+            throw error;
+        }
+    };
+
+    // Update an archive
+    const updateArchive = async (archiveId: string, updates: Partial<ArchiveEntity>) => {
+        if (!user) return;
+        try {
+            await updateDoc(doc(db, 'users', user.uid, 'archives', archiveId), {
+                ...updates
+            });
+            await fetchArchives();
+        } catch (error) {
+            console.error("Error updating archive:", error);
             throw error;
         }
     };
@@ -147,6 +167,7 @@ export const useArchives = () => {
         loading,
         fetchArchives,
         createArchive,
+        updateArchive,
         deleteArchive,
         checkItemSavedStatus,
         toggleItemInArchive

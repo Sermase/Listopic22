@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { createRatingMarkerIcon, getRatingColor, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
+import { createRatingMarkerIcon, createEmojiMarkerIcon, getRatingColor, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
 import type { MapLayerId } from '../utils/mapUtils';
 import { useLocation } from '../hooks/useLocation';
 import { Locate, Layers, Check } from 'lucide-react';
@@ -95,6 +95,8 @@ export interface MapItem {
     photoUrl?: string;
     rating?: number;
     reviewsCount?: number;
+    emoji?: string;
+    color?: string;
     items?: {
         name: string;
         score: number;
@@ -106,6 +108,7 @@ interface MapViewProps {
     mode?: 'global' | 'list';
     center?: [number, number];
     range?: number | null;
+    showLayerControl?: boolean;
 }
 
 // Aplica un filtro CSS al tile pane del mapa (para capas claras/oscuras)
@@ -180,7 +183,7 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
     return null;
 }
 
-export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = [40.416, -3.703], range = null }) => {
+export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = [40.416, -3.703], range = null, showLayerControl = true }) => {
 
     const { location } = useLocation();
     const { user } = useAuth();
@@ -200,14 +203,14 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                 setCurrentLayer(pref);
                 localStorage.setItem(MAP_LAYER_STORAGE_KEY, pref);
             }
-        }).catch(() => {});
+        }).catch(() => { });
     }, [user]);
 
     const handleLayerChange = async (layerId: MapLayerId) => {
         setCurrentLayer(layerId);
         localStorage.setItem(MAP_LAYER_STORAGE_KEY, layerId);
         if (user) {
-            try { await updateDoc(doc(db, 'users', user.uid), { mapLayerPreference: layerId }); } catch {}
+            try { await updateDoc(doc(db, 'users', user.uid), { mapLayerPreference: layerId }); } catch { }
         }
     };
 
@@ -225,6 +228,8 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
             photoUrl: item.photoUrl || item.placeMainImage || item.mainImageUrl,
             rating: item.rating || item.placeAverageRating || item.overallRating || item.avgRating || 0,
             reviewsCount: item.reviewsCount || item.reviewCount || item.count || 0,
+            emoji: item.emoji,
+            color: item.color,
             items: item.items
         }));
 
@@ -250,13 +255,13 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                 {/* User Location Features */}
                 <UserLocationFeatures range={range} />
                 <CustomLocateControl />
-                <LayerSelectorControl currentLayer={currentLayer} onLayerChange={handleLayerChange} />
+                {showLayerControl && <LayerSelectorControl currentLayer={currentLayer} onLayerChange={handleLayerChange} />}
 
                 {validItems.map((item) => (
                     <Marker
                         key={item.id}
                         position={[item.lat!, item.lng!]}
-                        icon={createRatingMarkerIcon(item.rating || 0)}
+                        icon={item.emoji || item.color ? createEmojiMarkerIcon(item.emoji || '📍', item.color || '#6366f1') : createRatingMarkerIcon(item.rating || 0)}
                     >
                         <Popup className="listopic-popup" closeButton={false} maxWidth={270} minWidth={250}>
                             {(() => {
