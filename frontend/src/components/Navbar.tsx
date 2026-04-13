@@ -386,25 +386,25 @@ export const Navbar: React.FC = () => {
                                     {installButtonLabel}
                                 </button>
                             )}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsMenuOpen(false);
+                                    if (Capacitor.isNativePlatform()) {
+                                        window.open('https://listopic.es/about', '_blank', 'noopener noreferrer');
+                                    } else {
+                                        window.location.href = '/about';
+                                    }
+                                }}
+                                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-gray-200 transition-colors"
+                            >
+                                <Info className="w-5 h-5 text-indigo-400" /> Sobre Listopic
+                            </button>
                         </div>
                     </div>
 
-                    <div className="mt-auto pt-6 flex-shrink-0">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsMenuOpen(false);
-                                if (Capacitor.isNativePlatform()) {
-                                    window.open('https://listopic.es/about', '_blank', 'noopener noreferrer');
-                                } else {
-                                    window.location.href = '/about';
-                                }
-                            }}
-                            className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-gray-200 transition-colors mb-4"
-                        >
-                            <Info className="w-5 h-5 text-indigo-400" /> Sobre Listopic
-                        </button>
-                        <p className="pb-4 text-center text-gray-600 text-xs">{new Date().getFullYear()} Istari Core</p>
+                    <div className="pt-2 pb-2 text-center flex-shrink-0">
+                        <p className="text-gray-600 text-xs">{new Date().getFullYear()} Istari Core</p>
                     </div>
                 </div>
             )}
