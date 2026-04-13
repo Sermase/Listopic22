@@ -9,6 +9,12 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { useNavigate } from 'react-router-dom';
+import { PushNotifications } from '@capacitor/push-notifications';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from './firebase';
+import { useAuth } from './context/AuthContext';
+import { NotificationBannerProvider, useNotificationBanner } from './context/NotificationBannerContext';
+import { NotificationBanner } from './components/NotificationBanner';
 
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -72,6 +78,54 @@ const PageLoader = () => (
     </div>
   </div>
 );
+
+// Registra FCM e intercepta pushes cuando la app está abierta
+const PushSetup: React.FC = () => {
+    const { user } = useAuth();
+    const { showBanner } = useNotificationBanner();
+    const navigate = useNavigate();
+
+    React.useEffect(() => {
+        if (!Capacitor.isNativePlatform() || !user) return;
+
+        const setup = async () => {
+            const permission = await PushNotifications.requestPermissions();
+            if (permission.receive !== 'granted') return;
+            await PushNotifications.register();
+        };
+        setup();
+
+        const regListener = PushNotifications.addListener('registration', async ({ value: token }) => {
+            await setDoc(
+                doc(db, 'users', user.uid, 'fcmTokens', token),
+                { token, platform: 'android', lastSeen: serverTimestamp(), createdAt: serverTimestamp() },
+                { merge: true }
+            );
+        });
+
+        const recvListener = PushNotifications.addListener('pushNotificationReceived', (notification) => {
+            showBanner({
+                type: notification.data?.type || 'system',
+                message: notification.notification.body || '',
+                link: notification.data?.link || '',
+                senderPhoto: notification.data?.senderPhoto || null,
+            });
+        });
+
+        const actionListener = PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+            const link = action.notification.data?.link;
+            if (link) navigate(link);
+        });
+
+        return () => {
+            regListener.then(l => l.remove());
+            recvListener.then(l => l.remove());
+            actionListener.then(l => l.remove());
+        };
+    }, [user, showBanner, navigate]);
+
+    return null;
+};
 
 // All routes wrapped so we can key by pathname for enter animations
 const AppRoutes = () => {
@@ -163,14 +217,18 @@ function App() {
   return (
     <ToastProvider>
       <LocationActivator />
-      <Router>
-        <ScrollToTop />
-        <div className="min-h-screen bg-[#0b1021] text-gray-100 font-sans selection:bg-indigo-500/30"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          <Navbar />
-          <AppRoutes />
-        </div>
-      </Router>
+      <NotificationBannerProvider>
+        <Router>
+          <ScrollToTop />
+          <div className="min-h-screen bg-[#0b1021] text-gray-100 font-sans selection:bg-indigo-500/30"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <Navbar />
+            <NotificationBanner />
+            <AppRoutes />
+            <PushSetup />
+          </div>
+        </Router>
+      </NotificationBannerProvider>
     </ToastProvider>
   );
 }
