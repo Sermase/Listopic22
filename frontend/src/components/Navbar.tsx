@@ -396,7 +396,7 @@ export const Navbar: React.FC = () => {
                                         window.location.href = '/about';
                                     }
                                 }}
-                                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-gray-200 transition-colors"
+                                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200"
                             >
                                 <Info className="w-5 h-5 text-indigo-400" /> Sobre Listopic
                             </button>
