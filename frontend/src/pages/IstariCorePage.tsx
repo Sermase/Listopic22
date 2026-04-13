@@ -68,9 +68,9 @@ export const IstariCorePage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <ValueCard
-                            emoji="✂️"
-                            title="Quitar es más difícil que añadir"
-                            text="Cualquiera mete un botón más. La parte complicada es decidir que algo no hace falta y tener el valor de no ponerlo."
+                            emoji="📣"
+                            title="Comunicación ante todo"
+                            text="Si algo funciona mal, si algo se puede mejorar o si hay nuevas ideas que llevar a cabo, encantados de escucharlas."
                         />
                         <ValueCard
                             emoji="🔍"
@@ -90,7 +90,7 @@ export const IstariCorePage: React.FC = () => {
                         <ValueCard
                             emoji="🪞"
                             title="Decir la verdad"
-                            text="Beta es beta. Un bug es un bug. No llamamos 'característica en desarrollo' a algo que simplemente no funciona."
+                            text="Beta es beta. Un bug es un bug. Intentaremos siempre llamar a cada cosa por lo que es."
                         />
                         <ValueCard
                             emoji="⚡"
