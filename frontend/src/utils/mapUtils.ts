@@ -48,11 +48,11 @@ export const MAP_LAYER_STORAGE_KEY = 'listopic_map_layer';
 export const getRatingColor = (score: number | string): { bg: string; glow: string; border: string } => {
     const s = parseFloat(String(score));
     if (isNaN(s) || s === 0) return { bg: '#94a3b8', glow: 'rgba(148,163,184,0.4)', border: '#94a3b8' };
-    if (s >= 8.5) return { bg: '#059669', glow: 'rgba(5,150,105,0.5)',   border: '#059669' };
-    if (s >= 7)   return { bg: '#10b981', glow: 'rgba(16,185,129,0.45)', border: '#10b981' };
+    if (s >= 8.5) return { bg: '#059669', glow: 'rgba(5,150,105,0.5)', border: '#059669' };
+    if (s >= 7) return { bg: '#10b981', glow: 'rgba(16,185,129,0.45)', border: '#10b981' };
     if (s >= 5.5) return { bg: '#f59e0b', glow: 'rgba(245,158,11,0.45)', border: '#f59e0b' };
-    if (s >= 4)   return { bg: '#f97316', glow: 'rgba(249,115,22,0.45)', border: '#f97316' };
-    return           { bg: '#ef4444', glow: 'rgba(239,68,68,0.45)',   border: '#ef4444' };
+    if (s >= 4) return { bg: '#f97316', glow: 'rgba(249,115,22,0.45)', border: '#f97316' };
+    return { bg: '#ef4444', glow: 'rgba(239,68,68,0.45)', border: '#ef4444' };
 };
 
 /** @deprecated */
@@ -114,3 +114,43 @@ export const createRatingMarkerIcon = (score: number): L.DivIcon => {
 };
 
 export const createLegacyMarkerIcon = createRatingMarkerIcon;
+
+/**
+ * Marcador personalizado para colecciones que usa un emoji y un color.
+ */
+export const createEmojiMarkerIcon = (emoji: string, color: string): L.DivIcon => {
+    const bg = color || '#6366f1';
+
+    const r = 16;
+    const cx = 16;
+    const cy = 16;
+    const stemTop = cy + r + 1;
+    const stemBot = stemTop + 12;
+    const dotCy = stemBot + 3;
+    const totalW = 32;
+    const totalH = Math.ceil(dotCy + 3);
+
+    const filterId = `emj-${Math.random().toString(36).substr(2, 6)}`;
+
+    const svgHtml = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" overflow="visible">
+  <defs>
+    <filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="${bg}" flood-opacity="0.4"/>
+      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="rgba(0,0,0,0.18)" flood-opacity="1"/>
+    </filter>
+  </defs>
+  <line x1="${cx}" y1="${stemTop}" x2="${cx}" y2="${stemBot}" stroke="${bg}" stroke-width="2.5" stroke-linecap="round" />
+  <circle cx="${cx}" cy="${dotCy}" r="3" fill="${bg}" opacity="0.9"/>
+  <circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="${bg}" stroke-width="2.5" filter="url(#${filterId})"/>
+  <text x="${cx}" y="${cy + 2}" dominant-baseline="middle" text-anchor="middle" font-size="16">${emoji || '📍'}</text>
+</svg>`;
+
+    return L.divIcon({
+        html: svgHtml,
+        className: 'emoji-marker',
+        iconSize: [totalW, totalH],
+        iconAnchor: [cx, totalH],
+        popupAnchor: [0, -(totalH + 4)]
+    });
+};
