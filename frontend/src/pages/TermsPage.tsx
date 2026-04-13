@@ -39,95 +39,67 @@ export const TermsPage: React.FC = () => {
                 </Link>
 
                 <div className="bg-[#151b2e]/60 border border-white/10 rounded-3xl p-6 sm:p-8 mb-6">
-                    <p className="text-xs text-gray-500 mb-6">Última actualización: 13 de abril de 2026</p>
+                    <p className="text-xs text-gray-500 mb-2">Última actualización: 13 de abril de 2026</p>
 
-                    <p className="text-gray-300 text-sm leading-relaxed mb-8">
-                        Estos Términos de Uso regulan el acceso y uso de la aplicación Listopic, operada por Istari Core. Al usar Listopic, aceptas estos términos en su totalidad. Si no estás de acuerdo, no uses la aplicación.
-                    </p>
+                    {/* Intro honesta */}
+                    <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-4 mb-8">
+                        <p className="text-violet-300 text-sm leading-relaxed">
+                            <span className="font-bold text-white">Antes de empezar, la verdad:</span> Listopic es un proyecto indie, creado por una persona de forma independiente, sin empresa registrada y sin ánimo de lucro por ahora. Nacimos para jugar a crear, para disfrutar del proceso y ofrecer algo genuino con utilidad directa. La app está en fase de pruebas activas (beta). Úsala con ese espíritu en mente.
+                        </p>
+                    </div>
 
-                    <Section title="1. Descripción del servicio">
-                        <p>Listopic es una plataforma digital que permite a los usuarios crear listas de lugares, escribir y compartir reseñas, descubrir recomendaciones de otros usuarios e interactuar con una comunidad de personas con intereses similares.</p>
-                        <p>El servicio está disponible como aplicación web en <span className="text-white">listopic.es</span> y como aplicación móvil para Android.</p>
+                    <Section title="1. Quiénes somos">
+                        <p>Listopic es un proyecto personal desarrollado bajo el nombre <span className="text-white font-medium">Istari Core</span>, un nombre creativo sin entidad jurídica registrada actualmente. No somos una empresa, no somos una startup financiada — somos alguien que disfruta creando herramientas útiles y bien pensadas.</p>
+                        <p>Puedes contactarnos en: <a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors">istaricore@gmail.com</a></p>
                     </Section>
 
-                    <Section title="2. Aceptación de los términos">
-                        <p>Al crear una cuenta, acceder a la aplicación o usar cualquiera de sus funciones, declaras que:</p>
+                    <Section title="2. Estado de la aplicación">
+                        <p>Listopic se encuentra en <span className="text-white font-medium">fase beta</span>. Esto significa que:</p>
                         <ul className="list-disc list-inside space-y-1 mt-2">
-                            <li>Tienes al menos 16 años de edad.</li>
-                            <li>Has leído y aceptas estos Términos de Uso y la <Link to="/privacy" className="text-indigo-400 hover:text-indigo-300 transition-colors">Política de Privacidad</Link>.</li>
-                            <li>Tienes capacidad legal para aceptar este acuerdo.</li>
+                            <li>Puede haber errores, interrupciones o cambios inesperados.</li>
+                            <li>Las funcionalidades pueden cambiar, añadirse o eliminarse.</li>
+                            <li>No garantizamos disponibilidad continua del servicio.</li>
                         </ul>
+                        <p className="mt-2">Te pedimos paciencia y, si encuentras algo roto, que nos lo cuentes. Lo arreglamos.</p>
                     </Section>
 
-                    <Section title="3. Registro y cuenta">
-                        <p>Para acceder a todas las funciones de Listopic necesitas crear una cuenta. Eres responsable de:</p>
-                        <ul className="list-disc list-inside space-y-1 mt-2">
-                            <li>Mantener la confidencialidad de tus credenciales de acceso.</li>
-                            <li>Toda la actividad que se realice desde tu cuenta.</li>
-                            <li>Notificarnos inmediatamente si detectas un acceso no autorizado a tu cuenta.</li>
-                        </ul>
-                        <p className="mt-2">Nos reservamos el derecho de suspender o eliminar cuentas que incumplan estos términos.</p>
+                    <Section title="3. Uso del servicio">
+                        <p>Listopic es una plataforma para crear listas de lugares, escribir reseñas y descubrir recomendaciones. Al usarla, aceptas hacerlo de forma razonable y respetuosa.</p>
+                        <p>Básicamente: no hagas cosas malas. No publiques contenido falso, ofensivo, ilegal, ni que dañe a otras personas. No intentes romper la app a propósito. El sentido común es el mejor término de uso.</p>
                     </Section>
 
-                    <Section title="4. Contenido del usuario">
-                        <p><span className="text-white font-medium">Tu contenido es tuyo.</span> Conservas todos los derechos sobre las listas, reseñas, fotos y demás contenido que publiques en Listopic.</p>
-                        <p>Al publicar contenido en Listopic, nos concedes una licencia no exclusiva, gratuita y mundial para mostrar, distribuir y promocionar dicho contenido dentro del servicio y en nuestras comunicaciones.</p>
-                        <p className="mt-2"><span className="text-white font-medium">Contenido prohibido.</span> No está permitido publicar contenido que:</p>
-                        <ul className="list-disc list-inside space-y-1 mt-2">
-                            <li>Sea falso, engañoso o fraudulento.</li>
-                            <li>Infrinja derechos de propiedad intelectual de terceros.</li>
-                            <li>Contenga discurso de odio, acoso o amenazas.</li>
-                            <li>Sea pornográfico, violento o ilegal.</li>
-                            <li>Incluya spam, publicidad no autorizada o malware.</li>
-                            <li>Vulnere la privacidad de terceros.</li>
-                        </ul>
+                    <Section title="4. Tu contenido">
+                        <p>Lo que publiques en Listopic (reseñas, listas, fotos) sigue siendo tuyo. No reclamamos propiedad sobre tu contenido.</p>
+                        <p>Nos das permiso implícito para mostrarlo dentro de la aplicación. Nada más.</p>
+                        <p>Si publicas algo que infringe derechos de terceros o es claramente inapropiado, podemos eliminarlo.</p>
                     </Section>
 
-                    <Section title="5. Conducta del usuario">
-                        <p>Al usar Listopic te comprometes a:</p>
-                        <ul className="list-disc list-inside space-y-1 mt-2">
-                            <li>Usar el servicio únicamente con fines legales y personales, no comerciales.</li>
-                            <li>No intentar acceder a sistemas o datos a los que no tienes autorización.</li>
-                            <li>No usar bots, scrapers u otras herramientas automatizadas sin permiso expreso.</li>
-                            <li>No suplantar la identidad de otras personas o entidades.</li>
-                            <li>Respetar a los demás usuarios de la comunidad.</li>
-                        </ul>
+                    <Section title="5. Tu cuenta">
+                        <p>Eres responsable de lo que haces con tu cuenta. Si crees que alguien ha accedido sin tu permiso, escríbenos y lo gestionamos juntos.</p>
+                        <p>Nos reservamos el derecho de suspender cuentas que usen la app de forma abusiva, aunque esperamos que eso nunca ocurra.</p>
                     </Section>
 
-                    <Section title="6. Propiedad intelectual">
-                        <p>Todos los elementos de Listopic — nombre, logotipo, diseño, código, interfaz y contenido propio — son propiedad de Istari Core y están protegidos por las leyes de propiedad intelectual aplicables.</p>
-                        <p>Queda prohibida la reproducción, distribución o modificación de cualquier parte de Listopic sin autorización expresa y por escrito de Istari Core.</p>
+                    <Section title="6. Privacidad">
+                        <p>Tratamos tus datos con cuidado y respeto. Puedes leer todos los detalles en nuestra <Link to="/privacy" className="text-indigo-400 hover:text-indigo-300 transition-colors">Política de Privacidad</Link>, que cumple con el RGPD europeo.</p>
+                        <p>Resumen: recogemos lo mínimo necesario para que la app funcione. No vendemos tus datos. Nunca.</p>
                     </Section>
 
-                    <Section title="7. Eliminación de cuenta y datos">
-                        <p>Puedes solicitar la eliminación de tu cuenta y todos tus datos personales en cualquier momento contactando con nosotros en <a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors">istaricore@gmail.com</a>.</p>
-                        <p>Una vez solicitada la eliminación, tus datos serán borrados de forma definitiva en un plazo máximo de 30 días, salvo que la ley nos obligue a conservarlos por un período determinado.</p>
+                    <Section title="7. Eliminación de cuenta">
+                        <p>Puedes pedir que eliminemos tu cuenta y todos tus datos en cualquier momento escribiéndonos a <a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors">istaricore@gmail.com</a>. Lo hacemos en un plazo máximo de 30 días.</p>
                     </Section>
 
-                    <Section title="8. Modificaciones del servicio">
-                        <p>Istari Core se reserva el derecho de modificar, suspender o interrumpir Listopic (total o parcialmente) en cualquier momento, con o sin previo aviso. No seremos responsables de ningún daño derivado de dichas interrupciones.</p>
+                    <Section title="8. Limitación de responsabilidad">
+                        <p>Listopic se ofrece tal cual, sin garantías. Somos un proyecto indie en beta — hacemos todo lo que podemos, pero no podemos garantizar que todo funcione siempre perfectamente.</p>
+                        <p>No somos responsables de pérdidas de datos, interrupciones del servicio o cualquier daño derivado del uso de la app. Úsala sabiendo que estás participando en algo en construcción.</p>
                     </Section>
 
-                    <Section title="9. Limitación de responsabilidad">
-                        <p>Listopic se proporciona «tal cual», sin garantías de ningún tipo. En la medida máxima permitida por la ley:</p>
-                        <ul className="list-disc list-inside space-y-1 mt-2">
-                            <li>No garantizamos que el servicio esté libre de errores o disponible ininterrumpidamente.</li>
-                            <li>No somos responsables del contenido publicado por los usuarios.</li>
-                            <li>No somos responsables de daños indirectos, incidentales o consecuentes derivados del uso del servicio.</li>
-                        </ul>
+                    <Section title="9. Cambios en la app y en estos términos">
+                        <p>Podemos modificar Listopic o estos términos cuando sea necesario. Si hay cambios importantes, te avisamos dentro de la app. El hecho de seguir usando Listopic tras un cambio implica que lo aceptas.</p>
                     </Section>
 
-                    <Section title="10. Modificaciones de los términos">
-                        <p>Podemos actualizar estos Términos de Uso ocasionalmente. Te notificaremos los cambios significativos mediante un aviso en la app. Si continúas usando Listopic tras la publicación de los cambios, se considerará que los aceptas.</p>
-                    </Section>
-
-                    <Section title="11. Ley aplicable">
-                        <p>Estos términos se rigen por la legislación española. Para cualquier controversia derivada del uso de Listopic, las partes se someten a los juzgados y tribunales competentes según la normativa española aplicable.</p>
-                    </Section>
-
-                    <Section title="12. Contacto">
-                        <p>Para cualquier consulta sobre estos términos:</p>
-                        <p className="mt-1"><span className="text-white font-medium">Istari Core</span> — <a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors">istaricore@gmail.com</a></p>
+                    <Section title="10. Contacto">
+                        <p>¿Dudas, sugerencias, algo que no funciona o simplemente quieres saludar?</p>
+                        <p className="mt-1"><a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors font-medium">istaricore@gmail.com</a> — respondemos de verdad.</p>
                     </Section>
                 </div>
 
