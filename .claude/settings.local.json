@@ -27,7 +27,11 @@
       "Bash(snap list:*)",
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npx firebase:*)",
+      "Read(//home/sermase/.npm/bin/**)",
+      "Read(//usr/local/bin/**)",
+      "Bash(firebase login:*)"
     ]
   }
 }
