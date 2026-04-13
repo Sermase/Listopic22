@@ -1,6 +1,7 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
+const { sendNotification } = require("./notifications");
 
 const db = getFirestore();
 
@@ -44,6 +45,30 @@ const onMessageCreate = onDocumentCreated("chats/{chatId}/messages/{messageId}",
 
             transaction.update(chatRef, updates);
         });
+
+        // Notificar a participantes (excepto remitente)
+        const chatSnap = await db.collection("chats").doc(chatId).get();
+        if (chatSnap.exists) {
+            const participants = chatSnap.data().participants || [];
+            const senderSnap = await db.collection("users").doc(senderId).get();
+            const senderName = senderSnap.exists ? (senderSnap.data().displayName || "Alguien") : "Alguien";
+            const senderPhoto = senderSnap.exists ? (senderSnap.data().photoUrl || null) : null;
+
+            await Promise.all(
+                participants
+                    .filter(uid => uid !== senderId)
+                    .map(uid => sendNotification(uid, "new_message", {
+                        senderId,
+                        senderName,
+                        senderPhoto,
+                        link: `/chats/${chatId}`,
+                        preview: (messageData.text || "").slice(0, 60),
+                    }, {
+                        notificationId: `msg_${chatId}`,
+                        deletedOnRead: true,
+                    }))
+            );
+        }
 
     } catch (error) {
         console.error(`Error processing message ${event.params.messageId} in chat ${chatId}:`, error);
