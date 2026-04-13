@@ -1,6 +1,8 @@
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
+const logger = require("firebase-functions/logger");
+const { sendNotification } = require("./notifications");
 const db = getFirestore();
 
 /**
@@ -120,8 +122,29 @@ exports.onListFollowingWrite = onDocumentWritten("users/{uid}/followingLists/{li
                 followedAt: admin.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
 
-            // Notification for List Owner?
-            // Maybe later.
+            // Notificar al autor de la lista
+            try {
+                const listSnap = await db.collection("lists").doc(listId).get();
+                if (listSnap.exists) {
+                    const listData = listSnap.data();
+                    const listAuthorId = listData.userId || listData.authorId;
+                    if (listAuthorId && listAuthorId !== uid) {
+                        const followerSnap = await db.collection("users").doc(uid).get();
+                        const followerName = followerSnap.exists ? (followerSnap.data().displayName || "Alguien") : "Alguien";
+                        const followerPhoto = followerSnap.exists ? (followerSnap.data().photoUrl || null) : null;
+
+                        await sendNotification(listAuthorId, "list_follow", {
+                            senderId: uid,
+                            senderName: followerName,
+                            senderPhoto: followerPhoto,
+                            link: `/list/${listId}`,
+                            listId,
+                        }, { notificationId: `listfollow_${listId}` });
+                    }
+                }
+            } catch (e) {
+                logger.error("Error sending list_follow notification:", e);
+            }
         } else if (isDelete) {
             await userRef.update({ followingListsCount: admin.firestore.FieldValue.increment(-1) });
             await listRef.update({
