@@ -22,6 +22,7 @@ import {
   MoreVertical,
   Loader2,
   ChevronDown,
+  ChevronUp,
   BarChart3,
   Sparkles,
   Share2,
@@ -136,9 +137,18 @@ export const ProfilePage: React.FC = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [preferencesTab, setPreferencesTab] = useState<"user" | "search" | "delete">(
+  const [preferencesTab, setPreferencesTab] = useState<"user" | "search" | "delete" | "notifications">(
     "user",
   );
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({
+    new_message: true,
+    new_follower: true,
+    review_comment: true,
+    review_like: true,
+    list_follow: true,
+    level_up: true,
+    badge_earned: true,
+  });
   const [deleteReason, setDeleteReason] = useState<string>("");
   const [deleteKeepReviews, setDeleteKeepReviews] = useState<boolean | null>(null);
   const [deleteKeepSublists, setDeleteKeepSublists] = useState<boolean | null>(null);
@@ -199,10 +209,13 @@ export const ProfilePage: React.FC = () => {
     setIsFlowOpen(true);
   };
 
-  const openPreferencesModal = (tab: "user" | "search" | "delete" = "user") => {
+  const openPreferencesModal = (tab: "user" | "search" | "delete" | "notifications" = "user") => {
     setPreferencesTab(tab);
     setPreferencesError(null);
     setIsEditing(true);
+    if (profile?.notificationPreferences) {
+      setNotifPrefs(prev => ({ ...prev, ...profile.notificationPreferences }));
+    }
   };
 
   const openDetailsModal = (tab: DetailsModalTab) => {
@@ -1122,6 +1135,7 @@ export const ProfilePage: React.FC = () => {
           bio: editBio,
           defaultDistanceKm: safeDistance,
           mapLayerPreference: editMapLayer,
+          notificationPreferences: notifPrefs,
         },
       );
 
@@ -1876,6 +1890,16 @@ export const ProfilePage: React.FC = () => {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setPreferencesTab("notifications")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "notifications"
+                      ? "bg-indigo-600 text-white"
+                      : "text-gray-300 hover:text-white"
+                      }`}
+                  >
+                    Notificaciones
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setPreferencesTab("delete")}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "delete"
                       ? "bg-red-600 text-white"
@@ -2152,6 +2176,36 @@ export const ProfilePage: React.FC = () => {
                         Se aplicará automáticamente cada vez que abras el mapa.
                       </p>
                     </div>
+                  </div>
+                )}
+
+                {preferencesTab === "notifications" && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-gray-500">Elige qué notificaciones quieres recibir.</p>
+                    {[
+                      { key: "new_message", label: "Mensajes nuevos" },
+                      { key: "new_follower", label: "Nuevos seguidores" },
+                      { key: "review_comment", label: "Comentarios en tus reseñas" },
+                      { key: "review_like", label: "Likes en tus reseñas" },
+                      { key: "list_follow", label: "Alguien sigue una lista tuya" },
+                      { key: "level_up", label: "Subidas de nivel" },
+                      { key: "badge_earned", label: "Medallas desbloqueadas" },
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between py-2 border-b border-white/5">
+                        <span className="text-sm text-gray-300">{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => setNotifPrefs(prev => ({ ...prev, [key]: !prev[key] }))}
+                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                            notifPrefs[key] !== false ? "bg-indigo-600" : "bg-white/10"
+                          }`}
+                        >
+                          <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
+                            notifPrefs[key] !== false ? "translate-x-5" : "translate-x-0"
+                          }`} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -2455,15 +2509,21 @@ export const ProfilePage: React.FC = () => {
                       return (
                         <div
                           key={review.id}
-                          className="col-span-3 md:col-span-4 lg:col-span-5 bg-[#151b2e] rounded-xl border border-indigo-500/50 mb-2 shadow-2xl animate-fade-in"
+                          className="col-span-3 md:col-span-4 lg:col-span-5 mb-4 animate-[fade-in_0.2s_ease-out] flex flex-col"
                         >
-                          <button
-                            onClick={() => setExpandedReviewIds([])}
-                            className="w-full flex justify-center pt-2 pb-1"
-                            aria-label="Plegar reseña"
-                          >
-                            <div className="w-10 h-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
-                          </button>
+                          <div className="flex justify-center mb-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedReviewIds((prev) => prev.filter(id => id !== review.id));
+                              }}
+                              className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-indigo-500/30 hover:border-indigo-400/50 shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
+                              aria-label="Cerrar reseña"
+                            >
+                              <ChevronUp className="w-4 h-4" />
+                              <span>Cerrar reseña</span>
+                            </button>
+                          </div>
                           <ReviewCard
                             review={review}
                             onDelete={handleDeleteReview}

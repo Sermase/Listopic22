@@ -37,6 +37,8 @@ export interface UserProfileEntity {
     followingListsCount?: number;
     followingUsersCount?: number;
     followingPlacesCount?: number;
+    mapLayerPreference?: string;
+    notificationPreferences?: Record<string, boolean>;
 }
 
 export const useUserProfile = (uid: string | undefined) => {

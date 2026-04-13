@@ -58,6 +58,7 @@ export interface PreferencesUpdateData {
     bio: string;
     defaultDistanceKm: number;
     mapLayerPreference?: string;
+    notificationPreferences?: Record<string, boolean>;
 }
 
 const asString = (value: unknown): string => {
@@ -481,6 +482,7 @@ export const updateUserProfilePreferences = async (
         bio,
         defaultDistanceKm: data.defaultDistanceKm,
         ...(data.mapLayerPreference ? { mapLayerPreference: data.mapLayerPreference } : {}),
+        ...(data.notificationPreferences !== undefined ? { notificationPreferences: data.notificationPreferences } : {}),
         updatedAt: serverTimestamp(),
         ...(!userData.usernameLockedAt ? { usernameLockedAt: serverTimestamp() } : {}),
     }, { merge: true });
