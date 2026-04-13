@@ -1,206 +1,266 @@
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const db = getFirestore();
 
+// ─── Obtener tokens FCM de un usuario ──────────────────────────────────────
+async function getFcmTokens(userId) {
+    try {
+        const snap = await db.collection("users").doc(userId).collection("fcmTokens").get();
+        return snap.docs.map(d => d.data().token).filter(Boolean);
+    } catch {
+        return [];
+    }
+}
+
+// ─── Limpiar tokens inválidos ───────────────────────────────────────────────
+async function cleanInvalidTokens(userId, invalidTokens) {
+    if (!invalidTokens.length) return;
+    const snap = await db.collection("users").doc(userId).collection("fcmTokens").get();
+    const batch = db.batch();
+    snap.docs.forEach(d => {
+        if (invalidTokens.includes(d.data().token)) batch.delete(d.ref);
+    });
+    await batch.commit();
+}
+
+// ─── Enviar push FCM ────────────────────────────────────────────────────────
+async function sendPush(userId, title, body, data = {}) {
+    const tokens = await getFcmTokens(userId);
+    if (!tokens.length) return;
+
+    try {
+        const response = await admin.messaging().sendEachForMulticast({
+            tokens,
+            notification: { title, body },
+            data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
+            android: {
+                priority: "high",
+                notification: { channelId: "listopic_default", sound: "default" }
+            }
+        });
+
+        const invalidTokens = [];
+        response.responses.forEach((r, i) => {
+            if (!r.success && r.error?.code === "messaging/registration-token-not-registered") {
+                invalidTokens.push(tokens[i]);
+            }
+        });
+        await cleanInvalidTokens(userId, invalidTokens);
+    } catch (err) {
+        logger.error("Error sending FCM push:", err);
+    }
+}
+
+// ─── Leer preferencias del usuario ─────────────────────────────────────────
+async function getUserNotifPrefs(userId) {
+    try {
+        const snap = await db.collection("users").doc(userId).get();
+        return snap.exists ? (snap.data().notificationPreferences || {}) : {};
+    } catch {
+        return {};
+    }
+}
+
+// ─── sendNotification (upsert) ──────────────────────────────────────────────
 /**
- * Sends a notification to a specific user.
- * @param {string} userId - The recipient's UID.
- * @param {string} type - 'new_follower', 'review_like', 'review_comment', 'place_closed'.
- * @param {object} payload - Data related to the notification (senderId, senderName, link, etc.).
- * @param {object} options - Optional config. Supports { notificationId?: string } for idempotent writes.
+ * @param {string} userId - UID del destinatario
+ * @param {string} type - Tipo de notificación
+ * @param {object} payload - { senderId, senderName, senderPhoto, message, link, ... }
+ * @param {object} options - { notificationId?: string, deletedOnRead?: boolean }
  */
 async function sendNotification(userId, type, payload, options = {}) {
     if (!userId) return;
 
     try {
-        const userRef = db.collection("users").doc(userId);
-        const notificationsRef = userRef.collection("notifications");
-        const notificationId = typeof options.notificationId === "string" ? options.notificationId.trim() : "";
+        // Comprobar preferencias
+        const prefs = await getUserNotifPrefs(userId);
+        if (prefs[type] === false) return;
 
-        if (notificationId) {
-            const notificationRef = notificationsRef.doc(notificationId);
-            const existingNotification = await notificationRef.get();
-            if (existingNotification.exists) {
+        const userRef = db.collection("users").doc(userId);
+        const notifId = options.notificationId || null;
+
+        if (notifId) {
+            const notifRef = userRef.collection("notifications").doc(notifId);
+            const existing = await notifRef.get();
+
+            if (existing.exists && !existing.data().read) {
+                // Actualizar: incrementar count, nuevo mensaje, updatedAt
+                const newCount = (existing.data().count || 1) + 1;
+                const newMessage = buildMessage(type, payload.senderName, newCount, payload);
+
+                await notifRef.set({
+                    ...payload,
+                    type,
+                    count: newCount,
+                    message: newMessage,
+                    updatedAt: FieldValue.serverTimestamp(),
+                    deletedOnRead: options.deletedOnRead || false,
+                }, { merge: true });
+
+                await sendPush(userId, "Listopic", newMessage, { type, link: payload.link || "", notificationId: notifId });
                 return;
             }
 
-            const batch = db.batch();
-            batch.set(notificationRef, {
+            // Crear nuevo (no existe o ya estaba leída)
+            const message = buildMessage(type, payload.senderName, 1, payload);
+            await notifRef.set({
                 type,
                 ...payload,
+                message,
+                count: 1,
                 read: false,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
+                deletedOnRead: options.deletedOnRead || false,
+                createdAt: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp(),
             });
-            batch.set(userRef, {
-                unreadNotificationsCount: admin.firestore.FieldValue.increment(1)
-            }, { merge: true });
-            await batch.commit();
+
+            await userRef.set({ unreadNotificationsCount: FieldValue.increment(1) }, { merge: true });
+            await sendPush(userId, "Listopic", message, { type, link: payload.link || "", notificationId: notifId });
             return;
         }
 
-        await notificationsRef.add({
+        // Sin notifId: insert clásico (para badges, level_up que no agrupan)
+        const message = payload.message || buildMessage(type, payload.senderName, 1, payload);
+        await userRef.collection("notifications").add({
             type,
             ...payload,
+            message,
+            count: 1,
             read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+            deletedOnRead: false,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
         });
-
-        await userRef.set({
-            unreadNotificationsCount: admin.firestore.FieldValue.increment(1)
-        }, { merge: true });
+        await userRef.set({ unreadNotificationsCount: FieldValue.increment(1) }, { merge: true });
+        await sendPush(userId, "Listopic", message, { type, link: payload.link || "" });
 
     } catch (error) {
         logger.error(`Error sending notification to ${userId}:`, error);
     }
 }
 
-// --- TRIGGERS ---
+// ─── Texto dinámico por tipo ────────────────────────────────────────────────
+function buildMessage(type, senderName, count, payload) {
+    const name = senderName || "Alguien";
+    switch (type) {
+        case "new_message":
+            return count === 1
+                ? `Mensaje nuevo de ${name}`
+                : `${count} mensajes nuevos de ${name}`;
+        case "new_follower":
+            return count === 1
+                ? `${name} ha empezado a seguirte`
+                : `${name} y otras ${count - 1} personas han empezado a seguirte`;
+        case "review_comment":
+            return count === 1
+                ? `${name} ha comentado en tu reseña`
+                : `${count} comentarios nuevos en tu reseña`;
+        case "review_like":
+            return count === 1
+                ? `A ${name} le ha gustado tu reseña`
+                : `A ${count} personas les ha gustado tu reseña`;
+        case "list_follow":
+            return count === 1
+                ? `${name} sigue ahora tu lista`
+                : `${count} personas siguen ahora tu lista`;
+        case "level_up":
+            return `Has subido al nivel ${payload.level || ""}`;
+        case "badge_earned":
+            return `Has desbloqueado la medalla "${payload.badgeName || ""}"`;
+        default:
+            return payload.message || "Nueva notificación";
+    }
+}
 
-/**
- * Trigger: When a user gets a new follower.
- * Path: users/{uid}/followers/{followerId}
- */
+// ─── TRIGGERS ───────────────────────────────────────────────────────────────
+
 const onFollowUser = onDocumentWritten("users/{uid}/followers/{followerId}", async (event) => {
-    const followerId = event.params.followerId;
-    const targetUserId = event.params.uid;
-
-    // Only on create
     if (!event.data.before.exists && event.data.after.exists) {
-        // Fetch FRESH follower data (don't rely on the follower subcollection doc which might be stale copy)
-        // OR if the subcollection is just an ID, we MUST fetch. 
-        // Assuming subcollection might have minimal data.
+        const followerId = event.params.followerId;
+        const targetUserId = event.params.uid;
 
-        let followerName = "Un usuario";
-        let followerPhoto = null;
+        const snap = await db.collection("users").doc(followerId).get();
+        const followerName = snap.exists ? (snap.data().displayName || "Un usuario") : "Un usuario";
+        const followerPhoto = snap.exists ? (snap.data().photoUrl || null) : null;
 
-        const userSnap = await db.collection("users").doc(followerId).get();
-        if (userSnap.exists) {
-            followerName = userSnap.data().displayName || "Un usuario";
-            followerPhoto = userSnap.data().photoUrl || null;
-        }
-
-        await sendNotification(targetUserId, 'new_follower', {
+        await sendNotification(targetUserId, "new_follower", {
             senderId: followerId,
             senderName: followerName,
             senderPhoto: followerPhoto,
-            message: "te ha empezado a seguir.",
-            link: `/profile/${followerId}`
-        });
+            link: `/profile/${followerId}`,
+        }, { notificationId: "followers_new" });
     }
 });
 
-/**
- * Trigger: When a review gets a REACTION (Like).
- * Path: lists/{listId}/reviews/{reviewId}/reactions/{userId}
- */
 const onReviewReaction = onDocumentWritten("lists/{listId}/reviews/{reviewId}/reactions/{userId}", async (event) => {
-    const listId = event.params.listId;
-    const reviewId = event.params.reviewId;
-    const reactorId = event.params.userId;
-
-    // Only on create (Unlike shouldn't notify)
     if (!event.data.before.exists && event.data.after.exists) {
+        const { listId, reviewId, userId: reactorId } = event.params;
         const reactionData = event.data.after.data();
+        if (reactionData.reaction !== "like") return;
 
-        // Only notify for 'like'
-        if (reactionData.reaction !== 'like') return;
-
-        // Fetch review to get author and placeId
-        const reviewSnapshot = await db.doc(`lists/${listId}/reviews/${reviewId}`).get();
-        if (!reviewSnapshot.exists) return;
-
-        const reviewData = reviewSnapshot.data();
+        const reviewSnap = await db.doc(`lists/${listId}/reviews/${reviewId}`).get();
+        if (!reviewSnap.exists) return;
+        const reviewData = reviewSnap.data();
         const authorId = reviewData.userId || reviewData.authorId;
-        const placeId = reviewData.placeId; // Ensure this exists on review doc
-
-        // Don't notify self-likes
         if (authorId === reactorId) return;
 
-        // Get Reactor info
-        const reactorSnapshot = await db.collection("users").doc(reactorId).get();
-        const reactorName = reactorSnapshot.exists ? (reactorSnapshot.data().displayName || "Alguien") : "Alguien";
-        const reactorPhoto = reactorSnapshot.exists ? reactorSnapshot.data().photoUrl : null;
+        const reactorSnap = await db.collection("users").doc(reactorId).get();
+        const reactorName = reactorSnap.exists ? (reactorSnap.data().displayName || "Alguien") : "Alguien";
+        const reactorPhoto = reactorSnap.exists ? reactorSnap.data().photoUrl : null;
 
-        await sendNotification(authorId, 'review_like', {
+        await sendNotification(authorId, "review_like", {
             senderId: reactorId,
             senderName: reactorName,
             senderPhoto: reactorPhoto,
-            message: "indicó que le gusta tu reseña.",
-            link: placeId ? `/place/${placeId}?reviewId=${reviewId}` : `/reviews/${reviewId}`,
-            placeName: reviewData.placeName || "un lugar"
-        });
+            link: reviewData.placeId ? `/place/${reviewData.placeId}?reviewId=${reviewId}` : `/list/${listId}`,
+            placeName: reviewData.placeName || "un lugar",
+        }, { notificationId: `like_${reviewId}` });
     }
 });
 
-/**
- * Trigger: When a review gets a COMMENT.
- * Path: lists/{listId}/reviews/{reviewId}/comments/{commentId}
- */
 const onReviewComment = onDocumentWritten("lists/{listId}/reviews/{reviewId}/comments/{commentId}", async (event) => {
-    const listId = event.params.listId;
-    const reviewId = event.params.reviewId;
+    const { listId, reviewId } = event.params;
     const reviewRef = db.doc(`lists/${listId}/reviews/${reviewId}`);
-
     const isCreate = !event.data.before.exists && event.data.after.exists;
     const isDelete = event.data.before.exists && !event.data.after.exists;
-
     if (!isCreate && !isDelete) return;
 
-    try {
-        if (isCreate) {
-            // 1. Increment comment count
-            await reviewRef.update({ commentCount: admin.firestore.FieldValue.increment(1) });
+    if (isCreate) {
+        await reviewRef.update({ commentCount: FieldValue.increment(1) });
 
-            // 2. Send Notification
-            const commentData = event.data.after.data();
-            const commenterId = commentData.userId;
+        const commentData = event.data.after.data();
+        const commenterId = commentData.userId;
+        const reviewSnap = await reviewRef.get();
+        if (!reviewSnap.exists) return;
 
-            // Fetch review to get author
-            const reviewSnapshot = await reviewRef.get();
-            if (!reviewSnapshot.exists) return;
+        const reviewData = reviewSnap.data();
+        const authorId = reviewData.userId || reviewData.authorId;
+        if (authorId === commenterId) return;
 
-            const reviewData = reviewSnapshot.data();
-            const authorId = reviewData.userId || reviewData.authorId;
+        const commenterSnap = await db.collection("users").doc(commenterId).get();
+        const commenterName = commenterSnap.exists ? (commenterSnap.data().displayName || "Alguien") : "Alguien";
+        const commenterPhoto = commenterSnap.exists ? commenterSnap.data().photoUrl : null;
 
-            // Don't notify self-comments
-            if (authorId === commenterId) return;
+        await sendNotification(authorId, "review_comment", {
+            senderId: commenterId,
+            senderName: commenterName,
+            senderPhoto: commenterPhoto,
+            link: `/list/${listId}?reviewId=${reviewId}`,
+            placeName: reviewData.placeName || "un lugar",
+            preview: commentData.text ? commentData.text.substring(0, 60) : "",
+        }, { notificationId: `comment_${reviewId}` });
 
-            // Fetch FRESH commenter info
-            let commenterName = commentData.userName || "Alguien";
-            let commenterPhoto = commentData.userPhoto || null;
-
-            const commenterSnap = await db.collection("users").doc(commenterId).get();
-            if (commenterSnap.exists) {
-                const cData = commenterSnap.data();
-                commenterName = cData.displayName || commenterName;
-                commenterPhoto = cData.photoUrl || commenterPhoto;
-            }
-
-            await sendNotification(authorId, 'review_comment', {
-                senderId: commenterId,
-                senderName: commenterName,
-                senderPhoto: commenterPhoto,
-                message: "comentó en tu reseña.",
-                link: `/list/${listId}?reviewId=${reviewId}`,
-                placeName: reviewData.placeName || "un lugar",
-                preview: commentData.text ? (commentData.text.substring(0, 50) + "...") : ""
-            });
-        } else if (isDelete) {
-            // 1. Decrement comment count
-            await reviewRef.update({ commentCount: admin.firestore.FieldValue.increment(-1) });
-        }
-    } catch (error) {
-        console.error("Error in onReviewComment:", error);
+    } else if (isDelete) {
+        await reviewRef.update({ commentCount: FieldValue.increment(-1) });
     }
 });
-
 
 module.exports = {
     onFollowUser,
     onReviewReaction,
     onReviewComment,
-    sendNotification // Exported for use by reports or other modules
+    sendNotification,
 };
