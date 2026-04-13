@@ -37,6 +37,13 @@ export const AboutPage: React.FC = () => {
 
             <div className="max-w-2xl mx-auto px-4 sm:px-6 space-y-4">
 
+                {/* Intro honesta */}
+                <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-3xl p-5">
+                    <p className="text-indigo-200 text-sm leading-relaxed">
+                        <span className="font-bold text-white">Antes de empezar, la verdad:</span> Listopic es un proyecto indie, creado por una persona de forma independiente, sin empresa registrada y sin ánimo de lucro por ahora. Nacimos para jugar a crear, para disfrutar del proceso y ofrecer algo genuino con utilidad directa. La app está en fase de pruebas activas (beta). Úsala con ese espíritu en mente.
+                    </p>
+                </div>
+
                 {/* Qué es Listopic */}
                 <div className="bg-[#151b2e]/60 border border-white/10 rounded-3xl p-6">
                     <h2 className="text-lg font-bold text-white mb-3">¿Qué es Listopic?</h2>
