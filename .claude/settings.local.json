@@ -31,7 +31,9 @@
       "Bash(npx firebase:*)",
       "Read(//home/sermase/.npm/bin/**)",
       "Read(//usr/local/bin/**)",
-      "Bash(firebase login:*)"
+      "Bash(firebase login:*)",
+      "Bash(exit 0)",
+      "Bash(echo \"EXIT: $?\")"
     ]
   }
 }

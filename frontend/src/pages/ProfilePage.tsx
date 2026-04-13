@@ -42,7 +42,7 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, auth, storage } from "../firebase";
-import { signOut, updateProfile } from "firebase/auth";
+import { signOut, updateProfile, deleteUser } from "firebase/auth";
 import { ReviewCard } from "../components/ReviewCard";
 import { AddReviewForm } from "../components/AddReviewForm";
 import { ShareModal } from "../components/ShareModal";
@@ -63,6 +63,7 @@ import {
   orderBy,
   limit,
   startAfter,
+  writeBatch,
 } from "firebase/firestore";
 import { isUsernameValid } from "../utils/username";
 import {
@@ -135,9 +136,15 @@ export const ProfilePage: React.FC = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [preferencesTab, setPreferencesTab] = useState<"user" | "search">(
+  const [preferencesTab, setPreferencesTab] = useState<"user" | "search" | "delete">(
     "user",
   );
+  const [deleteReason, setDeleteReason] = useState<string>("");
+  const [deleteKeepReviews, setDeleteKeepReviews] = useState<boolean | null>(null);
+  const [deleteKeepSublists, setDeleteKeepSublists] = useState<boolean | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState<string>("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editRange, setEditRange] = useState<string>("50"); // Default to 50 if undefined
   const [editMapLayer, setEditMapLayer] = useState<string>("standard");
   const [editUsername, setEditUsername] = useState("");
@@ -192,7 +199,7 @@ export const ProfilePage: React.FC = () => {
     setIsFlowOpen(true);
   };
 
-  const openPreferencesModal = (tab: "user" | "search" = "user") => {
+  const openPreferencesModal = (tab: "user" | "search" | "delete" = "user") => {
     setPreferencesTab(tab);
     setPreferencesError(null);
     setIsEditing(true);
@@ -1142,6 +1149,80 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setDeletingAccount(true);
+    setDeleteError(null);
+    try {
+      const uid = user.uid;
+      const batch = writeBatch(db);
+
+      // 1. Handle reviews
+      const reviewsSnap = await getDocs(
+        query(collectionGroup(db, "reviews"), where("authorId", "==", uid))
+      );
+      if (deleteKeepReviews) {
+        reviewsSnap.docs.forEach((d) => {
+          batch.update(d.ref, {
+            authorId: null,
+            authorName: "Usuario eliminado",
+            authorPhotoUrl: null,
+            authorUsername: null,
+          });
+        });
+      } else {
+        reviewsSnap.docs.forEach((d) => batch.delete(d.ref));
+      }
+
+      // 2. Handle sublists (lists where authorId == uid and parentId exists)
+      const sublistsSnap = await getDocs(
+        query(collection(db, "lists"), where("authorId", "==", uid), where("parentId", "!=", null))
+      );
+      if (deleteKeepSublists) {
+        sublistsSnap.docs.forEach((d) => {
+          batch.update(d.ref, {
+            authorId: null,
+            authorName: "Usuario eliminado",
+            authorPhotoUrl: null,
+            authorUsername: null,
+          });
+        });
+      } else {
+        sublistsSnap.docs.forEach((d) => batch.delete(d.ref));
+      }
+
+      // 3. Delete user doc, following, followers, notifications subcollections
+      const followingSnap = await getDocs(collection(db, "users", uid, "following"));
+      followingSnap.docs.forEach((d) => batch.delete(d.ref));
+
+      const followersSnap = await getDocs(collection(db, "users", uid, "followers"));
+      followersSnap.docs.forEach((d) => batch.delete(d.ref));
+
+      const notificationsSnap = await getDocs(collection(db, "users", uid, "notifications"));
+      notificationsSnap.docs.forEach((d) => batch.delete(d.ref));
+
+      const followingListsSnap = await getDocs(collection(db, "users", uid, "followingLists"));
+      followingListsSnap.docs.forEach((d) => batch.delete(d.ref));
+
+      batch.delete(doc(db, "users", uid));
+
+      await batch.commit();
+
+      // 4. Delete Firebase Auth user
+      await deleteUser(user);
+
+      navigate("/");
+    } catch (err: any) {
+      console.error("Error deleting account:", err);
+      if (err?.code === "auth/requires-recent-login") {
+        setDeleteError("Por seguridad, necesitas volver a iniciar sesión antes de eliminar tu cuenta. Cierra sesión, vuelve a entrar y repite el proceso.");
+      } else {
+        setDeleteError("Error al eliminar la cuenta. Inténtalo de nuevo o contáctanos en istaricore@gmail.com");
+      }
+      setDeletingAccount(false);
+    }
+  };
+
   const handleMessage = async () => {
     if (!user || !targetUserId) return;
     try {
@@ -1793,6 +1874,16 @@ export const ProfilePage: React.FC = () => {
                   >
                     Busqueda
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreferencesTab("delete")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "delete"
+                      ? "bg-red-600 text-white"
+                      : "text-red-400 hover:text-red-300"
+                      }`}
+                  >
+                    Eliminar
+                  </button>
                 </div>
               </div>
 
@@ -2063,10 +2154,107 @@ export const ProfilePage: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {preferencesTab === "delete" && (
+                  <div className="space-y-5">
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
+                      <p className="text-red-300 text-sm leading-relaxed">
+                        <span className="font-bold text-white">Esta acción es irreversible.</span> Tu cuenta y todos tus datos serán eliminados permanentemente. Revisa las opciones antes de continuar.
+                      </p>
+                    </div>
+
+                    {/* Razón */}
+                    <div>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-2">¿Por qué te vas?</label>
+                      <div className="space-y-2">
+                        {[
+                          "Ya no uso la app",
+                          "Quiero empezar desde cero",
+                          "Problemas de privacidad",
+                          "La app no cubre mis necesidades",
+                          "Otras razones",
+                          "Prefiero no decirlo",
+                        ].map((reason) => (
+                          <button
+                            key={reason}
+                            type="button"
+                            onClick={() => setDeleteReason(reason)}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-colors ${deleteReason === reason
+                              ? "bg-red-600/20 border-red-500/50 text-white"
+                              : "bg-black/20 border-white/10 text-gray-300 hover:border-white/20 hover:text-white"
+                              }`}
+                          >
+                            {reason}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Reseñas */}
+                    <div>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus reseñas de forma anónima?</label>
+                      <p className="text-gray-500 text-xs mb-2">Si dices que sí, tus reseñas quedarán en la app sin asociarse a ningún usuario.</p>
+                      <div className="flex gap-2">
+                        {([true, false] as const).map((val) => (
+                          <button
+                            key={String(val)}
+                            type="button"
+                            onClick={() => setDeleteKeepReviews(val)}
+                            className={`flex-1 py-2 rounded-xl border text-sm font-bold transition-colors ${deleteKeepReviews === val
+                              ? val ? "bg-indigo-600/30 border-indigo-500/50 text-white" : "bg-red-600/20 border-red-500/50 text-white"
+                              : "bg-black/20 border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
+                              }`}
+                          >
+                            {val ? "Sí, mantenerlas" : "No, eliminarlas"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Sublistas */}
+                    <div>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus sublistas?</label>
+                      <p className="text-gray-500 text-xs mb-2">Si dices que sí, tus sublistas quedarán en la app sin autor.</p>
+                      <div className="flex gap-2">
+                        {([true, false] as const).map((val) => (
+                          <button
+                            key={String(val)}
+                            type="button"
+                            onClick={() => setDeleteKeepSublists(val)}
+                            className={`flex-1 py-2 rounded-xl border text-sm font-bold transition-colors ${deleteKeepSublists === val
+                              ? val ? "bg-indigo-600/30 border-indigo-500/50 text-white" : "bg-red-600/20 border-red-500/50 text-white"
+                              : "bg-black/20 border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
+                              }`}
+                          >
+                            {val ? "Sí, mantenerlas" : "No, eliminarlas"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Confirmación */}
+                    <div>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-2">Escribe ELIMINAR para confirmar</label>
+                      <input
+                        type="text"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        placeholder="ELIMINAR"
+                        className="w-full bg-black/20 border border-red-500/30 rounded-lg text-white px-3 py-2 outline-none focus:border-red-500 placeholder:text-gray-600"
+                      />
+                    </div>
+
+                    {deleteError && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-200">
+                        {deleteError}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="px-4 md:px-5 py-4 border-t border-white/10 bg-[#12182c] space-y-3">
-                {preferencesError && (
+                {preferencesTab !== "delete" && preferencesError && (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-200">
                     {preferencesError}
                   </div>
@@ -2074,23 +2262,43 @@ export const ProfilePage: React.FC = () => {
                 <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => !savingPreferences && setIsEditing(false)}
-                    disabled={savingPreferences}
+                    onClick={() => !savingPreferences && !deletingAccount && setIsEditing(false)}
+                    disabled={savingPreferences || deletingAccount}
                     className="px-3 py-2 text-xs font-bold rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancelar
                   </button>
-                  <button
-                    type="button"
-                    onClick={savePreferences}
-                    disabled={savingPreferences}
-                    className="px-3 py-2 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 min-w-[150px]"
-                  >
-                    {savingPreferences && (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    )}
-                    Guardar preferencias
-                  </button>
+                  {preferencesTab === "delete" ? (
+                    <button
+                      type="button"
+                      onClick={handleDeleteAccount}
+                      disabled={
+                        deletingAccount ||
+                        !deleteReason ||
+                        deleteKeepReviews === null ||
+                        deleteKeepSublists === null ||
+                        deleteConfirmText !== "ELIMINAR"
+                      }
+                      className="px-3 py-2 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 min-w-[150px]"
+                    >
+                      {deletingAccount && (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      )}
+                      Eliminar mi cuenta
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={savePreferences}
+                      disabled={savingPreferences}
+                      className="px-3 py-2 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 min-w-[150px]"
+                    >
+                      {savingPreferences && (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      )}
+                      Guardar preferencias
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
