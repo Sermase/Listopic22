@@ -2,9 +2,19 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  esbuild: {
+    // Strip console.* and debugger statements in production builds. Keep
+    // console.error and console.warn so real issues still surface (and are
+    // captured by Sentry/Crashlytics when enabled).
+    drop: mode === 'production' ? ['debugger'] : [],
+    pure: mode === 'production'
+      ? ['console.log', 'console.debug', 'console.info', 'console.trace']
+      : [],
+  },
   build: {
+    sourcemap: mode !== 'production',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -15,4 +25,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))
