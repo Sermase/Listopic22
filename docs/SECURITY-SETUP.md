@@ -213,3 +213,17 @@ Ejecuta esta lista después del despliegue:
 - **Cifrado de mensajes de chat** (mejora RGPD para datos privados).
 
 Todo esto está registrado en `Mejoras/mejoras-pendientes.md`.
+
+---
+
+## 9) Activar Sentry (opcional)
+
+1. Crea un proyecto en https://sentry.io (plataforma: **React**).
+2. Copia el DSN que Sentry te muestra al crear el proyecto
+   (formato `https://<key>@o<org>.ingest.sentry.io/<id>`).
+3. Añade la variable en tu archivo `.env` local (o en el panel de CI/hosting):
+   ```
+   VITE_SENTRY_DSN=https://...
+   ```
+4. Reconstruye la app (`npm run build`). Sin la variable, Sentry permanece
+   completamente desactivado y no genera ningún error ni petición de red.

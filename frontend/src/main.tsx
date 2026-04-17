@@ -1,7 +1,10 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import { initSentry } from './lib/sentry'
 import './index.css'
 import App from './App.tsx'
+
+initSentry();
 import { AppConfigProvider } from './context/AppConfigContext';
 import { SeoManager } from './components/SeoManager';
 import { AuthProvider } from './context/AuthContext';

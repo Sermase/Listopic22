@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { reportError } from '../lib/sentry';
 
 interface Props {
   children: ReactNode;
@@ -21,7 +22,7 @@ class ErrorBoundary extends Component<Props, State> {
     // eslint-disable-next-line no-console
     console.error('[ErrorBoundary]', error, info);
     this.props.onError?.(error, info);
-    // TODO: integrate Sentry/Crashlytics here when el usuario active el DSN.
+    reportError(error, { componentStack: info.componentStack });
   }
 
   reset = () => this.setState({ error: null });
