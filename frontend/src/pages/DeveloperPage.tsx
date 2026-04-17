@@ -28,10 +28,12 @@ interface ConsoleSearchParams {
 }
 
 export const DeveloperPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, isJefe, loading: loadingAuth } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
     const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd'>('console');
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+    // Reactive: un usuario al que se le acaba de quitar el rol 'jefe' pierde
+    // acceso inmediatamente sin recargar la página.
+    const isAuthorized: boolean | null = loadingAuth ? null : isJefe;
 
     // Other Settings State
     const [otherSettings, setOtherSettings] = useState({
@@ -87,12 +89,8 @@ export const DeveloperPage: React.FC = () => {
     const [importingBadgePackId, setImportingBadgePackId] = useState<string | null>(null);
 
 
-    useEffect(() => {
-        if (!loadingProfile && profile) {
-            const isJefe = (Array.isArray(profile.userType) && profile.userType.includes('jefe')) || profile.userType === 'jefe';
-            setIsAuthorized(isJefe);
-        }
-    }, [profile, loadingProfile]);
+    // isAuthorized ahora viene de AuthContext.isJefe (reactivo); el chequeo
+    // anterior con profile one-shot se ha eliminado intencionadamente.
 
     const handleConsoleSearch = async () => {
         setLoadingConsole(true);
@@ -563,14 +561,14 @@ export const DeveloperPage: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
-        if (!isAuthorized && !loadingProfile) {
+        if (!isAuthorized && !loadingAuth) {
             // Optional: redirect or just show the unauthorized message
         }
-    }, [isAuthorized, loadingProfile]);
+    }, [isAuthorized, loadingAuth]);
 
     // Update active tab logic if needed
 
-    if (loadingProfile || isAuthorized === null) {
+    if (loadingAuth || isAuthorized === null) {
         return <div className="min-h-screen pt-safe-24 text-center text-gray-500">Verificando permisos...</div>;
     }
 

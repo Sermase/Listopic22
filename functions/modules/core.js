@@ -1,4 +1,40 @@
 ﻿// functions/modules/core.js
+//
+// ⚠️  ESTE ARCHIVO ES UN MONOLITO DE ~4100 LÍNEAS PENDIENTE DE SPLIT.
+// Ver `Mejoras/mejoras-pendientes.md` (MEJORA #6) para el plan.
+//
+// Plan de split incremental (hacer en PRs separados, uno por módulo, con deploy
+// y verificación antes de empezar el siguiente):
+//
+//   functions/modules/
+//     core.js                   ← Queda solo con aggregates/triggers genéricos
+//     lib/
+//       auth.js         ✓ hecho — helpers auth + rate-limit + audit log
+//       secrets.js      ✓ hecho — Secret Manager
+//       geo.js          ✓ hecho — helpers geográficos puros
+//     places/
+//       places-google.js   ← reverseGeocode, placesNearbyRestaurants,
+//                            placesTextSearch, getPlaceDetailsFromGoogle,
+//                            refreshPlaceMainImage, helpers de Google Places
+//     lists/
+//       lists-crud.js      ← createList, createListWithValidation,
+//                            updateListWithValidation, deleteOrOrphanList
+//     aggregates/
+//       aggregates.js      ← updateAggregatesOnReviewChange,
+//                            updateUserStatsOnListChange, updatePlaceAggregates,
+//                            recalculateListReviewMetrics, etc.
+//     admin/
+//       admin-tags.js      ← adminReplaceTag
+//       admin-places.js    ← adminUpdateAllPlaces, adminUpdateSinglePlace,
+//                            adminFixPlaceDocument, adminAuditPlaceIdConsistency,
+//                            adminRecalculatePlaceStats, adminRecalculateAllPlaces
+//       admin-lists.js     ← adminUpdateSingleListAggregates,
+//                            adminRecalculateListAverages, adminRecalculateAllLists
+//       admin-users.js     ← adminRecalculateAllUsers
+//       admin-misc.js      ← adminAuditStatistics, adminGetCollection
+//
+// Mientras tanto, TODAS las funciones nuevas deberían escribirse en el módulo
+// correspondiente, no aquí.
 
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
@@ -9,6 +45,18 @@ const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { buildGroupedItemsForList } = require("./grouped-aggregator");
+const {
+  assertJefeAccess: _assertJefeAccess,
+  requireAuthFromRequest: _requireAuthFromRequest,
+  rateLimit,
+  rateLimitKey,
+  writeAuditLog,
+  normalizeUserTypes: _normalizeUserTypes,
+} = require("./lib/auth");
+const {
+  googlePlacesApiKey: GOOGLE_PLACES_API_KEY_SECRET,
+  getGooglePlacesApiKey: _getGooglePlacesApiKey,
+} = require("./lib/secrets");
 
 const db = getFirestore();
 
@@ -857,9 +905,12 @@ const groupedReviews = onRequest(
   async (req, res) => {
     cors(req, res, async () => {
       const listId = req.query.listId;
-      if (!listId) {
-        return res.status(400).send({ error: "listId es requerido." });
+      if (!listId || typeof listId !== 'string' || listId.length > 200) {
+        return res.status(400).send({ error: "listId inválido." });
       }
+
+      const rl = await rateLimit('groupedReviews', rateLimitKey(req, null), 120, 60);
+      if (!rl.allowed) return res.status(429).send({ error: 'Demasiadas peticiones.' });
 
       let requesterUid = null;
       try {
@@ -955,10 +1006,12 @@ const updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{reviewI
 */
 
 // --- FUNCIÓN placesNearbyRestaurants (MEJORADA) ---
-const placesNearbyRestaurants = onRequest(async (req, res) => {
+const placesNearbyRestaurants = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
     const auth = await requireAuthFromRequest(req, res);
     if (!auth) return;
+    const rl = await rateLimit('placesNearbyRestaurants', rateLimitKey(req, auth), 60, 60);
+    if (!rl.allowed) return res.status(429).json({ message: 'Demasiadas peticiones.' });
     const { latitude, longitude, categoryId, categoryTypes: rawCategoryTypes } = req.query;
     const apiKey = await getGooglePlacesApiKey();
 
@@ -1056,10 +1109,12 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
   return R * c; // Distancia en km
 };
 
-const placesTextSearch = onRequest(async (req, res) => {
+const placesTextSearch = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
     const auth = await requireAuthFromRequest(req, res);
     if (!auth) return;
+    const rl = await rateLimit('placesTextSearch', rateLimitKey(req, auth), 60, 60);
+    if (!rl.allowed) return res.status(429).json({ message: 'Demasiadas peticiones.' });
     const { query, latitude, longitude, categoryId, categoryTypes: rawCategoryTypes } = req.query;
     const apiKey = await getGooglePlacesApiKey();
 
@@ -1167,10 +1222,12 @@ const provinceMap = {
   '51': 'Ceuta', '52': 'Melilla'
 };
 
-const getPlaceDetailsFromGoogle = onRequest(async (req, res) => {
+const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
     const decoded = await requireAuthFromRequest(req, res);
     if (!decoded) return;
+    const rl = await rateLimit('getPlaceDetailsFromGoogle', rateLimitKey(req, decoded), 60, 60);
+    if (!rl.allowed) return res.status(429).json({ message: 'Demasiadas peticiones.' });
     req.user = { uid: decoded.uid };
 
     const { placeid } = req.query;
@@ -1571,10 +1628,12 @@ const updateListWithValidation = onCall(async (request) => {
 });
 
 // NUEVA FUNCIÓN: reverseGeocode
-const reverseGeocode = onRequest(async (req, res) => {
+const reverseGeocode = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
     const auth = await requireAuthFromRequest(req, res);
     if (!auth) return;
+    const rl = await rateLimit('reverseGeocode', rateLimitKey(req, auth), 60, 60);
+    if (!rl.allowed) return res.status(429).json({ message: 'Demasiadas peticiones.' });
     const { lat, lon } = req.query;
     const apiKey = await getGooglePlacesApiKey();
 
@@ -2030,9 +2089,18 @@ const resolveChatParticipants = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
   }
 
+  // Rate-limit: 30 resoluciones / minuto por UID (evita enumeración masiva).
+  const rl = await rateLimit('resolveChatParticipants', `uid_${contextAuth.uid}`, 30, 60);
+  if (!rl.allowed) {
+    throw new HttpsError('resource-exhausted', 'Demasiadas peticiones. Inténtalo en un minuto.');
+  }
+
   const rawIdentifiers = request.data && request.data.identifiers;
   if (!Array.isArray(rawIdentifiers) || rawIdentifiers.length === 0) {
     throw new HttpsError('invalid-argument', 'Debes proporcionar los identificadores de los usuarios.');
+  }
+  if (rawIdentifiers.length > 20) {
+    throw new HttpsError('invalid-argument', 'Máximo 20 identificadores por petición.');
   }
 
   const normalizeIdentifier = (value) => {
@@ -2317,16 +2385,21 @@ const getPlaceDetails = onCall(async (request) => {
 // En functions/index.js
 
 const getGroupsForPlace = onRequest(async (req, res) => {
-  // *** LA SOLUCIÓN CLAVE: Envolvemos todo en cors ***
   cors(req, res, async () => {
     try {
-      // En funciones onRequest, los datos vienen en req.body.data
-      const { placeId } = req.body.data;
+      const decoded = await requireAuthFromRequest(req, res);
+      if (!decoded) return;
 
-      if (!placeId) {
-        logger.error("getGroupsForPlace: placeId no fue proporcionado en el cuerpo de la petición.");
-        // Devolvemos un error usando res.status()
-        return res.status(400).json({ error: "La función debe ser llamada con un 'placeId'." });
+      const rl = await rateLimit('getGroupsForPlace', rateLimitKey(req, decoded), 120, 60);
+      if (!rl.allowed) {
+        return res.status(429).json({ error: 'Demasiadas peticiones, inténtalo más tarde.' });
+      }
+
+      const { placeId } = req.body?.data || {};
+
+      if (!placeId || typeof placeId !== 'string' || placeId.length > 200) {
+        logger.error("getGroupsForPlace: placeId inválido", { body: req.body });
+        return res.status(400).json({ error: "La función debe ser llamada con un 'placeId' válido." });
       }
 
       const groupsSnapshot = await db.collection("groups")
@@ -2623,6 +2696,9 @@ const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: "1GiB" }, async (r
   }
 
   const { fromTag, toTag, targets, dryRun } = request.data || {};
+  await writeAuditLog(contextAuth.uid, 'adminReplaceTag', {
+    fromTag, toTag, targets, dryRun: !!dryRun,
+  });
   const fromTrimmed = typeof fromTag === 'string' ? fromTag.trim() : '';
   const toTrimmed = typeof toTag === 'string' ? toTag.trim() : '';
 
@@ -2734,6 +2810,8 @@ const adminUpdateAllPlaces = onCall(async (request) => {
     logger.error("adminUpdateAllPlaces: Error al verificar permisos de admin", error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
+
+  await writeAuditLog(contextAuth.uid, 'adminUpdateAllPlaces', {});
 
   const apiKey = await getGooglePlacesApiKey();
   if (!apiKey) {
@@ -3321,7 +3399,7 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
   }
 });
 
-const refreshPlaceMainImage = onRequest(async (req, res) => {
+const refreshPlaceMainImage = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'OPTIONS') {
       res.set('Allow', 'GET,POST,OPTIONS');
@@ -3331,13 +3409,21 @@ const refreshPlaceMainImage = onRequest(async (req, res) => {
       return res.status(204).send('');
     }
 
+    const decoded = await requireAuthFromRequest(req, res);
+    if (!decoded) return;
+
+    const rl = await rateLimit('refreshPlaceMainImage', rateLimitKey(req, decoded), 30, 60);
+    if (!rl.allowed) {
+      return res.status(429).json({ message: 'Demasiadas peticiones.' });
+    }
+
     try {
       const placeId = req.method === 'GET'
         ? (req.query.placeId || req.query.documentId || req.query.id)
         : (req.body?.placeId || req.body?.documentId || req.body?.id);
 
-      if (!placeId) {
-        return res.status(400).json({ message: 'placeId es requerido.' });
+      if (!placeId || typeof placeId !== 'string' || placeId.length > 200) {
+        return res.status(400).json({ message: 'placeId inválido.' });
       }
 
       const force = req.method === 'POST'
@@ -3990,6 +4076,8 @@ const adminRecalculateAllLists = onCall({ timeoutSeconds: 540, memory: '1GiB' },
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
 
+  await writeAuditLog(contextAuth.uid, 'adminRecalculateAllLists', {});
+
   const listsSnap = await db.collection('lists').get();
   const results = { total: listsSnap.size, success: 0, failed: 0, errors: [] };
 
@@ -4042,6 +4130,8 @@ const adminRecalculateAllPlaces = onCall({ timeoutSeconds: 540, memory: '1GiB' }
     }
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
+
+  await writeAuditLog(contextAuth.uid, 'adminRecalculateAllPlaces', {});
 
   const placesSnap = await db.collection('places').get();
   const results = { total: placesSnap.size, success: 0, failed: 0, errors: [] };
@@ -4113,6 +4203,8 @@ const adminRecalculateAllUsers = onCall({ timeoutSeconds: 540, memory: '1GiB' },
     }
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
+
+  await writeAuditLog(contextAuth.uid, 'adminRecalculateAllUsers', {});
 
   const usersSnap = await db.collection('users').get();
   const results = { total: usersSnap.size, success: 0, failed: 0, errors: [] };

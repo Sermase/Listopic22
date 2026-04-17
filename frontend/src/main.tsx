@@ -8,6 +8,7 @@ import { AuthProvider } from './context/AuthContext';
 import { FilterProvider } from './context/FilterContext';
 import { GamificationProvider } from './context/GamificationContext';
 import { StorageImageRecovery } from './components/StorageImageRecovery';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const canRegisterServiceWorker = 'serviceWorker' in navigator
   && (
@@ -30,16 +31,18 @@ if (bootOverlay) bootOverlay.remove();
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AuthProvider>
-      <GamificationProvider>
-        <AppConfigProvider>
-          <FilterProvider>
-            <SeoManager />
-            <StorageImageRecovery />
-            <App />
-          </FilterProvider>
-        </AppConfigProvider>
-      </GamificationProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <GamificationProvider>
+          <AppConfigProvider>
+            <FilterProvider>
+              <SeoManager />
+              <StorageImageRecovery />
+              <App />
+            </FilterProvider>
+          </AppConfigProvider>
+        </GamificationProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 )
