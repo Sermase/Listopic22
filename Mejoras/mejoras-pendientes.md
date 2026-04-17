@@ -6,7 +6,7 @@ Estado:
 - "Pendiente" = queda por hacer en próximas iteraciones.
 - "Manual" = el usuario debe hacerlo fuera del repo (Google Cloud Console, Secret Manager, Firebase Console…). Ver `docs/SECURITY-SETUP.md`.
 
-Última actualización: 2026-04-17.
+Última actualización: 2026-04-17 (segunda pasada).
 
 ## Top 10 (análisis inicial)
 
@@ -18,10 +18,10 @@ Estado:
 | 4 | Limpieza de archivos obsoletos + expandir `.gitignore` | Higiene repo | Hecho | `.gitignore`, `frontend/.gitignore`, archivos borrados |
 | 5 | Adelgazar `package.json` raíz (eliminar mongoose, bcrypt, jwt, firebase v11 duplicado) | Build + superficie de ataque | Hecho | `package.json` |
 | 6 | Split de `core.js` (4100+ LOC) en submódulos | Mantenibilidad | Parcial: extraído `lib/geo.js` + `lib/auth.js` + `lib/secrets.js`; documentado roadmap en cabecera | `functions/modules/core.js` (header), `functions/modules/lib/*` |
-| 7 | Refactor ProfilePage (3052), HomePage (1255), ListPage (1254) + quitar `any` | Mantenibilidad | Pendiente | — |
+| 7 | Refactor ProfilePage (3052), HomePage (1255), ListPage (1254) + quitar `any` | Mantenibilidad | Parcial: extraído `ProfileStatsTab` como sample pattern (-98 LOC en ProfilePage). Resto pendiente | `frontend/src/components/profile/ProfileStatsTab.tsx` |
 | 8 | Migrar a TanStack Query o endurecer `queryCache.ts` | Fiabilidad datos | Pendiente | — |
-| 9 | ErrorBoundary + Sentry + eliminar `console.log` en prod | Observabilidad | Hecho (ErrorBoundary + esbuild.drop). Sentry = pendiente (requiere DSN) | `frontend/src/components/ErrorBoundary.tsx`, `frontend/src/main.tsx`, `frontend/vite.config.ts` |
-| 10 | Roles admin granulares + audit log + userType reactivo en DeveloperPage | Seguridad + UX | Hecho (`isJefe` reactivo, `adminAuditLog` + `writeAuditLog` en admin destructivos). Roles granulares (moderator/admin/superadmin) = pendiente | `frontend/src/context/AuthContext.tsx`, `frontend/src/pages/DeveloperPage.tsx`, `functions/modules/lib/auth.js`, `functions/modules/core.js` |
+| 9 | ErrorBoundary + Sentry + eliminar `console.log` en prod | Observabilidad | Hecho (ErrorBoundary + esbuild.drop + Sentry SDK integrado, espera DSN en `VITE_SENTRY_DSN`) | `frontend/src/components/ErrorBoundary.tsx`, `frontend/src/main.tsx`, `frontend/src/lib/sentry.ts`, `frontend/vite.config.ts`, `docs/SECURITY-SETUP.md` |
+| 10 | Roles admin granulares + audit log + userType reactivo en DeveloperPage | Seguridad + UX | Hecho (`isJefe` reactivo, `adminAuditLog` + `writeAuditLog` en **todas** las funciones admin). Roles granulares (moderator/admin/superadmin) = pendiente | `frontend/src/context/AuthContext.tsx`, `frontend/src/pages/DeveloperPage.tsx`, `functions/modules/lib/auth.js`, `functions/modules/core.js` |
 
 ## Mejoras secundarias descubiertas durante la implementación
 
@@ -40,11 +40,11 @@ Estado:
 
 - **Split completo de `core.js`**: roadmap documentado en el propio archivo. Hacer en PRs separados (places/, lists/, aggregates/, admin/).
 - **Migración a TanStack Query** en lugar de `queryCache.ts` casero (gana retry, SWR, deduplication, devtools).
-- **Sentry / Crashlytics**: instalar SDK y añadir DSN de producción. Conectar en `ErrorBoundary.componentDidCatch` y en logs de Cloud Functions.
+- **Sentry (DSN)**: el SDK está instalado y el ErrorBoundary reporta errores. Falta crear el proyecto Sentry y meter el DSN en `VITE_SENTRY_DSN` (ver `docs/SECURITY-SETUP.md` §9). Integración similar para Cloud Functions: pendiente.
 - **App Check** de Firebase para diferenciar tráfico legítimo en endpoints onRequest.
 - **Cifrado de mensajes de chat** (mejora RGPD).
-- **Roles granulares**: `moderator`, `admin`, `superadmin` en vez de `jefe` monolítico. Audit log con `writeAuditLog(…)` en TODAS las funciones admin (actualmente solo en las más destructivas).
-- **Refactor de páginas enormes** (ProfilePage 3052 LOC, HomePage 1255, ListPage 1254): extraer subcomponentes, eliminar `any`.
+- **Roles granulares**: `moderator`, `admin`, `superadmin` en vez de `jefe` monolítico.
+- **Refactor de páginas enormes** (ProfilePage 2955 LOC tras primer corte, HomePage 1255, ListPage 1254): seguir extrayendo subcomponentes siguiendo el patrón de `ProfileStatsTab`. Eliminar `any`.
 - **Contadores de rate-limit** migrados de Firestore a Memorystore/Redis cuando haya tráfico masivo (~1 lectura + 1 escritura por petición actualmente).
 - **Rotación periódica de la Google Places API key** (cada 6-12 meses, o al menos documentar calendario).
 
