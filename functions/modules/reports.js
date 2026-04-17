@@ -3,9 +3,19 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
+const fetch = require("node-fetch");
 const { sendNotification } = require("./notifications");
+const { rateLimit } = require("./lib/auth");
+const {
+  googlePlacesApiKey: GOOGLE_PLACES_API_KEY_SECRET,
+  getGooglePlacesApiKey,
+} = require("./lib/secrets");
 
 const db = getFirestore();
+
+// --- Umbral anti-flood en la creación de reportes ---
+const REPORT_FLOOD_WINDOW_SECONDS = 60 * 60; // 1 hora
+const REPORT_FLOOD_LIMIT = 15;               // máx. 15 reportes por hora y usuario
 
 /**
  * Trigger: When a report document is created or updated.
@@ -40,6 +50,22 @@ const onReportWritten = onDocumentWritten("reports/{reportId}", async (event) =>
             targetId: afterData.targetId,
             issueType: afterData.issueType,
         });
+
+        // Anti-flood: si el usuario supera el límite, borramos el reporte.
+        const reporterUid = afterData.reportedByUserId || afterData.reporterUid;
+        if (reporterUid) {
+            const rl = await rateLimit(
+                'reportsCreate',
+                `uid_${reporterUid}`,
+                REPORT_FLOOD_LIMIT,
+                REPORT_FLOOD_WINDOW_SECONDS
+            );
+            if (!rl.allowed) {
+                logger.warn(`Report flood: borrando ${reportId} del usuario ${reporterUid}`);
+                try { await event.data.after.ref.delete(); } catch (_) { /* noop */ }
+                return;
+            }
+        }
 
         // Ensure status is set
         if (!afterData.status) {
@@ -183,31 +209,25 @@ function getTargetLink(reportData) {
  * Takes { placeId } — the Firestore place doc ID (= Google Place ID).
  * Updates place.closedStatus and place.googleBusinessStatus.
  */
-async function getGoogleApiKey() {
-    if (process.env.GOOGLE_PLACES_API_KEY) return process.env.GOOGLE_PLACES_API_KEY;
-    try {
-        const secretDoc = await db.collection('config').doc('serverSecrets').get();
-        if (secretDoc.exists) {
-            const key = secretDoc.data()?.googlePlacesApiKey;
-            if (key) return key;
-        }
-    } catch (e) {
-        logger.error('syncPlaceStatusFromGoogle: could not read API key', e);
-    }
-    return null;
-}
 
-const syncPlaceStatusFromGoogle = onCall({ region: 'europe-west1' }, async (request) => {
+const syncPlaceStatusFromGoogle = onCall(
+    { region: 'europe-west1', secrets: [GOOGLE_PLACES_API_KEY_SECRET] },
+    async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'Authentication required');
     }
 
+    const rl = await rateLimit('syncPlaceStatusFromGoogle', `uid_${request.auth.uid}`, 30, 60);
+    if (!rl.allowed) {
+        throw new HttpsError('resource-exhausted', 'Demasiadas peticiones.');
+    }
+
     const { placeId } = request.data || {};
-    if (!placeId || typeof placeId !== 'string') {
+    if (!placeId || typeof placeId !== 'string' || placeId.length > 200) {
         throw new HttpsError('invalid-argument', 'placeId is required');
     }
 
-    const apiKey = await getGoogleApiKey();
+    const apiKey = await getGooglePlacesApiKey();
     if (!apiKey) {
         throw new HttpsError('internal', 'Google Places API key not configured');
     }
