@@ -2982,6 +2982,8 @@ const adminAuditStatistics = onCall(async (request) => {
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
 
+  await writeAuditLog(contextAuth.uid, 'adminAuditStatistics', {});
+
   const safeNumber = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
 
   // --- AUDITAR LUGARES ---
@@ -3260,6 +3262,8 @@ const adminGetCollection = onCall(async (request) => {
   }
 
   const collectionName = request.data.collectionName;
+
+  await writeAuditLog(contextAuth.uid, 'adminGetCollection', { collectionName });
   const allowedCollections = ['users', 'lists', 'places', 'categories', 'listForums', 'reviews'];
 
   if (!collectionName || !allowedCollections.includes(collectionName)) {
@@ -3294,6 +3298,8 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
   }
 
   const { documentId, googlePlaceId } = request.data;
+
+  await writeAuditLog(contextAuth.uid, 'adminUpdateSinglePlace', { documentId, googlePlaceId });
   if (!documentId || !googlePlaceId) {
     throw new HttpsError('invalid-argument', 'Se requieren documentId y googlePlaceId.');
   }
@@ -3513,6 +3519,8 @@ const adminFixPlaceDocument = onCall({ cors: true }, async (request) => {
   }
 
   const { sourceId: rawSourceId, targetId: rawTargetId, dryRun = false } = request.data || {};
+
+  await writeAuditLog(contextAuth.uid, 'adminFixPlaceDocument', { sourceId: rawSourceId, targetId: rawTargetId, dryRun });
   if (!rawSourceId || typeof rawSourceId !== 'string') {
     throw new HttpsError('invalid-argument', 'Se requiere sourceId.');
   }
@@ -3753,6 +3761,8 @@ const adminAuditPlaceIdConsistency = onCall({ cors: true }, async (request) => {
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
 
+  await writeAuditLog(contextAuth.uid, 'adminAuditPlaceIdConsistency', {});
+
   try {
     const snapshot = await db.collection('places').get();
     const totalDocs = snapshot.size;
@@ -3957,6 +3967,9 @@ const adminUpdateSingleListAggregates = onCall(async (request) => {
   }
 
   const { listId } = request.data || {};
+
+  await writeAuditLog(contextAuth.uid, 'adminUpdateSingleListAggregates', { listId });
+
   if (!listId) {
     throw new HttpsError('invalid-argument', 'Se requiere listId.');
   }
@@ -4001,6 +4014,9 @@ const adminRecalculateListAverages = onCall(async (request) => {
   }
 
   const { listId } = request.data || {};
+
+  await writeAuditLog(contextAuth.uid, 'adminRecalculateListAverages', { listId });
+
   if (!listId) {
     throw new HttpsError('invalid-argument', 'Se requiere listId.');
   }
@@ -4047,6 +4063,8 @@ const adminRecalculatePlaceStats = onCall(async (request) => {
   }
 
   const { placeId } = request.data || {};
+
+  await writeAuditLog(contextAuth.uid, 'adminRecalculatePlaceStats', { placeId });
   if (!placeId) {
     return { success: false, error: 'Se requiere placeId.' };
   }
