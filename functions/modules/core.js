@@ -1,4 +1,40 @@
 ﻿// functions/modules/core.js
+//
+// ⚠️  ESTE ARCHIVO ES UN MONOLITO DE ~4100 LÍNEAS PENDIENTE DE SPLIT.
+// Ver `Mejoras/mejoras-pendientes.md` (MEJORA #6) para el plan.
+//
+// Plan de split incremental (hacer en PRs separados, uno por módulo, con deploy
+// y verificación antes de empezar el siguiente):
+//
+//   functions/modules/
+//     core.js                   ← Queda solo con aggregates/triggers genéricos
+//     lib/
+//       auth.js         ✓ hecho — helpers auth + rate-limit + audit log
+//       secrets.js      ✓ hecho — Secret Manager
+//       geo.js          ✓ hecho — helpers geográficos puros
+//     places/
+//       places-google.js   ← reverseGeocode, placesNearbyRestaurants,
+//                            placesTextSearch, getPlaceDetailsFromGoogle,
+//                            refreshPlaceMainImage, helpers de Google Places
+//     lists/
+//       lists-crud.js      ← createList, createListWithValidation,
+//                            updateListWithValidation, deleteOrOrphanList
+//     aggregates/
+//       aggregates.js      ← updateAggregatesOnReviewChange,
+//                            updateUserStatsOnListChange, updatePlaceAggregates,
+//                            recalculateListReviewMetrics, etc.
+//     admin/
+//       admin-tags.js      ← adminReplaceTag
+//       admin-places.js    ← adminUpdateAllPlaces, adminUpdateSinglePlace,
+//                            adminFixPlaceDocument, adminAuditPlaceIdConsistency,
+//                            adminRecalculatePlaceStats, adminRecalculateAllPlaces
+//       admin-lists.js     ← adminUpdateSingleListAggregates,
+//                            adminRecalculateListAverages, adminRecalculateAllLists
+//       admin-users.js     ← adminRecalculateAllUsers
+//       admin-misc.js      ← adminAuditStatistics, adminGetCollection
+//
+// Mientras tanto, TODAS las funciones nuevas deberían escribirse en el módulo
+// correspondiente, no aquí.
 
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
@@ -2660,6 +2696,9 @@ const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: "1GiB" }, async (r
   }
 
   const { fromTag, toTag, targets, dryRun } = request.data || {};
+  await writeAuditLog(contextAuth.uid, 'adminReplaceTag', {
+    fromTag, toTag, targets, dryRun: !!dryRun,
+  });
   const fromTrimmed = typeof fromTag === 'string' ? fromTag.trim() : '';
   const toTrimmed = typeof toTag === 'string' ? toTag.trim() : '';
 
@@ -2771,6 +2810,8 @@ const adminUpdateAllPlaces = onCall(async (request) => {
     logger.error("adminUpdateAllPlaces: Error al verificar permisos de admin", error);
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
+
+  await writeAuditLog(contextAuth.uid, 'adminUpdateAllPlaces', {});
 
   const apiKey = await getGooglePlacesApiKey();
   if (!apiKey) {
@@ -4035,6 +4076,8 @@ const adminRecalculateAllLists = onCall({ timeoutSeconds: 540, memory: '1GiB' },
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
 
+  await writeAuditLog(contextAuth.uid, 'adminRecalculateAllLists', {});
+
   const listsSnap = await db.collection('lists').get();
   const results = { total: listsSnap.size, success: 0, failed: 0, errors: [] };
 
@@ -4087,6 +4130,8 @@ const adminRecalculateAllPlaces = onCall({ timeoutSeconds: 540, memory: '1GiB' }
     }
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
+
+  await writeAuditLog(contextAuth.uid, 'adminRecalculateAllPlaces', {});
 
   const placesSnap = await db.collection('places').get();
   const results = { total: placesSnap.size, success: 0, failed: 0, errors: [] };
@@ -4158,6 +4203,8 @@ const adminRecalculateAllUsers = onCall({ timeoutSeconds: 540, memory: '1GiB' },
     }
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
+
+  await writeAuditLog(contextAuth.uid, 'adminRecalculateAllUsers', {});
 
   const usersSnap = await db.collection('users').get();
   const results = { total: usersSnap.size, success: 0, failed: 0, errors: [] };
