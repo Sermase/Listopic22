@@ -635,3 +635,125 @@
         height: 12px;
     }
 }
+
+/* =====================================================================
+   Light theme — contrast overrides
+   Tailwind utilities like text-white / text-gray-* are compiled with
+   literal hex values and can't cascade through CSS vars. Here we remap
+   them inside the .theme-light scope so copy stays legible on cream
+   backgrounds. Only applies when the light theme is active.
+   ===================================================================== */
+html.theme-light .text-white {
+    color: var(--lt-text) !important;
+}
+
+/* Restore white on saturated buttons/chips where text-white is paired
+   with a strong colored background (same element). */
+html.theme-light .bg-indigo-500.text-white,
+html.theme-light .bg-indigo-600.text-white,
+html.theme-light .bg-indigo-700.text-white,
+html.theme-light .bg-purple-500.text-white,
+html.theme-light .bg-purple-600.text-white,
+html.theme-light .bg-red-500.text-white,
+html.theme-light .bg-red-600.text-white,
+html.theme-light .bg-red-700.text-white,
+html.theme-light .bg-emerald-500.text-white,
+html.theme-light .bg-emerald-600.text-white,
+html.theme-light .bg-amber-500.text-white,
+html.theme-light .bg-amber-600.text-white,
+html.theme-light [class*="bg-gradient-to-"].text-white,
+html.theme-light [class*="from-indigo"].text-white,
+html.theme-light [class*="from-purple"].text-white,
+html.theme-light [class*="from-red"].text-white,
+html.theme-light [class*="from-pink"].text-white,
+html.theme-light .btn-primary.text-white,
+html.theme-light .btn-primary {
+    color: #fff !important;
+}
+
+/* When text-white is a descendant of a saturated button/chip (nested span). */
+html.theme-light .bg-indigo-500 .text-white,
+html.theme-light .bg-indigo-600 .text-white,
+html.theme-light .bg-indigo-700 .text-white,
+html.theme-light .bg-purple-500 .text-white,
+html.theme-light .bg-purple-600 .text-white,
+html.theme-light .bg-red-500 .text-white,
+html.theme-light .bg-red-600 .text-white,
+html.theme-light [class*="bg-gradient-to-"] .text-white,
+html.theme-light .btn-primary .text-white {
+    color: #fff !important;
+}
+
+html.theme-light .text-gray-100 { color: #1f2937 !important; }
+html.theme-light .text-gray-200 { color: #27303f !important; }
+html.theme-light .text-gray-300 { color: #374151 !important; }
+html.theme-light .text-gray-400 { color: #4b5563 !important; }
+html.theme-light .text-gray-500 { color: #6b7280 !important; }
+html.theme-light .text-gray-600 { color: #6b6374 !important; }
+
+/* Slate shares the same neutral family, Tailwind's slate-* values are
+   very similar to gray-*; remap them consistently. */
+html.theme-light .text-slate-100,
+html.theme-light .text-slate-200 { color: #1f2937 !important; }
+html.theme-light .text-slate-300 { color: #374151 !important; }
+html.theme-light .text-slate-400 { color: #4b5563 !important; }
+html.theme-light .text-slate-500 { color: #6b7280 !important; }
+
+/* Placeholder text: default Tailwind uses gray-500 via placeholder utility. */
+html.theme-light ::placeholder,
+html.theme-light input::placeholder,
+html.theme-light textarea::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+}
+
+/* Saturated brand accents get softened on light backgrounds so the
+   indigo/purple buttons and chips don't vibrate. */
+html.theme-light .text-indigo-400 { color: #4f46e5 !important; }
+html.theme-light .text-indigo-300 { color: #4338ca !important; }
+html.theme-light .text-purple-400 { color: #7c3aed !important; }
+html.theme-light .text-purple-300 { color: #6d28d9 !important; }
+html.theme-light .text-amber-300 { color: #b45309 !important; }
+html.theme-light .text-amber-400 { color: #d97706 !important; }
+html.theme-light .text-red-300 { color: #b91c1c !important; }
+html.theme-light .text-red-400 { color: #dc2626 !important; }
+html.theme-light .text-emerald-300 { color: #047857 !important; }
+html.theme-light .text-emerald-400 { color: #059669 !important; }
+
+/* Common translucent white surfaces (bg-white/X) and borders flip so
+   semi-transparent panels keep the glass effect over a light canvas. */
+html.theme-light [class*="bg-white/"] {
+    background-color: rgba(26, 22, 37, 0.04);
+}
+html.theme-light [class*="border-white/"] {
+    border-color: rgba(26, 22, 37, 0.10);
+}
+html.theme-light [class*="ring-white/"] {
+    --tw-ring-color: rgba(26, 22, 37, 0.08);
+}
+html.theme-light [class*="divide-white/"] > * + * {
+    border-color: rgba(26, 22, 37, 0.10);
+}
+html.theme-light [class*="hover:bg-white/"]:hover {
+    background-color: rgba(26, 22, 37, 0.06);
+}
+
+/* Black translucent overlays (used for modals) stay darker but we
+   soften them a hair so they feel less heavy in the light theme. */
+html.theme-light .bg-black\/80 { background-color: rgba(26, 22, 37, 0.55) !important; }
+html.theme-light .bg-black\/70 { background-color: rgba(26, 22, 37, 0.45) !important; }
+html.theme-light .bg-black\/60 { background-color: rgba(26, 22, 37, 0.35) !important; }
+html.theme-light .bg-black\/50 { background-color: rgba(26, 22, 37, 0.30) !important; }
+html.theme-light .bg-black\/40 { background-color: rgba(26, 22, 37, 0.25) !important; }
+html.theme-light .bg-black\/30 { background-color: rgba(26, 22, 37, 0.20) !important; }
+html.theme-light .bg-black\/20 { background-color: rgba(26, 22, 37, 0.05) !important; }
+
+/* Shadows too heavy on cream, lift them. */
+html.theme-light .shadow-2xl { box-shadow: 0 20px 50px -20px rgba(26, 22, 37, 0.25) !important; }
+html.theme-light .shadow-xl { box-shadow: 0 14px 32px -12px rgba(26, 22, 37, 0.22) !important; }
+
+/* Selection highlight. */
+html.theme-light ::selection {
+    background: rgba(91, 76, 245, 0.20);
+    color: var(--lt-text);
+}
