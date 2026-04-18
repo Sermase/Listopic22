@@ -6,7 +6,7 @@ Estado:
 - "Pendiente" = queda por hacer en próximas iteraciones.
 - "Manual" = el usuario debe hacerlo fuera del repo (Google Cloud Console, Secret Manager, Firebase Console…). Ver `docs/SECURITY-SETUP.md`.
 
-Última actualización: 2026-04-17 (segunda pasada).
+Última actualización: 2026-04-18 (tercera pasada — sistema de temas).
 
 ## Top 10 (análisis inicial)
 
@@ -35,6 +35,7 @@ Estado:
 | F | Cap de identificadores en `resolveChatParticipants` (≤ 20) | DoS | Hecho | `core.js` |
 | G | Sourcemaps fuera de producción en Vite | Seguridad (no filtrar código) | Hecho | `frontend/vite.config.ts` |
 | H | Cache en memoria de la Google API key (15 min) | Latencia + coste | Hecho | `functions/modules/lib/secrets.js` |
+| I | Sistema de temas seleccionable (dark/light/warm/cool) con 4 paletas en `--lt-*` + selector en Preferencias + persistencia Firestore + localStorage + StatusBar Capacitor + bootstrap anti-FOUC | Feature UX | Hecho | `frontend/src/context/ThemeContext.tsx`, `frontend/src/index.css`, `frontend/index.html`, `frontend/src/pages/ProfilePage.tsx`, `frontend/src/components/Navbar.tsx`, bulk replace de 316 ocurrencias de `bg-[#0b1021]`/`bg-[#151b2e]`/etc. a `var(--lt-*)` en 57 ficheros |
 
 ## Deuda técnica pendiente (no en este sprint)
 
@@ -47,6 +48,11 @@ Estado:
 - **Refactor de páginas enormes** (ProfilePage 2955 LOC tras primer corte, HomePage 1255, ListPage 1254): seguir extrayendo subcomponentes siguiendo el patrón de `ProfileStatsTab`. Eliminar `any`.
 - **Contadores de rate-limit** migrados de Firestore a Memorystore/Redis cuando haya tráfico masivo (~1 lectura + 1 escritura por petición actualmente).
 - **Rotación periódica de la Google Places API key** (cada 6-12 meses, o al menos documentar calendario).
+- **Pulido fino de los temas light/warm/cool**: el bulk replace cambió los fondos pero quedan textos/iconos con clases Tailwind sólidas (`text-white`, `text-gray-300/400`, `border-white/10`, degradados brand hardcoded) que en el tema claro pueden quedar con bajo contraste. Próximos pasos:
+  1. Auditar contraste en cada página con el tema `light` activo (especialmente modales, tarjetas, navbar).
+  2. Migrar `text-white` → `text-[var(--lt-text)]` y `text-gray-*` → tokens `--lt-text-muted` en los puntos calientes.
+  3. Revisar gradientes `from-indigo-500 to-purple-500` para variantes por tema (usar `var(--lt-accent-grad)` donde encaje).
+  4. Añadir un indicador de "tema activo" en Navbar móvil (opcional, chip pequeño).
 
 ## Acciones manuales pendientes (usuario)
 
