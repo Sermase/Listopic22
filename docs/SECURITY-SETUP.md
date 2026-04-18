@@ -10,15 +10,44 @@ Hazlos en el orden indicado.
 
 ## 0) Checklist rápida
 
-| Paso | Qué hace | Urgencia |
-|-----|----------|----------|
-| 1 | **Rotar la Google Places API key** | 🔴 URGENTE (la anterior estuvo expuesta) |
-| 2 | Registrar la clave nueva en **Secret Manager** | 🔴 |
-| 3 | Desplegar las nuevas reglas de Firestore y Storage | 🔴 |
-| 4 | Desplegar Cloud Functions con los cambios | 🔴 |
-| 5 | Asignar custom claim `admin=true` a las cuentas `jefe` | 🟡 (mejora rendimiento de Storage rules) |
-| 6 | Borrar el campo legacy en Firestore | 🟡 |
-| 7 | Restringir la nueva API key a tus dominios/bundles | 🟡 |
+| Paso | Qué hace | Urgencia | Tiempo |
+|-----|----------|----------|--------|
+| 1 | **Rotar la Google Places API key** | 🔴 URGENTE (la anterior estuvo expuesta) | 5 min |
+| 2 | Registrar la clave nueva en **Secret Manager** | 🔴 | 2 min |
+| 3 | Desplegar las nuevas reglas de Firestore y Storage | 🔴 | 3 min |
+| 4 | Desplegar Cloud Functions con los cambios | 🔴 | 8 min (build) |
+| 5 | Asignar custom claim `admin=true` a las cuentas `jefe` | 🟡 (mejora rendimiento de Storage rules) | 5 min |
+| 6 | Borrar el campo legacy en Firestore | 🟡 | 1 min |
+| 7 | Restringir la nueva API key a tus dominios/bundles | 🟡 | 3 min |
+
+**Tiempo total estimado**: 30-40 min si todo va bien.
+
+---
+
+## Pre-requisitos (haz esto ANTES de empezar)
+
+Desde la raíz del repo (`/home/user/Listopic22`):
+
+```bash
+# 1. Comprueba que tienes el CLI de Firebase v13 o superior
+firebase --version
+
+# 2. Comprueba que estás logueado en la cuenta correcta
+firebase login:list
+
+# 3. Comprueba que estás apuntando al proyecto correcto
+firebase projects:list
+firebase use --add   # si no está seleccionado "listopic"
+
+# 4. Comprueba que gcloud está instalado (lo usaremos para el claim admin)
+gcloud --version || echo "INSTALAR: https://cloud.google.com/sdk/docs/install"
+
+# 5. Asegúrate de estar en la rama con los cambios
+git checkout claude/code-review-analysis-DQFrd
+git pull origin claude/code-review-analysis-DQFrd
+```
+
+Si algún comando falla, arréglalo antes de seguir.
 
 ---
 
@@ -28,137 +57,234 @@ La clave antigua (`config/serverSecrets.googlePlacesApiKey` en Firestore)
 **estuvo legible por cualquier usuario anónimo** por culpa de la regla
 `allow read: if true` en `config/{configId}`. Debes considerarla comprometida.
 
-### En Google Cloud Console
+### 1a) Crear la nueva clave en Google Cloud Console
 
-1. Entra a https://console.cloud.google.com/apis/credentials (proyecto `listopic`).
-2. Busca la API key que usas para Google Places / Geocoding.
-3. Pulsa **Regenerate key** (o **Delete** y crea una nueva si prefieres rotar
-   también el ID). Anota el nuevo valor.
-4. En la misma pantalla de la API key:
-   - **Application restrictions**: "HTTP referrers" con tus dominios:
-     `https://listopic.es/*`, `https://listopic.web.app/*`, y localhost
-     en dev.
-   - **API restrictions**: marca "Restrict key" y selecciona solo:
-     Places API, Geocoding API, Maps JavaScript API.
+1. Abre: https://console.cloud.google.com/apis/credentials?project=listopic
+   (sustituye `listopic` por el ID real de tu proyecto si es distinto).
+2. Busca en la tabla la API key que usa Google Places / Geocoding. Debería
+   llamarse algo como **"Server key"** o **"Places API key"**. Si no
+   distingues cuál es, pincha en cada una y mira la sección **"API restrictions"**:
+   la buena tendrá Places/Geocoding.
+3. Dos opciones:
+   - **Recomendado**: crea una nueva → botón **"+ CREATE CREDENTIALS" → "API key"**.
+     Luego borra la antigua (**"DELETE"**) para que no se pueda volver a usar.
+   - Alternativa rápida: clic en la clave → **"REGENERATE KEY"**. (Nota: esto
+     invalida la antigua inmediatamente.)
+4. **COPIA el valor de la nueva clave ahora mismo** (empieza por `AIza...`).
+   La guardarás en un `.txt` temporal o mejor en Secret Manager en el siguiente paso.
 
-### En Firebase (Secret Manager)
+### 1b) Restringir la clave (hazlo YA, no lo dejes para luego)
 
-Asegúrate de tener Firebase CLI v13+:
+Todavía en Cloud Console → clic en la clave nueva → **"EDIT API KEY"**:
+
+- **Application restrictions** → marca **"HTTP referrers (web sites)"** y añade:
+  ```
+  https://listopic.es/*
+  https://*.listopic.es/*
+  https://listopic.web.app/*
+  https://listopic.firebaseapp.com/*
+  http://localhost:5173/*
+  http://localhost:3000/*
+  ```
+  (Ajusta a tus dominios reales. Los `localhost` son para desarrollo.)
+
+- **API restrictions** → marca **"Restrict key"** y selecciona SOLO:
+  - Places API
+  - Geocoding API
+  - Maps JavaScript API
+  - (opcional) Places API (New) si migras a la v2
+
+- **SAVE**.
+
+### 1c) Verificación
 
 ```bash
-firebase --version
+# Prueba que la clave nueva funciona desde curl (sustituye YOUR_NEW_KEY):
+curl "https://maps.googleapis.com/maps/api/geocode/json?address=Madrid&key=YOUR_NEW_KEY"
 ```
+Debe devolver `"status": "OK"` y un resultado. Si dice `REQUEST_DENIED` revisa
+las restricciones.
 
-Registra el secret (te pedirá el valor):
+---
+
+## 2) Registrar la clave en Secret Manager
+
+Desde la raíz del repo:
 
 ```bash
 firebase functions:secrets:set GOOGLE_PLACES_API_KEY
 ```
 
-Opcional, para verificar:
+Te pedirá **"Enter a value for GOOGLE_PLACES_API_KEY"**. Pega la clave nueva
+(no se verá mientras escribes — es normal). Pulsa Enter.
+
+La salida será algo como:
+```
+✔ Created a new secret version projects/<PROJECT>/secrets/GOOGLE_PLACES_API_KEY/versions/1
+```
+
+### Verificación
 
 ```bash
 firebase functions:secrets:access GOOGLE_PLACES_API_KEY
 ```
+Debe devolver el valor completo. Si no, algo falló: revisa que `firebase login`
+tenga permisos de **"Secret Manager Admin"**.
 
 ---
 
-## 2) Desplegar reglas y funciones
-
-### Reglas
+## 3) Desplegar reglas e índices
 
 ```bash
 firebase deploy --only firestore:rules,firestore:indexes,storage:rules
 ```
 
-Esto publica:
-- `firestore.rules` (bloquea lectura pública de `config/serverSecrets`, añade
-  `adminAuditLog` y `businessClaims`).
-- `firestore.indexes.json` (corregido, más índices nuevos).
-- `storage.rules` (ownership en list-images, branding y badges solo para `jefe`,
-  deny por defecto).
+**Qué esperar:**
+- Firestore rules → `✔ Deploy complete!` en ~10 s.
+- Firestore indexes → puede tardar **5-15 min** construyéndose en background.
+  El comando vuelve antes; puedes comprobar estado en:
+  https://console.firebase.google.com/project/listopic/firestore/indexes
+- Storage rules → `✔ Deploy complete!` en ~5 s.
 
-### Cloud Functions
+**Si falla** con `Invalid argument` en reglas, es un typo del commit. Pégame
+el error y lo arreglo. No uses `--force`.
 
-Las funciones que usan la API de Google Places se han declarado con
-`secrets: [GOOGLE_PLACES_API_KEY]`. En el primer deploy Firebase te pedirá
-confirmación para enlazar el secret. Responde **"y"**.
+---
+
+## 4) Desplegar Cloud Functions
 
 ```bash
 firebase deploy --only functions
 ```
 
-Si en tu entorno local usas `.env` con `GOOGLE_PLACES_API_KEY=...`, ya no hace
-falta: Secret Manager tiene prioridad. Puedes mantenerlo para el emulador.
+**Qué esperar:**
+- Compilación local primero (~1 min).
+- Preguntará **"Allow functions to access GOOGLE_PLACES_API_KEY? (y/N)"** → responde **`y`**.
+  Te lo preguntará una sola vez (o una por función si es la primera). Si ya
+  tienes otras secrets enlazadas, solo pedirá las nuevas.
+- Despliegue 7-10 min según cuántas funciones cambien.
+
+**Si falla el build** (`TypeError` o módulo no encontrado), lo más probable es
+que `node_modules` en `functions/` esté desactualizado:
+```bash
+cd functions && npm install && cd ..
+firebase deploy --only functions
+```
+
+**Si una función concreta falla** al desplegar (p.ej. `placesNearbyRestaurants`
+por timeout de cold start), redéspliega solo esa:
+```bash
+firebase deploy --only functions:placesNearbyRestaurants
+```
 
 ---
 
-## 3) (Opcional pero recomendado) Custom claim `admin`
+## 5) Custom claim `admin` a las cuentas jefe
 
-Las nuevas reglas de Storage comprueban `request.auth.token.admin == true`
-antes de hacer una lectura de Firestore. Si pones el custom claim en las
-cuentas `jefe`, Storage no necesita consultar Firestore en cada escritura
-(ahorras lecturas y latencia).
+Esto es **opcional pero muy recomendado**: sin el claim, cada escritura en
+Storage hace una lectura extra de Firestore. Con él, se resuelve todo en el token.
 
-Opción A — script one-off en local:
+### 5a) Obtener el UID de tu cuenta jefe
+
+Abre https://console.firebase.google.com/project/listopic/authentication/users
+y localiza tu usuario. Copia el **UID** (formato tipo `abc123XYZ...`).
+
+### 5b) Asignar el claim
+
+**Opción recomendada — gcloud + Node inline** (sin service account key en disco):
 
 ```bash
+# Paso 1: autenticarse con credenciales de aplicación (una sola vez por máquina)
+gcloud auth application-default login
+
+# Paso 2: script one-off (cambia el UID)
+cd /home/user/Listopic22/functions
 node -e "
 const admin = require('firebase-admin');
-admin.initializeApp({ credential: admin.credential.applicationDefault() });
-
+admin.initializeApp();
 (async () => {
-  const uid = 'UID_DE_TU_CUENTA_JEFE';   // <— cámbialo
+  const uid = 'PEGA_AQUI_EL_UID_JEFE';
   await admin.auth().setCustomUserClaims(uid, { admin: true });
-  console.log('OK:', uid);
+  const u = await admin.auth().getUser(uid);
+  console.log('✔ Claims actualizados para', u.email || u.uid, '→', u.customClaims);
   process.exit(0);
-})();
+})().catch(e => { console.error(e); process.exit(1); });
 "
 ```
 
-(Necesitas `GOOGLE_APPLICATION_CREDENTIALS` apuntando a tu service account key.)
+**Opción alternativa con service account key** (si prefieres):
+1. Genera una service account key en https://console.cloud.google.com/iam-admin/serviceaccounts
+   → selecciona la cuenta **firebase-adminsdk** → **"KEYS" → "ADD KEY" → "JSON"**.
+2. Guárdala FUERA del repo (p.ej. `~/listopic-admin-key.json`) y añade a tu
+   `.bashrc`/`.zshrc`:
+   ```
+   export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-admin-key.json
+   ```
+3. Ejecuta el mismo script node del paso anterior.
+4. **Elimina la key** cuando termines (riesgo de fuga).
 
-Opción B — función callable de administración que solo puedes invocar tú
-mismo. Si quieres, en una próxima iteración la añado al panel DeveloperPage.
+### 5c) Activarlo en el cliente
 
-Tras asignarlo, **el usuario tiene que cerrar sesión y volver a entrar** para
-que el cliente reciba el token con el claim nuevo.
+⚠️ **El usuario afectado tiene que hacer logout + login** para que el nuevo
+token llegue al navegador. El token se refresca automáticamente cada hora, pero
+forzarlo es más rápido.
+
+### 5d) Verificación
+
+Desde la consola del navegador estando logueado como jefe:
+```js
+firebase.auth().currentUser.getIdTokenResult().then(r => console.log(r.claims))
+```
+Debe mostrar `{ admin: true, ... }`.
 
 ---
 
-## 4) Borrar el secreto antiguo de Firestore
+## 6) Borrar el secreto legacy de Firestore
 
-Una vez confirmado que Secret Manager funciona (puedes probar cualquier
-función de geocoding y verificar que responde), elimina el campo legacy:
-
-En Firebase Console → Firestore → colección `config` → doc `serverSecrets`
-→ borra el campo `googlePlacesApiKey` (o borra el documento entero si no
-contiene nada más útil).
-
-Alternativa vía CLI:
+Solo cuando hayas verificado que Cloud Functions usa Secret Manager:
 
 ```bash
+# 6a) Probar que una función de geocoding sigue funcionando desde la app.
+# Abre la app, busca un sitio, etc. Revisa logs:
+firebase functions:log --only reverseGeocode | head -20
+```
+Debe aparecer el resultado de la búsqueda. Si en los logs ves:
+```
+getGooglePlacesApiKey: usando valor LEGACY en Firestore
+```
+significa que Secret Manager no se enlazó bien — revisa el paso 4 antes de borrar nada.
+
+Una vez OK:
+
+```bash
+# 6b) Borrar el documento entero si NO tiene nada más útil:
 firebase firestore:delete config/serverSecrets
+# (te preguntará confirmación, responde 'y')
 ```
 
----
-
-## 5) Rotación en el repo
-
-La clave de Firebase que ves en `frontend/src/firebase.ts` es **pública por
-diseño** (Firebase Web SDK la necesita en cliente). Lo que tiene que
-protegerte es:
-
-1. Firestore rules (ya las acabas de desplegar).
-2. Storage rules (ya las acabas de desplegar).
-3. Restricciones por dominio en la API key de Google Cloud Console:
-   - `firebase` → `APIs & Services` → `Credentials` → localiza la "Browser key"
-     generada por Firebase y añade restricciones de dominio HTTP referrer
-     (`listopic.es`, `listopic.web.app`, `localhost`).
+Si el doc tiene más campos que necesitas conservar, hazlo en la consola web:
+Firebase Console → Firestore → `config/serverSecrets` → borra SOLO el campo
+`googlePlacesApiKey`.
 
 ---
 
-## 6) Rate-limits que ahora están activos
+## 7) Restricciones adicionales de API keys (también la de Firebase Web)
+
+La clave que ves en `frontend/src/firebase.ts` (formato `AIza...`) es **pública
+por diseño** — el Firebase Web SDK la necesita. Pero conviene restringirla:
+
+1. https://console.cloud.google.com/apis/credentials?project=listopic
+2. Localiza la "Browser key (auto created by Firebase)".
+3. **"EDIT API KEY"** → **Application restrictions** → **HTTP referrers**:
+   mismos dominios que en 1b.
+4. **API restrictions** → SOLO las APIs que el web SDK necesita:
+   Firebase Installations API, Identity Toolkit API, Token Service API,
+   Cloud Firestore API, Firebase Dynamic Links API, Firebase Cloud Messaging API.
+5. SAVE.
+
+---
+
+## 8) Rate-limits que ahora están activos
 
 Los siguientes endpoints están limitados por UID (o IP si no hay auth):
 
@@ -183,26 +309,48 @@ adelante hay tráfico masivo, mueve los contadores a Memorystore/Redis.
 
 ---
 
-## 7) Verificación post-deploy
+## 9) Verificación post-deploy (checklist final)
 
-Ejecuta esta lista después del despliegue:
+Hazlo justo después de terminar los pasos 1-7:
 
-1. [ ] Abrir la app anónima (sin login) e intentar leer `config/serverSecrets`
-   desde la consola del navegador → debe dar `permission-denied`.
-2. [ ] Subir una imagen a `list-images/UNA_LISTA_QUE_NO_ES_MIA/...` desde un
-   usuario normal → debe dar `unauthorized`.
-3. [ ] Probar `/place/...` en la app y verificar que la búsqueda cercana
-   de Google sigue funcionando.
-4. [ ] Ejecutar una función admin (p.ej. tab "Mantenimiento" de DeveloperPage)
-   como usuario NO jefe → debe fallar.
-5. [ ] Comprobar en Firestore que aparecen documentos en `rateLimits/` tras
-   navegar un rato.
-6. [ ] Comprobar en Firestore que las acciones admin empiezan a dejar
-   entradas en `adminAuditLog/` (las iré añadiendo progresivamente).
+- [ ] **Secrets**: `firebase functions:secrets:access GOOGLE_PLACES_API_KEY` devuelve la key nueva.
+- [ ] **Rules deployed**: en https://console.firebase.google.com/project/listopic/firestore/rules
+  ves las reglas nuevas (fecha de publicación reciente).
+- [ ] **Config bloqueado**: abre la app en modo incógnito (sin login) y ejecuta en consola:
+  ```js
+  firebase.firestore().doc('config/serverSecrets').get().catch(e => console.log('OK bloqueado:', e.code))
+  ```
+  Debe imprimir `OK bloqueado: permission-denied`.
+- [ ] **Storage IDOR bloqueado**: como usuario normal, intenta subir una imagen a
+  `list-images/ID_DE_LISTA_QUE_NO_ES_TUYA/test.png`. Debe fallar con `unauthorized`.
+- [ ] **Places funciona**: busca un sitio en la app, confirma que aparecen resultados.
+- [ ] **Admin funciona** como jefe: abre `/developer`, comprueba que puedes entrar.
+- [ ] **Admin bloqueado** como NO jefe: loguéate con una cuenta normal, ve a `/developer`
+  → debe mostrar "No autorizado" o redirigir.
+- [ ] **Rate-limits registran**: después de usar la app un rato, mira
+  `rateLimits/` en Firestore y deberías ver documentos con `count` > 0.
+- [ ] **Audit log**: ejecuta una acción admin (p.ej. recalcular una lista) y comprueba
+  que aparece en la colección `adminAuditLog/` con `actorUid` y `action`.
+- [ ] **No hay regresiones**: navegación general, login, crear reseña, subir foto — todo
+  sigue funcionando.
 
 ---
 
-## 8) Siguientes pasos en seguridad (pendientes, no en este commit)
+## 10) Troubleshooting común
+
+| Síntoma | Causa probable | Solución |
+|---------|----------------|----------|
+| `Failed to load the GOOGLE_PLACES_API_KEY secret` en logs | Función desplegada sin enlazar secret | Redéspliega con `firebase deploy --only functions:NOMBRE` y responde `y` al prompt |
+| `getGooglePlacesApiKey: usando valor LEGACY` en logs | Secret Manager no se está leyendo | Revisa que la función tiene `secrets: [GOOGLE_PLACES_API_KEY]` en su `onCall({...})` |
+| `permission-denied` al escribir en Storage siendo jefe | El custom claim no se propagó | Logout + login para refrescar token |
+| `ReferenceError: writeAuditLog is not defined` | Deploy antiguo en caché | `firebase deploy --only functions --force` |
+| La app deja de buscar sitios tras el deploy | La API key nueva aún no tiene Places API habilitada | Cloud Console → APIs & Services → Library → **Enable** Places API |
+| `REQUEST_DENIED` desde curl con la key nueva | HTTP referrer restrictions bloquean `curl` | Normal: desde curl no hay referrer. Usa `--referer https://listopic.es` |
+| CI de GitHub Actions rompe tras deploy | Service account sin `Secret Manager Secret Accessor` | IAM → añade role al SA usado por CI |
+
+---
+
+## 11) Siguientes pasos en seguridad (pendientes, no en este commit)
 
 - **Roles granulares**: `moderator` / `admin` / `superadmin` en lugar de un
   único `jefe` monolítico.
@@ -213,3 +361,17 @@ Ejecuta esta lista después del despliegue:
 - **Cifrado de mensajes de chat** (mejora RGPD para datos privados).
 
 Todo esto está registrado en `Mejoras/mejoras-pendientes.md`.
+
+---
+
+## 9) Activar Sentry (opcional)
+
+1. Crea un proyecto en https://sentry.io (plataforma: **React**).
+2. Copia el DSN que Sentry te muestra al crear el proyecto
+   (formato `https://<key>@o<org>.ingest.sentry.io/<id>`).
+3. Añade la variable en tu archivo `.env` local (o en el panel de CI/hosting):
+   ```
+   VITE_SENTRY_DSN=https://...
+   ```
+4. Reconstruye la app (`npm run build`). Sin la variable, Sentry permanece
+   completamente desactivado y no genera ningún error ni petición de red.
