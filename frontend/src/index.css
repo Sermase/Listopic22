@@ -793,8 +793,8 @@ html.theme-light .lt-media-card .text-emerald-300 { color: #a7f3d0 !important; }
 html.theme-light .lt-media-card .text-amber-300 { color: #fcd34d !important; }
 html.theme-light .lt-media-card .text-rose-300 { color: #fecdd3 !important; }
 
-/* Los chips sobre foto llevan bg-*/20 y border-*/30; al estar dentro de un
-   media-card no queremos el aplanado genérico de bg-white/border-white. */
+/* Los chips translúcidos sobre la foto (bg-white slash 20, border-white slash 30)
+   no deben aplanarse como el resto de bg-white genéricos del light-theme. */
 html.theme-light .lt-media-card [class*="bg-white/"] {
     background-color: rgba(255, 255, 255, 0.12) !important;
 }
