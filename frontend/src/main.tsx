@@ -8,6 +8,7 @@ initSentry();
 import { AppConfigProvider } from './context/AppConfigContext';
 import { SeoManager } from './components/SeoManager';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { FilterProvider } from './context/FilterContext';
 import { GamificationProvider } from './context/GamificationContext';
 import { StorageImageRecovery } from './components/StorageImageRecovery';
@@ -36,15 +37,17 @@ createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <AuthProvider>
-        <GamificationProvider>
-          <AppConfigProvider>
-            <FilterProvider>
-              <SeoManager />
-              <StorageImageRecovery />
-              <App />
-            </FilterProvider>
-          </AppConfigProvider>
-        </GamificationProvider>
+        <ThemeProvider>
+          <GamificationProvider>
+            <AppConfigProvider>
+              <FilterProvider>
+                <SeoManager />
+                <StorageImageRecovery />
+                <App />
+              </FilterProvider>
+            </AppConfigProvider>
+          </GamificationProvider>
+        </ThemeProvider>
       </AuthProvider>
     </ErrorBoundary>
   </React.StrictMode>,

@@ -6,7 +6,6 @@ import { Navbar } from './components/Navbar';
 import { useLocation } from './hooks/useLocation';
 import { App as CapApp } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
-import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { useNavigate } from 'react-router-dom';
 import { PushNotifications } from '@capacitor/push-notifications';
@@ -55,7 +54,7 @@ const ScrollToTop = () => {
 
 // Loading Fallback (shown on first lazy-chunk load)
 const PageLoader = () => (
-  <div className="min-h-screen bg-[#0b1021] animate-pulse">
+  <div className="min-h-screen animate-pulse" style={{ background: 'var(--lt-bg)' }}>
     <div className="h-[40vh] min-h-[300px] bg-white/5" />
     <div className="px-4 pt-6 space-y-4 max-w-4xl mx-auto">
       <div className="h-8 bg-white/10 rounded w-1/2" />
@@ -134,7 +133,7 @@ const AppRoutes = () => {
 
   React.useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    StatusBar.setStyle({ style: Style.Light }).catch(() => { });
+    // StatusBar style is managed by ThemeContext based on active theme.
     SplashScreen.hide().catch(() => { });
   }, []);
 
@@ -220,8 +219,12 @@ function App() {
       <NotificationBannerProvider>
         <Router>
           <ScrollToTop />
-          <div className="min-h-screen bg-[#0b1021] text-gray-100 font-sans selection:bg-indigo-500/30"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="min-h-screen font-sans selection:bg-indigo-500/30"
+            style={{
+              background: 'var(--lt-bg)',
+              color: 'var(--lt-text)',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+            }}>
             <Navbar />
             <NotificationBanner />
             <AppRoutes />

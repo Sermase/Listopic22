@@ -173,7 +173,7 @@ export const Navbar: React.FC = () => {
             <div
                 className={`pointer-events-auto max-w-7xl mx-auto transition-all duration-500 rounded-3xl md:rounded-[2rem]
                 ${scrolled || isMenuOpen
-                        ? 'bg-[#151b2e]/70 backdrop-blur-2xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.4)] ring-1 ring-white/5 px-3 sm:px-5 py-1.5'
+                        ? 'bg-[var(--lt-card-strong)]/70 backdrop-blur-2xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.4)] ring-1 ring-white/5 px-3 sm:px-5 py-1.5'
                         : 'bg-transparent px-2 sm:px-4 py-2'
                     }`}
             >
@@ -247,7 +247,7 @@ export const Navbar: React.FC = () => {
                                 </span>
                                 <div className="relative">
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 p-[2px] transition-transform group-hover:scale-105 shadow-lg shadow-indigo-500/20">
-                                        <div className="w-full h-full rounded-full bg-[#151b2e] flex items-center justify-center overflow-hidden">
+                                        <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] flex items-center justify-center overflow-hidden">
                                             {(profilePhotoUrl || user.photoURL) ? (
                                                 <img src={profilePhotoUrl || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover" />
                                             ) : (
@@ -288,10 +288,10 @@ export const Navbar: React.FC = () => {
 
             {isMenuOpen && (
                 <div className="fixed inset-x-0 bottom-0 bg-[#060913]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto rounded-t-3xl" style={{ top: 'calc(env(safe-area-inset-top) + 68px)' }}>
-                    <div className="space-y-4 bg-[#151b2e]/60 p-6 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5 mt-4">
+                    <div className="space-y-4 bg-[var(--lt-card-strong)]/60 p-6 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5 mt-4">
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-gray-100">
-                                <div className="w-12 h-12 rounded-full overflow-hidden bg-[#0b1021] border border-white/10 shrink-0">
+                                <div className="w-12 h-12 rounded-full overflow-hidden bg-[var(--lt-bg)] border border-white/10 shrink-0">
                                     {(profilePhotoUrl || user.photoURL) ? (
                                         <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover" />
                                     ) : (
@@ -441,7 +441,7 @@ export const Navbar: React.FC = () => {
 
             {showInstallHelp && (
                 <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-auto">
-                    <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#151b2e] p-6 shadow-2xl">
+                    <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[var(--lt-card-strong)] p-6 shadow-2xl">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <h3 className="text-lg font-bold text-white">Instalar app</h3>
