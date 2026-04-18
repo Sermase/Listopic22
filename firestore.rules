@@ -331,7 +331,10 @@ service cloud.firestore {
     // REGLAS PARA REPORTES (`reports`) (NUEVA)
     // ==================================================================
     match /reports/{reportId} {
-        allow create: if request.auth != null; // Cualquiera puede reportar
+        // Cualquier usuario autenticado puede reportar, pero el reporte
+        // tiene que ir firmado por él mismo (no se puede suplantar).
+        allow create: if request.auth != null
+                       && request.resource.data.userId == request.auth.uid;
         allow read, list, update, delete: if request.auth != null && isJefe(request.auth.uid);
     }
 
@@ -349,7 +352,12 @@ service cloud.firestore {
       allow read: if canAccessList();
 
       match /messages/{messageId} {
-        allow read, list, create: if canAccessList();
+        allow read, list: if canAccessList();
+        // Crear mensajes requiere además que el remitente sea el propio usuario
+        // autenticado (evita suplantaciones dentro del foro).
+        allow create: if request.auth != null
+                       && canAccessList()
+                       && request.resource.data.userId == request.auth.uid;
         allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
       }
     }
