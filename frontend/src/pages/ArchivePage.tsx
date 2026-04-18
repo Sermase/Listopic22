@@ -242,10 +242,10 @@ export const ArchivePage: React.FC = () => {
     // ── VISTA MAPA ────────────────────────────────────────────────────────────
     if (viewMode === 'map') {
         return (
-            <div className="fixed inset-0 z-50 bg-[#0b1021] flex flex-col">
+            <div className="fixed inset-0 z-50 bg-[var(--lt-bg)] flex flex-col">
                 {/* Header flotante */}
                 <div className="absolute top-0 left-0 right-0 z-[1001] pt-safe-top">
-                    <div className="flex items-center justify-between px-4 pb-3 pt-3 bg-gradient-to-b from-[#0b1021] to-transparent">
+                    <div className="flex items-center justify-between px-4 pb-3 pt-3 bg-gradient-to-b from-[var(--lt-bg)] to-transparent">
                         <button
                             onClick={() => setViewMode('grid')}
                             className="p-3 bg-black/60 backdrop-blur-md rounded-full text-white border border-white/10"
@@ -267,7 +267,7 @@ export const ArchivePage: React.FC = () => {
                 {/* Mapa sin botón de capas propio (ya está el del header) */}
                 <div className="flex-1 w-full">
                     {loadingMap && (
-                        <div className="absolute inset-0 z-10 bg-[#0b1021]/60 flex items-center justify-center">
+                        <div className="absolute inset-0 z-10 bg-[var(--lt-bg)]/60 flex items-center justify-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400" />
                         </div>
                     )}
@@ -276,7 +276,7 @@ export const ArchivePage: React.FC = () => {
 
                 {/* Panel de filtro de colecciones */}
                 {showMapFilters && (
-                    <div className="absolute bottom-6 left-4 right-4 z-[1001] bg-[#151b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[50vh] flex flex-col">
+                    <div className="absolute bottom-6 left-4 right-4 z-[1001] bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[50vh] flex flex-col">
                         <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
                             <span className="text-white font-bold text-sm">Filtrar colecciones</span>
                             <button onClick={() => setShowMapFilters(false)} className="text-gray-400 hover:text-white">
@@ -313,7 +313,7 @@ export const ArchivePage: React.FC = () => {
 
     // ── VISTA GRID ────────────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-[#0b1021] pt-safe-24 pb-20 px-4 sm:px-6">
+        <div className="min-h-screen bg-[var(--lt-bg)] pt-safe-24 pb-20 px-4 sm:px-6">
             <div className="max-w-4xl mx-auto">
 
                 {/* Header */}
@@ -336,7 +336,7 @@ export const ArchivePage: React.FC = () => {
                                 placeholder="Buscar en tus colecciones..."
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full bg-[#151b2e] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                className="w-full bg-[var(--lt-card-strong)] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
                             />
                         </div>
                         <div className="flex gap-1.5 overflow-x-auto custom-scrollbar shrink-0">
@@ -352,7 +352,7 @@ export const ArchivePage: React.FC = () => {
                                     onClick={() => setFilterType(f.id as any)}
                                     className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterType === f.id
                                         ? 'bg-indigo-600 text-white'
-                                        : 'bg-[#151b2e] border border-white/10 text-gray-400 hover:text-white'}`}
+                                        : 'bg-[var(--lt-card-strong)] border border-white/10 text-gray-400 hover:text-white'}`}
                                 >
                                     {f.label}
                                 </button>
@@ -388,7 +388,7 @@ export const ArchivePage: React.FC = () => {
                             return (
                                 <div
                                     key={arch.id}
-                                    className={`bg-[#151b2e] rounded-2xl border transition-all ${isExpanded ? 'border-white/20' : 'border-white/8 hover:border-white/15'}`}
+                                    className={`bg-[var(--lt-card-strong)] rounded-2xl border transition-all ${isExpanded ? 'border-white/20' : 'border-white/8 hover:border-white/15'}`}
                                     onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
                                     onDrop={e => handleDrop(e, arch.id)}
                                 >
@@ -511,7 +511,7 @@ export const ArchivePage: React.FC = () => {
             {/* Modal crear/editar colección */}
             {showEditModal && (
                 <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowEditModal(false)}>
-                    <div className="bg-[#151b2e] w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-5 relative" onClick={e => e.stopPropagation()}>
+                    <div className="bg-[var(--lt-card-strong)] w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-5 relative" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-5">
                             <h2 className="text-lg font-bold text-white">
                                 {editMode === 'create' ? 'Nueva colección' : 'Editar colección'}

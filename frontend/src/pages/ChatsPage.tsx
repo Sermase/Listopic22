@@ -257,8 +257,8 @@ export const ChatsPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] pt-safe-20 flex h-screen overflow-hidden">
             {/* Chat List Sidebar */}
-            <div className={`w-full md:w-80 lg:w-96 bg-[#151b2e] border-r border-white/10 flex flex-col ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
-                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#151b2e]">
+            <div className={`w-full md:w-80 lg:w-96 bg-[var(--lt-card-strong)] border-r border-white/10 flex flex-col ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
+                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[var(--lt-card-strong)]">
                     <h1 className="text-xl font-bold text-white">Mensajes</h1>
                     <button
                         onClick={() => setIsGroupModalOpen(true)}
@@ -273,7 +273,7 @@ export const ChatsPage: React.FC = () => {
                         <input
                             type="text"
                             placeholder="Buscar chats..."
-                            className="w-full bg-[#0b1021] border border-white/10 rounded-lg py-2 pl-9 pr-4 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg py-2 pl-9 pr-4 text-sm text-white focus:outline-none focus:border-indigo-500"
                         />
                         <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                     </div>
@@ -303,7 +303,7 @@ export const ChatsPage: React.FC = () => {
                                         )}
                                         {chat.type === 'private' && (
                                             <span
-                                                className={`absolute right-0 bottom-0 w-3 h-3 rounded-full border-2 border-[#151b2e] ${isPrivateUserOnline(chat) ? 'bg-emerald-500' : 'bg-gray-500'}`}
+                                                className={`absolute right-0 bottom-0 w-3 h-3 rounded-full border-2 border-[var(--lt-card-strong)] ${isPrivateUserOnline(chat) ? 'bg-emerald-500' : 'bg-gray-500'}`}
                                                 title={isPrivateUserOnline(chat) ? 'En línea' : 'Desconectado'}
                                             />
                                         )}
@@ -334,11 +334,11 @@ export const ChatsPage: React.FC = () => {
             </div>
 
             {/* Chat Area */}
-            <div className={`flex-1 flex flex-col bg-[#0b1021] ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}`}>
+            <div className={`flex-1 flex flex-col bg-[var(--lt-bg)] ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}`}>
                 {activeChat ? (
                     <>
                         {/* Header */}
-                        <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 bg-[#151b2e] sticky top-0 z-20">
+                        <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 bg-[var(--lt-card-strong)] sticky top-0 z-20">
                             <div className="flex items-center gap-3 min-w-0">
                                 <button onClick={() => navigate('/chats')} className="md:hidden text-gray-400 hover:text-white">
                                     <ArrowLeft className="w-6 h-6" />
@@ -396,7 +396,7 @@ export const ChatsPage: React.FC = () => {
                                             : 'Contenido';
                                         const shareCardClass = isOwnMessage
                                             ? 'bg-indigo-500/30 border-indigo-300/30 hover:bg-indigo-500/40'
-                                            : 'bg-[#0f1424] border-white/10 hover:bg-[#1a2033]';
+                                            : 'bg-[var(--lt-bg-deep)] border-white/10 hover:bg-[#1a2033]';
 
                                         return (
                                             <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isOwnMessage
@@ -449,14 +449,14 @@ export const ChatsPage: React.FC = () => {
                         </div>
 
                         {/* Input */}
-                        <form onSubmit={handleSendMessage} className="p-4 bg-[#151b2e] border-t border-white/10">
+                        <form onSubmit={handleSendMessage} className="p-4 bg-[var(--lt-card-strong)] border-t border-white/10">
                             <div className="flex items-center gap-2">
                                 <input
                                     type="text"
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     placeholder="Escribe un mensaje..."
-                                    className="flex-1 bg-[#0b1021] border border-white/10 rounded-full px-4 py-3 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-full px-4 py-3 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                 />
                                 <button
                                     type="submit"
@@ -470,7 +470,7 @@ export const ChatsPage: React.FC = () => {
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-4 text-center">
-                        <div className="w-20 h-20 bg-[#151b2e] rounded-full flex items-center justify-center mb-6 animate-pulse">
+                        <div className="w-20 h-20 bg-[var(--lt-card-strong)] rounded-full flex items-center justify-center mb-6 animate-pulse">
                             <MessageSquare className="w-10 h-10 opacity-50" />
                         </div>
                         <h2 className="text-xl font-bold text-white mb-2">Tus conversaciones</h2>
@@ -483,7 +483,7 @@ export const ChatsPage: React.FC = () => {
             {
                 isGroupModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) setIsGroupModalOpen(false); }}>
-                        <div className="bg-[#151b2e] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                             <div className="p-4 border-b border-white/5 flex justify-between items-center">
                                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                                     <Users className="w-5 h-5 text-indigo-400" /> Crear Grupo
@@ -499,7 +499,7 @@ export const ChatsPage: React.FC = () => {
                                     value={newGroupName}
                                     onChange={(e) => setNewGroupName(e.target.value)}
                                     placeholder="Ej. Amigos de Listopic"
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 mb-6"
+                                    className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 mb-6"
                                 />
 
                                 <button
@@ -534,8 +534,8 @@ export const ChatsPage: React.FC = () => {
             {
                 isInfoModalOpen && activeChatObj && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) setIsInfoModalOpen(false); }}>
-                        <div className="bg-[#151b2e] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-                            <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0b1021]/50">
+                        <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[var(--lt-bg)]/50">
                                 <h2 className="text-lg font-bold text-white">Info. del Chat</h2>
                                 <button onClick={() => setIsInfoModalOpen(false)} className="text-gray-400 hover:text-white">
                                     <X className="w-5 h-5" />
@@ -581,13 +581,13 @@ export const ChatsPage: React.FC = () => {
                                                 value={participantInput}
                                                 onChange={(e) => setParticipantInput(e.target.value)}
                                                 placeholder="Buscar usuario (nombre, email)..."
-                                                className="flex-1 bg-[#0b1021] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                                                className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                                             />
                                         </div>
 
                                         {/* Search Results Dropdown */}
                                         {(searchResults.length > 0 || isSearching) && participantInput.length >= 2 && (
-                                            <div className="absolute bottom-full mb-2 left-0 right-0 bg-[#0b1021] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 max-h-48 overflow-y-auto">
+                                            <div className="absolute bottom-full mb-2 left-0 right-0 bg-[var(--lt-bg)] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 max-h-48 overflow-y-auto">
                                                 {isSearching ? (
                                                     <div className="p-3 text-center text-xs text-gray-500">Buscando...</div>
                                                 ) : (

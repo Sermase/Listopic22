@@ -186,10 +186,10 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-[#151b2e] w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--lt-card-strong)] w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
-                <div className="p-4 border-b border-white/5 flex items-center justify-between bg-[#0b1021]/50">
+                <div className="p-4 border-b border-white/5 flex items-center justify-between bg-[var(--lt-bg)]/50">
                     <div>
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             <Users className="w-5 h-5 text-indigo-400" />
@@ -231,12 +231,12 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                     placeholder="Buscar por nombre de usuario..."
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                                 />
                             </div>
 
                             {/* Role Selector for Search */}
-                            <div className="flex bg-[#0b1021] border border-white/10 rounded-lg p-0.5 shrink-0 h-10 items-center">
+                            <div className="flex bg-[var(--lt-bg)] border border-white/10 rounded-lg p-0.5 shrink-0 h-10 items-center">
                                 <button
                                     onClick={() => setSelectedRole('reader')}
                                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${selectedRole === 'reader' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'} `}
@@ -268,7 +268,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
 
                         {/* Search Results */}
                         {searchResults.length > 0 && (
-                            <div className="mt-2 bg-[#0b1021] border border-white/5 rounded-lg overflow-hidden">
+                            <div className="mt-2 bg-[var(--lt-bg)] border border-white/5 rounded-lg overflow-hidden">
                                 {searchResults.map(u => {
                                     const status = getUserStatus(u.id);
 
@@ -318,7 +318,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                                 {allGuests.map((identifier, idx) => {
                                     const role = getUserStatus(identifier) || 'reader';
                                     return (
-                                        <div key={idx} className="bg-[#0b1021] border border-white/5 rounded-lg p-3 flex items-center justify-between group">
+                                        <div key={idx} className="bg-[var(--lt-bg)] border border-white/5 rounded-lg p-3 flex items-center justify-between group">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${role === 'writer' ? 'bg-purple-500/20 text-purple-400' : 'bg-indigo-500/20 text-indigo-400'} `}>
                                                     {(resolvedNames[identifier] || identifier)[0]?.toUpperCase()}

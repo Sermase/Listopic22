@@ -423,7 +423,7 @@ export const PlacesManagerTab: React.FC = () => {
     return (
         <div className="space-y-6">
             {/* Controls */}
-            <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
                 <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                     <MapPin className="w-5 h-5 text-green-400" /> Gestión de Lugares
                 </h2>
@@ -533,7 +533,7 @@ export const PlacesManagerTab: React.FC = () => {
 
             {/* Table */}
             {sortedPlaces.length > 0 && (
-                <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden">
+                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm text-gray-300">
                             <thead className="bg-white/5 text-gray-400 font-bold uppercase text-xs">
@@ -720,13 +720,13 @@ export const PlacesManagerTab: React.FC = () => {
             )}
 
             {places.length > 0 && sortedPlaces.length === 0 && (
-                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-8 text-center text-gray-500">
+                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-8 text-center text-gray-500">
                     No hay lugares que coincidan con el filtro actual
                 </div>
             )}
 
             {places.length === 0 && !loading && (
-                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-8 text-center text-gray-500">
+                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-8 text-center text-gray-500">
                     Pulsa "Cargar" para obtener los lugares de Firestore
                 </div>
             )}

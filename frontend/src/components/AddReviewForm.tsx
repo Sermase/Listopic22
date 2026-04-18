@@ -853,7 +853,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         <>
             <div className="fixed top-0 left-0 w-full h-[100dvh] z-[8000] bg-black/70 backdrop-blur-md animate-fade-in flex items-center justify-center sm:p-6">
                 <div
-                    className="flex flex-col w-full h-full max-w-2xl bg-[#0b1021] sm:rounded-2xl overflow-hidden shadow-2xl"
+                    className="flex flex-col w-full h-full max-w-2xl bg-[var(--lt-bg)] sm:rounded-2xl overflow-hidden shadow-2xl"
                     style={{ boxShadow: '0 0 0 1px rgba(255,255,255,0.06)' }}
                 >
                     {/* ── Header ─────────────────────────────────────── */}

@@ -86,8 +86,8 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-[#0b1021] w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-none md:border border-white/10" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#151b2e]">
+            <div className="bg-[var(--lt-bg)] w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-none md:border border-white/10" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[var(--lt-card-strong)]">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
                         <Bell className="w-5 h-5 text-indigo-400" />
                         Histórico de Notificaciones
@@ -97,7 +97,7 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#0b1021]">
+                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[var(--lt-bg)]">
                     {loading ? (
                         <div className="py-20 text-center text-gray-500">Cargando historial...</div>
                     ) : notifications.length === 0 ? (

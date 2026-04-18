@@ -133,7 +133,7 @@ const ReviewEditModal: React.FC<ReviewEditModalProps> = ({ review, onClose, onSa
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
-                className="bg-[#151b2e] border border-white/10 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl"
+                className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}

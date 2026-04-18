@@ -143,10 +143,10 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
     };
 
     return (
-        <div className={`relative ${height} rounded-2xl overflow-hidden border border-white/10 bg-[#0b1021] flex-shrink-0`}>
+        <div className={`relative ${height} rounded-2xl overflow-hidden border border-white/10 bg-[var(--lt-bg)] flex-shrink-0`}>
             {/* Badge nº marcadores */}
             {geoHits.length > 0 && (
-                <div className="absolute top-2 left-2 z-[1000] bg-[#151b2e]/90 border border-white/20 rounded-lg px-2 py-1 text-[11px] text-white font-semibold pointer-events-none">
+                <div className="absolute top-2 left-2 z-[1000] bg-[var(--lt-card-strong)]/90 border border-white/20 rounded-lg px-2 py-1 text-[11px] text-white font-semibold pointer-events-none">
                     {geoHits.length} en mapa
                 </div>
             )}
@@ -157,7 +157,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                 {onToggleExpand && (
                     <button
                         onClick={onToggleExpand}
-                        className="bg-[#151b2e]/90 border border-white/20 rounded-lg p-1.5 text-white hover:bg-indigo-600 transition-colors"
+                        className="bg-[var(--lt-card-strong)]/90 border border-white/20 rounded-lg p-1.5 text-white hover:bg-indigo-600 transition-colors"
                         title={mode === 'mini' ? 'Ampliar mapa' : 'Minimizar mapa'}
                     >
                         {mode === 'mini' ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
@@ -172,7 +172,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                         className={`border rounded-lg p-1.5 transition-colors ${
                             geoActive
                                 ? 'bg-emerald-600/80 border-emerald-500/50 text-white'
-                                : 'bg-[#151b2e]/90 border-white/20 text-white hover:bg-indigo-600'
+                                : 'bg-[var(--lt-card-strong)]/90 border-white/20 text-white hover:bg-indigo-600'
                         }`}
                         title={geoActive ? 'Desactivar búsqueda cercana' : 'Buscar cerca de mí'}
                     >
@@ -187,7 +187,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
             {/* Selector de capas */}
             <div className="absolute bottom-2 right-2 z-[1000]">
                 {layerPanelOpen && (
-                    <div className="absolute bottom-8 right-0 bg-[#151b2e]/95 border border-white/20 rounded-xl shadow-2xl overflow-hidden min-w-[110px]">
+                    <div className="absolute bottom-8 right-0 bg-[var(--lt-card-strong)]/95 border border-white/20 rounded-xl shadow-2xl overflow-hidden min-w-[110px]">
                         {(Object.entries(MAP_LAYERS) as [MapLayerId, MapLayerConfig][]).map(([id, cfg]) => (
                             <button
                                 key={id}
@@ -203,7 +203,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                 )}
                 <button
                     onClick={() => setLayerPanelOpen(p => !p)}
-                    className={`bg-[#151b2e]/90 border border-white/20 rounded-lg p-1.5 text-white hover:bg-indigo-600 transition-colors ${layerPanelOpen ? 'bg-indigo-600' : ''}`}
+                    className={`bg-[var(--lt-card-strong)]/90 border border-white/20 rounded-lg p-1.5 text-white hover:bg-indigo-600 transition-colors ${layerPanelOpen ? 'bg-indigo-600' : ''}`}
                     title="Cambiar capa del mapa"
                 >
                     <Layers className="w-3.5 h-3.5" />

@@ -8,7 +8,7 @@ export const UsersPage: React.FC = () => {
     const { users, loading } = useUsers();
 
     return (
-        <div className="min-h-screen bg-[#0b1021] pt-safe-24 pb-20 px-4 sm:px-6">
+        <div className="min-h-screen bg-[var(--lt-bg)] pt-safe-24 pb-20 px-4 sm:px-6">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-12 text-center">
                     <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">
@@ -28,7 +28,7 @@ export const UsersPage: React.FC = () => {
                             placeholder="Buscar usuarios..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-xl leading-5 bg-[#151b2e] text-gray-300 placeholder-gray-500 focus:outline-none focus:bg-gray-800 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors shadow-lg"
+                            className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-xl leading-5 bg-[var(--lt-card-strong)] text-gray-300 placeholder-gray-500 focus:outline-none focus:bg-gray-800 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors shadow-lg"
                         />
                     </div>
                 </div>
@@ -44,7 +44,7 @@ export const UsersPage: React.FC = () => {
                         ))}
 
                         {users.length === 0 && (
-                            <div className="col-span-full text-center py-12 text-gray-500 bg-[#151b2e]/50 rounded-xl border border-dashed border-white/5">
+                            <div className="col-span-full text-center py-12 text-gray-500 bg-[var(--lt-card-strong)]/50 rounded-xl border border-dashed border-white/5">
                                 No se encontraron usuarios.
                             </div>
                         )}

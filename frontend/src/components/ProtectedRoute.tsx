@@ -14,7 +14,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     if (loading) {
         // Optional: Show a full-page loader while checking auth state
         return (
-            <div className="min-h-screen bg-[#0b1021] flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center">
                 <Loader className="w-8 h-8 text-indigo-500 animate-spin" />
             </div>
         );

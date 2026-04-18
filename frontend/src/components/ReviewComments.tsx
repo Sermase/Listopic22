@@ -86,7 +86,7 @@ export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId
     };
 
     return (
-        <div className="bg-[#0b1021]/50 border-t border-white/5 p-4 animate-in slide-in-from-top-2 duration-200">
+        <div className="bg-[var(--lt-bg)]/50 border-t border-white/5 p-4 animate-in slide-in-from-top-2 duration-200">
             {/* List */}
             <div className="space-y-4 mb-4 max-h-60 overflow-y-auto custom-scrollbar">
                 {comments.length === 0 && (

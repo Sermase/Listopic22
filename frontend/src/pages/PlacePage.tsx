@@ -234,7 +234,7 @@ export const PlacePage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0b1021] animate-pulse">
+            <div className="min-h-screen bg-[var(--lt-bg)] animate-pulse">
                 {/* Hero skeleton */}
                 <div className="h-[40vh] min-h-[300px] bg-white/5" />
                 <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-16 relative z-10">
@@ -275,7 +275,7 @@ export const PlacePage: React.FC = () => {
 
     if (error || !place) {
         return (
-            <div className="min-h-screen pt-safe-32 px-4 text-center bg-[#0b1021]">
+            <div className="min-h-screen pt-safe-32 px-4 text-center bg-[var(--lt-bg)]">
                 <MapPin className="w-16 h-16 text-white/20 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold text-white mb-2">Lugar no encontrado</h2>
                 <p className="text-gray-400 mb-6 max-w-sm mx-auto text-sm">
@@ -310,10 +310,10 @@ export const PlacePage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#0b1021] pb-20">
+        <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
             {/* Hero */}
             <div className={`relative h-[40vh] min-h-[300px] w-full overflow-hidden group ${heroReady || !place.photoUrl ? 'animate-hero-from-right' : ''}`}>
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
 
                 {place.photoUrl ? (
                     <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="absolute inset-0" className="w-full h-full object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-700" onLoad={() => setHeroReady(true)} />
@@ -323,7 +323,7 @@ export const PlacePage: React.FC = () => {
                     </div>
                 )}
 
-                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 pb-12 sm:pb-16 z-20 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-transparent pt-20">
+                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 pb-12 sm:pb-16 z-20 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-transparent pt-20">
                     <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6 relative z-30">
 
                         {/* Title & Info */}
@@ -655,7 +655,7 @@ export const PlacePage: React.FC = () => {
 
                                         if (isExpanded) {
                                             return (
-                                                <div key={(review as any).id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[#151b2e] rounded-xl border border-indigo-500/50 mb-2 shadow-2xl animate-fade-in">
+                                                <div key={(review as any).id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[var(--lt-card-strong)] rounded-xl border border-indigo-500/50 mb-2 shadow-2xl animate-fade-in">
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
                                                         className="w-full flex justify-center pt-2 pb-1"
@@ -686,7 +686,7 @@ export const PlacePage: React.FC = () => {
                                                         className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-40 saturate-50' : ''}`}
                                                     />
                                                 ) : (
-                                                    <div className="w-full h-full bg-gradient-to-br from-[#151b2e] to-[#0b1021] flex items-center justify-center">
+                                                    <div className="w-full h-full bg-gradient-to-br from-[#151b2e] to-[var(--lt-bg)] flex items-center justify-center">
                                                         <MessageSquare className="w-6 h-6 text-gray-600" />
                                                     </div>
                                                 )}
@@ -811,7 +811,7 @@ export const PlacePage: React.FC = () => {
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     {mainLists.map((list: any) => (
                                                         <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                                                            <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all h-full flex flex-col">
+                                                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all h-full flex flex-col">
                                                                 <div className="h-32 bg-gray-800 relative">
                                                                     {list.photoUrl ? (
                                                                         <img src={list.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -848,7 +848,7 @@ export const PlacePage: React.FC = () => {
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     {subLists.map((list: any) => (
                                                         <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                                                            <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all h-full flex flex-col relative">
+                                                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all h-full flex flex-col relative">
                                                                 <div className="h-32 bg-gray-800 relative">
                                                                     {list.photoUrl ? (
                                                                         <img src={list.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -909,7 +909,7 @@ export const PlacePage: React.FC = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="py-16 text-center bg-[#151b2e] rounded-xl border border-dashed border-white/10">
+                                    <div className="py-16 text-center bg-[var(--lt-card-strong)] rounded-xl border border-dashed border-white/10">
                                         <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                                         <h3 className="text-white font-bold">Sin fotos</h3>
                                         <p className="text-gray-500 text-sm">Aún no hay fotos de este lugar.</p>

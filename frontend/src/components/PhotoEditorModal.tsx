@@ -160,7 +160,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
 
     return createPortal(
         <div className="fixed top-0 left-0 w-full h-[100dvh] z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center sm:p-6 animate-slide-up-modal sm:animate-fade-in origin-bottom sm:origin-center">
-            <div className="w-full h-full max-w-2xl bg-[#0b1021] sm:rounded-2xl shadow-2xl overflow-hidden" style={{ display: 'grid', gridTemplateRows: 'auto 1fr auto', boxShadow: '0 0 0 1px rgba(255,255,255,0.06)' }}>
+            <div className="w-full h-full max-w-2xl bg-[var(--lt-bg)] sm:rounded-2xl shadow-2xl overflow-hidden" style={{ display: 'grid', gridTemplateRows: 'auto 1fr auto', boxShadow: '0 0 0 1px rgba(255,255,255,0.06)' }}>
                 {/* Fila 1: Header */}
                 <div style={{ background: 'linear-gradient(135deg, #151c36 0%, #111828 100%)', position: 'relative', overflow: 'hidden' }}
                     className="flex shrink-0 items-center justify-between p-5 touch-pan-x"

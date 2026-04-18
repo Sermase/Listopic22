@@ -94,12 +94,12 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
             <div
-                className="bg-[#151b2e] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+                className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
                 onClick={e => e.stopPropagation()}
             >
 
                 {/* Header */}
-                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0b1021]/50">
+                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[var(--lt-bg)]/50">
                     <h3 className="font-bold text-white flex items-center gap-2">
                         <Folder className="w-5 h-5 text-indigo-400" />
                         Guardar en...
@@ -145,7 +145,7 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
                 </div>
 
                 {/* Create New */}
-                <div className="p-4 border-t border-white/5 bg-[#0b1021]/30">
+                <div className="p-4 border-t border-white/5 bg-[var(--lt-bg)]/30">
                     <div className="flex gap-2 mb-4">
                         <input
                             type="text"

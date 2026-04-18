@@ -183,7 +183,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder={placeholder}
-                        className="w-full bg-[#0b1021] border border-white/10 rounded-lg py-3 pl-10 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg py-3 pl-10 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors"
                     />
                     <div className="absolute left-3 top-3.5 text-gray-400">
                         <Search className="w-4 h-4" />
@@ -231,7 +231,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
 
             {/* Results Dropdown */}
             {isOpen && results.length > 0 && (
-                <div className="absolute z-50 w-full md:w-[500px] mt-1 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-fade-in max-h-60 overflow-y-auto custom-scrollbar">
+                <div className="absolute z-50 w-full md:w-[500px] mt-1 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-fade-in max-h-60 overflow-y-auto custom-scrollbar">
                     {results.map((place) => (
                         <div
                             key={place.id}
@@ -256,7 +256,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                             </div>
                         </div>
                     ))}
-                    <div className="p-2 bg-[#0b1021]/50 text-center flex justify-between items-center text-[10px] text-gray-500 px-4">
+                    <div className="p-2 bg-[var(--lt-bg)]/50 text-center flex justify-between items-center text-[10px] text-gray-500 px-4">
                         <span>OpenStreetMap Data</span>
                         {onManualToggle && (
                             <button onClick={onManualToggle} className="text-indigo-400 hover:text-indigo-300 underline">

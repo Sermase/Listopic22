@@ -190,7 +190,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
     const panelContent = (
         <>
-            <div className={`p-4 border-b border-white/10 flex items-center justify-between ${mobile ? 'bg-[#151b2e]' : 'bg-black/20'}`}>
+            <div className={`p-4 border-b border-white/10 flex items-center justify-between ${mobile ? 'bg-[var(--lt-card-strong)]' : 'bg-black/20'}`}>
                 <h3 className="font-bold text-white flex items-center gap-2">
                     <Bell className="w-4 h-4 text-indigo-400" /> Notificaciones
                 </h3>
@@ -207,7 +207,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 </div>
             </div>
 
-            <div className={mobile ? "flex-1 overflow-y-auto bg-[#0b1021]" : "max-h-[400px] overflow-y-auto"}>
+            <div className={mobile ? "flex-1 overflow-y-auto bg-[var(--lt-bg)]" : "max-h-[400px] overflow-y-auto"}>
                 {loading ? (
                     <div className="p-8 text-center text-gray-500 text-sm">Cargando...</div>
                 ) : notifications.length === 0 ? (
@@ -262,7 +262,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 )}
             </div>
 
-            <div className={`p-2 border-t border-white/10 text-center ${mobile ? 'bg-[#151b2e]' : 'bg-black/20'}`}>
+            <div className={`p-2 border-t border-white/10 text-center ${mobile ? 'bg-[var(--lt-card-strong)]' : 'bg-black/20'}`}>
                 <button
                     onClick={onOpenHistory}
                     className="text-xs text-gray-400 hover:text-white transition-colors w-full py-1"
@@ -277,10 +277,10 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4 pointer-events-auto" onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
                 <div
-                    className="bg-[#151b2e] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh] mx-4"
+                    className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh] mx-4"
                     onClick={(event) => event.stopPropagation()}
                 >
-                    <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0b1021]/50">
+                    <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[var(--lt-bg)]/50">
                         <h3 className="font-bold text-white flex items-center gap-2">
                             <Bell className="w-5 h-5 text-indigo-400" />
                             Notificaciones
@@ -302,7 +302,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                         {mobileListContent}
                     </div>
 
-                    <div className="p-4 border-t border-white/5 bg-[#0b1021]/30">
+                    <div className="p-4 border-t border-white/5 bg-[var(--lt-bg)]/30">
                         <button
                             onClick={onOpenHistory}
                             className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-500/20"
@@ -316,7 +316,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     }
 
     return (
-        <div className="absolute top-12 right-0 w-80 md:w-96 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in origin-top-right pointer-events-auto">
+        <div className="absolute top-12 right-0 w-80 md:w-96 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in origin-top-right pointer-events-auto">
             {panelContent}
         </div>
     );

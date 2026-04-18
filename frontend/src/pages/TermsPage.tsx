@@ -18,10 +18,10 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
 export const TermsPage: React.FC = () => {
     return (
         <>
-            <div className="min-h-screen bg-[#0b1021] pb-8">
+            <div className="min-h-screen bg-[var(--lt-bg)] pb-8">
                 {/* Header */}
-                <div className="relative h-40 bg-gradient-to-br from-violet-900/60 via-[#0b1021] to-[#0b1021] flex items-end">
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] to-transparent" />
+                <div className="relative h-40 bg-gradient-to-br from-violet-900/60 via-[var(--lt-bg)] to-[var(--lt-bg)] flex items-end">
+                    <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] to-transparent" />
                     <div className="relative z-10 max-w-3xl mx-auto w-full px-4 sm:px-6 pb-6 flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
                             <FileText className="w-6 h-6 text-violet-400" />
@@ -38,7 +38,7 @@ export const TermsPage: React.FC = () => {
                         <ArrowLeft className="w-4 h-4" /> Volver a Sobre Listopic
                     </Link>
 
-                    <div className="bg-[#151b2e]/60 border border-white/10 rounded-3xl p-6 sm:p-8 mb-6">
+                    <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6 sm:p-8 mb-6">
                         <p className="text-xs text-gray-500 mb-2">Última actualización: 13 de abril de 2026</p>
 
                         {/* Intro honesta */}

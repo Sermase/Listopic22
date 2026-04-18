@@ -26,7 +26,7 @@ export const EditListModal: React.FC<EditListModalProps> = ({ listId, onClose, o
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex flex-col sm:items-center sm:justify-center sm:bg-black/70 sm:backdrop-blur-sm bg-[#0b1021]">
+        <div className="fixed inset-0 z-[9999] flex flex-col sm:items-center sm:justify-center sm:bg-black/70 sm:backdrop-blur-sm bg-[var(--lt-bg)]">
             {/* Backdrop solo en sm+ para cerrar al hacer clic fuera */}
             <div
                 className="hidden sm:block absolute inset-0"
@@ -34,10 +34,10 @@ export const EditListModal: React.FC<EditListModalProps> = ({ listId, onClose, o
             />
 
             {/* Panel */}
-            <div className="relative flex flex-col w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-white/10 bg-[#0b1021] overflow-hidden">
+            <div className="relative flex flex-col w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-white/10 bg-[var(--lt-bg)] overflow-hidden">
 
                 {/* Cabecera fija */}
-                <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/10 bg-[#0b1021]">
+                <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/10 bg-[var(--lt-bg)]">
                     <h2 className="text-lg font-bold text-white">Editar Lista</h2>
                     <button
                         aria-label="Cerrar"
@@ -61,7 +61,7 @@ export const EditListModal: React.FC<EditListModalProps> = ({ listId, onClose, o
                 </div>
 
                 {/* Pie fijo */}
-                <div className="shrink-0 flex gap-3 px-4 sm:px-6 py-4 border-t border-white/10 bg-[#0b1021]">
+                <div className="shrink-0 flex gap-3 px-4 sm:px-6 py-4 border-t border-white/10 bg-[var(--lt-bg)]">
                     <button
                         type="button"
                         onClick={onClose}

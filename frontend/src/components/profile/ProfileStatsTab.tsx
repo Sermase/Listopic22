@@ -65,7 +65,7 @@ const ProfileStatsTab: React.FC<Props> = ({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 p-4">
+        <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
           <div className="text-[11px] uppercase tracking-wider text-gray-400">
             Media global
           </div>
@@ -73,7 +73,7 @@ const ProfileStatsTab: React.FC<Props> = ({
             {formatStatRating(advancedStats.averageRating)}
           </div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 p-4">
+        <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
           <div className="text-[11px] uppercase tracking-wider text-gray-400">
             Reseñas analizadas
           </div>
@@ -81,7 +81,7 @@ const ProfileStatsTab: React.FC<Props> = ({
             {advancedStats.totalReviews}
           </div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 p-4">
+        <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
           <div className="text-[11px] uppercase tracking-wider text-gray-400">
             Listas valoradas
           </div>
@@ -91,7 +91,7 @@ const ProfileStatsTab: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-[#151b2e]/70 overflow-hidden">
+      <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 overflow-hidden">
         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
           <h3 className="text-sm font-bold text-white">
             Media por lista
@@ -101,7 +101,7 @@ const ProfileStatsTab: React.FC<Props> = ({
           </span>
         </div>
         <div className="px-4 py-2 border-b border-white/10">
-          <div className="inline-flex rounded-lg border border-white/10 bg-[#0f1424] p-1">
+          <div className="inline-flex rounded-lg border border-white/10 bg-[var(--lt-bg-deep)] p-1">
             <button
               type="button"
               onClick={() => onSortChange("reviews_desc")}

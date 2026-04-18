@@ -530,7 +530,7 @@ export const UserDataExportTab: React.FC = () => {
             )}
 
             {/* Search */}
-            <div className="bg-[#151b2e] border border-white/10 rounded-xl p-5">
+            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-5">
                 <label className="text-xs font-bold text-gray-400 uppercase block mb-2">Buscar usuario</label>
                 <div className="flex gap-2">
                     <input
@@ -567,7 +567,7 @@ export const UserDataExportTab: React.FC = () => {
             )}
 
             {preview && (
-                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-5 space-y-4">
+                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-5 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
                             {preview.photoUrl && (

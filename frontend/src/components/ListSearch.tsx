@@ -245,10 +245,10 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl z-[50] max-h-[300px] flex flex-col animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl z-[50] max-h-[300px] flex flex-col animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
 
                     {/* Search Header */}
-                    <div className="p-2 border-b border-white/5 bg-[#0b1021]/50 sticky top-0 z-10">
+                    <div className="p-2 border-b border-white/5 bg-[var(--lt-bg)]/50 sticky top-0 z-10">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                             <input
@@ -328,7 +328,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
 
                     {/* Fixed Footer for Creation */}
                     {!searchTerm && !error && (
-                        <div className="p-2 border-t border-white/5 bg-[#0b1021]/30">
+                        <div className="p-2 border-t border-white/5 bg-[var(--lt-bg)]/30">
                             <button
                                 onClick={() => navigate('/create')}
                                 className="w-full py-2 flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"

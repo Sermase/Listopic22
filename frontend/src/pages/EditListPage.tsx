@@ -10,7 +10,7 @@ export const EditListPage: React.FC = () => {
     if (!listId) return null;
 
     return (
-        <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-safe-24 pb-20 px-4">
+        <div className="min-h-screen bg-[var(--lt-bg)] text-gray-100 pt-safe-24 pb-20 px-4">
             <div className="max-w-2xl mx-auto">
                 <button onClick={() => navigate(-1)} className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors">
                     <ArrowLeft className="w-4 h-4 mr-2" /> Cancelar

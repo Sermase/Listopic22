@@ -4,7 +4,7 @@ import { Mail, Sparkles, Target, Heart, ExternalLink } from 'lucide-react';
 import { Footer } from '../components/Footer';
 
 const ValueCard: React.FC<{ emoji: string; title: string; text: string }> = ({ emoji, title, text }) => (
-    <div className="bg-[#151b2e]/60 border border-white/10 rounded-3xl p-6 flex flex-col gap-3 hover:border-indigo-500/20 transition-colors">
+    <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6 flex flex-col gap-3 hover:border-indigo-500/20 transition-colors">
         <span className="text-3xl">{emoji}</span>
         <h3 className="text-base font-bold text-white">{title}</h3>
         <p className="text-gray-400 text-sm leading-relaxed">{text}</p>
@@ -14,12 +14,12 @@ const ValueCard: React.FC<{ emoji: string; title: string; text: string }> = ({ e
 export const IstariCorePage: React.FC = () => {
     return (
         <>
-        <div className="min-h-screen bg-[#0b1021] pb-8">
+        <div className="min-h-screen bg-[var(--lt-bg)] pb-8">
 
             {/* Hero */}
             <div className="relative overflow-hidden" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4rem)' }}>
-                <div className="absolute inset-0 bg-gradient-to-br from-violet-900/40 via-indigo-900/20 to-[#0b1021]" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-900/40 via-indigo-900/20 to-[var(--lt-bg)]" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-transparent to-transparent" />
                 <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 pt-10 pb-14">
                     <img
                         src="/images/istari-core-logo.png"
@@ -33,7 +33,7 @@ export const IstariCorePage: React.FC = () => {
             <div className="max-w-2xl mx-auto px-4 sm:px-6 space-y-6">
 
                 {/* Misión */}
-                <div className="bg-[#151b2e]/60 border border-white/10 rounded-3xl p-6">
+                <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6">
                     <div className="flex items-center gap-3 mb-4">
                         <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
                             <Target className="w-4 h-4 text-indigo-400" />
@@ -46,7 +46,7 @@ export const IstariCorePage: React.FC = () => {
                 </div>
 
                 {/* Visión */}
-                <div className="bg-[#151b2e]/60 border border-white/10 rounded-3xl p-6">
+                <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6">
                     <div className="flex items-center gap-3 mb-4">
                         <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
                             <Sparkles className="w-4 h-4 text-violet-400" />
@@ -101,7 +101,7 @@ export const IstariCorePage: React.FC = () => {
                 </div>
 
                 {/* Proyectos */}
-                <div className="bg-[#151b2e]/60 border border-white/10 rounded-3xl p-6">
+                <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6">
                     <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Nuestros proyectos</h2>
                     <Link
                         to="/about"

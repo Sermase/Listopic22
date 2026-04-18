@@ -134,7 +134,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
-            <div className="bg-[#151b2e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 fade-in duration-200">
+            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 fade-in duration-200">
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
                     <X className="w-5 h-5" />
                 </button>

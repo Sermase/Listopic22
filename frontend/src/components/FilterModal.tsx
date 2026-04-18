@@ -65,7 +65,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-[#151b2e] w-full sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-white/10 overflow-hidden flex flex-col max-h-[calc(100dvh-4rem)] sm:max-h-[90vh] rounded-t-2xl transition-all" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--lt-card-strong)] w-full sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-white/10 overflow-hidden flex flex-col max-h-[calc(100dvh-4rem)] sm:max-h-[90vh] rounded-t-2xl transition-all" onClick={e => e.stopPropagation()}>
 
                 {/* Header with Tabs */}
                 <div className="border-b border-white/10 bg-white/5 flex-shrink-0">
@@ -95,7 +95,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                 </div>
 
                 {/* Body - Scrollable */}
-                <div className="p-6 overflow-y-auto flex-1 space-y-8 bg-[#151b2e]">
+                <div className="p-6 overflow-y-auto flex-1 space-y-8 bg-[var(--lt-card-strong)]">
 
                     {activeTab === 'filters' ? (
                         <>
@@ -229,7 +229,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                     key={option.id}
                                     onClick={() => setSortMode(option.id as any)}
                                     className={`w-full p-4 rounded-xl border text-left text-sm font-bold transition-all flex items-center justify-between group
-                                        ${sortMode === option.id ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-[#0b1021] border-white/10 text-gray-400 hover:border-white/30 hover:text-white hover:bg-white/5'}`}
+                                        ${sortMode === option.id ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:border-white/30 hover:text-white hover:bg-white/5'}`}
                                 >
                                     <span className="flex items-center gap-3">
                                         {option.label}
@@ -245,7 +245,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                 </div>
 
                 {/* Footer Actions - Fixed Bottom */}
-                <div className="border-t border-white/10 bg-[#0b1021] p-4 flex items-center justify-between gap-4 flex-shrink-0 z-10 safe-area-bottom">
+                <div className="border-t border-white/10 bg-[var(--lt-bg)] p-4 flex items-center justify-between gap-4 flex-shrink-0 z-10 safe-area-bottom">
                     <button
                         onClick={clearFilters}
                         className="px-4 py-3 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white transition-colors text-sm font-bold flex items-center gap-2"

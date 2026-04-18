@@ -36,7 +36,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
                     </div>
                 )}
                 {/* Gradient Overlay for Text Readability */}
-                <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-[#0b1021]/95 via-[#0b1021]/40 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-[var(--lt-bg)]/95 via-[var(--lt-bg)]/40 to-transparent" />
             </div>
 
             {/* Top Elements */}

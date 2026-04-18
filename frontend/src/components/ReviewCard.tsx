@@ -248,7 +248,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     };
 
     if (isDeleting) {
-        return <div className="animate-pulse bg-[#151b2e] h-64 rounded-3xl border border-white/5 mx-auto w-full"></div>;
+        return <div className="animate-pulse bg-[var(--lt-card-strong)] h-64 rounded-3xl border border-white/5 mx-auto w-full"></div>;
     }
 
 
@@ -327,7 +327,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             </button>
 
                             {isMenuOpen && (
-                                <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right z-50">
+                                <div className="absolute right-0 mt-2 w-48 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right z-50">
                                     <button
                                         onClick={handleSaveClick}
                                         className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
@@ -597,7 +597,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
                 {/* Inline Comments Section */}
                 {showComments && review.listId && review.id && (
-                    <div className="border-t border-white/10 bg-[#0b1021]/50 p-4" onClick={e => e.stopPropagation()}>
+                    <div className="border-t border-white/10 bg-[var(--lt-bg)]/50 p-4" onClick={e => e.stopPropagation()}>
                         <ReviewComments
                             listId={review.listId}
                             reviewId={review.id}

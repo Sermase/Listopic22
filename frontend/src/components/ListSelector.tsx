@@ -96,9 +96,9 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
         <div className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => {
             if (e.target === e.currentTarget) onCancel();
         }}>
-            <div className="bg-[#151b2e] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl flex flex-col max-h-[70vh] animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl flex flex-col max-h-[70vh] animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0b1021]/50 sticky top-0 z-10">
+                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[var(--lt-bg)]/50 sticky top-0 z-10">
                     <h3 className="font-bold text-white text-lg">Seleccionar Lista</h3>
                     <button onClick={onCancel} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                         <X className="w-5 h-5 text-gray-400" />
@@ -106,7 +106,7 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
                 </div>
 
                 {/* Search */}
-                <div className="p-4 border-b border-white/5 bg-[#151b2e]">
+                <div className="p-4 border-b border-white/5 bg-[var(--lt-card-strong)]">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                         <input
@@ -115,7 +115,7 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             autoFocus
-                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-600"
+                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-600"
                         />
                     </div>
                 </div>

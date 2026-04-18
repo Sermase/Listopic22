@@ -62,10 +62,10 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-[#151b2e] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--lt-card-strong)] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
-                <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0b1021]">
+                <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[var(--lt-bg)]">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
                         {view === 'create' && (
                             <button onClick={() => setView('list')} className="mr-2 hover:bg-white/10 p-1 rounded-full transition-colors">
@@ -109,7 +109,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                                         <Link
                                             key={list.id}
                                             to={`/list/${list.id}`}
-                                            className="flex items-center gap-4 p-3 rounded-xl bg-[#0b1021] border border-white/5 hover:border-indigo-500/50 hover:bg-[#1a2035] transition-all group"
+                                            className="flex items-center gap-4 p-3 rounded-xl bg-[var(--lt-bg)] border border-white/5 hover:border-indigo-500/50 hover:bg-[#1a2035] transition-all group"
                                         >
                                             <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                                                 {list.mainImageUrl || list.photoUrl ? (

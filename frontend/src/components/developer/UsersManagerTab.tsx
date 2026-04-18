@@ -99,7 +99,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSaved, available
 
     return (
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-8">
-            <div className="w-full max-w-lg bg-[#151b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="w-full max-w-lg bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="p-5 border-b border-white/10 flex items-center gap-4">
                     {user.photoUrl ? (
@@ -344,7 +344,7 @@ export const UsersManagerTab: React.FC = () => {
                         onChange={e => setSearchQuery(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && searchUsers()}
                         placeholder="Buscar por username, email o nombre..."
-                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-indigo-500"
                     />
                 </div>
                 <button
