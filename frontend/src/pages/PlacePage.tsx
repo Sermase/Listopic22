@@ -677,7 +677,7 @@ export const PlacePage: React.FC = () => {
                                             <div
                                                 key={(review as any).id}
                                                 onClick={() => setExpandedReviewId((review as any).id)}
-                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[#0b1021] hover:border-indigo-500 transition-colors"
+                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-indigo-500 transition-colors"
                                             >
                                                 {photoSrc ? (
                                                     <img

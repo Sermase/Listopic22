@@ -1081,7 +1081,7 @@ export const ListPage: React.FC = () => {
                                                 )}
                                             </>
                                         );
-                                        const cardClass = "group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[#0b1021] hover:border-indigo-500 transition-colors";
+                                        const cardClass = "group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-indigo-500 transition-colors";
                                         return href ? (
                                             <Link key={item.id} to={href} className={cardClass}>{cardContent}</Link>
                                         ) : (

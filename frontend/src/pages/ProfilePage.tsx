@@ -1311,7 +1311,7 @@ export const ProfilePage: React.FC = () => {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-[7.5rem] sm:-mt-32 z-10">
           <div className="flex flex-row items-center md:items-start gap-3 md:gap-8 mb-3 md:mb-4">
             <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[var(--lt-bg)] p-1.5 md:p-2 shrink-0">
-              <Skeleton className="w-full h-full rounded-full border-[3px] border-[#0b1021]" />
+              <Skeleton className="w-full h-full rounded-full border-[3px] border-[var(--lt-bg)]" />
             </div>
             <div className="flex-1 mt-0 sm:mt-4 md:mt-12 flex flex-col gap-2">
               <Skeleton className="w-48 h-8 rounded-lg" />
@@ -1362,7 +1362,7 @@ export const ProfilePage: React.FC = () => {
           />
         ) : (
           <div className="absolute inset-0"
-            style={{ background: dominantColor ? `linear-gradient(to bottom, ${dominantColor}, #0b1021)` : 'linear-gradient(to bottom, rgba(49,46,129,0.4), #0b1021)' }} />
+            style={{ background: dominantColor ? `linear-gradient(to bottom, ${dominantColor}, var(--lt-bg))` : 'linear-gradient(to bottom, rgba(49,46,129,0.4), var(--lt-bg))' }} />
         )}
       </div>
 
@@ -1411,7 +1411,7 @@ export const ProfilePage: React.FC = () => {
               );
             })()}
             <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[var(--lt-bg)] p-1.5 md:p-2">
-              <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-[3px] border-[#0b1021] shadow-2xl relative">
+              <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-[3px] border-[var(--lt-bg)] shadow-2xl relative">
                 <ProgressiveImage
                   src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || "User"}`}
                   alt={profile.username}
@@ -1557,7 +1557,7 @@ export const ProfilePage: React.FC = () => {
                         )}
                       </div>
                       <div
-                        className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[#0b1021] shadow-lg`}
+                        className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[var(--lt-bg)] shadow-lg`}
                       >
                         {favoriteReview.score.toFixed(1)}
                       </div>
@@ -1609,7 +1609,7 @@ export const ProfilePage: React.FC = () => {
                   )}
                 </div>
                 <div
-                  className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[#0b1021] shadow-lg`}
+                  className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[var(--lt-bg)] shadow-lg`}
                 >
                   {favoriteReview.score.toFixed(1)}
                 </div>
@@ -1798,7 +1798,7 @@ export const ProfilePage: React.FC = () => {
             </button>
             <div className="relative flex w-full max-w-2xl flex-col items-center gap-6" onClick={(e) => e.stopPropagation()}>
               <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-full bg-[var(--lt-bg)] p-2 shadow-[0_0_50px_rgba(99,102,241,0.2)]">
-                <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-4 border-[#0b1021]">
+                <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-4 border-[var(--lt-bg)]">
                   <ProgressiveImage
                     src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || "User"}`}
                     alt={profile.username}
@@ -2659,7 +2659,7 @@ export const ProfilePage: React.FC = () => {
                               : [review.id],
                           );
                         }}
-                        className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[#0b1021] hover:border-indigo-500 transition-colors"
+                        className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-indigo-500 transition-colors"
                       >
                         {photoUrl ? (
                           <>
@@ -2696,7 +2696,7 @@ export const ProfilePage: React.FC = () => {
                         <div
                           className={`absolute top-1 right-1 sm:top-2 sm:right-2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-r ${getScoreBubbleClass(
                             score,
-                          )} text-white font-black text-[10px] sm:text-xs flex items-center justify-center shadow-lg border border-[#0b1021]`}
+                          )} text-white font-black text-[10px] sm:text-xs flex items-center justify-center shadow-lg border border-[var(--lt-bg)]`}
                         >
                           {score.toFixed(1)}
                         </div>

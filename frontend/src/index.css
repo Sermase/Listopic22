@@ -757,3 +757,53 @@ html.theme-light ::selection {
     background: rgba(91, 76, 245, 0.20);
     color: var(--lt-text);
 }
+
+/* =====================================================================
+   Media cards (photos with text overlay) — carousels, hero tiles, etc.
+   En light mode, el borde negro sobre la foto se siente "olvidado del
+   tema" y el texto blanco se vuelve oscuro por el override global.
+   Esta clase restaura:
+     - texto claro siempre (va sobre degradado oscuro del overlay)
+     - borde suave + sombra cálida en vez de silueta negra
+     - sombreado inferior del propio componente se mantiene oscuro
+   Aplicar en el contenedor (Link/article) que envuelve la imagen.
+   ===================================================================== */
+html.theme-light .lt-media-card {
+    border-color: rgba(26, 22, 37, 0.06) !important;
+    box-shadow:
+        0 6px 20px -10px rgba(26, 22, 37, 0.22),
+        0 2px 6px -2px rgba(26, 22, 37, 0.08);
+}
+
+html.theme-light .lt-media-card .text-white,
+html.theme-light .lt-media-card .text-gray-100,
+html.theme-light .lt-media-card .text-gray-200 {
+    color: #fff !important;
+}
+html.theme-light .lt-media-card .text-gray-300 { color: rgba(255, 255, 255, 0.88) !important; }
+html.theme-light .lt-media-card .text-gray-400 { color: rgba(255, 255, 255, 0.78) !important; }
+html.theme-light .lt-media-card .text-gray-500 { color: rgba(255, 255, 255, 0.70) !important; }
+
+/* Tags/chips translúcidos dentro de media cards conservan su tinte original
+   (en vez de ser "aclarados" por el override genérico de text-indigo/purple). */
+html.theme-light .lt-media-card .text-indigo-300 { color: #c7d2fe !important; }
+html.theme-light .lt-media-card .text-purple-300 { color: #e9d5ff !important; }
+html.theme-light .lt-media-card .text-cyan-300 { color: #a5f3fc !important; }
+html.theme-light .lt-media-card .text-emerald-300 { color: #a7f3d0 !important; }
+html.theme-light .lt-media-card .text-amber-300 { color: #fcd34d !important; }
+html.theme-light .lt-media-card .text-rose-300 { color: #fecdd3 !important; }
+
+/* Los chips sobre foto llevan bg-*/20 y border-*/30; al estar dentro de un
+   media-card no queremos el aplanado genérico de bg-white/border-white. */
+html.theme-light .lt-media-card [class*="bg-white/"] {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+}
+html.theme-light .lt-media-card [class*="border-white/"] {
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Bubble bg-black/40 de nombre de autor y ciudad — mantener oscuro para
+   contraste, no aclararlo como el resto de overlays. */
+html.theme-light .lt-media-card .bg-black\/40 { background-color: rgba(0, 0, 0, 0.45) !important; }
+html.theme-light .lt-media-card .bg-black\/50 { background-color: rgba(0, 0, 0, 0.50) !important; }
+html.theme-light .lt-media-card .bg-black\/60 { background-color: rgba(0, 0, 0, 0.55) !important; }

@@ -50,11 +50,11 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
             <div className={`absolute inset-0 rounded-full bg-gradient-to-tr ${gradient} opacity-70 blur-[3px]`} />
             {/* Ring + image */}
             <div className={`relative ${s.wrap} rounded-full ${s.pad} bg-gradient-to-tr ${gradient}`}>
-                <div className="w-full h-full rounded-full border-2 border-[#0b1021] overflow-hidden bg-gray-800">
+                <div className="w-full h-full rounded-full overflow-hidden bg-[var(--lt-card-strong)]">
                     <img
                         src={photoUrl || fallback}
                         alt={displayName || 'Usuario'}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover block"
                     />
                 </div>
             </div>

@@ -25,7 +25,7 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string
                 <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'group-hover:text-indigo-400 transition-colors'}`} />
                 {badge && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]" />}
                 {count !== undefined && count > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1 min-w-[16px] h-4 rounded-full flex items-center justify-center border border-[#0b1021]">
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1 min-w-[16px] h-4 rounded-full flex items-center justify-center border border-[var(--lt-bg)]">
                         {count > 9 ? '9+' : count}
                     </span>
                 )}
@@ -249,13 +249,13 @@ export const Navbar: React.FC = () => {
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 p-[2px] transition-transform group-hover:scale-105 shadow-lg shadow-indigo-500/20">
                                         <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] flex items-center justify-center overflow-hidden">
                                             {(profilePhotoUrl || user.photoURL) ? (
-                                                <img src={profilePhotoUrl || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover" />
+                                                <img src={profilePhotoUrl || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover block" />
                                             ) : (
                                                 <User className="w-5 h-5 text-indigo-400" />
                                             )}
                                         </div>
                                     </div>
-                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#0b1021] rounded-full"></div>
+                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[var(--lt-bg)] rounded-full"></div>
                                 </div>
                             </Link>
                         ) : (
@@ -267,12 +267,17 @@ export const Navbar: React.FC = () => {
 
                     <div className="md:hidden flex items-center gap-3">
                         {user && (
-                            <Link to={`/profile/${user.uid}`} className="w-8 h-8 rounded-full bg-gray-800 overflow-hidden">
-                                {(profilePhotoUrl || user.photoURL) ? (
-                                    <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover" />
-                                ) : (
-                                    <User className="w-4 h-4 m-2" />
-                                )}
+                            <Link to={`/profile/${user.uid}`} className="relative shrink-0 group">
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 p-[2px] transition-transform group-active:scale-95 shadow-md shadow-indigo-500/20">
+                                    <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] flex items-center justify-center overflow-hidden">
+                                        {(profilePhotoUrl || user.photoURL) ? (
+                                            <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover block" />
+                                        ) : (
+                                            <User className="w-4 h-4 text-indigo-400" />
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-[var(--lt-bg)] rounded-full"></div>
                             </Link>
                         )}
                         <button
@@ -287,7 +292,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             {isMenuOpen && (
-                <div className="fixed inset-x-0 bottom-0 bg-[#060913]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto rounded-t-3xl" style={{ top: 'calc(env(safe-area-inset-top) + 68px)' }}>
+                <div className="fixed inset-x-0 bottom-0 bg-[var(--lt-bg-deep)]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto rounded-t-3xl" style={{ top: 'calc(env(safe-area-inset-top) + 68px)' }}>
                     <div className="space-y-4 bg-[var(--lt-card-strong)]/60 p-6 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5 mt-4">
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-gray-100">

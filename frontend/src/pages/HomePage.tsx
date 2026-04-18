@@ -857,7 +857,7 @@ export const HomePage: React.FC = () => {
                     {activeTab === 'explore' && (
                         <div className="max-w-7xl mx-auto mb-8">
                             <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
-                                <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[#1e2538]/50">
+                                <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[var(--lt-card)]">
                                     <button
                                         onClick={() => setIsMapOpen(!isMapOpen)}
                                         className="flex items-center gap-2 hover:text-white transition-colors flex-1 text-left"
@@ -914,7 +914,7 @@ export const HomePage: React.FC = () => {
                                 icon={<ListIcon className="w-5 h-5 text-blue-400" />}
                                 accentClass="bg-blue-500/20"
                                 renderItem={(list: any, index: number) => (
-                                    <Link to={`/list/${list.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
+                                    <Link to={`/list/${list.id}`} className="lt-media-card block relative group h-40 md:h-48 rounded-md overflow-hidden border border-white/5 shadow-lg transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
                                         {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl) ? (
                                             <div className="absolute inset-0">
                                                 <ProgressiveImage src={list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl} alt={list.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
@@ -1013,7 +1013,7 @@ export const HomePage: React.FC = () => {
                                 icon={<Flame className="w-5 h-5 text-rose-400" />}
                                 accentClass="bg-rose-500/20"
                                 renderItem={(place: any) => (
-                                    <Link to={`/place/${place.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
+                                    <Link to={`/place/${place.id}`} className="lt-media-card block relative group h-40 md:h-48 rounded-md overflow-hidden border border-white/5 shadow-lg transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
                                         {place.photoUrl ? (
                                             <div className="absolute inset-0">
                                                 <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />

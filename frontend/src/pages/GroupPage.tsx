@@ -926,7 +926,7 @@ export const GroupPage: React.FC = () => {
                                             <div
                                                 key={review.id}
                                                 onClick={() => setExpandedReviewId(review.id)}
-                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[#0b1021] hover:border-indigo-500 transition-colors"
+                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-indigo-500 transition-colors"
                                             >
                                                 {photoSrc ? (
                                                     <img
