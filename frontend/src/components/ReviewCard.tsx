@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User, Heart, MessageSquare, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, User, Heart, MessageSquare } from 'lucide-react';
 import { ReviewComments } from './ReviewComments';
 import { UserAvatar } from './UserAvatar';
-import { ProgressiveImage } from './ProgressiveImage';
+import { ReviewPhotoCarousel } from './ReviewPhotoCarousel';
+import { ReviewCardMenu } from './ReviewCardMenu';
 import { doc, setDoc, deleteDoc, getDoc, collection, onSnapshot, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 import { type ReviewEntity } from '../hooks/useListDetails';
@@ -39,14 +40,10 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const [showComments, setShowComments] = useState(false);
     const [showAnimation, setShowAnimation] = useState(false); // For "ñam!" animation
 
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [carouselIdx, setCarouselIdx] = useState(0);
-
-    const menuRef = useRef<HTMLDivElement>(null);
 
     // Local count for optimistic updates
     const [commentCount, setCommentCount] = useState(review.commentCount || 0);
@@ -69,10 +66,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         if (score >= 5) return 'from-yellow-400 to-amber-500 shadow-amber-500/50';
         return 'from-red-400 to-rose-500 shadow-red-500/50';
     };
-
-    const bubbleColor = review.overallRating && review.overallRating >= 7 ? 'from-emerald-500 to-teal-500' :
-        review.overallRating && review.overallRating >= 5 ? 'from-yellow-400 to-orange-500' :
-            'from-red-500 to-pink-500';
 
     // Extract Criteria for Visualization
     const { ponderable, nonPonderable } = React.useMemo(() => {
@@ -156,26 +149,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         checkLike();
     }, [user, review.id, review.listId]);
 
-    // Close menu on click outside or Escape
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setIsMenuOpen(false);
-            }
-        };
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setIsMenuOpen(false);
-        };
-        if (isMenuOpen) {
-            document.addEventListener("mousedown", handleClickOutside);
-            document.addEventListener("keydown", handleKeyDown);
-        }
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-            document.removeEventListener("keydown", handleKeyDown);
-        };
-    }, [isMenuOpen]);
-
     const handleCardClick = () => {
         if (review.placeId && review.itemName) {
             navigate(`/group/${review.placeId}/${encodeURIComponent(review.itemName)}`);
@@ -209,19 +182,16 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleShareClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         setIsShareOpen(true);
-        setIsMenuOpen(false);
     };
 
     const handleSaveClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         setIsSaveModalOpen(true);
-        setIsMenuOpen(false);
     };
 
     const handleEdit = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (onEdit) onEdit(review);
-        setIsMenuOpen(false);
     };
 
     const handleDelete = async (e: React.MouseEvent) => {
@@ -241,7 +211,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleReportClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         setShowReportModal(true);
-        setIsMenuOpen(false);
     };
 
     const handleCommentToggle = (e: React.MouseEvent) => {
@@ -319,142 +288,27 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             </div>
                         </div>
 
-                        <div className="relative z-20 shrink-0 self-start mt-1" ref={menuRef}>
-                            <button
-                                aria-label="Más opciones"
-                                className="text-gray-500 hover:text-white transition-colors p-1"
-                                onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
-                            >
-                                <MoreHorizontal className="w-5 h-5" />
-                            </button>
-
-                            {isMenuOpen && (
-                                <div className="absolute right-0 mt-2 w-48 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right z-50">
-                                    <button
-                                        onClick={handleSaveClick}
-                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                    >
-                                        <Bookmark className="w-4 h-4" /> Guardar
-                                    </button>
-                                    <button
-                                        onClick={handleShareClick}
-                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                    >
-                                        <Share2 className="w-4 h-4" /> Compartir
-                                    </button>
-
-                                    {isOwner ? (
-                                        <>
-                                            <div className="h-px bg-white/10 my-1"></div>
-                                            <button
-                                                onClick={handleEdit}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                            >
-                                                <Edit className="w-4 h-4" /> Editar
-                                            </button>
-                                            <button
-                                                onClick={handleDelete}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 flex items-center gap-2 transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" /> Eliminar
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="h-px bg-white/10 my-1"></div>
-                                            <button
-                                                onClick={handleReportClick}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                            >
-                                                <Flag className="w-4 h-4" /> Reportar
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                        <ReviewCardMenu
+                            isOwner={!!isOwner}
+                            onShare={handleShareClick}
+                            onSave={handleSaveClick}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onReport={handleReportClick}
+                        />
                     </div>
                 </div>
 
-                {/* 2. Main Visual: Large Image with Overlay Bubble (Also for fallback) */}
-                {(() => {
-                    const allPhotos = review.photoUrls?.length ? review.photoUrls : (review.photoUrl ? [review.photoUrl] : []);
-                    const hasPhotos = allPhotos.length > 0;
-                    const goLeft = (e: React.MouseEvent) => { e.stopPropagation(); setCarouselIdx(i => (i - 1 + allPhotos.length) % allPhotos.length); };
-                    const goRight = (e: React.MouseEvent) => { e.stopPropagation(); setCarouselIdx(i => (i + 1) % allPhotos.length); };
-                    const safeIdx = Math.min(carouselIdx, Math.max(0, allPhotos.length - 1));
-                    return (
-                        <div className={`relative w-[calc(100%-1.5rem)] mx-auto rounded-[1.25rem] overflow-hidden bg-gray-900 shadow-inner group/image ${hasPhotos ? 'aspect-auto' : 'h-32 sm:h-40'}`}>
-
-
-
-                            {hasPhotos ? (
-                                <>
-                                    <ProgressiveImage
-                                        src={allPhotos[safeIdx]}
-                                        alt={review.itemName}
-                                        containerClassName="w-full h-auto"
-                                        className="w-full h-auto object-cover block"
-                                    />
-                                    {allPhotos.length > 1 && (
-                                        <>
-                                            <button onClick={goLeft} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full p-1.5 transition-all">
-                                                <ChevronLeft className="w-4 h-4 text-white" />
-                                            </button>
-                                            <button onClick={goRight} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full p-1.5 transition-all">
-                                                <ChevronRight className="w-4 h-4 text-white" />
-                                            </button>
-                                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
-                                                {allPhotos.map((_, i) => (
-                                                    <button key={i} onClick={e => { e.stopPropagation(); setCarouselIdx(i); }}
-                                                        className={`w-1.5 h-1.5 rounded-full transition-all ${i === safeIdx ? 'bg-white scale-125' : 'bg-white/40'}`}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
-                                </>
-                            ) : (
-                                review.placeMainImage ? (
-                                    <ProgressiveImage
-                                        src={review.placeMainImage}
-                                        alt={review.placeName}
-                                        containerClassName="w-full h-full"
-                                        className="w-full h-full object-cover object-center opacity-60 group-hover/image:scale-105 transition-transform duration-700"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
-                                        <MapPin className="w-8 h-8 mb-1 opacity-20" />
-                                    </div>
-                                )
-                            )}
-
-                            {/* Overlay Bubbles Container - Always visible now if we have fallback image or legitimate image */}
-                            <div className={`absolute ${(review.photoUrls?.length || review.photoUrl) ? 'top-4 right-4 flex-col items-end gap-2' : 'top-1/2 -translate-y-1/2 right-4 flex-row items-center gap-3'} flex z-10`}>
-
-                                {/* City Bubble (Overlay) */}
-                                {(review as any).placeCity && (
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md shadow-lg transform transition-transform group-hover:scale-105">
-                                        <MapPin className="w-3.5 h-3.5 text-white/90" />
-                                        <span className="text-white font-bold text-xs uppercase tracking-wide">{(review as any).placeCity}</span>
-                                    </div>
-                                )}
-
-                                {/* The "Living" Score Bubble */}
-                                <div className={`relative w-16 h-16 flex items-center justify-center animate-blob transition-all duration-500 group-hover:scale-110`}>
-                                    {/* Inner Gradient Blob */}
-                                    <div className={`absolute inset-0 bg-gradient-to-br ${bubbleColor} opacity-90 blur-sm rounded-full`} />
-                                    {/* Core Bubble */}
-                                    <div className={`relative w-full h-full bg-gradient-to-br ${bubbleColor} flex items-center justify-center shadow-lg border-2 border-white/10 backdrop-blur-sm rounded-full`}>
-                                        <span className="text-white font-display font-bold text-2xl drop-shadow-md">
-                                            {review.overallRating?.toFixed(1) || '-'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })()}
+                {/* 2. Main Visual: Photo Carousel with Score Bubble */}
+                <ReviewPhotoCarousel
+                    photoUrls={review.photoUrls}
+                    photoUrl={review.photoUrl}
+                    placeMainImage={review.placeMainImage}
+                    itemName={review.itemName}
+                    placeName={review.placeName}
+                    overallRating={review.overallRating}
+                    placeCity={(review as any).placeCity}
+                />
 
                 {/* 3. Content Body */}
                 <div className="p-4 pt-3 space-y-3 flex-1">
