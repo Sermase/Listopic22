@@ -302,6 +302,31 @@ export const DeveloperPage: React.FC = () => {
         }
     };
 
+    // --- Provision Admin Claim ---
+    const [provisioningClaim, setProvisioningClaim] = useState(false);
+    const [provisionClaimMessage, setProvisionClaimMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    const handleProvisionAdminClaim = async () => {
+        if (!confirm('¿Provisionar el custom claim admin:true para tu usuario? Necesitarás hacerlo una sola vez para poder subir archivos a Storage.')) return;
+        setProvisioningClaim(true);
+        setProvisionClaimMessage(null);
+        try {
+            const fns = getFunctions(undefined, FUNCTIONS_REGION);
+            const provisionFn = httpsCallable(fns, 'adminProvisionJefeClaim');
+            await provisionFn();
+            // Force token refresh so the new claim is included
+            if (user) await user.getIdToken(true);
+            setProvisionClaimMessage({ type: 'success', text: '✅ Claim admin:true establecido. El token se ha refrescado — ahora puedes subir archivos.' });
+            setMaintenanceLog(prev => [`✅ adminProvisionJefeClaim: claim admin:true establecido y token refrescado`, ...prev]);
+        } catch (error: any) {
+            console.error('Error provisioning claim:', error);
+            setProvisionClaimMessage({ type: 'error', text: `❌ Error: ${error.message}` });
+            setMaintenanceLog(prev => [`❌ adminProvisionJefeClaim error: ${error.message}`, ...prev]);
+        } finally {
+            setProvisioningClaim(false);
+        }
+    };
+
     // --- Badge Management Functions ---
     const fetchBadges = async () => {
         setLoadingBadges(true);
@@ -1029,6 +1054,26 @@ export const DeveloperPage: React.FC = () => {
                                             {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
                                             Backfill authorUserType
                                         </button>
+                                    </div>
+
+                                    <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
+                                        <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                                            <Terminal className="w-5 h-5 text-cyan-400" /> Provisionar Claim Admin
+                                        </h3>
+                                        <p className="text-gray-400 mb-4 text-sm">Establece el custom claim <code className="text-cyan-300 bg-black/30 px-1 rounded">admin:true</code> en tu token de Firebase Auth. Necesario para que las Storage Security Rules te autoricen a subir archivos. Solo hace falta hacerlo una vez.</p>
+                                        <button
+                                            onClick={handleProvisionAdminClaim}
+                                            disabled={provisioningClaim}
+                                            className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                        >
+                                            {provisioningClaim ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Terminal className="w-4 h-4" />}
+                                            Provisionar claim admin:true
+                                        </button>
+                                        {provisionClaimMessage && (
+                                            <p className={`mt-3 text-sm font-medium ${provisionClaimMessage.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                {provisionClaimMessage.text}
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs h-96 overflow-y-auto">

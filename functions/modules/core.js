@@ -3330,7 +3330,6 @@ module.exports = {
   adminRecalculateAllPlaces,
   refreshPlaceMainImage,
   refreshStalePlacePhotos,
-  updateAggregatesOnForumMessageChange,
   toggleFollowPlace,
   toggleFollowList,
   getDistance,

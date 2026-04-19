@@ -4,6 +4,7 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { assertJefeAccess, writeAuditLog } = require('../lib/auth');
 
 const db = getFirestore();
@@ -81,4 +82,17 @@ const adminRecalculateAllUsers = onCall({ timeoutSeconds: 540, memory: '1GiB' },
   return results;
 });
 
-module.exports = { adminRecalculateAllUsers };
+// Establece custom claim `admin: true` en el token del usuario jefe.
+// Tras llamarlo el frontend debe forzar un refresh del token.
+const adminProvisionJefeClaim = onCall(async (request) => {
+  const contextAuth = request.auth;
+  if (!contextAuth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+
+  await assertJefeAccess(contextAuth.uid, 'Solo los jefes pueden hacer esto.');
+  await writeAuditLog(contextAuth.uid, 'adminProvisionJefeClaim', { uid: contextAuth.uid });
+
+  await getAuth().setCustomUserClaims(contextAuth.uid, { admin: true });
+  return { success: true };
+});
+
+module.exports = { adminRecalculateAllUsers, adminProvisionJefeClaim };

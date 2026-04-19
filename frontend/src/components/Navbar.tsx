@@ -4,6 +4,8 @@ import { Archive, Bell, Compass, Info, Menu, MessageSquare, Plus, Search, Share2
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
+import { useTheme } from '../context/ThemeContext';
+import type { ThemeId } from '../context/ThemeContext';
 import { db } from '../firebase';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { Capacitor } from '@capacitor/core';
@@ -38,7 +40,11 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string
 export const Navbar: React.FC = () => {
     const { user } = useAuth();
     const config = useAppConfig();
+    const { theme } = useTheme();
     const location = useLocation();
+
+    const themeLogoKey = `logoUrl${theme.charAt(0).toUpperCase()}${theme.slice(1)}` as `logoUrl${Capitalize<ThemeId>}`;
+    const activeLogoUrl = (config as any)[themeLogoKey] || config.logoUrl;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isAppShareOpen, setIsAppShareOpen] = useState(false);
     const [showInstallHelp, setShowInstallHelp] = useState(false);
@@ -181,8 +187,8 @@ export const Navbar: React.FC = () => {
             >
                 <div className="flex items-center justify-between h-12 md:h-14">
                     <Link to="/" className="flex items-center gap-3 group brand-logo relative z-50">
-                        {config.logoType === 'image' && config.logoUrl ? (
-                            <img src={config.logoUrl} alt={config.appName} className="max-h-12 w-auto object-contain transition-transform group-hover:scale-105" />
+                        {config.logoType === 'image' && activeLogoUrl ? (
+                            <img src={activeLogoUrl} alt={config.appName} className="max-h-12 w-auto object-contain transition-transform group-hover:scale-105" />
                         ) : (
                             <div className="flex items-center gap-3">
                                 <div className="relative group-hover:scale-105 group-hover:rotate-6 transition-all duration-300">
