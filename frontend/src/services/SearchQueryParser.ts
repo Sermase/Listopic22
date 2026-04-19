@@ -6,7 +6,7 @@ export interface ParsedQuery {
 
 export const SearchQueryParser = {
     parse(rawQuery: string): ParsedQuery {
-        const tokens = rawQuery.match(/"[^"]+"|\S+/g) || [];
+        const tokens = rawQuery.match(/\S+:"[^"]+"|\S+:"[^"]*|"[^"]+"|\S+/g) || [];
         const searchTokens: string[] = [];
         const parsed: ParsedQuery = {
             cleanedQuery: "",
