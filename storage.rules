@@ -16,21 +16,15 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function jefeByFirestore() {
+      let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+      return userDoc.data.userType == 'jefe' ||
+             (userDoc.data.userType is list && userDoc.data.userType.hasAny(['jefe']));
+    }
+
     function isJefe() {
-      // Primera opción: custom claim (barato, sin extra read).
-      // Segunda opción: fallback a Firestore.
       return isSignedIn() && (
-        request.auth.token.admin == true ||
-        (
-          firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-          (
-            firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType == 'jefe' ||
-            (
-              firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType is list &&
-              firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType.hasAny(['jefe'])
-            )
-          )
-        )
+        request.auth.token.admin == true || jefeByFirestore()
       );
     }
 

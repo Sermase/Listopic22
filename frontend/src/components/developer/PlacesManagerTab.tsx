@@ -445,7 +445,7 @@ export const PlacesManagerTab: React.FC = () => {
                     <button
                         onClick={fetchPlaces}
                         disabled={loading}
-                        className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                        className="px-5 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
                     >
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         Cargar
@@ -480,7 +480,7 @@ export const PlacesManagerTab: React.FC = () => {
                                         : f === 'duplicate' ? 'bg-amber-600 text-white'
                                         : f === 'wrong-id' ? 'bg-orange-600 text-white'
                                         : f === 'closed' ? 'bg-gray-600 text-white'
-                                        : 'bg-indigo-600 text-white'
+                                        : 'bg-[var(--lt-accent)] text-white'
                                         : 'bg-white/5 text-gray-400 hover:bg-white/10'
                                 }`}
                             >
@@ -544,7 +544,7 @@ export const PlacesManagerTab: React.FC = () => {
                                             title={allSortedSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
                                         >
                                             {allSortedSelected
-                                                ? <CheckSquare className="w-4 h-4 text-indigo-400" />
+                                                ? <CheckSquare className="w-4 h-4 text-[var(--lt-accent)]" />
                                                 : <Square className="w-4 h-4 text-gray-500" />}
                                         </button>
                                     </th>
@@ -585,7 +585,7 @@ export const PlacesManagerTab: React.FC = () => {
                                             <td className="p-3" onClick={e => e.stopPropagation()}>
                                                 <button onClick={() => toggleSelect(place.id)}>
                                                     {selected.has(place.id)
-                                                        ? <CheckSquare className="w-4 h-4 text-indigo-400" />
+                                                        ? <CheckSquare className="w-4 h-4 text-[var(--lt-accent)]" />
                                                         : <Square className="w-4 h-4 text-gray-500" />}
                                                 </button>
                                             </td>
@@ -627,7 +627,7 @@ export const PlacesManagerTab: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="p-3 font-mono text-xs text-indigo-400 max-w-[160px] truncate">
+                                            <td className="p-3 font-mono text-xs text-[var(--lt-accent)] max-w-[160px] truncate">
                                                 {place.googlePlaceId || place.id}
                                             </td>
                                             <td className="p-3 text-center text-gray-300">

@@ -638,7 +638,7 @@ export const ListPage: React.FC = () => {
                         <p className="text-gray-400 mb-6">
                             Esta lista es privada y no tienes permisos para verla.
                         </p>
-                        <Link to="/search" className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors">
+                        <Link to="/search" className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold rounded-xl transition-colors">
                             <Search className="w-4 h-4" />
                             Explorar otras listas
                         </Link>
@@ -651,7 +651,7 @@ export const ListPage: React.FC = () => {
             <div className="min-h-screen pt-safe-24 px-4 text-center">
                 <h2 className="text-2xl font-bold text-red-400 mb-2">Error</h2>
                 <p className="text-gray-400">{error || "Lista no encontrada"}</p>
-                <Link to="/search" className="mt-4 inline-block text-indigo-400 hover:text-indigo-300">
+                <Link to="/search" className="mt-4 inline-block text-[var(--lt-accent)] hover:text-[var(--lt-accent)]">
                     Volver al buscador
                 </Link>
             </div>
@@ -712,7 +712,7 @@ export const ListPage: React.FC = () => {
 
                     {/* Status pills */}
                     <div className="flex flex-wrap items-center gap-1.5 mb-4">
-                        <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${list.parentListId ? 'bg-purple-500/15 border-purple-500/30 text-purple-300' : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'}`}>
+                        <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${list.parentListId ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent-2)]' : 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'}`}>
                             {list.parentListId ? 'Sublista' : 'Lista'}
                         </span>
                         {/* Public/private only shown on sublists (user-owned) or to jefe */}
@@ -730,9 +730,9 @@ export const ListPage: React.FC = () => {
                             user?.uid === list.userId ? (
                                 <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Propietario</span>
                             ) : user && list.editors?.includes(user.uid) ? (
-                                <span className="px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Editor</span>
+                                <span className="px-2 py-0.5 rounded-md bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent-2)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Editor</span>
                             ) : user && (list as any).publicAccess === 'writer' ? (
-                                <span className="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Colaborador</span>
+                                <span className="px-2 py-0.5 rounded-md bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Colaborador</span>
                             ) : null
                         )}
                     </div>
@@ -747,7 +747,7 @@ export const ListPage: React.FC = () => {
                                     to={`/profile/${list.userId}`}
                                     className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/10 hover:bg-black/50 transition-colors shrink-0"
                                 >
-                                    <div className="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center text-[9px] text-white font-bold">
+                                    <div className="w-4 h-4 rounded-full bg-[var(--lt-accent)] flex items-center justify-center text-[9px] text-white font-bold">
                                         {list.authorName?.[0]?.toUpperCase() ?? '?'}
                                     </div>
                                     <span className="text-xs font-medium text-white/80 max-w-[100px] truncate">{list.authorName || 'Usuario'}</span>
@@ -782,11 +782,11 @@ export const ListPage: React.FC = () => {
                                     </button>
                                 )}
                                 {!list.parentListId && (
-                                    <button onClick={() => setIsSublistsModalOpen(true)} className="px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all">
+                                    <button onClick={() => setIsSublistsModalOpen(true)} className="px-3 py-2 bg-[var(--lt-accent-soft)] hover:bg-[var(--lt-accent)]/20 text-[var(--lt-accent)] border border-[var(--lt-accent-border)] text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all">
                                         <ListIcon className="w-4 h-4" />
                                         Sublistas
                                         {sublists && sublists.length > 0 && (
-                                            <span className="bg-indigo-500/20 px-1.5 py-0.5 rounded text-[10px] border border-indigo-500/30 text-indigo-200">{sublists.length}</span>
+                                            <span className="bg-[var(--lt-accent-soft)] px-1.5 py-0.5 rounded text-[10px] border border-[var(--lt-accent-border)] text-[var(--lt-accent)]">{sublists.length}</span>
                                         )}
                                     </button>
                                 )}
@@ -795,10 +795,10 @@ export const ListPage: React.FC = () => {
                                 </button>
                                 {canManageList && (
                                     <>
-                                        <button onClick={() => setIsShareModalOpen(true)} className="px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-sm font-bold rounded-xl border border-indigo-500/20 flex items-center gap-1.5 transition-all">
+                                        <button onClick={() => setIsShareModalOpen(true)} className="px-3 py-2 bg-[var(--lt-accent-soft)] hover:bg-[var(--lt-accent)]/20 text-[var(--lt-accent)] text-sm font-bold rounded-xl border border-[var(--lt-accent-border)] flex items-center gap-1.5 transition-all">
                                             <Lock className="w-4 h-4" /> Permisos
                                         </button>
-                                        <button onClick={() => setIsEditListModalOpen(true)} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-lg shadow-indigo-500/20">
+                                        <button onClick={() => setIsEditListModalOpen(true)} className="px-3 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-lg shadow-[var(--lt-accent-shadow)]">
                                             <Edit3 className="w-4 h-4" /> Editar
                                         </button>
                                     </>
@@ -839,10 +839,10 @@ export const ListPage: React.FC = () => {
                                                 onClick={() => { setIsSublistsModalOpen(true); setIsActionsMenuOpen(false); }}
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
                                             >
-                                                <ListIcon className="w-4 h-4 shrink-0 text-indigo-400" />
+                                                <ListIcon className="w-4 h-4 shrink-0 text-[var(--lt-accent)]" />
                                                 Sublistas
                                                 {sublists && sublists.length > 0 && (
-                                                    <span className="ml-auto bg-indigo-500/20 text-indigo-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{sublists.length}</span>
+                                                    <span className="ml-auto bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] text-[10px] font-bold px-1.5 py-0.5 rounded-full">{sublists.length}</span>
                                                 )}
                                             </button>
                                         )}
@@ -859,7 +859,7 @@ export const ListPage: React.FC = () => {
                                                     onClick={() => { setIsShareModalOpen(true); setIsActionsMenuOpen(false); }}
                                                     className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
                                                 >
-                                                    <Lock className="w-4 h-4 shrink-0 text-indigo-400" />
+                                                    <Lock className="w-4 h-4 shrink-0 text-[var(--lt-accent)]" />
                                                     Permisos
                                                 </button>
                                                 <button
@@ -896,7 +896,7 @@ export const ListPage: React.FC = () => {
                             <button
                                 onClick={handleToggleRange}
                                 className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
-                                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
+                                    ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg'
                                     : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
                                     }`}
                             >
@@ -934,12 +934,12 @@ export const ListPage: React.FC = () => {
 
                         {/* Search & Count */}
                         <div className="flex items-center flex-1 w-full gap-3 px-2">
-                            <div className="bg-white/5 text-xs px-2.5 py-1 rounded-full text-indigo-300 font-bold border border-white/5 flex-shrink-0">
+                            <div className="bg-white/5 text-xs px-2.5 py-1 rounded-full text-[var(--lt-accent)] font-bold border border-white/5 flex-shrink-0">
                                 {filteredItems.length}
                             </div>
                             <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block"></div>
                             <div className="relative flex-1 group/search">
-                                <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within/search:text-indigo-400 transition-colors" />
+                                <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within/search:text-[var(--lt-accent)] transition-colors" />
                                 <input
                                     type="text"
                                     placeholder="Buscar en esta lista..."
@@ -958,7 +958,7 @@ export const ListPage: React.FC = () => {
                                 onClick={() => setIsFilterModalOpen(true)}
                                 className={`h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
                                     filters.minRating > 0 || filters.hasPhoto || filters.visited || selectedTags.length > 0 || Object.values(filters.criteriaMin || {}).some(v => v > 0)
-                                        ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
+                                        ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
                                         : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
                                 }`}
                                 title="Filtros"
@@ -998,7 +998,7 @@ export const ListPage: React.FC = () => {
                                 {/* Grouping Toggle */}
                                 <button
                                     onClick={() => setGroupingMode(prev => prev === 'place' ? 'dish' : 'place')}
-                                    className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all ${groupingMode === 'place' ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'}`}
+                                    className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all ${groupingMode === 'place' ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)] shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'}`}
                                     title={groupingMode === 'place' ? "Agrupado por Lugar" : "Ver Platos Sueltos"}
                                 >
                                     <Store className="w-4 h-4" />
@@ -1010,14 +1010,14 @@ export const ListPage: React.FC = () => {
                             <div className="flex-shrink-0 flex bg-black/20 rounded-xl p-0.5 border border-white/5">
                                 <button
                                     onClick={() => setViewMode('list')}
-                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
                                     title="Vista lista"
                                 >
                                     <ListIcon className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                     onClick={() => setViewMode('gallery')}
-                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'gallery' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'gallery' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
                                     title="Vista galería"
                                 >
                                     <LayoutGrid className="w-3.5 h-3.5" />
@@ -1081,7 +1081,7 @@ export const ListPage: React.FC = () => {
                                                 )}
                                             </>
                                         );
-                                        const cardClass = "group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-indigo-500 transition-colors";
+                                        const cardClass = "group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors";
                                         return href ? (
                                             <Link key={item.id} to={href} className={cardClass}>{cardContent}</Link>
                                         ) : (
@@ -1126,7 +1126,7 @@ export const ListPage: React.FC = () => {
                                 <div className="mt-8 text-center">
                                     <button
                                         onClick={handleLoadMore}
-                                        className="px-6 py-2 bg-[var(--lt-card-strong)] hover:bg-[var(--lt-card)] border border-white/10 rounded-full text-indigo-400 hover:text-indigo-300 font-medium transition-colors shadow-lg"
+                                        className="px-6 py-2 bg-[var(--lt-card-strong)] hover:bg-[var(--lt-card)] border border-white/10 rounded-full text-[var(--lt-accent)] hover:text-[var(--lt-accent)] font-medium transition-colors shadow-lg"
                                     >
                                         Cargar más ({filteredItemsAll.length - visibleCount} restantes)
                                     </button>
@@ -1141,7 +1141,7 @@ export const ListPage: React.FC = () => {
                             {canAddReview && !searchQuery && (
                                 <button
                                     onClick={() => setIsAddModalOpen(true)}
-                                    className="text-indigo-400 hover:text-indigo-300 font-bold hover:underline"
+                                    className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] font-bold hover:underline"
                                 >
                                     ¡Añade la primera reseña!
                                 </button>

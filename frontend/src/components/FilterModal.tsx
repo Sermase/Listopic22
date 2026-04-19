@@ -71,7 +71,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                 <div className="border-b border-white/10 bg-white/5 flex-shrink-0">
                     <div className="p-4 flex items-center justify-between">
                         <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                            <Sliders className="w-5 h-5 text-indigo-400" /> Preferencias
+                            <Sliders className="w-5 h-5 text-[var(--lt-accent)]" /> Preferencias
                         </h2>
                         <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white">
                             <X className="w-5 h-5" />
@@ -81,13 +81,13 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                     <div className="flex px-4 gap-4">
                         <button
                             onClick={() => setActiveTab('filters')}
-                            className={`pb-3 text-sm font-bold border-b-2 transition-colors flex-1 text-center ${activeTab === 'filters' ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                            className={`pb-3 text-sm font-bold border-b-2 transition-colors flex-1 text-center ${activeTab === 'filters' ? 'border-[var(--lt-accent-border)] text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                         >
                             Filtros
                         </button>
                         <button
                             onClick={() => setActiveTab('sort')}
-                            className={`pb-3 text-sm font-bold border-b-2 transition-colors flex-1 text-center ${activeTab === 'sort' ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                            className={`pb-3 text-sm font-bold border-b-2 transition-colors flex-1 text-center ${activeTab === 'sort' ? 'border-[var(--lt-accent-border)] text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                         >
                             Ordenar
                         </button>
@@ -108,7 +108,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                     <div className="flex flex-wrap gap-2">
                                         <button
                                             onClick={() => setSelectedTags([])}
-                                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${selectedTags.length === 0 ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/30'}`}
+                                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${selectedTags.length === 0 ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/30'}`}
                                         >
                                             Todas
                                         </button>
@@ -116,7 +116,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                             <button
                                                 key={tag}
                                                 onClick={() => toggleTag(tag)}
-                                                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${selectedTags.includes(tag) ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/30'}`}
+                                                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${selectedTags.includes(tag) ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/30'}`}
                                             >
                                                 {tag}
                                             </button>
@@ -164,7 +164,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                                 <div key={key}>
                                                     <div className="flex justify-between items-center mb-2">
                                                         <label className="text-sm text-gray-300">{def.label}</label>
-                                                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${currentVal > min ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'}`}>
+                                                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${currentVal > min ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-gray-500'}`}>
                                                             {currentVal > min ? `> ${currentVal}` : 'Cualquiera'}
                                                         </span>
                                                     </div>
@@ -189,14 +189,14 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 border-b border-white/5 pb-2">Estado</h3>
                                 <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
                                     <span className="text-gray-300 text-sm font-medium">Visitados por mí</span>
-                                    <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.visited ? 'bg-indigo-600' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
+                                    <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.visited ? 'bg-[var(--lt-accent)]' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
                                         <input type="checkbox" className="hidden" checked={filters.visited} onChange={(e) => setFilters(prev => ({ ...prev, visited: e.target.checked }))} />
                                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.visited ? 'translate-x-6' : 'translate-x-1'}`}></div>
                                     </div>
                                 </label>
                                 <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
                                     <span className="text-gray-300 text-sm font-medium">Con fotos</span>
-                                    <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.hasPhoto ? 'bg-indigo-600' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
+                                    <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.hasPhoto ? 'bg-[var(--lt-accent)]' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
                                         <input type="checkbox" className="hidden" checked={filters.hasPhoto} onChange={(e) => setFilters(prev => ({ ...prev, hasPhoto: e.target.checked }))} />
                                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.hasPhoto ? 'translate-x-6' : 'translate-x-1'}`}></div>
                                     </div>
@@ -229,7 +229,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                     key={option.id}
                                     onClick={() => setSortMode(option.id as any)}
                                     className={`w-full p-4 rounded-xl border text-left text-sm font-bold transition-all flex items-center justify-between group
-                                        ${sortMode === option.id ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:border-white/30 hover:text-white hover:bg-white/5'}`}
+                                        ${sortMode === option.id ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]' : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:border-white/30 hover:text-white hover:bg-white/5'}`}
                                 >
                                     <span className="flex items-center gap-3">
                                         {option.label}
@@ -257,7 +257,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
                     <button
                         onClick={onClose}
-                        className="flex-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 transition-all active:scale-95 text-center"
+                        className="flex-1 px-6 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold rounded-xl shadow-lg shadow-[var(--lt-accent-shadow)] transition-all active:scale-95 text-center"
                     >
                         Ver Resultados
                     </button>

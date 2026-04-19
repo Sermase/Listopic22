@@ -72,7 +72,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                                 <ChevronRight className="w-5 h-5 rotate-180" />
                             </button>
                         )}
-                        <Layers className="w-5 h-5 text-indigo-400" />
+                        <Layers className="w-5 h-5 text-[var(--lt-accent)]" />
                         {view === 'create' ? 'Nueva Sublista' : `Sublistas de ${listName}`}
                     </h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
@@ -90,7 +90,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                                 </p>
                                 <button
                                     onClick={() => setView('create')}
-                                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold transition-colors shadow-lg shadow-indigo-500/20"
+                                    className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white rounded-lg text-sm font-bold transition-colors shadow-lg shadow-[var(--lt-accent-shadow)]"
                                 >
                                     <Plus className="w-4 h-4" />
                                     Crear Sublista
@@ -109,17 +109,17 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                                         <Link
                                             key={list.id}
                                             to={`/list/${list.id}`}
-                                            className="flex items-center gap-4 p-3 rounded-xl bg-[var(--lt-bg)] border border-white/5 hover:border-indigo-500/50 hover:bg-[var(--lt-card)] transition-all group"
+                                            className="flex items-center gap-4 p-3 rounded-xl bg-[var(--lt-bg)] border border-white/5 hover:border-[var(--lt-accent-border)] hover:bg-[var(--lt-card)] transition-all group"
                                         >
                                             <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                                                 {list.mainImageUrl || list.photoUrl ? (
                                                     <img src={list.mainImageUrl || list.photoUrl} alt="" className="w-full h-full object-cover" />
                                                 ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-xl bg-indigo-900/20">📃</div>
+                                                    <div className="w-full h-full flex items-center justify-center text-xl bg-[var(--lt-accent-soft)]">📃</div>
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="font-bold text-white truncate group-hover:text-indigo-400 transition-colors">{list.name}</h3>
+                                                <h3 className="font-bold text-white truncate group-hover:text-[var(--lt-accent)] transition-colors">{list.name}</h3>
                                                 <p className="text-xs text-gray-500 truncate">{list.itemCount || 0} reseñas</p>
                                             </div>
                                             <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-white transition-colors" />
@@ -132,7 +132,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                                     <p className="text-gray-400">No hay sublistas todavía.</p>
                                     <button
                                         onClick={() => setView('create')}
-                                        className="text-indigo-400 hover:text-indigo-300 text-sm font-bold mt-2"
+                                        className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] text-sm font-bold mt-2"
                                     >
                                         Crear la primera
                                     </button>

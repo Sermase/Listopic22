@@ -17,13 +17,13 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string
             to={to}
             className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 group
                 ${isActive
-                    ? 'bg-indigo-500/10 text-indigo-400 font-medium'
+                    ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] font-medium'
                     : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5'
                 }`}
         >
             <div className="relative">
-                <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'group-hover:text-indigo-400 transition-colors'}`} />
-                {badge && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]" />}
+                <Icon className={`w-4 h-4 ${isActive ? 'text-[var(--lt-accent)]' : 'group-hover:text-[var(--lt-accent)] transition-colors'}`} />
+                {badge && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-[var(--lt-accent)] rounded-full animate-pulse" style={{ boxShadow: '0 0 8px var(--lt-accent-shadow)' }} />}
                 {count !== undefined && count > 0 && (
                     <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1 min-w-[16px] h-4 rounded-full flex items-center justify-center border border-[var(--lt-bg)]">
                         {count > 9 ? '9+' : count}
@@ -187,7 +187,7 @@ export const Navbar: React.FC = () => {
                             <div className="flex items-center gap-3">
                                 <div className="relative group-hover:scale-105 group-hover:rotate-6 transition-all duration-300">
                                     <div className="absolute inset-0 bg-blue-600 blur-lg opacity-40 group-hover:opacity-60 transition-opacity rounded-xl"></div>
-                                    <div className="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+                                    <div className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{ backgroundImage: 'var(--lt-brand-mark)' }}>
                                         <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
                                     </div>
                                 </div>
@@ -248,12 +248,12 @@ export const Navbar: React.FC = () => {
                                     {profileLabel}
                                 </span>
                                 <div className="relative">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 p-[2px] transition-transform group-hover:scale-105 shadow-lg shadow-indigo-500/20">
+                                    <div className="w-10 h-10 rounded-full p-[2px] transition-transform group-hover:scale-105 shadow-lg" style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 12px var(--lt-accent-shadow)' }}>
                                         <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] flex items-center justify-center overflow-hidden">
                                             {(profilePhotoUrl || user.photoURL) ? (
                                                 <img src={profilePhotoUrl || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover block" />
                                             ) : (
-                                                <User className="w-5 h-5 text-indigo-400" />
+                                                <User className="w-5 h-5 text-[var(--lt-accent)]" />
                                             )}
                                         </div>
                                     </div>
@@ -270,12 +270,12 @@ export const Navbar: React.FC = () => {
                     <div className="md:hidden flex items-center gap-3">
                         {user && (
                             <Link to={`/profile/${user.uid}`} className="relative shrink-0 group">
-                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 p-[2px] transition-transform group-active:scale-95 shadow-md shadow-indigo-500/20">
+                                <div className="w-9 h-9 rounded-full p-[2px] transition-transform group-active:scale-95 shadow-md" style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 2px 8px var(--lt-accent-shadow)' }}>
                                     <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] flex items-center justify-center overflow-hidden">
                                         {(profilePhotoUrl || user.photoURL) ? (
                                             <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover block" />
                                         ) : (
-                                            <User className="w-4 h-4 text-indigo-400" />
+                                            <User className="w-4 h-4 text-[var(--lt-accent)]" />
                                         )}
                                     </div>
                                 </div>
@@ -303,7 +303,7 @@ export const Navbar: React.FC = () => {
                                         <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center">
-                                            <User className="w-5 h-5 text-indigo-400" />
+                                            <User className="w-5 h-5 text-[var(--lt-accent)]" />
                                         </div>
                                     )}
                                 </div>
@@ -314,7 +314,7 @@ export const Navbar: React.FC = () => {
                             </Link>
                         ) : (
                             <Link to="/login" className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/10 text-gray-100">
-                                <User className="w-5 h-5 text-indigo-400" />
+                                <User className="w-5 h-5 text-[var(--lt-accent)]" />
                                 <span className="font-bold">Iniciar sesión</span>
                             </Link>
                         )}
@@ -330,14 +330,14 @@ export const Navbar: React.FC = () => {
 
                         <div className="space-y-2">
                             <Link to="/search" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
-                                <Search className="w-5 h-5 text-indigo-400" /> Buscar
+                                <Search className="w-5 h-5 text-[var(--lt-accent)]" /> Buscar
                             </Link>
                             <Link to="/" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
-                                <Compass className="w-5 h-5 text-indigo-400" /> Explorar
+                                <Compass className="w-5 h-5 text-[var(--lt-accent)]" /> Explorar
                             </Link>
                             <Link to="/chats" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200 justify-between">
                                 <div className="flex items-center gap-3">
-                                    <MessageSquare className="w-5 h-5 text-indigo-400" /> Chats
+                                    <MessageSquare className="w-5 h-5 text-[var(--lt-accent)]" /> Chats
                                 </div>
                                 {unreadChatCount > 0 && (
                                     <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
@@ -356,7 +356,7 @@ export const Navbar: React.FC = () => {
                                     className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200 justify-between"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <Bell className="w-5 h-5 text-indigo-400" /> Notificaciones
+                                        <Bell className="w-5 h-5 text-[var(--lt-accent)]" /> Notificaciones
                                     </div>
                                     {unreadCount > 0 && (
                                         <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[24px] text-center">
@@ -366,7 +366,7 @@ export const Navbar: React.FC = () => {
                                 </button>
                             )}
                             <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
-                                <Archive className="w-5 h-5 text-indigo-400" /> Archivo
+                                <Archive className="w-5 h-5 text-[var(--lt-accent)]" /> Archivo
                             </Link>
                             <button
                                 type="button"
@@ -376,7 +376,7 @@ export const Navbar: React.FC = () => {
                                 }}
                                 className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200"
                             >
-                                <Share2 className="w-5 h-5 text-indigo-400" /> Compartir App
+                                <Share2 className="w-5 h-5 text-[var(--lt-accent)]" /> Compartir App
                             </button>
                             {isInstallVisible && (
                                 <button
@@ -405,7 +405,7 @@ export const Navbar: React.FC = () => {
                                 }}
                                 className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200"
                             >
-                                <Info className="w-5 h-5 text-indigo-400" /> Sobre Listopic
+                                <Info className="w-5 h-5 text-[var(--lt-accent)]" /> Sobre Listopic
                             </button>
                         </div>
                     </div>
@@ -474,7 +474,7 @@ export const Navbar: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => setShowInstallHelp(false)}
-                            className="mt-6 w-full rounded-2xl bg-indigo-600 px-4 py-3 font-bold text-white hover:bg-indigo-500 transition-colors"
+                            className="mt-6 w-full rounded-2xl px-4 py-3 font-bold text-white transition-colors" style={{ backgroundColor: 'var(--lt-accent)' }}
                         >
                             Cerrar
                         </button>

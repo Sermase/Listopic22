@@ -99,13 +99,13 @@ const ReviewEditModal: React.FC<ReviewEditModalProps> = ({ review, onClose, onSa
                     value={fields[k]}
                     onChange={e => set(k, e.target.value)}
                     rows={3}
-                    className="w-full bg-[#1e253c] border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500 resize-y"
+                    className="w-full bg-[#1e253c] border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-[var(--lt-accent-border)] resize-y"
                 />
             ) : (
                 <input
                     value={fields[k]}
                     onChange={e => set(k, e.target.value)}
-                    className="w-full bg-[#1e253c] border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
+                    className="w-full bg-[#1e253c] border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-[var(--lt-accent-border)]"
                 />
             )}
         </div>
@@ -179,7 +179,7 @@ const ReviewEditModal: React.FC<ReviewEditModalProps> = ({ review, onClose, onSa
                         <p><span className="text-gray-400">Fecha:</span> {formatDate(review)}</p>
                         <p><span className="text-gray-400">Ruta:</span> <span className="font-mono">{review._path || (review.listId ? `lists/${review.listId}/reviews/${review.id}` : `reviews/${review.id}`)}</span></p>
                         {review.photoUrl && (
-                            <p><span className="text-gray-400">Foto:</span> <a href={review.photoUrl} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline truncate inline-block max-w-xs align-bottom">{review.photoUrl}</a></p>
+                            <p><span className="text-gray-400">Foto:</span> <a href={review.photoUrl} target="_blank" rel="noreferrer" className="text-[var(--lt-accent)] hover:underline truncate inline-block max-w-xs align-bottom">{review.photoUrl}</a></p>
                         )}
                     </div>
 
@@ -202,7 +202,7 @@ const ReviewEditModal: React.FC<ReviewEditModalProps> = ({ review, onClose, onSa
                                     {criteriaEntries.map(({ key, label, value, isPonderable }) => (
                                         <div key={key} className="flex items-center justify-between gap-3">
                                             <div className="flex items-center gap-2 min-w-0">
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isPonderable ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/10 text-gray-400'}`}>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isPonderable ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'bg-white/10 text-gray-400'}`}>
                                                     {isPonderable ? 'P' : 'NP'}
                                                 </span>
                                                 <span className="text-sm text-gray-300 truncate">{label}</span>
@@ -233,7 +233,7 @@ const ReviewEditModal: React.FC<ReviewEditModalProps> = ({ review, onClose, onSa
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold transition-colors flex items-center gap-2"
+                        className="px-5 py-2 rounded-lg bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 text-white font-bold transition-colors flex items-center gap-2"
                     >
                         {isSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
                         {isSaving ? 'Guardando...' : 'Guardar'}
@@ -275,7 +275,7 @@ const SearchBar: React.FC<{ filters: SearchFilters; onChange: (f: SearchFilters)
                             value={filters[f.key]}
                             onChange={e => set(f.key, e.target.value)}
                             placeholder={f.placeholder}
-                            className="w-full bg-[#1e253c] border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-300 placeholder-gray-600 outline-none focus:border-indigo-500"
+                            className="w-full bg-[#1e253c] border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-300 placeholder-gray-600 outline-none focus:border-[var(--lt-accent-border)]"
                         />
                         {filters[f.key] && (
                             <button
@@ -678,7 +678,7 @@ export const ReviewsManagerTab: React.FC = () => {
 
     const SortIcon = ({ field }: { field: SortField }) => {
         if (sortField !== field) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
-        return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-indigo-400" /> : <ChevronDown className="w-3 h-3 text-indigo-400" />;
+        return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-[var(--lt-accent)]" /> : <ChevronDown className="w-3 h-3 text-[var(--lt-accent)]" />;
     };
 
     const ratingColor = (r: number) => r >= 8 ? 'text-emerald-400' : r >= 5 ? 'text-amber-400' : 'text-red-400';
@@ -717,7 +717,7 @@ export const ReviewsManagerTab: React.FC = () => {
                     <button
                         onClick={loadReviews}
                         disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-white font-bold text-sm transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 rounded-lg text-white font-bold text-sm transition-colors"
                     >
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                         {loading ? 'Cargando...' : 'Cargar'}
@@ -744,7 +744,7 @@ export const ReviewsManagerTab: React.FC = () => {
                                 onClick={() => setFilterMode(mode)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
                                     filterMode === mode
-                                        ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-300'
+                                        ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
                                         : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
                                 }`}
                             >
@@ -853,7 +853,7 @@ export const ReviewsManagerTab: React.FC = () => {
                                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                                                     review._source === 'root'
                                                         ? 'bg-blue-500/20 text-blue-400'
-                                                        : 'bg-purple-500/20 text-purple-400'
+                                                        : 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)]'
                                                 }`}>
                                                     {review._source === 'root' ? 'R' : 'S'}
                                                 </span>
@@ -873,7 +873,7 @@ export const ReviewsManagerTab: React.FC = () => {
                                                     <button
                                                         onClick={() => setEditingReview(review)}
                                                         title="Editar"
-                                                        className="p-1.5 hover:bg-indigo-500/20 rounded-lg text-gray-400 hover:text-indigo-400 transition-colors"
+                                                        className="p-1.5 hover:bg-[var(--lt-accent)]/20 rounded-lg text-gray-400 hover:text-[var(--lt-accent)] transition-colors"
                                                     >
                                                         <FileText className="w-4 h-4" />
                                                     </button>
@@ -911,7 +911,7 @@ export const ReviewsManagerTab: React.FC = () => {
             {reviews.length > 0 && (
                 <p className="text-xs text-gray-600">
                     <span className="text-blue-400 font-bold">R</span> = colección raíz &nbsp;·&nbsp;
-                    <span className="text-purple-400 font-bold">S</span> = subcolección de lista
+                    <span className="text-[var(--lt-accent-2)] font-bold">S</span> = subcolección de lista
                 </p>
             )}
 
@@ -921,7 +921,7 @@ export const ReviewsManagerTab: React.FC = () => {
                     {/* Header */}
                     <div className="flex items-center justify-between px-5 py-4 bg-white/[0.02] border-b border-white/10">
                         <div className="flex items-center gap-3">
-                            <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                            <ShieldCheck className="w-5 h-5 text-[var(--lt-accent)]" />
                             <div>
                                 <h3 className="text-sm font-bold text-white">Auditoría de datos</h3>
                                 <p className="text-xs text-gray-500">Detecta campos redundantes y datos inconsistentes</p>
@@ -929,7 +929,7 @@ export const ReviewsManagerTab: React.FC = () => {
                         </div>
                         <button
                             onClick={runAudit}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-bold text-sm transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] rounded-lg text-white font-bold text-sm transition-colors"
                         >
                             <ShieldCheck className="w-4 h-4" />
                             Analizar
@@ -970,7 +970,7 @@ export const ReviewsManagerTab: React.FC = () => {
                                             return (
                                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                                     {[
-                                                        { label: 'userTags → migrar', count: dupTags.length, color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', title: 'userTags se moverá/fusionará en tags' },
+                                                        { label: 'userTags → migrar', count: dupTags.length, color: 'text-[var(--lt-accent-2)]', bg: 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)]', title: 'userTags se moverá/fusionará en tags' },
                                                         { label: 'Lugar incompleto', count: placeIncomplete.length, color: 'text-teal-400', bg: 'bg-teal-500/10 border-teal-500/20', title: 'Falta placeName, placeAddress o coordenadas' },
                                                         { label: 'Sin placeId', count: noPlaceId.length, color: 'text-gray-400', bg: 'bg-white/5 border-white/10', title: 'Revisión manual' },
                                                         { label: 'Sin listId', count: noListId.length, color: 'text-gray-400', bg: 'bg-white/5 border-white/10', title: 'Revisión manual' },

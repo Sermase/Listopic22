@@ -265,14 +265,14 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                         {parentListImage ? (
                             <img src={parentListImage} className="w-full h-full object-cover opacity-80" alt={parentListName} />
                         ) : (
-                            <div className="w-full h-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-xs">
+                            <div className="w-full h-full bg-[var(--lt-accent-soft)] flex items-center justify-center text-[var(--lt-accent)] font-bold text-xs">
                                 {parentListName[0]}
                             </div>
                         )}
                     </div>
                     <div>
                         <h2 className="text-xl font-bold font-display text-white">Nueva Sublista</h2>
-                        <p className="text-gray-400 text-sm">Basada en <span className="text-indigo-400">{parentListName}</span></p>
+                        <p className="text-gray-400 text-sm">Basada en <span className="text-[var(--lt-accent)]">{parentListName}</span></p>
                     </div>
                 </div>
             ) : null}
@@ -286,7 +286,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
                         placeholder={parentListId ? "Ej: Sushi (Sublista)" : "Ej: Mejores Ramen de Madrid"}
                         required
                     />
@@ -297,7 +297,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     <select
                         value={categoryId}
                         onChange={(e) => setCategoryId(e.target.value)}
-                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
                         required={!parentListId} // Maybe optional for sublists? But let's keep it required for consistency
                     >
                         <option value="">Selecciona una categoría</option>
@@ -312,7 +312,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     <textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 min-h-[100px]"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)] min-h-[100px]"
                         placeholder="¿De qué trata esta lista?"
                     />
                 </div>
@@ -341,7 +341,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                                     onChange={handleImageChange}
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 />
-                                <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3 group-hover:text-indigo-500 transition-colors" />
+                                <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3 group-hover:text-[var(--lt-accent)] transition-colors" />
                                 <p className="text-gray-400 text-sm">Arrastra una imagen o haz clic para subir</p>
                                 <p className="text-gray-600 text-xs mt-1">PNG, JPG hasta 5MB</p>
                             </>
@@ -363,7 +363,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     <p className="text-sm text-gray-400 mb-4">
                         Ayuda a otros a filtrar tu lista.
                         {categoryId && categories.find(c => c.id === categoryId)?.['fixed-tags']?.length > 0 && (
-                            <span className="text-indigo-400 ml-1">Se han preseleccionado las etiquetas sugeridas de la categoría — puedes quitarlas o añadir más.</span>
+                            <span className="text-[var(--lt-accent)] ml-1">Se han preseleccionado las etiquetas sugeridas de la categoría — puedes quitarlas o añadir más.</span>
                         )}
                     </p>
 
@@ -376,7 +376,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                         {customTags.map(tag => {
                             const { icon, label } = splitTagEmoji(tag);
                             return (
-                                <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-sm flex items-center gap-1.5">
+                                <span key={tag} className="bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] px-3 py-1 rounded-full text-sm flex items-center gap-1.5">
                                     {icon && <span>{icon}</span>}
                                     <span>{label || tag}</span>
                                     <button type="button" aria-label={`Eliminar etiqueta ${tag}`} onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
@@ -408,13 +408,13 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                             onChange={e => setTagInput(e.target.value)}
                             onKeyDown={addTag}
                             placeholder="Nombre del tag y Enter para añadir..."
-                            className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                            className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
                         />
                         {tagInput.trim() && (
                             <button
                                 type="button"
                                 onClick={commitAddTag}
-                                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white text-sm font-bold transition-colors"
+                                className="px-4 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] rounded-lg text-white text-sm font-bold transition-colors"
                             >
                                 Añadir
                             </button>
@@ -430,7 +430,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     id="isPublic"
                     checked={isPublic}
                     onChange={(e) => setIsPublic(e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[var(--lt-bg)]"
+                    className="w-5 h-5 rounded border-gray-600 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)]"
                 />
                 <label htmlFor="isPublic" className="text-sm cursor-pointer">
                     <span className="block font-medium text-white">Lista Pública</span>
@@ -450,7 +450,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                                 value="reader"
                                 checked={publicAccess === 'reader'}
                                 onChange={() => setPublicAccess('reader')}
-                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 bg-[var(--lt-bg)] border-gray-600"
+                                className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600"
                             />
                             <div>
                                 <span className="block text-sm font-medium text-white">Solo Lectura</span>
@@ -464,7 +464,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                                 value="writer"
                                 checked={publicAccess === 'writer'}
                                 onChange={() => setPublicAccess('writer')}
-                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 bg-[var(--lt-bg)] border-gray-600"
+                                className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600"
                             />
                             <div>
                                 <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>

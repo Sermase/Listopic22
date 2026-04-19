@@ -5,7 +5,7 @@ import { useNotificationBanner } from '../context/NotificationBannerContext';
 
 const ICON_MAP: Record<string, React.ReactNode> = {
     new_message: <MessageSquare className="w-3.5 h-3.5 text-blue-400" />,
-    new_follower: <UserPlus className="w-3.5 h-3.5 text-indigo-400" />,
+    new_follower: <UserPlus className="w-3.5 h-3.5 text-[var(--lt-accent)]" />,
     review_like: <Heart className="w-3.5 h-3.5 text-pink-400" />,
     review_comment: <MessageSquare className="w-3.5 h-3.5 text-blue-400" />,
     list_follow: <List className="w-3.5 h-3.5 text-cyan-400" />,

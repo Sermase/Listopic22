@@ -502,7 +502,7 @@ export const UserDataExportTab: React.FC = () => {
         <div className="space-y-6 max-w-2xl">
             <div>
                 <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-1">
-                    <FileDown className="w-5 h-5 text-indigo-400" /> Exportar datos de usuario (RGPD)
+                    <FileDown className="w-5 h-5 text-[var(--lt-accent)]" /> Exportar datos de usuario (RGPD)
                 </h2>
                 <p className="text-sm text-gray-500">
                     Genera un PDF con toda la información almacenada de un usuario. Útil para responder solicitudes de acceso a datos (Art. 15 RGPD).
@@ -539,12 +539,12 @@ export const UserDataExportTab: React.FC = () => {
                         onChange={(e) => setSearchInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && findUser()}
                         placeholder="UID, email o username"
-                        className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-indigo-500"
+                        className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-[var(--lt-accent-border)]"
                     />
                     <button
                         onClick={findUser}
                         disabled={loading || !searchInput.trim()}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white text-sm font-bold transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white text-sm font-bold transition-colors"
                     >
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         Buscar
@@ -581,7 +581,7 @@ export const UserDataExportTab: React.FC = () => {
                         <button
                             onClick={downloadPDF}
                             disabled={loading}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white text-sm font-bold transition-colors shrink-0"
+                            className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white text-sm font-bold transition-colors shrink-0"
                         >
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
                             Descargar PDF

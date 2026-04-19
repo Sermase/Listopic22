@@ -48,7 +48,7 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                 {viewAllLink && (
                     <Link
                         to={viewAllLink}
-                        className="text-sm font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors shrink-0"
+                        className="text-sm font-bold text-[var(--lt-accent)] hover:text-[var(--lt-accent)] flex items-center gap-1 transition-colors shrink-0"
                     >
                         Ver todo <ChevronRight className="w-4 h-4" />
                     </Link>
@@ -62,7 +62,7 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                     onClick={() => {
                         document.getElementById(`carousel-${title.replace(/\s+/g, '-')}`)?.scrollBy({ left: -320, behavior: 'smooth' });
                     }}
-                    className="absolute -left-5 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-indigo-600 hover:scale-110 shadow-xl"
+                    className="absolute -left-5 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--lt-accent)] hover:scale-110 shadow-xl"
                 >
                     <ChevronRight className="w-6 h-6 rotate-180" />
                 </button>
@@ -71,7 +71,7 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
                     onClick={() => {
                         document.getElementById(`carousel-${title.replace(/\s+/g, '-')}`)?.scrollBy({ left: 320, behavior: 'smooth' });
                     }}
-                    className="absolute -right-5 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-indigo-600 hover:scale-110 shadow-xl"
+                    className="absolute -right-5 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--lt-accent)] hover:scale-110 shadow-xl"
                 >
                     <ChevronRight className="w-6 h-6" />
                 </button>

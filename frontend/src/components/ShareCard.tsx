@@ -1434,7 +1434,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                                 <button
                                     type="button"
                                     onClick={downloadPreview}
-                                    className="inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors"
+                                    className="inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold transition-colors"
                                 >
                                     <Download className="w-4 h-4" /> Descargar
                                 </button>
@@ -1472,7 +1472,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             {loading && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="w-full max-w-xs rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-5 shadow-2xl text-center">
-                        <div className="mx-auto h-12 w-12 rounded-2xl animate-spin border-t-2 border-indigo-500 bg-white/5"></div>
+                        <div className="mx-auto h-12 w-12 rounded-2xl animate-spin border-t-2 border-[var(--lt-accent-border)] bg-white/5"></div>
                         <div className="mt-4 text-sm font-bold text-white">
                             Generando tarjeta
                         </div>

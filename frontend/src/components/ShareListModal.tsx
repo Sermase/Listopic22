@@ -192,7 +192,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                 <div className="p-4 border-b border-white/5 flex items-center justify-between bg-[var(--lt-bg)]/50">
                     <div>
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <Users className="w-5 h-5 text-indigo-400" />
+                            <Users className="w-5 h-5 text-[var(--lt-accent)]" />
                             Compartir Lista
                         </h2>
                         <p className="text-xs text-gray-500 truncate max-w-[300px]">{listName}</p>
@@ -206,12 +206,12 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                 <div className="p-6 overflow-y-auto custom-scrollbar">
 
                     {/* Access Level Info */}
-                    <div className="mb-6 bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-3">
+                    <div className="mb-6 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-lg p-3">
                         <div className="flex gap-3">
-                            <Shield className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+                            <Shield className="w-5 h-5 text-[var(--lt-accent)] shrink-0 mt-0.5" />
                             <div>
-                                <h4 className="text-sm font-bold text-indigo-300">Roles de Acceso</h4>
-                                <ul className="text-xs text-indigo-200/70 mt-1 list-disc list-inside space-y-1">
+                                <h4 className="text-sm font-bold text-[var(--lt-accent)]">Roles de Acceso</h4>
+                                <ul className="text-xs text-[var(--lt-accent)]/70 mt-1 list-disc list-inside space-y-1">
                                     <li><strong>Lector:</strong> Puede ver la lista (si es privada).</li>
                                     <li><strong>Escritor:</strong> Puede ver y <u>añadir reseñas</u>.</li>
                                 </ul>
@@ -231,7 +231,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                     placeholder="Buscar por nombre de usuario..."
-                                    className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
                                 />
                             </div>
 
@@ -239,7 +239,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                             <div className="flex bg-[var(--lt-bg)] border border-white/10 rounded-lg p-0.5 shrink-0 h-10 items-center">
                                 <button
                                     onClick={() => setSelectedRole('reader')}
-                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${selectedRole === 'reader' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'} `}
+                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${selectedRole === 'reader' ? 'bg-[var(--lt-accent)] text-white' : 'text-gray-400 hover:text-white'} `}
                                     title="Añadir como Lector"
                                 >
                                     <Eye className="w-4 h-4" />
@@ -263,7 +263,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                         </div>
 
                         <div className="text-xs text-gray-500 mb-2">
-                            Añadiendo como: <span className={`font-bold ${selectedRole === 'writer' ? 'text-purple-400' : 'text-indigo-400'} `}>{selectedRole === 'writer' ? 'Escritor' : 'Lector'}</span>
+                            Añadiendo como: <span className={`font-bold ${selectedRole === 'writer' ? 'text-[var(--lt-accent-2)]' : 'text-[var(--lt-accent)]'} `}>{selectedRole === 'writer' ? 'Escritor' : 'Lector'}</span>
                         </div>
 
                         {/* Search Results */}
@@ -285,13 +285,13 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                                             </div>
 
                                             {status ? (
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${status === 'writer' ? 'bg-purple-500/20 text-purple-400' : 'bg-green-500/20 text-green-400'} `}>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${status === 'writer' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)]' : 'bg-green-500/20 text-green-400'} `}>
                                                     <Check className="w-3 h-3" /> {status === 'writer' ? 'Escritor' : 'Lector'}
                                                 </span>
                                             ) : (
                                                 <button
                                                     onClick={() => handleAddUser(u.id, u.username || u.displayName || u.id)}
-                                                    className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${selectedRole === 'writer' ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} `}
+                                                    className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${selectedRole === 'writer' ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white'} `}
                                                 >
                                                     <UserPlus className="w-3 h-3" /> Añadir
                                                 </button>
@@ -320,12 +320,12 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                                     return (
                                         <div key={idx} className="bg-[var(--lt-bg)] border border-white/5 rounded-lg p-3 flex items-center justify-between group">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${role === 'writer' ? 'bg-purple-500/20 text-purple-400' : 'bg-indigo-500/20 text-indigo-400'} `}>
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${role === 'writer' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)]' : 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]'} `}>
                                                     {(resolvedNames[identifier] || identifier)[0]?.toUpperCase()}
                                                 </div>
                                                 <div>
                                                     <span className="text-sm text-gray-300 block">{resolvedNames[identifier] || identifier}</span>
-                                                    <span className={`text-[10px] uppercase font-bold ${role === 'writer' ? 'text-purple-500' : 'text-indigo-500'} `}>{role === 'writer' ? 'Escritor' : 'Lector'}</span>
+                                                    <span className={`text-[10px] uppercase font-bold ${role === 'writer' ? 'text-[var(--lt-accent-2)]' : 'text-[var(--lt-accent)]'} `}>{role === 'writer' ? 'Escritor' : 'Lector'}</span>
                                                 </div>
                                             </div>
                                             <button

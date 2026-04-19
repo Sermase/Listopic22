@@ -25,13 +25,13 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 const VARIANT_STYLES: Record<ToastVariant, string> = {
     success: 'border-emerald-400/35 bg-emerald-500/12 text-emerald-100',
-    info: 'border-indigo-400/35 bg-indigo-500/12 text-indigo-100',
+    info: 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-indigo-100',
     error: 'border-rose-400/35 bg-rose-500/12 text-rose-100',
 };
 
 const VARIANT_ICON_CLASS: Record<ToastVariant, string> = {
     success: 'text-emerald-300',
-    info: 'text-indigo-300',
+    info: 'text-[var(--lt-accent)]',
     error: 'text-rose-300',
 };
 

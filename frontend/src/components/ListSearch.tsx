@@ -217,12 +217,12 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full bg-[var(--lt-card-strong)] border rounded-xl p-3 flex items-center justify-between transition-all group ${isOpen ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-white/20'
+                className={`w-full bg-[var(--lt-card-strong)] border rounded-xl p-3 flex items-center justify-between transition-all group ${isOpen ? 'border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent)]' : 'border-white/10 hover:border-white/20'
                     }`}
             >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className={`p-2 rounded-lg transition-colors ${selectedListId
-                        ? 'bg-indigo-500/10 text-indigo-400'
+                        ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]'
                         : 'bg-gray-700/50 text-gray-500 group-hover:text-gray-400'
                         }`}>
                         <ListIcon className="w-5 h-5" />
@@ -257,7 +257,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 placeholder="Buscar lista..."
-                                className="w-full bg-[var(--lt-card-strong)] border border-white/10 rounded-lg pl-9 pr-8 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-500"
+                                className="w-full bg-[var(--lt-card-strong)] border border-white/10 rounded-lg pl-9 pr-8 py-2 text-sm text-white focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors placeholder:text-gray-500"
                                 onClick={(e) => e.stopPropagation()}
                             />
                             {searchTerm && (
@@ -275,7 +275,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                     <div className="overflow-y-auto custom-scrollbar flex-1 p-1">
                         {loading ? (
                             <div className="p-6 flex justify-center">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-500"></div>
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[var(--lt-accent-border)]"></div>
                             </div>
                         ) : error ? (
                             <div className="p-4 text-center bg-red-500/10 m-2 rounded-lg">
@@ -287,7 +287,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                                 <p className="text-gray-500 text-sm mb-3">No se encontraron listas.</p>
                                 <button
                                     onClick={() => navigate('/create')}
-                                    className="px-4 py-2 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-bold transition-all"
+                                    className="px-4 py-2 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] hover:bg-[var(--lt-accent)] hover:text-white rounded-lg text-xs font-bold transition-all"
                                 >
                                     Crear "{searchTerm || 'Nueva Lista'}"
                                 </button>
@@ -297,7 +297,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                                 {/* Suggestions */}
                                 {suggestions.length > 0 && (
                                     <div className="mb-2">
-                                        <div className="px-3 py-1.5 text-[10px] font-bold uppercase text-indigo-400 tracking-wider flex items-center gap-1 bg-indigo-500/5 mx-1 rounded">
+                                        <div className="px-3 py-1.5 text-[10px] font-bold uppercase text-[var(--lt-accent)] tracking-wider flex items-center gap-1 bg-[var(--lt-accent-soft)] mx-1 rounded">
                                             <Sparkles className="w-3 h-3" />
                                             Sugeridas
                                         </div>
@@ -348,7 +348,7 @@ const ListItem = ({ list, isSelected, onSelect }: { list: EnrichedList, isSelect
     <button
         type="button"
         onClick={() => onSelect(list.id)}
-        className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between group transition-colors ${isSelected ? 'bg-indigo-500/20 text-indigo-200' : 'hover:bg-white/5 text-gray-300'
+        className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between group transition-colors ${isSelected ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'hover:bg-white/5 text-gray-300'
             }`}
     >
         <div className="min-w-0 pr-2">
@@ -362,9 +362,9 @@ const ListItem = ({ list, isSelected, onSelect }: { list: EnrichedList, isSelect
                 </div>
             )}
         </div>
-        {isSelected && <Check className="w-4 h-4 text-indigo-400 shrink-0" />}
+        {isSelected && <Check className="w-4 h-4 text-[var(--lt-accent)] shrink-0" />}
         {!isSelected && list.isSuggested && (
-            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded ml-2 whitespace-nowrap">
+            <span className="text-[10px] bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] px-1.5 py-0.5 rounded ml-2 whitespace-nowrap">
                 Ya en lista
             </span>
         )}

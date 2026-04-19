@@ -301,7 +301,7 @@ export const CreateSublistPage: React.FC = () => {
                         <input
                             type="text"
                             placeholder="Buscar lista..."
-                            className="w-full bg-[var(--lt-card-strong)] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                            className="w-full bg-[var(--lt-card-strong)] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
@@ -309,7 +309,7 @@ export const CreateSublistPage: React.FC = () => {
 
                     {loadingLists ? (
                         <div className="flex items-center justify-center py-20">
-                            <Loader className="w-7 h-7 animate-spin text-indigo-500" />
+                            <Loader className="w-7 h-7 animate-spin text-[var(--lt-accent)]" />
                         </div>
                     ) : filtered.length === 0 ? (
                         <div className="text-center py-16 text-gray-500 text-sm">No hay listas que coincidan</div>
@@ -320,7 +320,7 @@ export const CreateSublistPage: React.FC = () => {
                                     key={list.id}
                                     type="button"
                                     onClick={() => navigate(`/create-sublist/${list.id}`)}
-                                    className="w-full bg-[var(--lt-card-strong)] border border-white/8 active:bg-[var(--lt-card)] hover:bg-[var(--lt-card)] hover:border-indigo-500/40 rounded-2xl p-3 flex items-center gap-3 transition-all text-left group"
+                                    className="w-full bg-[var(--lt-card-strong)] border border-white/8 active:bg-[var(--lt-card)] hover:bg-[var(--lt-card)] hover:border-[var(--lt-accent-border)] rounded-2xl p-3 flex items-center gap-3 transition-all text-left group"
                                 >
                                     <div className="w-14 h-14 bg-gray-800 rounded-xl overflow-hidden shrink-0">
                                         {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl)
@@ -329,10 +329,10 @@ export const CreateSublistPage: React.FC = () => {
                                         }
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="font-semibold text-white truncate group-hover:text-indigo-300 transition-colors">{list.name}</div>
+                                        <div className="font-semibold text-white truncate group-hover:text-[var(--lt-accent)] transition-colors">{list.name}</div>
                                         <div className="text-xs text-gray-500 mt-0.5">{list.itemCount || 0} lugares · {list.authorName || 'Anónimo'}</div>
                                     </div>
-                                    <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-indigo-400 transition-colors shrink-0" />
+                                    <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
                                 </button>
                             ))}
                         </div>
@@ -367,7 +367,7 @@ export const CreateSublistPage: React.FC = () => {
                     )}
                     <div className="min-w-0">
                         <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Basada en</div>
-                        <div className="text-sm font-semibold text-indigo-300 truncate">{parentList.name}</div>
+                        <div className="text-sm font-semibold text-[var(--lt-accent)] truncate">{parentList.name}</div>
                     </div>
                 </div>
 
@@ -412,7 +412,7 @@ export const CreateSublistPage: React.FC = () => {
                                         </button>
                                     </div>
                                 ) : (
-                                    <label className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-white/15 hover:border-indigo-500/40 hover:bg-white/3 cursor-pointer transition-colors">
+                                    <label className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-white/15 hover:border-[var(--lt-accent-border)] hover:bg-white/3 cursor-pointer transition-colors">
                                         <input type="file" accept="image/*" onChange={handleImageChange} className="sr-only" />
                                         <ImageIcon className="w-5 h-5 text-gray-600" />
                                         <span className="text-sm text-gray-400">Subir imagen — si no, se usa la del original</span>
@@ -436,7 +436,7 @@ export const CreateSublistPage: React.FC = () => {
                                 {customTags.map(tag => {
                                     const { icon, label } = splitTagEmoji(tag);
                                     return (
-                                        <span key={tag} className="bg-indigo-500/20 text-indigo-300 px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5">
+                                        <span key={tag} className="bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5">
                                             {icon && <span>{icon}</span>}
                                             <span>{label || tag}</span>
                                             <button type="button" aria-label={`Eliminar etiqueta ${tag}`} onClick={() => removeTag(tag)} className="hover:text-white"><X className="w-3 h-3" /></button>
@@ -467,13 +467,13 @@ export const CreateSublistPage: React.FC = () => {
                                     onChange={e => setTagInput(e.target.value)}
                                     onKeyDown={addTag}
                                     placeholder="Nombre del tag y Enter..."
-                                    className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                                    className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                                 />
                                 {tagInput.trim() && (
                                     <button
                                         type="button"
                                         onClick={commitAddTag}
-                                        className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white text-xs font-bold transition-colors"
+                                        className="px-3 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] rounded-xl text-white text-xs font-bold transition-colors"
                                     >
                                         Añadir
                                     </button>
@@ -490,10 +490,10 @@ export const CreateSublistPage: React.FC = () => {
                                 type="button"
                                 onClick={() => setIsPublic(true)}
                                 className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${isPublic
-                                    ? 'bg-indigo-600/20 border-indigo-500/60 text-white'
+                                    ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-white'
                                     : 'bg-[var(--lt-bg)] border-white/8 text-gray-400 hover:bg-white/5'}`}
                             >
-                                <Globe className={`w-5 h-5 ${isPublic ? 'text-indigo-400' : 'text-gray-500'}`} />
+                                <Globe className={`w-5 h-5 ${isPublic ? 'text-[var(--lt-accent)]' : 'text-gray-500'}`} />
                                 <span className="text-sm font-bold">Pública</span>
                                 <span className="text-[10px] opacity-60 text-center leading-tight">Visible para todos</span>
                             </button>
@@ -501,10 +501,10 @@ export const CreateSublistPage: React.FC = () => {
                                 type="button"
                                 onClick={() => setIsPublic(false)}
                                 className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${!isPublic
-                                    ? 'bg-indigo-600/20 border-indigo-500/60 text-white'
+                                    ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-white'
                                     : 'bg-[var(--lt-bg)] border-white/8 text-gray-400 hover:bg-white/5'}`}
                             >
-                                <LockIcon className={`w-5 h-5 ${!isPublic ? 'text-indigo-400' : 'text-gray-500'}`} />
+                                <LockIcon className={`w-5 h-5 ${!isPublic ? 'text-[var(--lt-accent)]' : 'text-gray-500'}`} />
                                 <span className="text-sm font-bold">Privada</span>
                                 <span className="text-[10px] opacity-60 text-center leading-tight">Solo colaboradores</span>
                             </button>
@@ -523,7 +523,7 @@ export const CreateSublistPage: React.FC = () => {
                                         onChange={(e) => setIsPublicWritable(e.target.checked)}
                                         className="sr-only peer"
                                     />
-                                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--lt-accent)]"></div>
                                 </label>
                             </div>
                         )}
@@ -534,13 +534,13 @@ export const CreateSublistPage: React.FC = () => {
                                 <UserPlus className="w-4 h-4 text-gray-500" />
                                 <span className="text-sm font-semibold text-gray-300">Colaboradores</span>
                                 {editors.length > 0 && (
-                                    <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">{editors.length}</span>
+                                    <span className="text-xs bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] px-2 py-0.5 rounded-full">{editors.length}</span>
                                 )}
                             </div>
                             {editors.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5">
                                     {editors.map(e => (
-                                        <span key={e.uid} className="bg-purple-500/20 text-purple-300 px-2.5 py-1 rounded-full text-xs flex items-center gap-1">
+                                        <span key={e.uid} className="bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)] px-2.5 py-1 rounded-full text-xs flex items-center gap-1">
                                             @{e.username}
                                             <button type="button" onClick={() => removeGuest(e.uid)} className="hover:text-white ml-0.5"><X className="w-3 h-3" /></button>
                                         </span>
@@ -554,10 +554,10 @@ export const CreateSublistPage: React.FC = () => {
                                     onChange={(e) => { setGuestInput(e.target.value); setGuestLookupError(null); }}
                                     onKeyDown={handleAddGuest}
                                     placeholder="@usuario y pulsar Enter..."
-                                    className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors pr-10"
+                                    className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors pr-10"
                                 />
                                 {guestLookupLoading && (
-                                    <Loader className="absolute right-3 top-3 w-4 h-4 animate-spin text-indigo-400" />
+                                    <Loader className="absolute right-3 top-3 w-4 h-4 animate-spin text-[var(--lt-accent)]" />
                                 )}
                             </div>
                             {guestLookupError && (

@@ -8,11 +8,13 @@ interface UserAvatarProps {
     className?: string;
 }
 
-const GRADIENT: Record<string, string> = {
-    jefe:    'from-emerald-400 via-green-400 to-teal-400',
-    critico: 'from-yellow-400 via-amber-400 to-orange-400',
-    bot:     'from-slate-300 via-gray-300 to-zinc-400',
-    default: 'from-indigo-500 via-purple-500 to-pink-500',
+type GradientDef = { classes: string; style?: React.CSSProperties };
+
+const GRADIENT: Record<string, GradientDef> = {
+    jefe:    { classes: 'from-emerald-400 via-green-400 to-teal-400' },
+    critico: { classes: 'from-yellow-400 via-amber-400 to-orange-400' },
+    bot:     { classes: 'from-slate-300 via-gray-300 to-zinc-400' },
+    default: { classes: '', style: { backgroundImage: 'var(--lt-accent-grad)' } },
 };
 
 const SIZES = {
@@ -22,7 +24,7 @@ const SIZES = {
     lg: { wrap: 'w-14 h-14', img: 'w-14 h-14', pad: 'p-[2.5px]', text: 'text-base' },
 };
 
-export function getUserTypeGradient(userType?: string | string[]): string {
+export function getUserTypeGradient(userType?: string | string[]): GradientDef {
     const types: string[] = Array.isArray(userType)
         ? userType
         : userType ? [userType] : [];
@@ -39,17 +41,23 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     size = 'md',
     className = '',
 }) => {
-    const gradient = getUserTypeGradient(userType);
+    const grad = getUserTypeGradient(userType);
     const s = SIZES[size];
-    const initials = (displayName || 'U')[0].toUpperCase();
     const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || 'U')}&background=374151&color=fff`;
+    const gradClass = grad.classes ? `bg-gradient-to-tr ${grad.classes}` : '';
 
     return (
         <div className={`relative shrink-0 ${s.wrap} ${className}`}>
             {/* Glow blur */}
-            <div className={`absolute inset-0 rounded-full bg-gradient-to-tr ${gradient} opacity-70 blur-[3px]`} />
+            <div
+                className={`absolute inset-0 rounded-full opacity-70 blur-[3px] ${gradClass}`}
+                style={grad.style}
+            />
             {/* Ring + image */}
-            <div className={`relative ${s.wrap} rounded-full ${s.pad} bg-gradient-to-tr ${gradient}`}>
+            <div
+                className={`relative ${s.wrap} rounded-full ${s.pad} ${gradClass}`}
+                style={grad.style}
+            >
                 <div className="w-full h-full rounded-full overflow-hidden bg-[var(--lt-card-strong)]">
                     <img
                         src={photoUrl || fallback}

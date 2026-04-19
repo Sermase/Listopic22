@@ -101,7 +101,7 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
                 {/* Header */}
                 <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[var(--lt-bg)]/50">
                     <h3 className="font-bold text-white flex items-center gap-2">
-                        <Folder className="w-5 h-5 text-indigo-400" />
+                        <Folder className="w-5 h-5 text-[var(--lt-accent)]" />
                         Guardar en...
                     </h3>
                     <button onClick={onClose} className="p-1 rounded-full hover:bg-white/10 transition-colors">
@@ -121,22 +121,22 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
                                     <button
                                         key={arch.id}
                                         onClick={() => handleToggle(arch.id)}
-                                        className={`w-full text-left p-3 rounded-xl flex items-center justify-between transition-all group ${isSelected ? 'bg-indigo-500/10 border border-indigo-500/50' : 'hover:bg-white/5 border border-transparent'
+                                        className={`w-full text-left p-3 rounded-xl flex items-center justify-between transition-all group ${isSelected ? 'bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)]' : 'hover:bg-white/5 border border-transparent'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-500 text-white' : 'bg-gray-800 text-gray-500 group-hover:text-gray-300'
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${isSelected ? 'bg-[var(--lt-accent)] text-white' : 'bg-gray-800 text-gray-500 group-hover:text-gray-300'
                                                 }`}>
                                                 <Folder className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <div className={`font-bold ${isSelected ? 'text-indigo-300' : 'text-gray-300'}`}>{arch.name}</div>
+                                                <div className={`font-bold ${isSelected ? 'text-[var(--lt-accent)]' : 'text-gray-300'}`}>{arch.name}</div>
                                                 <div className="text-[10px] text-gray-500">
                                                     {arch.itemCount !== undefined ? `${arch.itemCount} items` : 'Colección'}
                                                 </div>
                                             </div>
                                         </div>
-                                        {isSelected && <Check className="w-5 h-5 text-indigo-400" />}
+                                        {isSelected && <Check className="w-5 h-5 text-[var(--lt-accent)]" />}
                                     </button>
                                 );
                             })}
@@ -153,7 +153,7 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
                             value={newArchiveName}
                             onChange={(e) => setNewArchiveName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder-gray-600"
+                            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors placeholder-gray-600"
                         />
                         <button
                             onClick={handleCreate}
@@ -168,7 +168,7 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-wait text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-500/20"
+                        className="w-full py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 disabled:cursor-wait text-white font-bold rounded-xl transition-colors shadow-lg shadow-[var(--lt-accent-shadow)]"
                     >
                         {saving ? 'Guardando...' : 'Hecho'}
                     </button>

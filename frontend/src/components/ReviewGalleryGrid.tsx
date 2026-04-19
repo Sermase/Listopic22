@@ -39,7 +39,7 @@ export const ReviewGalleryGrid: React.FC<ReviewGalleryGridProps> = ({
                         <div className="flex justify-center mb-3">
                             <button
                                 onClick={(e) => { e.stopPropagation(); setExpandedReviewIds(prev => prev.filter(id => id !== review.id)); }}
-                                className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-indigo-500/30 hover:border-indigo-400/50 shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
+                                className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-[var(--lt-accent-border)] hover:border-[var(--lt-accent-border)] shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
                                 aria-label="Cerrar reseña"
                             >
                                 <ChevronUp className="w-4 h-4" />
@@ -55,7 +55,7 @@ export const ReviewGalleryGrid: React.FC<ReviewGalleryGridProps> = ({
                 <div
                     key={review.id}
                     onClick={() => setExpandedReviewIds(prev => prev.includes(review.id) ? [] : [review.id])}
-                    className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-indigo-500 transition-colors"
+                    className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors"
                 >
                     {photoUrl ? (
                         <>

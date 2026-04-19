@@ -26,7 +26,7 @@ export const CreateListPage: React.FC = () => {
     if (loading) {
         return (
             <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }
@@ -37,7 +37,7 @@ export const CreateListPage: React.FC = () => {
                 <Lock className="w-12 h-12 text-gray-600" />
                 <h1 className="text-xl font-bold text-white">Acceso restringido</h1>
                 <p className="text-gray-400 text-sm">Solo el administrador puede crear listas principales.</p>
-                <button onClick={() => navigate(-1)} className="text-indigo-400 hover:text-indigo-300 text-sm mt-2">Volver</button>
+                <button onClick={() => navigate(-1)} className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] text-sm mt-2">Volver</button>
             </div>
         );
     }

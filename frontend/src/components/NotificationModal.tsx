@@ -66,7 +66,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 return <Heart className="w-4 h-4 text-pink-500" />;
             case 'follow':
             case 'new_follower':
-                return <UserPlus className="w-4 h-4 text-indigo-500" />;
+                return <UserPlus className="w-4 h-4 text-[var(--lt-accent)]" />;
             case 'comment':
             case 'review_comment':
             case 'new_message':
@@ -152,7 +152,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                         onClose();
                     }}
                     className={`block rounded-xl border p-3 transition-all ${!notification.read
-                        ? 'bg-indigo-500/10 border-indigo-500/20'
+                        ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)]'
                         : 'bg-white/5 border-transparent hover:bg-white/10'
                         }`}
                 >
@@ -162,7 +162,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                                 {getIcon(notification.type)}
                             </div>
                             {(notification.count > 1 || notification.groupCount > 1) && (
-                                <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                <span className="absolute -top-1 -right-1 bg-[var(--lt-accent)] text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                                     {notification.count || notification.groupCount}
                                 </span>
                             )}
@@ -192,12 +192,12 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         <>
             <div className={`p-4 border-b border-white/10 flex items-center justify-between ${mobile ? 'bg-[var(--lt-card-strong)]' : 'bg-black/20'}`}>
                 <h3 className="font-bold text-white flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-indigo-400" /> Notificaciones
+                    <Bell className="w-4 h-4 text-[var(--lt-accent)]" /> Notificaciones
                 </h3>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={handleMarkAllRead}
-                        className="text-[10px] uppercase font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+                        className="text-[10px] uppercase font-bold text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors"
                     >
                         Marcar leídas
                     </button>
@@ -231,7 +231,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                                     }
                                     onClose();
                                 }}
-                                className={`block p-4 hover:bg-white/5 transition-colors ${!notification.read ? 'bg-indigo-500/5' : ''}`}
+                                className={`block p-4 hover:bg-white/5 transition-colors ${!notification.read ? 'bg-[var(--lt-accent-soft)]' : ''}`}
                             >
                                 <div className="flex gap-3">
                                     <div className="relative">
@@ -239,7 +239,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                                             {getIcon(notification.type)}
                                         </div>
                                         {(notification.count > 1 || notification.groupCount > 1) && (
-                                            <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                            <span className="absolute -top-1 -right-1 bg-[var(--lt-accent)] text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                                                 {notification.count || notification.groupCount}
                                             </span>
                                         )}
@@ -253,7 +253,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                                         </span>
                                     </div>
                                     {!notification.read && (
-                                        <div className="mt-2 w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                                        <div className="mt-2 w-2 h-2 rounded-full bg-[var(--lt-accent)] shrink-0" />
                                     )}
                                 </div>
                             </Link>
@@ -282,13 +282,13 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 >
                     <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[var(--lt-bg)]/50">
                         <h3 className="font-bold text-white flex items-center gap-2">
-                            <Bell className="w-5 h-5 text-indigo-400" />
+                            <Bell className="w-5 h-5 text-[var(--lt-accent)]" />
                             Notificaciones
                         </h3>
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={handleMarkAllRead}
-                                className="text-[10px] uppercase font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+                                className="text-[10px] uppercase font-bold text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors"
                             >
                                 Marcar leÃ­das
                             </button>
@@ -305,7 +305,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                     <div className="p-4 border-t border-white/5 bg-[var(--lt-bg)]/30">
                         <button
                             onClick={onOpenHistory}
-                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-500/20"
+                            className="w-full py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold rounded-xl transition-colors shadow-lg shadow-[var(--lt-accent-shadow)]"
                         >
                             Ver todas
                         </button>

@@ -83,7 +83,7 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
     if (loading) return (
         <div className="fixed inset-0 z-[105] flex items-center justify-center bg-black/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--lt-accent-border)]"></div>
                 <div className="text-white text-xs font-medium">Cargando listas...</div>
             </div>
         </div>
@@ -115,7 +115,7 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             autoFocus
-                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-600"
+                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors placeholder:text-gray-600"
                         />
                     </div>
                 </div>
@@ -131,16 +131,16 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
                                         key={list.id}
                                         onClick={() => onSelect(list.id)}
                                         className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 group ${isSelected
-                                                ? 'bg-indigo-500/20 ring-1 ring-indigo-500/50'
+                                                ? 'bg-[var(--lt-accent-soft)] ring-1 ring-[var(--lt-accent)]'
                                                 : 'hover:bg-white/5'
                                             }`}
                                     >
-                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-[#1e2538] text-gray-400 group-hover:text-white group-hover:bg-[#252b3d]'
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${isSelected ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]' : 'bg-[#1e2538] text-gray-400 group-hover:text-white group-hover:bg-[#252b3d]'
                                             }`}>
                                             <ListIcon className="w-5 h-5" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className={`font-bold truncate ${isSelected ? 'text-indigo-200' : 'text-gray-200'}`}>
+                                            <div className={`font-bold truncate ${isSelected ? 'text-[var(--lt-accent)]' : 'text-gray-200'}`}>
                                                 {list.name}
                                             </div>
                                             {list.parentListId && (
@@ -170,7 +170,7 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
                                         onCancel(); // Close selector first
                                         navigate('/create');
                                     }}
-                                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2 hover:scale-105 active:scale-95"
+                                    className="px-6 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold rounded-xl transition-all shadow-lg shadow-[var(--lt-accent-shadow)] flex items-center gap-2 hover:scale-105 active:scale-95"
                                 >
                                     <Plus className="w-5 h-5" />
                                     Crear Nueva Lista

@@ -139,7 +139,7 @@ export const Lightbox: React.FC<LightboxProps> = ({ isOpen, onClose, images, ini
                     <button
                         key={idx}
                         onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx); resetZoom(); }}
-                        className={`w-10 h-10 shrink-0 rounded-lg overflow-hidden border-2 transition-all ${idx === currentIndex ? 'border-indigo-500 opacity-100 scale-110' : 'border-transparent opacity-40 hover:opacity-80'
+                        className={`w-10 h-10 shrink-0 rounded-lg overflow-hidden border-2 transition-all ${idx === currentIndex ? 'border-[var(--lt-accent-border)] opacity-100 scale-110' : 'border-transparent opacity-40 hover:opacity-80'
                             }`}
                     >
                         <img src={img} alt="" className="w-full h-full object-cover" />

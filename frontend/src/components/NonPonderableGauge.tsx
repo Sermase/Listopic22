@@ -19,7 +19,7 @@ export const NonPonderableGauge: React.FC<NonPonderableGaugeProps> = ({ score, l
     // Determine color based on score (Optional: can be neutral or dynamic)
     const getColor = (s: number) => {
         if (s >= 8) return 'text-emerald-400';
-        if (s >= 6) return 'text-indigo-400';
+        if (s >= 6) return 'text-[var(--lt-accent)]';
         if (s >= 4) return 'text-yellow-400';
         return 'text-rose-400';
     };

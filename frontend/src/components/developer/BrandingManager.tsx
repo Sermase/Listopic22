@@ -101,21 +101,21 @@ export const BrandingManager: React.FC = () => {
                 {/* --- LOGO SETTINGS --- */}
                 <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 space-y-6">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                        <ImageIcon className="w-5 h-5 text-indigo-400" /> Logotipo Principal
+                        <ImageIcon className="w-5 h-5 text-[var(--lt-accent)]" /> Logotipo Principal
                     </h3>
 
                     {/* Type Selection */}
                     <div className="flex gap-4 p-1 bg-black/20 rounded-lg">
                         <button
                             onClick={() => setLogoType('default')}
-                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${logoType === 'default' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${logoType === 'default' ? 'bg-[var(--lt-accent)] text-white shadow-lg' : 'text-gray-400 hover:text-white'
                                 }`}
                         >
                             Default (CSS)
                         </button>
                         <button
                             onClick={() => setLogoType('image')}
-                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${logoType === 'image' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${logoType === 'image' ? 'bg-[var(--lt-accent)] text-white shadow-lg' : 'text-gray-400 hover:text-white'
                                 }`}
                         >
                             Imagen Personalizada
@@ -168,21 +168,21 @@ export const BrandingManager: React.FC = () => {
                 {/* --- FAVICON SETTINGS --- */}
                 <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 space-y-6">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                        <Globe className="w-5 h-5 text-indigo-400" /> Favicon (Navegador)
+                        <Globe className="w-5 h-5 text-[var(--lt-accent)]" /> Favicon (Navegador)
                     </h3>
 
                     {/* Type Selection */}
                     <div className="flex gap-4 p-1 bg-black/20 rounded-lg">
                         <button
                             onClick={() => setFaviconType('default')}
-                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${faviconType === 'default' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${faviconType === 'default' ? 'bg-[var(--lt-accent)] text-white shadow-lg' : 'text-gray-400 hover:text-white'
                                 }`}
                         >
                             Default (Logo)
                         </button>
                         <button
                             onClick={() => setFaviconType('image')}
-                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${faviconType === 'image' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${faviconType === 'image' ? 'bg-[var(--lt-accent)] text-white shadow-lg' : 'text-gray-400 hover:text-white'
                                 }`}
                         >
                             Imagen Personalizada
@@ -234,7 +234,7 @@ export const BrandingManager: React.FC = () => {
                 {/* --- SEO & METADATA --- */}
                 <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 space-y-6 md:col-span-2">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                        <Type className="w-5 h-5 text-indigo-400" /> Metadatos (SEO)
+                        <Type className="w-5 h-5 text-[var(--lt-accent)]" /> Metadatos (SEO)
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -244,7 +244,7 @@ export const BrandingManager: React.FC = () => {
                                 type="text"
                                 value={appName}
                                 onChange={(e) => setAppName(e.target.value)}
-                                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-indigo-500 outline-none"
+                                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-[var(--lt-accent-border)] outline-none"
                                 placeholder="Listopic"
                             />
                         </div>
@@ -253,7 +253,7 @@ export const BrandingManager: React.FC = () => {
                             <input
                                 type="text"
                                 defaultValue={config.keywords} // using default for now, could add state
-                                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-indigo-500 outline-none"
+                                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-[var(--lt-accent-border)] outline-none"
                                 placeholder="listas, social, app"
                                 disabled // Just visual for now unless we add state
                             />
@@ -263,7 +263,7 @@ export const BrandingManager: React.FC = () => {
                             <textarea
                                 value={appDescription}
                                 onChange={(e) => setAppDescription(e.target.value)}
-                                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-indigo-500 outline-none min-h-[80px]"
+                                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-[var(--lt-accent-border)] outline-none min-h-[80px]"
                                 placeholder="Descripción corta de la aplicación..."
                             />
                         </div>
@@ -277,7 +277,7 @@ export const BrandingManager: React.FC = () => {
                 <button
                     onClick={handleSave}
                     disabled={loading}
-                    className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
+                    className="px-8 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold rounded-xl shadow-lg shadow-[var(--lt-accent-shadow)] flex items-center gap-2 disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
                 >
                     {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-5 h-5" />}
                     Guardar Cambios

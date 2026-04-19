@@ -288,13 +288,13 @@ export const PlacePage: React.FC = () => {
                         <button
                             onClick={handleSyncFromGoogle}
                             disabled={syncing}
-                            className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold transition-colors flex items-center gap-2 mx-auto"
+                            className="px-5 py-2 rounded-lg bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 text-white font-bold transition-colors flex items-center gap-2 mx-auto"
                         >
                             {syncing ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <MapPin className="w-4 h-4" />}
                             {syncing ? 'Sincronizando...' : 'Sincronizar desde Google'}
                         </button>
                     )}
-                    <Link to="/search" className="px-5 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-indigo-400 font-bold transition-colors flex items-center gap-2 justify-center">
+                    <Link to="/search" className="px-5 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-[var(--lt-accent)] font-bold transition-colors flex items-center gap-2 justify-center">
                         Volver a buscar
                     </Link>
                 </div>
@@ -342,7 +342,7 @@ export const PlacePage: React.FC = () => {
                             )}
                             {place.address && (
                                 <p className="text-gray-200 flex items-center gap-2 text-sm sm:text-lg max-w-2xl font-light line-clamp-1">
-                                    <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
+                                    <MapPin className="w-4 h-4 text-[var(--lt-accent)] shrink-0" />
                                     {place.address}
                                 </p>
                             )}
@@ -354,7 +354,7 @@ export const PlacePage: React.FC = () => {
                                 {/* Listopic Rating */}
                                 <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border backdrop-blur-md ${place.avgScore >= 7
                                     ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
-                                    : 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
+                                    : 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
                                     }`}>
                                     <Star className="w-4 h-4 fill-current" />
                                     <span>{place.avgScore.toFixed(1)}</span>
@@ -412,7 +412,7 @@ export const PlacePage: React.FC = () => {
                             onClick={() => setIsSaveModalOpen(true)}
                             className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
                         >
-                            <Bookmark className="w-5 h-5 mb-1 text-indigo-400" />
+                            <Bookmark className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Guardar</span>
                         </button>
                         <button
@@ -425,9 +425,9 @@ export const PlacePage: React.FC = () => {
                         </button>
                         <button
                             onClick={handleShareClick}
-                            className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all active:scale-95 active:bg-indigo-500/20 active:border-indigo-500/50"
+                            className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all active:scale-95 active:bg-[var(--lt-accent-soft)] active:border-[var(--lt-accent-border)]"
                         >
-                            <Share2 className="w-5 h-5 mb-1 text-indigo-400" />
+                            <Share2 className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Compartir</span>
                         </button>
                         <button
@@ -447,7 +447,7 @@ export const PlacePage: React.FC = () => {
                                     href={place.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${place.coords.lat},${place.coords.lng}`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-lg text-white text-xs font-bold flex items-center gap-2 hover:bg-indigo-600 transition-colors border border-white/10"
+                                    className="px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-lg text-white text-xs font-bold flex items-center gap-2 hover:bg-[var(--lt-accent)] transition-colors border border-white/10"
                                 >
                                     <MapPin className="w-3 h-3" />
                                     Abrir en Google Maps
@@ -488,13 +488,13 @@ export const PlacePage: React.FC = () => {
                                     <span className="text-xs text-gray-500 block mb-1">Accesibilidad</span>
                                     <div className="space-y-1">
                                         {place.accessibility.wheelchairAccessibleEntrance && (
-                                            <div className="flex items-center gap-2 text-indigo-400 font-medium text-xs">
+                                            <div className="flex items-center gap-2 text-[var(--lt-accent)] font-medium text-xs">
                                                 <Accessibility className="w-4 h-4" />
                                                 <span>Entrada adaptada</span>
                                             </div>
                                         )}
                                         {place.accessibility.wheelchairAccessibleRestroom && (
-                                            <div className="flex items-center gap-2 text-indigo-400 font-medium text-xs">
+                                            <div className="flex items-center gap-2 text-[var(--lt-accent)] font-medium text-xs">
                                                 <Accessibility className="w-4 h-4" />
                                                 <span>Baño adaptado</span>
                                             </div>
@@ -520,12 +520,12 @@ export const PlacePage: React.FC = () => {
                                 </span>
                             )}
                             {place.options?.dineIn && (
-                                <span className="px-3 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                <span className="px-3 py-1 bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)] border border-[var(--lt-accent-border)] rounded-full text-xs font-bold flex items-center gap-1">
                                     <Utensils className="w-3 h-3" /> Restaurante
                                 </span>
                             )}
                             {place.options?.reservable && (
-                                <span className="px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                <span className="px-3 py-1 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] rounded-full text-xs font-bold flex items-center gap-1">
                                     <Clock className="w-3 h-3" /> Reservas
                                 </span>
                             )}
@@ -558,7 +558,7 @@ export const PlacePage: React.FC = () => {
                                     href={place.website}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center justify-center gap-2 w-full p-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 group"
+                                    className="flex items-center justify-center gap-2 w-full p-3 rounded-xl bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold text-sm transition-all shadow-lg shadow-[var(--lt-accent-shadow)] group"
                                 >
                                     <Globe className="w-4 h-4 group-hover:scale-110 transition-transform" />
                                     Visitar Sitio Web
@@ -585,7 +585,7 @@ export const PlacePage: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('reviews')}
                             className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'reviews'
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
                                 : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
                                 }`}
                         >
@@ -594,7 +594,7 @@ export const PlacePage: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('dishes')}
                             className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'dishes'
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
                                 : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
                                 }`}
                         >
@@ -603,7 +603,7 @@ export const PlacePage: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('lists')}
                             className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'lists'
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
                                 : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
                                 }`}
                         >
@@ -612,7 +612,7 @@ export const PlacePage: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('photos')}
                             className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'photos'
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
                                 : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
                                 }`}
                         >
@@ -629,14 +629,14 @@ export const PlacePage: React.FC = () => {
                                 <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
                                     <button
                                         onClick={() => setReviewViewMode('list')}
-                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'list' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'list' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
                                         title="Vista lista"
                                     >
                                         <ListIcon className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                         onClick={() => setReviewViewMode('gallery')}
-                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'gallery' ? 'bg-indigo-500/20 text-indigo-400 shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'gallery' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
                                         title="Vista galería"
                                     >
                                         <LayoutGrid className="w-3.5 h-3.5" />
@@ -655,7 +655,7 @@ export const PlacePage: React.FC = () => {
 
                                         if (isExpanded) {
                                             return (
-                                                <div key={(review as any).id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[var(--lt-card-strong)] rounded-xl border border-indigo-500/50 mb-2 shadow-2xl animate-fade-in">
+                                                <div key={(review as any).id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[var(--lt-card-strong)] rounded-xl border border-[var(--lt-accent-border)] mb-2 shadow-2xl animate-fade-in">
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
                                                         className="w-full flex justify-center pt-2 pb-1"
@@ -677,7 +677,7 @@ export const PlacePage: React.FC = () => {
                                             <div
                                                 key={(review as any).id}
                                                 onClick={() => setExpandedReviewId((review as any).id)}
-                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-indigo-500 transition-colors"
+                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors"
                                             >
                                                 {photoSrc ? (
                                                     <img
@@ -701,7 +701,7 @@ export const PlacePage: React.FC = () => {
                                     })}
                                     {visibleCount < place.reviews.length && (
                                         <div ref={loadMoreRef} className="py-4 flex justify-center col-span-3 sm:col-span-4 lg:col-span-5">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--lt-accent-border)]"></div>
                                         </div>
                                     )}
                                 </div>
@@ -718,7 +718,7 @@ export const PlacePage: React.FC = () => {
                                     ))}
                                     {visibleCount < place.reviews.length && (
                                         <div ref={loadMoreRef} className="py-4 flex justify-center">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--lt-accent-border)]"></div>
                                         </div>
                                     )}
                                 </div>
@@ -732,7 +732,7 @@ export const PlacePage: React.FC = () => {
                                 <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
                                     {/* Menu header */}
                                     <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
-                                        <Utensils className="w-5 h-5 text-indigo-400" />
+                                        <Utensils className="w-5 h-5 text-[var(--lt-accent)]" />
                                         <span className="font-bold text-white tracking-wide text-sm uppercase">La Carta</span>
                                         <span className="ml-auto text-xs text-gray-500">{dishes.length} platos</span>
                                     </div>
@@ -763,7 +763,7 @@ export const PlacePage: React.FC = () => {
                                                     {/* Name + meta */}
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className="font-semibold text-white group-hover:text-indigo-300 transition-colors text-sm sm:text-base truncate">{dish.name}</span>
+                                                            <span className="font-semibold text-white group-hover:text-[var(--lt-accent)] transition-colors text-sm sm:text-base truncate">{dish.name}</span>
                                                             {isTop && (
                                                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">★ Top</span>
                                                             )}
@@ -805,13 +805,13 @@ export const PlacePage: React.FC = () => {
                                         {mainLists.length > 0 && (
                                             <div>
                                                 <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                                                    <ListIcon className="w-5 h-5 text-indigo-400" />
+                                                    <ListIcon className="w-5 h-5 text-[var(--lt-accent)]" />
                                                     Listas ({mainLists.length})
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     {mainLists.map((list: any) => (
                                                         <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                                                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all h-full flex flex-col">
+                                                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-[var(--lt-accent-border)] transition-all h-full flex flex-col">
                                                                 <div className="h-32 bg-gray-800 relative">
                                                                     {list.photoUrl ? (
                                                                         <img src={list.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -828,7 +828,7 @@ export const PlacePage: React.FC = () => {
                                                                     </div>
                                                                     <div className="mt-4 pt-2 border-t border-white/5 flex items-center justify-between">
                                                                         {/* Hiding Author as requested */}
-                                                                        <span className="text-xs text-indigo-400 font-medium group-hover:underline">Ver Lista</span>
+                                                                        <span className="text-xs text-[var(--lt-accent)] font-medium group-hover:underline">Ver Lista</span>
                                                                         <span className="text-xs text-gray-500">{list.itemCount || 0} lugares</span>
                                                                     </div>
                                                                 </div>
@@ -842,13 +842,13 @@ export const PlacePage: React.FC = () => {
                                         {subLists.length > 0 && (
                                             <div>
                                                 <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                                                    <div className="p-1 bg-purple-500/20 rounded text-purple-400"><ListIcon className="w-4 h-4" /></div>
+                                                    <div className="p-1 bg-[var(--lt-accent-soft)] rounded text-[var(--lt-accent-2)]"><ListIcon className="w-4 h-4" /></div>
                                                     Sublistas ({subLists.length})
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     {subLists.map((list: any) => (
                                                         <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                                                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all h-full flex flex-col relative">
+                                                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-[var(--lt-accent-border)] transition-all h-full flex flex-col relative">
                                                                 <div className="h-32 bg-gray-800 relative">
                                                                     {list.photoUrl ? (
                                                                         <img src={list.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -858,7 +858,7 @@ export const PlacePage: React.FC = () => {
                                                                         </div>
                                                                     )}
                                                                     <div className="absolute top-2 right-2 p-1 bg-black/50 rounded backdrop-blur-md">
-                                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">Sublista</span>
+                                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--lt-accent-2)] bg-[var(--lt-accent-soft)] px-2 py-0.5 rounded">Sublista</span>
                                                                     </div>
                                                                 </div>
                                                                 <div className="p-4 flex-1 flex flex-col justify-between">
@@ -868,7 +868,7 @@ export const PlacePage: React.FC = () => {
                                                                     </div>
                                                                     <div className="mt-4 pt-2 border-t border-white/5 flex items-center justify-between">
                                                                         {/* Hiding Author */}
-                                                                        <span className="text-xs text-purple-400 font-medium group-hover:underline">Ver Sublista</span>
+                                                                        <span className="text-xs text-[var(--lt-accent-2)] font-medium group-hover:underline">Ver Sublista</span>
                                                                         <span className="text-xs text-gray-500">{list.itemCount || 0} lugares</span>
                                                                     </div>
                                                                 </div>
@@ -897,7 +897,7 @@ export const PlacePage: React.FC = () => {
                                                     setLightboxIndex(idx);
                                                     setIsLightboxOpen(true);
                                                 }}
-                                                className="aspect-square rounded-xl overflow-hidden bg-gray-800 cursor-pointer group relative border border-white/5 hover:border-indigo-500/50 transition-all"
+                                                className="aspect-square rounded-xl overflow-hidden bg-gray-800 cursor-pointer group relative border border-white/5 hover:border-[var(--lt-accent-border)] transition-all"
                                             >
                                                 <ProgressiveImage src={photo} alt="Lugar" containerClassName="w-full h-full" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">

@@ -6,7 +6,7 @@ import { Footer } from '../components/Footer';
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <section className="mb-8">
         <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-            <span className="w-1 h-5 bg-indigo-500 rounded-full inline-block" />
+            <span className="w-1 h-5 bg-[var(--lt-accent)] rounded-full inline-block" />
             {title}
         </h2>
         <div className="text-gray-300 text-sm leading-relaxed space-y-2 pl-3">
@@ -23,11 +23,11 @@ export const PrivacyPage: React.FC = () => {
                 <div className="relative h-40 bg-gradient-to-br from-indigo-900/60 via-[var(--lt-bg)] to-[var(--lt-bg)] flex items-end">
                     <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] to-transparent" />
                     <div className="relative z-10 max-w-3xl mx-auto w-full px-4 sm:px-6 pb-6 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                            <Shield className="w-6 h-6 text-indigo-400" />
+                        <div className="w-12 h-12 rounded-2xl bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] flex items-center justify-center shrink-0">
+                            <Shield className="w-6 h-6 text-[var(--lt-accent)]" />
                         </div>
                         <div>
-                            <p className="text-xs uppercase tracking-widest text-indigo-400 font-bold mb-0.5">Listopic</p>
+                            <p className="text-xs uppercase tracking-widest text-[var(--lt-accent)] font-bold mb-0.5">Listopic</p>
                             <h1 className="text-2xl sm:text-3xl font-display font-bold text-white">Política de Privacidad</h1>
                         </div>
                     </div>
@@ -48,7 +48,7 @@ export const PrivacyPage: React.FC = () => {
 
                         <Section title="1. Responsable del tratamiento">
                             <p><span className="text-white font-medium">Istari Core</span></p>
-                            <p>Correo electrónico: <a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors">istaricore@gmail.com</a></p>
+                            <p>Correo electrónico: <a href="mailto:istaricore@gmail.com" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">istaricore@gmail.com</a></p>
                         </Section>
 
                         <Section title="2. Datos que recogemos">
@@ -80,11 +80,11 @@ export const PrivacyPage: React.FC = () => {
                             <ul className="list-disc list-inside space-y-2 mt-2">
                                 <li>
                                     <span className="text-white font-medium">Google Firebase</span> (Google LLC) — autenticación, base de datos (Firestore), almacenamiento de archivos y notificaciones push.{' '}
-                                    <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 transition-colors">Política de privacidad</a>
+                                    <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">Política de privacidad</a>
                                 </li>
                                 <li>
                                     <span className="text-white font-medium">Algolia</span> (Algolia SAS) — motor de búsqueda para contenidos de la app.{' '}
-                                    <a href="https://www.algolia.com/policies/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 transition-colors">Política de privacidad</a>
+                                    <a href="https://www.algolia.com/policies/privacy" target="_blank" rel="noopener noreferrer" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">Política de privacidad</a>
                                 </li>
                             </ul>
                         </Section>
@@ -115,12 +115,12 @@ export const PrivacyPage: React.FC = () => {
                                 <li><span className="text-white font-medium">Oposición y limitación:</span> oponerte o limitar ciertos tratamientos basados en interés legítimo.</li>
                                 <li><span className="text-white font-medium">Retirar el consentimiento:</span> en cualquier momento, sin efecto retroactivo.</li>
                             </ul>
-                            <p className="mt-3">Para ejercer cualquiera de estos derechos, escríbenos a: <a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors">istaricore@gmail.com</a></p>
-                            <p className="mt-2">Si consideras que el tratamiento de tus datos no es conforme al RGPD, puedes presentar una reclamación ante la <a href="https://www.aepd.es" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 transition-colors">Agencia Española de Protección de Datos (AEPD)</a>.</p>
+                            <p className="mt-3">Para ejercer cualquiera de estos derechos, escríbenos a: <a href="mailto:istaricore@gmail.com" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">istaricore@gmail.com</a></p>
+                            <p className="mt-2">Si consideras que el tratamiento de tus datos no es conforme al RGPD, puedes presentar una reclamación ante la <a href="https://www.aepd.es" target="_blank" rel="noopener noreferrer" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">Agencia Española de Protección de Datos (AEPD)</a>.</p>
                         </Section>
 
                         <Section title="10. Menores de edad">
-                            <p>Listopic no está dirigida a menores de <span className="text-white font-medium">16 años</span>. No recogemos conscientemente datos personales de menores. Si detectamos que un usuario es menor de 16 años, procederemos a eliminar su cuenta y datos de forma inmediata. Si eres el padre, madre o tutor de un menor que ha creado una cuenta, contáctanos en <a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors">istaricore@gmail.com</a>.</p>
+                            <p>Listopic no está dirigida a menores de <span className="text-white font-medium">16 años</span>. No recogemos conscientemente datos personales de menores. Si detectamos que un usuario es menor de 16 años, procederemos a eliminar su cuenta y datos de forma inmediata. Si eres el padre, madre o tutor de un menor que ha creado una cuenta, contáctanos en <a href="mailto:istaricore@gmail.com" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">istaricore@gmail.com</a>.</p>
                         </Section>
 
                         <Section title="11. Seguridad">
@@ -133,7 +133,7 @@ export const PrivacyPage: React.FC = () => {
 
                         <Section title="13. Contacto">
                             <p>Para cualquier consulta sobre privacidad o protección de datos:</p>
-                            <p className="mt-1"><span className="text-white font-medium">Istari Core</span> — <a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors">istaricore@gmail.com</a></p>
+                            <p className="mt-1"><span className="text-white font-medium">Istari Core</span> — <a href="mailto:istaricore@gmail.com" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">istaricore@gmail.com</a></p>
                         </Section>
                     </div>
 

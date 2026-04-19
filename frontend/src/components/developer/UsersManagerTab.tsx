@@ -105,7 +105,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSaved, available
                     {user.photoUrl ? (
                         <img src={user.photoUrl} alt={user.displayName} className="w-14 h-14 rounded-full object-cover ring-2 ring-white/10" />
                     ) : (
-                        <div className="w-14 h-14 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xl font-bold">
+                        <div className="w-14 h-14 rounded-full bg-[var(--lt-accent)] flex items-center justify-center text-white text-xl font-bold">
                             {(user.displayName || user.username || '?')[0].toUpperCase()}
                         </div>
                     )}
@@ -219,7 +219,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSaved, available
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 rounded-xl bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white text-sm font-bold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                     >
                         {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                         Guardar
@@ -344,13 +344,13 @@ export const UsersManagerTab: React.FC = () => {
                         onChange={e => setSearchQuery(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && searchUsers()}
                         placeholder="Buscar por username, email o nombre..."
-                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[var(--lt-accent-border)]"
                     />
                 </div>
                 <button
                     onClick={searchUsers}
                     disabled={loading}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-60"
+                    className="px-4 py-2.5 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-60"
                 >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buscar'}
                 </button>
@@ -389,7 +389,7 @@ export const UsersManagerTab: React.FC = () => {
                                             {u.photoUrl ? (
                                                 <img src={u.photoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
                                             ) : (
-                                                <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+                                                <div className="w-8 h-8 rounded-full bg-[var(--lt-accent)] flex items-center justify-center text-white text-xs font-bold">
                                                     {(u.displayName || u.username || '?')[0].toUpperCase()}
                                                 </div>
                                             )}
