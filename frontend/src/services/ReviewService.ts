@@ -1,6 +1,6 @@
 import { db } from '../firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
-import { queryCache, invalidateDoc } from '../lib/queryCache';
+import type { QueryClient } from '@tanstack/react-query';
 
 export const ReviewService = {
     /**
@@ -8,7 +8,7 @@ export const ReviewService = {
      * Note: Backend triggers (functions/index.js) will automatically 
      * update aggregate counts (reviewsCount, etc.) on the list, place, and user.
      */
-    deleteReview: async (listId: string | undefined | null, reviewId: string): Promise<void> => {
+    deleteReview: async (listId: string | undefined | null, reviewId: string, queryClient?: QueryClient): Promise<void> => {
         if (!reviewId) {
             throw new Error("Missing reviewId for deletion");
         }
@@ -108,10 +108,24 @@ export const ReviewService = {
 
             await Promise.all(updates);
 
-            queryCache.invalidate('listDetails:' + finalListId);
-            queryCache.invalidate('reviews:');
-            if (placeId) queryCache.invalidate('placeDetails:' + placeId);
-            if (finalListId) invalidateDoc('lists', finalListId);
+            if (queryClient) {
+                // Remove the deleted review from all cached review pages immediately
+                // (avoids refetch race with Firestore cache returning stale data)
+                queryClient.setQueriesData({ queryKey: ['reviews'] }, (old: any) => {
+                    if (!old?.pages) return old;
+                    return {
+                        ...old,
+                        pages: old.pages.map((page: any) => ({
+                            ...page,
+                            reviews: page.reviews.filter((r: any) => r.id !== reviewId),
+                        })),
+                    };
+                });
+                // Mark list/place details as stale — they'll refetch on next access
+                if (finalListId) queryClient.invalidateQueries({ queryKey: ['listDetails', finalListId], refetchType: 'none' });
+                if (placeId) queryClient.invalidateQueries({ queryKey: ['placeDetails', placeId], refetchType: 'none' });
+                if (finalListId) queryClient.invalidateQueries({ queryKey: ['doc', 'lists', finalListId], refetchType: 'none' });
+            }
 
         } catch (error) {
             console.error("Error in deleteReview service:", error);

@@ -1,5 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { initSentry } from './lib/sentry'
 import './index.css'
 import App from './App.tsx'
@@ -13,6 +15,17 @@ import { FilterProvider } from './context/FilterContext';
 import { GamificationProvider } from './context/GamificationContext';
 import { StorageImageRecovery } from './components/StorageImageRecovery';
 import ErrorBoundary from './components/ErrorBoundary';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const canRegisterServiceWorker = 'serviceWorker' in navigator
   && (
@@ -37,17 +50,20 @@ createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <AuthProvider>
-        <ThemeProvider>
-          <GamificationProvider>
-            <AppConfigProvider>
-              <FilterProvider>
-                <SeoManager />
-                <StorageImageRecovery />
-                <App />
-              </FilterProvider>
-            </AppConfigProvider>
-          </GamificationProvider>
-        </ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <GamificationProvider>
+              <AppConfigProvider>
+                <FilterProvider>
+                  <SeoManager />
+                  <StorageImageRecovery />
+                  <App />
+                </FilterProvider>
+              </AppConfigProvider>
+            </GamificationProvider>
+          </ThemeProvider>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
       </AuthProvider>
     </ErrorBoundary>
   </React.StrictMode>,

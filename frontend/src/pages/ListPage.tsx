@@ -1164,7 +1164,7 @@ export const ListPage: React.FC = () => {
                             // Clear param without reload
                             window.history.replaceState({}, '', `/list/${listId}`);
                         }}
-                        onSuccess={() => window.location.reload()}
+                        onSuccess={() => { setIsAddModalOpen(false); setEditingReviewId(undefined); }}
                     />
                 )
             }

@@ -77,6 +77,8 @@ import {
 } from "../services/UserProfileService";
 import { FollowersSection } from "../components/profile/FollowersSection";
 import ProfileStatsTab from "../components/profile/ProfileStatsTab";
+import { ProfileStatCard } from "../components/ProfileStatCard";
+import { ReviewGalleryGrid } from "../components/ReviewGalleryGrid";
 import {
   buildGamificationMetrics,
   getLevelInfo,
@@ -1731,52 +1733,14 @@ export const ProfilePage: React.FC = () => {
 
           <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
             {profileStatCards.map((stat) => (
-              <button
+              <ProfileStatCard
                 key={stat.id}
-                type="button"
+                label={stat.label}
+                value={stat.value}
+                accent={stat.accent}
+                levelProgressPercent={levelInfo.progressPercent}
                 onClick={() => openDetailsModal(stat.id)}
-                className={`group relative flex min-h-[78px] sm:min-h-[108px] min-w-0 flex-col items-center justify-center rounded-2xl border px-1.5 py-2 text-center transition-all hover:-translate-y-0.5 sm:px-3 sm:py-3 ${stat.accent === "level"
-                  ? "lt-level-card overflow-hidden border-amber-400/35 bg-[#110804] shadow-[0_18px_40px_rgba(245,158,11,0.18)]"
-                  : "lt-stat-card border-white/10 bg-[var(--lt-card-strong)]/80 hover:border-indigo-400/35 hover:bg-[var(--lt-card)]"
-                  }`}
-              >
-                {stat.accent === "level" && (
-                  <>
-                    {/* Unfilled vessel: subtle warm amber tint over the whole card */}
-                    <div
-                      className="pointer-events-none absolute inset-0"
-                      style={{ background: 'rgba(160, 100, 20, 0.10)' }}
-                    />
-                    {/* Filled liquid rising from bottom */}
-                    <div
-                      className="pointer-events-none absolute bottom-0 left-0 right-0 transition-all duration-1000 ease-out"
-                      style={{
-                        height: `${levelInfo.progressPercent}%`,
-                        background: `linear-gradient(0deg, hsl(28, 55%, 20%) 0%, hsl(35, 60%, 32%) 60%, hsl(40, 65%, 40%) 100%)`,
-                        boxShadow: `0 -2px 10px hsla(38, 60%, 35%, 0.30)`,
-                      }}
-                    />
-                  </>
-                )}
-                <span
-                  className={`lt-level-label relative z-10 text-[9px] sm:text-[10px] font-black uppercase leading-tight tracking-[0.14em] sm:tracking-[0.22em] ${stat.accent === "level"
-                    ? "text-amber-200/95"
-                    : "lt-stat-label text-gray-500 group-hover:text-gray-300"
-                    }`}
-                  style={stat.accent === "level" ? { textShadow: '0 1px 4px rgba(0,0,0,0.9)' } : undefined}
-                >
-                  {stat.label}
-                </span>
-
-                <div className="relative z-10 mt-2 min-w-0 w-full">
-                  <div
-                    className={`lt-level-value text-base font-black leading-none sm:text-2xl md:text-3xl ${stat.accent === "level" ? "text-white" : "text-[var(--lt-text)]"}`}
-                    style={stat.accent === "level" ? { textShadow: '0 1px 6px rgba(0,0,0,0.9)' } : undefined}
-                  >
-                    {stat.value}
-                  </div>
-                </div>
-              </button>
+              />
             ))}
           </div>
 
@@ -2610,100 +2574,13 @@ export const ProfilePage: React.FC = () => {
                   />
                 </div>
               ) : reviewViewMode === "gallery" ? (
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
-                  {sortedProfileReviews.map((review: any) => {
-                    const firstPhoto = review.photoUrls?.[0] || review.photoUrl || review.photos?.[0] || null;
-                    const isPlaceImage = !firstPhoto && !!review.placeMainImage;
-                    const photoUrl = firstPhoto || review.placeMainImage || null;
-                    const score =
-                      typeof review.overallRating === "number"
-                        ? review.overallRating
-                        : Number(review.overallRating) || 0;
-                    const isExpanded = expandedReviewIds.includes(review.id);
-
-                    if (isExpanded) {
-                      return (
-                        <div
-                          key={review.id}
-                          className="col-span-3 md:col-span-4 lg:col-span-5 mb-4 animate-[fade-in_0.2s_ease-out] flex flex-col"
-                        >
-                          <div className="flex justify-center mb-3">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setExpandedReviewIds((prev) => prev.filter(id => id !== review.id));
-                              }}
-                              className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-indigo-500/30 hover:border-indigo-400/50 shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
-                              aria-label="Cerrar reseña"
-                            >
-                              <ChevronUp className="w-4 h-4" />
-                              <span>Cerrar reseña</span>
-                            </button>
-                          </div>
-                          <ReviewCard
-                            review={review}
-                            onDelete={handleDeleteReview}
-                            onEdit={handleEditReview}
-                          />
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={review.id}
-                        onClick={() => {
-                          setExpandedReviewIds((prev) =>
-                            prev.includes(review.id)
-                              ? []
-                              : [review.id],
-                          );
-                        }}
-                        className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-indigo-500 transition-colors"
-                      >
-                        {photoUrl ? (
-                          <>
-                            <ProgressiveImage
-                              src={photoUrl}
-                              alt={review.placeName || review.itemName || "Lugar"}
-                              containerClassName="w-full h-full"
-                              className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImage ? 'opacity-40 saturate-50' : ''}`}
-                            />
-                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
-                              <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight drop-shadow-md">
-                                {review.placeName || review.itemName || "Lugar"}
-                              </p>
-                              {review.itemName && review.itemName !== review.placeName && (
-                                <p className="text-[9px] sm:text-[10px] text-white/65 line-clamp-1 leading-tight mt-0.5">
-                                  {review.itemName}
-                                </p>
-                              )}
-                            </div>
-                          </>
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-gradient-to-br from-[var(--lt-card-strong)] to-[var(--lt-bg)]">
-                            <span className="text-[10px] sm:text-xs font-bold text-gray-300 line-clamp-1">
-                              {review.placeName || review.itemName || "Lugar"}
-                            </span>
-                            {review.itemName && review.itemName !== review.placeName && (
-                              <span className="text-[9px] text-gray-500 line-clamp-1 w-full mt-0.5">
-                                {review.itemName}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                        <div
-                          className={`absolute top-1 right-1 sm:top-2 sm:right-2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-r ${getScoreBubbleClass(
-                            score,
-                          )} text-white font-black text-[10px] sm:text-xs flex items-center justify-center shadow-lg border border-[var(--lt-bg)]`}
-                        >
-                          {score.toFixed(1)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <ReviewGalleryGrid
+                  reviews={sortedProfileReviews}
+                  expandedReviewIds={expandedReviewIds}
+                  setExpandedReviewIds={setExpandedReviewIds}
+                  onDelete={handleDeleteReview}
+                  onEdit={handleEditReview}
+                />
               ) : (
                 <div className="space-y-4">
                   {sortedProfileReviews.map((review: any) => (

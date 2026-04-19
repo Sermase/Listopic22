@@ -4,6 +4,12 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
+  optimizeDeps: {
+    include: ['jspdf'],
+  },
   esbuild: {
     // Strip console.* and debugger statements in production builds. Keep
     // console.error and console.warn so real issues still surface (and are

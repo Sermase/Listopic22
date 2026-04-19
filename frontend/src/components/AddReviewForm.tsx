@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { createPortal } from 'react-dom';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
@@ -11,7 +11,7 @@ import { PhotoEditorModal, type ProcessedPhoto } from './PhotoEditorModal';
 import { PlaceSearch } from './PlaceSearch';
 import { PlaceService, type PlaceResult, transformToLegacyPlace } from '../services/PlaceService';
 import { ListSearch } from './ListSearch';
-import { queryCache, invalidateDoc } from '../lib/queryCache';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -45,6 +45,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const { user } = useAuth();
     const { showToast } = useToast();
     const { theme } = useTheme();
+    const queryClient = useQueryClient();
     const isLight = theme === 'light';
 
     // Core Data
@@ -722,6 +723,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 placeLng: finalPlaceLng,
             };
 
+            let newReviewId: string | undefined;
+
             if (editReviewId) {
                 // Canonical write path: lists/{listId}/reviews/{reviewId}
                 const targetSubRef = doc(db, 'lists', finalListId, 'reviews', editReviewId);
@@ -762,10 +765,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 }, { merge: true });
             } else {
                 // Create in the list subcollection (legacy/canonical path).
-                await addDoc(collection(db, 'lists', finalListId, 'reviews'), {
+                const newDocRef = await addDoc(collection(db, 'lists', finalListId, 'reviews'), {
                     ...reviewData,
                     createdAt: serverTimestamp()
                 });
+                newReviewId = newDocRef.id;
             }
 
             // Update Counters (Simplified for readability, assuming existing logic was correct just messy)
@@ -790,10 +794,53 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 await Promise.allSettled(updates);
             }
 
-            queryCache.invalidate('listDetails:' + finalListId);
-            queryCache.invalidate('reviews:');
-            if (finalPlaceId) queryCache.invalidate('placeDetails:' + finalPlaceId);
-            if (finalListId) invalidateDoc('lists', finalListId);
+            // Optimistic cache update — avoids Firestore local-cache latency on refetch
+            const optimisticReview = {
+                id: newReviewId ?? editReviewId ?? '',
+                ...reviewData,
+                createdAt: Timestamp.now(),
+                listName: listData?.name,
+                criteriaDefinition: listData?.criteriaDefinition,
+                placeName: selectedPlace?.name || placeName,
+                placeAddress: finalPlaceAddress,
+                lat: finalPlaceLat,
+                lng: finalPlaceLng,
+            };
+
+            if (finalListId) {
+                queryClient.setQueryData(['listDetails', finalListId], (old: any) => {
+                    if (!old) return old;
+                    if (newReviewId) {
+                        return { ...old, reviews: [optimisticReview, ...(old.reviews ?? [])] };
+                    } else if (editReviewId) {
+                        return {
+                            ...old,
+                            reviews: old.reviews.map((r: any) =>
+                                r.id === editReviewId ? { ...r, ...optimisticReview } : r
+                            ),
+                        };
+                    }
+                    return old;
+                });
+            }
+
+            if (newReviewId) {
+                queryClient.setQueriesData({ queryKey: ['reviews'] }, (old: any) => {
+                    if (!old?.pages) return old;
+                    return {
+                        ...old,
+                        pages: old.pages.map((page: any, idx: number) =>
+                            idx === 0 ? { ...page, reviews: [optimisticReview, ...page.reviews] } : page
+                        ),
+                    };
+                });
+            }
+
+            // Mark stale for lazy background refetch (won't immediately re-fetch)
+            if (finalListId) queryClient.invalidateQueries({ queryKey: ['listDetails', finalListId], refetchType: 'none' });
+            queryClient.invalidateQueries({ queryKey: ['reviews'], refetchType: 'none' });
+            if (finalPlaceId) queryClient.invalidateQueries({ queryKey: ['placeDetails', finalPlaceId], refetchType: 'none' });
+            if (finalListId) queryClient.invalidateQueries({ queryKey: ['doc', 'lists', finalListId], refetchType: 'none' });
 
             showToast({
                 variant: 'success',

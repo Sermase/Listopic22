@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
-import { queryCache } from '../lib/queryCache';
+import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader, Image as ImageIcon, X, Smile } from 'lucide-react';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
@@ -23,6 +23,7 @@ interface CreateListFormProps {
 export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, parentListName, parentListImage, parentCriteria, parentTags, initialData, onSuccess, onCancel }) => {
     const { user } = useAuth();
     const { showToast } = useToast();
+    const queryClient = useQueryClient();
 
     // State
     const [name, setName] = useState(initialData?.name || '');
@@ -234,7 +235,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 listsCount: increment(1)
             }).catch(e => console.warn("Could not increment user list count", e));
 
-            queryCache.invalidate('lists:');
+            queryClient.invalidateQueries({ queryKey: ['lists'] });
             showToast({
                 variant: 'success',
                 title: parentListId ? 'Sublista creada' : 'Lista creada',
