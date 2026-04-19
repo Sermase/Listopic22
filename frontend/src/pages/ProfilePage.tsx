@@ -1736,8 +1736,8 @@ export const ProfilePage: React.FC = () => {
                 type="button"
                 onClick={() => openDetailsModal(stat.id)}
                 className={`group relative flex min-h-[78px] sm:min-h-[108px] min-w-0 flex-col items-center justify-center rounded-2xl border px-1.5 py-2 text-center transition-all hover:-translate-y-0.5 sm:px-3 sm:py-3 ${stat.accent === "level"
-                  ? "overflow-hidden border-amber-400/35 bg-[#110804] shadow-[0_18px_40px_rgba(245,158,11,0.18)]"
-                  : "border-white/10 bg-[var(--lt-card-strong)]/80 hover:border-indigo-400/35 hover:bg-[#19213a]"
+                  ? "lt-level-card overflow-hidden border-amber-400/35 bg-[#110804] shadow-[0_18px_40px_rgba(245,158,11,0.18)]"
+                  : "lt-stat-card border-white/10 bg-[var(--lt-card-strong)]/80 hover:border-indigo-400/35 hover:bg-[var(--lt-card)]"
                   }`}
               >
                 {stat.accent === "level" && (
@@ -1759,9 +1759,9 @@ export const ProfilePage: React.FC = () => {
                   </>
                 )}
                 <span
-                  className={`relative z-10 text-[9px] sm:text-[10px] font-black uppercase leading-tight tracking-[0.14em] sm:tracking-[0.22em] ${stat.accent === "level"
+                  className={`lt-level-label relative z-10 text-[9px] sm:text-[10px] font-black uppercase leading-tight tracking-[0.14em] sm:tracking-[0.22em] ${stat.accent === "level"
                     ? "text-amber-200/95"
-                    : "text-gray-500 group-hover:text-gray-300"
+                    : "lt-stat-label text-gray-500 group-hover:text-gray-300"
                     }`}
                   style={stat.accent === "level" ? { textShadow: '0 1px 4px rgba(0,0,0,0.9)' } : undefined}
                 >
@@ -1770,7 +1770,7 @@ export const ProfilePage: React.FC = () => {
 
                 <div className="relative z-10 mt-2 min-w-0 w-full">
                   <div
-                    className="text-base font-black leading-none text-white sm:text-2xl md:text-3xl"
+                    className={`lt-level-value text-base font-black leading-none sm:text-2xl md:text-3xl ${stat.accent === "level" ? "text-white" : "text-[var(--lt-text)]"}`}
                     style={stat.accent === "level" ? { textShadow: '0 1px 6px rgba(0,0,0,0.9)' } : undefined}
                   >
                     {stat.value}
@@ -2674,14 +2674,14 @@ export const ProfilePage: React.FC = () => {
                                 {review.placeName || review.itemName || "Lugar"}
                               </p>
                               {review.itemName && review.itemName !== review.placeName && (
-                                <p className="text-[9px] sm:text-[10px] text-gray-400 line-clamp-1 leading-tight mt-0.5">
+                                <p className="text-[9px] sm:text-[10px] text-white/65 line-clamp-1 leading-tight mt-0.5">
                                   {review.itemName}
                                 </p>
                               )}
                             </div>
                           </>
                         ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-gradient-to-br from-[#151b2e] to-[var(--lt-bg)]">
+                          <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-gradient-to-br from-[var(--lt-card-strong)] to-[var(--lt-bg)]">
                             <span className="text-[10px] sm:text-xs font-bold text-gray-300 line-clamp-1">
                               {review.placeName || review.itemName || "Lugar"}
                             </span>

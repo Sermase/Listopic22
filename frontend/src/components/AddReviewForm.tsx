@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import { createPortal } from 'react-dom';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { db, storage } from '../firebase';
@@ -43,6 +44,8 @@ const pickRandom = <T,>(items: readonly T[]): T => items[Math.floor(Math.random(
 export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, lockList = false, onClose, onSuccess, suggestedListIds }) => {
     const { user } = useAuth();
     const { showToast } = useToast();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     // Core Data
     // Core Data
@@ -1008,20 +1011,20 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     <div
                                         className="flex items-center gap-4 p-4 rounded-xl transition-all duration-500"
                                         style={{
-                                            background: `linear-gradient(135deg, hsl(${overallRating * 12}, 80%, 10%) 0%, transparent 100%)`,
-                                            border: `1px solid hsl(${overallRating * 12}, 70%, 25%)`
+                                            background: `linear-gradient(135deg, hsl(${overallRating * 12}, 80%, ${isLight ? 92 : 10}%) 0%, transparent 100%)`,
+                                            border: `1px solid hsl(${overallRating * 12}, 70%, ${isLight ? 65 : 25}%)`
                                         }}
                                     >
                                         <div
                                             className="text-5xl font-black font-display transition-all duration-300 tabular-nums"
-                                            style={{ color: `hsl(${overallRating * 12}, 90%, 60%)` }}
+                                            style={{ color: `hsl(${overallRating * 12}, 90%, ${isLight ? 32 : 60}%)` }}
                                         >
                                             {overallRating.toFixed(1)}
                                         </div>
                                         <div>
                                             <div className="text-2xl leading-none mb-1">{getRatingEmoji(overallRating)}</div>
-                                            <div className="text-sm font-bold text-gray-200">{getRatingLabel(overallRating)}</div>
-                                            <div className="text-[11px] text-gray-500 mt-0.5">Calculado automáticamente</div>
+                                            <div className="text-sm font-bold text-[var(--lt-text)]">{getRatingLabel(overallRating)}</div>
+                                            <div className="text-[11px] text-[var(--lt-text-muted)] mt-0.5">Calculado automáticamente</div>
                                         </div>
                                     </div>
 

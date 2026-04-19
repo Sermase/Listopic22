@@ -9,7 +9,7 @@ const InstagramIcon = () => (
 
 export const Footer: React.FC<{ compact?: boolean }> = ({ compact }) => {
     return (
-        <footer className={`w-full border-t border-white/5 bg-[#0d1225] ${compact ? 'mt-4' : 'mt-16'}`}>
+        <footer className={`w-full border-t border-[var(--lt-border)] bg-[var(--lt-bg-deep)] ${compact ? 'mt-4' : 'mt-16'}`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
                 {/* Desktop: 3 columnas / Mobile: apilado centrado */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
@@ -23,26 +23,26 @@ export const Footer: React.FC<{ compact?: boolean }> = ({ compact }) => {
                                     <div className="w-3 h-3 bg-white rounded-full" />
                                 </div>
                             </div>
-                            <span className="text-base font-display font-bold text-white">Listopic</span>
+                            <span className="text-base font-display font-bold text-[var(--lt-text)]">Listopic</span>
                         </div>
-                        <p className="text-xs text-gray-600">{new Date().getFullYear()} Istari Core</p>
+                        <p className="text-xs text-[var(--lt-text-muted)]">{new Date().getFullYear()} Istari Core</p>
                     </div>
 
                     {/* Links */}
                     <nav className="flex flex-wrap justify-center md:justify-center gap-x-6 gap-y-3 text-sm">
-                        <Link to="/about" className="text-gray-500 hover:text-white transition-colors">
+                        <Link to="/about" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
                             Sobre Listopic
                         </Link>
-                        <Link to="/privacy" className="text-gray-500 hover:text-white transition-colors">
+                        <Link to="/privacy" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
                             Privacidad
                         </Link>
-                        <Link to="/terms" className="text-gray-500 hover:text-white transition-colors">
+                        <Link to="/terms" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
                             Términos de Uso
                         </Link>
-                        <Link to="/istari-core" className="text-gray-500 hover:text-white transition-colors">
+                        <Link to="/istari-core" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
                             Istari Core
                         </Link>
-                        <a href="mailto:istaricore@gmail.com" className="text-gray-500 hover:text-white transition-colors">
+                        <a href="mailto:istaricore@gmail.com" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
                             Contacto
                         </a>
                     </nav>
@@ -53,7 +53,7 @@ export const Footer: React.FC<{ compact?: boolean }> = ({ compact }) => {
                             href="https://www.instagram.com/listopic/"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-gray-500 hover:text-pink-400 transition-colors group"
+                            className="flex items-center gap-2 text-[var(--lt-text-muted)] hover:text-pink-400 transition-colors group"
                         >
                             <InstagramIcon />
                             <span className="text-sm group-hover:text-pink-400 transition-colors">@listopic</span>
