@@ -390,13 +390,16 @@ service cloud.firestore {
     // El resto de documentos en `config/` siguen siendo públicos (branding,
     // feature flags, etc.) pero solo modificables por `jefe`.
     // TODO(seguridad): migrar los secretos a Google Secret Manager.
+    // config/serverSecrets: solo jefe (secretos del servidor).
+    // La regla genérica de config/* excluye explícitamente este documento
+    // para que el wildcard no lo exponga aunque "allow read: if true" lo cubra.
     match /config/serverSecrets {
-      allow read: if request.auth != null && isJefe(request.auth.uid);
-      allow write: if request.auth != null && isJefe(request.auth.uid);
+      allow read, write: if request.auth != null && isJefe(request.auth.uid);
     }
 
+    // El resto de config (branding, featureFlags, appConfig…): lectura pública, escritura jefe.
     match /config/{configId} {
-      allow read: if true;
+      allow read: if configId != 'serverSecrets';
       allow write: if request.auth != null && isJefe(request.auth.uid);
     }
 
