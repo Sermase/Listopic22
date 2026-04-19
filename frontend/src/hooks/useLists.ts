@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { collection, query, orderBy, limit, getDocs, Timestamp, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { queryCache } from '../lib/queryCache';
 
 export interface ListEntity {
     id: string;
@@ -9,25 +8,23 @@ export interface ListEntity {
     description?: string;
     userId: string;
     authorName?: string;
-    photoUrl?: string; // List cover or icon
-    mainImageUrl?: string; // Legacy/DB field
+    photoUrl?: string;
+    mainImageUrl?: string;
     thumbnailUrl?: string;
     coverUrl?: string;
     imageUrl?: string;
     createdAt: Timestamp;
     updatedAt?: Timestamp;
-    parentListId?: string; // For sublists
+    parentListId?: string;
 
-    // Visibility
     isPublic: boolean;
     visibility?: 'public' | 'private';
     publicAccess?: 'reader' | 'writer';
     guests?: string[];
-    editors?: string[]; // Writers/Collaborators
+    editors?: string[];
     parentListName?: string;
 
-    // Counters
-    itemCount?: number; // Keep for compatibility if needed
+    itemCount?: number;
     groupedItemsCount: number;
     viewCount?: number;
     likes?: number;
@@ -36,13 +33,11 @@ export interface ListEntity {
     reviewCount: number;
 
     averageRating: number;
-    avgScore?: number; // Legacy or alternative name
+    avgScore?: number;
 
-    // Location for filtering
     lat?: number;
     lng?: number;
 
-    // Configuration
     availableTags: string[];
     fixedTags?: string[];
     criteriaDefinition?: Record<string, {
@@ -56,113 +51,74 @@ export interface ListEntity {
         ponderable: boolean;
     }>;
 
-    // Stats
     criteriaAverages: Record<string, number>;
     criteriaAveragesUpdatedAt?: Timestamp;
     reactions: Record<string, unknown>;
 }
 
-export const useLists = (filter: 'recent' | 'top_rated' | 'liked' = 'recent', userId?: string, includePrivate = false) => {
-    const [lists, setLists] = useState<ListEntity[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+async function fetchLists(
+    filter: 'recent' | 'top_rated' | 'liked',
+    userId: string | undefined,
+    includePrivate: boolean,
+): Promise<ListEntity[]> {
+    const listsRef = collection(db, 'lists');
 
-    useEffect(() => {
-        const fetchLists = async () => {
-            setLoading(true);
-            try {
-                const cacheKey = filter === 'liked'
-                    ? `lists:liked:${userId}`
-                    : `lists:${filter}:${userId || ''}:${includePrivate}`;
-                const cached = queryCache.get<ListEntity[]>(cacheKey);
-                if (cached) {
-                    setLists(cached);
-                    setLoading(false);
-                    return;
-                }
+    if (filter === 'liked' && userId) {
+        const likesRef = collection(db, 'list_likes');
+        const likesQ = query(likesRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+        const likesSnap = await getDocs(likesQ);
+        if (likesSnap.empty) return [];
 
-                let q;
-                const listsRef = collection(db, 'lists');
+        const listIds = likesSnap.docs.map(d => d.data().listId);
+        const listSnaps = await Promise.all(
+            listIds.map(async (id) => {
+                try { return await getDoc(doc(db, 'lists', id)); }
+                catch { return null; }
+            })
+        );
+        return listSnaps
+            .filter(snap => snap !== null && snap.exists())
+            .map(snap => ({ id: snap!.id, ...snap!.data() })) as ListEntity[];
+    }
 
-                // Case: Fetch Liked/Followed Lists
-                if (filter === 'liked' && userId) {
-                    const likesRef = collection(db, 'list_likes');
-                    // Query likes by this user
-                    const likesQ = query(likesRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
-                    const likesSnap = await getDocs(likesQ);
+    let q;
+    if (userId) {
+        if (includePrivate) {
+            q = query(listsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(50));
+        } else {
+            q = query(listsRef, where('userId', '==', userId), where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
+        }
+    } else {
+        q = query(listsRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
+    }
 
-                    if (likesSnap.empty) {
-                        setLists([]);
-                        setLoading(false);
-                        return;
-                    }
+    const snap = await getDocs(q);
+    const fetchedLists = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ListEntity[];
 
-                    const listIds = likesSnap.docs.map(d => d.data().listId);
+    if (filter === 'top_rated') {
+        fetchedLists.sort((a, b) => {
+            const scoreA = a.averageRating || a.avgScore || 0;
+            const scoreB = b.averageRating || b.avgScore || 0;
+            return scoreB - scoreA;
+        });
+    }
 
-                    // Fetch lists in parallel with error handling
-                    const listPromises = listIds.map(async (id) => {
-                        try {
-                            const snap = await getDoc(doc(db, 'lists', id));
-                            return snap;
-                        } catch (e) {
-                            console.warn(`Failed to fetch liked list ${id}`, e);
-                            return null;
-                        }
-                    });
-                    const listSnaps = await Promise.all(listPromises);
+    return fetchedLists;
+}
 
-                    const fetchedLists = listSnaps
-                        .filter(snap => snap !== null && snap.exists())
-                        .map(snap => ({ id: snap!.id, ...snap!.data() })) as ListEntity[];
+export const useLists = (
+    filter: 'recent' | 'top_rated' | 'liked' = 'recent',
+    userId?: string,
+    includePrivate = false,
+) => {
+    const q = useQuery({
+        queryKey: ['lists', filter, userId ?? null, includePrivate],
+        queryFn: () => fetchLists(filter, userId, includePrivate),
+    });
 
-                    queryCache.set(cacheKey, fetchedLists);
-                    setLists(fetchedLists);
-                    return; // Done
-                }
-
-                // Normal Cases
-                // Strategy: Fetch a safe batch ordered by createdAt (indexed), then filter/sort in memory.
-                // This avoids "Missing Index" errors for avgScore/averageRating and ensures data visibility.
-                if (userId) {
-                    if (includePrivate) {
-                        // User viewing their own profile: fetch ALL their lists
-                        q = query(listsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(50));
-                    } else {
-                        // Viewing someone else: Public only
-                        q = query(listsRef, where('userId', '==', userId), where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
-                    }
-                } else {
-                    q = query(listsRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
-                }
-
-                const querySnapshot = await getDocs(q);
-                const fetchedLists = querySnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                })) as ListEntity[];
-
-                // Client-side Sort for 'top_rated'
-                if (filter === 'top_rated') {
-                    fetchedLists.sort((a, b) => {
-                        const scoreA = a.averageRating || a.avgScore || 0;
-                        const scoreB = b.averageRating || b.avgScore || 0;
-                        return scoreB - scoreA;
-                    });
-                }
-
-                queryCache.set(cacheKey, fetchedLists);
-                setLists(fetchedLists);
-            } catch (err: unknown) {
-                console.error("Error fetching lists:", err);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setError((err as any).message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchLists();
-    }, [filter, userId, includePrivate]);
-
-    return { lists, loading, error };
+    return {
+        lists: q.data ?? [],
+        loading: q.isLoading,
+        error: q.error ? (q.error as Error).message : null,
+    };
 };

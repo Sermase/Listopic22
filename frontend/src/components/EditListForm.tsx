@@ -13,7 +13,7 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { queryCache, invalidateDoc } from '../lib/queryCache';
+import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader, X, Smile } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
@@ -29,6 +29,7 @@ interface EditListFormProps {
 
 export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, onCancel, onDeleted, formId, onSavingChange }) => {
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
 
     const isJefe = Boolean(profile && (
@@ -301,9 +302,9 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 await batch.commit();
             }
 
-            queryCache.invalidate('listDetails:' + listId);
-            queryCache.invalidate('lists:');
-            invalidateDoc('lists', listId);
+            queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
+            queryClient.invalidateQueries({ queryKey: ['lists'] });
+            queryClient.invalidateQueries({ queryKey: ['doc', 'lists', listId] });
             onSuccess();
         } catch (error) {
             console.error('Error updating list:', error);
@@ -319,8 +320,8 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
         setSaving(true);
         try {
             await deleteDoc(doc(db, 'lists', listId));
-            queryCache.invalidate('listDetails:' + listId);
-            queryCache.invalidate('lists:');
+            queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
+            queryClient.invalidateQueries({ queryKey: ['lists'] });
             (onDeleted || onSuccess)();
         } catch (error) {
             console.error('Error deleting list:', error);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, MoreHorizontal, Edit, Trash2, User, Heart, MessageSquare, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ReviewComments } from './ReviewComments';
 import { UserAvatar } from './UserAvatar';
@@ -29,6 +30,7 @@ interface ReviewCardProps {
 export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp }) => {
     const placeClosedStatus = placeClosedStatusProp || (review as any).placeClosedStatus || undefined;
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     const navigate = useNavigate();
 
     // Visual States
@@ -227,7 +229,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         if (window.confirm("¿Eliminar reseña?")) {
             setIsDeleting(true);
             try {
-                await ReviewService.deleteReview(review.listId, review.id);
+                await ReviewService.deleteReview(review.listId, review.id, queryClient);
                 if (onDelete) onDelete(review.id);
             } catch (error) {
                 console.error(error);
