@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Archive, Bell, Compass, Info, Menu, MessageSquare, Plus, Search, Share2, User, X } from 'lucide-react';
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
@@ -18,7 +18,7 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string
             className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 group
                 ${isActive
                     ? 'bg-indigo-500/10 text-indigo-400 font-medium'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5'
                 }`}
         >
             <div className="relative">
@@ -77,6 +77,7 @@ export const Navbar: React.FC = () => {
         const notificationsQuery = query(
             collection(db, 'users', user.uid, 'notifications'),
             where('read', '==', false),
+            limit(50),
         );
 
         const unsubscribe = onSnapshot(notificationsQuery, (snap: any) => {
@@ -138,6 +139,7 @@ export const Navbar: React.FC = () => {
         const chatsQuery = query(
             collection(db, 'chats'),
             where('participants', 'array-contains', user.uid),
+            limit(50),
         );
 
         const unsubscribe = onSnapshot(chatsQuery, (snapshot: any) => {
@@ -189,14 +191,14 @@ export const Navbar: React.FC = () => {
                                         <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
                                     </div>
                                 </div>
-                                <span className="text-xl font-display font-bold tracking-tight text-white group-hover:text-indigo-200 transition-colors">
+                                <span className="text-xl font-display font-bold tracking-tight text-[var(--lt-text)] group-hover:text-[var(--lt-accent)] transition-colors">
                                     {config.appName}
                                 </span>
                             </div>
                         )}
                     </Link>
 
-                    <nav className="hidden md:flex items-center bg-white/5 backdrop-blur-xl rounded-full px-2 py-1.5 border border-white/5 shadow-inner">
+                    <nav className="lt-nav-pill hidden md:flex items-center bg-white/5 backdrop-blur-xl rounded-full px-2 py-1.5 border border-white/5 shadow-inner">
                         <NavItem to="/search" icon={Search} label="Buscar" isActive={location.pathname === '/search'} />
                         <div className="w-px h-4 bg-white/10 mx-1" />
                         <NavItem to="/archive" icon={Archive} label="Archivo" isActive={location.pathname === '/archive'} />

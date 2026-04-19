@@ -320,7 +320,7 @@ export const CreateSublistPage: React.FC = () => {
                                     key={list.id}
                                     type="button"
                                     onClick={() => navigate(`/create-sublist/${list.id}`)}
-                                    className="w-full bg-[var(--lt-card-strong)] border border-white/8 active:bg-[#1a2035] hover:bg-[#1a2035] hover:border-indigo-500/40 rounded-2xl p-3 flex items-center gap-3 transition-all text-left group"
+                                    className="w-full bg-[var(--lt-card-strong)] border border-white/8 active:bg-[var(--lt-card)] hover:bg-[var(--lt-card)] hover:border-indigo-500/40 rounded-2xl p-3 flex items-center gap-3 transition-all text-left group"
                                 >
                                     <div className="w-14 h-14 bg-gray-800 rounded-xl overflow-hidden shrink-0">
                                         {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl)

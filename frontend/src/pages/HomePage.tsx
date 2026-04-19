@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
 import { useLists } from '../hooks/useLists';
@@ -408,7 +408,7 @@ export const HomePage: React.FC = () => {
     // --- FILTERING LOGIC ---
 
     // 1. Helper: Check Category (User Request: Hmm/Woow/Yujuui are categories)
-    const checkCategory = (item: any) => {
+    const checkCategory = useCallback((item: any) => {
         if (activeFilter === 'Todo') return true;
 
         const catId = item.categoryId || item.category || '';
@@ -427,15 +427,15 @@ export const HomePage: React.FC = () => {
         }
 
         return false;
-    };
+    }, [activeFilter]);
 
     // 2. Helper: Check Distance
-    const checkDistance = (lat?: number, lng?: number) => {
+    const checkDistance = useCallback((lat?: number, lng?: number) => {
         if (!range || !location || !lat || !lng) return true;
         const dist = calculateDistance(lat, lng);
         if (dist === null) return true;
         return dist <= range;
-    };
+    }, [range, location, calculateDistance]);
 
     // 3. Derived & Filtered Lists
     const filteredLists = useMemo(() => {

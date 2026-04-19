@@ -396,12 +396,12 @@ export const ChatsPage: React.FC = () => {
                                             : 'Contenido';
                                         const shareCardClass = isOwnMessage
                                             ? 'bg-indigo-500/30 border-indigo-300/30 hover:bg-indigo-500/40'
-                                            : 'bg-[var(--lt-bg-deep)] border-white/10 hover:bg-[#1a2033]';
+                                            : 'bg-[var(--lt-bg-deep)] border-white/10 hover:bg-[var(--lt-card)]';
 
                                         return (
                                             <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isOwnMessage
                                         ? 'bg-indigo-600 text-white rounded-br-none shadow-lg shadow-indigo-500/10'
-                                        : 'bg-[#1e2337] text-gray-200 rounded-bl-none border border-white/5'
+                                        : 'bg-[var(--lt-card)] text-gray-200 rounded-bl-none border border-white/5'
                                         }`}>
                                                 {isShareMessage && sharedEntity ? (
                                                     <div className="space-y-2">

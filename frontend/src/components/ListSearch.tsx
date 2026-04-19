@@ -217,7 +217,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full bg-[#1e2538] border rounded-xl p-3 flex items-center justify-between transition-all group ${isOpen ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-white/20'
+                className={`w-full bg-[var(--lt-card-strong)] border rounded-xl p-3 flex items-center justify-between transition-all group ${isOpen ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-white/10 hover:border-white/20'
                     }`}
             >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -257,7 +257,7 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 placeholder="Buscar lista..."
-                                className="w-full bg-[#1e2538] border border-white/10 rounded-lg pl-9 pr-8 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-500"
+                                className="w-full bg-[var(--lt-card-strong)] border border-white/10 rounded-lg pl-9 pr-8 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-500"
                                 onClick={(e) => e.stopPropagation()}
                             />
                             {searchTerm && (

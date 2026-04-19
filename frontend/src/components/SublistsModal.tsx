@@ -109,7 +109,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                                         <Link
                                             key={list.id}
                                             to={`/list/${list.id}`}
-                                            className="flex items-center gap-4 p-3 rounded-xl bg-[var(--lt-bg)] border border-white/5 hover:border-indigo-500/50 hover:bg-[#1a2035] transition-all group"
+                                            className="flex items-center gap-4 p-3 rounded-xl bg-[var(--lt-bg)] border border-white/5 hover:border-indigo-500/50 hover:bg-[var(--lt-card)] transition-all group"
                                         >
                                             <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                                                 {list.mainImageUrl || list.photoUrl ? (

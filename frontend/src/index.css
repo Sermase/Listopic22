@@ -443,6 +443,10 @@
     --lt-accent-border: #818cf8;
     --lt-accent-shadow: rgba(99, 102, 241, 0.4);
     --lt-accent-soft: rgba(99, 102, 241, 0.15);
+    --lt-success: #3dd598;
+    --lt-success-soft: rgba(61, 213, 152, 0.15);
+    --lt-warning: #ff715b;
+    --lt-warning-soft: rgba(255, 113, 91, 0.15);
     --lt-hero-grad: linear-gradient(90deg, #22d3ee, #6366f1, #a855f7);
     --lt-brand-mark: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1);
     --lt-body-mesh:
@@ -471,6 +475,10 @@
     --lt-accent-border: #7c6df6;
     --lt-accent-shadow: rgba(91, 76, 245, 0.28);
     --lt-accent-soft: rgba(91, 76, 245, 0.10);
+    --lt-success: #16a34a;
+    --lt-success-soft: rgba(22, 163, 74, 0.10);
+    --lt-warning: #ea580c;
+    --lt-warning-soft: rgba(234, 88, 12, 0.10);
     --lt-hero-grad: linear-gradient(90deg, #06b6d4, #5b4cf5, #a855f7);
     --lt-brand-mark: linear-gradient(135deg, #06b6d4, #3b82f6, #5b4cf5);
     --lt-body-mesh:
@@ -499,6 +507,10 @@
     --lt-accent-border: #fb923c;
     --lt-accent-shadow: rgba(249, 115, 22, 0.4);
     --lt-accent-soft: rgba(249, 115, 22, 0.15);
+    --lt-success: #3dd598;
+    --lt-success-soft: rgba(61, 213, 152, 0.15);
+    --lt-warning: #eab308;
+    --lt-warning-soft: rgba(234, 179, 8, 0.15);
     --lt-hero-grad: linear-gradient(90deg, #facc15, #f97316, #dc2626);
     --lt-brand-mark: linear-gradient(135deg, #facc15, #f97316, #dc2626);
     --lt-body-mesh:
@@ -527,6 +539,10 @@
     --lt-accent-border: #2dd4bf;
     --lt-accent-shadow: rgba(20, 184, 166, 0.4);
     --lt-accent-soft: rgba(20, 184, 166, 0.15);
+    --lt-success: #a3e635;
+    --lt-success-soft: rgba(163, 230, 53, 0.15);
+    --lt-warning: #ff715b;
+    --lt-warning-soft: rgba(255, 113, 91, 0.15);
     --lt-hero-grad: linear-gradient(90deg, #a7f3d0, #14b8a6, #06b6d4);
     --lt-brand-mark: linear-gradient(135deg, #a7f3d0, #14b8a6, #06b6d4);
     --lt-body-mesh:
@@ -806,4 +822,56 @@ html.theme-light .lt-media-card [class*="border-white/"] {
    contraste, no aclararlo como el resto de overlays. */
 html.theme-light .lt-media-card .bg-black\/40 { background-color: rgba(0, 0, 0, 0.45) !important; }
 html.theme-light .lt-media-card .bg-black\/50 { background-color: rgba(0, 0, 0, 0.50) !important; }
+
+/* ── Navbar light-mode overrides ─────────────────────────────────────── */
+html.theme-light .lt-nav-pill {
+    background: rgba(0, 0, 0, 0.06) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+html.theme-light .lt-nav-pill a {
+    color: var(--lt-text-muted);
+}
+html.theme-light .lt-nav-pill a.active-nav,
+html.theme-light .lt-nav-pill a:hover {
+    color: var(--lt-text);
+    background: rgba(0, 0, 0, 0.06);
+}
+
+/* ── Profile level card light-mode ───────────────────────────────────── */
+html.theme-light .lt-level-card {
+    background: #fef3c7 !important;
+    border-color: rgba(245, 158, 11, 0.30) !important;
+    box-shadow: 0 18px 40px rgba(245, 158, 11, 0.14) !important;
+}
+html.theme-light .lt-level-card .lt-level-label {
+    color: #92400e !important;
+    text-shadow: none !important;
+}
+html.theme-light .lt-level-card .lt-level-value {
+    color: #78350f !important;
+    text-shadow: none !important;
+}
+
+/* ── Profile stat card (non-level) light-mode ────────────────────────── */
+html.theme-light .lt-stat-card {
+    border-color: var(--lt-border) !important;
+}
+html.theme-light .lt-stat-card:hover {
+    background: var(--lt-card) !important;
+    border-color: rgba(99, 102, 241, 0.25) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blob,
+  .animate-pulse,
+  .animate-fade-in,
+  .animate-spin {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
 html.theme-light .lt-media-card .bg-black\/60 { background-color: rgba(0, 0, 0, 0.55) !important; }

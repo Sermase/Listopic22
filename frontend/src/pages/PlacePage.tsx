@@ -686,7 +686,7 @@ export const PlacePage: React.FC = () => {
                                                         className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-40 saturate-50' : ''}`}
                                                     />
                                                 ) : (
-                                                    <div className="w-full h-full bg-gradient-to-br from-[#151b2e] to-[var(--lt-bg)] flex items-center justify-center">
+                                                    <div className="w-full h-full bg-gradient-to-br from-[var(--lt-card-strong)] to-[var(--lt-bg)] flex items-center justify-center">
                                                         <MessageSquare className="w-6 h-6 text-gray-600" />
                                                     </div>
                                                 )}
@@ -729,7 +729,7 @@ export const PlacePage: React.FC = () => {
                     {activeTab === 'dishes' && (
                         <div className="animate-fade-in">
                             {dishes && dishes.length > 0 ? (
-                                <div className="bg-[#0d111f] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+                                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
                                     {/* Menu header */}
                                     <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
                                         <Utensils className="w-5 h-5 text-indigo-400" />

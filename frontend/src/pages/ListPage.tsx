@@ -1126,7 +1126,7 @@ export const ListPage: React.FC = () => {
                                 <div className="mt-8 text-center">
                                     <button
                                         onClick={handleLoadMore}
-                                        className="px-6 py-2 bg-[var(--lt-card-strong)] hover:bg-[#1e2538] border border-white/10 rounded-full text-indigo-400 hover:text-indigo-300 font-medium transition-colors shadow-lg"
+                                        className="px-6 py-2 bg-[var(--lt-card-strong)] hover:bg-[var(--lt-card)] border border-white/10 rounded-full text-indigo-400 hover:text-indigo-300 font-medium transition-colors shadow-lg"
                                     >
                                         Cargar más ({filteredItemsAll.length - visibleCount} restantes)
                                     </button>

@@ -12,7 +12,7 @@ const SortablePhoto = ({ p, i, activeIdx, setActiveIdx, removePhoto }: any) => {
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
-        border: `2px solid ${activeIdx === i ? '#6366f1' : 'rgba(255,255,255,0.1)'}`
+        border: `2px solid ${activeIdx === i ? 'var(--lt-accent)' : 'rgba(255,255,255,0.1)'}`
     };
 
     return (
@@ -162,17 +162,17 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
         <div className="fixed top-0 left-0 w-full h-[100dvh] z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center sm:p-6 animate-slide-up-modal sm:animate-fade-in origin-bottom sm:origin-center">
             <div className="w-full h-full max-w-2xl bg-[var(--lt-bg)] sm:rounded-2xl shadow-2xl overflow-hidden" style={{ display: 'grid', gridTemplateRows: 'auto 1fr auto', boxShadow: '0 0 0 1px rgba(255,255,255,0.06)' }}>
                 {/* Fila 1: Header */}
-                <div style={{ background: 'linear-gradient(135deg, #151c36 0%, #111828 100%)', position: 'relative', overflow: 'hidden' }}
+                <div style={{ background: 'linear-gradient(135deg, var(--lt-card-strong) 0%, var(--lt-bg) 100%)', position: 'relative', overflow: 'hidden' }}
                     className="flex shrink-0 items-center justify-between p-5 touch-pan-x"
                     onTouchStart={e => { headerTouchStartY.current = e.touches[0].clientY; }}
                     onTouchEnd={e => {
                         if (headerTouchStartY.current !== null && e.changedTouches[0].clientY - headerTouchStartY.current > 80) onClose();
                         headerTouchStartY.current = null;
                     }}>
-                    <div style={{ position: 'absolute', top: -32, left: -32, width: 112, height: 112, borderRadius: '50%', background: 'radial-gradient(circle, #5C7CFA, transparent 70%)', opacity: 0.25, pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', top: -32, left: -32, width: 112, height: 112, borderRadius: '50%', background: 'radial-gradient(circle, var(--lt-accent), transparent 70%)', opacity: 0.25, pointerEvents: 'none' }} />
                     <div className="relative flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
-                            style={{ background: 'linear-gradient(135deg, #5C7CFA, #9b51e0)' }}>📸</div>
+                            style={{ background: 'var(--lt-accent-grad)' }}>📸</div>
                         <div>
                             <h2 className="text-base font-bold text-white leading-tight">Editar fotos</h2>
                             <p className="text-xs mt-0.5" style={{ color: 'rgba(165,180,252,0.6)' }}>{photos.length} / 3 · toca para cambiar</p>
@@ -185,7 +185,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                 </div>
 
                 {/* Fila 2: Crop — recibe 1fr, siempre entre header y footer */}
-                <div style={{ position: 'relative', overflow: 'hidden', background: '#0b1021' }}>
+                <div style={{ position: 'relative', overflow: 'hidden', background: 'var(--lt-bg)' }}>
                     {active ? (
                         <Cropper
                             image={active.src}
@@ -196,7 +196,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                             onZoomChange={z => updateCropState(active.id, { zoom: z })}
                             onCropComplete={(_, px) => updateCropState(active.id, { croppedAreaPixels: px })}
                             style={{
-                                containerStyle: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: '#0b1021' },
+                                containerStyle: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--lt-bg)' },
                                 cropAreaStyle: { border: '2px solid rgba(99,102,241,0.9)', boxShadow: '0 0 0 9999px rgba(11,16,33,0.78)' },
                             }}
                         />
@@ -208,7 +208,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                 </div>
 
                 {/* Fila 3: Controles + botones */}
-                <div style={{ background: 'linear-gradient(180deg, #0d1226 0%, #0b1021 100%)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ background: 'var(--lt-bg-deep)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                     {/* Formato */}
                     <div className="flex items-center gap-3 px-4 pt-3 pb-2">
                         <span className="text-gray-500 uppercase tracking-widest w-14 shrink-0" style={{ fontSize: 10 }}>Formato</span>
@@ -217,8 +217,8 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                                 <button key={opt.key} onClick={() => setAspectKey(opt.key)}
                                     className="shrink-0 px-3 py-1 rounded-lg text-xs font-bold border transition-all"
                                     style={{
-                                        background: aspectKey === opt.key ? '#4f46e5' : 'rgba(255,255,255,0.05)',
-                                        borderColor: aspectKey === opt.key ? '#6366f1' : 'rgba(255,255,255,0.1)',
+                                        background: aspectKey === opt.key ? 'var(--lt-accent)' : 'rgba(255,255,255,0.05)',
+                                        borderColor: aspectKey === opt.key ? 'var(--lt-accent-border)' : 'rgba(255,255,255,0.1)',
                                         color: aspectKey === opt.key ? '#fff' : '#9ca3af',
                                     }}>
                                     {opt.label}
@@ -255,7 +255,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                         </button>
                         <button onClick={handleConfirm} disabled={processing}
                             className="flex-1 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                            style={{ background: '#4f46e5', color: '#fff' }}>
+                            style={{ background: 'var(--lt-accent)', color: '#fff' }}>
                             {processing && <Loader2 className="w-4 h-4 animate-spin" />}
                             Guardar fotos
                         </button>

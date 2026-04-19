@@ -593,7 +593,7 @@ export const SearchPage: React.FC = () => {
                         {mobileFiltersOpen && (
                             <div className="fixed inset-0 z-[2000] lg:hidden">
                                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileFiltersOpen(false)} />
-                                <div className="absolute right-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[#0f1629] border-l border-white/10 p-5 overflow-y-auto shadow-2xl">
+                                <div className="absolute right-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--lt-card-strong)] border-l border-white/10 p-5 overflow-y-auto shadow-2xl">
                                     <div className="flex justify-between items-center mb-5">
                                         <h3 className="text-white font-bold">Filtros</h3>
                                         <button onClick={() => setMobileFiltersOpen(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>

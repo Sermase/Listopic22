@@ -845,7 +845,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
     const getSliderBg = (val: number, ponderable = true) => {
         const pct = (val / 10) * 100;
-        const activeColor = ponderable ? `hsl(${val * 12}, 90%, 55%)` : '#5C7CFA';
+        const activeColor = ponderable ? `hsl(${val * 12}, 90%, 55%)` : 'var(--lt-accent)';
         return `linear-gradient(to right, ${activeColor} 0%, ${activeColor} ${pct}%, rgba(55,65,81,0.35) ${pct}%, rgba(55,65,81,0.35) 100%)`;
     };
 
@@ -859,18 +859,18 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     {/* ── Header ─────────────────────────────────────── */}
                     <div
                         className="relative flex items-center justify-between p-5 shrink-0 overflow-hidden"
-                        style={{ background: 'linear-gradient(135deg, #151c36 0%, #111828 100%)' }}
+                        style={{ background: 'linear-gradient(135deg, var(--lt-card-strong) 0%, var(--lt-bg) 100%)' }}
                     >
                         {/* Decorative blobs */}
                         <div className="absolute -top-8 -left-8 w-28 h-28 rounded-full opacity-25 pointer-events-none"
-                            style={{ background: 'radial-gradient(circle, #5C7CFA, transparent 70%)' }} />
+                            style={{ background: 'radial-gradient(circle, var(--lt-accent), transparent 70%)' }} />
                         <div className="absolute -top-6 right-12 w-20 h-20 rounded-full opacity-20 pointer-events-none"
-                            style={{ background: 'radial-gradient(circle, #FF715B, transparent 70%)' }} />
+                            style={{ background: 'radial-gradient(circle, var(--lt-warning), transparent 70%)' }} />
 
                         <div className="relative flex items-center gap-3">
                             <div
                                 className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
-                                style={{ background: 'linear-gradient(135deg, #5C7CFA, #9b51e0)' }}
+                                style={{ background: 'var(--lt-accent-grad)' }}
                             >
                                 {isNew ? '✍️' : '✏️'}
                             </div>
@@ -934,13 +934,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                             {/* ── Sección: ¿Dónde? ────────────────────── */}
                             <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-                                <p className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 transition-colors duration-300 ${(selectedPlace || prefillPlaceId) ? 'text-[#3DD598]' : 'text-[#FF715B]'}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 transition-colors duration-300 ${(selectedPlace || prefillPlaceId) ? 'text-[var(--lt-success)]' : 'text-[var(--lt-warning)]'}`}>
                                     <span>{(selectedPlace || prefillPlaceId) ? '✅' : '📍'}</span> ¿Dónde?
                                 </p>
                                 {prefillPlaceId ? (
-                                    <div className="flex items-center gap-3 bg-[#FF715B]/10 border border-[#FF715B]/20 p-3 rounded-xl">
-                                        <div className="p-2 bg-[#FF715B]/20 rounded-xl shrink-0">
-                                            <MapPinIcon className="w-4 h-4 text-[#FF715B]" />
+                                    <div className="flex items-center gap-3 bg-[var(--lt-warning)]/10 border border-[var(--lt-warning)]/20 p-3 rounded-xl">
+                                        <div className="p-2 bg-[var(--lt-warning)]/20 rounded-xl shrink-0">
+                                            <MapPinIcon className="w-4 h-4 text-[var(--lt-warning)]" />
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-bold text-white truncate">{selectedPlace?.name || 'Cargando...'}</p>
@@ -956,7 +956,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                             placeholder="Busca el restaurante, bar, café... 🔍"
                                         />
                                         {selectedPlace && (
-                                            <div className="flex items-center gap-2 text-xs text-[#3DD598] bg-[#3DD598]/10 border border-[#3DD598]/20 px-3 py-2 rounded-xl animate-fade-in">
+                                            <div className="flex items-center gap-2 text-xs text-[var(--lt-success)] bg-[var(--lt-success)]/10 border border-[var(--lt-success)]/20 px-3 py-2 rounded-xl animate-fade-in">
                                                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                                                 <span className="font-semibold truncate">{selectedPlace.name}</span>
                                             </div>
@@ -967,7 +967,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                             {/* ── Sección: ¿Qué probaste? ─────────────── */}
                             <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-[#3DD598] flex items-center gap-1.5">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-success)] flex items-center gap-1.5">
                                     <span>🍽️</span> ¿Qué probaste?
                                 </p>
                                 <div className="relative">
@@ -994,7 +994,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             {criteriaList.length > 0 ? (
                                 <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-5">
                                     <div className="flex items-center justify-between">
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#F2C94C] flex items-center gap-1.5">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400 flex items-center gap-1.5">
                                             <span>⭐</span> Valoración
                                         </p>
                                         {isNew && !ratingsTouched && (
@@ -1092,7 +1092,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                                 navigator.vibrate?.(10);
                                                             }}
                                                             className="custom-range-slider"
-                                                            style={{ background: getSliderBg(val, false), '--thumb-color': '#5C7CFA' } as React.CSSProperties}
+                                                            style={{ background: getSliderBg(val, false), '--thumb-color': 'var(--lt-accent)' } as React.CSSProperties}
                                                         />
                                                         {(criterion.labelMin || criterion.labelMax) && (
                                                             <div className="flex justify-between gap-3">
@@ -1117,7 +1117,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                             {/* ── Sección: Tu opinión ─────────────────── */}
                             <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-[#24A3FF] flex items-center gap-1.5">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
                                     <span>💬</span> Tu opinión
                                 </p>
                                 <textarea
@@ -1135,7 +1135,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                             {/* ── Sección: Fotos ──────────────────────── */}
                             <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-[#9b51e0] flex items-center gap-1.5">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent-2)] flex items-center gap-1.5">
                                     <span>📸</span> Fotos
                                     <span className="normal-case font-normal tracking-normal text-gray-600 ml-1">(opcional · hasta 3)</span>
                                 </p>
@@ -1223,7 +1223,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             {/* ── Sección: Etiquetas ──────────────────── */}
                             {listAvailableTags.length > 0 && (
                                 <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#3DD598] flex items-center gap-1.5">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-success)] flex items-center gap-1.5">
                                         <span>🏷️</span> Etiquetas
                                     </p>
                                     <div className="flex flex-wrap gap-2">
@@ -1258,7 +1258,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     {/* ── Footer ─────────────────────────────────────── */}
                     <div
                         className="px-4 py-3 border-t border-white/5 shrink-0"
-                        style={{ background: 'linear-gradient(180deg, #0c1124 0%, #0b1021 100%)' }}
+                        style={{ background: 'var(--lt-bg-deep)' }}
                     >
                         <div className="flex gap-2">
                             <button

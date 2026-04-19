@@ -444,7 +444,7 @@ export const ArchivePage: React.FC = () => {
                                                                 key={item.itemId}
                                                                 draggable
                                                                 onDragStart={e => handleDragStart(e, item, arch.id)}
-                                                                className="group relative rounded-xl overflow-hidden border border-white/5 hover:border-white/20 transition-all cursor-grab active:cursor-grabbing bg-[#1a2236] flex flex-col"
+                                                                className="group relative rounded-xl overflow-hidden border border-white/5 hover:border-white/20 transition-all cursor-grab active:cursor-grabbing bg-[var(--lt-card)] flex flex-col"
                                                             >
                                                                 {/* Imagen cuadrada */}
                                                                 <div className="aspect-square bg-gray-800/60 relative">
@@ -528,7 +528,7 @@ export const ArchivePage: React.FC = () => {
                                     {editEmoji}
                                 </div>
                                 <input
-                                    className="flex-1 bg-[#1e2538] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors text-sm"
+                                    className="flex-1 bg-[var(--lt-card)] border border-white/10 rounded-xl px-4 py-3 text-[var(--lt-text)] focus:outline-none focus:border-indigo-500 transition-colors text-sm"
                                     value={editName}
                                     placeholder="Nombre de la colección..."
                                     onChange={e => setEditName(e.target.value)}
