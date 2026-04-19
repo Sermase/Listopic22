@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -28,21 +28,27 @@ export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [pageSize, setPageSize] = useState(20);
+    const [hasMore, setHasMore] = useState(false);
 
     useEffect(() => {
         if (!listId || !reviewId) return;
 
         // Path: lists/{listId}/reviews/{reviewId}/comments
+        // Query newest-first with a hard limit; we reverse in memory for chronological display.
         const q = query(
             collection(db, 'lists', listId, 'reviews', reviewId, 'comments'),
-            orderBy('createdAt', 'asc')
+            orderBy('createdAt', 'desc'),
+            limit(pageSize)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setComments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment)));
+            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment));
+            setComments(docs.reverse());
+            setHasMore(snapshot.size >= pageSize);
         });
         return () => unsubscribe();
-    }, [listId, reviewId]);
+    }, [listId, reviewId, pageSize]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -86,11 +92,20 @@ export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId
     };
 
     return (
-        <div className="bg-[#0b1021]/50 border-t border-white/5 p-4 animate-in slide-in-from-top-2 duration-200">
+        <div className="bg-[var(--lt-bg)]/50 border-t border-white/5 p-4 animate-in slide-in-from-top-2 duration-200">
             {/* List */}
             <div className="space-y-4 mb-4 max-h-60 overflow-y-auto custom-scrollbar">
                 {comments.length === 0 && (
                     <p className="text-gray-500 text-xs text-center italic">Sé el primero en comentar...</p>
+                )}
+                {hasMore && (
+                    <button
+                        type="button"
+                        onClick={() => setPageSize(prev => prev + 20)}
+                        className="w-full text-[11px] text-gray-400 hover:text-gray-200 py-1 transition-colors"
+                    >
+                        Cargar comentarios anteriores
+                    </button>
                 )}
                 {comments.map(comment => (
                     <div key={comment.id} className="flex gap-3 group">

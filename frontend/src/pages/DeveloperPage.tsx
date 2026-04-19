@@ -28,10 +28,12 @@ interface ConsoleSearchParams {
 }
 
 export const DeveloperPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, isJefe, loading: loadingAuth } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
     const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd'>('console');
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+    // Reactive: un usuario al que se le acaba de quitar el rol 'jefe' pierde
+    // acceso inmediatamente sin recargar la página.
+    const isAuthorized: boolean | null = loadingAuth ? null : isJefe;
 
     // Other Settings State
     const [otherSettings, setOtherSettings] = useState({
@@ -87,12 +89,8 @@ export const DeveloperPage: React.FC = () => {
     const [importingBadgePackId, setImportingBadgePackId] = useState<string | null>(null);
 
 
-    useEffect(() => {
-        if (!loadingProfile && profile) {
-            const isJefe = (Array.isArray(profile.userType) && profile.userType.includes('jefe')) || profile.userType === 'jefe';
-            setIsAuthorized(isJefe);
-        }
-    }, [profile, loadingProfile]);
+    // isAuthorized ahora viene de AuthContext.isJefe (reactivo); el chequeo
+    // anterior con profile one-shot se ha eliminado intencionadamente.
 
     const handleConsoleSearch = async () => {
         setLoadingConsole(true);
@@ -563,14 +561,14 @@ export const DeveloperPage: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
-        if (!isAuthorized && !loadingProfile) {
+        if (!isAuthorized && !loadingAuth) {
             // Optional: redirect or just show the unauthorized message
         }
-    }, [isAuthorized, loadingProfile]);
+    }, [isAuthorized, loadingAuth]);
 
     // Update active tab logic if needed
 
-    if (loadingProfile || isAuthorized === null) {
+    if (loadingAuth || isAuthorized === null) {
         return <div className="min-h-screen pt-safe-24 text-center text-gray-500">Verificando permisos...</div>;
     }
 
@@ -586,7 +584,7 @@ export const DeveloperPage: React.FC = () => {
                 <div className="flex h-screen overflow-hidden pt-16"> {/* Added pt-16 for header spacing */}
                     {/* Mobile Sidebar Toggle */}
                     <button
-                        className="fixed top-20 left-4 z-50 p-2 bg-[#151b2e] border border-white/10 rounded-lg text-white md:hidden shadow-xl"
+                        className="fixed top-20 left-4 z-50 p-2 bg-[var(--lt-card-strong)] border border-white/10 rounded-lg text-white md:hidden shadow-xl"
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                     >
                         {isSidebarOpen ? <X className="w-6 h-6" /> : <ListIcon className="w-6 h-6" />}
@@ -687,7 +685,7 @@ export const DeveloperPage: React.FC = () => {
                         {activeTab === 'console' && (
                             <div className="space-y-6">
                                 {/* Search Bar */}
-                                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 shadow-xl">
+                                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 shadow-xl">
                                     <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                                         <Search className="w-5 h-5 text-indigo-400" /> Explorador de Firestore
                                     </h2>
@@ -781,7 +779,7 @@ export const DeveloperPage: React.FC = () => {
                                     <div className="flex justify-between items-center text-gray-400 text-sm">
                                         <span>Resultados: {consoleResults.length}</span>
                                     </div>
-                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden overflow-x-auto">
+                                    <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden overflow-x-auto">
                                         <table className="w-full text-left text-sm text-gray-300">
                                             <thead className="bg-white/5 text-gray-100 font-bold uppercase text-xs">
                                                 <tr>
@@ -848,7 +846,7 @@ export const DeveloperPage: React.FC = () => {
                         {
                             activeTab === 'algolia' && (
                                 <div className="space-y-6">
-                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                                    <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
                                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                                             <CloudLightning className="w-5 h-5 text-yellow-400" /> Sincronización Manual
                                         </h3>
@@ -900,7 +898,7 @@ export const DeveloperPage: React.FC = () => {
                         {
                             activeTab === 'maintenance' && (
                                 <div className="space-y-6">
-                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                                    <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
                                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                                             <ListIcon className="w-5 h-5 text-purple-400" /> Mantenimiento de Listas
                                         </h3>
@@ -993,7 +991,7 @@ export const DeveloperPage: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                                    <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
                                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                                             <Users className="w-5 h-5 text-amber-400" /> Backfill de Tipos de Autor
                                         </h3>
@@ -1022,7 +1020,7 @@ export const DeveloperPage: React.FC = () => {
 
                         {activeTab === 'others' && (
                             <div className="max-w-4xl mx-auto space-y-6">
-                                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6">
+                                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
                                     <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
                                         <SlidersHorizontal className="w-6 h-6 text-amber-400" /> OTROS
                                     </h2>
@@ -1093,7 +1091,7 @@ export const DeveloperPage: React.FC = () => {
                                                 <select
                                                     value={otherSettings.homeReviewsMonths}
                                                     onChange={(e) => setOtherSettings((prev) => ({ ...prev, homeReviewsMonths: Number(e.target.value) }))}
-                                                    className="bg-[#0b1021] border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm font-bold focus:outline-none focus:border-indigo-500 shrink-0"
+                                                    className="bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm font-bold focus:outline-none focus:border-indigo-500 shrink-0"
                                                 >
                                                     <option value={1}>1 mes</option>
                                                     <option value={3}>3 meses</option>
@@ -1151,7 +1149,7 @@ export const DeveloperPage: React.FC = () => {
                                         {BADGE_PRESET_PACKS.map((pack) => (
                                             <div
                                                 key={pack.id}
-                                                className={`rounded-2xl border border-white/10 bg-gradient-to-br ${pack.theme} bg-[#151b2e] p-5`}
+                                                className={`rounded-2xl border border-white/10 bg-gradient-to-br ${pack.theme} bg-[var(--lt-card-strong)] p-5`}
                                             >
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div>
@@ -1192,7 +1190,7 @@ export const DeveloperPage: React.FC = () => {
                                         ))}
                                     </div>
                                     {/* --- MANUAL ASSIGNMENT TOOL --- */}
-                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 mb-8 relative overflow-hidden">
+                                    <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 mb-8 relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-4 opacity-5">
                                             <CheckCircle className="w-32 h-32 text-indigo-500" />
                                         </div>
@@ -1240,7 +1238,7 @@ export const DeveloperPage: React.FC = () => {
                                     {/* --- BADGE LIST --- */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                                         {badges.map(badge => (
-                                            <div key={badge.id} className="bg-[#151b2e] border border-white/10 rounded-xl p-6 relative group hover:border-amber-500/50 transition-all">
+                                            <div key={badge.id} className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 relative group hover:border-amber-500/50 transition-all">
                                                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button
                                                         onClick={() => { setEditingBadge(badge); setBadgeModalOpen(true); }}
@@ -1295,7 +1293,7 @@ export const DeveloperPage: React.FC = () => {
                                     </div>
 
                                     {/* --- BULK OPERATIONS (Moved to bottom) --- */}
-                                    <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 opacity-60 hover:opacity-100 transition-opacity">
+                                    <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 opacity-60 hover:opacity-100 transition-opacity">
                                         <h3 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2">
                                             <CloudLightning className="w-4 h-4" /> Zona de Peligro / Global
                                         </h3>
@@ -1328,7 +1326,7 @@ export const DeveloperPage: React.FC = () => {
                                     {/* --- EDIT MODAL --- */}
                                     {badgeModalOpen && (
                                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setBadgeModalOpen(false)}>
-                                            <div className="bg-[#151b2e] rounded-2xl w-full max-w-2xl border border-white/10 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                                            <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-2xl border border-white/10 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                                                 <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#1a2036]">
                                                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                                                         {editingBadge?.id ? <Palette className="w-5 h-5 text-amber-500" /> : <Tag className="w-5 h-5 text-green-500" />}
@@ -1540,7 +1538,7 @@ export const DeveloperPage: React.FC = () => {
                                                     </div>
                                                 </div>
 
-                                                <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-[#151b2e]">
+                                                <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-[var(--lt-card-strong)]">
                                                     <button
                                                         onClick={() => setBadgeModalOpen(false)}
                                                         className="px-4 py-2 text-gray-400 hover:text-white font-bold transition-colors"
@@ -1597,7 +1595,7 @@ export const DeveloperPage: React.FC = () => {
                                                 onClick={() => setReportFilter(stat.filter)}
                                                 className={`rounded-xl border p-4 text-left transition-all ${reportFilter === stat.filter
                                                     ? `border-${stat.color}-500/40 bg-${stat.color}-500/10`
-                                                    : 'border-white/10 bg-[#151b2e]/60 hover:border-white/20'
+                                                    : 'border-white/10 bg-[var(--lt-card-strong)]/60 hover:border-white/20'
                                                     }`}
                                             >
                                                 <div className="text-xs font-bold uppercase tracking-wider text-gray-400">{stat.label}</div>
@@ -1638,7 +1636,7 @@ export const DeveloperPage: React.FC = () => {
                                             return (
                                                 <div
                                                     key={report.id}
-                                                    className={`rounded-xl border overflow-hidden transition-all ${isExpanded ? 'border-white/20 bg-[#151b2e]' : 'border-white/10 bg-[#151b2e]/60 hover:border-white/15'
+                                                    className={`rounded-xl border overflow-hidden transition-all ${isExpanded ? 'border-white/20 bg-[var(--lt-card-strong)]' : 'border-white/10 bg-[var(--lt-card-strong)]/60 hover:border-white/15'
                                                         }`}
                                                 >
                                                     {/* Row summary */}
@@ -1864,7 +1862,7 @@ export const DeveloperPage: React.FC = () => {
                                         })}
 
                                         {!loadingReports && reports.length === 0 && (
-                                            <div className="rounded-xl border border-white/10 bg-[#151b2e]/60 p-12 text-center">
+                                            <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/60 p-12 text-center">
                                                 <Flag className="w-8 h-8 text-gray-600 mx-auto mb-3" />
                                                 <p className="text-gray-500 font-bold">No hay reportes {reportFilter !== 'all' ? `con estado "${reportFilter}"` : ''}</p>
                                             </div>

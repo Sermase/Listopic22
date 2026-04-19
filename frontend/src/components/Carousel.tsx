@@ -47,7 +47,7 @@ export const Carousel: React.FC<CarouselProps> = ({ title, lists, loading }) => 
             >
                 {loading ? (
                     Array(5).fill(0).map((_, i) => (
-                        <div key={i} className="min-w-[280px] md:min-w-[320px] h-64 bg-[#151b2e] rounded-xl animate-pulse border border-white/5 shrink-0"></div>
+                        <div key={i} className="min-w-[280px] md:min-w-[320px] h-64 bg-[var(--lt-card-strong)] rounded-xl animate-pulse border border-white/5 shrink-0"></div>
                     ))
                 ) : (
                     lists.map(list => (

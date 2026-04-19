@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="theme-dark">
 
 <head>
   <meta charset="UTF-8" />
@@ -12,19 +12,48 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Listopic</title>
+  <script>
+    // Apply saved theme class before first paint to avoid FOUC.
+    (function () {
+      try {
+        var t = localStorage.getItem('listopic-theme');
+        var valid = ['dark', 'light', 'warm', 'cool'];
+        if (t && valid.indexOf(t) !== -1) {
+          var html = document.documentElement;
+          html.classList.remove('theme-dark', 'theme-light', 'theme-warm', 'theme-cool');
+          html.classList.add('theme-' + t);
+          html.setAttribute('data-theme', t);
+          var bg = { dark: '#0b1021', light: '#faf8f4', warm: '#1a0f0c', cool: '#031a20' }[t];
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta && bg) meta.setAttribute('content', bg);
+          document.documentElement.style.backgroundColor = bg;
+        }
+      } catch (e) { /* private mode or storage blocked */ }
+    })();
+  </script>
   <style>
-    body { margin: 0; background: #0b1021; }
+    body { margin: 0; }
+    html, body { background-color: #0b1021; }
+    html.theme-light, html.theme-light body { background-color: #faf8f4; }
+    html.theme-warm, html.theme-warm body { background-color: #1a0f0c; }
+    html.theme-cool, html.theme-cool body { background-color: #031a20; }
     @keyframes lp-spin { to { transform: rotate(360deg); } }
     #lp-boot {
-      position: fixed; inset: 0; background: #0b1021;
+      position: fixed; inset: 0;
+      background: #0b1021;
       display: flex; align-items: center; justify-content: center; z-index: 9999;
     }
+    html.theme-light #lp-boot { background: #faf8f4; }
+    html.theme-warm #lp-boot { background: #1a0f0c; }
+    html.theme-cool #lp-boot { background: #031a20; }
     #lp-boot-spinner {
       width: 32px; height: 32px; border-radius: 50%;
       border: 3px solid rgba(99,102,241,0.2);
       border-top-color: #6366f1;
       animation: lp-spin 0.75s linear infinite;
     }
+    html.theme-warm #lp-boot-spinner { border-color: rgba(249,115,22,0.2); border-top-color: #f97316; }
+    html.theme-cool #lp-boot-spinner { border-color: rgba(20,184,166,0.2); border-top-color: #14b8a6; }
   </style>
   <!-- Default Open Graph Tags (Will be updated by SeoManager) -->
   <meta property="og:title" content="Listopic" />

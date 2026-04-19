@@ -525,7 +525,7 @@ export const GroupPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0b1021] animate-pulse">
+            <div className="min-h-screen bg-[var(--lt-bg)] animate-pulse">
                 <div className="h-[40vh] min-h-[300px] bg-white/5 animate-hero-from-left" />
                 <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-16 relative z-10">
                     <div className="h-10 bg-white/10 rounded w-2/3 mb-3" />
@@ -572,10 +572,10 @@ export const GroupPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#0b1021] pb-20">
+        <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
             {/* Hero */}
             <div className={`relative h-[40vh] min-h-[300px] w-full overflow-hidden group ${heroReady || !stats?.mainPhoto ? 'animate-hero-from-right' : ''}`}>
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
                 {stats?.mainPhoto ? (
                     <ProgressiveImage src={stats.mainPhoto} alt={decodedName} containerClassName="absolute inset-0" className="w-full h-full object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-700" onLoad={() => setHeroReady(true)} />
                 ) : (
@@ -608,7 +608,7 @@ export const GroupPage: React.FC = () => {
                         </button>
 
                         {isMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right">
+                            <div className="absolute right-0 mt-2 w-48 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right">
                                 <button
                                     onClick={() => { setIsMenuOpen(false); setIsShareModalOpen(true); }}
                                     className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
@@ -626,7 +626,7 @@ export const GroupPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 z-20 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-transparent pt-20">
+                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 z-20 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-transparent pt-20">
                     <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6">
 
                         {/* Title & Place Info */}
@@ -698,10 +698,10 @@ export const GroupPage: React.FC = () => {
                 <div className="order-1 lg:col-span-4 lg:order-last space-y-6">
 
                     {/* Actions Row */}
-                    <div className="bg-[#151b2e] p-3 rounded-xl border border-white/10 grid grid-cols-3 gap-3">
+                    <div className="bg-[var(--lt-card-strong)] p-3 rounded-xl border border-white/10 grid grid-cols-3 gap-3">
                         <button
                             onClick={() => setIsSaveModalOpen(true)}
-                            className="bg-[#1e2538] hover:bg-[#2a3449] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
+                            className="bg-[var(--lt-card)] hover:bg-[var(--lt-card-strong)] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
                         >
                             <Bookmark className="w-6 h-6 group-hover:scale-110 transition-transform text-indigo-400" />
                             <span className="text-xs font-bold tracking-wide">GUARDAR</span>
@@ -709,7 +709,7 @@ export const GroupPage: React.FC = () => {
 
                         <button
                             onClick={() => setIsShareModalOpen(true)}
-                            className="bg-[#1e2538] hover:bg-[#2a3449] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
+                            className="bg-[var(--lt-card)] hover:bg-[var(--lt-card-strong)] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
                         >
                             <Share2 className="w-6 h-6 group-hover:scale-110 transition-transform text-indigo-400" />
                             <span className="text-xs font-bold tracking-wide">COMPARTIR</span>
@@ -726,7 +726,7 @@ export const GroupPage: React.FC = () => {
 
                     {/* 1. Detailed Stats (Refactored) */}
                     {stats && (stats.ponderable.length > 0 || stats.nonPonderable.length > 0) && (
-                        <div className="bg-[#151b2e] rounded-xl border border-white/10 p-5">
+                        <div className="bg-[var(--lt-card-strong)] rounded-xl border border-white/10 p-5">
                             <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm uppercase tracking-wider mb-4 flex justify-between items-center">
                                 <span>Puntuaciones</span>
                             </h3>
@@ -782,7 +782,7 @@ export const GroupPage: React.FC = () => {
 
                     {/* 2. Lists */}
                     {listsDetails.length > 0 && (
-                        <div className="bg-[#151b2e] rounded-xl border border-white/10 p-5">
+                        <div className="bg-[var(--lt-card-strong)] rounded-xl border border-white/10 p-5">
                             <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm uppercase tracking-wider mb-4">
                                 Listas Relacionadas
                             </h3>
@@ -909,7 +909,7 @@ export const GroupPage: React.FC = () => {
 
                                         if (isExpanded) {
                                             return (
-                                                <div key={review.id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[#151b2e] rounded-xl border border-indigo-500/50 mb-2 shadow-2xl animate-fade-in">
+                                                <div key={review.id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[var(--lt-card-strong)] rounded-xl border border-indigo-500/50 mb-2 shadow-2xl animate-fade-in">
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
                                                         className="w-full flex justify-center pt-2 pb-1"
@@ -926,7 +926,7 @@ export const GroupPage: React.FC = () => {
                                             <div
                                                 key={review.id}
                                                 onClick={() => setExpandedReviewId(review.id)}
-                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[#0b1021] hover:border-indigo-500 transition-colors"
+                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-indigo-500 transition-colors"
                                             >
                                                 {photoSrc ? (
                                                     <img
@@ -967,7 +967,7 @@ export const GroupPage: React.FC = () => {
                                 </div>
                             )
                         ) : (
-                            <div className="p-8 bg-[#151b2e] rounded-xl border border-white/10 text-center animate-fade-in">
+                            <div className="p-8 bg-[var(--lt-card-strong)] rounded-xl border border-white/10 text-center animate-fade-in">
                                 <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                                 <h3 className="text-lg font-bold text-white mb-2">Sé el primero en opinar</h3>
                                 <p className="text-gray-400 mb-6 text-sm">Nadie ha escrito una reseña detallada sobre este plato aún.</p>

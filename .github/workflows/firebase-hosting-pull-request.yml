@@ -13,7 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+      - name: Lint frontend (informativo, no bloquea el deploy)
+        run: npm run lint
+        working-directory: frontend
+        continue-on-error: true
+      - name: Build frontend
+        run: npm run build
         working-directory: frontend
         env:
           VITE_ALGOLIA_APP_ID: ${{ secrets.VITE_ALGOLIA_APP_ID }}

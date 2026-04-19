@@ -21,7 +21,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
     const scoreColorClass = getScoreColor(review.overallRating || 0);
 
     return (
-        <article style={{ willChange: 'transform' }} className="relative w-[220px] h-[160px] md:w-[260px] md:h-[190px] rounded-3xl overflow-hidden shadow-lg border border-white/5 group bg-gray-900 flex-shrink-0 transition-transform hover:scale-105 duration-300">
+        <article style={{ willChange: 'transform' }} className="lt-media-card relative w-[220px] h-[160px] md:w-[260px] md:h-[190px] rounded-3xl overflow-hidden shadow-lg border border-white/5 group bg-gray-900 flex-shrink-0 transition-transform hover:scale-105 duration-300">
             {/* Background Image */}
             <div className="absolute inset-0">
                 {review.photoUrl || review.placeMainImage ? (
@@ -36,7 +36,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
                     </div>
                 )}
                 {/* Gradient Overlay for Text Readability */}
-                <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-[#0b1021]/95 via-[#0b1021]/40 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/90 via-black/45 to-transparent" />
             </div>
 
             {/* Top Elements */}
@@ -48,7 +48,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
                         {/* Author Bubble */}
                         <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/10 rounded-full pr-3 pl-1 py-1 shadow-lg">
                             <div className={`w-6 h-6 rounded-full overflow-hidden flex-shrink-0 p-[1.5px] bg-gradient-to-tr ${getUserTypeGradient((review as any).authorUserType)}`}>
-                                <div className="w-full h-full rounded-full overflow-hidden bg-gray-800 border border-[#0b1021]">
+                                <div className="w-full h-full rounded-full overflow-hidden bg-gray-800 border border-[var(--lt-bg)]">
                                 <img
                                     src={review.authorPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.authorName || 'User')}`}
                                     alt={review.authorName}

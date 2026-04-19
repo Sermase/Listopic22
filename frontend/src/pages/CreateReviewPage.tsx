@@ -18,7 +18,7 @@ export const CreateReviewPage: React.FC = () => {
     const fallbackRoute = getRouteFallback(placeId, listId);
 
     return (
-        <div className="min-h-screen bg-[#0b1021]">
+        <div className="min-h-screen bg-[var(--lt-bg)]">
             <AddReviewForm
                 listId={listId}
                 prefillPlaceId={placeId || undefined}

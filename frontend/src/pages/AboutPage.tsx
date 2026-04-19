@@ -18,11 +18,11 @@ export const AboutPage: React.FC = () => {
 
     return (
         <>
-        <div className="min-h-screen bg-[#0b1021] pb-8">
+        <div className="min-h-screen bg-[var(--lt-bg)] pb-8">
             {/* Hero — padding-top para compensar la navbar fija */}
             <div className="relative overflow-hidden" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4rem)' }}>
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/50 via-cyan-900/20 to-[#0b1021]" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/50 via-cyan-900/20 to-[var(--lt-bg)]" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-transparent to-transparent" />
                 <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 pt-10 pb-12">
                     <div className="relative mb-3">
                         <div className="absolute inset-0 bg-blue-600 blur-2xl opacity-30 rounded-2xl" />
@@ -45,7 +45,7 @@ export const AboutPage: React.FC = () => {
                 </div>
 
                 {/* Qué es Listopic */}
-                <div className="bg-[#151b2e]/60 border border-white/10 rounded-3xl p-6">
+                <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6">
                     <h2 className="text-lg font-bold text-white mb-3">¿Qué es Listopic?</h2>
                     <p className="text-gray-300 text-sm leading-relaxed mb-4">
                         Listopic es una app para crear listas de lugares, descubrir recomendaciones y compartir reseñas con tu comunidad. Organiza tus sitios favoritos, descubre nuevos rincones y conecta con personas que comparten tus gustos.
@@ -67,7 +67,7 @@ export const AboutPage: React.FC = () => {
                 {/* Play Store */}
                 <button
                     onClick={() => openExternal('https://play.google.com/store/apps/details?id=app.listopic.web')}
-                    className="w-full flex items-center justify-between p-5 bg-[#151b2e]/60 border border-white/10 rounded-3xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group"
+                    className="w-full flex items-center justify-between p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group"
                 >
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/20 flex items-center justify-center shrink-0">
@@ -84,7 +84,7 @@ export const AboutPage: React.FC = () => {
                 {/* Istari Core */}
                 <Link
                     to="/istari-core"
-                    className="flex items-center justify-between p-5 bg-[#151b2e]/60 border border-white/10 rounded-3xl hover:border-violet-500/30 hover:bg-violet-500/5 transition-all group"
+                    className="flex items-center justify-between p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-violet-500/30 hover:bg-violet-500/5 transition-all group"
                 >
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0">
@@ -101,7 +101,7 @@ export const AboutPage: React.FC = () => {
                 {/* Contacto */}
                 <a
                     href="mailto:istaricore@gmail.com"
-                    className="flex items-center gap-4 p-5 bg-[#151b2e]/60 border border-white/10 rounded-3xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group"
+                    className="flex items-center gap-4 p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group"
                 >
                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
                         <Mail className="w-5 h-5 text-indigo-400" />
@@ -116,7 +116,7 @@ export const AboutPage: React.FC = () => {
                 <Link
                     to="/privacy"
                     onClick={handlePrivacyClick}
-                    className="flex items-center justify-between p-5 bg-[#151b2e]/60 border border-white/10 rounded-3xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group"
+                    className="flex items-center justify-between p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group"
                 >
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
@@ -133,7 +133,7 @@ export const AboutPage: React.FC = () => {
                 {/* Términos */}
                 <Link
                     to="/terms"
-                    className="flex items-center justify-between p-5 bg-[#151b2e]/60 border border-white/10 rounded-3xl hover:border-violet-500/30 hover:bg-violet-500/5 transition-all group"
+                    className="flex items-center justify-between p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-violet-500/30 hover:bg-violet-500/5 transition-all group"
                 >
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">

@@ -96,10 +96,10 @@ export const FollowersSection: React.FC<FollowersSectionProps> = ({
                                 key={item.id}
                                 to={`/profile/${item.id}`}
                                 onClick={() => onNavigateToProfile?.()}
-                                className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[#151b2e]/70 hover:border-indigo-500/40 hover:bg-white/5 transition-all"
+                                className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 hover:border-indigo-500/40 hover:bg-white/5 transition-all"
                             >
                                 <div className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 p-[2px] bg-gradient-to-tr ${getUserTypeGradient(item.userType)}`}>
-                                    <div className="w-full h-full rounded-md overflow-hidden bg-gray-800 border border-[#0b1021]">
+                                    <div className="w-full h-full rounded-md overflow-hidden bg-gray-800 border border-[var(--lt-bg)]">
                                         <img
                                             src={item.photoUrl || item.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.username || item.displayName || 'U')}`}
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"

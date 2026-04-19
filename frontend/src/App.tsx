@@ -6,7 +6,6 @@ import { Navbar } from './components/Navbar';
 import { useLocation } from './hooks/useLocation';
 import { App as CapApp } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
-import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { useNavigate } from 'react-router-dom';
 import { PushNotifications } from '@capacitor/push-notifications';
@@ -15,6 +14,7 @@ import { db } from './firebase';
 import { useAuth } from './context/AuthContext';
 import { NotificationBannerProvider, useNotificationBanner } from './context/NotificationBannerContext';
 import { NotificationBanner } from './components/NotificationBanner';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -55,7 +55,7 @@ const ScrollToTop = () => {
 
 // Loading Fallback (shown on first lazy-chunk load)
 const PageLoader = () => (
-  <div className="min-h-screen bg-[#0b1021] animate-pulse">
+  <div className="min-h-screen animate-pulse" style={{ background: 'var(--lt-bg)' }}>
     <div className="h-[40vh] min-h-[300px] bg-white/5" />
     <div className="px-4 pt-6 space-y-4 max-w-4xl mx-auto">
       <div className="h-8 bg-white/10 rounded w-1/2" />
@@ -134,7 +134,7 @@ const AppRoutes = () => {
 
   React.useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    StatusBar.setStyle({ style: Style.Light }).catch(() => { });
+    // StatusBar style is managed by ThemeContext based on active theme.
     SplashScreen.hide().catch(() => { });
   }, []);
 
@@ -170,43 +170,45 @@ const AppRoutes = () => {
     <Suspense fallback={<PageLoader />}>
       <main>
         <div key={location.pathname} className="animate-page-fade">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/list/:listId" element={<ListPage />} />
-            <Route path="/list/:listId/edit" element={<EditListPage />} />
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/list/:listId" element={<ListPage />} />
+              <Route path="/list/:listId/edit" element={<EditListPage />} />
 
-            {/* List Creation Flow (Protected) */}
-            <Route path="/create" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
-            <Route path="/create-list" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
+              {/* List Creation Flow (Protected) */}
+              <Route path="/create" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
+              <Route path="/create-list" element={<ProtectedRoute><CreateListPage /></ProtectedRoute>} />
 
-            {/* Sublist Creation Flow */}
-            <Route path="/create-sublist" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
-            <Route path="/create-sublist/:parentId" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
-            <Route path="/create-review" element={<ProtectedRoute><CreateReviewPage /></ProtectedRoute>} />
+              {/* Sublist Creation Flow */}
+              <Route path="/create-sublist" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
+              <Route path="/create-sublist/:parentId" element={<ProtectedRoute><CreateSublistPage /></ProtectedRoute>} />
+              <Route path="/create-review" element={<ProtectedRoute><CreateReviewPage /></ProtectedRoute>} />
 
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/place/:placeId" element={<PlacePage />} />
-            <Route path="/group/:placeId" element={<GroupPage />} />
-            <Route path="/group/:placeId/:itemName" element={<GroupPage />} />
-            <Route path="/debug" element={<DebugView />} />
-            <Route path="/developer" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />
-            <Route path="/login" element={<LoginPage />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/place/:placeId" element={<PlacePage />} />
+              <Route path="/group/:placeId" element={<GroupPage />} />
+              <Route path="/group/:placeId/:itemName" element={<GroupPage />} />
+              <Route path="/debug" element={<DebugView />} />
+              <Route path="/developer" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />
+              <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected Profile Pages */}
-            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-            <Route path="/profile/:userId" element={<ProfilePage />} />
+              {/* Protected Profile Pages */}
+              <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+              <Route path="/profile/:userId" element={<ProfilePage />} />
 
-            <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
-            <Route path="/chats" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
-            <Route path="/chats/:chatId" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
+              <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
+              <Route path="/chats" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
+              <Route path="/chats/:chatId" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
 
-            {/* Public info pages */}
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/istari-core" element={<IstariCorePage />} />
-            <Route path="/terms" element={<TermsPage />} />
-          </Routes>
+              {/* Public info pages */}
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/istari-core" element={<IstariCorePage />} />
+              <Route path="/terms" element={<TermsPage />} />
+            </Routes>
+          </ErrorBoundary>
         </div>
       </main>
     </Suspense>
@@ -220,8 +222,12 @@ function App() {
       <NotificationBannerProvider>
         <Router>
           <ScrollToTop />
-          <div className="min-h-screen bg-[#0b1021] text-gray-100 font-sans selection:bg-indigo-500/30"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="min-h-screen font-sans selection:bg-indigo-500/30"
+            style={{
+              background: 'var(--lt-bg)',
+              color: 'var(--lt-text)',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+            }}>
             <Navbar />
             <NotificationBanner />
             <AppRoutes />

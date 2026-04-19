@@ -135,7 +135,7 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
                 )}
             </form>
             {(showRecent || matchRecent.length > 0) && (
-                <div className="absolute top-full mt-1 left-0 right-0 bg-[#151b2e] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
+                <div className="absolute top-full mt-1 left-0 right-0 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
                     {showRecent && recents.map(t => (
                         <button key={t} onMouseDown={() => select(t)} className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-300 hover:bg-white/5 transition-colors">
                             <Clock className="w-4 h-4 text-gray-600 shrink-0" /><span className="truncate text-sm">{t}</span>
@@ -463,7 +463,7 @@ const GeoControls = ({
                 <select
                     value={geoRadius}
                     onChange={e => onRadiusChange(Number(e.target.value))}
-                    className="bg-[#151b2e] border border-white/10 rounded-full px-3 py-1.5 text-xs text-white focus:outline-none"
+                    className="bg-[var(--lt-card-strong)] border border-white/10 rounded-full px-3 py-1.5 text-xs text-white focus:outline-none"
                 >
                     {GEO_RADIUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -593,7 +593,7 @@ export const SearchPage: React.FC = () => {
                         {mobileFiltersOpen && (
                             <div className="fixed inset-0 z-[2000] lg:hidden">
                                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileFiltersOpen(false)} />
-                                <div className="absolute right-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[#0f1629] border-l border-white/10 p-5 overflow-y-auto shadow-2xl">
+                                <div className="absolute right-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--lt-card-strong)] border-l border-white/10 p-5 overflow-y-auto shadow-2xl">
                                     <div className="flex justify-between items-center mb-5">
                                         <h3 className="text-white font-bold">Filtros</h3>
                                         <button onClick={() => setMobileFiltersOpen(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>

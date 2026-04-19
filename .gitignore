@@ -1,10 +1,63 @@
-.env
+# --- Entorno y dependencias ---
 node_modules/
-# Firebase admin SDK key
-listopic-ser-firebase-adminsdk-key.json
-# Ignorar archivos de entorno con variables sensibles
 .env
-# Ignore any env files in functions
-functions/.env*
+.env.*
+!.env.example
+
+# Firebase admin SDK key (nunca comitear)
+listopic-ser-firebase-adminsdk-key.json
+serviceAccountKey.json
+*.firebase-adminsdk*.json
+
+# Env files dentro de functions
+functions/.env
 functions/.env.*
-functions/.env.listopic
+
+# --- Firebase ---
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# --- Build artefactos ---
+dist/
+dist-ssr/
+build/
+frontend/dist/
+frontend/dist-ssr/
+
+# Logs de build/lint generados por herramientas (no pertenecen al repo)
+frontend/build_err*.txt
+frontend/build_output.txt
+frontend/hooks_errors.json
+frontend/lint-results.json
+frontend/parse_lint.cjs
+frontend/tsconfig.node.zip
+frontend/frontend@*
+
+# Ficheros accidentales
+/{
+
+# --- Editor / SO ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# --- Caches varios ---
+*.cache
+*.salive
+
+# --- Android Studio / Gradle / Kotlin caches ---
+frontend/android/.gradle/
+frontend/android/.kotlin/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/local.properties
+frontend/android/captures/
+frontend/android/.externalNativeBuild/
+frontend/android/.cxx/
+
+# --- IDEs ---
+.idea/
+*.iml

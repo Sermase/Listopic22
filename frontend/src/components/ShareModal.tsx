@@ -479,7 +479,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 onRequestClose={handleRequestClose}
             />
 
-            <div className="bg-[#151b2e] rounded-2xl w-full max-w-xl border border-white/10 shadow-2xl p-6 max-h-[90vh] overflow-y-auto" onClick={event => event.stopPropagation()}>
+            <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-xl border border-white/10 shadow-2xl p-6 max-h-[90vh] overflow-y-auto" onClick={event => event.stopPropagation()}>
                 <div className="flex justify-between items-center mb-2">
                     <div>
                         <h3 className="text-xl font-bold text-white">{title}</h3>
@@ -534,7 +534,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 </div>
 
                 {isCardStylePickerOpen && (
-                    <div className="mt-5 border border-white/10 rounded-xl bg-[#0f1424] overflow-hidden">
+                    <div className="mt-5 border border-white/10 rounded-xl bg-[var(--lt-bg-deep)] overflow-hidden">
                         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
                             <div className="text-sm font-bold text-white">Estilo de tarjeta</div>
                             <button
@@ -589,7 +589,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 )}
 
                 {isChatPanelOpen && (
-                    <div className="mt-5 border border-white/10 rounded-xl bg-[#0f1424] overflow-hidden">
+                    <div className="mt-5 border border-white/10 rounded-xl bg-[var(--lt-bg-deep)] overflow-hidden">
                         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
                             <div className="text-sm font-bold text-white">Enviar a chats y usuarios</div>
                             <div className="text-xs text-gray-400">{totalSelections} seleccionado(s)</div>
@@ -644,7 +644,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                                         value={recipientQuery}
                                         onChange={(event) => setRecipientQuery(event.target.value)}
                                         placeholder="Username o nombre"
-                                        className="w-full bg-[#0b1021] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                                     />
                                 </div>
 
@@ -664,7 +664,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                                 )}
 
                                 {(isSearchingRecipients || recipientResults.length > 0 || recipientQuery.trim().length >= 2) && (
-                                    <div className="mt-2 rounded-lg border border-white/10 bg-[#0b1021] max-h-44 overflow-y-auto">
+                                    <div className="mt-2 rounded-lg border border-white/10 bg-[var(--lt-bg)] max-h-44 overflow-y-auto">
                                         {isSearchingRecipients ? (
                                             <div className="px-3 py-2 text-xs text-gray-500">Buscando...</div>
                                         ) : recipientResults.length === 0 ? (
@@ -712,7 +712,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                                     onChange={(event) => setChatNote(event.target.value)}
                                     rows={2}
                                     placeholder="Anade un mensaje con la tarjeta"
-                                    className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none"
+                                    className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none"
                                 />
                             </div>
 

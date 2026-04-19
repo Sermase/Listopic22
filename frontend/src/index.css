@@ -103,25 +103,14 @@
 
     html,
     body {
-        @apply bg-[#060913] text-[var(--text-primary)] font-sans;
-        background-color: #0b1021;
+        @apply text-[var(--text-primary)] font-sans;
+        background-color: var(--lt-bg);
+        transition: background-color 400ms ease, color 300ms ease;
     }
 
     body {
         background-attachment: fixed;
-        background-attachment: fixed;
-        /* Vibrant global mesh gradient */
-        background-image:
-            radial-gradient(circle at 10% 20%, rgba(92, 124, 250, 0.15), transparent 45%),
-            /* Indigo focus */
-            radial-gradient(circle at 85% 15%, rgba(255, 113, 91, 0.15), transparent 40%),
-            /* Coral focus */
-            radial-gradient(circle at 45% 60%, rgba(155, 81, 224, 0.12), transparent 50%),
-            /* Purple focus */
-            radial-gradient(circle at 80% 90%, rgba(61, 213, 152, 0.12), transparent 45%),
-            /* Mint focus */
-            radial-gradient(circle at 20% 80%, rgba(36, 163, 255, 0.10), transparent 50%);
-        /* Blue focus */
+        background-image: var(--lt-body-mesh);
     }
 
     h1,
@@ -324,12 +313,16 @@
 
     /* Bento & Glassmorphism Utilities */
     .bento-card {
-        @apply bg-[#151b2e]/60 border border-white/5 backdrop-blur-2xl px-6 py-6 rounded-[2rem] overflow-hidden transition-all duration-500 hover:-translate-y-1 hover:border-white/10 ring-1 ring-white/5 relative;
+        @apply border backdrop-blur-2xl px-6 py-6 rounded-[2rem] overflow-hidden transition-all duration-500 hover:-translate-y-1 ring-1 relative;
+        background: var(--lt-card);
+        border-color: var(--lt-border);
+        --tw-ring-color: var(--lt-border);
         box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1), 0 4px 24px rgba(0, 0, 0, 0.2);
     }
 
     .bento-card:hover {
-        box-shadow: 0 8px 32px rgba(92, 124, 250, 0.15);
+        border-color: var(--lt-border-strong);
+        box-shadow: 0 8px 32px var(--lt-accent-soft);
     }
 
 
@@ -361,12 +354,14 @@
     }
 
     .btn-primary {
-        @apply relative overflow-hidden px-5 py-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.97] flex items-center justify-center gap-2;
-        box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.39);
+        @apply relative overflow-hidden px-5 py-2.5 rounded-full text-white text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.97] flex items-center justify-center gap-2;
+        background: var(--lt-accent-grad);
+        box-shadow: 0 4px 14px 0 var(--lt-accent-shadow);
     }
 
     .btn-primary:hover {
-        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+        filter: brightness(1.08);
+        box-shadow: 0 6px 20px var(--lt-accent-shadow);
     }
 
     .btn-primary::after {
@@ -421,52 +416,192 @@
     }
 }
 
-/* Light Mode Variables */
-/* Light Mode Variables */
-:root {
-    /* Base */
-    --bg-primary: #060913;
-    --text-primary: #f8fafc;
-    /* slate-50 */
-    --text-secondary: #94a3b8;
-    /* slate-400 */
+/* =====================================================================
+   Listopic Theme System — 4 paletas compartiendo los mismos --lt-* tokens
+   Uso: aplicar class="theme-dark" | "theme-light" | "theme-warm" | "theme-cool"
+        al <html> (ThemeContext lo gestiona). Default: theme-dark.
+   ===================================================================== */
 
-    /* Accents */
+/* Defaults (= theme-dark) por si se renderiza antes de que el provider
+   añada la clase. Evita FOUC en la primera pintada. */
+:root,
+.theme-dark {
+    --lt-bg: #0b1021;
+    --lt-bg-deep: #060913;
+    --lt-text: #f8fafc;
+    --lt-text-muted: #94a3b8;
+    --lt-card: rgba(21, 27, 46, 0.6);
+    --lt-card-strong: #151b2e;
+    --lt-card-strong-alpha: rgba(21, 27, 46, 0.7);
+    --lt-glass: rgba(255, 255, 255, 0.05);
+    --lt-border: rgba(255, 255, 255, 0.08);
+    --lt-border-strong: rgba(255, 255, 255, 0.18);
+    --lt-nav-scrolled: rgba(21, 27, 46, 0.7);
+    --lt-accent: #6366f1;
+    --lt-accent-2: #a855f7;
+    --lt-accent-grad: linear-gradient(135deg, #6366f1, #a855f7);
+    --lt-accent-border: #818cf8;
+    --lt-accent-shadow: rgba(99, 102, 241, 0.4);
+    --lt-accent-soft: rgba(99, 102, 241, 0.15);
+    --lt-success: #3dd598;
+    --lt-success-soft: rgba(61, 213, 152, 0.15);
+    --lt-warning: #ff715b;
+    --lt-warning-soft: rgba(255, 113, 91, 0.15);
+    --lt-hero-grad: linear-gradient(90deg, #22d3ee, #6366f1, #a855f7);
+    --lt-brand-mark: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1);
+    --lt-body-mesh:
+        radial-gradient(circle at 10% 20%, rgba(92, 124, 250, 0.15), transparent 45%),
+        radial-gradient(circle at 85% 15%, rgba(255, 113, 91, 0.15), transparent 40%),
+        radial-gradient(circle at 45% 60%, rgba(155, 81, 224, 0.12), transparent 50%),
+        radial-gradient(circle at 80% 90%, rgba(61, 213, 152, 0.12), transparent 45%),
+        radial-gradient(circle at 20% 80%, rgba(36, 163, 255, 0.10), transparent 50%);
+}
+
+.theme-light {
+    --lt-bg: #faf8f4;
+    --lt-bg-deep: #f1ede5;
+    --lt-text: #1a1625;
+    --lt-text-muted: #6b6374;
+    --lt-card: rgba(255, 255, 255, 0.9);
+    --lt-card-strong: #ffffff;
+    --lt-card-strong-alpha: rgba(255, 255, 255, 0.85);
+    --lt-glass: rgba(255, 255, 255, 0.6);
+    --lt-border: rgba(26, 22, 37, 0.08);
+    --lt-border-strong: rgba(26, 22, 37, 0.18);
+    --lt-nav-scrolled: rgba(255, 253, 248, 0.85);
+    --lt-accent: #5b4cf5;
+    --lt-accent-2: #a855f7;
+    --lt-accent-grad: linear-gradient(135deg, #5b4cf5, #a855f7);
+    --lt-accent-border: #7c6df6;
+    --lt-accent-shadow: rgba(91, 76, 245, 0.28);
+    --lt-accent-soft: rgba(91, 76, 245, 0.10);
+    --lt-success: #16a34a;
+    --lt-success-soft: rgba(22, 163, 74, 0.10);
+    --lt-warning: #ea580c;
+    --lt-warning-soft: rgba(234, 88, 12, 0.10);
+    --lt-hero-grad: linear-gradient(90deg, #06b6d4, #5b4cf5, #a855f7);
+    --lt-brand-mark: linear-gradient(135deg, #06b6d4, #3b82f6, #5b4cf5);
+    --lt-body-mesh:
+        radial-gradient(circle at 10% 20%, rgba(91, 76, 245, 0.10), transparent 45%),
+        radial-gradient(circle at 85% 15%, rgba(244, 114, 182, 0.08), transparent 40%),
+        radial-gradient(circle at 45% 60%, rgba(168, 85, 247, 0.07), transparent 50%),
+        radial-gradient(circle at 80% 90%, rgba(6, 182, 212, 0.08), transparent 45%),
+        radial-gradient(circle at 20% 80%, rgba(91, 76, 245, 0.06), transparent 50%);
+}
+
+.theme-warm {
+    --lt-bg: #1a0f0c;
+    --lt-bg-deep: #120906;
+    --lt-text: #fff8f0;
+    --lt-text-muted: #c9a68a;
+    --lt-card: rgba(45, 22, 18, 0.6);
+    --lt-card-strong: #2a1812;
+    --lt-card-strong-alpha: rgba(45, 22, 18, 0.7);
+    --lt-glass: rgba(255, 200, 150, 0.05);
+    --lt-border: rgba(255, 180, 120, 0.10);
+    --lt-border-strong: rgba(255, 180, 120, 0.22);
+    --lt-nav-scrolled: rgba(45, 22, 18, 0.75);
+    --lt-accent: #f97316;
+    --lt-accent-2: #dc2626;
+    --lt-accent-grad: linear-gradient(135deg, #f97316, #dc2626);
+    --lt-accent-border: #fb923c;
+    --lt-accent-shadow: rgba(249, 115, 22, 0.4);
+    --lt-accent-soft: rgba(249, 115, 22, 0.15);
+    --lt-success: #3dd598;
+    --lt-success-soft: rgba(61, 213, 152, 0.15);
+    --lt-warning: #eab308;
+    --lt-warning-soft: rgba(234, 179, 8, 0.15);
+    --lt-hero-grad: linear-gradient(90deg, #facc15, #f97316, #dc2626);
+    --lt-brand-mark: linear-gradient(135deg, #facc15, #f97316, #dc2626);
+    --lt-body-mesh:
+        radial-gradient(circle at 10% 20%, rgba(249, 115, 22, 0.18), transparent 45%),
+        radial-gradient(circle at 85% 15%, rgba(220, 38, 38, 0.15), transparent 40%),
+        radial-gradient(circle at 45% 60%, rgba(250, 204, 21, 0.10), transparent 50%),
+        radial-gradient(circle at 80% 90%, rgba(249, 115, 22, 0.12), transparent 45%),
+        radial-gradient(circle at 20% 80%, rgba(220, 38, 38, 0.08), transparent 50%);
+}
+
+.theme-cool {
+    --lt-bg: #031a20;
+    --lt-bg-deep: #021017;
+    --lt-text: #ecfeff;
+    --lt-text-muted: #7aa9b1;
+    --lt-card: rgba(12, 42, 50, 0.6);
+    --lt-card-strong: #0c2a32;
+    --lt-card-strong-alpha: rgba(12, 42, 50, 0.7);
+    --lt-glass: rgba(150, 255, 230, 0.05);
+    --lt-border: rgba(150, 240, 220, 0.10);
+    --lt-border-strong: rgba(150, 240, 220, 0.22);
+    --lt-nav-scrolled: rgba(12, 42, 50, 0.75);
+    --lt-accent: #14b8a6;
+    --lt-accent-2: #06b6d4;
+    --lt-accent-grad: linear-gradient(135deg, #14b8a6, #06b6d4);
+    --lt-accent-border: #2dd4bf;
+    --lt-accent-shadow: rgba(20, 184, 166, 0.4);
+    --lt-accent-soft: rgba(20, 184, 166, 0.15);
+    --lt-success: #a3e635;
+    --lt-success-soft: rgba(163, 230, 53, 0.15);
+    --lt-warning: #ff715b;
+    --lt-warning-soft: rgba(255, 113, 91, 0.15);
+    --lt-hero-grad: linear-gradient(90deg, #a7f3d0, #14b8a6, #06b6d4);
+    --lt-brand-mark: linear-gradient(135deg, #a7f3d0, #14b8a6, #06b6d4);
+    --lt-body-mesh:
+        radial-gradient(circle at 10% 20%, rgba(20, 184, 166, 0.15), transparent 45%),
+        radial-gradient(circle at 85% 15%, rgba(6, 182, 212, 0.14), transparent 40%),
+        radial-gradient(circle at 45% 60%, rgba(167, 243, 208, 0.10), transparent 50%),
+        radial-gradient(circle at 80% 90%, rgba(34, 211, 238, 0.10), transparent 45%),
+        radial-gradient(circle at 20% 80%, rgba(20, 184, 166, 0.08), transparent 50%);
+}
+
+/* =====================================================================
+   Legacy tokens mapeados a --lt-*. Así los componentes viejos que usan
+   --bg-primary, --card-bg, --glass-bg, etc. cambian de tema automático.
+   ===================================================================== */
+:root {
+    --bg-primary: var(--lt-bg-deep);
+    --text-primary: var(--lt-text);
+    --text-secondary: var(--lt-text-muted);
+
+    /* Accents legacy (compat) */
     --accent-indigo: #5C7CFA;
     --accent-coral: #FF715B;
     --accent-mint: #3DD598;
     --accent-blue: #24A3FF;
     --accent-gold: #F2C94C;
+    --accent-color-primary: var(--lt-accent);
+    --accent-color-secondary: var(--lt-accent-2);
 
     /* Components */
-    --card-bg: rgba(21, 27, 46, 0.4);
-    /* translucent navy */
-    --border-color: rgba(255, 255, 255, 0.08);
+    --card-bg: var(--lt-card);
+    --border-color: var(--lt-border);
 
     /* Glass Token System */
-    --glass-bg: rgba(21, 27, 46, 0.4);
-    --glass-bg-hover: rgba(30, 41, 59, 0.5);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-border-hover: rgba(255, 255, 255, 0.15);
-    /* indigo hint */
+    --glass-bg: var(--lt-card);
+    --glass-bg-hover: var(--lt-card-strong-alpha);
+    --glass-border: var(--lt-border);
+    --glass-border-hover: var(--lt-border-strong);
 }
 
-/* Light Mode Variables ("Moradito" Tints) */
+/* Compat: .light-mode antiguo → apunta a theme-light */
 .light-mode {
-    /* Base */
-    --bg-primary: #f0f2f5;
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-
-    /* Components */
-    --card-bg: rgba(255, 255, 255, 0.85);
-    --border-color: rgba(99, 102, 241, 0.15);
-
-    /* Glass Token System */
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-bg-hover: rgba(255, 255, 255, 0.9);
-    --glass-border: rgba(99, 102, 241, 0.15);
-    --glass-border-hover: rgba(99, 102, 241, 0.4);
+    --lt-bg: #faf8f4;
+    --lt-bg-deep: #f1ede5;
+    --lt-text: #1a1625;
+    --lt-text-muted: #6b6374;
+    --lt-card: rgba(255, 255, 255, 0.9);
+    --lt-card-strong: #ffffff;
+    --lt-glass: rgba(255, 255, 255, 0.6);
+    --lt-border: rgba(26, 22, 37, 0.08);
+    --lt-border-strong: rgba(26, 22, 37, 0.18);
+    --bg-primary: var(--lt-bg-deep);
+    --text-primary: var(--lt-text);
+    --text-secondary: var(--lt-text-muted);
+    --card-bg: var(--lt-card);
+    --border-color: var(--lt-border);
+    --glass-bg: var(--lt-card);
+    --glass-bg-hover: var(--lt-card-strong);
+    --glass-border: var(--lt-border);
+    --glass-border-hover: var(--lt-border-strong);
 }
 
 /* Legacy Brand Logo CSS (User Provided) */
@@ -516,3 +651,227 @@
         height: 12px;
     }
 }
+
+/* =====================================================================
+   Light theme — contrast overrides
+   Tailwind utilities like text-white / text-gray-* are compiled with
+   literal hex values and can't cascade through CSS vars. Here we remap
+   them inside the .theme-light scope so copy stays legible on cream
+   backgrounds. Only applies when the light theme is active.
+   ===================================================================== */
+html.theme-light .text-white {
+    color: var(--lt-text) !important;
+}
+
+/* Restore white on saturated buttons/chips where text-white is paired
+   with a strong colored background (same element). */
+html.theme-light .bg-indigo-500.text-white,
+html.theme-light .bg-indigo-600.text-white,
+html.theme-light .bg-indigo-700.text-white,
+html.theme-light .bg-purple-500.text-white,
+html.theme-light .bg-purple-600.text-white,
+html.theme-light .bg-red-500.text-white,
+html.theme-light .bg-red-600.text-white,
+html.theme-light .bg-red-700.text-white,
+html.theme-light .bg-emerald-500.text-white,
+html.theme-light .bg-emerald-600.text-white,
+html.theme-light .bg-amber-500.text-white,
+html.theme-light .bg-amber-600.text-white,
+html.theme-light [class*="bg-gradient-to-"].text-white,
+html.theme-light [class*="from-indigo"].text-white,
+html.theme-light [class*="from-purple"].text-white,
+html.theme-light [class*="from-red"].text-white,
+html.theme-light [class*="from-pink"].text-white,
+html.theme-light .btn-primary.text-white,
+html.theme-light .btn-primary {
+    color: #fff !important;
+}
+
+/* When text-white is a descendant of a saturated button/chip (nested span). */
+html.theme-light .bg-indigo-500 .text-white,
+html.theme-light .bg-indigo-600 .text-white,
+html.theme-light .bg-indigo-700 .text-white,
+html.theme-light .bg-purple-500 .text-white,
+html.theme-light .bg-purple-600 .text-white,
+html.theme-light .bg-red-500 .text-white,
+html.theme-light .bg-red-600 .text-white,
+html.theme-light [class*="bg-gradient-to-"] .text-white,
+html.theme-light .btn-primary .text-white {
+    color: #fff !important;
+}
+
+html.theme-light .text-gray-100 { color: #1f2937 !important; }
+html.theme-light .text-gray-200 { color: #27303f !important; }
+html.theme-light .text-gray-300 { color: #374151 !important; }
+html.theme-light .text-gray-400 { color: #4b5563 !important; }
+html.theme-light .text-gray-500 { color: #6b7280 !important; }
+html.theme-light .text-gray-600 { color: #6b6374 !important; }
+
+/* Slate shares the same neutral family, Tailwind's slate-* values are
+   very similar to gray-*; remap them consistently. */
+html.theme-light .text-slate-100,
+html.theme-light .text-slate-200 { color: #1f2937 !important; }
+html.theme-light .text-slate-300 { color: #374151 !important; }
+html.theme-light .text-slate-400 { color: #4b5563 !important; }
+html.theme-light .text-slate-500 { color: #6b7280 !important; }
+
+/* Placeholder text: default Tailwind uses gray-500 via placeholder utility. */
+html.theme-light ::placeholder,
+html.theme-light input::placeholder,
+html.theme-light textarea::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+}
+
+/* Saturated brand accents get softened on light backgrounds so the
+   indigo/purple buttons and chips don't vibrate. */
+html.theme-light .text-indigo-400 { color: #4f46e5 !important; }
+html.theme-light .text-indigo-300 { color: #4338ca !important; }
+html.theme-light .text-purple-400 { color: #7c3aed !important; }
+html.theme-light .text-purple-300 { color: #6d28d9 !important; }
+html.theme-light .text-amber-300 { color: #b45309 !important; }
+html.theme-light .text-amber-400 { color: #d97706 !important; }
+html.theme-light .text-red-300 { color: #b91c1c !important; }
+html.theme-light .text-red-400 { color: #dc2626 !important; }
+html.theme-light .text-emerald-300 { color: #047857 !important; }
+html.theme-light .text-emerald-400 { color: #059669 !important; }
+
+/* Common translucent white surfaces (bg-white/X) and borders flip so
+   semi-transparent panels keep the glass effect over a light canvas. */
+html.theme-light [class*="bg-white/"] {
+    background-color: rgba(26, 22, 37, 0.04);
+}
+html.theme-light [class*="border-white/"] {
+    border-color: rgba(26, 22, 37, 0.10);
+}
+html.theme-light [class*="ring-white/"] {
+    --tw-ring-color: rgba(26, 22, 37, 0.08);
+}
+html.theme-light [class*="divide-white/"] > * + * {
+    border-color: rgba(26, 22, 37, 0.10);
+}
+html.theme-light [class*="hover:bg-white/"]:hover {
+    background-color: rgba(26, 22, 37, 0.06);
+}
+
+/* Black translucent overlays (used for modals) stay darker but we
+   soften them a hair so they feel less heavy in the light theme. */
+html.theme-light .bg-black\/80 { background-color: rgba(26, 22, 37, 0.55) !important; }
+html.theme-light .bg-black\/70 { background-color: rgba(26, 22, 37, 0.45) !important; }
+html.theme-light .bg-black\/60 { background-color: rgba(26, 22, 37, 0.35) !important; }
+html.theme-light .bg-black\/50 { background-color: rgba(26, 22, 37, 0.30) !important; }
+html.theme-light .bg-black\/40 { background-color: rgba(26, 22, 37, 0.25) !important; }
+html.theme-light .bg-black\/30 { background-color: rgba(26, 22, 37, 0.20) !important; }
+html.theme-light .bg-black\/20 { background-color: rgba(26, 22, 37, 0.05) !important; }
+
+/* Shadows too heavy on cream, lift them. */
+html.theme-light .shadow-2xl { box-shadow: 0 20px 50px -20px rgba(26, 22, 37, 0.25) !important; }
+html.theme-light .shadow-xl { box-shadow: 0 14px 32px -12px rgba(26, 22, 37, 0.22) !important; }
+
+/* Selection highlight. */
+html.theme-light ::selection {
+    background: rgba(91, 76, 245, 0.20);
+    color: var(--lt-text);
+}
+
+/* =====================================================================
+   Media cards (photos with text overlay) — carousels, hero tiles, etc.
+   En light mode, el borde negro sobre la foto se siente "olvidado del
+   tema" y el texto blanco se vuelve oscuro por el override global.
+   Esta clase restaura:
+     - texto claro siempre (va sobre degradado oscuro del overlay)
+     - borde suave + sombra cálida en vez de silueta negra
+     - sombreado inferior del propio componente se mantiene oscuro
+   Aplicar en el contenedor (Link/article) que envuelve la imagen.
+   ===================================================================== */
+html.theme-light .lt-media-card {
+    border-color: rgba(26, 22, 37, 0.06) !important;
+    box-shadow:
+        0 6px 20px -10px rgba(26, 22, 37, 0.22),
+        0 2px 6px -2px rgba(26, 22, 37, 0.08);
+}
+
+html.theme-light .lt-media-card .text-white,
+html.theme-light .lt-media-card .text-gray-100,
+html.theme-light .lt-media-card .text-gray-200 {
+    color: #fff !important;
+}
+html.theme-light .lt-media-card .text-gray-300 { color: rgba(255, 255, 255, 0.88) !important; }
+html.theme-light .lt-media-card .text-gray-400 { color: rgba(255, 255, 255, 0.78) !important; }
+html.theme-light .lt-media-card .text-gray-500 { color: rgba(255, 255, 255, 0.70) !important; }
+
+/* Tags/chips translúcidos dentro de media cards conservan su tinte original
+   (en vez de ser "aclarados" por el override genérico de text-indigo/purple). */
+html.theme-light .lt-media-card .text-indigo-300 { color: #c7d2fe !important; }
+html.theme-light .lt-media-card .text-purple-300 { color: #e9d5ff !important; }
+html.theme-light .lt-media-card .text-cyan-300 { color: #a5f3fc !important; }
+html.theme-light .lt-media-card .text-emerald-300 { color: #a7f3d0 !important; }
+html.theme-light .lt-media-card .text-amber-300 { color: #fcd34d !important; }
+html.theme-light .lt-media-card .text-rose-300 { color: #fecdd3 !important; }
+
+/* Los chips translúcidos sobre la foto (bg-white slash 20, border-white slash 30)
+   no deben aplanarse como el resto de bg-white genéricos del light-theme. */
+html.theme-light .lt-media-card [class*="bg-white/"] {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+}
+html.theme-light .lt-media-card [class*="border-white/"] {
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Bubble bg-black/40 de nombre de autor y ciudad — mantener oscuro para
+   contraste, no aclararlo como el resto de overlays. */
+html.theme-light .lt-media-card .bg-black\/40 { background-color: rgba(0, 0, 0, 0.45) !important; }
+html.theme-light .lt-media-card .bg-black\/50 { background-color: rgba(0, 0, 0, 0.50) !important; }
+
+/* ── Navbar light-mode overrides ─────────────────────────────────────── */
+html.theme-light .lt-nav-pill {
+    background: rgba(0, 0, 0, 0.06) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+html.theme-light .lt-nav-pill a {
+    color: var(--lt-text-muted);
+}
+html.theme-light .lt-nav-pill a.active-nav,
+html.theme-light .lt-nav-pill a:hover {
+    color: var(--lt-text);
+    background: rgba(0, 0, 0, 0.06);
+}
+
+/* ── Profile level card light-mode ───────────────────────────────────── */
+html.theme-light .lt-level-card {
+    background: #fef3c7 !important;
+    border-color: rgba(245, 158, 11, 0.30) !important;
+    box-shadow: 0 18px 40px rgba(245, 158, 11, 0.14) !important;
+}
+html.theme-light .lt-level-card .lt-level-label {
+    color: #92400e !important;
+    text-shadow: none !important;
+}
+html.theme-light .lt-level-card .lt-level-value {
+    color: #78350f !important;
+    text-shadow: none !important;
+}
+
+/* ── Profile stat card (non-level) light-mode ────────────────────────── */
+html.theme-light .lt-stat-card {
+    border-color: var(--lt-border) !important;
+}
+html.theme-light .lt-stat-card:hover {
+    background: var(--lt-card) !important;
+    border-color: rgba(99, 102, 241, 0.25) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blob,
+  .animate-pulse,
+  .animate-fade-in,
+  .animate-spin {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+html.theme-light .lt-media-card .bg-black\/60 { background-color: rgba(0, 0, 0, 0.55) !important; }

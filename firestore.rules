@@ -331,7 +331,10 @@ service cloud.firestore {
     // REGLAS PARA REPORTES (`reports`) (NUEVA)
     // ==================================================================
     match /reports/{reportId} {
-        allow create: if request.auth != null; // Cualquiera puede reportar
+        // Cualquier usuario autenticado puede reportar, pero el reporte
+        // tiene que ir firmado por él mismo (no se puede suplantar).
+        allow create: if request.auth != null
+                       && request.resource.data.userId == request.auth.uid;
         allow read, list, update, delete: if request.auth != null && isJefe(request.auth.uid);
     }
 
@@ -349,7 +352,12 @@ service cloud.firestore {
       allow read: if canAccessList();
 
       match /messages/{messageId} {
-        allow read, list, create: if canAccessList();
+        allow read, list: if canAccessList();
+        // Crear mensajes requiere además que el remitente sea el propio usuario
+        // autenticado (evita suplantaciones dentro del foro).
+        allow create: if request.auth != null
+                       && canAccessList()
+                       && request.resource.data.userId == request.auth.uid;
         allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
       }
     }
@@ -374,9 +382,46 @@ service cloud.firestore {
       }
     }
 
+    // ==================================================================
+    // REGLAS PARA CONFIG
+    // ==================================================================
+    // CAMBIO DE SEGURIDAD: `config/serverSecrets` NO puede leerse desde el
+    // cliente (antes: `allow read: if true` exponía la Google API Key).
+    // El resto de documentos en `config/` siguen siendo públicos (branding,
+    // feature flags, etc.) pero solo modificables por `jefe`.
+    // TODO(seguridad): migrar los secretos a Google Secret Manager.
+    match /config/serverSecrets {
+      allow read: if request.auth != null && isJefe(request.auth.uid);
+      allow write: if request.auth != null && isJefe(request.auth.uid);
+    }
+
     match /config/{configId} {
       allow read: if true;
       allow write: if request.auth != null && isJefe(request.auth.uid);
+    }
+
+    // ==================================================================
+    // AUDIT LOG DE ACCIONES DE ADMIN
+    // ==================================================================
+    // Escritura: solo Cloud Functions (admin SDK bypassa las reglas).
+    // Lectura: solo jefes. Nadie puede editar ni borrar desde el cliente.
+    match /adminAuditLog/{entryId} {
+      allow read, list: if request.auth != null && isJefe(request.auth.uid);
+      allow write: if false;
+    }
+
+    // ==================================================================
+    // RECLAMACIONES DE NEGOCIO (roadmap cuentas de negocio)
+    // ==================================================================
+    match /businessClaims/{claimId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || isJefe(request.auth.uid)
+      );
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow update: if request.auth != null && isJefe(request.auth.uid);
+      allow delete: if false;
     }
   }
 }

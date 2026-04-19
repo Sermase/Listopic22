@@ -76,7 +76,7 @@ const CustomLocateControl = () => {
         <div className="absolute bottom-6 right-6 z-[1000]">
             <button
                 onClick={handleLocate}
-                className="bg-[#151b2e] text-white hover:bg-indigo-600 p-3 rounded-full shadow-lg cursor-pointer flex items-center justify-center transition-all border border-white/20 hover:scale-110 active:scale-95"
+                className="bg-[var(--lt-card-strong)] text-white hover:bg-indigo-600 p-3 rounded-full shadow-lg cursor-pointer flex items-center justify-center transition-all border border-white/20 hover:scale-110 active:scale-95"
                 title="Centrar en mi ubicación"
             >
                 <Locate className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />

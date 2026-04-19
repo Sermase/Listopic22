@@ -25,7 +25,7 @@ export const CreateListPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0b1021] flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
             </div>
         );
@@ -33,7 +33,7 @@ export const CreateListPage: React.FC = () => {
 
     if (!isJefe) {
         return (
-            <div className="min-h-screen bg-[#0b1021] text-gray-100 flex flex-col items-center justify-center gap-4">
+            <div className="min-h-screen bg-[var(--lt-bg)] text-gray-100 flex flex-col items-center justify-center gap-4">
                 <Lock className="w-12 h-12 text-gray-600" />
                 <h1 className="text-xl font-bold text-white">Acceso restringido</h1>
                 <p className="text-gray-400 text-sm">Solo el administrador puede crear listas principales.</p>
@@ -43,7 +43,7 @@ export const CreateListPage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-[#0b1021] text-gray-100 pt-safe-24 pb-20 px-4">
+        <div className="min-h-screen bg-[var(--lt-bg)] text-gray-100 pt-safe-24 pb-20 px-4">
             <div className="max-w-3xl mx-auto">
                 <button onClick={handleCancel} className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors">
                     <ArrowLeft className="w-4 h-4 mr-2" /> Cancelar

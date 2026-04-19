@@ -181,7 +181,7 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
               "rounded-2xl border p-4 transition-colors",
               isEarned
                 ? "border-amber-400/30 bg-gradient-to-br from-[#1d140b] via-[#22160d] to-[#302010]"
-                : "border-white/10 bg-[#151b2e]/70",
+                : "border-white/10 bg-[var(--lt-card-strong)]/70",
             )}
           >
             <div className="flex items-start gap-3">

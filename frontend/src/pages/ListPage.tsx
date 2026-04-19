@@ -630,7 +630,7 @@ export const ListPage: React.FC = () => {
         if (error === 'private') {
             return (
                 <div className="min-h-screen pt-safe-40 px-4 text-center">
-                    <div className="bg-[#151b2e] border border-white/10 rounded-2xl p-8 max-w-md mx-auto">
+                    <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-8 max-w-md mx-auto">
                         <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Lock className="w-8 h-8 text-gray-400" />
                         </div>
@@ -666,11 +666,11 @@ export const ListPage: React.FC = () => {
     const listShareImage = list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl || undefined;
 
     return (
-        <div className="min-h-screen bg-[#0b1021] pb-20 transition-colors duration-300">
+        <div className="min-h-screen bg-[var(--lt-bg)] pb-20 transition-colors duration-300">
             {/* Hero Section */}
             {/* Hero Section */}
             <div className="relative w-full h-[40vh] min-h-[300px] transition-all duration-700 group">
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0b1021] via-[#0b1021]/60 to-black/40 z-10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
 
                 {/* Background Image & Overlay — overflow-hidden only on image wrapper */}
                 {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl) ? (
@@ -682,7 +682,7 @@ export const ListPage: React.FC = () => {
                         />
                     </div>
                 ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-[#0b1021] to-[#0b1021]">
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-[var(--lt-bg)] to-[var(--lt-bg)]">
                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
                     </div>
                 )}
@@ -822,7 +822,7 @@ export const ListPage: React.FC = () => {
                                 </button>
 
                                 {isActionsMenuOpen && dropdownPosition && createPortal(
-                                    <div ref={dropdownPortalRef} className="fixed w-52 bg-[#151b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 z-[9999]"
+                                    <div ref={dropdownPortalRef} className="fixed w-52 bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 z-[9999]"
                                         style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
                                     >
                                         {user && list.userId !== user.uid && (
@@ -883,7 +883,7 @@ export const ListPage: React.FC = () => {
             {/* Map Collapsible */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 relative -mt-8 sm:-mt-12 z-40">
                 <div className="glass-card rounded-xl overflow-hidden transition-all duration-300 shadow-2xl">
-                    <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[#151b2e]/60 border-b border-white/5">
+                    <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[var(--lt-card-strong)]/60 border-b border-white/5">
                         <button
                             onClick={() => setIsMapOpen(!isMapOpen)}
                             className="flex items-center gap-2 hover:text-white transition-colors flex-1"
@@ -897,7 +897,7 @@ export const ListPage: React.FC = () => {
                                 onClick={handleToggleRange}
                                 className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
                                     ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
-                                    : 'bg-[#0b1021] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
+                                    : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
                                     }`}
                             >
                                 <MapPin className="w-3 h-3" />
@@ -930,7 +930,7 @@ export const ListPage: React.FC = () => {
 
                 {/* Modern Toolbar */}
                 <div className="sticky top-20 z-30 mb-8 mx-auto max-w-4xl">
-                    <div className="bg-[#151b2e]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-300 hover:border-white/20">
+                    <div className="bg-[var(--lt-card-strong)]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-300 hover:border-white/20">
 
                         {/* Search & Count */}
                         <div className="flex items-center flex-1 w-full gap-3 px-2">
@@ -1081,7 +1081,7 @@ export const ListPage: React.FC = () => {
                                                 )}
                                             </>
                                         );
-                                        const cardClass = "group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[#0b1021] hover:border-indigo-500 transition-colors";
+                                        const cardClass = "group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-indigo-500 transition-colors";
                                         return href ? (
                                             <Link key={item.id} to={href} className={cardClass}>{cardContent}</Link>
                                         ) : (
@@ -1126,7 +1126,7 @@ export const ListPage: React.FC = () => {
                                 <div className="mt-8 text-center">
                                     <button
                                         onClick={handleLoadMore}
-                                        className="px-6 py-2 bg-[#151b2e] hover:bg-[#1e2538] border border-white/10 rounded-full text-indigo-400 hover:text-indigo-300 font-medium transition-colors shadow-lg"
+                                        className="px-6 py-2 bg-[var(--lt-card-strong)] hover:bg-[var(--lt-card)] border border-white/10 rounded-full text-indigo-400 hover:text-indigo-300 font-medium transition-colors shadow-lg"
                                     >
                                         Cargar más ({filteredItemsAll.length - visibleCount} restantes)
                                     </button>
@@ -1134,7 +1134,7 @@ export const ListPage: React.FC = () => {
                             )}
                         </>
                     ) : (
-                        <div className="text-center py-16 bg-[#151b2e]/30 rounded-2xl border border-dashed border-white/5">
+                        <div className="text-center py-16 bg-[var(--lt-card-strong)]/30 rounded-2xl border border-dashed border-white/5">
                             <p className="text-gray-400 mb-4 text-lg">
                                 {searchQuery ? 'No hay resultados para tu búsqueda.' : 'Esta lista está vacía o no hay elementos cerca.'}
                             </p>

@@ -99,7 +99,7 @@ export const BrandingManager: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
                 {/* --- LOGO SETTINGS --- */}
-                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 space-y-6">
+                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 space-y-6">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <ImageIcon className="w-5 h-5 text-indigo-400" /> Logotipo Principal
                     </h3>
@@ -166,7 +166,7 @@ export const BrandingManager: React.FC = () => {
                 </div>
 
                 {/* --- FAVICON SETTINGS --- */}
-                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 space-y-6">
+                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 space-y-6">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <Globe className="w-5 h-5 text-indigo-400" /> Favicon (Navegador)
                     </h3>
@@ -232,7 +232,7 @@ export const BrandingManager: React.FC = () => {
                 </div>
 
                 {/* --- SEO & METADATA --- */}
-                <div className="bg-[#151b2e] border border-white/10 rounded-xl p-6 space-y-6 md:col-span-2">
+                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 space-y-6 md:col-span-2">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <Type className="w-5 h-5 text-indigo-400" /> Metadatos (SEO)
                     </h3>

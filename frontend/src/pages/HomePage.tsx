@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
 import { useLists } from '../hooks/useLists';
@@ -408,7 +408,7 @@ export const HomePage: React.FC = () => {
     // --- FILTERING LOGIC ---
 
     // 1. Helper: Check Category (User Request: Hmm/Woow/Yujuui are categories)
-    const checkCategory = (item: any) => {
+    const checkCategory = useCallback((item: any) => {
         if (activeFilter === 'Todo') return true;
 
         const catId = item.categoryId || item.category || '';
@@ -427,15 +427,15 @@ export const HomePage: React.FC = () => {
         }
 
         return false;
-    };
+    }, [activeFilter]);
 
     // 2. Helper: Check Distance
-    const checkDistance = (lat?: number, lng?: number) => {
+    const checkDistance = useCallback((lat?: number, lng?: number) => {
         if (!range || !location || !lat || !lng) return true;
         const dist = calculateDistance(lat, lng);
         if (dist === null) return true;
         return dist <= range;
-    };
+    }, [range, location, calculateDistance]);
 
     // 3. Derived & Filtered Lists
     const filteredLists = useMemo(() => {
@@ -778,7 +778,7 @@ export const HomePage: React.FC = () => {
 
     if (authLoading) {
         return (
-            <div className="min-h-screen bg-[#0b1021] flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
             </div>
         );
@@ -786,7 +786,7 @@ export const HomePage: React.FC = () => {
 
     return (
         <>
-            <div className="min-h-screen bg-[#0b1021] pb-20 font-sans">
+            <div className="min-h-screen bg-[var(--lt-bg)] pb-20 font-sans">
                 <div className="pt-safe-24 px-4 pb-6">
 
                     {/* Hero Section (Clean) */}
@@ -838,7 +838,7 @@ export const HomePage: React.FC = () => {
 
                     {homeContentLoading && (
                         <div className="mt-4 flex justify-center">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-[#151b2e]/90 text-sm text-gray-300">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-[var(--lt-card-strong)]/90 text-sm text-gray-300">
                                 <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
                                 <span>{HOME_LOADING_MESSAGES[loadingMessageIndex]}</span>
                             </div>
@@ -856,8 +856,8 @@ export const HomePage: React.FC = () => {
                     {/* Map Collapsible */}
                     {activeTab === 'explore' && (
                         <div className="max-w-7xl mx-auto mb-8">
-                            <div className="bg-[#151b2e] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
-                                <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[#1e2538]/50">
+                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
+                                <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[var(--lt-card)]">
                                     <button
                                         onClick={() => setIsMapOpen(!isMapOpen)}
                                         className="flex items-center gap-2 hover:text-white transition-colors flex-1 text-left"
@@ -871,7 +871,7 @@ export const HomePage: React.FC = () => {
                                             onClick={(e) => { e.stopPropagation(); handleToggleRange(); }}
                                             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
                                                 ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
-                                                : 'bg-[#0b1021] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
+                                                : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
                                                 }`}
                                         >
                                             <MapPin className="w-3 h-3" />
@@ -914,7 +914,7 @@ export const HomePage: React.FC = () => {
                                 icon={<ListIcon className="w-5 h-5 text-blue-400" />}
                                 accentClass="bg-blue-500/20"
                                 renderItem={(list: any, index: number) => (
-                                    <Link to={`/list/${list.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
+                                    <Link to={`/list/${list.id}`} className="lt-media-card block relative group h-40 md:h-48 rounded-md overflow-hidden border border-white/5 shadow-lg transition-all duration-300 transform hover:scale-105 hover:z-10 origin-center">
                                         {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl) ? (
                                             <div className="absolute inset-0">
                                                 <ProgressiveImage src={list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl} alt={list.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
@@ -1013,7 +1013,7 @@ export const HomePage: React.FC = () => {
                                 icon={<Flame className="w-5 h-5 text-rose-400" />}
                                 accentClass="bg-rose-500/20"
                                 renderItem={(place: any) => (
-                                    <Link to={`/place/${place.id}`} className="block relative group h-40 md:h-48 rounded-md overflow-hidden transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
+                                    <Link to={`/place/${place.id}`} className="lt-media-card block relative group h-40 md:h-48 rounded-md overflow-hidden border border-white/5 shadow-lg transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
                                         {place.photoUrl ? (
                                             <div className="absolute inset-0">
                                                 <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
@@ -1138,7 +1138,7 @@ export const HomePage: React.FC = () => {
                 {/* Profile gate — overlay modal, solo aparece si el username es realmente inválido */}
                 {user && showProfileGate && profileGateVisible && (
                     <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-12">
-                        <div className="w-full max-w-2xl bg-[#151b2e] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
+                        <div className="w-full max-w-2xl bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
                             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Completa tu perfil</h2>
                             <p className="text-gray-400 text-sm mb-6">
                                 Antes de continuar necesitas un username válido.
@@ -1155,7 +1155,7 @@ export const HomePage: React.FC = () => {
                                         onChange={(e) => handleGateFieldChange('username', e.target.value)}
                                         maxLength={USERNAME_MAX_LENGTH}
                                         required
-                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                                         placeholder="sin espacios, máximo 18"
                                     />
                                     <p className="text-[11px] text-amber-300 mt-2">
@@ -1172,7 +1172,7 @@ export const HomePage: React.FC = () => {
                                             type="text"
                                             value={gateForm.displayName}
                                             onChange={(e) => handleGateFieldChange('displayName', e.target.value)}
-                                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                                             placeholder="por defecto será el username"
                                         />
                                     </div>
@@ -1184,7 +1184,7 @@ export const HomePage: React.FC = () => {
                                             type="text"
                                             value={gateForm.name}
                                             onChange={(e) => handleGateFieldChange('name', e.target.value)}
-                                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                                             placeholder="opcional"
                                         />
                                     </div>
@@ -1199,7 +1199,7 @@ export const HomePage: React.FC = () => {
                                             type="text"
                                             value={gateForm.surnames}
                                             onChange={(e) => handleGateFieldChange('surnames', e.target.value)}
-                                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                                             placeholder="opcional"
                                         />
                                     </div>
@@ -1211,7 +1211,7 @@ export const HomePage: React.FC = () => {
                                             type="text"
                                             value={gateForm.location}
                                             onChange={(e) => handleGateFieldChange('location', e.target.value)}
-                                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                                             placeholder="opcional"
                                         />
                                     </div>
@@ -1225,7 +1225,7 @@ export const HomePage: React.FC = () => {
                                         value={gateForm.bio}
                                         onChange={(e) => handleGateFieldChange('bio', e.target.value)}
                                         rows={4}
-                                        className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                                         placeholder="opcional"
                                     />
                                 </div>

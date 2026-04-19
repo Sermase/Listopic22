@@ -339,7 +339,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
     return (
         <form id={formId} onSubmit={handleSubmit} className="space-y-6">
-            <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-6">
+            <div className="bg-[var(--lt-card-strong)] p-6 rounded-xl border border-white/10 shadow-xl space-y-6">
                 {/* Name */}
                 <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">Nombre de la Lista</label>
@@ -347,7 +347,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
                         required
                     />
                 </div>
@@ -358,18 +358,18 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     <textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="w-full bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all min-h-[100px]"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all min-h-[100px]"
                     />
                 </div>
 
                 {/* Visibility */}
-                <div className="flex items-center gap-3 p-4 bg-[#0b1021] rounded-lg border border-white/5">
+                <div className="flex items-center gap-3 p-4 bg-[var(--lt-bg)] rounded-lg border border-white/5">
                     <input
                         type="checkbox"
                         id={`isPublic-${listId}`}
                         checked={isPublic}
                         onChange={(e) => setIsPublic(e.target.checked)}
-                        className="w-5 h-5 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[#151b2e]"
+                        className="w-5 h-5 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[var(--lt-card-strong)]"
                     />
                     <label htmlFor={`isPublic-${listId}`} className="text-sm cursor-pointer">
                         <span className="block font-medium text-white">Lista Pública</span>
@@ -379,11 +379,11 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 {/* Public Access */}
                 {isPublic && (
-                    <div className="bg-[#0b1021] p-4 rounded-xl border border-white/5 space-y-3">
+                    <div className="bg-[var(--lt-bg)] p-4 rounded-xl border border-white/5 space-y-3">
                         <label className="block text-sm font-medium text-gray-400">Permisos Públicos</label>
                         <label className="flex items-center gap-3 cursor-pointer">
                             <input type="radio" name={`publicAccess-${listId}`} value="reader" checked={publicAccess === 'reader'} onChange={() => setPublicAccess('reader')}
-                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 bg-[#0b1021] border-gray-600" />
+                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Solo Lectura</span>
                                 <span className="block text-xs text-gray-500">Los visitantes pueden ver pero solo editores añaden reseñas.</span>
@@ -391,7 +391,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
                             <input type="radio" name={`publicAccess-${listId}`} value="writer" checked={publicAccess === 'writer'} onChange={() => setPublicAccess('writer')}
-                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 bg-[#0b1021] border-gray-600" />
+                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>
                                 <span className="block text-xs text-gray-500">Cualquier usuario puede añadir reseñas.</span>
@@ -402,7 +402,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             </div>
 
             {/* Criteria & Tags */}
-            <div className="bg-[#151b2e] p-6 rounded-xl border border-white/10 shadow-xl space-y-8">
+            <div className="bg-[var(--lt-card-strong)] p-6 rounded-xl border border-white/10 shadow-xl space-y-8">
                 <CriteriaBuilder criteria={criteria} onChange={setCriteria} lockedIds={inheritedCriteriaIds} />
 
                 <div className="border-t border-white/5 pt-6" />
@@ -470,7 +470,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                             <button
                                 type="button"
                                 onClick={() => setShowTagEmojiPicker(p => !p)}
-                                className="h-full px-3 bg-[#0b1021] border border-white/10 rounded-lg text-lg hover:bg-white/5 transition-colors flex items-center"
+                                className="h-full px-3 bg-[var(--lt-bg)] border border-white/10 rounded-lg text-lg hover:bg-white/5 transition-colors flex items-center"
                                 aria-label="Elegir icono para el tag"
                             >
                                 {tagIcon || <Smile className="w-4 h-4 text-gray-500" />}
@@ -488,7 +488,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                             onChange={e => setTagInput(e.target.value)}
                             onKeyDown={addTag}
                             placeholder="Nombre del tag y Enter para añadir..."
-                            className="flex-1 bg-[#0b1021] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                            className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
                         />
                         {tagInput.trim() && (
                             <button

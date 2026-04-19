@@ -83,8 +83,8 @@ export const LoginPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#0b1021] flex items-center justify-center p-4">
-            <div className="bg-[#151b2e] border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+        <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center p-4">
+            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl">
                 <div className="text-center mb-6">
                     <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold text-white shadow-lg shadow-indigo-500/20">
                         L
@@ -112,7 +112,7 @@ export const LoginPage: React.FC = () => {
                                 placeholder="Nombre completo"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                                className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
                                 required={isRegistering}
                             />
                         </div>
@@ -125,7 +125,7 @@ export const LoginPage: React.FC = () => {
                             placeholder="Correo electrónico"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
                             required
                         />
                     </div>
@@ -137,7 +137,7 @@ export const LoginPage: React.FC = () => {
                             placeholder="Contraseña"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-[#0b1021] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
                             required
                             minLength={6}
                         />
@@ -158,7 +158,7 @@ export const LoginPage: React.FC = () => {
                         <div className="w-full border-t border-white/10"></div>
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-[#151b2e] px-2 text-gray-500">O continuar con</span>
+                        <span className="bg-[var(--lt-card-strong)] px-2 text-gray-500">O continuar con</span>
                     </div>
                 </div>
 

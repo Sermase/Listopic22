@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Archive, Bell, Compass, Info, Menu, MessageSquare, Plus, Search, Share2, User, X } from 'lucide-react';
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
@@ -18,14 +18,14 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string
             className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 group
                 ${isActive
                     ? 'bg-indigo-500/10 text-indigo-400 font-medium'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5'
                 }`}
         >
             <div className="relative">
                 <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'group-hover:text-indigo-400 transition-colors'}`} />
                 {badge && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]" />}
                 {count !== undefined && count > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1 min-w-[16px] h-4 rounded-full flex items-center justify-center border border-[#0b1021]">
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1 min-w-[16px] h-4 rounded-full flex items-center justify-center border border-[var(--lt-bg)]">
                         {count > 9 ? '9+' : count}
                     </span>
                 )}
@@ -77,6 +77,7 @@ export const Navbar: React.FC = () => {
         const notificationsQuery = query(
             collection(db, 'users', user.uid, 'notifications'),
             where('read', '==', false),
+            limit(50),
         );
 
         const unsubscribe = onSnapshot(notificationsQuery, (snap: any) => {
@@ -138,6 +139,7 @@ export const Navbar: React.FC = () => {
         const chatsQuery = query(
             collection(db, 'chats'),
             where('participants', 'array-contains', user.uid),
+            limit(50),
         );
 
         const unsubscribe = onSnapshot(chatsQuery, (snapshot: any) => {
@@ -173,7 +175,7 @@ export const Navbar: React.FC = () => {
             <div
                 className={`pointer-events-auto max-w-7xl mx-auto transition-all duration-500 rounded-3xl md:rounded-[2rem]
                 ${scrolled || isMenuOpen
-                        ? 'bg-[#151b2e]/70 backdrop-blur-2xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.4)] ring-1 ring-white/5 px-3 sm:px-5 py-1.5'
+                        ? 'bg-[var(--lt-card-strong)]/70 backdrop-blur-2xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.4)] ring-1 ring-white/5 px-3 sm:px-5 py-1.5'
                         : 'bg-transparent px-2 sm:px-4 py-2'
                     }`}
             >
@@ -189,14 +191,14 @@ export const Navbar: React.FC = () => {
                                         <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
                                     </div>
                                 </div>
-                                <span className="text-xl font-display font-bold tracking-tight text-white group-hover:text-indigo-200 transition-colors">
+                                <span className="text-xl font-display font-bold tracking-tight text-[var(--lt-text)] group-hover:text-[var(--lt-accent)] transition-colors">
                                     {config.appName}
                                 </span>
                             </div>
                         )}
                     </Link>
 
-                    <nav className="hidden md:flex items-center bg-white/5 backdrop-blur-xl rounded-full px-2 py-1.5 border border-white/5 shadow-inner">
+                    <nav className="lt-nav-pill hidden md:flex items-center bg-white/5 backdrop-blur-xl rounded-full px-2 py-1.5 border border-white/5 shadow-inner">
                         <NavItem to="/search" icon={Search} label="Buscar" isActive={location.pathname === '/search'} />
                         <div className="w-px h-4 bg-white/10 mx-1" />
                         <NavItem to="/archive" icon={Archive} label="Archivo" isActive={location.pathname === '/archive'} />
@@ -247,15 +249,15 @@ export const Navbar: React.FC = () => {
                                 </span>
                                 <div className="relative">
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 p-[2px] transition-transform group-hover:scale-105 shadow-lg shadow-indigo-500/20">
-                                        <div className="w-full h-full rounded-full bg-[#151b2e] flex items-center justify-center overflow-hidden">
+                                        <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] flex items-center justify-center overflow-hidden">
                                             {(profilePhotoUrl || user.photoURL) ? (
-                                                <img src={profilePhotoUrl || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover" />
+                                                <img src={profilePhotoUrl || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover block" />
                                             ) : (
                                                 <User className="w-5 h-5 text-indigo-400" />
                                             )}
                                         </div>
                                     </div>
-                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#0b1021] rounded-full"></div>
+                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[var(--lt-bg)] rounded-full"></div>
                                 </div>
                             </Link>
                         ) : (
@@ -267,12 +269,17 @@ export const Navbar: React.FC = () => {
 
                     <div className="md:hidden flex items-center gap-3">
                         {user && (
-                            <Link to={`/profile/${user.uid}`} className="w-8 h-8 rounded-full bg-gray-800 overflow-hidden">
-                                {(profilePhotoUrl || user.photoURL) ? (
-                                    <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover" />
-                                ) : (
-                                    <User className="w-4 h-4 m-2" />
-                                )}
+                            <Link to={`/profile/${user.uid}`} className="relative shrink-0 group">
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 p-[2px] transition-transform group-active:scale-95 shadow-md shadow-indigo-500/20">
+                                    <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] flex items-center justify-center overflow-hidden">
+                                        {(profilePhotoUrl || user.photoURL) ? (
+                                            <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover block" />
+                                        ) : (
+                                            <User className="w-4 h-4 text-indigo-400" />
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-[var(--lt-bg)] rounded-full"></div>
                             </Link>
                         )}
                         <button
@@ -287,11 +294,11 @@ export const Navbar: React.FC = () => {
             </div>
 
             {isMenuOpen && (
-                <div className="fixed inset-x-0 bottom-0 bg-[#060913]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto rounded-t-3xl" style={{ top: 'calc(env(safe-area-inset-top) + 68px)' }}>
-                    <div className="space-y-4 bg-[#151b2e]/60 p-6 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5 mt-4">
+                <div className="fixed inset-x-0 bottom-0 bg-[var(--lt-bg-deep)]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto rounded-t-3xl" style={{ top: 'calc(env(safe-area-inset-top) + 68px)' }}>
+                    <div className="space-y-4 bg-[var(--lt-card-strong)]/60 p-6 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5 mt-4">
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-gray-100">
-                                <div className="w-12 h-12 rounded-full overflow-hidden bg-[#0b1021] border border-white/10 shrink-0">
+                                <div className="w-12 h-12 rounded-full overflow-hidden bg-[var(--lt-bg)] border border-white/10 shrink-0">
                                     {(profilePhotoUrl || user.photoURL) ? (
                                         <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover" />
                                     ) : (
@@ -441,7 +448,7 @@ export const Navbar: React.FC = () => {
 
             {showInstallHelp && (
                 <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-auto">
-                    <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#151b2e] p-6 shadow-2xl">
+                    <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[var(--lt-card-strong)] p-6 shadow-2xl">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <h3 className="text-lg font-bold text-white">Instalar app</h3>
