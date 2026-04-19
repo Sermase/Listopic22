@@ -4,7 +4,7 @@ import { Mail, Sparkles, Target, Heart, ExternalLink } from 'lucide-react';
 import { Footer } from '../components/Footer';
 
 const ValueCard: React.FC<{ emoji: string; title: string; text: string }> = ({ emoji, title, text }) => (
-    <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6 flex flex-col gap-3 hover:border-indigo-500/20 transition-colors">
+    <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6 flex flex-col gap-3 hover:border-[var(--lt-accent-border)] transition-colors">
         <span className="text-3xl">{emoji}</span>
         <h3 className="text-base font-bold text-white">{title}</h3>
         <p className="text-gray-400 text-sm leading-relaxed">{text}</p>
@@ -35,10 +35,10 @@ export const IstariCorePage: React.FC = () => {
                 {/* Misión */}
                 <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6">
                     <div className="flex items-center gap-3 mb-4">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                            <Target className="w-4 h-4 text-indigo-400" />
+                        <div className="w-9 h-9 rounded-xl bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] flex items-center justify-center shrink-0">
+                            <Target className="w-4 h-4 text-[var(--lt-accent)]" />
                         </div>
-                        <h2 className="text-base font-bold text-white uppercase tracking-widest text-xs text-indigo-400">Misión</h2>
+                        <h2 className="text-base font-bold text-white uppercase tracking-widest text-xs text-[var(--lt-accent)]">Misión</h2>
                     </div>
                     <p className="text-gray-300 text-sm leading-relaxed">
                         Hacer cosas que merezca la pena usar. Sin más. Útiles, bien hechas, honestas sobre lo que son. Si alguien abre la app y piensa "esto sí que funciona", ya hemos cumplido.
@@ -116,7 +116,7 @@ export const IstariCorePage: React.FC = () => {
                                 <p className="text-xs text-gray-500">Descubre, lista y comparte lugares</p>
                             </div>
                         </div>
-                        <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-indigo-400 transition-colors shrink-0" />
+                        <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
                     </Link>
                 </div>
 
@@ -125,7 +125,7 @@ export const IstariCorePage: React.FC = () => {
                     <p className="text-gray-500 text-sm">¿Tienes una idea o quieres colaborar?</p>
                     <a
                         href="mailto:istaricore@gmail.com"
-                        className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors font-medium text-sm"
+                        className="inline-flex items-center gap-2 text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors font-medium text-sm"
                     >
                         <Mail className="w-4 h-4" />
                         istaricore@gmail.com

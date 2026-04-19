@@ -36,14 +36,14 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
     // Helper for score colors (Legacy logic)
     const getScoreColor = (score: number) => {
         if (score >= 9) return 'bg-emerald-500 text-emerald-50';
-        if (score >= 7) return 'bg-indigo-500 text-indigo-50';
+        if (score >= 7) return 'bg-[var(--lt-accent)] text-indigo-50';
         if (score >= 5) return 'bg-amber-500 text-amber-50';
         return 'bg-red-500 text-red-50';
     };
 
     const getBarColor = (score: number) => {
         if (score >= 9) return 'bg-emerald-500';
-        if (score >= 7) return 'bg-indigo-500';
+        if (score >= 7) return 'bg-[var(--lt-accent)]';
         if (score >= 5) return 'bg-amber-500';
         return 'bg-red-500';
     };
@@ -154,12 +154,12 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                     <Link
                                         to={`/list/${item.listId}`}
                                         onClick={(e) => e.stopPropagation()}
-                                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 truncate hover:text-indigo-200 transition-colors max-w-[120px]"
+                                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] truncate hover:text-[var(--lt-accent)] transition-colors max-w-[120px]"
                                     >
                                         {item.listName}
                                     </Link>
                                 ) : (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 truncate max-w-[120px]">
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] truncate max-w-[120px]">
                                         {item.listName}
                                     </span>
                                 )
@@ -174,7 +174,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
 
                         {/* Title */}
                         <div className="mb-1">
-                            <h3 className="font-display font-bold text-sm md:text-base text-[var(--text-primary)] leading-tight group-hover:text-indigo-500 transition-colors line-clamp-2">
+                            <h3 className="font-display font-bold text-sm md:text-base text-[var(--text-primary)] leading-tight group-hover:text-[var(--lt-accent)] transition-colors line-clamp-2">
                                 {item.placeId ? (
                                     groupingMode === 'dish' ? (
                                         <Link to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`} className="hover:underline">{item.name}</Link>
@@ -221,13 +221,13 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                             <div className="flex items-center gap-2.5 text-xs text-gray-500 font-medium">
                                 {(item.reviewCount > 0 || (groupingMode !== 'place' && groupingMode !== 'dish')) && (
                                     <span className="flex items-center gap-0.5">
-                                        <Users className="w-3 h-3 text-indigo-400" />
+                                        <Users className="w-3 h-3 text-[var(--lt-accent)]" />
                                         {item.followersCount !== undefined ? item.followersCount : item.reviewCount}
                                     </span>
                                 )}
                                 {item.itemCount !== undefined && (
                                     <span className="flex items-center gap-0.5">
-                                        <MapPin className="w-3 h-3 text-indigo-400" /> {item.itemCount}
+                                        <MapPin className="w-3 h-3 text-[var(--lt-accent)]" /> {item.itemCount}
                                     </span>
                                 )}
                             </div>
@@ -269,7 +269,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                     <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
                         <div className="flex justify-between items-start gap-2">
                             <div className="min-w-0 flex-1">
-                                <h3 className="font-display font-bold text-base sm:text-lg text-[var(--text-primary)] leading-tight line-clamp-2 pr-1 group-hover:text-indigo-500 transition-colors">
+                                <h3 className="font-display font-bold text-base sm:text-lg text-[var(--text-primary)] leading-tight line-clamp-2 pr-1 group-hover:text-[var(--lt-accent)] transition-colors">
                                     {item.placeId ? (
                                         groupingMode === 'dish' ? (
                                             <Link
@@ -299,7 +299,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                     {(item.placeCity || item.placeAddress) && (
                                         <>
                                             <span className="text-gray-600 hidden sm:inline">•</span>
-                                            <span className="text-indigo-400/80 font-medium truncate max-w-full block sm:inline">
+                                            <span className="text-[var(--lt-accent)]/80 font-medium truncate max-w-full block sm:inline">
                                                 {item.placeCity || item.placeAddress}
                                             </span>
                                         </>
@@ -307,7 +307,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
 
                                     {/* List Context Badge (for Items) */}
                                     {item.listName && (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 truncate max-w-[120px]">
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] truncate max-w-[120px]">
                                             {item.listName}
                                         </span>
                                     )}
@@ -339,7 +339,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                         {item.tags && item.tags.length > 0 && criteriaPreview.length === 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
                                 {item.tags.slice(0, 4).map(tag => (
-                                    <span key={tag} className="px-1.5 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-[10px] font-medium">
+                                    <span key={tag} className="px-1.5 py-0.5 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] rounded text-[10px] font-medium">
                                         {tag}
                                     </span>
                                 ))}

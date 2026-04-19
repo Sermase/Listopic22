@@ -107,7 +107,7 @@ const ProfileStatsTab: React.FC<Props> = ({
               onClick={() => onSortChange("reviews_desc")}
               className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${
                 statsListSort === "reviews_desc"
-                  ? "bg-indigo-600 text-white"
+                  ? "bg-[var(--lt-accent)] text-white"
                   : "text-gray-300 hover:text-white"
               }`}
             >
@@ -118,7 +118,7 @@ const ProfileStatsTab: React.FC<Props> = ({
               onClick={() => onSortChange("rating_desc")}
               className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${
                 statsListSort === "rating_desc"
-                  ? "bg-indigo-600 text-white"
+                  ? "bg-[var(--lt-accent)] text-white"
                   : "text-gray-300 hover:text-white"
               }`}
             >
@@ -151,7 +151,7 @@ const ProfileStatsTab: React.FC<Props> = ({
                   <div className="text-xs text-gray-400">
                     Media
                   </div>
-                  <div className="text-lg font-black text-indigo-300">
+                  <div className="text-lg font-black text-[var(--lt-accent)]">
                     {formatStatRating(listStat.averageRating)}
                   </div>
                 </div>

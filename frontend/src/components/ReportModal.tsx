@@ -107,7 +107,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
     const getIcon = () => {
         const cls = 'w-4 h-4 shrink-0';
         switch (targetType) {
-            case 'place': return <MapPin className={`${cls} text-indigo-400`} />;
+            case 'place': return <MapPin className={`${cls} text-[var(--lt-accent)]`} />;
             case 'review': return <FileText className={`${cls} text-pink-400`} />;
             case 'list': return <List className={`${cls} text-emerald-400`} />;
             case 'group': return <Users className={`${cls} text-amber-400`} />;
@@ -159,9 +159,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
 
                 {/* Already reported guard */}
                 {alreadyReported && !isSelfReport && (
-                    <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-3 mb-4 flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
-                        <p className="text-sm text-indigo-200">Ya has reportado este contenido. Nuestro equipo lo está revisando.</p>
+                    <div className="bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-lg p-3 mb-4 flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-[var(--lt-accent)] shrink-0" />
+                        <p className="text-sm text-[var(--lt-accent)]">Ya has reportado este contenido. Nuestro equipo lo está revisando.</p>
                     </div>
                 )}
 

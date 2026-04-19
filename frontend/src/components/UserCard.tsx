@@ -10,7 +10,7 @@ interface UserCardProps {
 
 export const UserCard: React.FC<UserCardProps> = ({ user }) => {
     return (
-        <Link to={`/profile/${user.uid}`} className="group relative bg-[var(--lt-card-strong)] rounded-xl p-6 flex flex-col items-center border border-white/5 hover:border-indigo-500/50 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10">
+        <Link to={`/profile/${user.uid}`} className="group relative bg-[var(--lt-card-strong)] rounded-xl p-6 flex flex-col items-center border border-white/5 hover:border-[var(--lt-accent-border)] transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-[var(--lt-accent-shadow)]">
             {/* Avatar */}
             <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${getUserTypeGradient(user.userType)} p-1 mb-4 group-hover:scale-110 transition-transform`}>
                 <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] overflow-hidden flex items-center justify-center border-2 border-[var(--lt-card-strong)]">
@@ -24,7 +24,7 @@ export const UserCard: React.FC<UserCardProps> = ({ user }) => {
 
             {/* Info */}
             <div className="text-center w-full mb-4">
-                <h3 className="text-lg font-bold text-white group-hover:text-indigo-400 transition-colors truncate">
+                <h3 className="text-lg font-bold text-white group-hover:text-[var(--lt-accent)] transition-colors truncate">
                     {user.displayName || 'Usuario'}
                 </h3>
                 <p className="text-sm text-gray-500 truncate">@{user.username || 'user'}</p>
@@ -33,7 +33,7 @@ export const UserCard: React.FC<UserCardProps> = ({ user }) => {
             {/* Stats */}
             <div className="flex items-center gap-4 text-xs text-gray-400 mb-4 bg-black/20 px-3 py-1.5 rounded-full">
                 <span className="flex items-center gap-1.5">
-                    <Users className="w-3 h-3 text-indigo-400" />
+                    <Users className="w-3 h-3 text-[var(--lt-accent)]" />
                     {user.followersCount || 0} seguidores
                 </span>
                 {user.reviewsCount !== undefined && (
@@ -52,7 +52,7 @@ export const UserCard: React.FC<UserCardProps> = ({ user }) => {
             )}
 
             {/* Action Placeholder (Follow) */}
-            <button className="mt-auto w-full py-2 rounded-lg bg-white/5 hover:bg-indigo-600 text-indigo-300 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-2">
+            <button className="mt-auto w-full py-2 rounded-lg bg-white/5 hover:bg-[var(--lt-accent)] text-[var(--lt-accent)] hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-2">
                 <UserPlus className="w-3 h-3" />
                 Seguir
             </button>

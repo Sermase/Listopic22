@@ -76,7 +76,7 @@ const CustomLocateControl = () => {
         <div className="absolute bottom-6 right-6 z-[1000]">
             <button
                 onClick={handleLocate}
-                className="bg-[var(--lt-card-strong)] text-white hover:bg-indigo-600 p-3 rounded-full shadow-lg cursor-pointer flex items-center justify-center transition-all border border-white/20 hover:scale-110 active:scale-95"
+                className="bg-[var(--lt-card-strong)] text-white hover:bg-[var(--lt-accent)] p-3 rounded-full shadow-lg cursor-pointer flex items-center justify-center transition-all border border-white/20 hover:scale-110 active:scale-95"
                 title="Centrar en mi ubicación"
             >
                 <Locate className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -129,7 +129,7 @@ function LayerSelectorControl({ currentLayer, onLayerChange }: { currentLayer: M
         <div className="absolute top-4 right-4 z-[1000]">
             <button
                 onClick={() => setIsOpen(v => !v)}
-                className={`flex items-center justify-center w-9 h-9 rounded-xl shadow-lg border transition-all ${isOpen ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                className={`flex items-center justify-center w-9 h-9 rounded-xl shadow-lg border transition-all ${isOpen ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
                 title="Cambiar capa del mapa"
             >
                 <Layers className="w-4 h-4" />

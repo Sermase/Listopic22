@@ -973,7 +973,7 @@ export const ProfilePage: React.FC = () => {
             <Link
               key={list.id}
               to={`/list/${list.id}`}
-              className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 hover:border-indigo-500/40 hover:bg-white/5 transition-all"
+              className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 hover:border-[var(--lt-accent-border)] hover:bg-white/5 transition-all"
             >
               <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-gray-800">
                 {listImage ? (
@@ -1001,7 +1001,7 @@ export const ProfilePage: React.FC = () => {
               </div>
 
               {showSubBadge && (
-                <span className="shrink-0 text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold uppercase tracking-wide">
+                <span className="shrink-0 text-[10px] px-2 py-0.5 rounded bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] font-bold uppercase tracking-wide">
                   Sub
                 </span>
               )}
@@ -1434,7 +1434,7 @@ export const ProfilePage: React.FC = () => {
                     "Usuario"}
                 </h1>
                 {profile.username && (
-                  <p className="text-sm sm:text-base md:text-lg text-indigo-400 font-normal truncate mt-1">
+                  <p className="text-sm sm:text-base md:text-lg text-[var(--lt-accent)] font-normal truncate mt-1">
                     @{profile.username}
                   </p>
                 )}
@@ -1449,7 +1449,7 @@ export const ProfilePage: React.FC = () => {
                         profile.userType === "jefe") && (
                           <Link
                             to="/developer"
-                            className="p-2.5 rounded-xl bg-[var(--lt-card-strong)] border border-white/10 text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+                            className="p-2.5 rounded-xl bg-[var(--lt-card-strong)] border border-white/10 text-[var(--lt-accent)] hover:bg-[var(--lt-accent)]/10 transition-colors"
                           >
                             <Bug className="w-5 h-5" />
                           </Link>
@@ -1463,7 +1463,7 @@ export const ProfilePage: React.FC = () => {
                       <button
                         aria-label="Compartir perfil"
                         onClick={() => setIsShareModalOpen(true)}
-                        className="p-2.5 rounded-xl bg-[var(--lt-card-strong)] border border-white/10 text-gray-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+                        className="p-2.5 rounded-xl bg-[var(--lt-card-strong)] border border-white/10 text-gray-300 hover:text-[var(--lt-accent)] hover:bg-[var(--lt-accent)]/10 transition-colors"
                       >
                         <Share2 className="w-5 h-5" />
                       </button>
@@ -1484,7 +1484,7 @@ export const ProfilePage: React.FC = () => {
                         disabled={followLoading}
                         className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${isFollowing
                           ? "bg-[var(--lt-card-strong)] border border-white/20 text-white hover:border-red-500 hover:text-red-500"
-                          : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20"
+                          : "bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white shadow-[var(--lt-accent-shadow)]"
                           }`}
                       >
                         {isFollowing ? (
@@ -1505,7 +1505,7 @@ export const ProfilePage: React.FC = () => {
                       </button>
                       <button
                         onClick={() => setIsShareModalOpen(true)}
-                        className="px-4 py-2.5 rounded-xl bg-[var(--lt-card-strong)] border border-white/10 text-gray-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors shadow-lg"
+                        className="px-4 py-2.5 rounded-xl bg-[var(--lt-card-strong)] border border-white/10 text-gray-300 hover:text-[var(--lt-accent)] hover:bg-[var(--lt-accent)]/10 transition-colors shadow-lg"
                         title="Compartir perfil"
                       >
                         <Share2 className="w-5 h-5" />
@@ -1573,7 +1573,7 @@ export const ProfilePage: React.FC = () => {
                         {favoriteReview.itemName}
                       </div>
                       {favoriteReview.placeName && (
-                        <div className="text-[11px] text-indigo-200 truncate">
+                        <div className="text-[11px] text-[var(--lt-accent)] truncate">
                           {favoriteReview.placeName}
                         </div>
                       )}
@@ -1625,7 +1625,7 @@ export const ProfilePage: React.FC = () => {
                   {favoriteReview.itemName}
                 </div>
                 {favoriteReview.placeName && (
-                  <div className="text-[11px] text-indigo-200 truncate">
+                  <div className="text-[11px] text-[var(--lt-accent)] truncate">
                     {favoriteReview.placeName}
                   </div>
                 )}
@@ -1655,7 +1655,7 @@ export const ProfilePage: React.FC = () => {
                   profile.userType === "jefe") && (
                     <Link
                       to="/developer"
-                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-indigo-400"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-[var(--lt-accent)]"
                     >
                       <Bug className="w-4 h-4" />
                     </Link>
@@ -1689,7 +1689,7 @@ export const ProfilePage: React.FC = () => {
                   disabled={followLoading}
                   className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-bold transition-all shadow-lg ${isFollowing
                     ? "bg-[var(--lt-card-strong)] border border-white/20 text-white"
-                    : "bg-indigo-600 text-white"
+                    : "bg-[var(--lt-accent)] text-white"
                     }`}
                 >
                   {isFollowing ? "Siguiendo" : "Seguir"}
@@ -1841,7 +1841,7 @@ export const ProfilePage: React.FC = () => {
                     type="button"
                     onClick={() => setPreferencesTab("user")}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "user"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-[var(--lt-accent)] text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
                   >
@@ -1851,7 +1851,7 @@ export const ProfilePage: React.FC = () => {
                     type="button"
                     onClick={() => setPreferencesTab("search")}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "search"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-[var(--lt-accent)] text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
                   >
@@ -1861,7 +1861,7 @@ export const ProfilePage: React.FC = () => {
                     type="button"
                     onClick={() => setPreferencesTab("notifications")}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "notifications"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-[var(--lt-accent)] text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
                   >
@@ -1871,7 +1871,7 @@ export const ProfilePage: React.FC = () => {
                     type="button"
                     onClick={() => setPreferencesTab("appearance")}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "appearance"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-[var(--lt-accent)] text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
                   >
@@ -1895,7 +1895,7 @@ export const ProfilePage: React.FC = () => {
                   <>
                     <div>
                       <h4 className="text-white font-bold mb-4 flex items-center gap-2">
-                        <UsersIcon className="w-4 h-4 text-indigo-400" /> Perfil
+                        <UsersIcon className="w-4 h-4 text-[var(--lt-accent)]" /> Perfil
                         publico
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1912,7 +1912,7 @@ export const ProfilePage: React.FC = () => {
                             disabled={hasLockedUsername}
                             className={`w-full border rounded-lg px-3 py-2 ${hasLockedUsername
                               ? "bg-black/40 border-white/10 text-gray-400 cursor-not-allowed"
-                              : "bg-black/20 border-amber-400/40 text-white outline-none focus:border-indigo-500"
+                              : "bg-black/20 border-amber-400/40 text-white outline-none focus:border-[var(--lt-accent-border)]"
                               }`}
                             placeholder="Sin espacios, maximo 18 caracteres"
                           />
@@ -1931,7 +1931,7 @@ export const ProfilePage: React.FC = () => {
                             type="text"
                             value={editDisplayName}
                             onChange={(e) => setEditDisplayName(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
                             placeholder="Visible publicamente"
                           />
                         </div>
@@ -1944,7 +1944,7 @@ export const ProfilePage: React.FC = () => {
                             type="text"
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
                             placeholder="Opcional"
                           />
                         </div>
@@ -1957,7 +1957,7 @@ export const ProfilePage: React.FC = () => {
                             type="text"
                             value={editSurnames}
                             onChange={(e) => setEditSurnames(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
                             placeholder="Opcional"
                           />
                         </div>
@@ -1970,7 +1970,7 @@ export const ProfilePage: React.FC = () => {
                             type="text"
                             value={editLocation}
                             onChange={(e) => setEditLocation(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
                             placeholder="Opcional"
                           />
                         </div>
@@ -1983,7 +1983,7 @@ export const ProfilePage: React.FC = () => {
                             value={editBio}
                             onChange={(e) => setEditBio(e.target.value)}
                             rows={4}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500 resize-y"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)] resize-y"
                             placeholder="Opcional"
                           />
                         </div>
@@ -1992,7 +1992,7 @@ export const ProfilePage: React.FC = () => {
 
                     <div>
                       <h4 className="text-white font-bold mb-4 flex items-center gap-2">
-                        <UsersIcon className="w-4 h-4 text-indigo-400" /> Avatar
+                        <UsersIcon className="w-4 h-4 text-[var(--lt-accent)]" /> Avatar
                       </h4>
                       <div className="flex flex-col gap-4">
                         <div className="flex gap-4">
@@ -2013,7 +2013,7 @@ export const ProfilePage: React.FC = () => {
                               }
                             }}
                             className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${profile.photoUrl === user?.photoURL
-                              ? "bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500"
+                              ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent)]"
                               : "bg-black/20 border-white/10 hover:border-white/30"
                               }`}
                           >
@@ -2035,9 +2035,9 @@ export const ProfilePage: React.FC = () => {
 
                           <div
                             className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all relative overflow-hidden group ${profile.photoUrl !== user?.photoURL
-                              ? "bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500"
+                              ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent)]"
                               : "bg-black/20 border-white/10 hover:border-white/30"
-                              } ${dragActive ? "border-dashed border-indigo-400 bg-indigo-500/10" : ""}`}
+                              } ${dragActive ? "border-dashed border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)]" : ""}`}
                             onDragEnter={handleDrag}
                             onDragLeave={handleDrag}
                             onDragOver={handleDrag}
@@ -2096,7 +2096,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="space-y-6">
                     <div>
                       <h4 className="text-white font-bold mb-4 flex items-center gap-2">
-                        <Settings className="w-4 h-4 text-indigo-400" />{" "}
+                        <Settings className="w-4 h-4 text-[var(--lt-accent)]" />{" "}
                         Preferencias de busqueda
                       </h4>
                       <div className="flex flex-col gap-2 max-w-sm">
@@ -2107,7 +2107,7 @@ export const ProfilePage: React.FC = () => {
                           <select
                             value={editRange}
                             onChange={(e) => setEditRange(e.target.value)}
-                            className="bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-indigo-500 w-full"
+                            className="bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)] w-full"
                           >
                             <option value="1">1 km</option>
                             <option value="2">2 km</option>
@@ -2128,7 +2128,7 @@ export const ProfilePage: React.FC = () => {
 
                     <div>
                       <h4 className="text-white font-bold mb-3 flex items-center gap-2">
-                        <MapPinIcon className="w-4 h-4 text-indigo-400" /> Capa de mapa preferida
+                        <MapPinIcon className="w-4 h-4 text-[var(--lt-accent)]" /> Capa de mapa preferida
                       </h4>
                       <div className="grid grid-cols-2 gap-2 max-w-sm">
                         {([
@@ -2142,8 +2142,8 @@ export const ProfilePage: React.FC = () => {
                             type="button"
                             onClick={() => setEditMapLayer(layer.id)}
                             className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${editMapLayer === layer.id
-                              ? 'bg-indigo-600 border-indigo-500 text-white'
-                              : 'bg-black/20 border-white/10 text-gray-300 hover:border-indigo-500/50 hover:text-white'
+                              ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white'
+                              : 'bg-black/20 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
                               }`}
                           >
                             <span className="text-base">{layer.emoji}</span>
@@ -2176,7 +2176,7 @@ export const ProfilePage: React.FC = () => {
                           type="button"
                           onClick={() => setNotifPrefs(prev => ({ ...prev, [key]: !prev[key] }))}
                           className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
-                            notifPrefs[key] !== false ? "bg-indigo-600" : "bg-white/10"
+                            notifPrefs[key] !== false ? "bg-[var(--lt-accent)]" : "bg-white/10"
                           }`}
                         >
                           <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
@@ -2192,7 +2192,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="space-y-5">
                     <div>
                       <h4 className="text-white font-bold mb-2 flex items-center gap-2">
-                        <Palette className="w-4 h-4 text-indigo-400" />
+                        <Palette className="w-4 h-4 text-[var(--lt-accent)]" />
                         Tema de la interfaz
                       </h4>
                       <p className="text-xs text-gray-400 mb-4 leading-relaxed">
@@ -2208,7 +2208,7 @@ export const ProfilePage: React.FC = () => {
                               onClick={() => { void applyTheme(t.id as ThemeId); }}
                               aria-pressed={isActive}
                               className={`relative group rounded-2xl overflow-hidden border text-left transition-all duration-200 ${isActive
-                                ? "border-indigo-500 ring-2 ring-indigo-500/50"
+                                ? "border-[var(--lt-accent-border)] ring-2 ring-[var(--lt-accent)]"
                                 : "border-white/10 hover:border-white/30"
                                 }`}
                             >
@@ -2257,7 +2257,7 @@ export const ProfilePage: React.FC = () => {
                                   </div>
                                 </div>
                                 {isActive && (
-                                  <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/95 text-indigo-600 flex items-center justify-center shadow-lg">
+                                  <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/95 text-[var(--lt-accent)] flex items-center justify-center shadow-lg">
                                     <Check className="w-3.5 h-3.5" strokeWidth={3} />
                                   </div>
                                 )}
@@ -2331,7 +2331,7 @@ export const ProfilePage: React.FC = () => {
                             type="button"
                             onClick={() => setDeleteKeepReviews(val)}
                             className={`flex-1 py-2 rounded-xl border text-sm font-bold transition-colors ${deleteKeepReviews === val
-                              ? val ? "bg-indigo-600/30 border-indigo-500/50 text-white" : "bg-red-600/20 border-red-500/50 text-white"
+                              ? val ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-white" : "bg-red-600/20 border-red-500/50 text-white"
                               : "bg-black/20 border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
                               }`}
                           >
@@ -2352,7 +2352,7 @@ export const ProfilePage: React.FC = () => {
                             type="button"
                             onClick={() => setDeleteKeepSublists(val)}
                             className={`flex-1 py-2 rounded-xl border text-sm font-bold transition-colors ${deleteKeepSublists === val
-                              ? val ? "bg-indigo-600/30 border-indigo-500/50 text-white" : "bg-red-600/20 border-red-500/50 text-white"
+                              ? val ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-white" : "bg-red-600/20 border-red-500/50 text-white"
                               : "bg-black/20 border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
                               }`}
                           >
@@ -2425,7 +2425,7 @@ export const ProfilePage: React.FC = () => {
                       type="button"
                       onClick={savePreferences}
                       disabled={savingPreferences}
-                      className="px-3 py-2 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 min-w-[150px]"
+                      className="px-3 py-2 text-xs font-bold rounded-lg bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-60 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 min-w-[150px]"
                     >
                       {savingPreferences && (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2451,7 +2451,7 @@ export const ProfilePage: React.FC = () => {
                     type="button"
                     onClick={() => setReviewSortMode("recent")}
                     className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewSortMode === "recent"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-[var(--lt-accent)] text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
                     title="Recientes"
@@ -2462,7 +2462,7 @@ export const ProfilePage: React.FC = () => {
                     type="button"
                     onClick={() => setReviewSortMode("top_rated")}
                     className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewSortMode === "top_rated"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-[var(--lt-accent)] text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
                     title="Mejor valoradas"
@@ -2495,7 +2495,7 @@ export const ProfilePage: React.FC = () => {
                     title="Vista completa"
                     onClick={() => setReviewViewMode("full")}
                     className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewViewMode === "full"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-[var(--lt-accent)] text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
                   >
@@ -2506,7 +2506,7 @@ export const ProfilePage: React.FC = () => {
                     title="Vista galería"
                     onClick={() => setReviewViewMode("gallery")}
                     className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewViewMode === "gallery"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-[var(--lt-accent)] text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
                   >
@@ -2517,7 +2517,7 @@ export const ProfilePage: React.FC = () => {
                     title="Vista mapa"
                     onClick={() => setReviewViewMode("map")}
                     className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewViewMode === "map"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-[var(--lt-accent)] text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
                   >
@@ -2601,7 +2601,7 @@ export const ProfilePage: React.FC = () => {
                   className="flex justify-center pt-8 pb-4"
                 >
                   {loadingMore ? (
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--lt-accent-border)]"></div>
                   ) : (
                     <div className="h-4 w-full" /> // Invisible trigger
                   )}
@@ -2637,13 +2637,13 @@ export const ProfilePage: React.FC = () => {
               <div className="flex overflow-x-auto hide-scrollbar border-b border-white/10 bg-[var(--lt-card-strong)]">
                 <button
                   onClick={() => setDetailsModalTab("stats")}
-                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
                   <BarChart3 className="w-4 h-4" /> Reseñas
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("followers")}
-                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "followers" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "followers" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
                   Seguidores
                 </button>
@@ -2655,13 +2655,13 @@ export const ProfilePage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("following")}
-                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "following" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "following" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
                   Siguiendo
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("lists")}
-                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "lists" ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-white"}`}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "lists" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
                   Listas
                 </button>
@@ -2818,7 +2818,7 @@ export const ProfilePage: React.FC = () => {
                             type="button"
                             onClick={() => setListSubTab("followed_lists")}
                             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${listSubTab === "followed_lists"
-                              ? "bg-indigo-600 border-indigo-500 text-white"
+                              ? "bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white"
                               : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                               }`}
                           >
@@ -2828,7 +2828,7 @@ export const ProfilePage: React.FC = () => {
                             type="button"
                             onClick={() => setListSubTab("followed_sublists")}
                             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${listSubTab === "followed_sublists"
-                              ? "bg-indigo-600 border-indigo-500 text-white"
+                              ? "bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white"
                               : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                               }`}
                           >
@@ -2838,7 +2838,7 @@ export const ProfilePage: React.FC = () => {
                             type="button"
                             onClick={() => setListSubTab("created_sublists")}
                             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${listSubTab === "created_sublists"
-                              ? "bg-indigo-600 border-indigo-500 text-white"
+                              ? "bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white"
                               : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                               }`}
                           >

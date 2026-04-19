@@ -28,14 +28,14 @@ export const UsersPage: React.FC = () => {
                             placeholder="Buscar usuarios..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-xl leading-5 bg-[var(--lt-card-strong)] text-gray-300 placeholder-gray-500 focus:outline-none focus:bg-gray-800 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors shadow-lg"
+                            className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-xl leading-5 bg-[var(--lt-card-strong)] text-gray-300 placeholder-gray-500 focus:outline-none focus:bg-gray-800 focus:ring-1 focus:ring-[var(--lt-accent)] focus:border-[var(--lt-accent-border)] sm:text-sm transition-colors shadow-lg"
                         />
                     </div>
                 </div>
 
                 {loading ? (
                     <div className="flex justify-center items-center py-20">
-                        <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
+                        <Loader2 className="w-10 h-10 text-[var(--lt-accent)] animate-spin" />
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

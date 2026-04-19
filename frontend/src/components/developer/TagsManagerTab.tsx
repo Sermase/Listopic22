@@ -267,7 +267,7 @@ export const TagsManagerTab: React.FC = () => {
                 <button
                     onClick={scanTags}
                     disabled={scanning || applying}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-white font-bold text-sm transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 rounded-lg text-white font-bold text-sm transition-colors"
                 >
                     {scanning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                     {scanning ? 'Analizando...' : 'Analizar'}
@@ -281,8 +281,8 @@ export const TagsManagerTab: React.FC = () => {
                         <div className="text-2xl font-bold text-amber-400">{listsWithMissing.length}</div>
                         <div className="text-xs text-gray-400 mt-0.5">Listas con tags faltantes</div>
                     </div>
-                    <div className="border border-purple-500/20 bg-purple-500/10 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-purple-400">{listsWithOrphans.length}</div>
+                    <div className="border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] rounded-lg p-3">
+                        <div className="text-2xl font-bold text-[var(--lt-accent-2)]">{listsWithOrphans.length}</div>
                         <div className="text-xs text-gray-400 mt-0.5">Listas con tags sin uso</div>
                     </div>
                     <div className="border border-emerald-500/20 bg-emerald-500/10 rounded-lg p-3">
@@ -347,7 +347,7 @@ export const TagsManagerTab: React.FC = () => {
                                             </span>
                                         )}
                                         {p.orphanTags.length > 0 && (
-                                            <span className="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold">
+                                            <span className="text-[10px] bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)] px-1.5 py-0.5 rounded font-bold">
                                                 {p.orphanTags.length} sin uso
                                             </span>
                                         )}
@@ -373,10 +373,10 @@ export const TagsManagerTab: React.FC = () => {
                                     )}
                                     {p.orphanTags.length > 0 && (
                                         <div>
-                                            <p className="text-xs font-bold text-purple-400 mb-1.5">Tags en la lista pero sin uso en reseñas:</p>
+                                            <p className="text-xs font-bold text-[var(--lt-accent-2)] mb-1.5">Tags en la lista pero sin uso en reseñas:</p>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {p.orphanTags.map(t => (
-                                                    <span key={t} className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full text-xs border border-purple-500/20">{t}</span>
+                                                    <span key={t} className="px-2 py-0.5 bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)] rounded-full text-xs border border-[var(--lt-accent-border)]">{t}</span>
                                                 ))}
                                             </div>
                                         </div>
@@ -435,12 +435,12 @@ export const TagsManagerTab: React.FC = () => {
                                                                     if (e.key === 'Enter') saveRename();
                                                                     if (e.key === 'Escape') setRenaming(null);
                                                                 }}
-                                                                className="bg-[#1e253c] border border-indigo-500/50 rounded-lg px-3 py-1.5 text-sm text-white outline-none w-40"
+                                                                className="bg-[#1e253c] border border-[var(--lt-accent-border)] rounded-lg px-3 py-1.5 text-sm text-white outline-none w-40"
                                                             />
                                                             <button
                                                                 onClick={saveRename}
                                                                 disabled={savingRename}
-                                                                className="p-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white disabled:opacity-50"
+                                                                className="p-1.5 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] rounded-lg text-white disabled:opacity-50"
                                                             >
                                                                 {savingRename
                                                                     ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin block" />
@@ -452,7 +452,7 @@ export const TagsManagerTab: React.FC = () => {
                                                             </button>
                                                         </div>
                                                     ) : (
-                                                        <span className="px-2.5 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-medium">{row.tag}</span>
+                                                        <span className="px-2.5 py-1 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] rounded-full text-xs font-medium">{row.tag}</span>
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-2 text-gray-400 text-xs truncate max-w-[200px]">{row.listName}</td>

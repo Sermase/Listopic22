@@ -8,19 +8,22 @@ admin.initializeApp();
 setGlobalOptions({ region: "europe-west1" });
 
 // --- CARGA DE MÓDULOS DE FUNCIONES ---
-// --- CARGA DE MÓDULOS DE FUNCIONES ---
 const algoliaFunctions = require('./modules/algolia');
-const coreFunctions = require('./modules/core'); // <-- Cargamos el nuevo módulo
+const coreFunctions = require('./modules/core');
 const gamificationFunctions = require('./modules/gamification');
 
 // --- EXPORTACIÓN DE TODAS LAS FUNCIONES PARA FIREBASE ---
 module.exports = {
     ...algoliaFunctions,
-    ...coreFunctions, // <-- Las añadimos a la exportación final
+    ...coreFunctions,
     ...gamificationFunctions,
     ...require('./modules/notifications'),
     ...require('./modules/chat'),
-    ...require('./modules/social'), // <-- Social Graph Consistency
-    ...require('./modules/reports'), // <-- Report handling & admin notifications
+    ...require('./modules/social'),
+    ...require('./modules/reports'),
+    ...require('./modules/admin/admin-tags'),
+    ...require('./modules/admin/admin-users'),
+    ...require('./modules/admin/admin-misc'),
+    ...require('./modules/admin/admin-lists'),
 };
 // Force redeploy

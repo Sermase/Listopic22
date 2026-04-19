@@ -105,7 +105,7 @@ const HERO_SUBTITLE_TEMPLATES = [
 ] as const;
 
 const HERO_HIGHLIGHT_REGEX = /(\[\[[^\]]+\]\])/g;
-const HERO_HIGHLIGHT_STYLES = ['text-indigo-400', 'text-purple-400', 'text-cyan-300'] as const;
+const HERO_HIGHLIGHT_STYLES = ['text-[var(--lt-accent)]', 'text-[var(--lt-accent-2)]', 'text-[var(--lt-accent)]'] as const;
 const HOME_LOADING_MESSAGES = [
     'Ajustando rankings con precisión artesanal...',
     'Buscando joyas ocultas cerca de ti...',
@@ -311,15 +311,16 @@ export const HomePage: React.FC = () => {
 
     // Following Logic
     const [followingIds, setFollowingIds] = useState<string[]>([]);
+    const userUid = user?.uid;
     useEffect(() => {
-        if (!user) return;
+        if (!userUid) return;
         const fetchFollowing = async () => {
-            const q = query(collection(db, 'users', user.uid, 'following'));
+            const q = query(collection(db, 'users', userUid, 'following'));
             const snap = await getDocs(q);
             setFollowingIds(snap.docs.map(d => d.id));
         };
         fetchFollowing();
-    }, [user]);
+    }, [userUid]);
 
     // Infinite Scroll / Pagination
     const [visibleCount, setVisibleCount] = useState(4);
@@ -330,7 +331,6 @@ export const HomePage: React.FC = () => {
     const listSort = activeTab === 'explore' ? 'top_rated' : 'recent'; // Lists still use 'recent' for news
 
     const reviewSortParam = useMemo(() => {
-        console.log(`[HomePage] Building reviewSortParam. Tab: ${activeTab}, followingIds length: ${followingIds.length}`);
         if (activeTab === 'explore') {
             const months = appConfig.homeReviewsMonths;
             if (months > 0) {
@@ -779,7 +779,7 @@ export const HomePage: React.FC = () => {
     if (authLoading) {
         return (
             <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                <Loader2 className="w-8 h-8 text-[var(--lt-accent)] animate-spin" />
             </div>
         );
     }
@@ -791,10 +791,10 @@ export const HomePage: React.FC = () => {
 
                     {/* Hero Section (Clean) */}
                     <div className="max-w-4xl mx-auto mb-10 text-center pt-8 relative z-10">
-                        <div className="absolute top-0 left-1/4 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" />
-                        <div className="absolute top-10 right-1/4 w-72 h-72 bg-purple-500/20 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" style={{ animationDelay: '2s' }} />
+                        <div className="absolute top-0 left-1/4 w-64 h-64 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" style={{ backgroundColor: 'var(--lt-accent-soft)' }} />
+                        <div className="absolute top-10 right-1/4 w-72 h-72 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" style={{ backgroundColor: 'var(--lt-accent-soft)', animationDelay: '2s' }} />
                         <h1 className="text-5xl md:text-[5.5rem] font-black tracking-tighter mb-4 select-none leading-[1.1]">
-                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 drop-shadow-md">
+                            <span className="bg-clip-text text-transparent drop-shadow-md" style={{ backgroundImage: 'var(--lt-hero-grad)' }}>
                                 LISTOPIC
                             </span>
                         </h1>
@@ -818,18 +818,20 @@ export const HomePage: React.FC = () => {
                             <button
                                 onClick={() => setActiveTab('explore')}
                                 className={`relative px-8 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${activeTab === 'explore'
-                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_4px_14px_0_rgba(99,102,241,0.39)] scale-100'
+                                    ? 'text-white scale-100'
                                     : 'text-gray-400 hover:text-white hover:bg-white/10 scale-[0.98]'
                                     }`}
+                                style={activeTab === 'explore' ? { backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' } : undefined}
                             >
                                 Explorar
                             </button>
                             <button
                                 onClick={() => setActiveTab('news')}
                                 className={`relative px-8 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${activeTab === 'news'
-                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_4px_14px_0_rgba(99,102,241,0.39)] scale-100'
+                                    ? 'text-white scale-100'
                                     : 'text-gray-400 hover:text-white hover:bg-white/10 scale-[0.98]'
                                     }`}
+                                style={activeTab === 'news' ? { backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' } : undefined}
                             >
                                 Novedades
                             </button>
@@ -839,7 +841,7 @@ export const HomePage: React.FC = () => {
                     {homeContentLoading && (
                         <div className="mt-4 flex justify-center">
                             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-[var(--lt-card-strong)]/90 text-sm text-gray-300">
-                                <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                                <Loader2 className="w-4 h-4 text-[var(--lt-accent)] animate-spin" />
                                 <span>{HOME_LOADING_MESSAGES[loadingMessageIndex]}</span>
                             </div>
                         </div>
@@ -870,7 +872,7 @@ export const HomePage: React.FC = () => {
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleToggleRange(); }}
                                             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
-                                                ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
+                                                ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg'
                                                 : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
                                                 }`}
                                         >
@@ -937,7 +939,7 @@ export const HomePage: React.FC = () => {
                                             {/* Stats Row: Reviews, Followers */}
                                             <div className="flex items-center gap-4 opacity-90 text-xs text-gray-300 font-medium">
                                                 <div className="flex items-center gap-1.5" title="Reseñas dentro de tu rango de distancia">
-                                                    <MessageCircle className="w-3.5 h-3.5 text-indigo-400" />
+                                                    <MessageCircle className="w-3.5 h-3.5 text-[var(--lt-accent)]" />
                                                     <span>{list.reviewsInRangeCount !== undefined ? list.reviewsInRangeCount : (list.reviewCount || 0)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5" title="Seguidores de la lista">
@@ -983,8 +985,8 @@ export const HomePage: React.FC = () => {
                                 items={activeUsersInRange}
                                 loading={loadingUsers}
                                 itemClassName="w-auto mr-3"
-                                icon={<TrendingUp className="w-5 h-5 text-purple-400" />}
-                                accentClass="bg-purple-500/20"
+                                icon={<TrendingUp className="w-5 h-5 text-[var(--lt-accent-2)]" />}
+                                accentClass="bg-[var(--lt-accent-soft)]"
                                 renderItem={(u: any) => (
                                     <Link to={`/profile/${u.uid}`} className="flex flex-col items-center gap-1 group p-2 rounded-md hover:bg-white/5 transition-colors w-24 md:w-32 shrink-0">
                                         <UserAvatar
@@ -996,7 +998,7 @@ export const HomePage: React.FC = () => {
                                         <div className="text-center w-full mt-1">
                                             <h4 className="text-white font-bold text-xs truncate w-full">{u.displayName}</h4>
                                             <p className="text-gray-500 text-[10px] truncate">@{u.username || 'user'}</p>
-                                            <p className="text-[9px] text-indigo-400 font-medium mt-0.5">
+                                            <p className="text-[9px] text-[var(--lt-accent)] font-medium mt-0.5">
                                                 {u.reviewsInRangeCount ?? 0} Reseñas
                                             </p>
                                         </div>
@@ -1046,7 +1048,7 @@ export const HomePage: React.FC = () => {
                             <div className="max-w-2xl mx-auto mt-12 pb-20">
                                 {(loadingReviews && filteredItems.length === 0) ? (
                                     <div className="flex justify-center py-16">
-                                        <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                                        <Loader2 className="w-6 h-6 text-[var(--lt-accent)] animate-spin" />
                                     </div>
                                 ) : filteredItems.length === 0 ? (
                                     <div className="text-gray-500 py-10 border border-white/5 rounded-xl bg-white/5 mx-4 px-4">
@@ -1071,7 +1073,7 @@ export const HomePage: React.FC = () => {
                                                                     className="w-full h-full object-cover"
                                                                 />
                                                             ) : (
-                                                                <div className="w-12 h-12 rounded-full mx-auto mb-2 bg-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                                                                <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold text-lg" style={{ backgroundColor: 'var(--lt-accent)' }}>
                                                                     {(topUser.displayName || topUser.username || '?')[0].toUpperCase()}
                                                                 </div>
                                                             )}
@@ -1086,7 +1088,7 @@ export const HomePage: React.FC = () => {
                                             </div>
                                         )}
                                         <div className="text-center mt-4">
-                                            <Link to="/search?type=lists" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                                            <Link to="/search?type=lists" className="text-xs text-[var(--lt-accent)] hover:opacity-80 transition-opacity">
                                                 Explorar listas →
                                             </Link>
                                         </div>
@@ -1098,7 +1100,7 @@ export const HomePage: React.FC = () => {
                                         ))}
                                         {(visibleCount < filteredItems.length || hasMore) && (
                                             <div ref={loadMoreRef} className="py-8 flex justify-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--lt-accent)]"></div>
                                             </div>
                                         )}
                                     </div>
@@ -1127,7 +1129,7 @@ export const HomePage: React.FC = () => {
                     <button
                         type="button"
                         onClick={handleSurpriseChoice}
-                        className="fixed bottom-5 right-4 sm:bottom-6 sm:right-5 z-40 h-11 w-11 rounded-full border-2 border-amber-300/90 bg-indigo-600 text-amber-100 shadow-lg shadow-amber-500/25 hover:bg-indigo-500 transition-colors flex items-center justify-center"
+                        className="fixed bottom-5 right-4 sm:bottom-6 sm:right-5 z-40 h-11 w-11 rounded-full border-2 border-amber-300/90 text-amber-100 shadow-lg shadow-amber-500/25 transition-colors flex items-center justify-center" style={{ backgroundColor: 'var(--lt-accent)' }}
                         title="Plan al azar"
                         aria-label="Plan al azar"
                     >
@@ -1155,7 +1157,7 @@ export const HomePage: React.FC = () => {
                                         onChange={(e) => handleGateFieldChange('username', e.target.value)}
                                         maxLength={USERNAME_MAX_LENGTH}
                                         required
-                                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
                                         placeholder="sin espacios, máximo 18"
                                     />
                                     <p className="text-[11px] text-amber-300 mt-2">
@@ -1172,7 +1174,7 @@ export const HomePage: React.FC = () => {
                                             type="text"
                                             value={gateForm.displayName}
                                             onChange={(e) => handleGateFieldChange('displayName', e.target.value)}
-                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
                                             placeholder="por defecto será el username"
                                         />
                                     </div>
@@ -1184,7 +1186,7 @@ export const HomePage: React.FC = () => {
                                             type="text"
                                             value={gateForm.name}
                                             onChange={(e) => handleGateFieldChange('name', e.target.value)}
-                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
                                             placeholder="opcional"
                                         />
                                     </div>
@@ -1199,7 +1201,7 @@ export const HomePage: React.FC = () => {
                                             type="text"
                                             value={gateForm.surnames}
                                             onChange={(e) => handleGateFieldChange('surnames', e.target.value)}
-                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
                                             placeholder="opcional"
                                         />
                                     </div>
@@ -1211,7 +1213,7 @@ export const HomePage: React.FC = () => {
                                             type="text"
                                             value={gateForm.location}
                                             onChange={(e) => handleGateFieldChange('location', e.target.value)}
-                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
                                             placeholder="opcional"
                                         />
                                     </div>
@@ -1225,7 +1227,7 @@ export const HomePage: React.FC = () => {
                                         value={gateForm.bio}
                                         onChange={(e) => handleGateFieldChange('bio', e.target.value)}
                                         rows={4}
-                                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
                                         placeholder="opcional"
                                     />
                                 </div>
@@ -1239,7 +1241,7 @@ export const HomePage: React.FC = () => {
                                 <button
                                     type="submit"
                                     disabled={gateSubmitting}
-                                    className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    className="w-full py-3 rounded-xl text-white font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2" style={{ backgroundColor: 'var(--lt-accent)' }}
                                 >
                                     {gateSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Guardar y continuar

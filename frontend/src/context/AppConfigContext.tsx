@@ -4,7 +4,11 @@ import { db } from '../firebase';
 
 export interface AppConfig {
     logoType: 'default' | 'image';
-    logoUrl?: string; // For 'image' type
+    logoUrl?: string;
+    logoUrlDark?: string;
+    logoUrlLight?: string;
+    logoUrlWarm?: string;
+    logoUrlCool?: string;
     faviconType: 'default' | 'image';
     faviconUrl?: string;
     appName: string;

@@ -187,7 +187,7 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
                 <div className="flex justify-between items-center p-6 border-b border-white/10 shrink-0">
                     <div>
                         <h2 className="text-xl font-bold text-white">Editar Documento</h2>
-                        <div className="text-sm text-gray-400 mt-1">Colección: {collectionName} | ID: <span className="text-indigo-400 font-mono">{item.id}</span></div>
+                        <div className="text-sm text-gray-400 mt-1">Colección: {collectionName} | ID: <span className="text-[var(--lt-accent)] font-mono">{item.id}</span></div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
                         <X className="w-5 h-5" />
@@ -217,11 +217,11 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
                                     onDrop={onDrop}
                                     onClick={() => fileInputRef.current?.click()}
                                     className={`relative w-full md:w-64 aspect-video rounded-lg border-2 border-dashed flex flex-col items-center justify-center overflow-hidden cursor-pointer transition-colors bg-black/40
-                                        ${isDragging ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 hover:border-white/30 hover:bg-white/5'}
+                                        ${isDragging ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)]' : 'border-white/10 hover:border-white/30 hover:bg-white/5'}
                                     `}
                                 >
                                     {uploadingImage ? (
-                                        <div className="text-indigo-400 font-bold flex flex-col items-center gap-2">
+                                        <div className="text-[var(--lt-accent)] font-bold flex flex-col items-center gap-2">
                                             <UploadCloud className="w-8 h-8 animate-bounce" />
                                             Subiendo...
                                         </div>
@@ -249,7 +249,7 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
                                 />
                                 <div className="flex-1 space-y-2 text-sm text-gray-400">
                                     <p>Actualizará automáticamente el campo ` + "`mainImageUrl`" + ` en este documento al terminar de subir a Storage.</p>
-                                    <p>URL actual: {item.mainImageUrl ? <a href={item.mainImageUrl} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline inline-block truncate max-w-[200px] align-bottom">{item.mainImageUrl}</a> : 'Sin asignar'}</p>
+                                    <p>URL actual: {item.mainImageUrl ? <a href={item.mainImageUrl} target="_blank" rel="noreferrer" className="text-[var(--lt-accent)] hover:underline inline-block truncate max-w-[200px] align-bottom">{item.mainImageUrl}</a> : 'Sin asignar'}</p>
                                 </div>
                             </div>
                         </div>
@@ -262,7 +262,7 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
                         <textarea
                             value={jsonStr}
                             onChange={(e) => setJsonStr(e.target.value)}
-                            className="w-full bg-[#1e253c] border border-white/10 rounded-lg p-4 text-sm font-mono text-gray-300 outline-none focus:border-indigo-500 resize-y min-h-[300px]"
+                            className="w-full bg-[#1e253c] border border-white/10 rounded-lg p-4 text-sm font-mono text-gray-300 outline-none focus:border-[var(--lt-accent-border)] resize-y min-h-[300px]"
                             spellCheck={false}
                         />
                     </div>
@@ -291,7 +291,7 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
                     <button
                         onClick={handleSaveJson}
                         disabled={isSaving}
-                        className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold transition-colors flex items-center gap-2"
+                        className="px-6 py-2 rounded-lg bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 text-white font-bold transition-colors flex items-center gap-2"
                     >
                         {isSaving ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <Save className="w-4 h-4" />}
                         {isSaving ? 'Guardando...' : 'Guardar JSON'}

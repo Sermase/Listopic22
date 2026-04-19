@@ -36,7 +36,7 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
     // Dynamic Color for Score
     const getScoreColor = (score: number) => {
         if (score >= 9) return 'bg-emerald-500 shadow-emerald-500/50';
-        if (score >= 7) return 'bg-indigo-500 shadow-indigo-500/50';
+        if (score >= 7) return 'bg-[var(--lt-accent)] shadow-[var(--lt-accent-shadow)]';
         if (score >= 5) return 'bg-yellow-500 shadow-yellow-500/50';
         return 'bg-red-500 shadow-red-500/50';
     };
@@ -64,7 +64,7 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
                 {/* Content */}
                 <div className="p-4 flex flex-col flex-grow">
                     <Link to={`/list/${list.id}`} className="block flex-grow">
-                        <h3 className="text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-indigo-400 transition-colors">
+                        <h3 className="text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-[var(--lt-accent)] transition-colors">
                             {list.name}
                         </h3>
                         <p className="text-sm text-gray-400 line-clamp-2 mb-4 h-10">
@@ -73,7 +73,7 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
                     </Link>
 
                     <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-                        <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/30 shadow-inner">
+                        <div className="w-6 h-6 rounded-full bg-[var(--lt-accent-soft)] flex items-center justify-center text-[var(--lt-accent)] font-bold border border-[var(--lt-accent-border)] shadow-inner">
                             {list.authorName?.[0] || "?"}
                         </div>
                         <span className="truncate max-w-[80px] font-medium">{list.authorName}</span>
@@ -87,7 +87,7 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
                                     key={tag}
                                     to={`/search?q=${tag}`}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="px-2 py-0.5 rounded-full text-[10px] bg-white/5 border border-white/10 text-gray-400 hover:bg-indigo-500/20 hover:text-indigo-300 hover:border-indigo-500/30 transition-colors whitespace-nowrap"
+                                    className="px-2 py-0.5 rounded-full text-[10px] bg-white/5 border border-white/10 text-gray-400 hover:bg-[var(--lt-accent)]/20 hover:text-[var(--lt-accent)] hover:border-[var(--lt-accent-border)] transition-colors whitespace-nowrap"
                                 >
                                     #{tag}
                                 </Link>
@@ -111,7 +111,7 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
                                 e.stopPropagation();
                                 setIsSublistsModalOpen(true);
                             }}
-                            className="flex items-center gap-1 hover:text-indigo-400 transition-colors p-1 rounded-md hover:bg-white/5"
+                            className="flex items-center gap-1 hover:text-[var(--lt-accent)] transition-colors p-1 rounded-md hover:bg-white/5"
                             title="Sublistas"
                         >
                             <Layers className="w-3 h-3" />

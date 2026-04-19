@@ -21,7 +21,7 @@ export const ProfileStatCard: React.FC<ProfileStatCardProps> = ({
         className={`group relative flex min-h-[78px] sm:min-h-[108px] min-w-0 flex-col items-center justify-center rounded-2xl border px-1.5 py-2 text-center transition-all hover:-translate-y-0.5 sm:px-3 sm:py-3 ${
             accent === 'level'
                 ? 'lt-level-card overflow-hidden border-amber-400/35 bg-[#110804] shadow-[0_18px_40px_rgba(245,158,11,0.18)]'
-                : 'lt-stat-card border-white/10 bg-[var(--lt-card-strong)]/80 hover:border-indigo-400/35 hover:bg-[var(--lt-card)]'
+                : 'lt-stat-card border-white/10 bg-[var(--lt-card-strong)]/80 hover:border-[var(--lt-accent-border)] hover:bg-[var(--lt-card)]'
         }`}
     >
         {accent === 'level' && (

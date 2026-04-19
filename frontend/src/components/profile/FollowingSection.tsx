@@ -96,7 +96,7 @@ export const FollowingSection: React.FC<FollowingSectionProps> = ({
                                 key={item.id}
                                 to={`/profile/${item.id}`}
                                 onClick={() => onNavigateToProfile?.()}
-                                className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 hover:border-indigo-500/40 hover:bg-white/5 transition-all"
+                                className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 hover:border-[var(--lt-accent-border)] hover:bg-white/5 transition-all"
                             >
                                 <div className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 p-[2px] bg-gradient-to-tr ${getUserTypeGradient(item.userType)}`}>
                                     <div className="w-full h-full rounded-md overflow-hidden bg-gray-800 border border-[var(--lt-bg)]">

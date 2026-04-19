@@ -146,13 +146,13 @@ export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         placeholder="Escribe un comentario..."
-                        className="flex-1 bg-black/20 border border-white/10 rounded-full px-4 py-2 text-sm text-white outline-none focus:border-indigo-500 transition-colors"
+                        className="flex-1 bg-black/20 border border-white/10 rounded-full px-4 py-2 text-sm text-white outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                         disabled={submitting}
                     />
                     <button
                         type="submit"
                         disabled={!newComment.trim() || submitting}
-                        className="p-2 bg-indigo-600 rounded-full text-white disabled:opacity-50 hover:bg-indigo-500 transition-colors"
+                        className="p-2 bg-[var(--lt-accent)] rounded-full text-white disabled:opacity-50 hover:bg-[var(--lt-accent)] transition-colors"
                     >
                         <Send className="w-4 h-4" />
                     </button>

@@ -86,7 +86,7 @@ export const LoginPage: React.FC = () => {
         <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center p-4">
             <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl">
                 <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold text-white shadow-lg shadow-indigo-500/20">
+                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold text-white shadow-lg shadow-[var(--lt-accent-shadow)]">
                         L
                     </div>
                     <h1 className="text-2xl font-bold text-white mb-2">
@@ -112,7 +112,7 @@ export const LoginPage: React.FC = () => {
                                 placeholder="Nombre completo"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                                className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                                 required={isRegistering}
                             />
                         </div>
@@ -125,7 +125,7 @@ export const LoginPage: React.FC = () => {
                             placeholder="Correo electrónico"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                             required
                         />
                     </div>
@@ -137,7 +137,7 @@ export const LoginPage: React.FC = () => {
                             placeholder="Contraseña"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                             required
                             minLength={6}
                         />
@@ -146,7 +146,7 @@ export const LoginPage: React.FC = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-[var(--lt-accent-shadow)] transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                         {isRegistering ? 'Registrarse' : 'Iniciar Sesión'}
@@ -179,7 +179,7 @@ export const LoginPage: React.FC = () => {
                 <div className="mt-6 text-center">
                     <button
                         onClick={() => setIsRegistering(!isRegistering)}
-                        className="text-indigo-400 hover:text-indigo-300 text-sm font-medium hover:underline transition-colors"
+                        className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] text-sm font-medium hover:underline transition-colors"
                     >
                         {isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
                     </button>

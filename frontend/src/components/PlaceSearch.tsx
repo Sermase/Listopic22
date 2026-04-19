@@ -183,7 +183,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder={placeholder}
-                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg py-3 pl-10 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg py-3 pl-10 pr-10 text-white focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                     />
                     <div className="absolute left-3 top-3.5 text-gray-400">
                         <Search className="w-4 h-4" />
@@ -201,7 +201,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                         ) : (
                             <div title={locLoading ? "Buscando GPS..." : location ? "Ubicación lista" : "Sin ubicación"}>
                                 {locLoading ? (
-                                    <Loader className="w-4 h-4 text-indigo-500 animate-spin" />
+                                    <Loader className="w-4 h-4 text-[var(--lt-accent)] animate-spin" />
                                 ) : location ? (
                                     <MapPin className="w-4 h-4 text-green-500/50" />
                                 ) : (
@@ -215,7 +215,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                     type="button"
                     onClick={handleSearch}
                     disabled={loading}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-lg font-medium transition-colors flex items-center gap-2"
+                    className="bg-[var(--lt-accent)] hover:bg-indigo-700 text-white px-4 rounded-lg font-medium transition-colors flex items-center gap-2"
                 >
                     {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                     <span className="hidden sm:inline">Buscar</span>
@@ -224,7 +224,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
 
             {/* Status / Error Message */}
             {statusMessage && (
-                <div className="text-xs text-indigo-300 bg-indigo-500/10 p-2 rounded border border-indigo-500/20">
+                <div className="text-xs text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] p-2 rounded border border-[var(--lt-accent-border)]">
                     {statusMessage}
                 </div>
             )}
@@ -239,12 +239,12 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                             className="p-3 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0 transition-colors"
                         >
                             <div className="flex items-start gap-3">
-                                <MapPin className="w-5 h-5 text-indigo-400 mt-0.5 shrink-0" />
+                                <MapPin className="w-5 h-5 text-[var(--lt-accent)] mt-0.5 shrink-0" />
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-start">
                                         <h4 className="font-bold text-white text-sm truncate pr-2">{place.name}</h4>
                                         {place.distance !== undefined && (
-                                            <span className="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                            <span className="text-[10px] font-mono bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] px-1.5 py-0.5 rounded whitespace-nowrap">
                                                 {place.distance < 1000
                                                     ? `${Math.round(place.distance)} m`
                                                     : `${(place.distance / 1000).toFixed(1)} km`}
@@ -259,7 +259,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                     <div className="p-2 bg-[var(--lt-bg)]/50 text-center flex justify-between items-center text-[10px] text-gray-500 px-4">
                         <span>OpenStreetMap Data</span>
                         {onManualToggle && (
-                            <button onClick={onManualToggle} className="text-indigo-400 hover:text-indigo-300 underline">
+                            <button onClick={onManualToggle} className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] underline">
                                 ¿No lo encuentras? Añadir manual
                             </button>
                         )}

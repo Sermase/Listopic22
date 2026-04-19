@@ -62,7 +62,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     // ... (Score Logic Omitted for Brevity - keeping existing) ...
     const getScoreColor = (score: number) => {
         if (score >= 9) return 'from-emerald-400 to-teal-500 shadow-emerald-500/50';
-        if (score >= 7) return 'from-indigo-400 to-blue-500 shadow-indigo-500/50';
+        if (score >= 7) return 'from-indigo-400 to-blue-500 shadow-[var(--lt-accent-shadow)]';
         if (score >= 5) return 'from-yellow-400 to-amber-500 shadow-amber-500/50';
         return 'from-red-400 to-rose-500 shadow-red-500/50';
     };
@@ -268,7 +268,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                             en <Link
                                                 to={review.listId ? `/list/${review.listId}` : '#'}
                                                 onClick={(e) => e.stopPropagation()}
-                                                className="font-semibold text-gray-200 hover:text-indigo-400 transition-colors"
+                                                className="font-semibold text-gray-200 hover:text-[var(--lt-accent)] transition-colors"
                                             >
                                                 {review.listName || review.placeName}
                                             </Link>
@@ -319,7 +319,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                 <Link
                                     to={`/place/${review.placeId}`}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="font-display font-bold text-lg sm:text-xl text-gray-100 hover:text-indigo-400 transition-colors leading-tight"
+                                    className="font-display font-bold text-lg sm:text-xl text-gray-100 hover:text-[var(--lt-accent)] transition-colors leading-tight"
                                 >
                                     {review.placeName}
                                 </Link>
@@ -333,7 +333,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                 )}
                             </div>
                         )}
-                        <h3 className="text-sm font-medium text-indigo-400 group-hover:text-indigo-300 transition-colors">
+                        <h3 className="text-sm font-medium text-[var(--lt-accent)] group-hover:text-[var(--lt-accent)] transition-colors">
                             {review.itemName}
                         </h3>
                     </div>
@@ -347,7 +347,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                                     {ponderable.map((crit, idx) => {
                                         const barColor = `bg-gradient-to-r ${getScoreColor(crit.score).split(' ')[0]} ${getScoreColor(crit.score).split(' ')[1]}`;
-                                        const scoreColor = crit.score >= 8 ? 'text-emerald-400' : crit.score >= 5 ? 'text-indigo-400' : 'text-rose-400';
+                                        const scoreColor = crit.score >= 8 ? 'text-emerald-400' : crit.score >= 5 ? 'text-[var(--lt-accent)]' : 'text-rose-400';
 
                                         return (
                                             <div key={idx} className="flex flex-col">
@@ -395,7 +395,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     {(review.tags && review.tags.length > 0) || (review.userTags && review.userTags.length > 0) ? (
                         <div className="flex flex-wrap gap-2 mt-3">
                             {[...(review.tags || []), ...(review.userTags || [])].filter((t, i, a) => a.indexOf(t) === i).map((tag, i) => (
-                                <span key={i} className="text-[10px] sm:text-xs font-bold text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+                                <span key={i} className="text-[10px] sm:text-xs font-bold text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] px-2.5 py-1 rounded-lg border border-[var(--lt-accent-border)]">
                                     #{tag}
                                 </span>
                             ))}
@@ -425,7 +425,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             )}
                         </button>
                         <button
-                            className={`flex items-center gap-1.5 transition-colors group/btn ${showComments ? 'text-indigo-400' : 'text-gray-400 hover:text-indigo-400'}`}
+                            className={`flex items-center gap-1.5 transition-colors group/btn ${showComments ? 'text-[var(--lt-accent)]' : 'text-gray-400 hover:text-[var(--lt-accent)]'}`}
                             onClick={handleCommentToggle}
                         >
                             <MessageCircle className="w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5]" />
@@ -436,7 +436,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     <div className="flex items-center gap-3">
                         <button
                             aria-label="Guardar en archivo"
-                            className="text-gray-500 hover:text-indigo-400 transition-colors p-1"
+                            className="text-gray-500 hover:text-[var(--lt-accent)] transition-colors p-1"
                             onClick={(e) => { e.stopPropagation(); setIsSaveModalOpen(true); }}
                         >
                             <Bookmark className="w-5 h-5 stroke-[1.5]" />

@@ -222,7 +222,7 @@ function App() {
       <NotificationBannerProvider>
         <Router>
           <ScrollToTop />
-          <div className="min-h-screen font-sans selection:bg-indigo-500/30"
+          <div className="min-h-screen font-sans selection:bg-[var(--lt-accent-soft)]"
             style={{
               background: 'var(--lt-bg)',
               color: 'var(--lt-text)',

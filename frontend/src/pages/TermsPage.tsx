@@ -50,7 +50,7 @@ export const TermsPage: React.FC = () => {
 
                         <Section title="1. Quiénes somos">
                             <p>Listopic es un proyecto personal desarrollado bajo el nombre <span className="text-white font-medium">Istari Core</span>, un nombre creativo sin entidad jurídica registrada actualmente. No somos una empresa, no somos una startup financiada — somos alguien que disfruta creando herramientas útiles y bien pensadas.</p>
-                            <p>Puedes contactarnos en: <a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors">istaricore@gmail.com</a></p>
+                            <p>Puedes contactarnos en: <a href="mailto:istaricore@gmail.com" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">istaricore@gmail.com</a></p>
                         </Section>
 
                         <Section title="2. Estado de la aplicación">
@@ -80,13 +80,13 @@ export const TermsPage: React.FC = () => {
                         </Section>
 
                         <Section title="6. Privacidad">
-                            <p>Tratamos tus datos con cuidado y respeto. Puedes leer todos los detalles en nuestra <Link to="/privacy" className="text-indigo-400 hover:text-indigo-300 transition-colors">Política de Privacidad</Link>, que cumple con el RGPD europeo.</p>
+                            <p>Tratamos tus datos con cuidado y respeto. Puedes leer todos los detalles en nuestra <Link to="/privacy" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">Política de Privacidad</Link>, que cumple con el RGPD europeo.</p>
                             <p>Resumen: recogemos lo mínimo necesario para que la app funcione. No vendemos tus datos. Nunca.</p>
                         </Section>
 
                         <Section title="7. Eliminación de cuenta">
                             <p>Puedes eliminar tu cuenta y tus datos en cualquier momento desde la sección <span className="text-white font-medium">Editar Perfil</span> dentro de la aplicación. Al hacerlo, podrás elegir si deseas borrar también todas tus reseñas y aportes, o si prefieres conservarlos de forma anónima para no romper el contenido colaborativo. En cualquier caso, tus datos personales, listas de seguimiento y notificaciones se borran permanentemente.</p>
-                            <p className="mt-2">También puedes pedir que lo hagamos nosotros escribiéndonos a <a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors">istaricore@gmail.com</a>. Lo procesaremos en un plazo máximo de 30 días.</p>
+                            <p className="mt-2">También puedes pedir que lo hagamos nosotros escribiéndonos a <a href="mailto:istaricore@gmail.com" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">istaricore@gmail.com</a>. Lo procesaremos en un plazo máximo de 30 días.</p>
                         </Section>
 
                         <Section title="8. Limitación de responsabilidad">
@@ -100,7 +100,7 @@ export const TermsPage: React.FC = () => {
 
                         <Section title="10. Contacto">
                             <p>¿Dudas, sugerencias, algo que no funciona o simplemente quieres saludar?</p>
-                            <p className="mt-1"><a href="mailto:istaricore@gmail.com" className="text-indigo-400 hover:text-indigo-300 transition-colors font-medium">istaricore@gmail.com</a> — respondemos de verdad.</p>
+                            <p className="mt-1"><a href="mailto:istaricore@gmail.com" className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors font-medium">istaricore@gmail.com</a> — respondemos de verdad.</p>
                         </Section>
                     </div>
 

@@ -228,7 +228,7 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
                       </>
                     )}
                   </span>
-                  <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-200">
+                  <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lt-accent)]">
                     +{getBadgeXpReward(badge)} XP
                   </span>
                 </div>

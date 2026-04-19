@@ -125,7 +125,7 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
                     onFocus={() => { setRecents(getRecentSearches()); setFocused(true); }}
                     onBlur={() => setTimeout(() => setFocused(false), 150)}
                     placeholder="Buscar listas, lugares, usuarios... (@user, #tag)"
-                    className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl py-4 pl-14 pr-10 text-white text-base focus:outline-none focus:border-indigo-500 focus:bg-white/10 placeholder-gray-500 transition-all"
+                    className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl py-4 pl-14 pr-10 text-white text-base focus:outline-none focus:border-[var(--lt-accent-border)] focus:bg-white/10 placeholder-gray-500 transition-all"
                 />
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 {val && (
@@ -187,8 +187,8 @@ const ActiveFiltersChips = () => {
             {items.map(item => item.refinements.map(r => (
                 <button key={`${item.attribute}-${r.value}`}
                     onClick={() => item.refine(r)}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600/20 border border-indigo-500/30 rounded-full text-xs text-indigo-300 hover:bg-indigo-600/40 transition-colors">
-                    <span className="font-semibold text-indigo-500">{FILTER_LABELS[item.attribute] || item.attribute}:</span>
+                    className="flex items-center gap-1 px-2.5 py-1 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-full text-xs text-[var(--lt-accent)] hover:bg-[var(--lt-accent)]/40 transition-colors">
+                    <span className="font-semibold text-[var(--lt-accent)]">{FILTER_LABELS[item.attribute] || item.attribute}:</span>
                     {r.label}
                     <X className="w-3 h-3 ml-0.5" />
                 </button>
@@ -225,8 +225,8 @@ const CustomRefinementList = (props: Record<string, unknown> & { attribute: stri
                 {items.map(item => (
                     <label key={item.label} className="flex items-center gap-2 cursor-pointer group">
                         <input type="checkbox" checked={item.isRefined} onChange={() => refine(item.value)}
-                            className="w-3.5 h-3.5 rounded border-white/20 bg-black/30 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-transparent" />
-                        <span className={`text-xs leading-tight ${item.isRefined ? 'text-indigo-400 font-semibold' : 'text-gray-400 group-hover:text-gray-300'}`}>
+                            className="w-3.5 h-3.5 rounded border-white/20 bg-black/30 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] focus:ring-offset-transparent" />
+                        <span className={`text-xs leading-tight ${item.isRefined ? 'text-[var(--lt-accent)] font-semibold' : 'text-gray-400 group-hover:text-gray-300'}`}>
                             {item.label} <span className="text-gray-700">({item.count})</span>
                         </span>
                     </label>
@@ -296,13 +296,13 @@ const UserHitCard = ({ hit, selected, onHover }: { hit: any; selected: boolean; 
             id={`hit-${hit.objectID}`}
             onMouseEnter={() => onHover(hit.objectID)}
             onMouseLeave={() => onHover(null)}
-            className={`block group rounded-2xl p-4 flex items-center gap-3 hover:scale-[1.01] transition-all duration-200 shadow-lg border glass-card ${selected ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-white/5'}`}>
+            className={`block group rounded-2xl p-4 flex items-center gap-3 hover:scale-[1.01] transition-all duration-200 shadow-lg border glass-card ${selected ? 'border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent)]' : 'border-white/5'}`}>
             <img src={hit.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff`}
                 className="w-14 h-14 rounded-full object-cover border-2 border-white/10 shrink-0" alt={displayName} />
             <div className="min-w-0 flex-1">
-                <h3 className="text-white font-bold text-sm group-hover:text-indigo-400 transition-colors truncate">{displayName}</h3>
+                <h3 className="text-white font-bold text-sm group-hover:text-[var(--lt-accent)] transition-colors truncate">{displayName}</h3>
                 {hit.username && hit.displayName && hit.username !== hit.displayName && (
-                    <p className="text-indigo-400/70 text-xs truncate">@{hit.username}</p>
+                    <p className="text-[var(--lt-accent)]/70 text-xs truncate">@{hit.username}</p>
                 )}
                 {hit.bio && <p className="text-gray-400 text-xs line-clamp-1 mt-0.5">{hit.bio}</p>}
                 <div className="flex gap-3 mt-1.5 text-xs text-gray-600">
@@ -363,7 +363,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                             onMouseEnter={() => hover(hit.objectID)}
                             onMouseLeave={() => hover(null)}
                             onClick={() => onSelectHit?.(hit.objectID)}
-                            className={`rounded-2xl transition-all duration-200 cursor-pointer ${selected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-transparent' : ''}`}
+                            className={`rounded-2xl transition-all duration-200 cursor-pointer ${selected ? 'ring-2 ring-[var(--lt-accent)] ring-offset-2 ring-offset-transparent' : ''}`}
                         >
                             <ListItemCard
                                 item={{
@@ -398,7 +398,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
             </div>
             {!noInfiniteScroll && !isLastPage && (
                 <div ref={sentinelRef} className="py-8 flex justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-500" />
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[var(--lt-accent-border)]" />
                 </div>
             )}
         </div>
@@ -414,11 +414,11 @@ const FedSectionContent = ({ title, type, icon: Icon, onViewAll }: { title: stri
         <div className="mb-10">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-indigo-400" />
+                    <Icon className="w-4 h-4 text-[var(--lt-accent)]" />
                     <h3 className="text-lg font-bold text-white">{title}</h3>
                     <span className="text-xs text-gray-700">({hits.length})</span>
                 </div>
-                <button onClick={onViewAll} className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
+                <button onClick={onViewAll} className="flex items-center gap-1 text-sm text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">
                     Ver todos <ChevronRight className="w-4 h-4" />
                 </button>
             </div>
@@ -559,14 +559,14 @@ export const SearchPage: React.FC = () => {
                     {/* Tabs */}
                     <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar">
                         <button onClick={() => handleTabChange('all')}
-                            className={`flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white bg-white/5 border border-white/10'}`}>
+                            className={`flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'all' ? 'bg-[var(--lt-accent)] text-white shadow-lg' : 'text-gray-400 hover:text-white bg-white/5 border border-white/10'}`}>
                             <Search className="w-4 h-4" /> Todo
                         </button>
                         {Object.keys(INDEX_NAMES).map(key => {
                             const Icon = TAB_ICONS[key] || Search;
                             return (
                                 <button key={key} onClick={() => handleTabChange(key)}
-                                    className={`flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === key ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white bg-white/5 border border-white/10'}`}>
+                                    className={`flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === key ? 'bg-[var(--lt-accent)] text-white shadow-lg' : 'text-gray-400 hover:text-white bg-white/5 border border-white/10'}`}>
                                     <Icon className="w-4 h-4" /> {TAB_LABELS[key] || key}
                                 </button>
                             );
@@ -700,7 +700,7 @@ export const SearchPage: React.FC = () => {
                                         {isGeoTab && (
                                             <button
                                                 onClick={() => setMapExpanded(p => !p)}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${mapExpanded ? 'bg-indigo-600/20 border-indigo-500/30 text-indigo-400' : 'bg-white/5 border-white/10 text-gray-400'}`}>
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${mapExpanded ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]' : 'bg-white/5 border-white/10 text-gray-400'}`}>
                                                 <MapIcon className="w-4 h-4" /> Mapa
                                             </button>
                                         )}

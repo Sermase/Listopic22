@@ -262,7 +262,7 @@ export const ChatsPage: React.FC = () => {
                     <h1 className="text-xl font-bold text-white">Mensajes</h1>
                     <button
                         onClick={() => setIsGroupModalOpen(true)}
-                        className="p-2 bg-indigo-600 rounded-lg text-white hover:bg-indigo-500 transition-colors"
+                        className="p-2 bg-[var(--lt-accent)] rounded-lg text-white hover:bg-[var(--lt-accent)] transition-colors"
                         title="Crear Grupo"
                     >
                         <UserPlus className="w-5 h-5" />
@@ -273,7 +273,7 @@ export const ChatsPage: React.FC = () => {
                         <input
                             type="text"
                             placeholder="Buscar chats..."
-                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg py-2 pl-9 pr-4 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg py-2 pl-9 pr-4 text-sm text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
                         />
                         <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                     </div>
@@ -290,14 +290,14 @@ export const ChatsPage: React.FC = () => {
                             <div
                                 key={chat.id}
                                 onClick={() => navigate(`/chats/${chat.id}`)}
-                                className={`p-4 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors ${activeChat === chat.id ? 'bg-indigo-900/20 border-l-4 border-l-indigo-500' : ''}`}
+                                className={`p-4 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors ${activeChat === chat.id ? 'bg-[var(--lt-accent-soft)] border-l-4 border-l-[var(--lt-accent-border)]' : ''}`}
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-gray-700 border border-white/10 relative">
                                         {getChatPhoto(chat) ? (
                                             <img src={getChatPhoto(chat)!} alt="Chat" className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-indigo-900/50 text-indigo-200 font-bold text-lg">
+                                            <div className="w-full h-full flex items-center justify-center bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] font-bold text-lg">
                                                 {getChatName(chat).charAt(0).toUpperCase()}
                                             </div>
                                         )}
@@ -356,8 +356,8 @@ export const ChatsPage: React.FC = () => {
                                         {activeChatObj && getChatPhoto(activeChatObj) ? (
                                             <img src={getChatPhoto(activeChatObj)!} alt="Chat" className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-indigo-900/50">
-                                                {activeChatObj?.type === 'group' ? <Users className="w-5 h-5 text-indigo-300" /> : <User className="w-5 h-5 text-indigo-300" />}
+                                            <div className="w-full h-full flex items-center justify-center bg-[var(--lt-accent-soft)]">
+                                                {activeChatObj?.type === 'group' ? <Users className="w-5 h-5 text-[var(--lt-accent)]" /> : <User className="w-5 h-5 text-[var(--lt-accent)]" />}
                                             </div>
                                         )}
                                     </div>
@@ -395,12 +395,12 @@ export const ChatsPage: React.FC = () => {
                                             ? (sharedEntity.badgeLabel || getShareEntityLabel(sharedEntity.type))
                                             : 'Contenido';
                                         const shareCardClass = isOwnMessage
-                                            ? 'bg-indigo-500/30 border-indigo-300/30 hover:bg-indigo-500/40'
+                                            ? 'bg-[var(--lt-accent-soft)] border-indigo-300/30 hover:bg-[var(--lt-accent)]/40'
                                             : 'bg-[var(--lt-bg-deep)] border-white/10 hover:bg-[var(--lt-card)]';
 
                                         return (
                                             <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isOwnMessage
-                                        ? 'bg-indigo-600 text-white rounded-br-none shadow-lg shadow-indigo-500/10'
+                                        ? 'bg-[var(--lt-accent)] text-white rounded-br-none shadow-lg shadow-[var(--lt-accent-shadow)]'
                                         : 'bg-[var(--lt-card)] text-gray-200 rounded-bl-none border border-white/5'
                                         }`}>
                                                 {isShareMessage && sharedEntity ? (
@@ -456,12 +456,12 @@ export const ChatsPage: React.FC = () => {
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     placeholder="Escribe un mensaje..."
-                                    className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-full px-4 py-3 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-full px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)] focus:ring-1 focus:ring-[var(--lt-accent)]"
                                 />
                                 <button
                                     type="submit"
                                     disabled={!newMessage.trim()}
-                                    className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                                    className="p-3 bg-[var(--lt-accent)] text-white rounded-full hover:bg-[var(--lt-accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
                                 >
                                     <Send className="w-5 h-5" />
                                 </button>
@@ -486,7 +486,7 @@ export const ChatsPage: React.FC = () => {
                         <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                             <div className="p-4 border-b border-white/5 flex justify-between items-center">
                                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                                    <Users className="w-5 h-5 text-indigo-400" /> Crear Grupo
+                                    <Users className="w-5 h-5 text-[var(--lt-accent)]" /> Crear Grupo
                                 </h2>
                                 <button onClick={() => setIsGroupModalOpen(false)} className="text-gray-400 hover:text-white">
                                     <X className="w-5 h-5" />
@@ -499,7 +499,7 @@ export const ChatsPage: React.FC = () => {
                                     value={newGroupName}
                                     onChange={(e) => setNewGroupName(e.target.value)}
                                     placeholder="Ej. Amigos de Listopic"
-                                    className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 mb-6"
+                                    className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)] mb-6"
                                 />
 
                                 <button
@@ -519,7 +519,7 @@ export const ChatsPage: React.FC = () => {
                                         }
                                     }}
                                     disabled={isCreatingGroup || !newGroupName.trim()}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
+                                    className="w-full bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
                                 >
                                     {isCreatingGroup ? 'Creando...' : 'Crear Grupo'}
                                 </button>
@@ -543,12 +543,12 @@ export const ChatsPage: React.FC = () => {
                             </div>
 
                             <div className="p-6 text-center">
-                                <div className="w-20 h-20 rounded-full bg-gray-700 overflow-hidden border-2 border-indigo-500/30 mx-auto mb-4 relative group">
+                                <div className="w-20 h-20 rounded-full bg-gray-700 overflow-hidden border-2 border-[var(--lt-accent-border)] mx-auto mb-4 relative group">
                                     {getChatPhoto(activeChatObj) ? (
                                         <img src={getChatPhoto(activeChatObj)!} alt="Chat" className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-indigo-900/50">
-                                            {activeChatObj.type === 'group' ? <Users className="w-8 h-8 text-indigo-300" /> : <User className="w-8 h-8 text-indigo-300" />}
+                                        <div className="w-full h-full flex items-center justify-center bg-[var(--lt-accent-soft)]">
+                                            {activeChatObj.type === 'group' ? <Users className="w-8 h-8 text-[var(--lt-accent)]" /> : <User className="w-8 h-8 text-[var(--lt-accent)]" />}
                                         </div>
                                     )}
                                 </div>
@@ -581,7 +581,7 @@ export const ChatsPage: React.FC = () => {
                                                 value={participantInput}
                                                 onChange={(e) => setParticipantInput(e.target.value)}
                                                 placeholder="Buscar usuario (nombre, email)..."
-                                                className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                                                className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
                                             />
                                         </div>
 
@@ -621,7 +621,7 @@ export const ChatsPage: React.FC = () => {
                                                                 <p className="text-sm font-bold text-white truncate">{hit.username || hit.name}</p>
                                                                 <p className="text-xs text-gray-500 truncate">{hit.bio || 'Sin biografía'}</p>
                                                             </div>
-                                                            {activeChatObj.participants.includes(hit.objectID) && <span className="text-xs text-indigo-400">En chat</span>}
+                                                            {activeChatObj.participants.includes(hit.objectID) && <span className="text-xs text-[var(--lt-accent)]">En chat</span>}
                                                         </button>
                                                     ))
                                                 )}

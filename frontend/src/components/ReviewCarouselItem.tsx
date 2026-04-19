@@ -14,7 +14,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
     const getScoreColor = (score: number) => {
         if (score >= 9) return 'bg-emerald-500 shadow-emerald-500/50 text-white';
         if (score >= 7) return 'bg-[#fcb900] shadow-amber-500/50 text-black'; // Specific yellow from image roughly
-        if (score >= 5) return 'bg-indigo-500 shadow-indigo-500/50 text-white';
+        if (score >= 5) return 'bg-[var(--lt-accent)] shadow-[var(--lt-accent-shadow)] text-white';
         return 'bg-rose-500 shadow-rose-500/50 text-white';
     };
 
@@ -93,7 +93,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
 
             {/* Bottom Content */}
             <div className="absolute bottom-3 left-3 right-3 z-10 text-left">
-                <h3 className="text-white font-bold text-sm leading-tight mb-0.5 line-clamp-1 group-hover:text-indigo-300 transition-colors">
+                <h3 className="text-white font-bold text-sm leading-tight mb-0.5 line-clamp-1 group-hover:text-[var(--lt-accent)] transition-colors">
                     {review.itemName}
                 </h3>
 
@@ -109,8 +109,8 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
                     <div className="flex flex-wrap gap-1 mt-1">
                         {review.tags.slice(0, 2).map((tag, idx) => {
                             const tagColors = [
-                                'bg-indigo-500/20 border-indigo-500/30 text-indigo-300',
-                                'bg-purple-500/20 border-purple-500/30 text-purple-300',
+                                'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]',
+                                'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent-2)]',
                                 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300',
                                 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300',
                                 'bg-amber-500/20 border-amber-500/30 text-amber-300',

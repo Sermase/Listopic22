@@ -333,7 +333,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     if (loading) {
         return (
             <div className="flex justify-center py-12">
-                <Loader className="w-8 h-8 text-indigo-500 animate-spin" />
+                <Loader className="w-8 h-8 text-[var(--lt-accent)] animate-spin" />
             </div>
         );
     }
@@ -348,7 +348,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)] transition-all"
                         required
                     />
                 </div>
@@ -359,7 +359,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     <textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all min-h-[100px]"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)] transition-all min-h-[100px]"
                     />
                 </div>
 
@@ -370,7 +370,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                         id={`isPublic-${listId}`}
                         checked={isPublic}
                         onChange={(e) => setIsPublic(e.target.checked)}
-                        className="w-5 h-5 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[var(--lt-card-strong)]"
+                        className="w-5 h-5 rounded border-gray-600 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-card-strong)]"
                     />
                     <label htmlFor={`isPublic-${listId}`} className="text-sm cursor-pointer">
                         <span className="block font-medium text-white">Lista Pública</span>
@@ -384,7 +384,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                         <label className="block text-sm font-medium text-gray-400">Permisos Públicos</label>
                         <label className="flex items-center gap-3 cursor-pointer">
                             <input type="radio" name={`publicAccess-${listId}`} value="reader" checked={publicAccess === 'reader'} onChange={() => setPublicAccess('reader')}
-                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 bg-[var(--lt-bg)] border-gray-600" />
+                                className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Solo Lectura</span>
                                 <span className="block text-xs text-gray-500">Los visitantes pueden ver pero solo editores añaden reseñas.</span>
@@ -392,7 +392,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
                             <input type="radio" name={`publicAccess-${listId}`} value="writer" checked={publicAccess === 'writer'} onChange={() => setPublicAccess('writer')}
-                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 bg-[var(--lt-bg)] border-gray-600" />
+                                className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>
                                 <span className="block text-xs text-gray-500">Cualquier usuario puede añadir reseñas.</span>
@@ -417,7 +417,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                             const { icon, label } = splitTagEmoji(tag);
                             if (editingTag === tag) {
                                 return (
-                                    <span key={tag} className="relative flex items-center gap-1 bg-indigo-500/30 border border-indigo-400/50 rounded-full px-2 py-0.5">
+                                    <span key={tag} className="relative flex items-center gap-1 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-full px-2 py-0.5">
                                         <button
                                             type="button"
                                             onClick={() => setShowEditEmojiPicker(p => !p)}
@@ -448,7 +448,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 );
                             }
                             return (
-                                <span key={tag} className={`px-3 py-1 rounded-full text-sm flex items-center gap-1.5 ${isLocked ? 'bg-indigo-900/40 text-indigo-300 border border-indigo-500/30' : 'bg-indigo-500/20 text-indigo-300'}`}>
+                                <span key={tag} className={`px-3 py-1 rounded-full text-sm flex items-center gap-1.5 ${isLocked ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)]' : 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]'}`}>
                                     <button
                                         type="button"
                                         onClick={() => startEditTag(tag)}
@@ -489,13 +489,13 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                             onChange={e => setTagInput(e.target.value)}
                             onKeyDown={addTag}
                             placeholder="Nombre del tag y Enter para añadir..."
-                            className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                            className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
                         />
                         {tagInput.trim() && (
                             <button
                                 type="button"
                                 onClick={commitAddTag}
-                                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white text-sm font-bold transition-colors"
+                                className="px-4 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] rounded-lg text-white text-sm font-bold transition-colors"
                             >
                                 Añadir
                             </button>

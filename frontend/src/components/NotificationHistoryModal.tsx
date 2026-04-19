@@ -55,7 +55,7 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                 return <Heart className="w-4 h-4 text-pink-500" />;
             case 'follow':
             case 'new_follower':
-                return <UserPlus className="w-4 h-4 text-indigo-500" />;
+                return <UserPlus className="w-4 h-4 text-[var(--lt-accent)]" />;
             case 'comment':
             case 'review_comment':
             case 'new_message':
@@ -89,7 +89,7 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
             <div className="bg-[var(--lt-bg)] w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-none md:border border-white/10" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[var(--lt-card-strong)]">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <Bell className="w-5 h-5 text-indigo-400" />
+                        <Bell className="w-5 h-5 text-[var(--lt-accent)]" />
                         Histórico de Notificaciones
                     </h2>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
@@ -121,7 +121,7 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                                             <p className="text-gray-200 text-sm md:text-base leading-relaxed">
                                                 {notification.message}
                                                 {notification.count > 1 && (
-                                                    <span className="ml-2 text-xs bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full font-medium">
+                                                    <span className="ml-2 text-xs bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] px-1.5 py-0.5 rounded-full font-medium">
                                                         ×{notification.count}
                                                     </span>
                                                 )}
@@ -132,7 +132,7 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                                                         ? new Date((notification.updatedAt?.seconds || notification.createdAt?.seconds) * 1000).toLocaleString()
                                                         : 'Fecha desconocida'}
                                                 </span>
-                                                {notification.placeName && <span className="text-indigo-400 font-medium">{notification.placeName}</span>}
+                                                {notification.placeName && <span className="text-[var(--lt-accent)] font-medium">{notification.placeName}</span>}
                                             </div>
                                         </div>
                                     </Link>

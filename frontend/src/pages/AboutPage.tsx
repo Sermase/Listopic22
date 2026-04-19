@@ -38,8 +38,8 @@ export const AboutPage: React.FC = () => {
             <div className="max-w-2xl mx-auto px-4 sm:px-6 space-y-4">
 
                 {/* Intro honesta */}
-                <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-3xl p-5">
-                    <p className="text-indigo-200 text-sm leading-relaxed">
+                <div className="bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-3xl p-5">
+                    <p className="text-[var(--lt-accent)] text-sm leading-relaxed">
                         <span className="font-bold text-white">Antes de empezar, la verdad:</span> Listopic es un proyecto indie, creado por una persona de forma independiente, sin empresa registrada y sin ánimo de lucro por ahora. Nacimos para jugar a crear, para disfrutar del proceso y ofrecer algo genuino con utilidad directa. La app está en fase de pruebas activas (beta). Úsala con ese espíritu en mente.
                     </p>
                 </div>
@@ -57,7 +57,7 @@ export const AboutPage: React.FC = () => {
                             { icon: Users, label: 'Comunidad' },
                         ].map(({ icon: Icon, label }) => (
                             <div key={label} className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-white/5 border border-white/5">
-                                <Icon className="w-5 h-5 text-indigo-400" />
+                                <Icon className="w-5 h-5 text-[var(--lt-accent)]" />
                                 <span className="text-xs text-gray-400 font-medium">{label}</span>
                             </div>
                         ))}
@@ -67,7 +67,7 @@ export const AboutPage: React.FC = () => {
                 {/* Play Store */}
                 <button
                     onClick={() => openExternal('https://play.google.com/store/apps/details?id=app.listopic.web')}
-                    className="w-full flex items-center justify-between p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group"
+                    className="w-full flex items-center justify-between p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-[var(--lt-accent-border)] hover:bg-[var(--lt-accent)]/5 transition-all group"
                 >
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/20 flex items-center justify-center shrink-0">
@@ -78,7 +78,7 @@ export const AboutPage: React.FC = () => {
                             <p className="text-xs text-gray-500">Descarga la app para Android</p>
                         </div>
                     </div>
-                    <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-indigo-400 transition-colors shrink-0" />
+                    <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
                 </button>
 
                 {/* Istari Core */}
@@ -101,10 +101,10 @@ export const AboutPage: React.FC = () => {
                 {/* Contacto */}
                 <a
                     href="mailto:istaricore@gmail.com"
-                    className="flex items-center gap-4 p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group"
+                    className="flex items-center gap-4 p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-[var(--lt-accent-border)] hover:bg-[var(--lt-accent)]/5 transition-all group"
                 >
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                        <Mail className="w-5 h-5 text-indigo-400" />
+                    <div className="w-10 h-10 rounded-xl bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] flex items-center justify-center shrink-0">
+                        <Mail className="w-5 h-5 text-[var(--lt-accent)]" />
                     </div>
                     <div>
                         <p className="text-sm font-bold text-white">Contacto</p>
@@ -116,18 +116,18 @@ export const AboutPage: React.FC = () => {
                 <Link
                     to="/privacy"
                     onClick={handlePrivacyClick}
-                    className="flex items-center justify-between p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group"
+                    className="flex items-center justify-between p-5 bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl hover:border-[var(--lt-accent-border)] hover:bg-[var(--lt-accent)]/5 transition-all group"
                 >
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                            <Shield className="w-5 h-5 text-indigo-400" />
+                        <div className="w-10 h-10 rounded-xl bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] flex items-center justify-center shrink-0">
+                            <Shield className="w-5 h-5 text-[var(--lt-accent)]" />
                         </div>
                         <div>
                             <p className="text-sm font-bold text-white">Política de Privacidad</p>
                             <p className="text-xs text-gray-500">RGPD · Datos y derechos</p>
                         </div>
                     </div>
-                    <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-indigo-400 transition-colors shrink-0" />
+                    <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
                 </Link>
 
                 {/* Términos */}

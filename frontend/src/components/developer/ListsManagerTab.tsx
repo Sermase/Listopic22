@@ -119,7 +119,7 @@ export const ListsManagerTab: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Globe className="w-6 h-6 text-indigo-400" /> Gestión de Listas
+                    <Globe className="w-6 h-6 text-[var(--lt-accent)]" /> Gestión de Listas
                 </h2>
                 <div className="flex items-center gap-3">
                     <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
@@ -127,7 +127,7 @@ export const ListsManagerTab: React.FC = () => {
                             type="checkbox"
                             checked={showSublists}
                             onChange={e => setShowSublists(e.target.checked)}
-                            className="w-4 h-4 rounded border-gray-600 text-indigo-600 bg-[var(--lt-bg)]"
+                            className="w-4 h-4 rounded border-gray-600 text-[var(--lt-accent)] bg-[var(--lt-bg)]"
                         />
                         Mostrar sublistas
                     </label>
@@ -140,7 +140,7 @@ export const ListsManagerTab: React.FC = () => {
                     </button>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        className="flex items-center gap-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                     >
                         <Plus className="w-4 h-4" /> Nueva Lista
                     </button>

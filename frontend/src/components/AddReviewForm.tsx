@@ -867,7 +867,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     if (initLoading && isNew) {
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-                <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
+                <Loader2 className="w-10 h-10 text-[var(--lt-accent)] animate-spin" />
             </div>
         );
     }
@@ -929,7 +929,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     {isNew ? 'Nueva Reseña' : 'Editar Reseña'}
                                 </h2>
                                 {listData?.name && (
-                                    <p className="text-xs text-indigo-300/60 mt-0.5">en {listData.name}</p>
+                                    <p className="text-xs text-[var(--lt-accent)]/60 mt-0.5">en {listData.name}</p>
                                 )}
                             </div>
                         </div>
@@ -949,7 +949,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         {/* ── Sección: ¿En qué lista? ─────────────────── */}
                         <div className="px-4 pt-4">
                             <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
                                     <span>📋</span> ¿En qué lista?
                                 </p>
                                 {(!lockList && !editReviewId) ? (
@@ -964,9 +964,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         suggestedListIds={suggestedListIds}
                                     />
                                 ) : internalListId ? (
-                                    <div className="flex items-center gap-3 bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl">
-                                        <div className="p-1.5 bg-indigo-500/20 rounded-lg shrink-0">
-                                            <Lock className="w-3.5 h-3.5 text-indigo-400" />
+                                    <div className="flex items-center gap-3 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] p-3 rounded-xl">
+                                        <div className="p-1.5 bg-[var(--lt-accent-soft)] rounded-lg shrink-0">
+                                            <Lock className="w-3.5 h-3.5 text-[var(--lt-accent)]" />
                                         </div>
                                         <span className="text-sm text-white font-semibold truncate">
                                             {listData?.name || 'Lista seleccionada'}
@@ -1031,7 +1031,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         className={`w-full rounded-xl px-4 py-3 text-white text-sm focus:outline-none transition-all placeholder:text-gray-600
                                         ${prefillItemName
                                                 ? 'bg-white/5 border border-white/10 cursor-not-allowed opacity-70'
-                                                : 'bg-white/5 border border-white/10 focus:border-indigo-500/60 focus:bg-indigo-500/5 focus:ring-1 focus:ring-indigo-500/20'
+                                                : 'bg-white/5 border border-white/10 focus:border-[var(--lt-accent-border)] focus:bg-[var(--lt-accent-soft)] focus:ring-1 focus:ring-[var(--lt-accent)]'
                                             }`}
                                     />
                                     {prefillItemName && (
@@ -1127,7 +1127,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                     <div key={criterion.id} className="space-y-2">
                                                         <div className="flex items-center justify-between">
                                                             <label className="text-sm font-semibold text-gray-300">{criterion.label || criterion.id}</label>
-                                                            <span className="text-sm font-black font-display tabular-nums text-indigo-400">{val}</span>
+                                                            <span className="text-sm font-black font-display tabular-nums text-[var(--lt-accent)]">{val}</span>
                                                         </div>
                                                         <input
                                                             type="range"
@@ -1146,8 +1146,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                         />
                                                         {(criterion.labelMin || criterion.labelMax) && (
                                                             <div className="flex justify-between gap-3">
-                                                                <span className="text-[10px] text-indigo-400/50 italic leading-snug">{criterion.labelMin}</span>
-                                                                <span className="text-[10px] text-indigo-400/70 italic leading-snug text-right">{criterion.labelMax}</span>
+                                                                <span className="text-[10px] text-[var(--lt-accent)]/50 italic leading-snug">{criterion.labelMin}</span>
+                                                                <span className="text-[10px] text-[var(--lt-accent)]/70 italic leading-snug text-right">{criterion.labelMax}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -1195,7 +1195,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         {/* Miniaturas */}
                                         <div className="flex gap-2">
                                             {processedPhotos.map((p, i) => (
-                                                <div key={i} className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 ${i === 0 ? 'border-indigo-500' : 'border-white/10'}`}>
+                                                <div key={i} className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 ${i === 0 ? 'border-[var(--lt-accent-border)]' : 'border-white/10'}`}>
                                                     <img src={p.dataUrl} alt="" className="w-full h-full object-cover" />
                                                     {i === 0 && (
                                                         <div className="absolute top-1 left-1 bg-amber-500 rounded-full p-0.5">
@@ -1212,7 +1212,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                     setSelectedFilesForEditor(processedPhotos.map((p, i) => new File([p.blob], `photo-${i}.jpg`, { type: 'image/jpeg' })));
                                                     setIsPhotoEditorOpen(true);
                                                 }}
-                                                className="flex-1 py-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold rounded-xl hover:bg-indigo-500/20 transition-all"
+                                                className="flex-1 py-2 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent)] text-xs font-semibold rounded-xl hover:bg-[var(--lt-accent)]/20 transition-all"
                                             >
                                                 ✏️ Editar fotos
                                             </button>
@@ -1240,12 +1240,12 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     </div>
                                 ) : (
                                     <div
-                                        className="relative w-full h-28 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-500/40 hover:bg-purple-500/5 transition-all group"
-                                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-purple-500/60', 'bg-purple-500/10'); }}
-                                        onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-purple-500/60', 'bg-purple-500/10'); }}
+                                        className="relative w-full h-28 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-[var(--lt-accent-border)] hover:bg-[var(--lt-accent-soft)] transition-all group"
+                                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-[var(--lt-accent-border)]', 'bg-[var(--lt-accent-soft)]'); }}
+                                        onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-[var(--lt-accent-border)]', 'bg-[var(--lt-accent-soft)]'); }}
                                         onDrop={(e) => {
                                             e.preventDefault();
-                                            e.currentTarget.classList.remove('border-purple-500/60', 'bg-purple-500/10');
+                                            e.currentTarget.classList.remove('border-[var(--lt-accent-border)]', 'bg-[var(--lt-accent-soft)]');
                                             const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).slice(0, 3);
                                             if (files.length > 0) { setSelectedFilesForEditor(files); setIsPhotoEditorOpen(true); }
                                         }}
@@ -1283,8 +1283,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                 key={tag}
                                                 onClick={() => toggleTag(tag)}
                                                 className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border active:scale-95 ${customTags.includes(tag)
-                                                    ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-500/30 scale-[1.03]'
-                                                    : 'bg-white/5 border-white/10 text-gray-400 hover:border-indigo-500/40 hover:text-gray-200'
+                                                    ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)] scale-[1.03]'
+                                                    : 'bg-white/5 border-white/10 text-gray-400 hover:border-[var(--lt-accent-border)] hover:text-gray-200'
                                                     }`}
                                             >
                                                 {customTags.includes(tag) ? '✓ ' : ''}{tag}

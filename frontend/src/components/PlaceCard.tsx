@@ -43,7 +43,7 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
                 </div>
 
                 <div className="p-4 flex-1 flex flex-col">
-                    <h3 className="text-white font-bold text-lg mb-1 group-hover:text-indigo-400 transition-colors line-clamp-1">{place.name}</h3>
+                    <h3 className="text-white font-bold text-lg mb-1 group-hover:text-[var(--lt-accent)] transition-colors line-clamp-1">{place.name}</h3>
                     <p className="text-gray-400 text-sm mb-3 line-clamp-1">{place.address || place.city}</p>
 
                     <div className="mt-auto flex flex-wrap gap-2">

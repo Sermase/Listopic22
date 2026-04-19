@@ -48,7 +48,7 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
     return (
         <div className="space-y-4">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-indigo-400" />
+                <Sliders className="w-5 h-5 text-[var(--lt-accent)]" />
                 Criterios de Evaluación
             </h3>
             <p className="text-sm text-gray-400">
@@ -59,7 +59,7 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
                 {criteria.map((criterion) => {
                     const isLocked = lockedIds.includes(criterion.id) || criterion.locked;
                     return (
-                        <div key={criterion.id} className={`bg-[var(--lt-card-strong)] p-4 rounded-xl border ${isLocked ? 'border-indigo-500/30' : 'border-white/5'} animate-fade-in relative group`}>
+                        <div key={criterion.id} className={`bg-[var(--lt-card-strong)] p-4 rounded-xl border ${isLocked ? 'border-[var(--lt-accent-border)]' : 'border-white/5'} animate-fade-in relative group`}>
                             {!isLocked && (
                                 <button
                                     type="button"
@@ -70,7 +70,7 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
                                 </button>
                             )}
                             {isLocked && (
-                                <div className="absolute top-2 right-2 px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[10px] font-bold rounded border border-indigo-500/30 flex items-center gap-1">
+                                <div className="absolute top-2 right-2 px-2 py-0.5 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] text-[10px] font-bold rounded border border-[var(--lt-accent-border)] flex items-center gap-1">
                                     <Lock className="w-3 h-3" /> Heredado
                                 </div>
                             )}
@@ -88,7 +88,7 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
                                             onChange={(e) => updateCriterion(criterion.id, 'label', e.target.value)}
                                             placeholder="Ej: Calidad del Café"
                                             disabled={isLocked}
-                                            className={`w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            className={`w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[var(--lt-accent-border)] ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         />
                                     </div>
 
@@ -99,7 +99,7 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
                                                 checked={criterion.isPonderable}
                                                 onChange={(e) => updateCriterion(criterion.id, 'isPonderable', e.target.checked)}
                                                 disabled={isLocked}
-                                                className={`w-4 h-4 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-[var(--lt-bg)] ${isLocked ? 'cursor-not-allowed' : ''}`}
+                                                className={`w-4 h-4 rounded border-gray-600 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] ${isLocked ? 'cursor-not-allowed' : ''}`}
                                             />
                                             <span className="text-sm text-gray-300">Afecta al promedio {isLocked && '(Fijo)'}</span>
                                         </label>
@@ -109,7 +109,7 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
                                                 value={criterion.step ?? 0.5}
                                                 onChange={(e) => updateCriterion(criterion.id, 'step', parseFloat(e.target.value))}
                                                 disabled={isLocked}
-                                                className={`bg-[var(--lt-bg)] border border-white/10 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-indigo-500 ${isLocked ? 'cursor-not-allowed' : ''}`}
+                                                className={`bg-[var(--lt-bg)] border border-white/10 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-[var(--lt-accent-border)] ${isLocked ? 'cursor-not-allowed' : ''}`}
                                             >
                                                 <option value={0.1}>0.1</option>
                                                 <option value={0.25}>0.25</option>
@@ -130,7 +130,7 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
                                             onChange={(e) => updateCriterion(criterion.id, 'minLabel', e.target.value)}
                                             placeholder="Ej: Malo"
                                             disabled={isLocked}
-                                            className={`w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-2 text-gray-300 text-xs focus:outline-none focus:border-indigo-500 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            className={`w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-2 text-gray-300 text-xs focus:outline-none focus:border-[var(--lt-accent-border)] ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         />
                                     </div>
                                     <div>
@@ -141,7 +141,7 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
                                             onChange={(e) => updateCriterion(criterion.id, 'maxLabel', e.target.value)}
                                             placeholder="Ej: Excelente"
                                             disabled={isLocked}
-                                            className={`w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-2 text-gray-300 text-xs focus:outline-none focus:border-indigo-500 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            className={`w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-2 text-gray-300 text-xs focus:outline-none focus:border-[var(--lt-accent-border)] ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         />
                                     </div>
                                 </div>

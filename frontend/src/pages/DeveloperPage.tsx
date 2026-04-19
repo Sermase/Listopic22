@@ -10,9 +10,9 @@ import { UsersManagerTab } from '../components/developer/UsersManagerTab';
 import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
-import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList } from 'lucide-react';
 import { DeveloperItemModal } from '../components/developer/DeveloperItemModal';
 import { UserDataExportTab } from '../components/developer/UserDataExportTab';
 
@@ -30,7 +30,7 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user, isJefe, loading: loadingAuth } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit'>('console');
     // Reactive: un usuario al que se le acaba de quitar el rol 'jefe' pierde
     // acceso inmediatamente sin recargar la página.
     const isAuthorized: boolean | null = loadingAuth ? null : isJefe;
@@ -68,6 +68,10 @@ export const DeveloperPage: React.FC = () => {
     const [syncingPlaceId, setSyncingPlaceId] = useState<string | null>(null);
     const [syncResults, setSyncResults] = useState<Record<string, string>>({});
     const [markingUnavailable, setMarkingUnavailable] = useState<Record<string, boolean>>({});
+
+    // Audit Log State
+    const [auditEntries, setAuditEntries] = useState<any[]>([]);
+    const [loadingAudit, setLoadingAudit] = useState(false);
 
     // Algolia State
     const [algoliaLog, setAlgoliaLog] = useState<string[]>([]);
@@ -295,6 +299,31 @@ export const DeveloperPage: React.FC = () => {
             setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ❌ Error: ${err.message}`, ...prev]);
         } finally {
             setProcessingMaintenance(false);
+        }
+    };
+
+    // --- Provision Admin Claim ---
+    const [provisioningClaim, setProvisioningClaim] = useState(false);
+    const [provisionClaimMessage, setProvisionClaimMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    const handleProvisionAdminClaim = async () => {
+        if (!confirm('¿Provisionar el custom claim admin:true para tu usuario? Necesitarás hacerlo una sola vez para poder subir archivos a Storage.')) return;
+        setProvisioningClaim(true);
+        setProvisionClaimMessage(null);
+        try {
+            const fns = getFunctions(undefined, FUNCTIONS_REGION);
+            const provisionFn = httpsCallable(fns, 'adminProvisionJefeClaim');
+            await provisionFn();
+            // Force token refresh so the new claim is included
+            if (user) await user.getIdToken(true);
+            setProvisionClaimMessage({ type: 'success', text: '✅ Claim admin:true establecido. El token se ha refrescado — ahora puedes subir archivos.' });
+            setMaintenanceLog(prev => [`✅ adminProvisionJefeClaim: claim admin:true establecido y token refrescado`, ...prev]);
+        } catch (error: any) {
+            console.error('Error provisioning claim:', error);
+            setProvisionClaimMessage({ type: 'error', text: `❌ Error: ${error.message}` });
+            setMaintenanceLog(prev => [`❌ adminProvisionJefeClaim error: ${error.message}`, ...prev]);
+        } finally {
+            setProvisioningClaim(false);
         }
     };
 
@@ -558,6 +587,21 @@ export const DeveloperPage: React.FC = () => {
         if (activeTab === 'others') fetchOtherSettings();
     }, [activeTab, reportFilter]);
 
+    useEffect(() => {
+        if (activeTab !== 'audit') return;
+        setLoadingAudit(true);
+        const q = query(
+            collection(db, 'adminAuditLog'),
+            orderBy('createdAt', 'desc'),
+            firestoreLimit(100)
+        );
+        const unsub = onSnapshot(q, (snap) => {
+            setAuditEntries(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            setLoadingAudit(false);
+        }, () => setLoadingAudit(false));
+        return () => unsub();
+    }, [activeTab]);
+
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
@@ -601,7 +645,7 @@ export const DeveloperPage: React.FC = () => {
 
                         <button
                             onClick={() => { setActiveTab('console'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'console' ? 'border-indigo-500 bg-indigo-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'console' ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Database className="w-5 h-5" /> Consola de Datos
                         </button>
@@ -631,7 +675,7 @@ export const DeveloperPage: React.FC = () => {
                         </button>
                         <button
                             onClick={() => { setActiveTab('branding'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'branding' ? 'border-indigo-500 bg-indigo-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'branding' ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Palette className="w-5 h-5" /> Marca & SEO
                         </button>
@@ -643,7 +687,7 @@ export const DeveloperPage: React.FC = () => {
                         </button>
                         <button
                             onClick={() => { setActiveTab('lists'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'lists' ? 'border-indigo-400 bg-indigo-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'lists' ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <ListIcon className="w-5 h-5" /> Listas
                         </button>
@@ -667,7 +711,7 @@ export const DeveloperPage: React.FC = () => {
                         </button>
                         <button
                             onClick={() => { setActiveTab('usuarios'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'usuarios' ? 'border-indigo-500 bg-indigo-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'usuarios' ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Users className="w-5 h-5" /> Usuarios
                         </button>
@@ -676,6 +720,12 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'rgpd' ? 'border-violet-500 bg-violet-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <FileDown className="w-5 h-5" /> RGPD / Datos
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('audit'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'audit' ? 'border-rose-500 bg-rose-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <ClipboardList className="w-5 h-5" /> Audit Log
                         </button>
                     </nav>
 
@@ -687,7 +737,7 @@ export const DeveloperPage: React.FC = () => {
                                 {/* Search Bar */}
                                 <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 shadow-xl">
                                     <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                        <Search className="w-5 h-5 text-indigo-400" /> Explorador de Firestore
+                                        <Search className="w-5 h-5 text-[var(--lt-accent)]" /> Explorador de Firestore
                                     </h2>
                                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
                                         <div className="col-span-1">
@@ -695,7 +745,7 @@ export const DeveloperPage: React.FC = () => {
                                             <select
                                                 value={consoleParams.collection}
                                                 onChange={(e) => setConsoleParams({ ...consoleParams, collection: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-[var(--lt-accent-border)]"
                                             >
                                                 <option value="lists">Listas</option>
                                                 <option value="places">Lugares</option>
@@ -710,7 +760,7 @@ export const DeveloperPage: React.FC = () => {
                                                 placeholder="Exact Match"
                                                 value={consoleParams.id || ''}
                                                 onChange={(e) => setConsoleParams({ ...consoleParams, id: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-[var(--lt-accent-border)]"
                                             />
                                         </div>
                                         <div className="col-span-1">
@@ -719,7 +769,7 @@ export const DeveloperPage: React.FC = () => {
                                                 placeholder="Owner ID"
                                                 value={consoleParams.user || ''}
                                                 onChange={(e) => setConsoleParams({ ...consoleParams, user: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-[var(--lt-accent-border)]"
                                             />
                                         </div>
                                         <div className="col-span-1">
@@ -728,7 +778,7 @@ export const DeveloperPage: React.FC = () => {
                                                 placeholder="Client Filter"
                                                 value={consoleParams.nameContains || ''}
                                                 onChange={(e) => setConsoleParams({ ...consoleParams, nameContains: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-[var(--lt-accent-border)]"
                                             />
                                         </div>
                                         <div className="col-span-1">
@@ -737,7 +787,7 @@ export const DeveloperPage: React.FC = () => {
                                                 placeholder="ChIJ..."
                                                 value={consoleParams.googleId || ''}
                                                 onChange={(e) => setConsoleParams({ ...consoleParams, googleId: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-[var(--lt-accent-border)]"
                                             />
                                         </div>
                                         <div className="col-span-1">
@@ -746,7 +796,7 @@ export const DeveloperPage: React.FC = () => {
                                                 type="number"
                                                 value={consoleParams.limit}
                                                 onChange={(e) => setConsoleParams({ ...consoleParams, limit: parseInt(e.target.value) || 50 })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-[var(--lt-accent-border)]"
                                             />
                                         </div>
                                     </div>
@@ -760,7 +810,7 @@ export const DeveloperPage: React.FC = () => {
                                         <button
                                             onClick={handleConsoleSearch}
                                             disabled={loadingConsole}
-                                            className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors flex items-center gap-2"
+                                            className="px-6 py-2 rounded-lg bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold transition-colors flex items-center gap-2"
                                         >
                                             {loadingConsole ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                                             Buscar
@@ -800,7 +850,7 @@ export const DeveloperPage: React.FC = () => {
                                                             setIsModalOpen(true);
                                                         }}
                                                     >
-                                                        <td className="p-4 font-mono text-xs text-indigo-400">{item.id}</td>
+                                                        <td className="p-4 font-mono text-xs text-[var(--lt-accent)]">{item.id}</td>
                                                         <td className="p-4 font-medium">{item.name || item.displayName || item.title || '-'}</td>
                                                         <td className="p-4 text-xs">{item.userId || item.ownerId || item.email || '-'}</td>
                                                         <td className="p-4 text-xs font-mono">
@@ -813,7 +863,7 @@ export const DeveloperPage: React.FC = () => {
                                                                     setSelectedItem(item);
                                                                     setIsModalOpen(true);
                                                                 }}
-                                                                className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded hover:bg-indigo-500/30"
+                                                                className="text-xs bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] px-2 py-1 rounded hover:bg-[var(--lt-accent)]/30"
                                                             >
                                                                 Editar
                                                             </button>
@@ -856,7 +906,7 @@ export const DeveloperPage: React.FC = () => {
                                             <button
                                                 onClick={() => runAlgoliaSync(null)}
                                                 disabled={processingAlgolia}
-                                                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
+                                                className="px-6 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
                                             >
                                                 Sincronizar TODO
                                             </button>
@@ -900,13 +950,13 @@ export const DeveloperPage: React.FC = () => {
                                 <div className="space-y-6">
                                     <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
                                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                            <ListIcon className="w-5 h-5 text-purple-400" /> Mantenimiento de Listas
+                                            <ListIcon className="w-5 h-5 text-[var(--lt-accent-2)]" /> Mantenimiento de Listas
                                         </h3>
                                         <p className="text-gray-400 mb-6">Herramientas para recalcular contadores y estadísticas de listas desincronizadas.</p>
 
                                         {/* Global Maintenance */}
-                                        <div className="mb-8 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-                                            <h4 className="text-sm font-bold text-indigo-300 uppercase mb-3 flex items-center gap-2">
+                                        <div className="mb-8 p-4 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-xl">
+                                            <h4 className="text-sm font-bold text-[var(--lt-accent)] uppercase mb-3 flex items-center gap-2">
                                                 <Database className="w-4 h-4" /> Mantenimiento Global
                                             </h4>
                                             <div className="flex gap-4 flex-wrap">
@@ -922,7 +972,7 @@ export const DeveloperPage: React.FC = () => {
                                                 <button
                                                     onClick={() => handleGlobalRecalculate('lists')}
                                                     disabled={processingMaintenance}
-                                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                                    className="px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
                                                 >
                                                     {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
                                                     Recalcular TODAS las Listas
@@ -957,7 +1007,7 @@ export const DeveloperPage: React.FC = () => {
                                                     value={targetListId}
                                                     onChange={(e) => setTargetListId(e.target.value)}
                                                     placeholder="Paste List ID here..."
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500 font-mono"
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-[var(--lt-accent-border)] font-mono"
                                                 />
                                             </div>
                                             <button
@@ -977,7 +1027,7 @@ export const DeveloperPage: React.FC = () => {
                                                     value={targetPlaceId || ''}
                                                     onChange={(e) => setTargetPlaceId(e.target.value)}
                                                     placeholder="Paste Place ID here..."
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500 font-mono"
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-[var(--lt-accent-border)] font-mono"
                                                 />
                                             </div>
                                             <button
@@ -1004,6 +1054,26 @@ export const DeveloperPage: React.FC = () => {
                                             {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
                                             Backfill authorUserType
                                         </button>
+                                    </div>
+
+                                    <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
+                                        <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                                            <Terminal className="w-5 h-5 text-cyan-400" /> Provisionar Claim Admin
+                                        </h3>
+                                        <p className="text-gray-400 mb-4 text-sm">Establece el custom claim <code className="text-cyan-300 bg-black/30 px-1 rounded">admin:true</code> en tu token de Firebase Auth. Necesario para que las Storage Security Rules te autoricen a subir archivos. Solo hace falta hacerlo una vez.</p>
+                                        <button
+                                            onClick={handleProvisionAdminClaim}
+                                            disabled={provisioningClaim}
+                                            className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                        >
+                                            {provisioningClaim ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Terminal className="w-4 h-4" />}
+                                            Provisionar claim admin:true
+                                        </button>
+                                        {provisionClaimMessage && (
+                                            <p className={`mt-3 text-sm font-medium ${provisionClaimMessage.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                {provisionClaimMessage.text}
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs h-96 overflow-y-auto">
@@ -1091,7 +1161,7 @@ export const DeveloperPage: React.FC = () => {
                                                 <select
                                                     value={otherSettings.homeReviewsMonths}
                                                     onChange={(e) => setOtherSettings((prev) => ({ ...prev, homeReviewsMonths: Number(e.target.value) }))}
-                                                    className="bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm font-bold focus:outline-none focus:border-indigo-500 shrink-0"
+                                                    className="bg-[var(--lt-bg)] border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm font-bold focus:outline-none focus:border-[var(--lt-accent-border)] shrink-0"
                                                 >
                                                     <option value={1}>1 mes</option>
                                                     <option value={3}>3 meses</option>
@@ -1192,10 +1262,10 @@ export const DeveloperPage: React.FC = () => {
                                     {/* --- MANUAL ASSIGNMENT TOOL --- */}
                                     <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6 mb-8 relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-4 opacity-5">
-                                            <CheckCircle className="w-32 h-32 text-indigo-500" />
+                                            <CheckCircle className="w-32 h-32 text-[var(--lt-accent)]" />
                                         </div>
                                         <h3 className="text-lg font-bold text-white mb-4 relative z-10 flex items-center gap-2">
-                                            <CheckCircle className="w-5 h-5 text-indigo-400" /> Asignación Manual
+                                            <CheckCircle className="w-5 h-5 text-[var(--lt-accent)]" /> Asignación Manual
                                         </h3>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10 items-end">
                                             <div className="col-span-1">
@@ -1203,14 +1273,14 @@ export const DeveloperPage: React.FC = () => {
                                                 <input
                                                     id="manualAssignUserId"
                                                     placeholder="User UID"
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-[var(--lt-accent-border)]"
                                                 />
                                             </div>
                                             <div className="col-span-1">
                                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Badge ID</label>
                                                 <select
                                                     id="manualAssignBadgeId"
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500"
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-[var(--lt-accent-border)]"
                                                 >
                                                     <option value="">Seleccionar Medalla...</option>
                                                     {badges.map(b => (
@@ -1682,7 +1752,7 @@ export const DeveloperPage: React.FC = () => {
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                                 <div>
                                                                     <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Target ID</div>
-                                                                    <div className="text-xs font-mono text-indigo-400 select-all break-all flex items-center gap-1.5">
+                                                                    <div className="text-xs font-mono text-[var(--lt-accent)] select-all break-all flex items-center gap-1.5">
                                                                         <span>{report.targetId}</span>
                                                                         {(() => {
                                                                             const linkMap: Record<string, string> = {
@@ -1692,7 +1762,7 @@ export const DeveloperPage: React.FC = () => {
                                                                             };
                                                                             const href = linkMap[report.targetType];
                                                                             return href ? (
-                                                                                <a href={href} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-400 hover:text-indigo-200 transition-colors">
+                                                                                <a href={href} target="_blank" rel="noopener noreferrer" className="shrink-0 text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">
                                                                                     <ExternalLink className="w-3 h-3" />
                                                                                 </a>
                                                                             ) : null;
@@ -1706,11 +1776,11 @@ export const DeveloperPage: React.FC = () => {
                                                                 <div>
                                                                     <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Reportado por</div>
                                                                     <div className="text-xs text-gray-300 flex items-center gap-1.5">
-                                                                        <a href={`/profile/${report.userId || report.reportedByUserId}`} target="_blank" rel="noopener noreferrer" className="font-mono text-gray-400 hover:text-indigo-300 transition-colors flex items-center gap-1">
+                                                                        <a href={`/profile/${report.userId || report.reportedByUserId}`} target="_blank" rel="noopener noreferrer" className="font-mono text-gray-400 hover:text-[var(--lt-accent)] transition-colors flex items-center gap-1">
                                                                             <span className="select-all">{report.userId || report.reportedByUserId}</span>
                                                                             <ExternalLink className="w-3 h-3 shrink-0" />
                                                                         </a>
-                                                                        {(report.userName || report.reportedByName) && <span className="text-indigo-300">({report.userName || report.reportedByName})</span>}
+                                                                        {(report.userName || report.reportedByName) && <span className="text-[var(--lt-accent)]">({report.userName || report.reportedByName})</span>}
                                                                     </div>
                                                                 </div>
                                                                 <div>
@@ -1740,7 +1810,7 @@ export const DeveloperPage: React.FC = () => {
                                                                         value={adminNotes[report.id] || ''}
                                                                         onChange={(e) => setAdminNotes(prev => ({ ...prev, [report.id]: e.target.value }))}
                                                                         placeholder="Razón de la resolución, acciones tomadas..."
-                                                                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 h-16 resize-none"
+                                                                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[var(--lt-accent-border)] h-16 resize-none"
                                                                     />
                                                                 </div>
                                                             )}
@@ -1891,6 +1961,60 @@ export const DeveloperPage: React.FC = () => {
                         )}
                         {activeTab === 'rgpd' && (
                             <UserDataExportTab />
+                        )}
+
+                        {activeTab === 'audit' && (
+                            <div className="max-w-5xl mx-auto space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                        <ClipboardList className="w-6 h-6 text-rose-400" /> Audit Log Admin
+                                    </h2>
+                                    <span className="text-xs text-gray-500">Tiempo real · últimas 100 acciones</span>
+                                </div>
+
+                                {loadingAudit ? (
+                                    <div className="text-gray-500 text-sm py-8 text-center">Cargando...</div>
+                                ) : auditEntries.length === 0 ? (
+                                    <div className="text-gray-500 text-sm py-8 text-center">Sin entradas registradas todavía.</div>
+                                ) : (
+                                    <div className="overflow-x-auto rounded-xl border border-white/10">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-white/10 bg-[var(--lt-card-strong)]">
+                                                    <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Fecha</th>
+                                                    <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Acción</th>
+                                                    <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Admin UID</th>
+                                                    <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Detalles</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {auditEntries.map((entry) => (
+                                                    <tr key={entry.id} className="border-b border-white/5 hover:bg-white/3 transition-colors">
+                                                        <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap font-mono">
+                                                            {entry.createdAt?.seconds
+                                                                ? new Date(entry.createdAt.seconds * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'medium' })
+                                                                : '—'}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-500/15 text-rose-300 border border-rose-500/20">
+                                                                {entry.action || '—'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-xs font-mono text-[var(--lt-accent)] truncate max-w-[160px]">
+                                                            {entry.actorUid || '—'}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-xs text-gray-400 font-mono truncate max-w-[260px]">
+                                                            {entry.details && Object.keys(entry.details).length > 0
+                                                                ? JSON.stringify(entry.details)
+                                                                : '—'}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </main >
                 </div >

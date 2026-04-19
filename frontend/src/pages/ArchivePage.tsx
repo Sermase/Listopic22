@@ -33,8 +33,8 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; ic
     },
     review: {
         label: 'Reseña',
-        color: 'text-purple-300',
-        bg: 'bg-purple-500/20',
+        color: 'text-[var(--lt-accent-2)]',
+        bg: 'bg-[var(--lt-accent-soft)]',
         icon: <MessageSquare className="w-3 h-3" />,
     },
     group: {
@@ -257,7 +257,7 @@ export const ArchivePage: React.FC = () => {
                         </span>
                         <button
                             onClick={() => setShowMapFilters(v => !v)}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-bold backdrop-blur-md border transition-colors ${showMapFilters ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-black/60 border-white/10 text-white'}`}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-bold backdrop-blur-md border transition-colors ${showMapFilters ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white' : 'bg-black/60 border-white/10 text-white'}`}
                         >
                             <Filter className="w-4 h-4" /> Colecciones
                         </button>
@@ -268,7 +268,7 @@ export const ArchivePage: React.FC = () => {
                 <div className="flex-1 w-full">
                     {loadingMap && (
                         <div className="absolute inset-0 z-10 bg-[var(--lt-bg)]/60 flex items-center justify-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400" />
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--lt-accent-border)]" />
                         </div>
                     )}
                     <MapView items={mapItems} mode="global" showLayerControl={false} />
@@ -292,13 +292,13 @@ export const ArchivePage: React.FC = () => {
                                         onClick={() => setMapSelectedArchives(prev =>
                                             active ? prev.filter(x => x !== arch.id) : [...prev, arch.id]
                                         )}
-                                        className={`w-full flex items-center gap-3 p-3 rounded-xl mb-1 transition-colors ${active ? 'bg-indigo-500/15 border border-indigo-500/30' : 'hover:bg-white/5 border border-transparent'}`}
+                                        className={`w-full flex items-center gap-3 p-3 rounded-xl mb-1 transition-colors ${active ? 'bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)]' : 'hover:bg-white/5 border border-transparent'}`}
                                     >
                                         <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0" style={{ backgroundColor: arch.color || '#6366f1' }}>
                                             {arch.emoji || '📍'}
                                         </div>
                                         <span className="flex-1 text-left text-sm font-medium text-gray-200">{arch.name}</span>
-                                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${active ? 'bg-indigo-600 border-indigo-600' : 'border-white/20'}`}>
+                                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${active ? 'bg-[var(--lt-accent)] border-indigo-600' : 'border-white/20'}`}>
                                             {active && <Check className="w-3 h-3 text-white" />}
                                         </div>
                                     </button>
@@ -322,7 +322,7 @@ export const ArchivePage: React.FC = () => {
                         <h1 className="text-3xl font-bold text-white">Mi Archivo</h1>
                         <button
                             onClick={() => setViewMode('map')}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white text-sm font-bold rounded-xl shadow-lg transition-colors"
                         >
                             <MapIcon className="w-4 h-4" /> Mapa
                         </button>
@@ -336,7 +336,7 @@ export const ArchivePage: React.FC = () => {
                                 placeholder="Buscar en tus colecciones..."
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full bg-[var(--lt-card-strong)] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                className="w-full bg-[var(--lt-card-strong)] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                             />
                         </div>
                         <div className="flex gap-1.5 overflow-x-auto custom-scrollbar shrink-0">
@@ -351,7 +351,7 @@ export const ArchivePage: React.FC = () => {
                                     key={f.id}
                                     onClick={() => setFilterType(f.id as any)}
                                     className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterType === f.id
-                                        ? 'bg-indigo-600 text-white'
+                                        ? 'bg-[var(--lt-accent)] text-white'
                                         : 'bg-[var(--lt-card-strong)] border border-white/10 text-gray-400 hover:text-white'}`}
                                 >
                                     {f.label}
@@ -366,7 +366,7 @@ export const ArchivePage: React.FC = () => {
                     <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-2xl">
                         <Folder className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                         <p className="text-gray-500 mb-4">No tienes colecciones aún.</p>
-                        <button onClick={openCreate} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white font-bold transition-colors">
+                        <button onClick={openCreate} className="px-5 py-2.5 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] rounded-xl text-white font-bold transition-colors">
                             Crear colección
                         </button>
                     </div>
@@ -428,7 +428,7 @@ export const ArchivePage: React.FC = () => {
                                         <div className="border-t border-white/5 bg-black/20 p-4 rounded-b-2xl">
                                             {loadingItems[arch.id] ? (
                                                 <div className="flex items-center justify-center gap-2 py-8 text-gray-500 text-sm">
-                                                    <div className="animate-spin w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full" />
+                                                    <div className="animate-spin w-4 h-4 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full" />
                                                     Cargando...
                                                 </div>
                                             ) : filtered.length === 0 ? (
@@ -481,7 +481,7 @@ export const ArchivePage: React.FC = () => {
                                                                     className="p-2 flex-1 hover:bg-white/5 transition-colors"
                                                                 >
                                                                     <p className="text-white text-xs font-semibold leading-tight line-clamp-2">{item.name}</p>
-                                                                    {item.subtitle && <p className="text-indigo-400 text-[10px] truncate mt-0.5">{item.subtitle}</p>}
+                                                                    {item.subtitle && <p className="text-[var(--lt-accent)] text-[10px] truncate mt-0.5">{item.subtitle}</p>}
                                                                 </Link>
                                                             </div>
                                                         );
@@ -528,7 +528,7 @@ export const ArchivePage: React.FC = () => {
                                     {editEmoji}
                                 </div>
                                 <input
-                                    className="flex-1 bg-[var(--lt-card)] border border-white/10 rounded-xl px-4 py-3 text-[var(--lt-text)] focus:outline-none focus:border-indigo-500 transition-colors text-sm"
+                                    className="flex-1 bg-[var(--lt-card)] border border-white/10 rounded-xl px-4 py-3 text-[var(--lt-text)] focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors text-sm"
                                     value={editName}
                                     placeholder="Nombre de la colección..."
                                     onChange={e => setEditName(e.target.value)}
@@ -545,7 +545,7 @@ export const ArchivePage: React.FC = () => {
                                         <button
                                             key={em}
                                             onClick={() => setEditEmoji(em)}
-                                            className={`w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all ${editEmoji === em ? 'bg-indigo-600/40 ring-2 ring-indigo-500 scale-110' : 'bg-white/5 hover:bg-white/10'}`}
+                                            className={`w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all ${editEmoji === em ? 'bg-[var(--lt-accent-soft)] ring-2 ring-[var(--lt-accent)] scale-110' : 'bg-white/5 hover:bg-white/10'}`}
                                         >
                                             {em}
                                         </button>
@@ -571,7 +571,7 @@ export const ArchivePage: React.FC = () => {
                             <button
                                 onClick={saveEdit}
                                 disabled={!editName.trim()}
-                                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold py-3 rounded-xl transition-all"
+                                className="w-full bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-40 text-white font-bold py-3 rounded-xl transition-all"
                             >
                                 Guardar
                             </button>
