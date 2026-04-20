@@ -119,14 +119,9 @@ export const ChatService = {
             ...payload
         });
 
-        // Update last message
         const chatRef = doc(db, 'chats', chatId);
         const chatSnap = await getDoc(chatRef);
         const participants = chatSnap.exists() ? (chatSnap.data().participants || []) as string[] : [];
-        const unreadUpdates = participants
-            .filter(uid => uid !== senderId)
-            .reduce((acc, uid) => ({ ...acc, [`unreadCount.${uid}`]: increment(1) }), {} as Record<string, any>);
-
         let previewText = safeText.trim();
         if (!previewText && (type === 'share' || type === 'review-share')) {
             const shared = metadata?.share;
@@ -152,8 +147,7 @@ export const ChatService = {
         await updateDoc(chatRef, {
             lastMessage: previewText,
             lastMessageTimestamp: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            ...unreadUpdates
+            updatedAt: serverTimestamp()
         });
     },
 
