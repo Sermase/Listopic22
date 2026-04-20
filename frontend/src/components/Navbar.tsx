@@ -88,7 +88,8 @@ export const Navbar: React.FC = () => {
         );
 
         const unsubscribe = onSnapshot(notificationsQuery, (snap: any) => {
-            setUnreadCount(snap.size);
+            const validDocs = snap.docs.filter((d: any) => d.data().type !== 'new_message');
+            setUnreadCount(validDocs.length);
         }, (error) => {
             console.error('Navbar notifications snapshot error:', error);
         });

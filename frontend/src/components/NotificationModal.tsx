@@ -32,7 +32,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+            setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() })).filter(n => n.type !== 'new_message'));
             setLoading(false);
         }, (error) => {
             console.error("NotificationModal snapshot error:", error);

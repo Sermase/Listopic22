@@ -89,30 +89,42 @@ const PushSetup: React.FC = () => {
         if (!Capacitor.isNativePlatform() || !user) return;
 
         const setup = async () => {
-            // Crear el canal ANTES de pedir permiso/registrar (Android 8.0+)
-            await PushNotifications.createChannel({
-                id: 'listopic_default',
-                name: 'Notificaciones Listopic',
-                description: 'Notificaciones generales de la aplicación',
-                importance: 5, // IMPORTANCE_HIGH → banner visible
-                visibility: 1, // VISIBILITY_PUBLIC
-                sound: 'default',
-                vibration: true,
-                lights: true,
-            });
+            try {
+                // Crear el canal ANTES de pedir permiso/registrar (Android 8.0+)
+                await PushNotifications.createChannel({
+                    id: 'listopic_default',
+                    name: 'Notificaciones Listopic',
+                    description: 'Notificaciones generales de la aplicación',
+                    importance: 5, // IMPORTANCE_HIGH → banner visible
+                    visibility: 1, // VISIBILITY_PUBLIC
+                    vibration: true,
+                    lights: true,
+                });
+            } catch (err) {
+                console.warn("createChannel failed:", err);
+            }
 
-            const permission = await PushNotifications.requestPermissions();
-            if (permission.receive !== 'granted') return;
-            await PushNotifications.register();
+            try {
+                const permission = await PushNotifications.requestPermissions();
+                if (permission.receive === 'granted') {
+                    await PushNotifications.register();
+                }
+            } catch (err) {
+                console.warn("requestPermissions/register failed:", err);
+            }
         };
         setup();
 
         const regListener = PushNotifications.addListener('registration', async ({ value: token }) => {
-            await setDoc(
-                doc(db, 'users', user.uid, 'fcmTokens', token),
-                { token, platform: 'android', lastSeen: serverTimestamp(), createdAt: serverTimestamp() },
-                { merge: true }
-            );
+            try {
+                await setDoc(
+                    doc(db, 'users', user.uid, 'fcmTokens', token),
+                    { token, platform: 'android', lastSeen: serverTimestamp(), createdAt: serverTimestamp() },
+                    { merge: true }
+                );
+            } catch (err) {
+                console.error("FCM Token save failed:", err);
+            }
         });
 
         const recvListener = PushNotifications.addListener('pushNotificationReceived', (notification) => {
