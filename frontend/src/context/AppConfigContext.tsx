@@ -19,6 +19,11 @@ export interface AppConfig {
     homeReviewsMonths: number; // 0 = sin límite de tiempo, >0 = meses hacia atrás
 }
 
+interface AppConfigContextValue {
+    config: AppConfig;
+    isConfigLoading: boolean;
+}
+
 const defaultConfig: AppConfig = {
     logoType: 'default',
     faviconType: 'default',
@@ -30,19 +35,22 @@ const defaultConfig: AppConfig = {
     homeReviewsMonths: 12,
 };
 
-const AppConfigContext = createContext<AppConfig>(defaultConfig);
+const AppConfigContext = createContext<AppConfigContextValue>({
+    config: defaultConfig,
+    isConfigLoading: true,
+});
 
 export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [config, setConfig] = useState<AppConfig>(defaultConfig);
+    const [isConfigLoading, setIsConfigLoading] = useState(true);
 
     useEffect(() => {
         const unsubscribe = onSnapshot(doc(db, 'config', 'app'), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setConfig({
-                    ...defaultConfig, // Fallback defaults
+                    ...defaultConfig,
                     ...data,
-                    // Ensure valid types if needed
                     logoType: data.logoType === 'image' ? 'image' : 'default',
                     faviconType: data.faviconType === 'image' ? 'image' : 'default',
                     showRandomChoiceButton: typeof data.showRandomChoiceButton === 'boolean'
@@ -56,18 +64,28 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         : defaultConfig.homeReviewsMonths,
                 } as AppConfig);
             }
+            setIsConfigLoading(false);
         }, (error) => {
             console.error("Error fetching app config:", error);
+            setIsConfigLoading(false);
         });
 
         return () => unsubscribe();
     }, []);
 
     return (
-        <AppConfigContext.Provider value={config}>
+        <AppConfigContext.Provider value={{ config, isConfigLoading }}>
             {children}
         </AppConfigContext.Provider>
     );
 };
 
-export const useAppConfig = () => useContext(AppConfigContext);
+export const useAppConfig = () => {
+    const { config } = useContext(AppConfigContext);
+    return config;
+};
+
+export const useAppConfigLoading = () => {
+    const { isConfigLoading } = useContext(AppConfigContext);
+    return isConfigLoading;
+};

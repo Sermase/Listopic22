@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Archive, Bell, Compass, Info, Menu, MessageSquare, Plus, Search, Share2, User, X } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
-import { useAppConfig } from '../context/AppConfigContext';
+import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
 import { useTheme } from '../context/ThemeContext';
 import type { ThemeId } from '../context/ThemeContext';
 import { db } from '../firebase';
@@ -40,6 +40,7 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string
 export const Navbar: React.FC = () => {
     const { user } = useAuth();
     const config = useAppConfig();
+    const isConfigLoading = useAppConfigLoading();
     const { theme } = useTheme();
     const location = useLocation();
 
@@ -174,7 +175,7 @@ export const Navbar: React.FC = () => {
     };
 
     const profileLabel = profileUsername ? `@${profileUsername}` : (user?.displayName || 'Mi cuenta');
-    const mobileCreateButtonClass = "w-full flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4 text-lg font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:from-emerald-400 hover:to-teal-400";
+    const mobileCreateButtonClass = "w-full flex items-center justify-center gap-3 rounded-2xl px-5 py-4 text-lg font-bold text-white shadow-lg transition-all";
 
     return (
         <header className="fixed top-0 w-full z-50 px-3 sm:px-5 transition-all duration-500 pointer-events-none" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)' }}>
@@ -187,12 +188,14 @@ export const Navbar: React.FC = () => {
             >
                 <div className="flex items-center justify-between h-12 md:h-14">
                     <Link to="/" className="flex items-center gap-3 group brand-logo relative z-50">
-                        {config.logoType === 'image' && activeLogoUrl ? (
+                        {isConfigLoading ? (
+                            <div className="w-32 h-8 rounded-lg bg-[var(--lt-accent-soft)] animate-pulse" />
+                        ) : config.logoType === 'image' && activeLogoUrl ? (
                             <img src={activeLogoUrl} alt={config.appName} className="max-h-12 w-auto object-contain transition-transform group-hover:scale-105" />
                         ) : (
                             <div className="flex items-center gap-3">
                                 <div className="relative group-hover:scale-105 group-hover:rotate-6 transition-all duration-300">
-                                    <div className="absolute inset-0 bg-blue-600 blur-lg opacity-40 group-hover:opacity-60 transition-opacity rounded-xl"></div>
+                                    <div className="absolute inset-0 blur-lg opacity-40 group-hover:opacity-60 transition-opacity rounded-xl" style={{ backgroundColor: 'var(--lt-accent)' }}></div>
                                     <div className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{ backgroundImage: 'var(--lt-brand-mark)' }}>
                                         <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
                                     </div>
@@ -226,7 +229,7 @@ export const Navbar: React.FC = () => {
                                     }}
                                     className={`p-2.5 rounded-full transition-all duration-300 relative ${unreadCount > 0
                                         ? 'text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20'
-                                        : 'text-gray-400 hover:text-white hover:bg-white/10'
+                                        : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/10'
                                         }`}
                                 >
                                     <Bell className="w-5 h-5" />
@@ -249,8 +252,8 @@ export const Navbar: React.FC = () => {
 
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-3 ml-2 group">
-                                <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors text-right hidden lg:block">
-                                    <span className="block text-xs text-gray-500 group-hover:text-gray-400">Hola,</span>
+                                <span className="text-sm font-medium text-[var(--lt-text)] group-hover:text-[var(--lt-accent)] transition-colors text-right hidden lg:block">
+                                    <span className="block text-xs text-[var(--lt-text-muted)]">Hola,</span>
                                     {profileLabel}
                                 </span>
                                 <div className="relative">
@@ -291,7 +294,7 @@ export const Navbar: React.FC = () => {
                         <button
                             aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className="p-2 text-gray-300 hover:text-white transition-colors z-50 relative"
+                            className="p-2 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors z-50 relative"
                         >
                             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                         </button>
@@ -303,7 +306,7 @@ export const Navbar: React.FC = () => {
                 <div className="fixed inset-x-0 bottom-0 bg-[var(--lt-bg-deep)]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto rounded-t-3xl" style={{ top: 'calc(env(safe-area-inset-top) + 68px)' }}>
                     <div className="space-y-4 bg-[var(--lt-card-strong)]/60 p-6 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5 mt-4">
                         {user ? (
-                            <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-gray-100">
+                            <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--lt-text)]">
                                 <div className="w-12 h-12 rounded-full overflow-hidden bg-[var(--lt-bg)] border border-white/10 shrink-0">
                                     {(profilePhotoUrl || user.photoURL) ? (
                                         <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover" />
@@ -314,34 +317,34 @@ export const Navbar: React.FC = () => {
                                     )}
                                 </div>
                                 <div className="min-w-0">
-                                    <div className="text-xs uppercase tracking-[0.18em] text-gray-500">Perfil</div>
+                                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--lt-text-muted)]">Perfil</div>
                                     <div className="font-bold truncate">{profileLabel}</div>
                                 </div>
                             </Link>
                         ) : (
-                            <Link to="/login" className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/10 text-gray-100">
+                            <Link to="/login" className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--lt-text)]">
                                 <User className="w-5 h-5 text-[var(--lt-accent)]" />
                                 <span className="font-bold">Iniciar sesión</span>
                             </Link>
                         )}
 
                         <div className="grid grid-cols-1 gap-3">
-                            <Link to="/create-sublist" className={mobileCreateButtonClass}>
+                            <Link to="/create-sublist" className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
                                 <Plus className="w-6 h-6" /> Crear Sublista
                             </Link>
-                            <Link to="/create-review" className={mobileCreateButtonClass}>
+                            <Link to="/create-review" className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
                                 <Plus className="w-6 h-6" /> Crear Reseña
                             </Link>
                         </div>
 
                         <div className="space-y-2">
-                            <Link to="/search" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
+                            <Link to="/search" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
                                 <Search className="w-5 h-5 text-[var(--lt-accent)]" /> Buscar
                             </Link>
-                            <Link to="/" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
+                            <Link to="/" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
                                 <Compass className="w-5 h-5 text-[var(--lt-accent)]" /> Explorar
                             </Link>
-                            <Link to="/chats" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200 justify-between">
+                            <Link to="/chats" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between">
                                 <div className="flex items-center gap-3">
                                     <MessageSquare className="w-5 h-5 text-[var(--lt-accent)]" /> Chats
                                 </div>
@@ -359,7 +362,7 @@ export const Navbar: React.FC = () => {
                                         setIsMenuOpen(false);
                                         setShowNotifications(true);
                                     }}
-                                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200 justify-between"
+                                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between"
                                 >
                                     <div className="flex items-center gap-3">
                                         <Bell className="w-5 h-5 text-[var(--lt-accent)]" /> Notificaciones
@@ -371,7 +374,7 @@ export const Navbar: React.FC = () => {
                                     )}
                                 </button>
                             )}
-                            <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200">
+                            <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
                                 <Archive className="w-5 h-5 text-[var(--lt-accent)]" /> Archivo
                             </Link>
                             <button
@@ -380,7 +383,7 @@ export const Navbar: React.FC = () => {
                                     setIsMenuOpen(false);
                                     setIsAppShareOpen(true);
                                 }}
-                                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200"
+                                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]"
                             >
                                 <Share2 className="w-5 h-5 text-[var(--lt-accent)]" /> Compartir App
                             </button>
@@ -409,7 +412,7 @@ export const Navbar: React.FC = () => {
                                         window.location.href = '/about';
                                     }
                                 }}
-                                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-gray-200"
+                                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]"
                             >
                                 <Info className="w-5 h-5 text-[var(--lt-accent)]" /> Sobre Listopic
                             </button>
@@ -417,7 +420,7 @@ export const Navbar: React.FC = () => {
                     </div>
 
                     <div className="pt-2 pb-2 text-center flex-shrink-0">
-                        <p className="text-gray-600 text-xs">{new Date().getFullYear()} Istari Core</p>
+                        <p className="text-[var(--lt-text-muted)] text-xs">{new Date().getFullYear()} Istari Core</p>
                     </div>
                 </div>
             )}
@@ -458,20 +461,20 @@ export const Navbar: React.FC = () => {
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <h3 className="text-lg font-bold text-white">Instalar app</h3>
-                                <p className="mt-1 text-sm text-gray-400">
+                                <p className="mt-1 text-sm text-[var(--lt-text-muted)]">
                                     {installHelpText}
                                 </p>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setShowInstallHelp(false)}
-                                className="p-2 rounded-full text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                                className="p-2 rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/10 transition-colors"
                             >
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
 
-                        <div className="mt-4 space-y-2 text-sm text-gray-200">
+                        <div className="mt-4 space-y-2 text-sm text-[var(--lt-text)]">
                             {manualInstallSteps.map((step) => (
                                 <p key={step}>{step}</p>
                             ))}
