@@ -1835,8 +1835,8 @@ export const ProfilePage: React.FC = () => {
                 </button>
               </div>
 
-              <div className="px-4 md:px-5 pt-4">
-                <div className="inline-flex rounded-xl border border-white/10 bg-[var(--lt-bg-deep)] p-1">
+              <div className="px-4 md:px-5 pt-4 overflow-x-auto">
+                <div className="inline-flex min-w-max rounded-xl border border-white/10 bg-[var(--lt-bg-deep)] p-1">
                   <button
                     type="button"
                     onClick={() => setPreferencesTab("user")}
