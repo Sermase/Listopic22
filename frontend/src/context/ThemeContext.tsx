@@ -37,7 +37,7 @@ export const THEMES: ThemeMeta[] = [
         mood: 'Índigo · Púrpura',
         description: 'El tema por defecto: moderno, con presencia nocturna.',
         preview: { bg: '#0b1021', card: '#151b2e', accent: '#6366f1', accent2: '#a855f7', text: '#f8fafc' },
-        statusBarStyle: 'light',
+        statusBarStyle: 'dark',   // Style.Dark = iconos blancos sobre fondo oscuro
     },
     {
         id: 'light',
@@ -45,7 +45,7 @@ export const THEMES: ThemeMeta[] = [
         mood: 'Crema · Índigo',
         description: 'Fondo crema cálido para uso diurno prolongado.',
         preview: { bg: '#faf8f4', card: '#ffffff', accent: '#5b4cf5', accent2: '#a855f7', text: '#1a1625' },
-        statusBarStyle: 'dark',
+        statusBarStyle: 'light',  // Style.Light = iconos negros sobre fondo claro
     },
     {
         id: 'warm',
@@ -53,7 +53,7 @@ export const THEMES: ThemeMeta[] = [
         mood: 'Terracota · Ámbar',
         description: 'Chocolate oscuro con acentos naranja quemado. Gastronómico.',
         preview: { bg: '#1a0f0c', card: '#2a1812', accent: '#f97316', accent2: '#dc2626', text: '#fff8f0' },
-        statusBarStyle: 'light',
+        statusBarStyle: 'dark',   // Style.Dark = iconos blancos sobre fondo oscuro
     },
     {
         id: 'cool',
@@ -61,7 +61,7 @@ export const THEMES: ThemeMeta[] = [
         mood: 'Teal · Menta',
         description: 'Verde azulado oscuro, fresco y contemporáneo.',
         preview: { bg: '#031a20', card: '#0c2a32', accent: '#14b8a6', accent2: '#06b6d4', text: '#ecfeff' },
-        statusBarStyle: 'light',
+        statusBarStyle: 'dark',   // Style.Dark = iconos blancos sobre fondo oscuro
     },
 ];
 
@@ -106,6 +106,7 @@ function applyThemeClass(theme: ThemeId): void {
     if (Capacitor.isNativePlatform()) {
         const style = meta?.statusBarStyle === 'dark' ? Style.Dark : Style.Light;
         StatusBar.setStyle({ style }).catch(() => { /* noop */ });
+        StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => { /* noop */ });
     }
 }
 

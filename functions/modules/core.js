@@ -62,6 +62,7 @@ const {
   buildHttpsErrorFrom,
 } = require("./lib/https-errors");
 const { recalculateListReviewMetrics } = require("./lib/list-metrics");
+const { logApiUsage } = require("./lib/apiLogger");
 
 const db = getFirestore();
 
@@ -1005,6 +1006,7 @@ const placesNearbyRestaurants = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECR
 
     const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${userLat},${userLon}&key=${apiKey}&language=es&rankby=distance&type=${encodeURIComponent(typeForGoogle)}`;
     logger.info("placesNearbyRestaurants: Fetching Google Places with rankby=distance", { url: url.replace(apiKey, "REDACTED_API_KEY"), categoryId });
+    logApiUsage({ action: 'nearby_search_google', userId: auth.uid, details: { categoryId: categoryId || null } }).catch(() => {});
 
     try {
       const placesResponse = await fetch(url);
@@ -1115,6 +1117,7 @@ const placesTextSearch = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, 
       categoryId: categoryId || null,
       query: trimmedQuery
     });
+    logApiUsage({ action: 'text_search_google', userId: auth.uid, details: { query: trimmedQuery, categoryId: categoryId || null } }).catch(() => {});
 
     try {
       const placesResponse = await fetch(url);
@@ -1191,6 +1194,7 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
       const placeDetailsData = await placeDetailsResponse.json();
 
       if (placeDetailsData.status === "OK") {
+        logApiUsage({ action: 'place_details_google', userId: decoded.uid, details: { placeId: placeid } }).catch(() => {});
         const result = placeDetailsData.result;
         const placeRef = db.collection('places').doc(result.place_id);
 
@@ -1595,6 +1599,7 @@ const reverseGeocode = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, as
       const geocodeData = await geocodeResponse.json();
 
       if (geocodeData.status === "OK" && geocodeData.results && geocodeData.results.length > 0) {
+        logApiUsage({ action: 'reverse_geocode', userId: auth.uid, details: { lat, lon } }).catch(() => {});
         const firstResult = geocodeData.results[0];
         const formattedAddress = firstResult.formatted_address;
 
@@ -2561,6 +2566,9 @@ const adminUpdateAllPlaces = onCall(async (request) => {
     }
 
     logger.info(`adminUpdateAllPlaces successful. Updated: ${updatedCount}, Skipped: ${skippedCount}, Errors: ${errorCount}`);
+    if (updatedCount > 0) {
+      await logApiUsage({ action: 'admin_bulk_update', userId: contextAuth.uid, details: { updated: updatedCount, skipped: skippedCount, errors: errorCount }, count: updatedCount });
+    }
     return { success: true, updated: updatedCount, skipped: skippedCount, errors: errorCount };
 
   } catch (error) {
@@ -2682,6 +2690,7 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
       pruneNullishKeys(updateData);
 
       await placeRef.update(updateData);
+      logApiUsage({ action: 'admin_single_update', userId: contextAuth.uid, details: { documentId, googlePlaceId } }).catch(() => {});
       logger.info(`Lugar ${documentId} actualizado exitosamente por ${contextAuth.uid}.`);
       return { success: true, message: "Lugar actualizado." };
     } else {
@@ -2730,6 +2739,9 @@ const refreshPlaceMainImage = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET
       const maxWidth = maxWidthParam ? parseInt(maxWidthParam, 10) : undefined;
 
       const result = await refreshPlaceMainImageByIdInternal(placeId, { force, maxWidth });
+      if (result.refreshed) {
+        logApiUsage({ action: 'photo_refresh', userId: decoded.uid, details: { placeId } }).catch(() => {});
+      }
       return res.status(200).json({
         photoUrl: result.photoUrl || null,
         refreshed: !!result.refreshed,

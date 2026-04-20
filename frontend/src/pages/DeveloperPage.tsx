@@ -12,9 +12,10 @@ import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList, Activity } from 'lucide-react';
 import { DeveloperItemModal } from '../components/developer/DeveloperItemModal';
 import { UserDataExportTab } from '../components/developer/UserDataExportTab';
+import { ApiUsageTab } from '../components/developer/ApiUsageTab';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -30,7 +31,7 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user, isJefe, loading: loadingAuth } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage'>('console');
     // Reactive: un usuario al que se le acaba de quitar el rol 'jefe' pierde
     // acceso inmediatamente sin recargar la página.
     const isAuthorized: boolean | null = loadingAuth ? null : isJefe;
@@ -726,6 +727,12 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'audit' ? 'border-rose-500 bg-rose-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <ClipboardList className="w-5 h-5" /> Audit Log
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('apiusage'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'apiusage' ? 'border-[var(--lt-accent)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <Activity className="w-5 h-5" /> API Usage
                         </button>
                     </nav>
 
@@ -2014,6 +2021,11 @@ export const DeveloperPage: React.FC = () => {
                                         </table>
                                     </div>
                                 )}
+                            </div>
+                        )}
+                        {activeTab === 'apiusage' && (
+                            <div className="max-w-5xl mx-auto">
+                                <ApiUsageTab />
                             </div>
                         )}
                     </main >

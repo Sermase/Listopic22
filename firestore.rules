@@ -413,6 +413,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // API Usage Logs y Estadísticas (solo lectura jefe, escritura solo Cloud Functions)
+    match /apiUsageLogs/{entryId} {
+      allow read, list: if request.auth != null && isJefe(request.auth.uid);
+      allow write: if false;
+    }
+    match /apiUsageStats/{docId} {
+      allow read, list: if request.auth != null && isJefe(request.auth.uid);
+      allow write: if false;
+    }
+
     // ==================================================================
     // RECLAMACIONES DE NEGOCIO (roadmap cuentas de negocio)
     // ==================================================================
