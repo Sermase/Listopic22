@@ -89,6 +89,18 @@ const PushSetup: React.FC = () => {
         if (!Capacitor.isNativePlatform() || !user) return;
 
         const setup = async () => {
+            // Crear el canal ANTES de pedir permiso/registrar (Android 8.0+)
+            await PushNotifications.createChannel({
+                id: 'listopic_default',
+                name: 'Notificaciones Listopic',
+                description: 'Notificaciones generales de la aplicación',
+                importance: 5, // IMPORTANCE_HIGH → banner visible
+                visibility: 1, // VISIBILITY_PUBLIC
+                sound: 'default',
+                vibration: true,
+                lights: true,
+            });
+
             const permission = await PushNotifications.requestPermissions();
             if (permission.receive !== 'granted') return;
             await PushNotifications.register();
@@ -106,7 +118,7 @@ const PushSetup: React.FC = () => {
         const recvListener = PushNotifications.addListener('pushNotificationReceived', (notification) => {
             showBanner({
                 type: notification.data?.type || 'system',
-                message: notification.notification.body || '',
+                message: notification.body || notification.title || '',
                 link: notification.data?.link || '',
                 senderPhoto: notification.data?.senderPhoto || null,
             });

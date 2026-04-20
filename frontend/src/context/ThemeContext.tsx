@@ -105,8 +105,8 @@ function applyThemeClass(theme: ThemeId): void {
     }
     if (Capacitor.isNativePlatform()) {
         const style = meta?.statusBarStyle === 'dark' ? Style.Dark : Style.Light;
-        StatusBar.setStyle({ style }).catch(() => { /* noop */ });
         StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => { /* noop */ });
+        StatusBar.setStyle({ style }).catch(() => { /* noop */ });
     }
 }
 

@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Listopic · 4 paletas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Manrope', system-ui, sans-serif;
+    background: #0a0a0f;
+    color: #e5e5e5;
+    padding: 48px 24px 80px;
+  }
+
+  .wrap { max-width: 1160px; margin: 0 auto; }
+
+  .page-header { text-align: center; margin-bottom: 48px; }
+  .page-eyebrow {
+    font-family: 'Space Grotesk';
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 10px;
+  }
+  .page-title {
+    font-family: 'Space Grotesk';
+    font-weight: 700;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    margin: 0 0 10px;
+  }
+  .page-sub {
+    color: rgba(255,255,255,0.5);
+    font-size: 14px;
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+
+  .palette-card {
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: #12121a;
+  }
+
+  /* Preview strip – replicates in miniature how Listopic UI looks with each theme */
+  .preview {
+    height: 240px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .preview .blob {
+    position: absolute;
+    width: 260px; height: 260px;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+  }
+  .preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 14px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Grotesk';
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-size: 15px;
+  }
+  .brand-mark {
+    width: 24px; height: 24px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+    font-family: 'Space Grotesk';
+    font-weight: 700;
+  }
+  .avatar-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .avatar-btn {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+  }
+  .preview-title {
+    font-family: 'Space Grotesk';
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 10px;
+    max-width: 280px;
+  }
+  .preview-chips {
+    display: flex;
+    gap: 6px;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 14px;
+  }
+  .chip {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: 'Space Grotesk';
+    letter-spacing: 0.02em;
+  }
+  .preview-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    position: relative;
+    z-index: 1;
+  }
+  .mini-card {
+    height: 64px;
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    font-size: 9px;
+    font-weight: 600;
+    font-family: 'Space Grotesk';
+    letter-spacing: -0.01em;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .mini-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%);
+  }
+  .mini-card span { position: relative; z-index: 1; }
+
+  /* Palette-specific preview styles */
+  .pv-dark {
+    background: #0b1021;
+    color: #f8fafc;
+  }
+  .pv-dark .brand-mark { background: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1); }
+  .pv-dark .blob-1 { top: -80px; right: -60px; background: rgba(92,124,250,0.35); }
+  .pv-dark .blob-2 { bottom: -100px; left: -40px; background: rgba(155,81,224,0.25); }
+  .pv-dark .avatar-btn { background: rgba(255,255,255,0.06); color: #f8fafc; border: 1px solid rgba(255,255,255,0.1); }
+  .pv-dark .chip-active { background: linear-gradient(135deg, #6366f1, #a855f7); color: white; }
+  .pv-dark .chip-mute { background: rgba(255,255,255,0.06); color: #c7cbd5; border: 1px solid rgba(255,255,255,0.1); }
+
+  .pv-light {
+    background: #faf8f4;
+    color: #1a1625;
+  }
+  .pv-light .brand-mark { background: linear-gradient(135deg, #06b6d4, #3b82f6, #5b4cf5); }
+  .pv-light .blob-1 { top: -80px; right: -60px; background: rgba(91,76,245,0.18); }
+  .pv-light .blob-2 { bottom: -100px; left: -40px; background: rgba(244,114,182,0.14); }
+  .pv-light .avatar-btn { background: rgba(26,22,37,0.05); color: #1a1625; border: 1px solid rgba(26,22,37,0.08); }
+  .pv-light .chip-active { background: linear-gradient(135deg, #5b4cf5, #a855f7); color: white; }
+  .pv-light .chip-mute { background: rgba(26,22,37,0.05); color: #6b6374; border: 1px solid rgba(26,22,37,0.08); }
+
+  .pv-warm {
+    background: #1a0f0c;
+    color: #fff8f0;
+  }
+  .pv-warm .brand-mark { background: linear-gradient(135deg, #facc15, #f97316, #dc2626); }
+  .pv-warm .blob-1 { top: -80px; right: -60px; background: rgba(249,115,22,0.35); }
+  .pv-warm .blob-2 { bottom: -100px; left: -40px; background: rgba(220,38,38,0.25); }
+  .pv-warm .avatar-btn { background: rgba(255,200,150,0.08); color: #fff8f0; border: 1px solid rgba(255,180,120,0.14); }
+  .pv-warm .chip-active { background: linear-gradient(135deg, #f97316, #dc2626); color: white; }
+  .pv-warm .chip-mute { background: rgba(255,200,150,0.08); color: #c9a68a; border: 1px solid rgba(255,180,120,0.14); }
+
+  .pv-cool {
+    background: #031a20;
+    color: #ecfeff;
+  }
+  .pv-cool .brand-mark { background: linear-gradient(135deg, #a7f3d0, #14b8a6, #06b6d4); }
+  .pv-cool .blob-1 { top: -80px; right: -60px; background: rgba(20,184,166,0.35); }
+  .pv-cool .blob-2 { bottom: -100px; left: -40px; background: rgba(6,182,212,0.25); }
+  .pv-cool .avatar-btn { background: rgba(150,255,230,0.06); color: #ecfeff; border: 1px solid rgba(150,240,220,0.14); }
+  .pv-cool .chip-active { background: linear-gradient(135deg, #14b8a6, #06b6d4); color: white; }
+  .pv-cool .chip-mute { background: rgba(150,255,230,0.06); color: #7aa9b1; border: 1px solid rgba(150,240,220,0.14); }
+
+  /* Info panel below preview */
+  .info {
+    padding: 20px 24px 24px;
+    background: #0f0f17;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .info-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .info-title {
+    font-family: 'Space Grotesk';
+    font-weight: 700;
+    font-size: 20px;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+  .info-mood {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.04em;
+  }
+  .info-desc {
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.55;
+    margin: 0 0 16px;
+  }
+
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .sw {
+    height: 56px;
+    border-radius: 8px;
+    padding: 6px 8px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .sw-label {
+    position: absolute;
+    top: 5px; left: 7px;
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+  .sw-hex { letter-spacing: 0.02em; }
+
+  .code-block {
+    background: #06060b;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 14px;
+    overflow-x: auto;
+    margin: 0;
+  }
+  .code-block pre {
+    margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.65;
+    color: #d4d4dc;
+    white-space: pre;
+  }
+  .code-block .k { color: #7aa2ff; }   /* token name */
+  .code-block .v { color: #d99a7a; }   /* hex value */
+  .code-block .c { color: #5a5a6a; }   /* comment */
+
+  .code-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .code-toggle-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+  }
+  .copy-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+  .copy-btn.copied { background: rgba(34,197,94,0.2); color: #86efac; border-color: rgba(34,197,94,0.4); }
+
+  /* Global usage section */
+  .usage {
+    margin-top: 48px;
+    background: #12121a;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 32px;
+  }
+  .usage h3 {
+    font-family: 'Space Grotesk';
+    font-weight: 700;
+    font-size: 18px;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .usage p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.6;
+    margin: 0 0 16px;
+  }
+  .usage pre {
+    margin: 0;
+    background: #06060b;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 14px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.65;
+    color: #d4d4dc;
+  }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div class="page-header">
+    <div class="page-eyebrow">Listopic · Sistema de paletas</div>
+    <h1 class="page-title">Cuatro temas, mismos tokens</h1>
+    <p class="page-sub">
+      Cada paleta usa el mismo conjunto de variables CSS (<code style="font-family: 'JetBrains Mono'; font-size: 12px; color: #a78bfa;">--lt-*</code>).
+      Cambias de tema poniendo <code style="font-family: 'JetBrains Mono'; font-size: 12px; color: #a78bfa;">class="theme-dark"</code> (o light/warm/cool) en <code style="font-family: 'JetBrains Mono'; font-size: 12px; color: #a78bfa;">&lt;html&gt;</code> o <code style="font-family: 'JetBrains Mono'; font-size: 12px; color: #a78bfa;">&lt;body&gt;</code>.
+    </p>
+  </div>
+
+  <div class="grid" id="palettes"></div>
+
+  <div class="usage">
+    <h3>Cómo aplicarlo</h3>
+    <p>1. Copia el bloque <code style="font-family:'JetBrains Mono'; font-size:12px; color:#a78bfa;">:root + .theme-*</code> de cada paleta a tu CSS global.</p>
+    <p>2. En tus componentes, usa las variables en vez de hexadecimales:</p>
+<pre>background: var(--lt-bg);
+color: var(--lt-text);
+border: 1px solid var(--lt-border);
+
+.card { background: var(--lt-card); }
+.accent-btn { background: var(--lt-accent-grad); }</pre>
+    <p style="margin-top:16px;">3. Para cambiar de tema, añade una clase al elemento raíz:</p>
+<pre>document.documentElement.className = 'theme-warm';
+// o persistir en localStorage:
+localStorage.setItem('listopic-theme', 'warm');</pre>
+    <p style="margin-top:16px;">
+      Los tokens son intercambiables entre temas — si un componente ya usa <code style="font-family:'JetBrains Mono'; font-size:12px; color:#a78bfa;">var(--lt-accent)</code>, cambia de color automáticamente al cambiar de tema. No hay <em>if/else</em> en componentes.
+    </p>
+  </div>
+
+</div>
+
+<script>
+const PALETTES = [
+  {
+    id: 'dark',
+    name: 'Dark',
+    mood: 'ÍNDIGO · PÚRPURA',
+    desc: 'Base azul profundo con acentos índigo y violeta. El tema por defecto: moderno, con presencia nocturna, ideal para tiempo de ocio.',
+    previewClass: 'pv-dark',
+    swatches: [
+      { name: 'bg', hex: '#0B1021', text: '#f8fafc' },
+      { name: 'card', hex: '#151B2E', text: '#f8fafc' },
+      { name: 'accent', hex: '#6366F1', text: '#fff' },
+      { name: 'accent2', hex: '#A855F7', text: '#fff' },
+    ],
+    tokens: [
+      ['--lt-bg', '#0b1021'],
+      ['--lt-text', '#f8fafc'],
+      ['--lt-text-muted', '#94a3b8'],
+      ['--lt-card', 'rgba(21, 27, 46, 0.6)'],
+      ['--lt-card-strong', '#151b2e'],
+      ['--lt-glass', 'rgba(255, 255, 255, 0.05)'],
+      ['--lt-border', 'rgba(255, 255, 255, 0.08)'],
+      ['--lt-border-strong', 'rgba(255, 255, 255, 0.18)'],
+      ['--lt-nav-scrolled', 'rgba(21, 27, 46, 0.7)'],
+      ['--lt-accent', '#6366f1'],
+      ['--lt-accent-grad', 'linear-gradient(135deg, #6366f1, #a855f7)'],
+      ['--lt-accent-border', '#818cf8'],
+      ['--lt-accent-shadow', 'rgba(99, 102, 241, 0.4)'],
+      ['--lt-accent-soft', 'rgba(99, 102, 241, 0.15)'],
+      ['--lt-hero-grad', 'linear-gradient(90deg, #22d3ee, #6366f1, #a855f7)'],
+      ['--lt-brand-mark', 'linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1)'],
+    ],
+  },
+  {
+    id: 'light',
+    name: 'Light',
+    mood: 'CREMA · ÍNDIGO',
+    desc: 'Fondo crema cálido con el mismo acento índigo/violeta. Legible, amable, sin el blanco clínico típico. Para uso diurno prolongado.',
+    previewClass: 'pv-light',
+    swatches: [
+      { name: 'bg', hex: '#FAF8F4', text: '#1a1625' },
+      { name: 'card', hex: '#FFFFFF', text: '#1a1625' },
+      { name: 'accent', hex: '#5B4CF5', text: '#fff' },
+      { name: 'accent2', hex: '#A855F7', text: '#fff' },
+    ],
+    tokens: [
+      ['--lt-bg', '#faf8f4'],
+      ['--lt-text', '#1a1625'],
+      ['--lt-text-muted', '#6b6374'],
+      ['--lt-card', 'rgba(255, 255, 255, 0.9)'],
+      ['--lt-card-strong', '#ffffff'],
+      ['--lt-glass', 'rgba(255, 255, 255, 0.6)'],
+      ['--lt-border', 'rgba(26, 22, 37, 0.08)'],
+      ['--lt-border-strong', 'rgba(26, 22, 37, 0.18)'],
+      ['--lt-nav-scrolled', 'rgba(255, 253, 248, 0.85)'],
+      ['--lt-accent', '#5b4cf5'],
+      ['--lt-accent-grad', 'linear-gradient(135deg, #5b4cf5, #a855f7)'],
+      ['--lt-accent-border', '#7c6df6'],
+      ['--lt-accent-shadow', 'rgba(91, 76, 245, 0.28)'],
+      ['--lt-accent-soft', 'rgba(91, 76, 245, 0.10)'],
+      ['--lt-hero-grad', 'linear-gradient(90deg, #06b6d4, #5b4cf5, #a855f7)'],
+      ['--lt-brand-mark', 'linear-gradient(135deg, #06b6d4, #3b82f6, #5b4cf5)'],
+    ],
+  },
+  {
+    id: 'warm',
+    name: 'Warm',
+    mood: 'TERRACOTA · ÁMBAR',
+    desc: 'Base chocolate oscuro con acentos naranja quemado y ámbar. Apetitoso, gastronómico. Perfecta para contenido de comida y bares.',
+    previewClass: 'pv-warm',
+    swatches: [
+      { name: 'bg', hex: '#1A0F0C', text: '#fff8f0' },
+      { name: 'card', hex: '#2A1812', text: '#fff8f0' },
+      { name: 'accent', hex: '#F97316', text: '#fff' },
+      { name: 'accent2', hex: '#DC2626', text: '#fff' },
+    ],
+    tokens: [
+      ['--lt-bg', '#1a0f0c'],
+      ['--lt-text', '#fff8f0'],
+      ['--lt-text-muted', '#c9a68a'],
+      ['--lt-card', 'rgba(45, 22, 18, 0.6)'],
+      ['--lt-card-strong', '#2a1812'],
+      ['--lt-glass', 'rgba(255, 200, 150, 0.05)'],
+      ['--lt-border', 'rgba(255, 180, 120, 0.10)'],
+      ['--lt-border-strong', 'rgba(255, 180, 120, 0.22)'],
+      ['--lt-nav-scrolled', 'rgba(45, 22, 18, 0.75)'],
+      ['--lt-accent', '#f97316'],
+      ['--lt-accent-grad', 'linear-gradient(135deg, #f97316, #dc2626)'],
+      ['--lt-accent-border', '#fb923c'],
+      ['--lt-accent-shadow', 'rgba(249, 115, 22, 0.4)'],
+      ['--lt-accent-soft', 'rgba(249, 115, 22, 0.15)'],
+      ['--lt-hero-grad', 'linear-gradient(90deg, #facc15, #f97316, #dc2626)'],
+      ['--lt-brand-mark', 'linear-gradient(135deg, #facc15, #f97316, #dc2626)'],
+    ],
+  },
+  {
+    id: 'cool',
+    name: 'Cool',
+    mood: 'TEAL · MENTA',
+    desc: 'Base verde azulado muy oscuro con acentos teal y cian. Fresco, contemporáneo, con carácter. Opción alternativa al dark clásico.',
+    previewClass: 'pv-cool',
+    swatches: [
+      { name: 'bg', hex: '#031A20', text: '#ecfeff' },
+      { name: 'card', hex: '#0C2A32', text: '#ecfeff' },
+      { name: 'accent', hex: '#14B8A6', text: '#fff' },
+      { name: 'accent2', hex: '#06B6D4', text: '#fff' },
+    ],
+    tokens: [
+      ['--lt-bg', '#031a20'],
+      ['--lt-text', '#ecfeff'],
+      ['--lt-text-muted', '#7aa9b1'],
+      ['--lt-card', 'rgba(12, 42, 50, 0.6)'],
+      ['--lt-card-strong', '#0c2a32'],
+      ['--lt-glass', 'rgba(150, 255, 230, 0.05)'],
+      ['--lt-border', 'rgba(150, 240, 220, 0.10)'],
+      ['--lt-border-strong', 'rgba(150, 240, 220, 0.22)'],
+      ['--lt-nav-scrolled', 'rgba(12, 42, 50, 0.75)'],
+      ['--lt-accent', '#14b8a6'],
+      ['--lt-accent-grad', 'linear-gradient(135deg, #14b8a6, #06b6d4)'],
+      ['--lt-accent-border', '#2dd4bf'],
+      ['--lt-accent-shadow', 'rgba(20, 184, 166, 0.4)'],
+      ['--lt-accent-soft', 'rgba(20, 184, 166, 0.15)'],
+      ['--lt-hero-grad', 'linear-gradient(90deg, #a7f3d0, #14b8a6, #06b6d4)'],
+      ['--lt-brand-mark', 'linear-gradient(135deg, #a7f3d0, #14b8a6, #06b6d4)'],
+    ],
+  },
+];
+
+const MINI_CARD_COLORS = {
+  dark:  [['#f59e0b','#92400e'], ['#ef4444','#7f1d1d'], ['#14b8a6','#0f766e']],
+  light: [['#fb923c','#c2410c'], ['#a855f7','#6b21a8'], ['#06b6d4','#0e7490']],
+  warm:  [['#facc15','#713f12'], ['#f97316','#7c2d12'], ['#dc2626','#7f1d1d']],
+  cool:  [['#a7f3d0','#047857'], ['#06b6d4','#155e75'], ['#22d3ee','#0e7490']],
+};
+
+function renderCode(tokens, themeClass) {
+  const lines = [];
+  lines.push(`<span class="c">/* ${themeClass.toUpperCase()} */</span>`);
+  lines.push(`.${themeClass} {`);
+  tokens.forEach(([k, v]) => {
+    lines.push(`  <span class="k">${k}</span>: <span class="v">${v}</span>;`);
+  });
+  lines.push('}');
+  return lines.join('\n');
+}
+
+const container = document.getElementById('palettes');
+PALETTES.forEach(p => {
+  const miniCards = MINI_CARD_COLORS[p.id];
+
+  const card = document.createElement('div');
+  card.className = 'palette-card';
+  card.innerHTML = `
+    <div class="preview ${p.previewClass}">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="preview-head">
+        <div class="brand">
+          <div class="brand-mark">L</div>
+          <span>Listopic</span>
+        </div>
+        <div class="avatar-row">
+          <div class="avatar-btn">+</div>
+          <div class="avatar-btn">♥</div>
+        </div>
+      </div>
+      <div class="preview-title">Cafés para trabajar con enchufe</div>
+      <div class="preview-chips">
+        <span class="chip chip-active">Todos</span>
+        <span class="chip chip-mute">Cafés</span>
+        <span class="chip chip-mute">Brunch</span>
+      </div>
+      <div class="preview-cards">
+        ${miniCards.map((c,i) => `
+          <div class="mini-card" style="background: linear-gradient(135deg, ${c[0]}, ${c[1]});">
+            <span>Lista ${i+1}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="info">
+      <div class="info-header">
+        <h2 class="info-title">${p.name}</h2>
+        <span class="info-mood">${p.mood}</span>
+      </div>
+      <p class="info-desc">${p.desc}</p>
+
+      <div class="swatches">
+        ${p.swatches.map(s => `
+          <div class="sw" style="background: ${s.hex}; color: ${s.text};">
+            <span class="sw-label">${s.name}</span>
+            <span class="sw-hex">${s.hex}</span>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="code-toggle">
+        <span class="code-toggle-label">Tokens CSS · .theme-${p.id}</span>
+        <button class="copy-btn" data-id="${p.id}">Copiar</button>
+      </div>
+      <div class="code-block">
+        <pre>${renderCode(p.tokens, 'theme-' + p.id)}</pre>
+      </div>
+    </div>
+  `;
+  container.appendChild(card);
+});
+
+// Copy buttons
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = PALETTES.find(x => x.id === btn.dataset.id);
+    const plain = `/* ${p.name.toUpperCase()} */\n.theme-${p.id} {\n${p.tokens.map(([k,v]) => `  ${k}: ${v};`).join('\n')}\n}`;
+    navigator.clipboard.writeText(plain).then(() => {
+      btn.textContent = '✓ Copiado';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copiar';
+        btn.classList.remove('copied');
+      }, 1800);
+    });
+  });
+});
+</script>
+</body>
+</html>

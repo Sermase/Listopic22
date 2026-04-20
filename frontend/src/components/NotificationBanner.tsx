@@ -52,8 +52,9 @@ export const NotificationBanner: React.FC = () => {
     return (
         <div
             onClick={handleClick}
-            className="fixed top-16 left-1/2 z-[200] cursor-pointer"
+            className="fixed left-1/2 z-[9998] cursor-pointer"
             style={{
+                top: 'calc(env(safe-area-inset-top) + 68px)',
                 transform: 'translateX(-50%)',
                 transition: 'opacity 400ms ease',
                 opacity: fading ? 0 : 1,
