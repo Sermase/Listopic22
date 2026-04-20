@@ -34,7 +34,7 @@ export const BrandingManager: React.FC = () => {
         warm: config.logoUrlWarm || null,
         cool: config.logoUrlCool || null,
     });
-    const themeInputRefs: Record<ThemeId, React.RefObject<HTMLInputElement>> = {
+    const themeInputRefs: Record<ThemeId, React.RefObject<HTMLInputElement | null>> = {
         dark: useRef<HTMLInputElement>(null),
         light: useRef<HTMLInputElement>(null),
         warm: useRef<HTMLInputElement>(null),
