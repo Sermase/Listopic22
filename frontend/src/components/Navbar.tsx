@@ -266,7 +266,6 @@ export const Navbar: React.FC = () => {
                                             )}
                                         </div>
                                     </div>
-                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[var(--lt-bg)] rounded-full"></div>
                                 </div>
                             </Link>
                         ) : (
@@ -288,7 +287,6 @@ export const Navbar: React.FC = () => {
                                         )}
                                     </div>
                                 </div>
-                                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-[var(--lt-bg)] rounded-full"></div>
                             </Link>
                         )}
                         <button

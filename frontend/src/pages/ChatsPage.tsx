@@ -301,10 +301,10 @@ export const ChatsPage: React.FC = () => {
                                                 {getChatName(chat).charAt(0).toUpperCase()}
                                             </div>
                                         )}
-                                        {chat.type === 'private' && (
+                                        {chat.type === 'private' && isPrivateUserOnline(chat) && (
                                             <span
-                                                className={`absolute right-0 bottom-0 w-3 h-3 rounded-full border-2 border-[var(--lt-card-strong)] ${isPrivateUserOnline(chat) ? 'bg-emerald-500' : 'bg-gray-500'}`}
-                                                title={isPrivateUserOnline(chat) ? 'En línea' : 'Desconectado'}
+                                                className="absolute right-0 bottom-0 w-3 h-3 rounded-full border-2 border-[var(--lt-card-strong)] bg-emerald-500"
+                                                title="En línea"
                                             />
                                         )}
                                     </div>

@@ -82,6 +82,12 @@ async function sendNotification(userId, type, payload, options = {}) {
         const userRef = db.collection("users").doc(userId);
         const notifId = options.notificationId || null;
 
+        if (type === "new_message") {
+            const message = buildMessage(type, payload.senderName, 1, payload);
+            await sendPush(userId, "Listopic", message, { type, link: payload.link || "", notificationId: notifId });
+            return;
+        }
+
         if (notifId) {
             const notifRef = userRef.collection("notifications").doc(notifId);
             const existing = await notifRef.get();
