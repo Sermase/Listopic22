@@ -23,7 +23,7 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                     orderBy('updatedAt', 'desc')
                 );
                 const snap = await getDocs(q);
-                setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(n => n.type !== 'new_message'));
+                setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((n: any) => n.type !== 'new_message'));
             } catch (error) {
                 console.error("Error fetching history:", error);
             } finally {
