@@ -41,6 +41,76 @@ const REVIEW_EDIT_TOASTS = [
 
 const pickRandom = <T,>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)];
 
+interface ReviewCriterion {
+    id: string;
+    label?: string;
+    min?: number;
+    max?: number;
+    step?: number;
+    ponderable?: boolean;
+    isPonderable?: boolean;
+    labelMin?: string;
+    labelMax?: string;
+    type?: string;
+}
+
+interface ListMetadata {
+    name?: string;
+    parentListId?: string | null;
+    visibility?: string;
+    criteriaDefinition?: ReviewCriterion[] | Record<string, ReviewCriterion>;
+    availableTags?: string[];
+}
+
+interface ReviewFormData {
+    itemName?: string;
+    comment?: string;
+    overallRating?: number;
+    scores?: Record<string, number>;
+    tags?: string[];
+    userTags?: string[];
+    photoUrl?: string;
+    photoUrls?: string[];
+    listId?: string;
+    parentListId?: string;
+    placeId?: string;
+    placeName?: string;
+    placeAddress?: string;
+    placeLat?: number;
+    placeLng?: number;
+}
+
+interface UserProfileData {
+    username?: string;
+    displayName?: string;
+    photoUrl?: string;
+    userType?: string | string[];
+}
+
+interface ReviewCacheItem extends Record<string, unknown> {
+    id: string;
+}
+
+interface ListDetailsCache extends Record<string, unknown> {
+    reviews?: ReviewCacheItem[];
+}
+
+interface ReviewsPageCache extends Record<string, unknown> {
+    reviews: ReviewCacheItem[];
+}
+
+interface InfiniteReviewsCache extends Record<string, unknown> {
+    pages?: ReviewsPageCache[];
+}
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error) return error.message;
+    if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+        return error.message;
+    }
+    return fallback;
+};
+
 export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, lockList = false, onClose, onSuccess, suggestedListIds }) => {
     const { user } = useAuth();
     const { showToast } = useToast();
@@ -52,16 +122,17 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     // Core Data
     const [itemName, setItemName] = useState(prefillItemName || '');
     const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
+    const itemNameRef = useRef(itemName);
+    const prefillItemNameRef = useRef(prefillItemName);
 
     const [comment, setComment] = useState('');
     const [overallRating, setOverallRating] = useState(5);
 
     // Changed: Store full definition list to preserve ORDER
-    const [criteriaList, setCriteriaList] = useState<any[]>([]);
+    const [criteriaList, setCriteriaList] = useState<ReviewCriterion[]>([]);
     const [criteriaScores, setCriteriaScores] = useState<Record<string, number>>({});
 
     // Extras
-    const [_imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [processedPhotos, setProcessedPhotos] = useState<ProcessedPhoto[]>([]);
     const [existingPhotoUrls, setExistingPhotoUrls] = useState<string[]>([]);
@@ -74,7 +145,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const [listData, setListData] = useState<any>(null); // Store full list data for lineage
+    const [listData, setListData] = useState<ListMetadata | null>(null); // Store full list data for lineage
     const [reviewPath, setReviewPath] = useState<string | null>(null);
 
     const [internalListId, setInternalListId] = useState<string | null>(listId);
@@ -84,21 +155,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [originalData, setOriginalData] = useState<string>(''); // JSON string for deep comparison
 
     const scrollRef = useRef<HTMLDivElement>(null);
-    const headerTouchStartY = useRef<number | null>(null);
-
-    const handleHeaderTouchStart = (e: React.TouchEvent) => {
-        headerTouchStartY.current = e.touches[0].clientY;
-    };
-
-    const handleHeaderTouchEnd = (e: React.TouchEvent) => {
-        if (headerTouchStartY.current === null) return;
-        const delta = e.changedTouches[0].clientY - headerTouchStartY.current;
-        if (delta > 80) {
-            onClose(); // Swipe down to close
-        }
-        headerTouchStartY.current = null;
-    };
-
     const handlePointerDown = (e: React.PointerEvent) => {
         // If the user taps on something that is NOT a text input/textarea, blur the active element.
         // This dismisses the mobile keyboard immediately and prevents browser scroll jumps.
@@ -119,6 +175,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
     const isNew = !editReviewId;
 
+    useEffect(() => {
+        itemNameRef.current = itemName;
+        prefillItemNameRef.current = prefillItemName;
+    }, [itemName, prefillItemName]);
+
     // Draft Logic: Restore
     useEffect(() => {
         if (isNew) {
@@ -130,7 +191,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     if (draft.comment) setComment(draft.comment);
                     if (draft.criteriaScores) { setCriteriaScores(draft.criteriaScores); }
                     if (draft.ratingsTouched) setRatingsTouched(draft.ratingsTouched);
-                } catch (e) { }
+                } catch {
+                    // Ignore malformed local drafts.
+                }
             }
         }
     }, [isNew, internalListId, prefillItemName]);
@@ -181,15 +244,17 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         const fetchReviewData = async () => {
             if (!editReviewId) return;
 
-            const hydrateReviewState = async (data: any, resolvedListId?: string, resolvedPath?: string) => {
+            const hydrateReviewState = async (data: ReviewFormData, resolvedListId?: string, resolvedPath?: string) => {
                 setItemName(data.itemName || '');
                 setComment(data.comment || '');
                 setOverallRating(data.overallRating || 5);
                 if (data.scores) setCriteriaScores(data.scores);
-                if (data.tags || data.userTags) setCustomTags(data.tags || data.userTags);
-                if (data.photoUrls?.length > 0) {
-                    setExistingPhotoUrls(data.photoUrls);
-                    setImagePreview(data.photoUrls[0]);
+                const reviewTags = data.tags ?? data.userTags ?? [];
+                setCustomTags(reviewTags);
+                const photoUrls = Array.isArray(data.photoUrls) ? data.photoUrls : [];
+                if (photoUrls.length > 0) {
+                    setExistingPhotoUrls(photoUrls);
+                    setImagePreview(photoUrls[0]);
                 } else if (data.photoUrl) {
                     setImagePreview(data.photoUrl);
                     setExistingPhotoUrls(data.photoUrl ? [data.photoUrl] : []);
@@ -222,7 +287,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         address: data.placeAddress || '',
                         lat: data.placeLat || 0,
                         lng: data.placeLng || 0
-                    } as any, details);
+                    }, details);
 
                     setSelectedPlace({
                         id: legacyPlace.googlePlaceId || data.placeId,
@@ -232,7 +297,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         lng: legacyPlace.coordinates.longitude,
                         types: legacyPlace.types || []
                     });
-                } catch (_e) {
+                } catch {
                     setSelectedPlace({
                         id: data.placeId,
                         name: data.placeName || data.itemName || 'Lugar',
@@ -254,7 +319,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     if (!subSnap.exists()) continue;
 
                     await hydrateReviewState(
-                        subSnap.data(),
+                        subSnap.data() as ReviewFormData,
                         candidateListId,
                         `lists/${candidateListId}/reviews/${editReviewId}`
                     );
@@ -265,7 +330,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 const rootSnap = await getDoc(rootRef);
                 if (!rootSnap.exists()) return;
 
-                const rootData = rootSnap.data();
+                const rootData = rootSnap.data() as ReviewFormData;
                 const rootListCandidates = Array.from(new Set(
                     [rootData.listId, rootData.parentListId, listId, internalListId]
                         .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
@@ -277,7 +342,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     if (!subSnap.exists()) continue;
 
                     await hydrateReviewState(
-                        subSnap.data(),
+                        subSnap.data() as ReviewFormData,
                         candidateListId,
                         `lists/${candidateListId}/reviews/${editReviewId}`
                     );
@@ -333,7 +398,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             }
         };
         hydratePrefillPlace();
-    }, [prefillPlaceId, editReviewId]);
+    }, [prefillPlaceId, editReviewId, selectedPlace]);
 
     // Recalculate Overall Rating
     useEffect(() => {
@@ -372,20 +437,21 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 const docRef = doc(db, 'lists', targetListId);
                 const snap = await getDoc(docRef);
                 if (snap.exists()) {
-                    const data = snap.data();
+                    const data = snap.data() as ListMetadata;
                     setListData(data);
 
-                    if (data.name && !itemName && !prefillItemName && !editReviewId) {
+                    if (data.name && !itemNameRef.current && !prefillItemNameRef.current && !editReviewId) {
                         setItemName(data.name);
                     }
 
-                    if (data.criteriaDefinition) {
-                        let cList: any[] = [];
-                        let scores: Record<string, number> = {};
+                    const criteriaDefinition = data.criteriaDefinition;
+                    if (criteriaDefinition) {
+                        let cList: ReviewCriterion[] = [];
+                        const scores: Record<string, number> = {};
 
                         // Logic: Convert whatever is in DB to an ordered Array
-                        if (Array.isArray(data.criteriaDefinition)) {
-                            cList = data.criteriaDefinition.map((c: any) => ({
+                        if (Array.isArray(criteriaDefinition)) {
+                            cList = criteriaDefinition.map((c) => ({
                                 ...c,
                                 min: 0,
                                 max: 10,
@@ -394,16 +460,16 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             }));
                         } else {
                             // Legacy MAP support: NO guaranteed order, just keys
-                            cList = Object.keys(data.criteriaDefinition).map(k => {
-                                const def = data.criteriaDefinition[k];
+                            cList = Object.keys(criteriaDefinition).map(k => {
+                                const def = criteriaDefinition[k];
                                 return {
+                                    ...def,
                                     id: k,
                                     label: def.label || k,
                                     min: def.min ?? 0,
                                     max: def.max ?? 10,
                                     step: def.step ?? 0.1,
                                     ponderable: def.ponderable !== false,
-                                    ...def
                                 };
                             });
                         }
@@ -432,16 +498,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     }, [internalListId, listId, editReviewId]); // Re-run if list changes
 
     // Handlers
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setImageFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => setImagePreview(reader.result as string);
-            reader.readAsDataURL(file);
-        }
-    };
-
     const toggleTag = (tag: string) => {
         if (customTags.includes(tag)) {
             setCustomTags(customTags.filter(t => t !== tag));
@@ -564,10 +620,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
             // --- END AUTOMATION ---
 
-
-
             const placeName = selectedPlace?.name || 'Lugar Desconocido';
-            const photoUrl = imagePreview || ''; // Mock
 
             // New logic: Only use the selected/synced place for ID and address.
             // DO NOT create a new place document here. PlaceService handles that.
@@ -594,19 +647,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             const snapshot = await uploadBytes(storageRef, photosToUpload[pi].blob);
                             finalPhotoUrls.push(await getDownloadURL(snapshot.ref));
                         }
-                    } catch (uploadErr) {
-                        console.error("Upload failed", uploadErr);
-                        setError("Error al subir la imagen. Intenta de nuevo.");
-                        setLoading(false);
-                        return;
-                    }
-                } else if (_imageFile) {
-                    try {
-                        const fileExt = _imageFile.name.split('.').pop();
-                        const fileName = `${user.uid}_${Date.now()}.${fileExt}`;
-                        const storageRef = ref(storage, `reviews/${user.uid}/${fileName}`);
-                        const snapshot = await uploadBytes(storageRef, _imageFile);
-                        finalPhotoUrls = [await getDownloadURL(snapshot.ref)];
                     } catch (uploadErr) {
                         console.error("Upload failed", uploadErr);
                         setError("Error al subir la imagen. Intenta de nuevo.");
@@ -680,7 +720,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             }
 
             const userProfileSnap = await getDoc(doc(db, 'users', user.uid)).catch(() => null);
-            const userProfile = userProfileSnap && userProfileSnap.exists() ? userProfileSnap.data() : null;
+            const userProfile = userProfileSnap && userProfileSnap.exists() ? userProfileSnap.data() as UserProfileData : null;
             const authorUsername = typeof userProfile?.username === 'string' ? userProfile.username.trim() : '';
             const authorDisplayName = typeof userProfile?.displayName === 'string'
                 ? userProfile.displayName.trim()
@@ -728,7 +768,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             if (editReviewId) {
                 // Canonical write path: lists/{listId}/reviews/{reviewId}
                 const targetSubRef = doc(db, 'lists', finalListId, 'reviews', editReviewId);
-                let createdAtToKeep: any = null;
+                let createdAtToKeep: unknown = null;
 
                 // Preserve original createdAt and clean up old location if needed.
                 if (reviewPath?.startsWith('lists/')) {
@@ -808,14 +848,14 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             };
 
             if (finalListId) {
-                queryClient.setQueryData(['listDetails', finalListId], (old: any) => {
+                queryClient.setQueryData(['listDetails', finalListId], (old: ListDetailsCache | undefined) => {
                     if (!old) return old;
                     if (newReviewId) {
                         return { ...old, reviews: [optimisticReview, ...(old.reviews ?? [])] };
                     } else if (editReviewId) {
                         return {
                             ...old,
-                            reviews: old.reviews.map((r: any) =>
+                            reviews: (old.reviews ?? []).map((r) =>
                                 r.id === editReviewId ? { ...r, ...optimisticReview } : r
                             ),
                         };
@@ -825,11 +865,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             }
 
             if (newReviewId) {
-                queryClient.setQueriesData({ queryKey: ['reviews'] }, (old: any) => {
+                queryClient.setQueriesData({ queryKey: ['reviews'] }, (old: InfiniteReviewsCache | undefined) => {
                     if (!old?.pages) return old;
                     return {
                         ...old,
-                        pages: old.pages.map((page: any, idx: number) =>
+                        pages: old.pages.map((page, idx) =>
                             idx === 0 ? { ...page, reviews: [optimisticReview, ...page.reviews] } : page
                         ),
                     };
@@ -851,9 +891,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             onSuccess();
             onClose();
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Error adding review:", err);
-            setError("Error al guardar: " + err.message);
+            setError("Error al guardar: " + getErrorMessage(err, 'Error desconocido'));
             showToast({
                 variant: 'error',
                 title: 'No se pudo guardar',
@@ -1218,7 +1258,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => { setProcessedPhotos([]); setImageFile(null); setImagePreview(null); }}
+                                                onClick={() => { setProcessedPhotos([]); setImagePreview(null); }}
                                                 className="py-2 px-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl hover:bg-red-500/20 transition-all"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1232,7 +1272,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                         <button
                                             type="button"
-                                            onClick={() => { setImageFile(null); setImagePreview(null); setExistingPhotoUrls([]); }}
+                                            onClick={() => { setImagePreview(null); setExistingPhotoUrls([]); }}
                                             className="absolute bottom-3 right-3 bg-red-500 hover:bg-red-400 px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all active:scale-95"
                                         >
                                             <Trash2 className="w-3 h-3" /> Eliminar

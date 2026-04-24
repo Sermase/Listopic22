@@ -44,8 +44,13 @@ export const Navbar: React.FC = () => {
     const { theme } = useTheme();
     const location = useLocation();
 
-    const themeLogoKey = `logoUrl${theme.charAt(0).toUpperCase()}${theme.slice(1)}` as `logoUrl${Capitalize<ThemeId>}`;
-    const activeLogoUrl = (config as any)[themeLogoKey] || config.logoUrl;
+    const themeLogoUrls: Record<ThemeId, string | undefined> = {
+        dark: config.logoUrlDark,
+        light: config.logoUrlLight,
+        warm: config.logoUrlWarm,
+        cool: config.logoUrlCool,
+    };
+    const activeLogoUrl = themeLogoUrls[theme] || config.logoUrl;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isAppShareOpen, setIsAppShareOpen] = useState(false);
     const [showInstallHelp, setShowInstallHelp] = useState(false);
@@ -59,7 +64,6 @@ export const Navbar: React.FC = () => {
     const [profileUsername, setProfileUsername] = useState('');
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
     const {
-        installMethod,
         isInstallVisible,
         installButtonLabel,
         installHelpText,
@@ -87,8 +91,8 @@ export const Navbar: React.FC = () => {
             limit(50),
         );
 
-        const unsubscribe = onSnapshot(notificationsQuery, (snap: any) => {
-            const validDocs = snap.docs.filter((d: any) => d.data().type !== 'new_message');
+        const unsubscribe = onSnapshot(notificationsQuery, (snap) => {
+            const validDocs = snap.docs.filter((d) => d.data().type !== 'new_message');
             setUnreadCount(validDocs.length);
         }, (error) => {
             console.error('Navbar notifications snapshot error:', error);
@@ -98,11 +102,7 @@ export const Navbar: React.FC = () => {
     }, [user]);
 
     useEffect(() => {
-        if (!user) {
-            setProfileUsername('');
-            setProfilePhotoUrl('');
-            return;
-        }
+        if (!user) return;
 
         const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
             if (!snap.exists()) {
@@ -125,8 +125,11 @@ export const Navbar: React.FC = () => {
     }, [user]);
 
     useEffect(() => {
-        setIsMenuOpen(false);
-        setShowNotifications(false);
+        const timeoutId = window.setTimeout(() => {
+            setIsMenuOpen(false);
+            setShowNotifications(false);
+        }, 0);
+        return () => window.clearTimeout(timeoutId);
     }, [location.pathname]);
 
     // Click-outside: close desktop dropdown when clicking outside bell+panel
@@ -150,13 +153,14 @@ export const Navbar: React.FC = () => {
             limit(50),
         );
 
-        const unsubscribe = onSnapshot(chatsQuery, (snapshot: any) => {
+        const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
             let total = 0;
 
-            snapshot.docs.forEach((chatDoc: any) => {
-                const data = chatDoc.data();
-                if (data.unreadCount && typeof data.unreadCount[user.uid] === 'number') {
-                    total += data.unreadCount[user.uid];
+            snapshot.docs.forEach((chatDoc) => {
+                const data = chatDoc.data() as { unreadCount?: Record<string, unknown> };
+                const unreadForUser = data.unreadCount?.[user.uid];
+                if (typeof unreadForUser === 'number') {
+                    total += unreadForUser;
                 }
             });
 
