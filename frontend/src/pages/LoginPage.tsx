@@ -7,6 +7,23 @@ import { Mail, Lock, User, Loader2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
+const getAuthErrorMessage = (error: unknown): string => {
+    if (error && typeof error === 'object') {
+        const maybeError = error as { code?: unknown; message?: unknown };
+        if (typeof maybeError.message === 'string') return maybeError.message;
+        if (typeof maybeError.code === 'string') return maybeError.code;
+    }
+    return 'Error desconocido';
+};
+
+const getAuthErrorCode = (error: unknown): string | undefined => {
+    if (error && typeof error === 'object') {
+        const maybeError = error as { code?: unknown };
+        return typeof maybeError.code === 'string' ? maybeError.code : undefined;
+    }
+    return undefined;
+};
+
 export const LoginPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -41,10 +58,9 @@ export const LoginPage: React.FC = () => {
                 await signInWithPopup(auth, provider);
                 // Navigation handled by useEffect when auth context updates
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Google Login Error:", err);
-            const msg = err?.message || err?.code || JSON.stringify(err) || 'Error desconocido';
-            setError(`Error Google: ${msg}`);
+            setError(`Error Google: ${getAuthErrorMessage(err)}`);
         } finally {
             setLoading(false);
         }
@@ -69,14 +85,15 @@ export const LoginPage: React.FC = () => {
                 await signInWithEmailAndPassword(auth, email, password);
             }
             // Navigation handled by useEffect when auth context updates
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
+            const code = getAuthErrorCode(err);
             let msg = "Error de autenticación.";
-            if (err.code === 'auth/wrong-password') msg = "Contraseña incorrecta.";
-            if (err.code === 'auth/user-not-found') msg = "Usuario no encontrado.";
-            if (err.code === 'auth/email-already-in-use') msg = "El correo ya está registrado.";
-            if (err.code === 'auth/weak-password') msg = "La contraseña es muy débil (min 6 caracteres).";
-            if (err.code === 'auth/invalid-email') msg = "Correo inválido.";
+            if (code === 'auth/wrong-password') msg = "Contraseña incorrecta.";
+            if (code === 'auth/user-not-found') msg = "Usuario no encontrado.";
+            if (code === 'auth/email-already-in-use') msg = "El correo ya está registrado.";
+            if (code === 'auth/weak-password') msg = "La contraseña es muy débil (min 6 caracteres).";
+            if (code === 'auth/invalid-email') msg = "Correo inválido.";
             setError(msg);
             setLoading(false);
         }

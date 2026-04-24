@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, X, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -12,13 +12,37 @@ import { PlaceService } from '../services/PlaceService';
 import { ReviewCard } from '../components/ReviewCard';
 import { MapView } from '../components/MapView';
 import { useAuth } from '../context/AuthContext';
-import { doc, getDoc, setDoc, deleteDoc, updateDoc, increment, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { ReportModal } from '../components/ReportModal';
 import { Lightbox } from '../components/Lightbox';
+import type { ReviewEntity } from '../hooks/useListDetails';
 
-import { ListSelector } from '../components/ListSelector';
+type PlaceReview = ReviewEntity & {
+    placeMainImage?: string;
+};
+
+type RelatedList = {
+    id: string;
+    name: string;
+    description?: string;
+    parentListId?: string;
+    photoUrl?: string;
+    itemCount?: number;
+};
+
+type PlaceWithPhotos = {
+    photos?: string[];
+};
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object') {
+        const maybeError = error as { message?: unknown };
+        if (typeof maybeError.message === 'string') return maybeError.message;
+    }
+    return fallback;
+};
 
 export const PlacePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
@@ -88,7 +112,7 @@ export const PlacePage: React.FC = () => {
         return place.relatedLists.map(l => l.id);
     }, [place?.relatedLists]);
 
-    const handleEditReview = (review: any) => {
+    const handleEditReview = (review: ReviewEntity) => {
         setEditingReviewId(review.id);
         setIsFlowOpen(true);
     };
@@ -198,9 +222,9 @@ export const PlacePage: React.FC = () => {
         const set = new Set<string>();
 
         // 1. Place Photos
-        const placeAny = place as any;
-        if (placeAny.photos && Array.isArray(placeAny.photos)) {
-            placeAny.photos.forEach((p: string) => p && set.add(p));
+        const placeWithPhotos = place as typeof place & PlaceWithPhotos;
+        if (placeWithPhotos.photos && Array.isArray(placeWithPhotos.photos)) {
+            placeWithPhotos.photos.forEach((p) => p && set.add(p));
         } else if (place.photoUrl) {
             set.add(place.photoUrl);
         }
@@ -266,8 +290,8 @@ export const PlacePage: React.FC = () => {
             const idToken = await user.getIdToken();
             await PlaceService.ensurePlaceSyncedWithBackend(placeId, idToken);
             refresh();
-        } catch (err: any) {
-            setSyncError(err.message || 'Error al sincronizar con Google');
+        } catch (err: unknown) {
+            setSyncError(getErrorMessage(err, 'Error al sincronizar con Google'));
         } finally {
             setSyncing(false);
         }
@@ -647,15 +671,16 @@ export const PlacePage: React.FC = () => {
                             {reviewViewMode === 'gallery' ? (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
                                     {place.reviews.slice(0, visibleCount).map(review => {
-                                        const score = (review as any).overallRating || 0;
+                                        const typedReview = review as PlaceReview;
+                                        const score = typedReview.overallRating || 0;
                                         const scoreColor = score >= 8 ? 'bg-emerald-500' : score >= 6 ? 'bg-amber-500' : 'bg-red-500';
-                                        const photoSrc = (review as any).photoUrl || (review as any).placeMainImage || null;
-                                        const isPlaceImg = !(review as any).photoUrl && !!(review as any).placeMainImage;
-                                        const isExpanded = expandedReviewId === (review as any).id;
+                                        const photoSrc = typedReview.photoUrl || typedReview.placeMainImage || null;
+                                        const isPlaceImg = !typedReview.photoUrl && !!typedReview.placeMainImage;
+                                        const isExpanded = expandedReviewId === typedReview.id;
 
                                         if (isExpanded) {
                                             return (
-                                                <div key={(review as any).id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[var(--lt-card-strong)] rounded-xl border border-[var(--lt-accent-border)] mb-2 shadow-2xl animate-fade-in">
+                                                <div key={typedReview.id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[var(--lt-card-strong)] rounded-xl border border-[var(--lt-accent-border)] mb-2 shadow-2xl animate-fade-in">
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
                                                         className="w-full flex justify-center pt-2 pb-1"
@@ -675,14 +700,14 @@ export const PlacePage: React.FC = () => {
 
                                         return (
                                             <div
-                                                key={(review as any).id}
-                                                onClick={() => setExpandedReviewId((review as any).id)}
+                                                key={typedReview.id}
+                                                onClick={() => setExpandedReviewId(typedReview.id)}
                                                 className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors"
                                             >
                                                 {photoSrc ? (
                                                     <img
                                                         src={photoSrc}
-                                                        alt={(review as any).authorName || ''}
+                                                        alt={typedReview.authorName || ''}
                                                         className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-40 saturate-50' : ''}`}
                                                     />
                                                 ) : (
@@ -691,7 +716,7 @@ export const PlacePage: React.FC = () => {
                                                     </div>
                                                 )}
                                                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
-                                                    <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight">{(review as any).authorName || 'Anónimo'}</p>
+                                                    <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight">{typedReview.authorName || 'Anónimo'}</p>
                                                 </div>
                                                 <div className={`absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full ${scoreColor} flex items-center justify-center shadow-lg`}>
                                                     <span className="text-[9px] sm:text-[10px] font-bold text-white">{score.toFixed(1)}</span>
@@ -709,7 +734,7 @@ export const PlacePage: React.FC = () => {
                                 <div className="grid grid-cols-1 gap-6">
                                     {place.reviews.slice(0, visibleCount).map(review => (
                                         <ReviewCard
-                                            key={(review as any).id}
+                                            key={review.id}
                                             review={review}
                                             reactionConfig={reactionConfig || undefined}
                                             onEdit={handleEditReview}
@@ -789,8 +814,8 @@ export const PlacePage: React.FC = () => {
                     {activeTab === 'lists' && (
                         <div className="space-y-8 animate-fade-in">
                             {(() => {
-                                const mainLists = place.relatedLists?.filter(l => !l.parentListId) || [];
-                                const subLists = place.relatedLists?.filter(l => !!l.parentListId) || [];
+                                const mainLists = (place.relatedLists?.filter(l => !l.parentListId) || []) as RelatedList[];
+                                const subLists = (place.relatedLists?.filter(l => !!l.parentListId) || []) as RelatedList[];
 
                                 if (mainLists.length === 0 && subLists.length === 0) {
                                     return (
@@ -809,7 +834,7 @@ export const PlacePage: React.FC = () => {
                                                     Listas ({mainLists.length})
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    {mainLists.map((list: any) => (
+                                                    {mainLists.map((list) => (
                                                         <Link key={list.id} to={`/list/${list.id}`} className="block group">
                                                             <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-[var(--lt-accent-border)] transition-all h-full flex flex-col">
                                                                 <div className="h-32 bg-gray-800 relative">
@@ -846,7 +871,7 @@ export const PlacePage: React.FC = () => {
                                                     Sublistas ({subLists.length})
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    {subLists.map((list: any) => (
+                                                    {subLists.map((list) => (
                                                         <Link key={list.id} to={`/list/${list.id}`} className="block group">
                                                             <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-[var(--lt-accent-border)] transition-all h-full flex flex-col relative">
                                                                 <div className="h-32 bg-gray-800 relative">

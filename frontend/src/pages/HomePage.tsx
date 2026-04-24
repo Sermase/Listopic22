@@ -13,7 +13,7 @@ import { UserAvatar } from '../components/UserAvatar';
 import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Dice5, Star, Clock, Flame, TrendingUp } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
-import { collection, query, getDocs, limit, doc, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, getDocs, limit, doc, getDoc, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { updateProfile } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
@@ -198,6 +198,26 @@ export const HomePage: React.FC = () => {
             setGateChecked(false);
             setShowProfileGate(false);
             setGateLoading(true);
+
+            // Fast cache-first check: if local Firestore cache already has a valid username,
+            // skip the gate entirely to avoid false-positive flashes caused by claim-check timing.
+            try {
+                const cachedSnap = await getDoc(doc(db, 'users', user.uid));
+                if (cancelled) return;
+                if (cachedSnap.exists()) {
+                    const cachedUsername = typeof cachedSnap.data().username === 'string'
+                        ? cachedSnap.data().username.trim() : '';
+                    if (isUsernameValid(cachedUsername)) {
+                        setGateLoading(false);
+                        setGateChecked(true);
+                        setGateResolvedForUserId(user.uid);
+                        return;
+                    }
+                }
+            } catch {
+                // Cache unavailable — fall through to full server check
+            }
+
             try {
                 const status = await getUsernameGateStatus({
                     uid: user.uid,

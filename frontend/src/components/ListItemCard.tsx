@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom';
 
 import { MapPin, ChevronRight, Users } from 'lucide-react';
 
+type CriteriaDefinitionEntry = {
+    id?: string;
+    label?: string;
+};
+
 interface ListItemCardProps {
     item: {
         id: string; // Group ID (usually placeId or itemId)
@@ -15,7 +20,7 @@ interface ListItemCardProps {
         avgRating: number;
         reviewCount: number;
         criteriaAverages?: Record<string, number>;
-        criteriaDefinition?: Record<string, any>;
+        criteriaDefinition?: Record<string, CriteriaDefinitionEntry> | CriteriaDefinitionEntry[];
         authorName?: string;
         authorPhoto?: string;
         listName?: string; // For items (to show which list they belong to)
@@ -75,32 +80,32 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
         if (!item.criteriaAverages) return [];
 
         const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
-        const definitionAny = item.criteriaDefinition as any;
+        const definition = item.criteriaDefinition;
         const averages = item.criteriaAverages;
         const averageKeys = Object.keys(averages);
         const keySet = new Set(averageKeys);
         const orderedKeys: string[] = [];
 
         const getLabel = (key: string) => {
-            if (Array.isArray(definitionAny)) {
-                const found = definitionAny.find((d: any) => d?.id === key);
+            if (Array.isArray(definition)) {
+                const found = definition.find((d) => d?.id === key);
                 return found?.label || key;
             }
-            if (definitionAny && typeof definitionAny === 'object') {
-                return definitionAny[key]?.label || key;
+            if (definition) {
+                return definition[key]?.label || key;
             }
             return key;
         };
 
-        if (Array.isArray(definitionAny)) {
-            definitionAny.forEach((def: any) => {
+        if (Array.isArray(definition)) {
+            definition.forEach((def) => {
                 if (typeof def?.id === 'string' && keySet.has(def.id)) {
                     orderedKeys.push(def.id);
                 }
             });
-        } else if (definitionAny && typeof definitionAny === 'object') {
+        } else if (definition) {
             orderedKeys.push(
-                ...Object.keys(definitionAny)
+                ...Object.keys(definition)
                     .filter((key) => keySet.has(key))
                     .sort((a, b) => collator.compare(getLabel(a), getLabel(b)))
             );

@@ -1,6 +1,28 @@
 import { db } from '../firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, getDoc, updateDoc, setDoc, increment, serverTimestamp, type DocumentData, type DocumentReference } from 'firebase/firestore';
 import type { QueryClient } from '@tanstack/react-query';
+
+interface ReviewCachePage {
+    reviews?: Array<{ id?: string }>;
+    [key: string]: unknown;
+}
+
+interface ReviewInfiniteCache {
+    pages?: ReviewCachePage[];
+    [key: string]: unknown;
+}
+
+const asReviewData = (value: unknown): Record<string, unknown> => {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : {};
+};
+
+const getFirebaseErrorCode = (error: unknown): string | undefined => {
+    if (error && typeof error === 'object') {
+        const maybeError = error as { code?: unknown };
+        return typeof maybeError.code === 'string' ? maybeError.code : undefined;
+    }
+    return undefined;
+};
 
 export const ReviewService = {
     /**
@@ -14,16 +36,15 @@ export const ReviewService = {
         }
 
         try {
-            const { getDoc, updateDoc, increment, serverTimestamp } = await import('firebase/firestore');
-            const refsToDelete: any[] = [];
-            let reviewData: any = null;
+            const refsToDelete: DocumentReference<DocumentData>[] = [];
+            let reviewData: Record<string, unknown> | null = null;
 
             if (listId) {
                 const canonicalRef = doc(db, 'lists', listId, 'reviews', reviewId);
                 const canonicalSnap = await getDoc(canonicalRef);
                 if (canonicalSnap.exists()) {
                     refsToDelete.push(canonicalRef);
-                    reviewData = canonicalSnap.data();
+                    reviewData = asReviewData(canonicalSnap.data());
                 }
             }
 
@@ -34,20 +55,22 @@ export const ReviewService = {
                 const rootSnap = await getDoc(rootRef);
                 if (rootSnap.exists()) {
                     refsToDelete.push(rootRef);
-                    if (!reviewData) reviewData = rootSnap.data();
+                    if (!reviewData) reviewData = asReviewData(rootSnap.data());
 
                     const rootListId = rootSnap.data().listId;
                     if (rootListId && (!listId || rootListId !== listId)) {
-                        const movedCanonicalRef = doc(db, 'lists', rootListId, 'reviews', reviewId);
-                        const movedCanonicalSnap = await getDoc(movedCanonicalRef);
-                        if (movedCanonicalSnap.exists()) {
-                            refsToDelete.push(movedCanonicalRef);
-                            reviewData = movedCanonicalSnap.data();
+                        if (typeof rootListId === 'string') {
+                            const movedCanonicalRef = doc(db, 'lists', rootListId, 'reviews', reviewId);
+                            const movedCanonicalSnap = await getDoc(movedCanonicalRef);
+                            if (movedCanonicalSnap.exists()) {
+                                refsToDelete.push(movedCanonicalRef);
+                                reviewData = asReviewData(movedCanonicalSnap.data());
+                            }
                         }
                     }
                 }
-            } catch (readErr: any) {
-                if (readErr?.code === 'permission-denied') {
+            } catch (readErr: unknown) {
+                if (getFirebaseErrorCode(readErr) === 'permission-denied') {
                     console.warn(`[deleteReview] No read access to root reviews/${reviewId}, skipping root path.`);
                 } else {
                     throw readErr;
@@ -67,7 +90,7 @@ export const ReviewService = {
             const updates = [];
 
             // Resolve List ID
-            const finalListId = listId || resolvedReviewData.listId;
+            const finalListId = listId || (typeof resolvedReviewData.listId === 'string' ? resolvedReviewData.listId : undefined);
             const sublistId = typeof resolvedReviewData.sublistId === 'string' ? resolvedReviewData.sublistId : null;
 
             // 1. List Counters
@@ -89,7 +112,9 @@ export const ReviewService = {
             }
 
             // 2. User Counters
-            const userId = resolvedReviewData.userId || resolvedReviewData.authorId;
+            const userId = typeof resolvedReviewData.userId === 'string'
+                ? resolvedReviewData.userId
+                : (typeof resolvedReviewData.authorId === 'string' ? resolvedReviewData.authorId : undefined);
             if (userId) {
                 const userRef = doc(db, 'users', userId);
                 updates.push(updateDoc(userRef, {
@@ -98,7 +123,7 @@ export const ReviewService = {
             }
 
             // 3. Place Counters
-            const placeId = resolvedReviewData.placeId;
+            const placeId = typeof resolvedReviewData.placeId === 'string' ? resolvedReviewData.placeId : undefined;
             if (placeId) {
                 const placeRef = doc(db, 'places', placeId);
                 updates.push(updateDoc(placeRef, {
@@ -111,13 +136,14 @@ export const ReviewService = {
             if (queryClient) {
                 // Remove the deleted review from all cached review pages immediately
                 // (avoids refetch race with Firestore cache returning stale data)
-                queryClient.setQueriesData({ queryKey: ['reviews'] }, (old: any) => {
-                    if (!old?.pages) return old;
+                queryClient.setQueriesData({ queryKey: ['reviews'] }, (old: unknown) => {
+                    const cache = old as ReviewInfiniteCache | undefined;
+                    if (!cache?.pages) return old;
                     return {
-                        ...old,
-                        pages: old.pages.map((page: any) => ({
+                        ...cache,
+                        pages: cache.pages.map((page) => ({
                             ...page,
-                            reviews: page.reviews.filter((r: any) => r.id !== reviewId),
+                            reviews: (page.reviews || []).filter((review) => review.id !== reviewId),
                         })),
                     };
                 });
@@ -142,13 +168,12 @@ export const ReviewService = {
         if (!listId || !reviewId || !userId) throw new Error("Missing params");
 
         const reactionRef = doc(db, 'lists', listId, 'reviews', reviewId, 'reactions', userId);
-        const reactionSnap = await import('firebase/firestore').then(m => m.getDoc(reactionRef));
+        const reactionSnap = await getDoc(reactionRef);
 
         if (reactionSnap.exists()) {
             await deleteDoc(reactionRef);
             return false; // Removed
         } else {
-            const { setDoc, serverTimestamp } = await import('firebase/firestore');
             await setDoc(reactionRef, {
                 reaction: 'like',
                 userId,

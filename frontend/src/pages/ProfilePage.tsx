@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme, type ThemeId } from "../context/ThemeContext";
@@ -1808,7 +1809,7 @@ export const ProfilePage: React.FC = () => {
         )}
 
         {/* Preferences Modal */}
-        {isEditing && isOwnProfile && (
+        {isEditing && isOwnProfile && createPortal(
           <div
             className="fixed inset-0 z-[9999] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
             onClick={() => !savingPreferences && setIsEditing(false)}
@@ -2436,7 +2437,8 @@ export const ProfilePage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Main Content (Reviews are always visible below stats) */}

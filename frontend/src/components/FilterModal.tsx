@@ -2,14 +2,16 @@ import React from 'react';
 import { X, Sliders, Star, Trash2, Check, ArrowUpDown, EyeOff } from 'lucide-react';
 import type { FilterState } from '../pages/ListPage';
 
+type SortMode = 'rating' | 'newest' | 'oldest' | 'count';
+
 interface FilterModalProps {
     isOpen: boolean;
     onClose: () => void;
     filters: FilterState;
     setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
     criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number }>;
-    sortMode: 'rating' | 'newest' | 'oldest' | 'count';
-    setSortMode: (mode: 'rating' | 'newest' | 'oldest' | 'count') => void;
+    sortMode: SortMode;
+    setSortMode: (mode: SortMode) => void;
     availableTags: string[];
     selectedTags: string[];
     setSelectedTags: (tags: string[]) => void;
@@ -219,15 +221,15 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                                 <ArrowUpDown className="w-3 h-3" /> Ordenar Por
                             </h3>
-                            {[
+                            {([
                                 { id: 'rating', label: 'Mejor Valorados', icon: <Star className="w-4 h-4" /> },
                                 { id: 'newest', label: 'Más Recientes', icon: <Check className="w-4 h-4" /> },
                                 { id: 'oldest', label: 'Más Antiguos', icon: <Check className="w-4 h-4" /> },
                                 { id: 'count', label: 'Más Reseñados', icon: <Check className="w-4 h-4" /> }
-                            ].map(option => (
+                            ] satisfies Array<{ id: SortMode; label: string; icon: React.ReactNode }>).map(option => (
                                 <button
                                     key={option.id}
-                                    onClick={() => setSortMode(option.id as any)}
+                                    onClick={() => setSortMode(option.id)}
                                     className={`w-full p-4 rounded-xl border text-left text-sm font-bold transition-all flex items-center justify-between group
                                         ${sortMode === option.id ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]' : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:border-white/30 hover:text-white hover:bg-white/5'}`}
                                 >

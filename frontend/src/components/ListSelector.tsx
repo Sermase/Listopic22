@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, type QueryDocumentSnapshot, type DocumentData } from 'firebase/firestore';
 import { X, List as ListIcon, Search, Plus } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: (listId: string) => void, onCancel: () => void, preselectedId?: string | null }) => {
     const { user } = useAuth();
@@ -11,6 +11,13 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
     const [lists, setLists] = useState<{ id: string; name: string; parentListId?: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const onSelectRef = useRef(onSelect);
+    const preselectedIdRef = useRef(preselectedId);
+
+    useEffect(() => {
+        onSelectRef.current = onSelect;
+        preselectedIdRef.current = preselectedId;
+    }, [onSelect, preselectedId]);
 
     useEffect(() => {
         const fetchLists = async () => {
@@ -33,7 +40,7 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
                     getDocs(qEdited)
                 ]);
 
-                const allDocs: any[] = [];
+                const allDocs: QueryDocumentSnapshot<DocumentData>[] = [];
 
                 if (snapOwnedResult.status === 'fulfilled') {
                     snapOwnedResult.value.docs.forEach(d => allDocs.push(d));
@@ -43,7 +50,7 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
                     snapEditedResult.value.docs.forEach(d => allDocs.push(d));
                 }
 
-                const uniqueListsMap = new Map();
+                const uniqueListsMap = new Map<string, { id: string; name: string; parentListId?: string }>();
 
                 allDocs.forEach(d => {
                     const data = d.data();
@@ -57,14 +64,14 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
                 });
 
                 const finalLists = Array.from(uniqueListsMap.values());
-                setLists(finalLists as any);
+                setLists(finalLists);
 
                 // Auto-select logic:
                 // Only auto-select if:
                 // 1. We have NO preselectedId (user hasn't chosen one yet) AND there is exactly ONE list available.
                 // 2. We DO NOT auto-select if preselectedId matches, because that prevents changing the selection (modal opens and closes instantly).
-                if (!preselectedId && finalLists.length === 1) {
-                    onSelect(finalLists[0].id);
+                if (!preselectedIdRef.current && finalLists.length === 1) {
+                    onSelectRef.current(finalLists[0].id);
                 }
 
             } catch (e) {
@@ -74,7 +81,7 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
             }
         };
         fetchLists();
-    }, [user]); // Removed preselectedId from dependency to prevent re-runs on prop change if parent updates it
+    }, [user]);
 
     const filteredLists = lists.filter(l =>
         l.name.toLowerCase().includes(searchTerm.toLowerCase())

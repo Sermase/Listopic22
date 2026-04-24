@@ -64,7 +64,7 @@ export const getRatingHexColor = (score: number | string): string => getRatingCo
  */
 export const createRatingMarkerIcon = (score: number): L.DivIcon => {
     const s = isNaN(score) ? 0 : score;
-    const { bg, glow } = getRatingColor(s);
+    const { bg } = getRatingColor(s);
     const scoreText = s === 0 ? '?' : (s % 1 === 0 ? s.toFixed(0) : s.toFixed(1));
 
     const r = 14;          // radio del círculo

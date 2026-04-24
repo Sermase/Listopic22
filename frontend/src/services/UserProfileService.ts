@@ -9,7 +9,6 @@ import {
     runTransaction,
     serverTimestamp,
     setDoc,
-    updateDoc,
     where,
     writeBatch,
 } from 'firebase/firestore';

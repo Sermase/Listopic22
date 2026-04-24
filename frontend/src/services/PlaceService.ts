@@ -1,4 +1,5 @@
-import { serverTimestamp } from 'firebase/firestore';
+import { serverTimestamp, type FieldValue } from 'firebase/firestore';
+import { ListopicConfig } from '../config';
 
 export interface PlaceResult {
     id: string; // Google Place ID
@@ -11,30 +12,140 @@ export interface PlaceResult {
     distance?: number; // Distance in meters
 }
 
+interface LatLngLike {
+    lat(): number;
+    lng(): number;
+}
+
+interface GoogleMapsLike {
+    maps?: {
+        importLibrary(name: string): Promise<unknown>;
+        geometry?: {
+            spherical?: {
+                computeDistanceBetween(from: unknown, to: unknown): number;
+            };
+        };
+        LatLng: new (lat: number, lng: number) => unknown;
+    };
+}
+
+interface PlacePhotoLike {
+    getURI?: (options: { maxWidth: number }) => string;
+    getUrl?: (options: { maxWidth: number }) => string;
+    name?: string;
+}
+
+interface AddressComponentLike {
+    types: string[];
+    longText?: string;
+    shortText?: string;
+    long_name?: string;
+}
+
+interface GooglePlaceLike {
+    id?: string;
+    displayName?: string;
+    formattedAddress?: string;
+    addressComponents?: AddressComponentLike[];
+    location?: LatLngLike;
+    types?: string[];
+    photos?: PlacePhotoLike[];
+    googleMapsUri?: string;
+    websiteUri?: string;
+    nationalPhoneNumber?: string;
+    internationalPhoneNumber?: string;
+    priceLevel?: number;
+    rating?: number;
+    userRatingCount?: number;
+    accessibilityOptions?: string[];
+    delivery?: boolean;
+    takeout?: boolean;
+    dineIn?: boolean;
+    reservable?: boolean;
+    servesBeer?: boolean;
+    servesWine?: boolean;
+    servesBreakfast?: boolean;
+    servesLunch?: boolean;
+    servesDinner?: boolean;
+}
+
+interface GooglePlaceDetailsLike extends GooglePlaceLike {
+    fetchFields(options: { fields: string[] }): Promise<void>;
+}
+
+interface PlacesSearchResponse {
+    places?: GooglePlaceLike[];
+}
+
+interface PlaceSearchByTextRequest {
+    textQuery: string;
+    fields: string[];
+    maxResultCount: number;
+}
+
+interface PlaceSearchNearbyRequest {
+    fields: string[];
+    locationRestriction: {
+        center: { lat: number; lng: number };
+        radius: number;
+    };
+    maxResultCount: number;
+    includedPrimaryTypes: string[];
+}
+
+interface PlaceConstructor {
+    new(options: { id: string }): GooglePlaceDetailsLike;
+    searchByText(request: PlaceSearchByTextRequest): Promise<PlacesSearchResponse>;
+    searchNearby(request: PlaceSearchNearbyRequest): Promise<PlacesSearchResponse>;
+}
+
+interface PlacesLibraryLike {
+    Place: PlaceConstructor;
+}
+
+export interface PlaceAccessibility {
+    wheelchairAccessibleEntrance: boolean;
+    wheelchairAccessibleParking: boolean;
+    wheelchairAccessibleRestroom: boolean;
+    wheelchairAccessibleSeating: boolean;
+    hearingLoop: boolean;
+}
+
+export interface PlaceServiceOptions {
+    delivery: boolean;
+    takeout: boolean;
+    dineIn: boolean;
+    reservable: boolean;
+    servesBeer: boolean;
+    servesWine: boolean;
+    servesBreakfast: boolean;
+    servesLunch: boolean;
+    servesDinner: boolean;
+}
+
 // Google Maps Global Type Definition (Partial for View)
 declare global {
     interface Window {
-        google: any;
+        google: GoogleMapsLike;
     }
 }
 
 // Cache the library promise
-let placesLibPromise: Promise<any> | null = null;
+let placesLibPromise: Promise<PlacesLibraryLike> | null = null;
 
-const getPlacesLib = (): Promise<any> => {
+const getPlacesLib = (): Promise<PlacesLibraryLike> => {
     if (!window.google || !window.google.maps) {
         return Promise.reject("Google Maps API not loaded");
     }
     if (!placesLibPromise) {
-        placesLibPromise = window.google.maps.importLibrary("places");
+        placesLibPromise = window.google.maps.importLibrary("places") as Promise<PlacesLibraryLike>;
     }
-    return placesLibPromise as Promise<any>;
+    return placesLibPromise;
 };
 
 export const PlaceService = {
     ensurePlaceSyncedWithBackend: async (placeId: string, idToken: string): Promise<LegacyPlace> => {
-        const url = `https://getplacedetailsfromgoogle-jz4x2l2cfq-ew.a.run.app?placeid=${placeId}`;
-        console.log(`[PlaceService] Syncing place ${placeId} with backend...`);
+        const url = `${ListopicConfig.FUNCTION_URLS.getPlaceDetailsFromGoogle}?placeid=${encodeURIComponent(placeId)}`;
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
@@ -59,9 +170,9 @@ export const PlaceService = {
 
             const data = await response.json();
             return data as LegacyPlace;
-        } catch (error: any) {
+        } catch (error: unknown) {
             clearTimeout(timeoutId);
-            if (error.name === 'AbortError') {
+            if (error instanceof DOMException && error.name === 'AbortError') {
                 console.error("Backend sync timed out after 15s");
                 throw new Error("Backend sync timed out");
             }
@@ -77,7 +188,7 @@ export const PlaceService = {
             const { Place } = await getPlacesLib();
 
             // Bias towards user location if available
-            const request: any = {
+            const request: PlaceSearchByTextRequest = {
                 textQuery: query,
                 fields: ['id', 'displayName', 'formattedAddress', 'location', 'types', 'photos', 'rating', 'userRatingCount'],
                 maxResultCount: 10,
@@ -96,8 +207,8 @@ export const PlaceService = {
 
             if (!places) return [];
 
-            return places.map((place: any) => ({
-                id: place.id,
+            return places.map((place) => ({
+                id: place.id || '',
                 name: place.displayName || '',
                 address: place.formattedAddress || '',
                 lat: place.location?.lat() || 0,
@@ -105,10 +216,10 @@ export const PlaceService = {
                 type: (place.types && place.types[0]) ? place.types[0] : 'establishment',
                 types: place.types || [],
                 distance: (userLat && userLng && place.location)
-                    ? window.google.maps.geometry.spherical.computeDistanceBetween(
+                    ? window.google.maps?.geometry?.spherical?.computeDistanceBetween(
                         new window.google.maps.LatLng(userLat, userLng),
                         place.location
-                    )
+                    ) ?? undefined
                     : undefined
             }));
 
@@ -122,7 +233,7 @@ export const PlaceService = {
         try {
             const { Place } = await getPlacesLib();
 
-            const request: any = {
+            const request: PlaceSearchNearbyRequest = {
                 fields: ['id', 'displayName', 'formattedAddress', 'location', 'types'],
                 locationRestriction: {
                     // New API uses bounds or circle for restriction
@@ -138,8 +249,8 @@ export const PlaceService = {
 
             if (!places) return [];
 
-            return places.map((place: any) => ({
-                id: place.id,
+            return places.map((place) => ({
+                id: place.id || '',
                 name: place.displayName || '',
                 address: place.formattedAddress || '', // vicinity not always available in new object same way
                 lat: place.location?.lat() || 0,
@@ -147,10 +258,10 @@ export const PlaceService = {
                 type: (place.types && place.types[0]) ? place.types[0] : 'establishment',
                 types: place.types || [],
                 distance: (place.location)
-                    ? window.google.maps.geometry.spherical.computeDistanceBetween(
+                    ? window.google.maps?.geometry?.spherical?.computeDistanceBetween(
                         new window.google.maps.LatLng(lat, lng),
                         place.location
-                    )
+                    ) ?? undefined
                     : undefined
             }));
 
@@ -160,7 +271,7 @@ export const PlaceService = {
         }
     },
 
-    getDetails: async (placeId: string): Promise<any> => {
+    getDetails: async (placeId: string): Promise<GooglePlaceDetailsLike> => {
         try {
             const { Place } = await getPlacesLib();
 
@@ -257,12 +368,12 @@ export interface LegacyPlace {
     mainImagePhotoReference: string | null;
 
     // Accessibility (Legacy Structure)
-    accessibility: any;
-    serviceOptions?: any;
+    accessibility: PlaceAccessibility;
+    serviceOptions?: PlaceServiceOptions;
 
     // Metadata
-    updatedAt: any;
-    lastGoogleSync: any;
+    updatedAt: FieldValue;
+    lastGoogleSync: FieldValue;
 
     // Internal Stats
     followersCount: number;
@@ -271,9 +382,7 @@ export interface LegacyPlace {
 }
 
 // Transform Google Result to Strict Legacy Place
-export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: any): LegacyPlace => {
-    const now = new Date();
-
+export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: GooglePlaceLike): LegacyPlace => {
     // detailedGoogleData is likely a google.maps.places.Place instance now
     const src = detailedGoogleData || {};
 
@@ -290,13 +399,13 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
     let streetNumber = '';
 
     if (src.addressComponents) {
-        src.addressComponents.forEach((c: any) => {
-            if (c.types.includes('locality')) city = c.longText || c.shortText;
-            if (c.types.includes('administrative_area_level_1')) region = c.longText || c.shortText;
-            if (c.types.includes('country')) country = c.longText || c.long_name;
-            if (c.types.includes('postal_code')) postalCode = c.longText || c.long_name;
-            if (c.types.includes('route')) route = c.longText || c.long_name;
-            if (c.types.includes('street_number')) streetNumber = c.longText || c.long_name;
+        src.addressComponents.forEach((c) => {
+            if (c.types.includes('locality')) city = c.longText || c.shortText || '';
+            if (c.types.includes('administrative_area_level_1')) region = c.longText || c.shortText || '';
+            if (c.types.includes('country')) country = c.longText || c.long_name || '';
+            if (c.types.includes('postal_code')) postalCode = c.longText || c.long_name || '';
+            if (c.types.includes('route')) route = c.longText || c.long_name || '';
+            if (c.types.includes('street_number')) streetNumber = c.longText || c.long_name || '';
         });
     } else {
         // Fallback parsing
@@ -360,7 +469,7 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
             mainImageUrl = p.getUrl({ maxWidth: 800 });
         }
         // References might not be exposed transparently in new objects but we can try
-        mainImagePhotoReference = (p as any).name || null; // 'name' resource name often holds reference
+        mainImagePhotoReference = p.name || null; // 'name' resource name often holds reference
     }
 
     // Normalizations: Lowercase ONLY (User Request)

@@ -35,9 +35,6 @@ frontend/parse_lint.cjs
 frontend/tsconfig.node.zip
 frontend/frontend@*
 
-# Ficheros accidentales
-/{
-
 # --- Editor / SO ---
 .DS_Store
 Thumbs.db

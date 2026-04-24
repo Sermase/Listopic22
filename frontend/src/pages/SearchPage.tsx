@@ -53,6 +53,40 @@ const EMPTY_MESSAGES: Record<string, { title: string; hint: string }> = {
     all: { title: 'Sin resultados', hint: 'Cambia las palabras o los filtros.' },
 };
 
+type SearchHit = {
+    objectID: string;
+    displayName?: string;
+    username?: string;
+    photoUrl?: string;
+    bio?: string;
+    followersCount?: number;
+    reviewsCount?: number;
+    name?: string;
+    itemName?: string;
+    thumbnailUrl?: string;
+    mainImageUrl?: string;
+    coverUrl?: string;
+    imageUrl?: string;
+    averageRating?: number;
+    avgGeneralScore?: number;
+    reviewCount?: number;
+    itemCount?: number;
+    placeId?: string;
+    placeName?: string;
+    city?: string;
+    placeCity?: string;
+    authorName?: string;
+    ownerName?: string;
+    listOwnerName?: string;
+    authorPhoto?: string;
+    ownerPhoto?: string;
+    listName?: string;
+    listId?: string;
+    groupTags?: string[];
+    types?: string[];
+    availableTags?: string[];
+};
+
 // Opciones de ordenación por pestaña
 // NOTA: los valores que no son el índice base requieren réplicas en Algolia.
 // Crear desde el dashboard: Algolia → Index → Replicas con los nombres indicados.
@@ -289,7 +323,7 @@ const EmptyState = ({ activeTab, onTabChange }: { activeTab: string; onTabChange
 
 // ─── User Hit Card ────────────────────────────────────────────────────────────
 
-const UserHitCard = ({ hit, selected, onHover }: { hit: any; selected: boolean; onHover: (id: string | null) => void }) => {
+const UserHitCard = ({ hit, selected, onHover }: { hit: SearchHit; selected: boolean; onHover: (id: string | null) => void }) => {
     const displayName = hit.displayName || hit.username || '?';
     return (
         <Link to={`/profile/${hit.objectID}`}
@@ -351,7 +385,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
     return (
         <div>
             <div className={listLayout ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'}>
-                {(hits as any[]).map(hit => {
+                {(hits as SearchHit[]).map(hit => {
                     const selected = selectedHitId === hit.objectID;
                     if (activeTab === 'users') {
                         return <UserHitCard key={hit.objectID} hit={hit} selected={selected} onHover={hover} />;
@@ -368,10 +402,10 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                             <ListItemCard
                                 item={{
                                     id: hit.objectID,
-                                    name: hit.name || hit.itemName,
-                                    photoUrl: hit.thumbnailUrl || hit.mainImageUrl || hit.photoUrl || hit.coverUrl || hit.imageUrl,
-                                    avgRating: hit.averageRating || hit.avgGeneralScore || 0,
-                                    reviewCount: hit.reviewsCount || hit.reviewCount || hit.itemCount || 0,
+                                    name: hit.name ?? hit.itemName ?? 'Resultado',
+                                    photoUrl: hit.thumbnailUrl ?? hit.mainImageUrl ?? hit.photoUrl ?? hit.coverUrl ?? hit.imageUrl,
+                                    avgRating: hit.averageRating ?? hit.avgGeneralScore ?? 0,
+                                    reviewCount: hit.reviewsCount ?? hit.reviewCount ?? hit.itemCount ?? 0,
                                     placeId: activeTab === 'places' ? hit.objectID : hit.placeId,
                                     placeName: hit.placeName || (activeTab === 'places' ? hit.name : undefined),
                                     placeCity: hit.city || hit.placeCity,

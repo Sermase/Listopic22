@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import type { UserProfileEntity } from './useUserProfile';
 
 export interface UserEntity {
     uid: string;
@@ -11,7 +12,7 @@ export interface UserEntity {
     followersCount?: number;
     publicListsCount?: number;
     reviewsCount?: number;
-    userType?: string | string[];
+    userType?: UserProfileEntity['userType'];
 }
 
 export const useUsers = () => {

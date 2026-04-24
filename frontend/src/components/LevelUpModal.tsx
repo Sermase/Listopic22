@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Sparkles, TrendingUp, ChevronRight } from 'lucide-react';
 import type { LevelInfo } from '../utils/gamification';
 
@@ -25,7 +25,6 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({
 }) => {
     const [animPhase, setAnimPhase] = useState<'enter' | 'fill' | 'complete'>('enter');
     const [fillPercent, setFillPercent] = useState(0);
-    const timerRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -68,7 +67,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({
             window.clearTimeout(t2);
             window.clearTimeout(t3);
         };
-    }, [isOpen, levelInfo.progressPercent]);
+    }, [isOpen, levelInfo.level, levelInfo.progressPercent, previousLevel]);
 
     if (!isOpen) return null;
 

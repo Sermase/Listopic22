@@ -37,7 +37,7 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
         onChange(criteria.filter(c => c.id !== id));
     };
 
-    const updateCriterion = (id: string, field: keyof Criterion, value: any) => {
+    const updateCriterion = <K extends keyof Criterion>(id: string, field: K, value: Criterion[K]) => {
         const item = criteria.find(c => c.id === id);
         if (lockedIds.includes(id) || item?.locked) return;
         onChange(criteria.map(c =>

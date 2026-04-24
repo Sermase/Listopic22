@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, useLocation as useRouterLocation } from 'react-router-dom';
-import React, { Suspense, useRef } from 'react';
+import React, { Suspense } from 'react';
 import { ToastProvider } from './context/ToastContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Navbar } from './components/Navbar';
@@ -162,15 +162,13 @@ const AppRoutes = () => {
     SplashScreen.hide().catch(() => { });
   }, []);
 
-  const backListenerRef = useRef<{ remove: () => void } | null>(null);
-
   React.useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
     // Deep Linking Listener
     const urlListener = CapApp.addListener('appUrlOpen', (event) => {
       const parts = event.url.split(window.location.host);
-      const slug = parts.length > 1 ? parts.pop() : event.url.replace(/^https?:\/\/[^\/]+/, '');
+      const slug = parts.length > 1 ? parts.pop() : event.url.replace(/^https?:\/\/[^/]+/, '');
       if (slug) {
         navigate(slug);
       }

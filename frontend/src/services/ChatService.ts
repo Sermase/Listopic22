@@ -11,8 +11,7 @@ import {
     getDocs,
     limit,
     getDoc,
-    arrayUnion,
-    increment
+    arrayUnion
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { ShareEntityPayload } from '../types/share';
@@ -22,7 +21,7 @@ export interface Message {
     id?: string;
     text: string;
     senderId: string;
-    createdAt: any;
+    createdAt?: FirestoreTimestampLike | null;
     readBy?: string[];
     type?: 'text' | 'image' | 'share' | 'review-share';
     metadata?: MessageMetadata;
@@ -38,11 +37,16 @@ export interface Chat {
     id: string;
     participants: string[];
     lastMessage?: string;
-    lastMessageTimestamp?: any;
+    lastMessageTimestamp?: FirestoreTimestampLike | null;
     unreadCount?: Record<string, number>;
     type: 'private' | 'group';
     groupName?: string;
     groupPhoto?: string;
+}
+
+interface FirestoreTimestampLike {
+    seconds: number;
+    nanoseconds?: number;
 }
 
 export const ChatService = {
@@ -120,8 +124,6 @@ export const ChatService = {
         });
 
         const chatRef = doc(db, 'chats', chatId);
-        const chatSnap = await getDoc(chatRef);
-        const participants = chatSnap.exists() ? (chatSnap.data().participants || []) as string[] : [];
         let previewText = safeText.trim();
         if (!previewText && (type === 'share' || type === 'review-share')) {
             const shared = metadata?.share;
@@ -192,7 +194,7 @@ export const ChatService = {
         if (!chatSnap.exists()) return;
         const data = chatSnap.data();
 
-        const updates: any = {
+        const updates: Record<string, unknown> = {
             participants: arrayUnion(newUserId),
             [`unreadCount.${newUserId}`]: 0,
             updatedAt: serverTimestamp()

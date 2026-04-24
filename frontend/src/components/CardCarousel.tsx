@@ -2,19 +2,19 @@ import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-interface CardCarouselProps {
+interface CardCarouselProps<T> {
     title: string;
     subtitle?: string;
     viewAllLink?: string;
-    items: any[];
-    renderItem: (item: any, index: number) => React.ReactNode;
+    items: T[];
+    renderItem: (item: T, index: number) => React.ReactNode;
     loading?: boolean;
     itemClassName?: string;
     icon?: React.ReactNode;
     accentClass?: string;
 }
 
-export const CardCarousel: React.FC<CardCarouselProps> = ({
+export function CardCarousel<T>({
     title,
     subtitle,
     viewAllLink,
@@ -24,7 +24,7 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
     itemClassName = "min-w-[200px] md:min-w-[240px]",
     icon,
     accentClass = "bg-white/10",
-}) => {
+}: CardCarouselProps<T>) {
     return (
         <section className="py-2">
             <div className="container mx-auto px-4 mb-4 flex items-end justify-between">
@@ -110,4 +110,4 @@ export const CardCarousel: React.FC<CardCarouselProps> = ({
             </div>
         </section>
     );
-};
+}

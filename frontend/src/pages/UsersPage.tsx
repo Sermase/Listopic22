@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
-import { useUsers } from '../hooks/useUsers';
+import { type UserEntity, useUsers } from '../hooks/useUsers';
 import { UserCard } from '../components/UserCard';
+import type { UserProfileEntity } from '../hooks/useUserProfile';
+
+const toProfileCardUser = (user: UserEntity): UserProfileEntity => ({
+    email: '',
+    username: user.username ?? '',
+    userType: user.userType ?? 'user',
+    ...user,
+});
 
 export const UsersPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -40,7 +48,7 @@ export const UsersPage: React.FC = () => {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                         {users.map(user => (
-                            <UserCard key={user.uid} user={user as any} />
+                            <UserCard key={user.uid} user={toProfileCardUser(user)} />
                         ))}
 
                         {users.length === 0 && (

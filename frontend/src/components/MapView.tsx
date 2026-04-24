@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { createRatingMarkerIcon, createEmojiMarkerIcon, getRatingColor, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
 import type { MapLayerId } from '../utils/mapUtils';
 import { useLocation } from '../hooks/useLocation';
+import type { Location as UserLocation } from '../hooks/useLocation';
 import { Locate, Layers, Check } from 'lucide-react';
 import L from 'leaflet';
 import { Link } from 'react-router-dom';
@@ -103,8 +104,21 @@ export interface MapItem {
     }[];
 }
 
+interface MapInputItem extends Partial<MapItem> {
+    latitude?: number;
+    longitude?: number;
+    placeName?: string;
+    placeMainImage?: string;
+    mainImageUrl?: string;
+    placeAverageRating?: number;
+    overallRating?: number;
+    avgRating?: number;
+    reviewCount?: number;
+    count?: number;
+}
+
 interface MapViewProps {
-    items: any[];
+    items: MapInputItem[];
     mode?: 'global' | 'list';
     center?: [number, number];
     range?: number | null;
@@ -154,7 +168,7 @@ function LayerSelectorControl({ currentLayer, onLayerChange }: { currentLayer: M
     );
 }
 
-function MapUpdater({ center, items, range, location }: { center: [number, number], items: any[], range: number | null, location: any }) {
+function MapUpdater({ center, items, range, location }: { center: [number, number], items: MapItem[], range: number | null, location: UserLocation | null }) {
     const map = useMap();
 
     useEffect(() => {
@@ -170,7 +184,7 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
             if (items.length === 1 && items[0].lat && items[0].lng) {
                 map.flyTo([items[0].lat, items[0].lng], 14, { duration: 1.5 });
             } else {
-                const bounds = L.latLngBounds(items.map(i => [i.lat, i.lng] as [number, number]));
+                const bounds = L.latLngBounds(items.map(i => [i.lat!, i.lng!] as [number, number]));
                 if (bounds.isValid()) {
                     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1.5 });
                 }
@@ -203,35 +217,48 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                 setCurrentLayer(pref);
                 localStorage.setItem(MAP_LAYER_STORAGE_KEY, pref);
             }
-        }).catch(() => { });
+        }).catch(() => {
+            // Preference sync is best-effort; keep the local default if Firestore fails.
+        });
     }, [user]);
 
     const handleLayerChange = async (layerId: MapLayerId) => {
         setCurrentLayer(layerId);
         localStorage.setItem(MAP_LAYER_STORAGE_KEY, layerId);
         if (user) {
-            try { await updateDoc(doc(db, 'users', user.uid), { mapLayerPreference: layerId }); } catch { }
+            try {
+                await updateDoc(doc(db, 'users', user.uid), { mapLayerPreference: layerId });
+            } catch {
+                // Best-effort preference persistence.
+            }
         }
     };
 
     const activeLayer = MAP_LAYERS[currentLayer];
 
     // Normalize Items based on input to match Interface
-    const validItems: MapItem[] = items
-        .filter(item => (item.lat || item.latitude) && (item.lng || item.longitude))
-        .map(item => ({
-            id: item.id || item.placeId,
+    const validItems: MapItem[] = items.flatMap((item, index) => {
+        const lat = item.lat ?? item.latitude;
+        const lng = item.lng ?? item.longitude;
+
+        if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return [];
+        }
+
+        return [{
+            id: item.id ?? item.placeId ?? `map-item-${index}-${lat}-${lng}`,
             placeId: item.placeId, // Preserve placeId
-            lat: item.lat || item.latitude,
-            lng: item.lng || item.longitude,
-            name: item.name || item.placeName || 'Lugar desconocido',
-            photoUrl: item.photoUrl || item.placeMainImage || item.mainImageUrl,
-            rating: item.rating || item.placeAverageRating || item.overallRating || item.avgRating || 0,
-            reviewsCount: item.reviewsCount || item.reviewCount || item.count || 0,
+            lat,
+            lng,
+            name: item.name ?? item.placeName ?? 'Lugar desconocido',
+            photoUrl: item.photoUrl ?? item.placeMainImage ?? item.mainImageUrl,
+            rating: item.rating ?? item.placeAverageRating ?? item.overallRating ?? item.avgRating ?? 0,
+            reviewsCount: item.reviewsCount ?? item.reviewCount ?? item.count ?? 0,
             emoji: item.emoji,
             color: item.color,
             items: item.items
-        }));
+        }];
+    });
 
     // Determine Initial Map Center (Fallback)
     const initialCenter = location
