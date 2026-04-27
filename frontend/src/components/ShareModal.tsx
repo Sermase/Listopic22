@@ -88,6 +88,30 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             description: 'Fondo blanco, imagen centrada y datos limpios debajo.',
             swatch: 'linear-gradient(160deg, #ffffff 0%, #f0ece4 55%, #d8d0c4 100%)',
         },
+        {
+            id: 'neon',
+            label: 'Neon',
+            description: 'Poster vertical con foto intensa, nota luminosa y look social.',
+            swatch: 'linear-gradient(160deg, #050816 0%, #1d4ed8 48%, #ec4899 100%)',
+        },
+        {
+            id: 'signal',
+            label: 'Signal',
+            description: 'Tarjeta cuadrada limpia, moderna y muy legible para feed.',
+            swatch: 'linear-gradient(160deg, #f8fafc 0%, #dbeafe 48%, #14b8a6 100%)',
+        },
+        {
+            id: 'aura',
+            label: 'Aura',
+            description: 'Story premium con foto grande, vidrio oscuro y nota protagonista.',
+            swatch: 'radial-gradient(circle at 20% 20%, #f0abfc 0%, transparent 35%), radial-gradient(circle at 85% 35%, #67e8f9 0%, transparent 34%), #07070a',
+        },
+        {
+            id: 'metro',
+            label: 'Metro',
+            description: 'Poster grafico 4:5 con reticula editorial y mucho caracter.',
+            swatch: 'linear-gradient(135deg, #f4f1ea 0%, #f4f1ea 50%, #101014 50%, #e11d48 100%)',
+        },
     ];
 
     const inferLocalRoute = (rawUrl: string): string | undefined => {

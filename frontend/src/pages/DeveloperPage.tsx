@@ -40,6 +40,8 @@ export const DeveloperPage: React.FC = () => {
     const [otherSettings, setOtherSettings] = useState({
         showRandomChoiceButton: true,
         showProfileFavoriteBadge: true,
+        showAffinityCarousel: true,
+        showProfileAffinity: true,
         homeReviewsMonths: 12,
         showLab: false,
     });
@@ -574,6 +576,8 @@ export const DeveloperPage: React.FC = () => {
             setOtherSettings({
                 showRandomChoiceButton: typeof data.showRandomChoiceButton === 'boolean' ? data.showRandomChoiceButton : true,
                 showProfileFavoriteBadge: typeof data.showProfileFavoriteBadge === 'boolean' ? data.showProfileFavoriteBadge : true,
+                showAffinityCarousel: typeof data.showAffinityCarousel === 'boolean' ? data.showAffinityCarousel : true,
+                showProfileAffinity: typeof data.showProfileAffinity === 'boolean' ? data.showProfileAffinity : true,
                 homeReviewsMonths: typeof data.homeReviewsMonths === 'number' ? data.homeReviewsMonths : 12,
                 showLab: typeof data.showLab === 'boolean' ? data.showLab : false,
             });
@@ -592,6 +596,8 @@ export const DeveloperPage: React.FC = () => {
             await setDoc(doc(db, 'config', 'app'), {
                 showRandomChoiceButton: otherSettings.showRandomChoiceButton,
                 showProfileFavoriteBadge: otherSettings.showProfileFavoriteBadge,
+                showAffinityCarousel: otherSettings.showAffinityCarousel,
+                showProfileAffinity: otherSettings.showProfileAffinity,
                 homeReviewsMonths: otherSettings.homeReviewsMonths,
                 showLab: otherSettings.showLab,
                 updatedAt: new Date(),
@@ -1223,6 +1229,44 @@ export const DeveloperPage: React.FC = () => {
                                                         }`}
                                                 >
                                                     {otherSettings.showRandomChoiceButton ? 'ACTIVO' : 'INACTIVO'}
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-black/20">
+                                                <div>
+                                                    <div className="text-sm font-bold text-white">Carrusel Almas gemelas (Home)</div>
+                                                    <div className="text-xs text-gray-400">
+                                                        Muestra perfiles afines segun listas, categorias, sitios favoritos y notas parecidas.
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOtherSettings((prev) => ({ ...prev, showAffinityCarousel: !prev.showAffinityCarousel }))}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${otherSettings.showAffinityCarousel
+                                                        ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
+                                                        : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                                                        }`}
+                                                >
+                                                    {otherSettings.showAffinityCarousel ? 'ACTIVO' : 'INACTIVO'}
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-black/20">
+                                                <div>
+                                                    <div className="text-sm font-bold text-white">Afinidad en perfiles</div>
+                                                    <div className="text-xs text-gray-400">
+                                                        Muestra un porcentaje sutil entre tu cuenta y el perfil visitado.
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOtherSettings((prev) => ({ ...prev, showProfileAffinity: !prev.showProfileAffinity }))}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${otherSettings.showProfileAffinity
+                                                        ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
+                                                        : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                                                        }`}
+                                                >
+                                                    {otherSettings.showProfileAffinity ? 'ACTIVO' : 'INACTIVO'}
                                                 </button>
                                             </div>
 

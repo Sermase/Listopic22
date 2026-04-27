@@ -16,6 +16,8 @@ export interface AppConfig {
     keywords: string;
     showRandomChoiceButton: boolean;
     showProfileFavoriteBadge: boolean;
+    showAffinityCarousel: boolean;
+    showProfileAffinity: boolean;
     homeReviewsMonths: number; // 0 = sin límite de tiempo, >0 = meses hacia atrás
     showLab: boolean;
 }
@@ -33,6 +35,8 @@ const defaultConfig: AppConfig = {
     keywords: 'listas, lugares, recomendaciones, social, mapas',
     showRandomChoiceButton: true,
     showProfileFavoriteBadge: true,
+    showAffinityCarousel: true,
+    showProfileAffinity: true,
     homeReviewsMonths: 12,
     showLab: false,
 };
@@ -61,6 +65,12 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     showProfileFavoriteBadge: typeof data.showProfileFavoriteBadge === 'boolean'
                         ? data.showProfileFavoriteBadge
                         : defaultConfig.showProfileFavoriteBadge,
+                    showAffinityCarousel: typeof data.showAffinityCarousel === 'boolean'
+                        ? data.showAffinityCarousel
+                        : defaultConfig.showAffinityCarousel,
+                    showProfileAffinity: typeof data.showProfileAffinity === 'boolean'
+                        ? data.showProfileAffinity
+                        : defaultConfig.showProfileAffinity,
                     homeReviewsMonths: typeof data.homeReviewsMonths === 'number'
                         ? data.homeReviewsMonths
                         : defaultConfig.homeReviewsMonths,

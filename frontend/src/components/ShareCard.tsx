@@ -12,7 +12,7 @@ import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
 
-export type ShareCardVariant = 'story' | 'post' | 'editorial' | 'clean';
+export type ShareCardVariant = 'story' | 'post' | 'editorial' | 'clean' | 'neon' | 'signal' | 'aura' | 'metro';
 
 interface ShareCardProps {
     place?: PlaceDetails;
@@ -124,6 +124,82 @@ const VARIANT_THEMES: Record<ShareCardVariant, VariantTheme> = {
         referenceFill: 'rgba(15,23,42,0.05)',
         shadow: '0 30px 80px rgba(15,23,42,0.20)',
     },
+    neon: {
+        cardBg: '#050816',
+        footerBg: '#050816',
+        heroFallback: 'radial-gradient(circle at 25% 20%, #22d3ee 0%, transparent 34%), radial-gradient(circle at 80% 70%, #ec4899 0%, transparent 36%), linear-gradient(145deg, #050816 0%, #111827 100%)',
+        textPrimary: '#ffffff',
+        textSecondary: 'rgba(255,255,255,0.84)',
+        textMuted: 'rgba(255,255,255,0.54)',
+        accent: '#22d3ee',
+        accentSoft: 'rgba(34,211,238,0.16)',
+        border: 'rgba(255,255,255,0.14)',
+        badgeBg: 'rgba(5,8,22,0.68)',
+        badgeText: '#ffffff',
+        panelBg: 'rgba(5,8,22,0.74)',
+        chipBg: 'rgba(255,255,255,0.12)',
+        chipBorder: 'rgba(255,255,255,0.18)',
+        referenceStroke: 'rgba(255,255,255,0.74)',
+        referenceFill: 'rgba(255,255,255,0.06)',
+        shadow: '0 46px 120px rgba(5,8,22,0.72)',
+    },
+    signal: {
+        cardBg: '#f8fafc',
+        footerBg: '#f8fafc',
+        heroFallback: 'linear-gradient(145deg, #dbeafe 0%, #e0f2fe 46%, #f8fafc 100%)',
+        textPrimary: '#0f172a',
+        textSecondary: '#334155',
+        textMuted: '#64748b',
+        accent: '#0f766e',
+        accentSoft: 'rgba(15,118,110,0.10)',
+        border: 'rgba(15,23,42,0.10)',
+        badgeBg: 'rgba(255,255,255,0.92)',
+        badgeText: '#0f172a',
+        panelBg: 'rgba(255,255,255,0.94)',
+        chipBg: 'rgba(15,118,110,0.08)',
+        chipBorder: 'rgba(15,118,110,0.16)',
+        referenceStroke: 'rgba(15,23,42,0.50)',
+        referenceFill: 'rgba(15,23,42,0.05)',
+        shadow: '0 30px 80px rgba(15,23,42,0.20)',
+    },
+    aura: {
+        cardBg: '#07070a',
+        footerBg: '#07070a',
+        heroFallback: 'radial-gradient(circle at 20% 16%, #f0abfc 0%, transparent 30%), radial-gradient(circle at 80% 30%, #67e8f9 0%, transparent 32%), linear-gradient(160deg, #07070a 0%, #15131f 100%)',
+        textPrimary: '#fbfbfb',
+        textSecondary: 'rgba(255,255,255,0.78)',
+        textMuted: 'rgba(255,255,255,0.48)',
+        accent: '#f0abfc',
+        accentSoft: 'rgba(240,171,252,0.16)',
+        border: 'rgba(255,255,255,0.14)',
+        badgeBg: 'rgba(255,255,255,0.10)',
+        badgeText: '#ffffff',
+        panelBg: 'rgba(7,7,10,0.78)',
+        chipBg: 'rgba(255,255,255,0.10)',
+        chipBorder: 'rgba(255,255,255,0.16)',
+        referenceStroke: 'rgba(255,255,255,0.74)',
+        referenceFill: 'rgba(255,255,255,0.06)',
+        shadow: '0 50px 130px rgba(0,0,0,0.72)',
+    },
+    metro: {
+        cardBg: '#f4f1ea',
+        footerBg: '#f4f1ea',
+        heroFallback: 'linear-gradient(135deg, #111827 0%, #334155 52%, #f4f1ea 100%)',
+        textPrimary: '#101014',
+        textSecondary: '#2f3137',
+        textMuted: '#70747d',
+        accent: '#e11d48',
+        accentSoft: 'rgba(225,29,72,0.10)',
+        border: 'rgba(16,16,20,0.12)',
+        badgeBg: '#101014',
+        badgeText: '#f8fafc',
+        panelBg: '#f4f1ea',
+        chipBg: 'rgba(16,16,20,0.06)',
+        chipBorder: 'rgba(16,16,20,0.12)',
+        referenceStroke: 'rgba(16,16,20,0.50)',
+        referenceFill: 'rgba(16,16,20,0.05)',
+        shadow: '0 36px 90px rgba(16,16,20,0.24)',
+    },
 };
 
 const DEFAULT_ENTITY: ShareEntityPayload = {
@@ -138,6 +214,10 @@ const VARIANT_DIMENSIONS: Record<ShareCardVariant, { width: number; height: numb
     post: { width: 1080, height: 1350, previewRatio: '4 / 5' },
     editorial: { width: 1080, height: 1350, previewRatio: '4 / 5' },
     clean: { width: 1080, height: 1080, previewRatio: '1 / 1' },
+    neon: { width: 1080, height: 1920, previewRatio: '9 / 16' },
+    signal: { width: 1080, height: 1080, previewRatio: '1 / 1' },
+    aura: { width: 1080, height: 1920, previewRatio: '9 / 16' },
+    metro: { width: 1080, height: 1350, previewRatio: '4 / 5' },
 };
 
 const isSupportedEntityType = (value: unknown): value is ShareEntityType => {
@@ -1403,6 +1483,323 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                             </div>
                         </div>
                     )}
+
+                    {variant === 'neon' && (
+                        <div style={{
+                            position: 'relative', width: '100%', height: '100%',
+                            borderRadius: '60px', overflow: 'hidden',
+                            background: theme.cardBg, boxShadow: theme.shadow,
+                        }}>
+                            {heroImage
+                                ? <div role="img" aria-label={titleText} style={{ position: 'absolute', inset: 0, ...getCoverBackground(heroImage) }} />
+                                : <div style={{ position: 'absolute', inset: 0, background: theme.heroFallback }} />
+                            }
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(5,8,22,0.18) 0%, rgba(5,8,22,0.40) 44%, rgba(5,8,22,0.98) 100%)' }} />
+                            <div style={{ position: 'absolute', inset: '30px', borderRadius: '46px', border: '2px solid rgba(255,255,255,0.16)' }} />
+                            <div style={{ position: 'absolute', top: '56px', left: '56px', right: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '18px' }}>
+                                <div style={{
+                                    height: '46px', padding: '0 20px', borderRadius: '999px',
+                                    background: 'rgba(5,8,22,0.62)', border: '1px solid rgba(255,255,255,0.18)',
+                                    color: '#ffffff', fontSize: '17px', fontWeight: 900,
+                                    letterSpacing: '0.12em', textTransform: 'uppercase' as const,
+                                    display: 'inline-flex', alignItems: 'center',
+                                }}>
+                                    {getShareEntityLabel(entity.type)}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {config.logoType === 'image' && config.logoUrl
+                                        ? <img src={config.logoUrl} alt={brandName} style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+                                        : <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'linear-gradient(135deg, #22d3ee, #6366f1, #ec4899)' }} />
+                                    }
+                                    <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: '19px', fontWeight: 900 }}>{brandName}</span>
+                                </div>
+                            </div>
+
+                            <div style={{ position: 'absolute', left: '58px', right: '58px', bottom: '62px' }}>
+                                {hasScore && (
+                                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '20px', marginBottom: '28px' }}>
+                                        <div style={{
+                                            fontSize: '176px', fontWeight: 950, lineHeight: 0.78,
+                                            color: '#ffffff', letterSpacing: '-0.08em',
+                                            fontVariantNumeric: 'tabular-nums',
+                                            textShadow: `0 0 42px ${scoreColor}, 0 0 120px ${scoreColor}55`,
+                                        }}>{formatScore(score)}</div>
+                                        <div style={{ paddingBottom: '16px', color: 'rgba(255,255,255,0.54)', fontSize: '17px', fontWeight: 900, letterSpacing: '0.24em', textTransform: 'uppercase' as const }}>
+                                            {scoreLabel}
+                                        </div>
+                                    </div>
+                                )}
+                                <h1 style={{
+                                    margin: 0, color: '#ffffff', fontSize: storyTitleSize,
+                                    fontWeight: 950, lineHeight: 0.92, letterSpacing: '-0.05em',
+                                    textShadow: '0 4px 32px rgba(0,0,0,0.62)',
+                                }}>{titleText}</h1>
+                                {subtitleText && (
+                                    <p style={{ margin: '20px 0 0', color: 'rgba(255,255,255,0.76)', fontSize: '28px', fontWeight: 700, lineHeight: 1.2 }}>
+                                        {subtitleText}
+                                    </p>
+                                )}
+                                <div style={{
+                                    marginTop: '34px', padding: '20px', borderRadius: '28px',
+                                    background: 'rgba(5,8,22,0.68)', border: '1px solid rgba(255,255,255,0.16)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '18px',
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                                        <div style={{ width: '54px', height: '54px', borderRadius: '16px', padding: '2px', background: authorGradient, flexShrink: 0 }}>
+                                            <div style={{ width: '100%', height: '100%', borderRadius: '14px', overflow: 'hidden', background: '#111827', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 900 }}>
+                                                {avatarImage ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} /> : (authorLabel || 'L').slice(0, 1).toUpperCase()}
+                                            </div>
+                                        </div>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ color: '#ffffff', fontSize: '20px', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{authorLabel}</div>
+                                            <div style={{ color: 'rgba(255,255,255,0.50)', fontSize: '14px', fontWeight: 700 }}>{locationLine || createdAtLabel || 'Compartido desde Listopic'}</div>
+                                        </div>
+                                    </div>
+                                    {tagList.length > 0 && (
+                                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                            {tagList.slice(0, 2).map((tag) => (
+                                                <span key={tag} style={{ height: '30px', padding: '0 12px', borderRadius: '999px', background: 'rgba(255,255,255,0.12)', color: '#ffffff', fontSize: '12px', fontWeight: 800, display: 'inline-flex', alignItems: 'center' }}>#{truncateLabel(tag, 12)}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {variant === 'signal' && (
+                        <div style={{
+                            position: 'relative', width: '100%', height: '100%',
+                            borderRadius: '38px', overflow: 'hidden',
+                            background: '#f8fafc', boxShadow: theme.shadow,
+                            display: 'grid', gridTemplateRows: '612px 1fr',
+                        }}>
+                            <div style={{ position: 'relative', margin: '26px 26px 0', borderRadius: '28px', overflow: 'hidden', background: theme.heroFallback }}>
+                                {heroImage && <div role="img" aria-label={titleText} style={{ position: 'absolute', inset: 0, ...getCoverBackground(heroImage) }} />}
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.02) 52%, rgba(0,0,0,0.46) 100%)' }} />
+                                <div style={{ position: 'absolute', left: '24px', top: '24px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {infoChips.slice(0, 3).map((chip) => (
+                                        <span key={chip} style={{
+                                            height: '34px', padding: '0 14px', borderRadius: '999px',
+                                            background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(15,23,42,0.08)',
+                                            color: '#0f172a', fontSize: '12px', fontWeight: 900,
+                                            letterSpacing: '0.08em', textTransform: 'uppercase' as const,
+                                            display: 'inline-flex', alignItems: 'center',
+                                        }}>{chip}</span>
+                                    ))}
+                                </div>
+                                {hasScore && (
+                                    <div style={{
+                                        position: 'absolute', right: '24px', bottom: '24px',
+                                        width: '118px', height: '118px', borderRadius: '30px',
+                                        background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)',
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: '0 22px 46px rgba(15,23,42,0.22)',
+                                    }}>
+                                        <span style={{ color: scoreColor, fontSize: '42px', fontWeight: 950, lineHeight: 1, letterSpacing: '-0.05em' }}>{formatScore(score)}</span>
+                                        <span style={{ marginTop: '5px', color: '#64748b', fontSize: '10px', fontWeight: 900, letterSpacing: '0.16em', textTransform: 'uppercase' as const }}>{scoreLabel}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ padding: '30px 34px 32px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '18px' }}>
+                                <div>
+                                    <h1 style={{ margin: 0, color: '#0f172a', fontSize: cleanTitleSize, fontWeight: 950, lineHeight: 0.92, letterSpacing: '-0.05em' }}>{titleText}</h1>
+                                    {subtitleText && (
+                                        <p style={{ margin: '12px 0 0', color: '#475569', fontSize: '18px', fontWeight: 700, lineHeight: 1.32 }}>{subtitleText}</p>
+                                    )}
+                                </div>
+                                {criteriaStats.length > 0 && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '9px' }}>
+                                        {criteriaStats.slice(0, 4).map((stat) => (
+                                            <div key={stat.key} style={{ borderRadius: '16px', background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', padding: '12px 14px' }}>
+                                                <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 800 }}>{truncateLabel(stat.label, 18)}</div>
+                                                <div style={{ marginTop: '4px', color: '#0f172a', fontSize: '22px', fontWeight: 950 }}>{formatScore(stat.score)}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', borderTop: '1px solid rgba(15,23,42,0.08)', paddingTop: '18px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                                        <div style={{ width: '44px', height: '44px', borderRadius: '14px', padding: '2px', background: authorGradient, flexShrink: 0 }}>
+                                            <div style={{ width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden', background: '#e2e8f0', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 950 }}>
+                                                {avatarImage ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} /> : (authorLabel || 'L').slice(0, 1).toUpperCase()}
+                                            </div>
+                                        </div>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ color: '#0f172a', fontSize: '16px', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{authorLabel}</div>
+                                            <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 700 }}>{locationLine || createdAtLabel || 'Listopic'}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ color: '#0f172a', fontSize: '18px', fontWeight: 950, letterSpacing: '-0.03em' }}>{brandName}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {variant === 'aura' && (
+                        <div style={{
+                            position: 'relative', width: '100%', height: '100%',
+                            borderRadius: '64px', overflow: 'hidden',
+                            background: theme.cardBg, boxShadow: theme.shadow,
+                        }}>
+                            <div style={{ position: 'absolute', inset: 0, background: theme.heroFallback }} />
+                            <div style={{ position: 'absolute', inset: '34px', borderRadius: '48px', border: '1px solid rgba(255,255,255,0.16)' }} />
+
+                            <div style={{
+                                position: 'absolute', top: '72px', left: '58px', right: '58px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            }}>
+                                <div style={{
+                                    height: '38px', padding: '0 16px', borderRadius: '999px',
+                                    background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.14)',
+                                    color: 'rgba(255,255,255,0.78)', fontSize: '13px', fontWeight: 900,
+                                    letterSpacing: '0.18em', textTransform: 'uppercase' as const,
+                                    display: 'inline-flex', alignItems: 'center',
+                                }}>
+                                    {getShareEntityLabel(entity.type)}
+                                </div>
+                                <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: '18px', fontWeight: 900, letterSpacing: '-0.02em' }}>
+                                    {brandName}
+                                </div>
+                            </div>
+
+                            <div style={{
+                                position: 'absolute', top: '146px', left: '58px', right: '58px', height: '810px',
+                                borderRadius: '44px', overflow: 'hidden',
+                                boxShadow: '0 42px 90px rgba(0,0,0,0.48)',
+                                background: theme.heroFallback,
+                            }}>
+                                {heroImage && <div role="img" aria-label={titleText} style={{ position: 'absolute', inset: 0, ...getCoverBackground(heroImage) }} />}
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.02) 42%, rgba(0,0,0,0.48) 100%)' }} />
+                                {hasScore && (
+                                    <div style={{
+                                        position: 'absolute', right: '28px', bottom: '28px',
+                                        minWidth: '132px', height: '132px', borderRadius: '36px',
+                                        background: 'rgba(7,7,10,0.74)', border: '1px solid rgba(255,255,255,0.18)',
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                        backdropFilter: 'blur(22px)',
+                                    }}>
+                                        <span style={{ color: '#ffffff', fontSize: '46px', fontWeight: 950, lineHeight: 1, letterSpacing: '-0.06em' }}>{formatScore(score)}</span>
+                                        <span style={{ marginTop: '7px', color: 'rgba(255,255,255,0.46)', fontSize: '10px', fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase' as const }}>{scoreLabel}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ position: 'absolute', left: '58px', right: '58px', bottom: '64px' }}>
+                                <h1 style={{
+                                    margin: 0, color: '#ffffff', fontSize: storyTitleSize,
+                                    fontWeight: 950, lineHeight: 0.90, letterSpacing: '-0.06em',
+                                    maxWidth: '96%',
+                                }}>{titleText}</h1>
+                                {subtitleText && (
+                                    <p style={{ margin: '18px 0 0', color: 'rgba(255,255,255,0.66)', fontSize: '25px', fontWeight: 650, lineHeight: 1.25 }}>
+                                        {subtitleText}
+                                    </p>
+                                )}
+
+                                <div style={{
+                                    marginTop: '34px', padding: '18px 20px', borderRadius: '28px',
+                                    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '18px',
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                                        <div style={{ width: '52px', height: '52px', borderRadius: '999px', padding: '2px', background: authorGradient, flexShrink: 0 }}>
+                                            <div style={{
+                                                width: '100%', height: '100%', borderRadius: '999px', overflow: 'hidden',
+                                                background: '#18181b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontWeight: 900, fontSize: '20px',
+                                            }}>
+                                                {avatarImage ? <div role="img" aria-label={authorLabel} style={{ width: '100%', height: '100%', ...getCoverBackground(avatarImage) }} /> : (authorLabel || 'L').slice(0, 1).toUpperCase()}
+                                            </div>
+                                        </div>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ color: '#ffffff', fontSize: '19px', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{authorLabel}</div>
+                                            <div style={{ color: 'rgba(255,255,255,0.48)', fontSize: '13px', fontWeight: 700 }}>{locationLine || createdAtLabel || 'Listopic'}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ color: theme.accent, fontSize: '13px', fontWeight: 950, letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
+                                        guardar idea
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {variant === 'metro' && (
+                        <div style={{
+                            position: 'relative', width: '100%', height: '100%',
+                            borderRadius: '0', overflow: 'hidden',
+                            background: '#f4f1ea', boxShadow: theme.shadow,
+                        }}>
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(16,16,20,0.08) 1px, transparent 1px), linear-gradient(180deg, rgba(16,16,20,0.08) 1px, transparent 1px)', backgroundSize: '54px 54px' }} />
+                            <div style={{ position: 'absolute', top: '42px', left: '42px', right: '42px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ color: '#101014', fontSize: '22px', fontWeight: 950, letterSpacing: '-0.04em' }}>{brandName}</div>
+                                <div style={{ color: '#101014', fontSize: '12px', fontWeight: 950, letterSpacing: '0.22em', textTransform: 'uppercase' as const }}>
+                                    {getShareEntityLabel(entity.type)}
+                                </div>
+                            </div>
+
+                            <div style={{
+                                position: 'absolute', top: '104px', left: '42px', width: '626px', height: '610px',
+                                background: '#101014', overflow: 'hidden',
+                            }}>
+                                {heroImage ? <div role="img" aria-label={titleText} style={{ position: 'absolute', inset: 0, ...getCoverBackground(heroImage) }} /> : <div style={{ position: 'absolute', inset: 0, background: theme.heroFallback }} />}
+                            </div>
+
+                            <div style={{
+                                position: 'absolute', top: '104px', right: '42px', width: '328px', height: '610px',
+                                background: '#101014', color: '#f8fafc',
+                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                                padding: '28px', boxSizing: 'border-box',
+                            }}>
+                                <div>
+                                    <div style={{ width: '74px', height: '8px', background: theme.accent, marginBottom: '30px' }} />
+                                    <div style={{ color: 'rgba(255,255,255,0.58)', fontSize: '13px', fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase' as const }}>
+                                        {scoreLabel}
+                                    </div>
+                                    {hasScore && (
+                                        <div style={{ marginTop: '12px', color: '#ffffff', fontSize: '116px', fontWeight: 950, lineHeight: 0.82, letterSpacing: '-0.09em' }}>
+                                            {formatScore(score)}
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ color: 'rgba(255,255,255,0.62)', fontSize: '15px', fontWeight: 750, lineHeight: 1.35 }}>
+                                    {locationLine || createdAtLabel || 'Compartido desde Listopic'}
+                                </div>
+                            </div>
+
+                            <div style={{ position: 'absolute', left: '42px', right: '42px', top: '760px' }}>
+                                <h1 style={{
+                                    margin: 0, color: '#101014', fontSize: titleText.length > 45 ? '62px' : titleText.length > 26 ? '78px' : '96px',
+                                    fontWeight: 950, lineHeight: 0.88, letterSpacing: '-0.075em',
+                                    maxWidth: '930px',
+                                }}>{titleText}</h1>
+                                {subtitleText && (
+                                    <p style={{ margin: '22px 0 0', color: '#343741', fontSize: '27px', fontWeight: 750, lineHeight: 1.18, maxWidth: '760px' }}>
+                                        {subtitleText}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div style={{ position: 'absolute', left: '42px', right: '42px', bottom: '42px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                                {(criteriaStats.length > 0 ? criteriaStats.slice(0, 3) : [
+                                    { key: 'autor', label: authorLabel, score: Number(score || 0) },
+                                    { key: 'sitio', label: locationLine || subtitleText || 'Listopic', score: Number(score || 0) },
+                                    { key: 'fecha', label: createdAtLabel || 'Ahora', score: Number(score || 0) },
+                                ]).map((stat) => (
+                                    <div key={stat.key} style={{ borderTop: '6px solid #101014', paddingTop: '14px' }}>
+                                        <div style={{ color: '#70747d', fontSize: '13px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.10em' }}>
+                                            {truncateLabel(stat.label, 20)}
+                                        </div>
+                                        <div style={{ marginTop: '10px', color: '#101014', fontSize: '34px', fontWeight: 950, letterSpacing: '-0.05em' }}>
+                                            {criteriaStats.length > 0 ? formatScore(stat.score) : 'LISTOPIC'}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1413,7 +1810,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 >
                     <div
                         className="bg-[var(--lt-card-strong)] rounded-2xl w-full border border-white/10 overflow-hidden shadow-2xl"
-                        style={{ maxWidth: variant === 'editorial' ? '680px' : variant === 'story' ? '380px' : '430px' }}
+                        style={{ maxWidth: variant === 'editorial' ? '680px' : (variant === 'story' || variant === 'neon' || variant === 'aura') ? '380px' : '430px' }}
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="p-4 border-b border-white/10 flex justify-between items-center">
