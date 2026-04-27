@@ -255,6 +255,10 @@ function getSortOption(tab: string, value?: string | null) {
     return options.find(option => option.value === resolved) || options[0];
 }
 
+function getDistanceSortValue(tab: string) {
+    return SORT_OPTIONS[tab]?.find(option => option.requiresLocation)?.value || null;
+}
+
 function normalizeSearchTab(tab: string) {
     if (tab === 'grouped_items') return 'items';
     if (tab === 'all' || Object.prototype.hasOwnProperty.call(INDEX_NAMES, tab)) return tab;
@@ -919,9 +923,33 @@ export const SearchPage: React.FC = () => {
     }, []);
 
     const toggleGeo = useCallback(() => {
-        if (!geoActive && !location) requestLocation();
-        setGeoActive(p => !p);
-    }, [geoActive, location, requestLocation]);
+        const nextGeoActive = !effectiveGeoActive;
+        const nextParams: Record<string, string> = { type: activeTab };
+        if (queryParam) nextParams.q = queryParam;
+
+        if (nextGeoActive) {
+            const distanceSortValue = getDistanceSortValue(activeTab);
+            if (!location) requestLocation();
+            setGeoActive(true);
+            if (distanceSortValue) {
+                setSortByTab(prev => ({ ...prev, [activeTab]: distanceSortValue }));
+                nextParams.sort = distanceSortValue;
+            } else if (activeSortOption.value !== getDefaultSortValue(activeTab)) {
+                nextParams.sort = activeSortOption.value;
+            }
+        } else {
+            setGeoActive(false);
+            if (activeSortOption.requiresLocation) {
+                const defaultSortValue = getDefaultSortValue(activeTab);
+                setSortByTab(prev => ({ ...prev, [activeTab]: defaultSortValue }));
+            } else if (activeSortOption.value !== getDefaultSortValue(activeTab)) {
+                nextParams.sort = activeSortOption.value;
+            }
+        }
+
+        setSearchParams(nextParams);
+        setSelectedHitId(null);
+    }, [activeSortOption.requiresLocation, activeSortOption.value, activeTab, effectiveGeoActive, location, queryParam, requestLocation, setSearchParams]);
 
     useEffect(() => {
         if (!activeSortOption?.requiresLocation || location) return;
