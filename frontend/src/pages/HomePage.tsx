@@ -889,6 +889,18 @@ export const HomePage: React.FC = () => {
         toggleRange();
     };
 
+    const buildCarouselSearchLink = useCallback((type: 'lists' | 'places' | 'users' | 'items', sort?: string) => {
+        const params = new URLSearchParams({ type });
+        if (sort) {
+            params.set('sort', sort);
+        }
+        if ((type === 'places' || type === 'items') && range !== null) {
+            params.set('geo', '1');
+            params.set('radius', String(Math.round(range * 1000)));
+        }
+        return `/search?${params.toString()}`;
+    }, [range]);
+
     if (authLoading) {
         return (
             <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center">
@@ -1021,7 +1033,7 @@ export const HomePage: React.FC = () => {
                             {/* 1. Listas */}
                             <CardCarousel
                                 title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
-                                viewAllLink={`/search?type=lists&sort=${activeTab === 'explore' ? 'most_reviewed' : 'latest'}`}
+                                viewAllLink={buildCarouselSearchLink('lists', activeTab === 'explore' ? 'most_reviewed' : 'latest')}
                                 items={activeTab === 'explore'
                                     ? listsWithRangeStats.sort((a, b) => (b.reviewsInRangeCount ?? b.reviewCount ?? 0) - (a.reviewsInRangeCount ?? a.reviewCount ?? 0)).slice(0, 10)
                                     : filteredLists}
@@ -1068,7 +1080,7 @@ export const HomePage: React.FC = () => {
                             {/* 2. Items */}
                             <CardCarousel
                                 title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos Items"}
-                                viewAllLink={`/search?type=items&sort=${activeTab === 'explore' ? 'top_rated' : 'latest'}`}
+                                viewAllLink={buildCarouselSearchLink('items', activeTab === 'explore' ? 'top_rated' : 'latest')}
                                 items={filteredItems}
                                 loading={loadingReviews}
                                 icon={<Star className="w-5 h-5 text-amber-400" />}
@@ -1082,7 +1094,7 @@ export const HomePage: React.FC = () => {
                             <CardCarousel
                                 title="Joyas ocultas"
                                 subtitle="Sitios con muy buena nota que todavía no están masificados."
-                                viewAllLink="/search?type=places&sort=rating"
+                                viewAllLink={buildCarouselSearchLink('places', 'rating')}
                                 items={hiddenGemPlaces}
                                 loading={loadingReviews}
                                 icon={<Gem className="w-5 h-5 text-emerald-300" />}

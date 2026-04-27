@@ -268,10 +268,17 @@ function normalizeSearchTab(tab: string) {
 type GeoRadius = number | 'all';
 
 const GEO_RADIUS_OPTIONS = [
+    { value: 500, label: '500 m' }, { value: 1000, label: '1 km' },
     { value: 2000, label: '2 km' }, { value: 5000, label: '5 km' },
     { value: 10000, label: '10 km' }, { value: 20000, label: '20 km' },
     { value: 50000, label: '50 km' }, { value: 'all', label: 'Sin límite' },
 ];
+
+function parseGeoRadiusParam(value: string | null): GeoRadius {
+    if (value === 'all') return 'all';
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 10000;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -862,13 +869,17 @@ export const SearchPage: React.FC = () => {
     const queryParam = searchParams.get('q') || '';
     const typeParam = normalizeSearchTab(searchParams.get('type') || 'all');
     const sortParam = searchParams.get('sort') || '';
+    const geoParam = searchParams.get('geo') === '1';
+    const radiusParam = searchParams.get('radius');
 
     const [sortByTab, setSortByTab] = useState<Record<string, string>>(() => (
         typeParam === 'all' ? {} : { [typeParam]: resolveSortValue(typeParam, sortParam) }
     ));
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-    const [geoActive, setGeoActive] = useState(false);
-    const [geoRadius, setGeoRadius] = useState<GeoRadius>(10000);
+    const [geoActive, setGeoActive] = useState(() => (
+        (typeParam === 'places' || typeParam === 'items') && geoParam
+    ));
+    const [geoRadius, setGeoRadius] = useState<GeoRadius>(() => parseGeoRadiusParam(radiusParam));
     const [mapExpanded, setMapExpanded] = useState(false);
     const [selectedHitId, setSelectedHitId] = useState<string | null>(null);
     const [hoveredHitId, setHoveredHitId] = useState<string | null>(null);
@@ -880,17 +891,44 @@ export const SearchPage: React.FC = () => {
     const activeIndexName = activeSortOption?.indexName || INDEX_NAMES.lists;
     const effectiveGeoActive = geoActive || Boolean(activeSortOption?.requiresLocation);
 
+    const buildSearchParams = useCallback(({
+        tab = activeTab,
+        sortValue = activeSortOption.value,
+        query = queryParam,
+        geoEnabled = effectiveGeoActive,
+        radiusValue = geoRadius,
+    }: {
+        tab?: string;
+        sortValue?: string;
+        query?: string;
+        geoEnabled?: boolean;
+        radiusValue?: GeoRadius;
+    } = {}) => {
+        const nextParams: Record<string, string> = { type: tab };
+        const trimmedQuery = query.trim();
+        if (trimmedQuery) nextParams.q = trimmedQuery;
+        if (tab !== 'all' && sortValue !== getDefaultSortValue(tab)) {
+            nextParams.sort = sortValue;
+        }
+
+        const tabSupportsGeo = tab === 'places' || tab === 'items';
+        const sortRequiresLocation = Boolean(getSortOption(tab, sortValue)?.requiresLocation);
+        if (tabSupportsGeo && (geoEnabled || sortRequiresLocation)) {
+            nextParams.geo = '1';
+            nextParams.radius = String(radiusValue);
+        }
+
+        return nextParams;
+    }, [activeSortOption.value, activeTab, effectiveGeoActive, geoRadius, queryParam]);
+
     const handleTabChange = useCallback((tab: string) => {
         const sortValue = resolveSortValue(tab, sortByTab[tab]);
-        const nextParams: Record<string, string> = { type: tab };
-        if (queryParam) nextParams.q = queryParam;
-        if (tab !== 'all' && sortValue !== getDefaultSortValue(tab)) nextParams.sort = sortValue;
-        setSearchParams(nextParams);
+        setSearchParams(buildSearchParams({ tab, sortValue }));
         // Solo cerrar el mapa si pasamos a una pestaña sin geo (users, lists)
         const newIsGeoTab = tab === 'places' || tab === 'items';
         if (!newIsGeoTab) setMapExpanded(false);
         setSelectedHitId(null);
-    }, [queryParam, setSearchParams, sortByTab]);
+    }, [buildSearchParams, setSearchParams, sortByTab]);
 
     const handleSortChange = useCallback((value: string) => {
         const option = getSortOption(activeTab, value);
@@ -899,22 +937,16 @@ export const SearchPage: React.FC = () => {
             if (!location) requestLocation();
             setGeoActive(true);
         }
-        const nextParams: Record<string, string> = { type: activeTab };
-        if (queryParam) nextParams.q = queryParam;
-        if (option.value !== getDefaultSortValue(activeTab)) nextParams.sort = option.value;
-        setSearchParams(nextParams);
+        setSearchParams(buildSearchParams({
+            sortValue: option.value,
+            geoEnabled: option.requiresLocation ? true : effectiveGeoActive,
+        }));
         setSelectedHitId(null);
-    }, [activeTab, location, queryParam, requestLocation, setSearchParams]);
+    }, [activeTab, buildSearchParams, effectiveGeoActive, location, requestLocation, setSearchParams]);
 
     const handleQueryChange = useCallback((nextQuery: string) => {
-        const nextParams: Record<string, string> = { type: activeTab };
-        const trimmedQuery = nextQuery.trim();
-        if (trimmedQuery) nextParams.q = trimmedQuery;
-        if (activeTab !== 'all' && activeSortOption.value !== getDefaultSortValue(activeTab)) {
-            nextParams.sort = activeSortOption.value;
-        }
-        setSearchParams(nextParams, { replace: true });
-    }, [activeSortOption.value, activeTab, setSearchParams]);
+        setSearchParams(buildSearchParams({ query: nextQuery }), { replace: true });
+    }, [buildSearchParams, setSearchParams]);
 
     const handleMarkerClick = useCallback((id: string) => {
         setSelectedHitId(prev => prev === id ? null : id);
@@ -924,8 +956,7 @@ export const SearchPage: React.FC = () => {
 
     const toggleGeo = useCallback(() => {
         const nextGeoActive = !effectiveGeoActive;
-        const nextParams: Record<string, string> = { type: activeTab };
-        if (queryParam) nextParams.q = queryParam;
+        let nextSortValue = activeSortOption.value;
 
         if (nextGeoActive) {
             const distanceSortValue = getDistanceSortValue(activeTab);
@@ -933,23 +964,31 @@ export const SearchPage: React.FC = () => {
             setGeoActive(true);
             if (distanceSortValue) {
                 setSortByTab(prev => ({ ...prev, [activeTab]: distanceSortValue }));
-                nextParams.sort = distanceSortValue;
-            } else if (activeSortOption.value !== getDefaultSortValue(activeTab)) {
-                nextParams.sort = activeSortOption.value;
+                nextSortValue = distanceSortValue;
             }
         } else {
             setGeoActive(false);
             if (activeSortOption.requiresLocation) {
                 const defaultSortValue = getDefaultSortValue(activeTab);
                 setSortByTab(prev => ({ ...prev, [activeTab]: defaultSortValue }));
-            } else if (activeSortOption.value !== getDefaultSortValue(activeTab)) {
-                nextParams.sort = activeSortOption.value;
+                nextSortValue = defaultSortValue;
             }
         }
 
-        setSearchParams(nextParams);
+        setSearchParams(buildSearchParams({
+            sortValue: nextSortValue,
+            geoEnabled: nextGeoActive,
+        }));
         setSelectedHitId(null);
-    }, [activeSortOption.requiresLocation, activeSortOption.value, activeTab, effectiveGeoActive, location, queryParam, requestLocation, setSearchParams]);
+    }, [activeSortOption.requiresLocation, activeSortOption.value, activeTab, buildSearchParams, effectiveGeoActive, location, requestLocation, setSearchParams]);
+
+    const handleGeoRadiusChange = useCallback((nextRadius: GeoRadius) => {
+        setGeoRadius(nextRadius);
+        setSearchParams(buildSearchParams({
+            geoEnabled: true,
+            radiusValue: nextRadius,
+        }));
+    }, [buildSearchParams, setSearchParams]);
 
     useEffect(() => {
         if (!activeSortOption?.requiresLocation || location) return;
@@ -1105,7 +1144,7 @@ export const SearchPage: React.FC = () => {
                                             locLoading={locLoading}
                                             locError={locError}
                                             onToggleGeo={toggleGeo}
-                                            onRadiusChange={setGeoRadius}
+                                            onRadiusChange={handleGeoRadiusChange}
                                         />
                                         <div className="ml-auto flex items-center gap-4">
                                             <ResultsCount />
@@ -1200,7 +1239,7 @@ export const SearchPage: React.FC = () => {
                                         locLoading={locLoading}
                                         locError={locError}
                                         onToggleGeo={toggleGeo}
-                                        onRadiusChange={setGeoRadius}
+                                        onRadiusChange={handleGeoRadiusChange}
                                     />
 
                                     {/* Ordenar + Contador */}
