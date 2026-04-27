@@ -1087,13 +1087,13 @@ export const HomePage: React.FC = () => {
                                 loading={loadingReviews}
                                 icon={<Gem className="w-5 h-5 text-emerald-300" />}
                                 accentClass="bg-emerald-500/20"
-                                itemClassName="min-w-[82vw] sm:min-w-[320px] md:min-w-[270px]"
+                                itemClassName="w-[calc(100vw-2rem)] min-w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] md:w-auto md:min-w-[270px] md:max-w-none"
                                 renderItem={(place: any) => {
                                     const placeId = place.placeId || place.id;
                                     return (
                                         <Link
                                             to={`/place/${placeId}`}
-                                            className="group block h-32 sm:h-44 md:h-56 rounded-md overflow-hidden border border-emerald-300/15 bg-[var(--lt-card-strong)] shadow-lg transition-all duration-300 hover:scale-105 hover:border-emerald-300/40 hover:shadow-emerald-500/10"
+                                            className="group block h-44 sm:h-48 md:h-56 rounded-md overflow-hidden border border-emerald-300/15 bg-[var(--lt-card-strong)] shadow-lg transition-all duration-300 hover:scale-105 hover:border-emerald-300/40 hover:shadow-emerald-500/10"
                                         >
                                             <div className="relative h-full">
                                                 {place.photoUrl ? (
@@ -1101,12 +1101,12 @@ export const HomePage: React.FC = () => {
                                                         src={place.photoUrl}
                                                         alt={place.name}
                                                         containerClassName="absolute inset-0"
-                                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                        className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
                                                     />
                                                 ) : (
                                                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-slate-900 to-black" />
                                                 )}
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-black/10" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
                                                 <div className="absolute left-2.5 top-2.5 rounded-full border border-emerald-200/30 bg-emerald-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-100 backdrop-blur sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[10px]">
                                                     Joya oculta
                                                 </div>
