@@ -178,6 +178,26 @@ export const DeveloperPage: React.FC = () => {
         }
     };
 
+    const configureAlgoliaIndexes = async () => {
+        if (!window.confirm('¿Configurar settings y réplicas de Algolia sin reindexar datos?')) return;
+
+        setProcessingAlgolia(true);
+        const functions = getFunctions(undefined, FUNCTIONS_REGION);
+        const adminBackfillAlgolia = httpsCallable(functions, 'adminBackfillAlgolia');
+
+        try {
+            setAlgoliaLog(prev => [`[${new Date().toLocaleTimeString()}] Configurando settings y réplicas...`, ...prev]);
+            const result = await adminBackfillAlgolia({ collectionName: '__settings' });
+            const data: any = result.data;
+            setAlgoliaLog(prev => [`[${new Date().toLocaleTimeString()}] Settings OK: ${JSON.stringify(data)}`, ...prev]);
+        } catch (err: any) {
+            const details = err?.details ? ` | ${JSON.stringify(err.details)}` : '';
+            setAlgoliaLog(prev => [`[${new Date().toLocaleTimeString()}] Error settings: ${err.message}${details}`, ...prev]);
+        } finally {
+            setProcessingAlgolia(false);
+        }
+    };
+
     const handleRecalculateList = async () => {
         if (!targetListId) return;
         setProcessingMaintenance(true);
@@ -916,6 +936,13 @@ export const DeveloperPage: React.FC = () => {
                                                 className="px-6 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 text-white font-bold rounded-lg flex items-center gap-2"
                                             >
                                                 Sincronizar TODO
+                                            </button>
+                                            <button
+                                                onClick={configureAlgoliaIndexes}
+                                                disabled={processingAlgolia}
+                                                className="px-6 py-3 bg-yellow-500/20 hover:bg-yellow-500/30 disabled:opacity-50 text-yellow-200 font-bold rounded-lg border border-yellow-500/30 flex items-center gap-2"
+                                            >
+                                                Configurar índices/réplicas
                                             </button>
                                             <button
                                                 onClick={() => runAlgoliaSync('lists')}

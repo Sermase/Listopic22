@@ -8,9 +8,12 @@ const admin = require("firebase-admin");
 const algoliasearch = require("algoliasearch");
 const { buildGroupedItemsForList } = require("./grouped-aggregator");
 
+const ADMIN_CALL_OPTIONS = { cors: true, timeoutSeconds: 540, memory: "1GiB" };
+
 let algoliaClient = null;
 const indices = {};
 const ensuredSettings = new Set();
+const categoryCache = new Map();
 
 function getIndex(indexName) {
     if (!algoliaClient) {
@@ -59,29 +62,45 @@ const COLLECTION_CONFIGS = {
 
 const INDEX_SETTINGS = {
     lists: {
-        searchableAttributes: ["unordered(name)", "unordered(description)", "unordered(availableTags)", "unordered(categoryId)"],
-        attributesForFaceting: ["filterOnly(categoryId)", "availableTags", "ownerId"],
+        searchableAttributes: ["unordered(name)", "unordered(description)", "unordered(availableTags)", "unordered(categoryName)", "unordered(categoryAliases)", "unordered(categoryId)"],
+        attributesForFaceting: ["filterOnly(categoryId)", "categoryName", "availableTags", "ownerId"],
+        replicas: ["lists_by_followers", "lists_by_reviews"],
         customRanking: ["desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"],
         numericAttributesForFiltering: ["reviewCount", "followersCount"]
     },
     places: {
         searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)"],
-        attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibility", "types", "priceLevel"],
+        attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibilityOptions", "types", "priceLevel"],
+        replicas: ["places_by_rating", "places_by_reviews", "places_by_distance"],
         customRanking: ["desc(averageRating)", "desc(reviewsCount)"],
         numericAttributesForFiltering: ["averageRating", "reviewsCount"]
     },
     users: {
         searchableAttributes: ["unordered(username)", "unordered(bio)"],
         attributesForFaceting: ["userType", "residence", "badges"],
+        replicas: ["users_by_followers", "users_by_reviews"],
         customRanking: ["desc(followersCount)", "desc(reviewsCount)"],
         numericAttributesForFiltering: ["followersCount", "reviewsCount"]
     },
     grouped_items: {
         searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(groupTags)"],
-        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "filterOnly(listAvailableTags)", "groupTags", "placeCity", "placeProvince"],
+        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "filterOnly(listAvailableTags)", "groupTags", "placeCity", "placeProvince", "authorUserType"],
+        replicas: ["grouped_items_by_score", "grouped_items_by_reviews"],
         customRanking: ["desc(avgGeneralScore)", "desc(reviewCount)"],
         numericAttributesForFiltering: ["avgGeneralScore", "reviewCount"]
     }
+};
+
+const REPLICA_SETTINGS = {
+    lists_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewCount)", "desc(updatedAtTimestamp)"] },
+    lists_by_reviews: { customRanking: ["desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"] },
+    places_by_rating: { customRanking: ["desc(averageRating)", "desc(reviewsCount)"] },
+    places_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(averageRating)"] },
+    places_by_distance: { customRanking: ["desc(reviewsCount)", "desc(averageRating)"] },
+    users_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewsCount)"] },
+    users_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(followersCount)"] },
+    grouped_items_by_score: { customRanking: ["desc(avgGeneralScore)", "desc(reviewCount)"] },
+    grouped_items_by_reviews: { customRanking: ["desc(reviewCount)", "desc(avgGeneralScore)"] }
 };
 
 async function getIndexWithSettings(indexName) {
@@ -104,9 +123,19 @@ async function ensureIndexSettings(indexName, index) {
     }
     try {
         await index.setSettings(settings);
+        if (Array.isArray(settings.replicas)) {
+            await Promise.all(settings.replicas.map(async (replicaName) => {
+                const replicaIndex = getIndex(replicaName);
+                const replicaSettings = REPLICA_SETTINGS[replicaName];
+                if (replicaIndex && replicaSettings) {
+                    await replicaIndex.setSettings(replicaSettings);
+                }
+            }));
+        }
         ensuredSettings.add(indexName);
     } catch (error) {
         logger.error(`Algolia: failed to apply settings for ${indexName}`, error);
+        throw new HttpsError("internal", `No se pudieron aplicar los settings de Algolia para ${indexName}: ${error.message || String(error)}`);
     }
 }
 
@@ -114,8 +143,93 @@ function isNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
 }
 
+function trueObjectKeys(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return [];
+    }
+    return Object.entries(value)
+        .filter(([, enabled]) => enabled === true)
+        .map(([key]) => key);
+}
+
 function isNonEmptyString(value) {
     return typeof value === "string" && value.trim().length > 0;
+}
+
+function uniqueStrings(values) {
+    return Array.from(new Set(values.filter(isNonEmptyString).map((value) => value.trim())));
+}
+
+function normalizeImageUrl(value) {
+    if (!isNonEmptyString(value)) {
+        return null;
+    }
+    const url = value.trim();
+    if (url.startsWith("data:")) {
+        return null;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+        return null;
+    }
+    return url.length <= 2048 ? url : null;
+}
+
+function firstImageUrl(...values) {
+    for (const value of values) {
+        const url = normalizeImageUrl(value);
+        if (url) {
+            return url;
+        }
+    }
+    return null;
+}
+
+async function resolveCategoryMetadata(categoryId, listData = {}) {
+    const inlineNames = uniqueStrings([
+        listData.categoryName,
+        listData.categoryLabel,
+        listData.categoryTitle,
+        typeof listData.category === "string" && listData.category !== categoryId ? listData.category : null
+    ]);
+
+    if (!isNonEmptyString(categoryId)) {
+        return {
+            categoryName: inlineNames[0] || null,
+            categoryAliases: inlineNames
+        };
+    }
+
+    const cleanCategoryId = categoryId.trim();
+    if (!categoryCache.has(cleanCategoryId)) {
+        categoryCache.set(cleanCategoryId, admin.firestore().collection("categories").doc(cleanCategoryId).get()
+            .then((snap) => {
+                if (!snap.exists) {
+                    return { categoryName: null, categoryAliases: [cleanCategoryId] };
+                }
+                const data = snap.data() || {};
+                const names = uniqueStrings([
+                    data.name,
+                    data.label,
+                    data.title,
+                    data.description
+                ]);
+                return {
+                    categoryName: names[0] || cleanCategoryId,
+                    categoryAliases: uniqueStrings([cleanCategoryId, ...names])
+                };
+            })
+            .catch((error) => {
+                logger.warn(`Algolia: unable to resolve category ${cleanCategoryId}`, error);
+                return { categoryName: cleanCategoryId, categoryAliases: [cleanCategoryId] };
+            }));
+    }
+
+    const metadata = await categoryCache.get(cleanCategoryId);
+    const aliases = uniqueStrings([cleanCategoryId, ...(metadata.categoryAliases || []), ...inlineNames]);
+    return {
+        categoryName: inlineNames[0] || metadata.categoryName || cleanCategoryId,
+        categoryAliases: aliases
+    };
 }
 
 function toDate(value) {
@@ -261,7 +375,7 @@ function hasGroupedListMetadataChanged(beforeData, afterData) {
 
 function transformPlaceRecord(data, docId) {
     if (!data) return null;
-    const coverImage = data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl || null;
+    const coverImage = firstImageUrl(data.thumbnailUrl, data.mainImageUrl, data.photoUrl, data.coverUrl, data.imageUrl);
     const record = {
         objectID: docId,
         entityType: "place",
@@ -271,6 +385,8 @@ function transformPlaceRecord(data, docId) {
         province: data.province || "",
         country: data.country || "",
         types: Array.isArray(data.types) ? data.types : [],
+        serviceOptions: trueObjectKeys(data.serviceOptions),
+        accessibilityOptions: trueObjectKeys(data.accessibilityOptions || data.accessibility),
         averageRating: typeof data.averageRating === "number" ? data.averageRating : 0,
         reviewsCount: typeof data.reviewsCount === "number" ? data.reviewsCount : 0,
         priceLevel: typeof data.priceLevel === "number" ? data.priceLevel : null,
@@ -283,11 +399,12 @@ function transformPlaceRecord(data, docId) {
     return compactRecord(record);
 }
 
-function transformListRecord(data, docId) {
+async function transformListRecord(data, docId) {
     if (!data || data.isPublic === false) {
         return null;
     }
     const tags = Array.isArray(data.availableTags) ? data.availableTags.filter(isNonEmptyString) : [];
+    const category = await resolveCategoryMetadata(data.categoryId || null, data);
     const ownerName = [
         data.authorName,
         data.ownerName,
@@ -296,7 +413,7 @@ function transformListRecord(data, docId) {
         data.createdByName
     ].find((value) => isNonEmptyString(value)) || null;
     const ownerUsername = [data.ownerUsername, data.userHandle, data.username].find((value) => isNonEmptyString(value)) || null;
-    const coverImage = data.mainImageUrl || data.photoUrl || data.coverUrl || data.thumbnailUrl || data.imageUrl || null;
+    const coverImage = firstImageUrl(data.mainImageUrl, data.photoUrl, data.coverUrl, data.thumbnailUrl, data.imageUrl);
     const record = {
         objectID: docId,
         entityType: "list",
@@ -304,6 +421,8 @@ function transformListRecord(data, docId) {
         description: data.description || "",
         summary: data.summary || "",
         categoryId: data.categoryId || null,
+        categoryName: category.categoryName,
+        categoryAliases: category.categoryAliases,
         availableTags: tags,
         reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
         followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
@@ -342,7 +461,7 @@ function transformUserRecord(data, docId) {
         commentsCount: typeof data.commentsCount === "number" ? data.commentsCount : 0,
         createdAtISO: toIsoString(data.createdAt),
         updatedAtISO: toIsoString(data.updatedAt),
-        photoUrl: data.photoUrl || null
+        photoUrl: normalizeImageUrl(data.photoUrl)
     };
     return compactRecord(record);
 }
@@ -375,7 +494,8 @@ function mapGroupToAlgoliaRecord(listId, listData, group) {
         itemCount: typeof group.itemCount === "number" ? group.itemCount : 0,
         averageRating: typeof group.avgGeneralScore === "number" ? group.avgGeneralScore : 0,
         groupTags: Array.isArray(group.groupTags) ? group.groupTags : [],
-        thumbnailUrl: group.thumbnailUrl || null,
+        authorUserType: Array.isArray(group.authorUserType) ? group.authorUserType : [],
+        thumbnailUrl: firstImageUrl(group.thumbnailUrl, group.placeThumbnailUrl, group.mainImageUrl, group.photoUrl),
         googleMapsUrl: group.googleMapsUrl || null,
         _geoloc: group.geoloc && isNumber(group.geoloc.lat) && isNumber(group.geoloc.lng) ? { lat: group.geoloc.lat, lng: group.geoloc.lng } : undefined,
         updatedAtISO: new Date().toISOString()
@@ -462,7 +582,7 @@ async function syncCreate(config, snapshot) {
         return null;
     }
     const data = snapshot.data();
-    const record = config.transform(data, snapshot.id);
+    const record = await config.transform(data, snapshot.id);
     if (!record) {
         return null;
     }
@@ -486,7 +606,7 @@ async function syncUpdate(config, beforeSnap, afterSnap) {
         return null;
     }
     const data = afterSnap.data();
-    const record = config.transform(data, afterSnap.id);
+    const record = await config.transform(data, afterSnap.id);
     if (record) {
         try {
             const response = await index.saveObject(record);
@@ -616,12 +736,12 @@ async function backfillStandardCollection(collectionKey) {
     }
     const snapshot = await admin.firestore().collection(config.collection).get();
     const records = [];
-    snapshot.forEach((doc) => {
-        const record = config.transform(doc.data(), doc.id);
+    for (const doc of snapshot.docs) {
+        const record = await config.transform(doc.data(), doc.id);
         if (record) {
             records.push(record);
         }
-    });
+    }
     const response = await index.replaceAllObjects(records, { safe: true });
     if (response?.taskID) {
         await index.waitTask(response.taskID);
@@ -667,31 +787,63 @@ async function backfillGroupedItems() {
     return { success: true, message: `Sincronizados ${records.length} elementos agrupados.` };
 }
 
-const adminBackfillAlgolia = onCall({ cors: true }, async (request) => {
+async function configureAllIndexSettings() {
+    const configured = [];
+    for (const indexName of Object.keys(INDEX_SETTINGS)) {
+        const index = getIndex(indexName);
+        if (!index) {
+            throw new HttpsError("internal", "Algolia no esta configurado.");
+        }
+        ensuredSettings.delete(indexName);
+        await ensureIndexSettings(indexName, index);
+        configured.push({
+            indexName,
+            replicas: INDEX_SETTINGS[indexName].replicas || []
+        });
+    }
+    return {
+        success: true,
+        message: "Settings y replicas de Algolia configurados.",
+        configured
+    };
+}
+
+const adminBackfillAlgolia = onCall(ADMIN_CALL_OPTIONS, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Debes estar autenticado para ejecutar esta operacion.");
     }
-    const uid = request.auth.uid;
-    const userDoc = await admin.firestore().collection("users").doc(uid).get();
-    if (!userDoc.exists) {
-        throw new HttpsError("permission-denied", "No se encontro tu perfil de usuario.");
+    try {
+        const uid = request.auth.uid;
+        const userDoc = await admin.firestore().collection("users").doc(uid).get();
+        if (!userDoc.exists) {
+            throw new HttpsError("permission-denied", "No se encontro tu perfil de usuario.");
+        }
+        const userData = userDoc.data();
+        const userTypes = Array.isArray(userData.userType) ? userData.userType : [userData.userType];
+        if (!userTypes.some((type) => type === "jefe")) {
+            throw new HttpsError("permission-denied", "Solo los usuarios de tipo jefe pueden ejecutar esta operacion.");
+        }
+        const collectionName = request.data?.collectionName;
+        if (!collectionName) {
+            throw new HttpsError("invalid-argument", "Debes indicar collectionName.");
+        }
+        if (collectionName === "__settings") {
+            return await configureAllIndexSettings();
+        }
+        if (collectionName === "grouped_items") {
+            return await backfillGroupedItems();
+        }
+        if (!COLLECTION_CONFIGS[collectionName]) {
+            throw new HttpsError("invalid-argument", `La coleccion ${collectionName} no esta permitida.`);
+        }
+        return await backfillStandardCollection(collectionName);
+    } catch (error) {
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+        logger.error("adminBackfillAlgolia: unexpected failure", error);
+        throw new HttpsError("internal", `Error sincronizando Algolia: ${error.message || String(error)}`);
     }
-    const userData = userDoc.data();
-    const userTypes = Array.isArray(userData.userType) ? userData.userType : [userData.userType];
-    if (!userTypes.some((type) => type === "jefe")) {
-        throw new HttpsError("permission-denied", "Solo los usuarios de tipo jefe pueden ejecutar esta operacion.");
-    }
-    const collectionName = request.data?.collectionName;
-    if (!collectionName) {
-        throw new HttpsError("invalid-argument", "Debes indicar collectionName.");
-    }
-    if (collectionName === "grouped_items") {
-        return await backfillGroupedItems();
-    }
-    if (!COLLECTION_CONFIGS[collectionName]) {
-        throw new HttpsError("invalid-argument", `La coleccion ${collectionName} no esta permitida.`);
-    }
-    return await backfillStandardCollection(collectionName);
 });
 
 module.exports = {

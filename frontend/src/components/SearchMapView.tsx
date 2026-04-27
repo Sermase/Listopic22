@@ -7,6 +7,35 @@ import { Maximize2, Minimize2, LocateFixed, Loader2, Layers } from 'lucide-react
 import { MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
 import type { MapLayerId, MapLayerConfig } from '../utils/mapUtils';
 
+type SearchMapHit = {
+    objectID: string;
+    _geoloc?: {
+        lat?: number;
+        lng?: number;
+    };
+    averageRating?: number;
+    avgGeneralScore?: number;
+    name?: string;
+    itemName?: string;
+    mainImageUrl?: string;
+    photoUrl?: string;
+    thumbnailUrl?: string;
+    reviewsCount?: number;
+    reviewCount?: number;
+    placeId?: string;
+};
+
+type GeoSearchMapHit = SearchMapHit & {
+    _geoloc: {
+        lat: number;
+        lng: number;
+    };
+};
+
+function hasGeoloc(hit: SearchMapHit): hit is GeoSearchMapHit {
+    return typeof hit._geoloc?.lat === 'number' && typeof hit._geoloc?.lng === 'number';
+}
+
 // Icono de marcador para búsqueda — normal y resaltado
 function createSearchMarker(score: number, highlighted = false): L.DivIcon {
     const s = isNaN(score) ? 0 : score;
@@ -98,7 +127,7 @@ interface SearchMapViewProps {
     onToggleExpand?: () => void;
     // Geo props
     geoActive?: boolean;
-    geoRadius?: number;
+    geoRadius?: number | 'all';
     location?: { latitude: number; longitude: number } | null;
     onLocate?: () => void;
     locLoading?: boolean;
@@ -125,8 +154,12 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
     const [layerPanelOpen, setLayerPanelOpen] = useState(false);
 
     const geoHits = useMemo(
-        () => (hits as any[]).filter(h => h._geoloc?.lat != null && h._geoloc?.lng != null),
-        [hits]
+        () => (hits as SearchMapHit[]).filter((h): h is GeoSearchMapHit => {
+            if (!hasGeoloc(h)) return false;
+            if (activeTab !== 'places') return true;
+            return (h.reviewsCount ?? h.reviewCount ?? 0) > 0;
+        }),
+        [activeTab, hits]
     );
     const mapItems = useMemo(
         () => geoHits.map(h => ({ lat: h._geoloc.lat, lng: h._geoloc.lng, id: h.objectID })),
@@ -229,7 +262,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                     <MapFitBounds items={mapItems} />
 
                     {/* Círculo de radio geo */}
-                    {geoActive && location && (
+                    {geoActive && location && typeof geoRadius === 'number' && (
                         <Circle
                             center={[location.latitude, location.longitude]}
                             radius={geoRadius}
@@ -252,7 +285,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                         />
                     )}
 
-                    {geoHits.map((hit: any) => {
+                    {geoHits.map((hit) => {
                         const isPlace = activeTab === 'places';
                         const rating = hit.averageRating || hit.avgGeneralScore || 0;
                         const name = hit.name || hit.itemName || '';

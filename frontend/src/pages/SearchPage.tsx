@@ -16,8 +16,9 @@ import {
 import { Link } from 'react-router-dom';
 import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
-    Filter, X, Clock, ChevronRight, Star, LocateFixed, Loader2,
-    ArrowUpDown
+    X, Clock, ChevronRight, Star, LocateFixed, Loader2,
+    ArrowUpDown, ChevronDown, SlidersHorizontal, ShieldCheck, Bot, Utensils,
+    Coffee, Wine, Accessibility, Tags, MapPin, CircleDollarSign
 } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
@@ -25,6 +26,7 @@ import { SearchQueryParser } from '../services/SearchQueryParser';
 import { ListItemCard } from '../components/ListItemCard';
 import { SearchMapView } from '../components/SearchMapView';
 import { useLocation } from '../hooks/useLocation';
+import { getPlaceTypeLabel, getPlaceTypeLabels } from '../utils/placeTypeLabels';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,10 +40,41 @@ const TAB_ICONS: Record<string, React.ElementType> = {
 };
 
 const FILTER_LABELS: Record<string, string> = {
-    availableTags: 'Etiqueta', categories: 'Categoría', city: 'Ciudad',
+    availableTags: 'Etiqueta', categoryId: 'Categoría', categoryName: 'Categoría', city: 'Ciudad',
     types: 'Tipo', priceLevel: 'Precio', serviceOptions: 'Servicio',
     accessibilityOptions: 'Accesibilidad', userType: 'Tipo', badges: 'Insignia',
-    placeCity: 'Ciudad', listName: 'Lista', groupTags: 'Tag', residence: 'Ciudad',
+    listCategoryId: 'Categoría', authorUserType: 'Tipo de usuario', placeCity: 'Ciudad', listName: 'Lista', groupTags: 'Tag', residence: 'Ciudad',
+};
+
+const USER_TYPE_LABELS: Record<string, string> = {
+    bot: 'Bots',
+    critico: 'Críticos',
+    critic: 'Críticos',
+    experto: 'Expertos',
+    jefe: 'Equipo',
+    admin: 'Admin',
+    user: 'Usuarios',
+};
+
+const FACET_VALUE_LABELS: Record<string, Record<string, string>> = {
+    serviceOptions: {
+        delivery: 'A domicilio',
+        takeout: 'Para llevar',
+        dineIn: 'Comer allí',
+        reservable: 'Reservable',
+        servesBeer: 'Cerveza',
+        servesWine: 'Vino',
+        servesBreakfast: 'Desayuno',
+        servesLunch: 'Comida',
+        servesDinner: 'Cena',
+    },
+    accessibilityOptions: {
+        wheelchairAccessibleEntrance: 'Entrada accesible',
+        wheelchairAccessibleSeating: 'Asientos accesibles',
+        wheelchairAccessibleParking: 'Parking accesible',
+        wheelchairAccessibleRestroom: 'Baño accesible',
+        hearingLoop: 'Bucle auditivo',
+    },
 };
 
 const EMPTY_MESSAGES: Record<string, { title: string; hint: string }> = {
@@ -87,6 +120,47 @@ type SearchHit = {
     availableTags?: string[];
 };
 
+interface FilterSectionConfig {
+    attribute: string;
+    label: string;
+    icon: React.ElementType;
+    limit?: number;
+    defaultOpen?: boolean;
+}
+
+const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
+    lists: [
+        { attribute: 'availableTags', label: 'Etiquetas', icon: Tags, defaultOpen: true },
+        { attribute: 'categoryId', label: 'Categoría', icon: ListIcon, defaultOpen: true },
+    ],
+    places: [
+        { attribute: 'city', label: 'Ciudad', icon: MapPin, defaultOpen: true },
+        { attribute: 'types', label: 'Tipo', icon: Utensils, defaultOpen: true },
+        { attribute: 'priceLevel', label: 'Precio', icon: CircleDollarSign },
+        { attribute: 'serviceOptions', label: 'Servicios', icon: Coffee },
+        { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility },
+    ],
+    users: [
+        { attribute: 'userType', label: 'Tipo', icon: ShieldCheck, defaultOpen: true },
+        { attribute: 'badges', label: 'Insignias', icon: Star },
+        { attribute: 'residence', label: 'Ciudad', icon: MapPin },
+    ],
+    items: [
+        { attribute: 'listCategoryId', label: 'Categoría', icon: Tags, defaultOpen: true },
+        { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
+        { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
+        { attribute: 'listName', label: 'Lista', icon: ListIcon },
+        { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
+    ],
+    grouped_items: [
+        { attribute: 'listCategoryId', label: 'Categoría', icon: Tags, defaultOpen: true },
+        { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
+        { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
+        { attribute: 'listName', label: 'Lista', icon: ListIcon },
+        { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
+    ],
+};
+
 // Opciones de ordenación por pestaña
 // NOTA: los valores que no son el índice base requieren réplicas en Algolia.
 // Crear desde el dashboard: Algolia → Index → Replicas con los nombres indicados.
@@ -109,15 +183,17 @@ const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
     ],
     items: [
         { value: 'grouped_items', label: 'Relevancia' },
-        { value: 'grouped_items_by_score', label: '↓ Puntuación' },
-        { value: 'grouped_items_by_reviews', label: '↓ Reseñas' },
+        { value: 'grouped_items_by_score', label: 'Mejor puntuación' },
+        { value: 'grouped_items_by_reviews', label: 'Más reseñas' },
     ],
 };
+
+type GeoRadius = number | 'all';
 
 const GEO_RADIUS_OPTIONS = [
     { value: 2000, label: '2 km' }, { value: 5000, label: '5 km' },
     { value: 10000, label: '10 km' }, { value: 20000, label: '20 km' },
-    { value: 50000, label: '50 km' },
+    { value: 50000, label: '50 km' }, { value: 'all', label: 'Sin límite' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -223,7 +299,7 @@ const ActiveFiltersChips = () => {
                     onClick={() => item.refine(r)}
                     className="flex items-center gap-1 px-2.5 py-1 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-full text-xs text-[var(--lt-accent)] hover:bg-[var(--lt-accent)]/40 transition-colors">
                     <span className="font-semibold text-[var(--lt-accent)]">{FILTER_LABELS[item.attribute] || item.attribute}:</span>
-                    {r.label}
+                    {formatFacetLabel(item.attribute, r.label)}
                     <X className="w-3 h-3 ml-0.5" />
                 </button>
             )))}
@@ -249,54 +325,83 @@ const ResultsCount = () => {
 
 // ─── Refinement List ──────────────────────────────────────────────────────────
 
-const CustomRefinementList = (props: Record<string, unknown> & { attribute: string; label: string }) => {
-    const { items, refine } = useRefinementList(props);
+function formatFacetLabel(attribute: string, label: string) {
+    if (attribute === 'authorUserType' || attribute === 'userType') {
+        return USER_TYPE_LABELS[label] || label;
+    }
+    if (FACET_VALUE_LABELS[attribute]?.[label]) {
+        return FACET_VALUE_LABELS[attribute][label];
+    }
+    if (attribute === 'types') {
+        return getPlaceTypeLabel(label);
+    }
+    if (attribute === 'priceLevel') {
+        return label === '0' ? 'Gratis' : '€'.repeat(Math.max(1, Math.min(4, Number(label) || 1)));
+    }
+    return label;
+}
+
+const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, defaultOpen = false }: FilterSectionConfig) => {
+    const { items, refine } = useRefinementList({ attribute, limit, showMore: true, showMoreLimit: 24 });
+    const [isOpen, setIsOpen] = useState(defaultOpen);
     if (items.length === 0) return null;
+    const selectedCount = items.filter(item => item.isRefined).length;
+
     return (
-        <div className="mb-5">
-            <h4 className="text-gray-500 font-bold mb-2 uppercase text-[10px] tracking-widest">{props.label}</h4>
-            <div className="space-y-1.5">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+            <button
+                type="button"
+                onClick={() => setIsOpen(open => !open)}
+                className="w-full flex items-center gap-3 px-3.5 py-3 text-left"
+            >
+                <span className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[var(--lt-accent)] shrink-0">
+                    <Icon className="w-4 h-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-white leading-tight">{label}</span>
+                    <span className="block text-[11px] text-gray-500">
+                        {selectedCount > 0 ? `${selectedCount} activo${selectedCount > 1 ? 's' : ''}` : `${items.length} opciones`}
+                    </span>
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen && (
+                <div className="px-3.5 pb-3 flex flex-wrap gap-2">
                 {items.map(item => (
-                    <label key={item.label} className="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" checked={item.isRefined} onChange={() => refine(item.value)}
-                            className="w-3.5 h-3.5 rounded border-white/20 bg-black/30 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] focus:ring-offset-transparent" />
-                        <span className={`text-xs leading-tight ${item.isRefined ? 'text-[var(--lt-accent)] font-semibold' : 'text-gray-400 group-hover:text-gray-300'}`}>
-                            {item.label} <span className="text-gray-700">({item.count})</span>
+                    <button
+                        type="button"
+                        key={item.label}
+                        onClick={() => refine(item.value)}
+                        className={`min-h-9 rounded-full border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                            item.isRefined
+                                ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
+                                : 'bg-white/5 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
+                        }`}
+                    >
+                        {formatFacetLabel(attribute, item.label)}
+                        <span className={item.isRefined ? 'ml-1 text-white/70' : 'ml-1 text-gray-600'}>
+                            {item.count}
                         </span>
-                    </label>
+                    </button>
                 ))}
-            </div>
-        </div>
+                </div>
+            )}
+        </section>
     );
 };
 
 // ─── Filter Content ───────────────────────────────────────────────────────────
 
-const FilterContent = ({ activeTab }: { activeTab: string }) => (
-    <>
-        {activeTab === 'lists' && (<>
-            <CustomRefinementList attribute="availableTags" label="Etiquetas" />
-            <CustomRefinementList attribute="categories" label="Categoría" />
-        </>)}
-        {activeTab === 'places' && (<>
-            <CustomRefinementList attribute="city" label="Ciudad" />
-            <CustomRefinementList attribute="types" label="Tipo" />
-            <CustomRefinementList attribute="priceLevel" label="Precio" />
-            <CustomRefinementList attribute="serviceOptions" label="Servicios" />
-            <CustomRefinementList attribute="accessibilityOptions" label="Accesibilidad" />
-        </>)}
-        {activeTab === 'users' && (<>
-            <CustomRefinementList attribute="userType" label="Tipo" />
-            <CustomRefinementList attribute="badges" label="Insignias" />
-            <CustomRefinementList attribute="residence" label="Ciudad" />
-        </>)}
-        {(activeTab === 'grouped_items' || activeTab === 'items') && (<>
-            <CustomRefinementList attribute="placeCity" label="Ciudad" />
-            <CustomRefinementList attribute="listName" label="Lista" />
-            <CustomRefinementList attribute="groupTags" label="Etiquetas" />
-        </>)}
-    </>
-);
+const FilterContent = ({ activeTab }: { activeTab: string }) => {
+    const sections = FILTER_SECTIONS[activeTab] || [];
+    return (
+        <div className="space-y-3">
+            {sections.map(section => (
+                <CustomRefinementList key={section.attribute} {...section} />
+            ))}
+        </div>
+    );
+};
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
@@ -367,6 +472,11 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const sentinelRef = useRef<HTMLDivElement>(null);
     const hover = onHoverHit ?? (() => {});
+    const visibleHits = useMemo(() => {
+        const typedHits = hits as SearchHit[];
+        if (activeTab !== 'places') return typedHits;
+        return typedHits.filter(hit => (hit.reviewsCount ?? hit.reviewCount ?? 0) > 0);
+    }, [activeTab, hits]);
 
     useEffect(() => {
         if (noInfiniteScroll) return;
@@ -377,7 +487,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
         return () => obs.disconnect();
     }, [noInfiniteScroll, isLastPage, showMore]);
 
-    if (hits.length === 0) {
+    if (visibleHits.length === 0) {
         if (activeTab === 'all') return null;
         return <EmptyState activeTab={activeTab} onTabChange={onTabChange} />;
     }
@@ -385,7 +495,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
     return (
         <div>
             <div className={listLayout ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'}>
-                {(hits as SearchHit[]).map(hit => {
+                {visibleHits.map(hit => {
                     const selected = selectedHitId === hit.objectID;
                     if (activeTab === 'users') {
                         return <UserHitCard key={hit.objectID} hit={hit} selected={selected} onHover={hover} />;
@@ -417,7 +527,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                                     itemCount: hit.itemCount,
                                     tags: (activeTab === 'grouped_items' || activeTab === 'items')
                                         ? (hit.groupTags || [])
-                                        : activeTab === 'places' ? (hit.types || [])
+                                        : activeTab === 'places' ? getPlaceTypeLabels(hit.types || [], 4)
                                         : (hit.availableTags || []),
                                 }}
                                 isGrid={!listLayout}
@@ -443,14 +553,17 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
 
 const FedSectionContent = ({ title, type, icon: Icon, onViewAll }: { title: string; type: string; icon: React.ElementType; onViewAll: () => void }) => {
     const { hits } = useInfiniteHits();
-    if (hits.length === 0) return null;
+    const visibleCount = type === 'places'
+        ? (hits as SearchHit[]).filter(hit => (hit.reviewsCount ?? hit.reviewCount ?? 0) > 0).length
+        : hits.length;
+    if (visibleCount === 0) return null;
     return (
         <div className="mb-10">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <Icon className="w-4 h-4 text-[var(--lt-accent)]" />
                     <h3 className="text-lg font-bold text-white">{title}</h3>
-                    <span className="text-xs text-gray-700">({hits.length})</span>
+                    <span className="text-xs text-gray-700">({visibleCount})</span>
                 </div>
                 <button onClick={onViewAll} className="flex items-center gap-1 text-sm text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">
                     Ver todos <ChevronRight className="w-4 h-4" />
@@ -461,9 +574,9 @@ const FedSectionContent = ({ title, type, icon: Icon, onViewAll }: { title: stri
     );
 };
 
-const FederatedSection = ({ indexName, title, type, icon, onViewAll }: { indexName: string; title: string; type: string; icon: React.ElementType; onViewAll: () => void }) => (
+const FederatedSection = ({ indexName, title, type, icon, onViewAll, filters }: { indexName: string; title: string; type: string; icon: React.ElementType; onViewAll: () => void; filters?: string }) => (
     <Index indexName={indexName}>
-        <Configure hitsPerPage={3} />
+        <Configure hitsPerPage={3} filters={filters} />
         <FedSectionContent title={title} type={type} icon={icon} onViewAll={onViewAll} />
     </Index>
 );
@@ -476,11 +589,11 @@ const GeoControls = ({
 }: {
     isGeoTab: boolean;
     geoActive: boolean;
-    geoRadius: number;
+    geoRadius: GeoRadius;
     locLoading: boolean;
     locError: string | null;
     onToggleGeo: () => void;
-    onRadiusChange: (v: number) => void;
+    onRadiusChange: (v: GeoRadius) => void;
 }) => {
     if (!isGeoTab) return null;
     return (
@@ -496,13 +609,117 @@ const GeoControls = ({
             {geoActive && !locError && (
                 <select
                     value={geoRadius}
-                    onChange={e => onRadiusChange(Number(e.target.value))}
+                    onChange={e => onRadiusChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
                     className="bg-[var(--lt-card-strong)] border border-white/10 rounded-full px-3 py-1.5 text-xs text-white focus:outline-none"
                 >
                     {GEO_RADIUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
             )}
             {locError && geoActive && <span className="text-xs text-red-400">{locError}</span>}
+        </div>
+    );
+};
+
+const FilterTrigger = ({ onClick }: { onClick: () => void }) => {
+    const { items } = useCurrentRefinements();
+    const activeCount = items.reduce((total, item) => total + item.refinements.length, 0);
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-bold transition-all active:scale-95 ${
+                activeCount > 0
+                    ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
+                    : 'bg-white/5 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
+            }`}
+        >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filtros
+            {activeCount > 0 && (
+                <span className="min-w-5 h-5 rounded-full bg-white/20 px-1.5 text-[11px] flex items-center justify-center">
+                    {activeCount}
+                </span>
+            )}
+        </button>
+    );
+};
+
+const QuickFacetButton = ({ attribute, value, label, icon: Icon }: { attribute: string; value: string; label: string; icon: React.ElementType }) => {
+    const { items, refine } = useRefinementList({ attribute, limit: 30 });
+    const item = items.find(option => option.value === value || option.label === value);
+    const isActive = Boolean(item?.isRefined);
+    const isAvailable = Boolean(item);
+
+    return (
+        <button
+            type="button"
+            disabled={!isAvailable}
+            onClick={() => item && refine(item.value)}
+            className={`shrink-0 flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition-all active:scale-95 ${
+                isActive
+                    ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
+                    : isAvailable
+                        ? 'bg-white/5 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
+                        : 'bg-white/[0.02] border-white/5 text-gray-700 cursor-not-allowed'
+            }`}
+        >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+            {item && <span className={isActive ? 'text-white/70' : 'text-gray-600'}>{item.count}</span>}
+        </button>
+    );
+};
+
+const QuickFilters = ({
+    activeTab,
+    isGeoTab,
+    geoActive,
+    locLoading,
+    onToggleGeo,
+}: {
+    activeTab: string;
+    isGeoTab: boolean;
+    geoActive: boolean;
+    locLoading: boolean;
+    onToggleGeo: () => void;
+}) => {
+    const showReviewUserTypes = activeTab === 'items' || activeTab === 'grouped_items';
+    const showPlaceTypes = activeTab === 'places';
+
+    if (!isGeoTab && !showReviewUserTypes && !showPlaceTypes) return null;
+
+    return (
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+            {isGeoTab && (
+                <button
+                    type="button"
+                    onClick={onToggleGeo}
+                    disabled={locLoading}
+                    className={`shrink-0 flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition-all active:scale-95 ${
+                        geoActive
+                            ? 'bg-emerald-600/90 border-emerald-400/50 text-white shadow-lg shadow-emerald-900/30'
+                            : 'bg-white/5 border-white/10 text-gray-300 hover:border-emerald-400/40 hover:text-white'
+                    }`}
+                >
+                    {locLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LocateFixed className="w-3.5 h-3.5" />}
+                    Cerca de mí
+                </button>
+            )}
+            {showReviewUserTypes && (
+                <>
+                    <QuickFacetButton attribute="authorUserType" value="critico" label="Críticos" icon={ShieldCheck} />
+                    <QuickFacetButton attribute="authorUserType" value="bot" label="Bots" icon={Bot} />
+                    <QuickFacetButton attribute="authorUserType" value="experto" label="Expertos" icon={Star} />
+                </>
+            )}
+            {showPlaceTypes && (
+                <>
+                    <QuickFacetButton attribute="types" value="restaurant" label="Restaurantes" icon={Utensils} />
+                    <QuickFacetButton attribute="types" value="cafe" label="Cafés" icon={Coffee} />
+                    <QuickFacetButton attribute="types" value="bar" label="Bares" icon={Wine} />
+                </>
+            )}
         </div>
     );
 };
@@ -517,7 +734,7 @@ export const SearchPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(typeParam);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const [geoActive, setGeoActive] = useState(false);
-    const [geoRadius, setGeoRadius] = useState(10000);
+    const [geoRadius, setGeoRadius] = useState<GeoRadius>(10000);
     const [mapExpanded, setMapExpanded] = useState(false);
     const [selectedHitId, setSelectedHitId] = useState<string | null>(null);
     const [hoveredHitId, setHoveredHitId] = useState<string | null>(null);
@@ -550,8 +767,13 @@ export const SearchPage: React.FC = () => {
         const parts: string[] = [];
         Object.entries(parsedQuery.filters).forEach(([key, values]) => {
             let field = key;
+            if (activeTab === 'lists' && key === 'category') field = 'categoryId';
             if (activeTab === 'places') { if (key === 'service') field = 'serviceOptions'; if (key === 'price') field = 'priceLevel'; }
-            if (activeTab === 'items') { if (key === 'city') field = 'placeCity'; }
+            if (activeTab === 'items') {
+                if (key === 'city') field = 'placeCity';
+                if (key === 'userType') field = 'authorUserType';
+                if (key === 'category') field = 'listCategoryId';
+            }
             const g = values.map(v => `${field}:"${v}"`).join(' OR ');
             if (g) parts.push(`(${g})`);
         });
@@ -620,19 +842,33 @@ export const SearchPage: React.FC = () => {
                     <Index indexName={INDEX_NAMES[activeTab as keyof typeof INDEX_NAMES]}>
                         {/* Geo override */}
                         {isGeoTab && geoActive && location && (
-                            <Configure aroundLatLng={`${location.latitude},${location.longitude}`} aroundRadius={geoRadius} />
+                            <Configure
+                                aroundLatLng={`${location.latitude},${location.longitude}`}
+                                aroundRadius={geoRadius === 'all' ? 'all' : geoRadius}
+                            />
                         )}
 
                         {/* ── Mobile filter modal ───────────────────────────── */}
                         {mobileFiltersOpen && (
                             <div className="fixed inset-0 z-[2000] lg:hidden">
                                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileFiltersOpen(false)} />
-                                <div className="absolute right-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--lt-card-strong)] border-l border-white/10 p-5 overflow-y-auto shadow-2xl">
-                                    <div className="flex justify-between items-center mb-5">
-                                        <h3 className="text-white font-bold">Filtros</h3>
-                                        <button onClick={() => setMobileFiltersOpen(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+                                <div className="absolute inset-x-0 bottom-0 max-h-[82dvh] rounded-t-3xl bg-[var(--lt-card-strong)] border-t border-white/10 shadow-2xl overflow-hidden animate-slide-up-modal">
+                                    <div className="px-5 pt-3 pb-4 border-b border-white/10 bg-white/[0.03]">
+                                        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <h3 className="text-white font-bold flex items-center gap-2">
+                                                    <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
+                                                    Filtros
+                                                </h3>
+                                                <p className="text-xs text-gray-500 mt-0.5">Afina la búsqueda sin salir de la lista.</p>
+                                            </div>
+                                            <button onClick={() => setMobileFiltersOpen(false)} className="p-2 rounded-full bg-white/5 text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+                                        </div>
                                     </div>
-                                    <FilterContent activeTab={activeTab} />
+                                    <div className="p-4 overflow-y-auto max-h-[calc(82dvh-88px)]">
+                                        <FilterContent activeTab={activeTab} />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -646,13 +882,24 @@ export const SearchPage: React.FC = () => {
                                 {/* Panel izquierdo: filtros */}
                                 <aside className="w-56 xl:w-64 flex-shrink-0 flex flex-col overflow-hidden">
                                     <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto flex-1">
-                                        <h3 className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-4">Filtros</h3>
+                                        <h3 className="text-white font-bold text-sm mb-1 flex items-center gap-2">
+                                            <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
+                                            Filtros
+                                        </h3>
+                                        <p className="text-xs text-gray-500 mb-4">Combina tipo, ciudad y autor.</p>
                                         <FilterContent activeTab={activeTab} />
                                     </div>
                                 </aside>
 
                                 {/* Panel central: controles + mapa */}
                                 <div className="flex-1 min-w-0 flex flex-col gap-2 overflow-hidden">
+                                    <QuickFilters
+                                        activeTab={activeTab}
+                                        isGeoTab={isGeoTab}
+                                        geoActive={geoActive}
+                                        locLoading={locLoading}
+                                        onToggleGeo={toggleGeo}
+                                    />
                                     <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
                                         <GeoControls
                                             isGeoTab={isGeoTab}
@@ -714,7 +961,11 @@ export const SearchPage: React.FC = () => {
 
                                     {/* Filtros */}
                                     <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto max-h-[calc(100vh-12rem)]">
-                                        <h3 className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-4">Filtros</h3>
+                                        <h3 className="text-white font-bold text-sm mb-1 flex items-center gap-2">
+                                            <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
+                                            Filtros
+                                        </h3>
+                                        <p className="text-xs text-gray-500 mb-4">Combina varias señales.</p>
                                         <FilterContent activeTab={activeTab} />
                                     </div>
                                 </div>
@@ -722,15 +973,19 @@ export const SearchPage: React.FC = () => {
 
                             {/* MAIN CONTENT */}
                             <div className="flex-1 min-w-0">
+                                <QuickFilters
+                                    activeTab={activeTab}
+                                    isGeoTab={isGeoTab}
+                                    geoActive={geoActive}
+                                    locLoading={locLoading}
+                                    onToggleGeo={toggleGeo}
+                                />
 
                                 {/* Controls bar */}
-                                <div className="flex flex-wrap items-center gap-3 mb-3">
+                                <div className="flex flex-wrap items-center gap-3 mb-3 mt-3">
                                     {/* Mobile: filtros + mapa */}
                                     <div className="flex items-center gap-2 lg:hidden">
-                                        <button onClick={() => setMobileFiltersOpen(true)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-400">
-                                            <Filter className="w-4 h-4" /> Filtros
-                                        </button>
+                                        <FilterTrigger onClick={() => setMobileFiltersOpen(true)} />
                                         {isGeoTab && (
                                             <button
                                                 onClick={() => setMapExpanded(p => !p)}

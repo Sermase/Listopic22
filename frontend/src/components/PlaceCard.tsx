@@ -1,6 +1,7 @@
 import React from 'react';
 import { Star, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getPlaceTypeLabel } from '../utils/placeTypeLabels';
 
 interface PlaceCardProps {
     place: {
@@ -48,8 +49,8 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
 
                     <div className="mt-auto flex flex-wrap gap-2">
                         {place.types?.slice(0, 3).map((t) => (
-                            <span key={t} className="px-2 py-0.5 bg-white/5 rounded text-xs text-gray-400 border border-white/5 capitalize">
-                                {t.replace('_', ' ')}
+                            <span key={t} className="px-2 py-0.5 bg-white/5 rounded text-xs text-gray-400 border border-white/5">
+                                {getPlaceTypeLabel(t)}
                             </span>
                         ))}
                     </div>
