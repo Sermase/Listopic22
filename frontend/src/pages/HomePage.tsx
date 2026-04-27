@@ -119,6 +119,13 @@ const pickRandomHeroSubtitle = (): string => {
     return HERO_SUBTITLE_TEMPLATES[Math.floor(Math.random() * HERO_SUBTITLE_TEMPLATES.length)];
 };
 
+const toSafeNumber = (value: unknown): number => {
+    const n = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(n) ? n : 0;
+};
+
+const clampScore = (value: number): number => Math.max(0, Math.min(100, Math.round(value)));
+
 export const HomePage: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
     const appConfig = useAppConfig();
@@ -736,38 +743,81 @@ export const HomePage: React.FC = () => {
     }, [filteredLists, reviewsInRange, range]);
 
     const surpriseCandidates = useMemo(() => {
-        const candidates: Array<{ route: string; label: string }> = [];
+        type SurpriseCandidate = {
+            route: string;
+            label: string;
+            reason: string;
+            score: number;
+            badge?: string;
+        };
+        const candidates: SurpriseCandidate[] = [];
+        const seenRoutes = new Set<string>();
+        const addCandidate = (candidate: SurpriseCandidate) => {
+            if (seenRoutes.has(candidate.route)) return;
+            seenRoutes.add(candidate.route);
+            candidates.push({ ...candidate, score: clampScore(candidate.score) });
+        };
 
-        filteredItems.slice(0, 25).forEach((review: any) => {
-            if (review?.placeId && review?.itemName) {
-                candidates.push({
-                    route: `/group/${review.placeId}/${encodeURIComponent(review.itemName)}`,
-                    label: `${review.itemName} · ${review.placeName || 'Grupo'}`,
-                });
-            }
+        filteredItems.slice(0, 35).forEach((review: any) => {
+            if (!review?.placeId || !review?.itemName) return;
+            const rating = toSafeNumber(review.placeAverageRating || review.overallRating);
+            const likes = toSafeNumber(review.reactionCounts?.like);
+            const reviewCount = toSafeNumber(review.reviewCount || review.reviewsCount || 1);
+            const authorBoost = botUserIds.has(review.userId || review.authorId) ? -20 : 0;
+            const score = rating * 8 + Math.log1p(likes) * 12 + Math.log1p(reviewCount) * 5 + authorBoost;
+            addCandidate({
+                route: `/group/${review.placeId}/${encodeURIComponent(review.itemName)}`,
+                label: `${review.itemName} · ${review.placeName || 'Grupo'}`,
+                reason: likes > 0
+                    ? `${rating ? rating.toFixed(1) : 'Buena nota'} y ${likes} me gusta`
+                    : `${rating ? rating.toFixed(1) : 'Buena nota'} en una reseña cercana`,
+                score,
+                badge: likes >= 3 ? 'Está gustando' : undefined,
+            });
         });
 
-        filteredPlaces.slice(0, 15).forEach((place: any) => {
+        filteredPlaces.slice(0, 30).forEach((place: any) => {
             const placeId = place?.placeId || place?.id;
-            if (placeId) {
-                candidates.push({
-                    route: `/place/${placeId}`,
-                    label: place?.name || 'Lugar sorpresa',
-                });
-            }
+            if (!placeId) return;
+            const rating = toSafeNumber(place.rating || place.averageRating || place.googleRating);
+            const reviewsCount = toSafeNumber(place.reviewsCount || place.reviewCount);
+            const isHiddenGem = rating >= 4.2 && reviewsCount > 0 && reviewsCount <= 4;
+            const distanceKm = location && place.lat && place.lng ? calculateDistance(place.lat, place.lng) : null;
+            const distanceBoost = distanceKm !== null ? Math.max(0, 18 - distanceKm * 2) : 0;
+            const score = rating * 10 + Math.log1p(reviewsCount) * 10 + distanceBoost + (isHiddenGem ? 18 : 0);
+            addCandidate({
+                route: `/place/${placeId}`,
+                label: place?.name || 'Lugar sorpresa',
+                reason: isHiddenGem
+                    ? `Joya oculta: ${rating.toFixed(1)} con pocas reseñas`
+                    : `${rating ? rating.toFixed(1) : 'Buena pinta'} · ${reviewsCount || 1} reseña${reviewsCount === 1 ? '' : 's'}`,
+                score,
+                badge: isHiddenGem ? 'Joya oculta' : undefined,
+            });
         });
 
-        listsWithRangeStats.slice(0, 15).forEach((list: any) => {
-            if (list?.id) {
-                candidates.push({
-                    route: `/list/${list.id}`,
-                    label: list?.name || 'Lista sorpresa',
-                });
-            }
+        listsWithRangeStats.slice(0, 25).forEach((list: any) => {
+            if (!list?.id) return;
+            const rating = toSafeNumber(list.averageRating || list.avgScore);
+            const reviewsCount = toSafeNumber(list.reviewsInRangeCount ?? list.reviewCount ?? list.reviewsCount);
+            const followers = toSafeNumber(list.followersCount || list.likes);
+            const score = rating * 7 + Math.log1p(reviewsCount) * 12 + Math.log1p(followers) * 7;
+            addCandidate({
+                route: `/list/${list.id}`,
+                label: list?.name || 'Lista sorpresa',
+                reason: reviewsCount > 0
+                    ? `${reviewsCount} reseña${reviewsCount === 1 ? '' : 's'} en esta lista`
+                    : 'Lista con buena actividad',
+                score,
+                badge: followers >= 5 ? 'Popular' : undefined,
+            });
         });
 
-        return candidates;
-    }, [filteredItems, filteredPlaces, listsWithRangeStats]);
+        return candidates
+            .filter(candidate => candidate.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 20);
+    }, [botUserIds, calculateDistance, filteredItems, filteredPlaces, listsWithRangeStats, location]);
 
     const handleSurpriseChoice = useCallback(() => {
         if (surpriseCandidates.length === 0) {
@@ -779,12 +829,16 @@ export const HomePage: React.FC = () => {
             return;
         }
 
-        const randomChoice = surpriseCandidates[Math.floor(Math.random() * surpriseCandidates.length)];
+        const weightedPool = surpriseCandidates.flatMap((candidate, index) => {
+            const weight = Math.max(1, Math.ceil((surpriseCandidates.length - index) / 3));
+            return Array.from({ length: weight }, () => candidate);
+        });
+        const randomChoice = weightedPool[Math.floor(Math.random() * weightedPool.length)] || surpriseCandidates[0];
         showToast({
             variant: 'info',
-            title: 'Modo sorpresa activado',
-            message: `Te llevamos a: ${randomChoice.label}`,
-            durationMs: 2200,
+            title: randomChoice.badge ? `Sorpresa: ${randomChoice.badge}` : 'Sorpresa inteligente',
+            message: `${randomChoice.label} · ${randomChoice.reason}`,
+            durationMs: 2800,
         });
         navigate(randomChoice.route);
     }, [navigate, showToast, surpriseCandidates]);
