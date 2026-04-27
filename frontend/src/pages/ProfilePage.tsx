@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme, type ThemeId } from "../context/ThemeContext";
-import { useUserProfile } from "../hooks/useUserProfile";
+import { useUserProfile, type UserProfileEntity } from "../hooks/useUserProfile";
 import { useLists } from "../hooks/useLists";
 import { useReviews } from "../hooks/useReviews";
 import { useFilters } from "../context/FilterContext"; // Import Filter Context
@@ -69,6 +69,7 @@ import {
   limit,
   startAfter,
   writeBatch,
+  serverTimestamp,
 } from "firebase/firestore";
 import { isUsernameValid } from "../utils/username";
 import {
@@ -240,7 +241,7 @@ export const ProfilePage: React.FC = () => {
 
   // Hooks need to be before effects
   const {
-    profile,
+    profile: rawProfile,
     loading: loadingProfile,
     error: errorProfile,
   } = useUserProfile(targetUserId);
@@ -260,26 +261,6 @@ export const ProfilePage: React.FC = () => {
     setIsAvatarModalOpen(false);
     setDominantColor(null);
   }, [targetUserId]);
-
-  useEffect(() => {
-    if (profile?.photoUrl) {
-      const fac = new FastAverageColor();
-      // Use crossOrigin anonymous to avoid canvas tainting for Firebase Storage images
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = profile.photoUrl;
-
-      img.onload = () => {
-        fac.getColorAsync(img)
-          .then((color) => {
-            setDominantColor(color.rgba);
-          })
-          .catch((e) => {
-            console.log("FAC Error:", e);
-          });
-      };
-    }
-  }, [profile?.photoUrl]);
 
   const {
     reviews: fetchedReviews,
@@ -412,6 +393,99 @@ export const ProfilePage: React.FC = () => {
       setLocalReviews(fetchedReviews);
     }
   }, [fetchedReviews]);
+
+  const reviewAuthorFallback = useMemo(() => {
+    for (const review of localReviews) {
+      const reviewAny = review as Record<string, unknown>;
+      const reviewUserId = reviewAny.userId || reviewAny.authorId;
+      if (reviewUserId && reviewUserId !== targetUserId) continue;
+
+      const displayName =
+        typeof reviewAny.authorName === "string" && reviewAny.authorName.trim()
+          ? reviewAny.authorName.trim()
+          : "";
+      const photoUrl =
+        typeof reviewAny.authorPhoto === "string" && reviewAny.authorPhoto.trim()
+          ? reviewAny.authorPhoto.trim()
+          : typeof reviewAny.authorPhotoUrl === "string" && reviewAny.authorPhotoUrl.trim()
+            ? reviewAny.authorPhotoUrl.trim()
+            : "";
+
+      if (displayName || photoUrl) return { displayName, photoUrl };
+    }
+    return { displayName: "", photoUrl: "" };
+  }, [localReviews, targetUserId]);
+
+  const profile = useMemo<UserProfileEntity | null>(() => {
+    if (!rawProfile) return null;
+    const rawProfileAny = rawProfile as UserProfileEntity & Record<string, unknown>;
+    const ownAuthDisplayName = isOwnProfile ? user?.displayName?.trim() || "" : "";
+    const ownAuthPhotoUrl = isOwnProfile ? user?.photoURL?.trim() || "" : "";
+    const fullName = [rawProfile.name, rawProfile.surnames].filter(Boolean).join(" ").trim();
+    const legacyPhotoUrl =
+      typeof rawProfileAny.photoURL === "string" && rawProfileAny.photoURL.trim()
+        ? rawProfileAny.photoURL.trim()
+        : typeof rawProfileAny.avatarUrl === "string" && rawProfileAny.avatarUrl.trim()
+          ? rawProfileAny.avatarUrl.trim()
+          : "";
+
+    return {
+      ...rawProfile,
+      displayName:
+        rawProfile.displayName ||
+        rawProfile.username ||
+        fullName ||
+        reviewAuthorFallback.displayName ||
+        ownAuthDisplayName,
+      photoUrl:
+        rawProfile.photoUrl ||
+        legacyPhotoUrl ||
+        reviewAuthorFallback.photoUrl ||
+        ownAuthPhotoUrl,
+    };
+  }, [isOwnProfile, rawProfile, reviewAuthorFallback.displayName, reviewAuthorFallback.photoUrl, user?.displayName, user?.photoURL]);
+
+  useEffect(() => {
+    if (!isOwnProfile || !user || !targetUserId || !rawProfile) return;
+
+    const patch: Record<string, unknown> = {};
+    const rawProfileAny = rawProfile as UserProfileEntity & Record<string, unknown>;
+    const legacyPhotoUrl = typeof rawProfileAny.photoURL === "string" ? rawProfileAny.photoURL.trim() : "";
+    const nextPhotoUrl = rawProfile.photoUrl || legacyPhotoUrl || user.photoURL?.trim() || "";
+    const nextDisplayName = rawProfile.displayName || user.displayName?.trim() || "";
+
+    if (!rawProfile.photoUrl && nextPhotoUrl) patch.photoUrl = nextPhotoUrl;
+    if (!rawProfile.displayName && nextDisplayName) patch.displayName = nextDisplayName;
+    if (!Object.keys(patch).length) return;
+
+    void setDoc(
+      doc(db, "users", targetUserId),
+      { ...patch, updatedAt: serverTimestamp() },
+      { merge: true },
+    ).catch((error) => {
+      console.warn("ProfilePage: could not repair missing profile identity fields", error);
+    });
+  }, [isOwnProfile, rawProfile, targetUserId, user]);
+
+  useEffect(() => {
+    if (profile?.photoUrl) {
+      const fac = new FastAverageColor();
+      // Use crossOrigin anonymous to avoid canvas tainting for Firebase Storage images
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.src = profile.photoUrl;
+
+      img.onload = () => {
+        fac.getColorAsync(img)
+          .then((color) => {
+            setDominantColor(color.rgba);
+          })
+          .catch((e) => {
+            console.log("FAC Error:", e);
+          });
+      };
+    }
+  }, [profile?.photoUrl]);
 
   useEffect(() => {
     if (!targetUserId) return;

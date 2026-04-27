@@ -84,73 +84,119 @@
             .health-bar { top: 8px; width: min(64vw, 290px); }
             #time-hud { top: 64px !important; transform: translateX(-50%) scale(0.92); }
             .legend { bottom: 72px; font-size: 0.54rem; width: 96%; gap: 7px; }
+            /* ── Dock container ── */
             .mobile-action-dock {
                 position: fixed;
                 left: 50%;
                 bottom: max(env(safe-area-inset-bottom, 0px), 6px);
                 transform: translateX(-50%);
                 z-index: 60;
-                width: min(96vw, 720px);
-                display: grid;
-                grid-template-columns: repeat(5, minmax(0,1fr));
-                gap: 7px;
-                padding: 9px;
-                background:
-                    linear-gradient(180deg, rgba(15,23,42,0.92), rgba(2,6,23,0.82)),
-                    radial-gradient(circle at 15% 0%, rgba(59,130,246,0.24), transparent 34%),
-                    radial-gradient(circle at 85% 0%, rgba(16,185,129,0.18), transparent 30%);
-                border: 1px solid rgba(148,163,184,0.32);
-                border-radius: 22px;
-                backdrop-filter: blur(16px);
-                box-shadow: 0 -18px 45px rgba(0,0,0,0.44), inset 0 1px 0 rgba(255,255,255,0.08);
-            }
-            .mobile-action-dock::before {
-                content: "EL BAILE · CONTROLES";
-                position: absolute;
-                left: 16px; top: -18px;
-                color: rgba(148,163,184,0.7);
-                font-size: 8px;
-                font-weight: 900;
-                letter-spacing: 0.2em;
-                text-shadow: 0 2px 8px rgba(0,0,0,0.7);
-            }
-            .mobile-action-dock button {
-                min-height: 48px;
-                border-radius: 14px;
-                font-size: 10px;
-                font-weight: 900;
-                color: #f8fafc;
-                border: 1px solid rgba(255,255,255,0.1);
-                background: linear-gradient(160deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
-                padding: 6px 4px;
-                line-height: 1.05;
+                width: min(97vw, 480px);
                 display: flex;
                 flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                gap: 3px;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 12px rgba(0,0,0,0.3);
-                transition: transform 0.1s, box-shadow 0.1s;
+                gap: 6px;
+                padding: 8px;
+                background: rgba(3, 6, 18, 0.97);
+                border: 1px solid rgba(148,163,184,0.14);
+                border-radius: 20px;
+                backdrop-filter: blur(24px) saturate(1.5);
+                box-shadow: 0 -10px 36px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
             }
-            .mobile-action-dock button:active { transform: scale(0.96); box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-            .mobile-action-dock .ico { font-size: 16px; line-height: 1; }
-            .mobile-action-dock .txt { font-size: 9px; white-space: nowrap; }
-            .mobile-action-dock .fullw {
-                grid-column: 1 / -1;
-                min-height: 56px;
-                font-size: 13px;
-                letter-spacing: 0.03em;
-                background: linear-gradient(135deg, #1d4ed8, #0891b2);
-                border-color: rgba(56,189,248,0.3);
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 6px 20px rgba(37,99,235,0.35);
+
+            /* ── Play button ── */
+            .dock-play {
+                width: 100%; padding: 11px 14px;
+                border-radius: 14px;
+                border: 1px solid rgba(56,189,248,0.2);
+                background: linear-gradient(135deg, #1e3a8a 0%, #0e7490 100%);
+                color: white; font-weight: 900; font-size: 13px; letter-spacing: 0.04em;
+                display: flex; align-items: center; justify-content: center; gap: 10px;
+                cursor: pointer;
+                box-shadow: 0 3px 16px rgba(14,116,144,0.38), inset 0 1px 0 rgba(255,255,255,0.08);
+                transition: transform 0.1s, box-shadow 0.12s;
             }
-            .mobile-action-dock .fullw .ico { font-size: 18px; }
-            .mobile-action-dock .fullw .txt { font-size: 12px; }
-            .mobile-action-dock .good { background: linear-gradient(135deg,#059669,#0f766e); border-color: rgba(16,185,129,0.3); }
-            .mobile-action-dock .warn { background: linear-gradient(135deg,#6d28d9,#4f46e5); border-color: rgba(139,92,246,0.3); }
-            .mobile-action-dock .speed { background: linear-gradient(135deg,#0e7490,#0f766e); border-color: rgba(6,182,212,0.25); }
-            .mobile-action-dock .danger { background: linear-gradient(135deg,#991b1b,#7f1d1d); border-color: rgba(239,68,68,0.25); }
-            .mobile-action-dock .ghost { background: linear-gradient(160deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95)); border-color: rgba(148,163,184,0.15); }
+            .dock-play.is-running {
+                background: linear-gradient(135deg, #581c87 0%, #4338ca 100%);
+                border-color: rgba(167,139,250,0.26);
+                box-shadow: 0 3px 16px rgba(109,40,217,0.32), inset 0 1px 0 rgba(255,255,255,0.08);
+            }
+            .dock-play:active { transform: scale(0.98); }
+            .dock-play .ico { font-size: 19px; line-height: 1; }
+            .dock-play .txt { font-size: 13px; }
+
+            /* ── Middle: two zones side by side ── */
+            .dock-mid { display: flex; gap: 6px; }
+            .dock-zone { display: flex; flex-direction: column; gap: 4px; }
+            .dock-zone-act { flex: 2; }
+            .dock-zone-obs { flex: 3; }
+            .dock-zone-label {
+                font-size: 7px; font-weight: 900; letter-spacing: 0.22em; text-align: center;
+            }
+            .dock-zone-act .dock-zone-label { color: rgba(52,211,153,0.55); }
+            .dock-zone-obs .dock-zone-label { color: rgba(148,163,184,0.4); }
+            .dock-zone-btns { display: flex; gap: 5px; }
+
+            /* ── Middle buttons base ── */
+            .dock-act, .dock-obs {
+                flex: 1; min-height: 50px;
+                border-radius: 13px; border: 1px solid rgba(255,255,255,0.07);
+                color: white; background: rgba(7,12,30,0.92);
+                display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+                cursor: pointer; padding: 7px 4px;
+                transition: transform 0.1s; position: relative;
+            }
+            .dock-act:active, .dock-obs:active { transform: scale(0.94); }
+            .dock-ico { font-size: 17px; line-height: 1; }
+            .dock-lbl { font-size: 8.5px; font-weight: 800; white-space: nowrap; }
+
+            /* ACTUAR personalities */
+            .act-wisdom {
+                background: linear-gradient(155deg, rgba(4,96,72,0.9), rgba(2,50,36,0.96));
+                border-color: rgba(16,185,129,0.48);
+                box-shadow: 0 3px 12px rgba(16,185,129,0.16), inset 0 1px 0 rgba(255,255,255,0.06);
+            }
+            .act-wisdom .dock-lbl { color: rgba(110,231,183,0.88); }
+            .act-therapy {
+                background: linear-gradient(155deg, rgba(88,22,135,0.9), rgba(52,14,90,0.96));
+                border-color: rgba(167,139,250,0.48);
+                box-shadow: 0 3px 12px rgba(139,92,246,0.16), inset 0 1px 0 rgba(255,255,255,0.06);
+            }
+            .act-therapy .dock-lbl { color: rgba(196,181,253,0.88); }
+            .therapy-badge {
+                position: absolute; top: 4px; right: 5px;
+                background: rgba(139,92,246,0.9); color: white;
+                font-size: 8px; font-weight: 900;
+                width: 14px; height: 14px; border-radius: 50%;
+                display: flex; align-items: center; justify-content: center;
+                box-shadow: 0 0 6px rgba(139,92,246,0.45);
+            }
+
+            /* EXPLORAR personalities */
+            .obs-chat { border-color: rgba(59,130,246,0.28); }
+            .obs-chat .dock-lbl { color: rgba(147,197,253,0.75); }
+            .obs-status { border-color: rgba(245,158,11,0.28); }
+            .obs-status .dock-lbl { color: rgba(252,211,77,0.75); }
+            .obs-theory { border-color: rgba(99,102,241,0.28); }
+            .obs-theory .dock-lbl { color: rgba(165,180,252,0.75); }
+
+            /* ── Tool strip ── */
+            .dock-strip { display: flex; gap: 5px; }
+            .dock-util {
+                flex: 1; min-height: 36px;
+                border-radius: 11px; border: 1px solid rgba(255,255,255,0.06);
+                background: rgba(5, 8, 22, 0.94); color: white;
+                display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+                cursor: pointer; transition: transform 0.1s;
+            }
+            .dock-util:active { transform: scale(0.93); }
+            .util-ico { font-size: 12px; line-height: 1; }
+            .util-lbl { font-size: 7px; font-weight: 700; color: rgba(100,116,139,0.8); white-space: nowrap; }
+            /* m-btn-speed uses .ico/.txt classes (set by JS) */
+            .dock-util .ico { font-size: 12px; line-height: 1; }
+            .dock-util .txt { font-size: 7px; font-weight: 700; color: rgba(103,232,249,0.72); white-space: nowrap; }
+            .util-speed { border-color: rgba(6,182,212,0.26); background: rgba(3,8,22,0.96); }
+            .util-reset { border-color: rgba(239,68,68,0.26); background: rgba(12,3,3,0.96); }
+            .util-reset .util-lbl { color: rgba(252,165,165,0.7); }
             .mobile-modal {
                 position: fixed; inset: 0; z-index: 90;
                 align-items: center; justify-content: center;
@@ -188,73 +234,64 @@
             .avatar-label { font-size: 0.64rem; padding: 2px 8px; }
             .bar-container { height: 112px; }
             .legend { display: none; }
+            /* Landscape: right sidebar, not a bubble */
             .mobile-action-dock {
-                left: auto; right: 10px; top: 50%; bottom: auto;
-                transform: translateY(-50%);
-                width: 162px;
-                grid-template-columns: repeat(2, minmax(0,1fr));
-                gap: 7px;
-                border-radius: 20px;
-                padding: 10px;
+                left: auto; right: 0; top: 0; bottom: 0;
+                transform: none;
+                width: 156px;
+                border-radius: 14px 0 0 14px;
+                max-height: 100dvh;
+                overflow-y: auto; overflow-x: hidden;
+                padding: 8px 7px;
+                gap: 5px;
+                justify-content: center;
             }
-            .mobile-action-dock::before { top: -16px; left: 10px; font-size: 8px; }
-            .mobile-action-dock button { min-height: 42px; font-size: 9px; }
-            .mobile-action-dock .fullw { min-height: 46px; font-size: 11px; }
-            .mobile-action-dock .ico { font-size: 14px; }
-            .mobile-action-dock .txt { font-size: 8px; }
+            .dock-play { padding: 9px 8px; border-radius: 11px; }
+            .dock-play .ico { font-size: 16px; }
+            .dock-play .txt { font-size: 11px; }
+            .dock-mid { flex-direction: column; gap: 5px; }
+            .dock-zone-act, .dock-zone-obs { flex: none; }
+            .dock-zone-btns { gap: 4px; }
+            .dock-act { min-height: 42px; }
+            .dock-obs { min-height: 38px; }
+            .dock-ico { font-size: 14px; }
+            .dock-lbl { font-size: 7.5px; }
+            .dock-strip { gap: 4px; flex-wrap: wrap; }
+            .dock-util { min-height: 30px; flex: 1 1 calc(33% - 4px); }
+            .util-ico { font-size: 11px; }
+            .util-lbl { font-size: 6.5px; }
+            .dock-util .ico { font-size: 11px; }
+            .dock-util .txt { font-size: 6.5px; }
             .health-bar { width: 260px; }
             #time-hud { top: 58px !important; }
         }
 
 
 
-        /* AJUSTE: el panel móvil ya no tapa el simulador. El escenario reserva su hueco. */
+        /* Reservar hueco para el dock en portrait */
         @media (max-width: 900px) {
-            :root { --dock-h: 128px; --dock-gap: 8px; }
+            :root { --dock-h: 172px; --dock-gap: 8px; }
             body { min-height: 100dvh; background: #020617; }
             #canvas-container {
                 height: calc(100dvh - var(--dock-h) - var(--dock-gap));
-                min-height: 310px;
+                min-height: 300px;
                 width: 100vw;
                 margin-bottom: calc(var(--dock-h) + var(--dock-gap)) !important;
             }
             .legend { bottom: 10px; }
-            .mobile-action-dock {
-                bottom: max(env(safe-area-inset-bottom, 0px), 6px);
-                height: var(--dock-h);
-                align-content: center;
-            }
         }
 
-        @media (orientation: portrait) and (max-width: 900px) {
-            .mobile-action-dock {
-                grid-template-columns: repeat(5, minmax(0,1fr));
-                grid-auto-rows: 50px;
-            }
-            .mobile-action-dock .fullw-land { grid-column: span 2; }
-        }
-
+        /* Landscape: el canvas cede espacio al sidebar */
         @media (orientation: landscape) and (max-width: 900px) {
-            :root { --side-dock-w: 174px; }
+            :root { --side-dock-w: 158px; }
             body { align-items: flex-start !important; }
-            .max-w-6xl { width: calc(100vw - var(--side-dock-w) - 14px) !important; }
+            .max-w-6xl { width: calc(100vw - var(--side-dock-w)) !important; }
             #canvas-container {
-                width: calc(100vw - var(--side-dock-w) - 14px);
-                height: 100dvh;
-                min-height: 0;
+                width: calc(100vw - var(--side-dock-w));
+                height: 100dvh; min-height: 0;
                 margin-bottom: 0 !important;
             }
-            .mobile-action-dock {
-                right: 7px;
-                width: calc(var(--side-dock-w) - 10px);
-                max-height: calc(100dvh - 12px);
-                overflow: auto;
-                grid-template-columns: repeat(2, minmax(0,1fr));
-                grid-auto-rows: minmax(42px, auto);
-                align-content: center;
-            }
-            .mobile-action-dock .fullw-land { grid-column: span 2; }
-            .health-bar { left: 50%; width: min(46vw, 260px); }
+            .health-bar { left: calc(50% - 40px); width: min(46vw, 240px); }
             #time-hud { top: 58px !important; }
         }
 
@@ -319,25 +356,27 @@
             color: #475569; font-size: 0.7rem; margin-top: 1rem;
         }
 
-        /* Modo pantalla completa */
+        /* Modo pantalla completa
+           NOTA: NO usar position:fixed en body — rompe los hijos position:fixed (modals, overlays).
+           En su lugar ponemos el canvas-wrapper en fixed y dejamos body con overflow:hidden. */
         body.app-fullscreen-mode {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100vw !important;
-            height: 100dvh !important;
             overflow: hidden !important;
             background: #020617 !important;
         }
         body.app-fullscreen-mode .max-w-6xl {
+            position: fixed !important;
+            inset: 0 !important;
             width: 100vw !important;
             max-width: none !important;
             height: 100dvh !important;
             margin: 0 !important;
+            z-index: 10;
         }
         body.app-fullscreen-mode header,
         body.app-fullscreen-mode #controls-panel,
         body.app-fullscreen-mode #history-panel,
-        body.app-fullscreen-mode #diag-panel {
+        body.app-fullscreen-mode #diag-panel,
+        body.app-fullscreen-mode .mobile-action-dock {
             display: none !important;
         }
         body.app-fullscreen-mode #canvas-container {
@@ -345,7 +384,13 @@
             margin: 0 !important;
             max-height: none !important;
             border: 0 !important;
+            height: 100dvh !important;
+            width: 100vw !important;
         }
+        /* Overlays y modales siempre por encima del fullscreen canvas */
+        #expl-overlay { z-index: 50; }
+        #mobile-modal { z-index: 100; }
+        #welcome-overlay { z-index: 200; }
         .fullscreen-hint {
             position: fixed;
             left: 50%;
@@ -432,18 +477,67 @@
                 <span class="legend-item"><span class="dot bg-indigo-400"></span> Alquimia Emocional</span>
             </div>
 
-            <div class="mobile-action-dock" aria-label="Panel de mandos móvil">
-                <button id="m-btn-play" class="fullw" onclick="toggleSim()"><span class="ico">▶</span><span class="txt">Iniciar</span></button>
-                <button class="good" onclick="useWisdom()"><span class="ico">🛡️</span><span class="txt">Sabiduría</span></button>
-                <button class="warn" onclick="useTherapy()"><span class="ico">🛋️</span><span class="txt">Terapia</span></button>
-                <button class="ghost" onclick="openMobileModal('history')"><span class="ico">💬</span><span class="txt">Historial</span></button>
-                <button class="ghost" onclick="openMobileModal('status')"><span class="ico">📊</span><span class="txt">Estado</span></button>
-                <button class="ghost" onclick="openMobileModal('theory')"><span class="ico">📚</span><span class="txt">Teoría</span></button>
-                <button class="ghost" onclick="openMobileModal('config')"><span class="ico">⚙️</span><span class="txt">Config.</span></button>
-                <button class="ghost" onclick="toggleSound()"><span class="ico">🔊</span><span class="txt">Sonido</span></button>
-                <button id="m-btn-speed" class="speed" onclick="cycleSpeed()"><span class="ico">⏱️</span><span class="txt">x1</span></button>
-                <button class="danger" onclick="resetSim()"><span class="ico">↺</span><span class="txt">Reset</span></button>
-                <button id="m-btn-fullscreen" class="ghost" onclick="toggleFullscreenMode()"><span class="ico">⛶</span><span class="txt">Pantalla</span></button>
+            <div class="mobile-action-dock" aria-label="Panel de mandos">
+
+                <!-- Acción principal -->
+                <button id="m-btn-play" class="dock-play" onclick="toggleSim()">
+                    <span class="ico">▶</span>
+                    <span class="txt">Iniciar el baile</span>
+                </button>
+
+                <!-- Zona media: ACTUAR + EXPLORAR -->
+                <div class="dock-mid">
+                    <div class="dock-zone dock-zone-act">
+                        <div class="dock-zone-label">ACTUAR</div>
+                        <div class="dock-zone-btns">
+                            <button class="dock-act act-wisdom" onclick="useWisdom()">
+                                <span class="dock-ico">🛡️</span>
+                                <span class="dock-lbl">Sabiduría</span>
+                            </button>
+                            <button class="dock-act act-therapy" onclick="useTherapy()">
+                                <span class="dock-ico">🛋️</span>
+                                <span class="dock-lbl">Terapia</span>
+                                <span class="therapy-badge" id="therapy-mobile-badge">2</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dock-zone dock-zone-obs">
+                        <div class="dock-zone-label">EXPLORAR</div>
+                        <div class="dock-zone-btns">
+                            <button class="dock-obs obs-chat" onclick="openMobileModal('history')">
+                                <span class="dock-ico">💬</span>
+                                <span class="dock-lbl">Chat</span>
+                            </button>
+                            <button class="dock-obs obs-status" onclick="openMobileModal('status')">
+                                <span class="dock-ico">📊</span>
+                                <span class="dock-lbl">Estado</span>
+                            </button>
+                            <button class="dock-obs obs-theory" onclick="openMobileModal('theory')">
+                                <span class="dock-ico">📚</span>
+                                <span class="dock-lbl">Teoría</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tira de herramientas -->
+                <div class="dock-strip">
+                    <button class="dock-util" onclick="openMobileModal('config')">
+                        <span class="util-ico">⚙️</span><span class="util-lbl">Config</span>
+                    </button>
+                    <button class="dock-util" onclick="toggleSound()">
+                        <span class="util-ico">🔊</span><span class="util-lbl">Sonido</span>
+                    </button>
+                    <button id="m-btn-speed" class="dock-util util-speed" onclick="cycleSpeed()">
+                        <span class="ico">⏱️</span><span class="txt">x1</span>
+                    </button>
+                    <button class="dock-util util-reset" onclick="resetSim()">
+                        <span class="util-ico">↺</span><span class="util-lbl">Reset</span>
+                    </button>
+                    <button id="m-btn-fullscreen" class="dock-util" onclick="toggleFullscreenMode()">
+                        <span class="util-ico">⤢</span><span class="util-lbl">Pantalla</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1004,8 +1098,20 @@
         function syncMobileControls() {
             const p = document.getElementById('m-btn-play');
             const sp = document.getElementById('m-btn-speed');
-            if (p) p.innerHTML = state.running ? '<span class="ico">⏸</span><span class="txt">Pausar</span>' : '<span class="ico">▶</span><span class="txt">Iniciar</span>';
+            if (p) {
+                p.innerHTML = state.running
+                    ? '<span class="ico">⏸</span><span class="txt">Pausar</span>'
+                    : '<span class="ico">▶</span><span class="txt">Iniciar el baile</span>';
+                p.classList.toggle('is-running', state.running);
+            }
             if (sp) sp.innerHTML = '<span class="ico">⏱️</span><span class="txt">x' + (Math.round(state.speed * 10) / 10) + '</span>';
+        }
+
+        function syncMobileBadges() {
+            const mb = document.getElementById('therapy-mobile-badge');
+            if (mb) mb.textContent = state.therapyUses;
+            const wBtn = document.querySelector('.act-wisdom');
+            if (wBtn) wBtn.style.opacity = state.wisdomCooldown > 0 ? '0.42' : '1';
         }
 
         function cycleSpeed() {
@@ -1186,6 +1292,7 @@
                 ctx.fillStyle = "rgba(16, 185, 129, 0.2)"; ctx.fillRect(0,0,width,height);
                 spawnText(width/2, height/2, "🛡️ CORTAFUEGOS CONSCIENTE", 'AutoReg');
                 vibrate([10, 8, 20, 8, 10]);
+                syncMobileBadges();
                 logEvent("Habéis usado vuestra experiencia: Tiempo Fuera para no destruiros.", "edu", "SYS");
 
                 triggerExplanation(`🛡️ Consciencia y Autorregulación Aplicada`, `<p><strong>Has frenado el bucle reactivo justo a tiempo.</strong></p><p>Has utilizado todo lo que sabes de tus relaciones anteriores. Te has dado cuenta de que seguir exigiendo (o seguir huyendo) estando tan tensos solo iba a terminar en dolor.</p><p>Has impuesto un <em>"Tiempo Fuera"</em> saludable. Vuestros cuerpos se han relajado de golpe y habéis evitado sumar más resentimiento a la mochila.</p>`, 'border-emerald-400', '🛡️');
@@ -1207,6 +1314,7 @@
                 ctx.fillStyle = "rgba(99, 102, 241, 0.4)"; ctx.fillRect(0,0,width,height);
                 spawnText(width/2, height/2, "🧠 TERAPIA: APRENDIZAJE EMPÁTICO", 'Correg');
                 vibrate([8, 5, 15, 5, 8, 5, 30]);
+                syncMobileBadges();
                 logEvent("Terapia de Pareja. Habéis aprendido a ver la herida del otro en lugar de su ataque.", "edu", "SYS");
 
                 triggerExplanation(`🆘 Intervención Terapéutica`, `<p><strong>Un profesional os ha ayudado a ver lo que hay debajo del enfado.</strong></p><p>El terapeuta ha creado un espacio seguro. El Evitativo ha podido explicar que se aleja porque se siente insuficiente (no porque no ame al Ansioso), y el Ansioso ha explicado que persigue por puro terror a quedarse solo (no para asfixiar al Evitativo).</p><p>Esta comprensión profunda ha subido vuestros parámetros de Comunicación y Sabiduría <strong>permanentemente</strong>.</p>`, 'border-indigo-500', '🛋️');
@@ -1857,6 +1965,7 @@
                 if(state.wisdomCooldown <= 0) {
                     btnW.disabled = false; btnW.innerText = "🛡️ Usar Sabiduría para Frenar (T. Fuera)";
                     btnW.classList.replace('bg-slate-600', 'bg-emerald-600'); btnW.classList.replace('hover:bg-slate-600', 'hover:bg-emerald-500');
+                    syncMobileBadges();
                 }
             }
 
@@ -1944,7 +2053,7 @@
             state.particles = []; state.floatingTexts = []; state.esperandoUsuario = false;
             document.getElementById('expl-overlay').classList.add('hidden');
             
-            setTimeout(() => { updateDiagnosis(); syncMobileControls(); }, 50);
+            setTimeout(() => { updateDiagnosis(); syncMobileControls(); syncMobileBadges(); }, 50);
 
             ctx.clearRect(0,0,width,height); drawBackgroundScene();
             document.getElementById('tension-a').style.height = '0%'; document.getElementById('tension-e').style.height = '0%';
