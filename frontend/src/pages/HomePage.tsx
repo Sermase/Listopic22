@@ -10,7 +10,7 @@ import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
 import { UserAvatar } from '../components/UserAvatar';
-import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Dice5, Star, Clock, Flame, TrendingUp, Gem } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, query, getDocs, limit, doc, getDoc, onSnapshot, where } from 'firebase/firestore';
@@ -889,6 +889,18 @@ export const HomePage: React.FC = () => {
         toggleRange();
     };
 
+    const buildCarouselSearchLink = useCallback((type: 'lists' | 'places' | 'users' | 'items', sort?: string) => {
+        const params = new URLSearchParams({ type });
+        if (sort) {
+            params.set('sort', sort);
+        }
+        if ((type === 'places' || type === 'items') && range !== null) {
+            params.set('geo', '1');
+            params.set('radius', String(Math.round(range * 1000)));
+        }
+        return `/search?${params.toString()}`;
+    }, [range]);
+
     if (authLoading) {
         return (
             <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center">
@@ -1021,7 +1033,7 @@ export const HomePage: React.FC = () => {
                             {/* 1. Listas */}
                             <CardCarousel
                                 title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
-                                viewAllLink={`/search?type=lists&sort=${activeTab === 'explore' ? 'most_reviewed' : 'latest'}`}
+                                viewAllLink={buildCarouselSearchLink('lists', activeTab === 'explore' ? 'most_reviewed' : 'latest')}
                                 items={activeTab === 'explore'
                                     ? listsWithRangeStats.sort((a, b) => (b.reviewsInRangeCount ?? b.reviewCount ?? 0) - (a.reviewsInRangeCount ?? a.reviewCount ?? 0)).slice(0, 10)
                                     : filteredLists}
@@ -1068,7 +1080,7 @@ export const HomePage: React.FC = () => {
                             {/* 2. Items */}
                             <CardCarousel
                                 title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos Items"}
-                                viewAllLink={`/search?type=items&sort=${activeTab === 'explore' ? 'top_rated' : 'latest'}`}
+                                viewAllLink={buildCarouselSearchLink('items', activeTab === 'explore' ? 'top_rated' : 'latest')}
                                 items={filteredItems}
                                 loading={loadingReviews}
                                 icon={<Star className="w-5 h-5 text-amber-400" />}
@@ -1081,19 +1093,19 @@ export const HomePage: React.FC = () => {
                             {/* 2b. Joyas ocultas */}
                             <CardCarousel
                                 title="Joyas ocultas"
-                                subtitle="Sitios con muy buena nota que todavía no están masificados."
-                                viewAllLink="/search?type=places&sort=rating"
+                                subtitle="Buena nota y pocas reseñas."
+                                viewAllLink={buildCarouselSearchLink('places', 'rating')}
                                 items={hiddenGemPlaces}
                                 loading={loadingReviews}
                                 icon={<Gem className="w-5 h-5 text-emerald-300" />}
                                 accentClass="bg-emerald-500/20"
-                                itemClassName="min-w-[82vw] sm:min-w-[320px] md:min-w-[270px]"
+                                itemClassName="w-[calc(100vw-2rem)] min-w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] md:w-auto md:min-w-[270px] md:max-w-none"
                                 renderItem={(place: any) => {
                                     const placeId = place.placeId || place.id;
                                     return (
                                         <Link
                                             to={`/place/${placeId}`}
-                                            className="group block h-32 sm:h-44 md:h-56 rounded-md overflow-hidden border border-emerald-300/15 bg-[var(--lt-card-strong)] shadow-lg transition-all duration-300 hover:scale-105 hover:border-emerald-300/40 hover:shadow-emerald-500/10"
+                                            className="group block h-44 sm:h-48 md:h-56 rounded-md overflow-hidden border border-emerald-300/15 bg-[var(--lt-card-strong)] shadow-lg transition-all duration-300 hover:scale-105 hover:border-emerald-300/40 hover:shadow-emerald-500/10"
                                         >
                                             <div className="relative h-full">
                                                 {place.photoUrl ? (
@@ -1101,12 +1113,12 @@ export const HomePage: React.FC = () => {
                                                         src={place.photoUrl}
                                                         alt={place.name}
                                                         containerClassName="absolute inset-0"
-                                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                        className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
                                                     />
                                                 ) : (
                                                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-slate-900 to-black" />
                                                 )}
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-black/10" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
                                                 <div className="absolute left-2.5 top-2.5 rounded-full border border-emerald-200/30 bg-emerald-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-100 backdrop-blur sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[10px]">
                                                     Joya oculta
                                                 </div>
@@ -1142,7 +1154,7 @@ export const HomePage: React.FC = () => {
                             {/* 3. Reseñas Recientes */}
                             <CardCarousel
                                 title="Reseñas recientes"
-                                viewAllLink="/search?type=items&sort=latest"
+                                viewAllLink={buildCarouselSearchLink('items', 'latest')}
                                 items={recentReviewsInRange}
                                 loading={loadingReviews}
                                 icon={<Clock className="w-5 h-5 text-cyan-400" />}
@@ -1155,7 +1167,7 @@ export const HomePage: React.FC = () => {
                             {/* 4. Usuarios activos */}
                             <CardCarousel
                                 title="Usuarios activos"
-                                viewAllLink="/search?type=users"
+                                viewAllLink={buildCarouselSearchLink('users')}
                                 items={activeUsersInRange}
                                 loading={loadingUsers}
                                 itemClassName="w-auto mr-3"
@@ -1183,7 +1195,7 @@ export const HomePage: React.FC = () => {
                             {/* 5. Lugares top */}
                             <CardCarousel
                                 title={activeTab === 'explore' ? "Lugares top" : "Nuevos Lugares"}
-                                viewAllLink={`/search?type=places&sort=${activeTab === 'explore' ? 'rating' : 'latest'}`}
+                                viewAllLink={buildCarouselSearchLink('places', activeTab === 'explore' ? 'rating' : 'latest')}
                                 items={filteredPlaces}
                                 loading={loadingReviews}
                                 icon={<Flame className="w-5 h-5 text-rose-400" />}
@@ -1284,7 +1296,7 @@ export const HomePage: React.FC = () => {
 
                             <CardCarousel
                                 title="Reseñas que gustan"
-                                viewAllLink="/search?type=items&sort=top_liked"
+                                viewAllLink={buildCarouselSearchLink('items', 'top_liked')}
                                 items={carouselReviews}
                                 loading={loadingReviews}
                                 itemClassName="w-auto"
@@ -1298,18 +1310,6 @@ export const HomePage: React.FC = () => {
 
                     </div>
                 </div>
-
-                {appConfig.showRandomChoiceButton && (
-                    <button
-                        type="button"
-                        onClick={handleSurpriseChoice}
-                        className="fixed bottom-5 right-4 sm:bottom-6 sm:right-5 z-40 h-11 w-11 rounded-full border-2 border-amber-300/90 text-amber-100 shadow-lg shadow-amber-500/25 transition-colors flex items-center justify-center" style={{ backgroundColor: 'var(--lt-accent)' }}
-                        title="Plan al azar"
-                        aria-label="Plan al azar"
-                    >
-                        <Dice5 className="w-4 h-4" />
-                    </button>
-                )}
 
                 {/* Profile gate — overlay modal, solo aparece si el username es realmente inválido */}
                 {user && showProfileGate && profileGateVisible && (
