@@ -355,22 +355,6 @@
         .welcome-note {
             color: #475569; font-size: 0.7rem; margin-top: 1rem;
         }
-        .names-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.4rem; }
-        .name-input-group {
-            display: flex; align-items: center; gap: 10px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 13px; padding: 9px 14px;
-            transition: border-color 0.2s;
-        }
-        .name-input-group:focus-within { border-color: rgba(255,255,255,0.25); }
-        .name-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-        .name-input {
-            background: none; border: none; color: white;
-            font-size: 0.92rem; font-weight: 700; flex: 1; outline: none;
-        }
-        .name-input::placeholder { color: rgba(148,163,184,0.35); font-weight: 400; font-size: 0.85rem; }
-        .name-label-tiny { font-size: 0.65rem; font-weight: 900; letter-spacing: 0.1em; color: rgba(148,163,184,0.4); text-transform: uppercase; white-space: nowrap; }
 
         /* Modo pantalla completa
            NOTA: NO usar position:fixed en body — rompe los hijos position:fixed (modals, overlays).
@@ -707,20 +691,9 @@
                 <div class="welcome-emoji">💃🕺</div>
                 <h1 class="welcome-title">El baile de los apegos</h1>
                 <p class="welcome-subtitle">
-                    Ponles nombre. Observa cómo bailan.
+                    Un simulador del vínculo entre el apego <strong style="color:#60a5fa">ansioso</strong> y el <strong style="color:#c084fc">evitativo</strong>.<br>
+                    Ajusta los parámetros, intervén y observa cómo evolucionan.
                 </p>
-                <div class="names-form">
-                    <div class="name-input-group">
-                        <span class="name-dot" style="background:#3b82f6"></span>
-                        <span class="name-label-tiny">Ansioso</span>
-                        <input id="name-a" class="name-input" type="text" maxlength="12" placeholder="¿Cómo se llama?" autocomplete="off" spellcheck="false">
-                    </div>
-                    <div class="name-input-group">
-                        <span class="name-dot" style="background:#a855f7"></span>
-                        <span class="name-label-tiny">Evitativo</span>
-                        <input id="name-e" class="name-input" type="text" maxlength="12" placeholder="¿Y éste?" autocomplete="off" spellcheck="false">
-                    </div>
-                </div>
                 <button class="welcome-btn" onclick="startFromWelcome()">
                     ▶ Comenzar el baile
                 </button>
@@ -949,9 +922,8 @@
             toxEventsCount: 0,
             a: { tension: 0, color: CLINICA.A.color, pendingReaction: null, timer: 0, lastRelato: "", nodes: { disp: 0, center: 0, reac: 0 }, stats: {dmg: 0, heal: 0} },
             e: { tension: 0, color: CLINICA.E.color, pendingReaction: null, timer: 0, lastRelato: "", nodes: { disp: 0, center: 0, reac: 0 }, stats: {dmg: 0, heal: 0} },
-            particles: [], floatingTexts: [], ripples: [],
-            modoExplicativo: false, esperandoUsuario: false,
-            nameA: 'Ansioso', nameE: 'Evitativo'
+            particles: [], floatingTexts: [],
+            modoExplicativo: false, esperandoUsuario: false
         };
 
         const canvas = document.getElementById('sim-canvas');
@@ -1881,7 +1853,7 @@
                 ctx.fillStyle = (data.tension > 80 && !state.secureMode) ? "#f87171" : "#e2e8f0";
                 ctx.beginPath(); ctx.arc(x+sx, y+sy, 22, 0, Math.PI*2); ctx.fill(); 
                 ctx.fillStyle = "#0f172a"; ctx.font = "18px Arial"; ctx.textAlign = "center"; ctx.textBaseline="middle";
-                ctx.fillText(state.secureMode ? "S" : (isA ? (state.nameA[0] || 'A').toUpperCase() : (state.nameE[0] || 'E').toUpperCase()), x+sx, y+sy);
+                ctx.fillText(state.secureMode ? "S" : (isA ? "A" : "E"), x+sx, y+sy);
                 
                 ctx.fillStyle = (data.tension > 80 && !state.secureMode) ? "#fca5a5" : "#94a3b8"; ctx.font = "10px sans-serif";
                 ctx.fillText(`Tensión: ${Math.floor(data.tension)}%`, x+sx+45, y+sy);
@@ -2109,19 +2081,7 @@
             drawInitialAvatar(pos.a.x, pos.a.y, true); drawInitialAvatar(pos.e.x, pos.e.y, false);
         }
 
-        function applyNames() {
-            document.getElementById('label-a').innerText = state.nameA;
-            document.getElementById('label-e').innerText = state.nameE;
-            document.getElementById('label-a').className = 'avatar-label label-a';
-            document.getElementById('label-e').className = 'avatar-label label-e';
-        }
-
         function startFromWelcome() {
-            const rawA = (document.getElementById('name-a').value || '').trim();
-            const rawE = (document.getElementById('name-e').value || '').trim();
-            state.nameA = rawA || 'Ansioso';
-            state.nameE = rawE || 'Evitativo';
-            applyNames();
             const ov = document.getElementById('welcome-overlay');
             if (ov) {
                 ov.style.transition = 'opacity 0.4s ease';

@@ -10,7 +10,7 @@ import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
 import { UserAvatar } from '../components/UserAvatar';
-import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Dice5, Star, Clock, Flame, TrendingUp } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Dice5, Star, Clock, Flame, TrendingUp, Gem } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, query, getDocs, limit, doc, getDoc, onSnapshot, where } from 'firebase/firestore';
@@ -118,6 +118,14 @@ const HOME_LOADING_MESSAGES = [
 const pickRandomHeroSubtitle = (): string => {
     return HERO_SUBTITLE_TEMPLATES[Math.floor(Math.random() * HERO_SUBTITLE_TEMPLATES.length)];
 };
+
+const toSafeNumber = (value: unknown): number => {
+    const n = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(n) ? n : 0;
+};
+
+const clampScore = (value: number): number => Math.max(0, Math.min(100, Math.round(value)));
+const HIDDEN_GEM_MIN_RATING = 8.4;
 
 export const HomePage: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
@@ -654,6 +662,35 @@ export const HomePage: React.FC = () => {
         return reviewCandidates || extraPlaceCandidates;
     }, [reviews, extraPlaces, activeFilter]);
 
+    const hiddenGemPlaces = useMemo(() => {
+        return filteredPlaces
+            .map((place: any) => {
+                const rating = toSafeNumber(place.rating || place.averageRating || place.googleRating);
+                const reviewsCount = toSafeNumber(place.reviewsCount || place.reviewCount);
+                const distanceKm = location && place.lat && place.lng ? calculateDistance(place.lat, place.lng) : null;
+                const gemScore =
+                    rating * 16 +
+                    Math.max(0, 5 - reviewsCount) * 9 +
+                    (distanceKm !== null ? Math.max(0, 12 - distanceKm) : 0);
+
+                return {
+                    ...place,
+                    rating,
+                    reviewsCount,
+                    distanceKm,
+                    gemScore,
+                };
+            })
+            .filter((place: any) =>
+                place.rating >= HIDDEN_GEM_MIN_RATING &&
+                place.reviewsCount > 0 &&
+                place.reviewsCount <= 5 &&
+                place.closedStatus !== 'permanently_closed'
+            )
+            .sort((a: any, b: any) => b.gemScore - a.gemScore)
+            .slice(0, 12);
+    }, [calculateDistance, filteredPlaces, location]);
+
     useEffect(() => {
         if (activeTab !== 'explore') return;
         if (range === null || !location) return;
@@ -736,38 +773,81 @@ export const HomePage: React.FC = () => {
     }, [filteredLists, reviewsInRange, range]);
 
     const surpriseCandidates = useMemo(() => {
-        const candidates: Array<{ route: string; label: string }> = [];
+        type SurpriseCandidate = {
+            route: string;
+            label: string;
+            reason: string;
+            score: number;
+            badge?: string;
+        };
+        const candidates: SurpriseCandidate[] = [];
+        const seenRoutes = new Set<string>();
+        const addCandidate = (candidate: SurpriseCandidate) => {
+            if (seenRoutes.has(candidate.route)) return;
+            seenRoutes.add(candidate.route);
+            candidates.push({ ...candidate, score: clampScore(candidate.score) });
+        };
 
-        filteredItems.slice(0, 25).forEach((review: any) => {
-            if (review?.placeId && review?.itemName) {
-                candidates.push({
-                    route: `/group/${review.placeId}/${encodeURIComponent(review.itemName)}`,
-                    label: `${review.itemName} · ${review.placeName || 'Grupo'}`,
-                });
-            }
+        filteredItems.slice(0, 35).forEach((review: any) => {
+            if (!review?.placeId || !review?.itemName) return;
+            const rating = toSafeNumber(review.placeAverageRating || review.overallRating);
+            const likes = toSafeNumber(review.reactionCounts?.like);
+            const reviewCount = toSafeNumber(review.reviewCount || review.reviewsCount || 1);
+            const authorBoost = botUserIds.has(review.userId || review.authorId) ? -20 : 0;
+            const score = rating * 8 + Math.log1p(likes) * 12 + Math.log1p(reviewCount) * 5 + authorBoost;
+            addCandidate({
+                route: `/group/${review.placeId}/${encodeURIComponent(review.itemName)}`,
+                label: `${review.itemName} · ${review.placeName || 'Grupo'}`,
+                reason: likes > 0
+                    ? `${rating ? rating.toFixed(1) : 'Buena nota'} y ${likes} me gusta`
+                    : `${rating ? rating.toFixed(1) : 'Buena nota'} en una reseña cercana`,
+                score,
+                badge: likes >= 3 ? 'Está gustando' : undefined,
+            });
         });
 
-        filteredPlaces.slice(0, 15).forEach((place: any) => {
+        filteredPlaces.slice(0, 30).forEach((place: any) => {
             const placeId = place?.placeId || place?.id;
-            if (placeId) {
-                candidates.push({
-                    route: `/place/${placeId}`,
-                    label: place?.name || 'Lugar sorpresa',
-                });
-            }
+            if (!placeId) return;
+            const rating = toSafeNumber(place.rating || place.averageRating || place.googleRating);
+            const reviewsCount = toSafeNumber(place.reviewsCount || place.reviewCount);
+            const isHiddenGem = rating >= HIDDEN_GEM_MIN_RATING && reviewsCount > 0 && reviewsCount <= 4;
+            const distanceKm = location && place.lat && place.lng ? calculateDistance(place.lat, place.lng) : null;
+            const distanceBoost = distanceKm !== null ? Math.max(0, 18 - distanceKm * 2) : 0;
+            const score = rating * 10 + Math.log1p(reviewsCount) * 10 + distanceBoost + (isHiddenGem ? 18 : 0);
+            addCandidate({
+                route: `/place/${placeId}`,
+                label: place?.name || 'Lugar sorpresa',
+                reason: isHiddenGem
+                    ? `Joya oculta: ${rating.toFixed(1)} con pocas reseñas`
+                    : `${rating ? rating.toFixed(1) : 'Buena pinta'} · ${reviewsCount || 1} reseña${reviewsCount === 1 ? '' : 's'}`,
+                score,
+                badge: isHiddenGem ? 'Joya oculta' : undefined,
+            });
         });
 
-        listsWithRangeStats.slice(0, 15).forEach((list: any) => {
-            if (list?.id) {
-                candidates.push({
-                    route: `/list/${list.id}`,
-                    label: list?.name || 'Lista sorpresa',
-                });
-            }
+        listsWithRangeStats.slice(0, 25).forEach((list: any) => {
+            if (!list?.id) return;
+            const rating = toSafeNumber(list.averageRating || list.avgScore);
+            const reviewsCount = toSafeNumber(list.reviewsInRangeCount ?? list.reviewCount ?? list.reviewsCount);
+            const followers = toSafeNumber(list.followersCount || list.likes);
+            const score = rating * 7 + Math.log1p(reviewsCount) * 12 + Math.log1p(followers) * 7;
+            addCandidate({
+                route: `/list/${list.id}`,
+                label: list?.name || 'Lista sorpresa',
+                reason: reviewsCount > 0
+                    ? `${reviewsCount} reseña${reviewsCount === 1 ? '' : 's'} en esta lista`
+                    : 'Lista con buena actividad',
+                score,
+                badge: followers >= 5 ? 'Popular' : undefined,
+            });
         });
 
-        return candidates;
-    }, [filteredItems, filteredPlaces, listsWithRangeStats]);
+        return candidates
+            .filter(candidate => candidate.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 20);
+    }, [botUserIds, calculateDistance, filteredItems, filteredPlaces, listsWithRangeStats, location]);
 
     const handleSurpriseChoice = useCallback(() => {
         if (surpriseCandidates.length === 0) {
@@ -779,12 +859,16 @@ export const HomePage: React.FC = () => {
             return;
         }
 
-        const randomChoice = surpriseCandidates[Math.floor(Math.random() * surpriseCandidates.length)];
+        const weightedPool = surpriseCandidates.flatMap((candidate, index) => {
+            const weight = Math.max(1, Math.ceil((surpriseCandidates.length - index) / 3));
+            return Array.from({ length: weight }, () => candidate);
+        });
+        const randomChoice = weightedPool[Math.floor(Math.random() * weightedPool.length)] || surpriseCandidates[0];
         showToast({
             variant: 'info',
-            title: 'Modo sorpresa activado',
-            message: `Te llevamos a: ${randomChoice.label}`,
-            durationMs: 2200,
+            title: randomChoice.badge ? `Sorpresa: ${randomChoice.badge}` : 'Sorpresa inteligente',
+            message: `${randomChoice.label} · ${randomChoice.reason}`,
+            durationMs: 2800,
         });
         navigate(randomChoice.route);
     }, [navigate, showToast, surpriseCandidates]);
@@ -992,6 +1076,67 @@ export const HomePage: React.FC = () => {
                                 renderItem={(item: any) => (
                                     <ReviewCarouselItem review={item} variant="item" />
                                 )}
+                            />
+
+                            {/* 2b. Joyas ocultas */}
+                            <CardCarousel
+                                title="Joyas ocultas"
+                                subtitle="Sitios con muy buena nota que todavía no están masificados."
+                                viewAllLink="/search?type=places&sort=rating"
+                                items={hiddenGemPlaces}
+                                loading={loadingReviews}
+                                icon={<Gem className="w-5 h-5 text-emerald-300" />}
+                                accentClass="bg-emerald-500/20"
+                                itemClassName="min-w-[82vw] sm:min-w-[320px] md:min-w-[270px]"
+                                renderItem={(place: any) => {
+                                    const placeId = place.placeId || place.id;
+                                    return (
+                                        <Link
+                                            to={`/place/${placeId}`}
+                                            className="group block h-32 sm:h-44 md:h-56 rounded-md overflow-hidden border border-emerald-300/15 bg-[var(--lt-card-strong)] shadow-lg transition-all duration-300 hover:scale-105 hover:border-emerald-300/40 hover:shadow-emerald-500/10"
+                                        >
+                                            <div className="relative h-full">
+                                                {place.photoUrl ? (
+                                                    <ProgressiveImage
+                                                        src={place.photoUrl}
+                                                        alt={place.name}
+                                                        containerClassName="absolute inset-0"
+                                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                    />
+                                                ) : (
+                                                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-slate-900 to-black" />
+                                                )}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-black/10" />
+                                                <div className="absolute left-2.5 top-2.5 rounded-full border border-emerald-200/30 bg-emerald-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-100 backdrop-blur sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[10px]">
+                                                    Joya oculta
+                                                </div>
+                                                <div className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[11px] font-black text-white backdrop-blur sm:right-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs">
+                                                    <Star className="w-3 h-3 fill-amber-300 text-amber-300 sm:w-3.5 sm:h-3.5" />
+                                                    {place.rating.toFixed(1)}
+                                                </div>
+                                                <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+                                                    <h3 className="line-clamp-1 text-sm font-black leading-tight text-white drop-shadow sm:line-clamp-2 sm:text-base">
+                                                        {place.name || 'Lugar por descubrir'}
+                                                    </h3>
+                                                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-gray-200 sm:mt-2 sm:gap-2 sm:text-xs">
+                                                        <span>{place.reviewsCount} reseña{place.reviewsCount === 1 ? '' : 's'}</span>
+                                                        {place.distanceKm !== null && (
+                                                            <>
+                                                                <span className="text-gray-500">·</span>
+                                                                <span>{place.distanceKm.toFixed(place.distanceKm < 10 ? 1 : 0)} km</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    {place.address && (
+                                                        <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-400 sm:mt-1 sm:text-xs">
+                                                            {place.address}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    );
+                                }}
                             />
 
                             {/* 3. Reseñas Recientes */}
