@@ -10,10 +10,10 @@ import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
 import { UserAvatar } from '../components/UserAvatar';
-import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
-import { collection, query, getDocs, limit, doc, getDoc, onSnapshot, where } from 'firebase/firestore';
+import { collection, collectionGroup, query, getDocs, limit, doc, getDoc, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { updateProfile } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
@@ -126,6 +126,7 @@ const toSafeNumber = (value: unknown): number => {
 
 const clampScore = (value: number): number => Math.max(0, Math.min(100, Math.round(value)));
 const HIDDEN_GEM_MIN_RATING = 8.4;
+const FAVORITE_REVIEW_MIN_RATING = 7.5;
 
 export const HomePage: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
@@ -390,6 +391,44 @@ export const HomePage: React.FC = () => {
     const fetchMoreRef = React.useRef(fetchMore);
     const { users: topUsers, loading: loadingUsers } = useUsers();
     const homeContentLoading = loadingLists || loadingReviews || loadingUsers;
+    const [ownTasteReviews, setOwnTasteReviews] = useState<any[]>([]);
+    const [loadingOwnTaste, setLoadingOwnTaste] = useState(false);
+
+    useEffect(() => {
+        if (!user?.uid || !appConfig.showAffinityCarousel) {
+            setOwnTasteReviews([]);
+            setLoadingOwnTaste(false);
+            return;
+        }
+
+        let cancelled = false;
+        const fetchOwnTaste = async () => {
+            setLoadingOwnTaste(true);
+            try {
+                const snap = await getDocs(query(
+                    collectionGroup(db, 'reviews'),
+                    where('userId', '==', user.uid),
+                    limit(60)
+                ));
+                if (cancelled) return;
+                setOwnTasteReviews(snap.docs.map(d => ({
+                    id: d.id,
+                    ...d.data(),
+                    listId: (d.data() as any).listId || d.ref.parent.parent?.id,
+                })));
+            } catch (error) {
+                console.warn('[HomePage] Error fetching own taste reviews:', error);
+                if (!cancelled) setOwnTasteReviews([]);
+            } finally {
+                if (!cancelled) setLoadingOwnTaste(false);
+            }
+        };
+
+        fetchOwnTaste();
+        return () => {
+            cancelled = true;
+        };
+    }, [appConfig.showAffinityCarousel, user?.uid]);
 
     useEffect(() => {
         if (!homeContentLoading) return;
@@ -748,7 +787,119 @@ export const HomePage: React.FC = () => {
                 reviewsInRangeCount: item.count
             }));
 
-    }, [reviewsInRange, topUsers, range]);
+    }, [botUserIds, reviewsInRange, topUsers, range]);
+
+    const affinityUsers = useMemo(() => {
+        const listById = new Map(lists.map((list: any) => [list.id, list]));
+        const userById = new Map(topUsers.map((topUser: any) => [topUser.uid, topUser]));
+        const getReviewUserId = (review: any) => review.userId || review.authorId || '';
+        const getReviewCategory = (review: any) => {
+            const list = review.listId ? listById.get(review.listId) : null;
+            return String(
+                review.listCategoryId ||
+                review.listCategoryName ||
+                review.listCategory ||
+                review.categoryId ||
+                review.category ||
+                list?.categoryId ||
+                list?.categoryName ||
+                ''
+            ).trim().toLowerCase();
+        };
+
+        const ownTasteSource = ownTasteReviews.length > 0
+            ? ownTasteReviews
+            : reviewsInRange.filter((review: any) => getReviewUserId(review) === user?.uid);
+
+        const ownFavorites = ownTasteSource.filter((review: any) => toSafeNumber(review.overallRating) >= FAVORITE_REVIEW_MIN_RATING);
+        const tasteSource = ownFavorites.length > 0 ? ownFavorites : ownTasteSource;
+        const ownListIds = new Set(tasteSource.map((review: any) => review.listId).filter(Boolean));
+        const ownPlaceIds = new Set(tasteSource.map((review: any) => review.placeId).filter(Boolean));
+        const ownCategories = new Set(tasteSource.map(getReviewCategory).filter(Boolean));
+        const ownPlaceRatings = new Map<string, number>();
+        tasteSource.forEach((review: any) => {
+            if (review.placeId) ownPlaceRatings.set(review.placeId, toSafeNumber(review.overallRating));
+        });
+
+        const hasTasteProfile = ownListIds.size > 0 || ownPlaceIds.size > 0 || ownCategories.size > 0;
+        const stats = new Map<string, {
+            user: any;
+            reviewCount: number;
+            sharedLists: Set<string>;
+            sharedPlaces: Set<string>;
+            sharedCategories: Set<string>;
+            similarRatings: number;
+            scoreTotal: number;
+        }>();
+
+        reviewsInRange.forEach((review: any) => {
+            const uid = getReviewUserId(review);
+            if (!uid || uid === user?.uid || botUserIds.has(uid)) return;
+
+            const meta = userById.get(uid) || {
+                uid,
+                displayName: review.authorName || 'Usuario',
+                photoUrl: review.authorPhoto,
+                username: 'user',
+                followersCount: 0,
+                reviewsCount: 0,
+            };
+            if (!stats.has(uid)) {
+                stats.set(uid, {
+                    user: meta,
+                    reviewCount: 0,
+                    sharedLists: new Set(),
+                    sharedPlaces: new Set(),
+                    sharedCategories: new Set(),
+                    similarRatings: 0,
+                    scoreTotal: 0,
+                });
+            }
+
+            const entry = stats.get(uid)!;
+            entry.reviewCount += 1;
+            if (!entry.user.photoUrl && review.authorPhoto) entry.user.photoUrl = review.authorPhoto;
+
+            const category = getReviewCategory(review);
+            const rating = toSafeNumber(review.overallRating);
+            if (review.listId && ownListIds.has(review.listId)) entry.sharedLists.add(review.listId);
+            if (review.placeId && ownPlaceIds.has(review.placeId)) entry.sharedPlaces.add(review.placeId);
+            if (category && ownCategories.has(category)) entry.sharedCategories.add(category);
+            if (review.placeId && ownPlaceRatings.has(review.placeId)) {
+                const diff = Math.abs(rating - (ownPlaceRatings.get(review.placeId) || 0));
+                if (diff <= 1.5) entry.similarRatings += 1;
+            }
+        });
+
+        return Array.from(stats.values())
+            .map(entry => {
+                const followers = toSafeNumber(entry.user.followersCount);
+                const score = hasTasteProfile
+                    ? entry.sharedLists.size * 28 +
+                    entry.sharedPlaces.size * 22 +
+                    entry.sharedCategories.size * 12 +
+                    entry.similarRatings * 16 +
+                    Math.log1p(entry.reviewCount) * 8 +
+                    Math.log1p(followers) * 3
+                    : entry.reviewCount * 8 + Math.log1p(followers) * 5;
+                const reasons = [
+                    entry.sharedLists.size > 0 ? `${entry.sharedLists.size} lista${entry.sharedLists.size === 1 ? '' : 's'} en común` : '',
+                    entry.sharedCategories.size > 0 ? `${entry.sharedCategories.size} categoría${entry.sharedCategories.size === 1 ? '' : 's'} compartida${entry.sharedCategories.size === 1 ? '' : 's'}` : '',
+                    entry.sharedPlaces.size > 0 ? `${entry.sharedPlaces.size} sitio${entry.sharedPlaces.size === 1 ? '' : 's'} favorito${entry.sharedPlaces.size === 1 ? '' : 's'}` : '',
+                    entry.similarRatings > 0 ? 'notas parecidas' : '',
+                ].filter(Boolean);
+
+                return {
+                    ...entry.user,
+                    affinityScore: clampScore(score),
+                    affinityReason: reasons.length > 0 ? reasons.slice(0, 2).join(' · ') : `${entry.reviewCount} reseña${entry.reviewCount === 1 ? '' : 's'} en tu zona`,
+                    reviewsInRangeCount: entry.reviewCount,
+                };
+            })
+            .filter((candidate: any) => candidate.affinityScore > 0)
+            .sort((a: any, b: any) => b.affinityScore - a.affinityScore)
+            .slice(0, 12);
+    }, [botUserIds, lists, ownTasteReviews, reviewsInRange, topUsers, user?.uid]);
 
     // 7. Lists with Range Stats
     const listsWithRangeStats = useMemo(() => {
@@ -1164,7 +1315,52 @@ export const HomePage: React.FC = () => {
                                 )}
                             />
 
-                            {/* 4. Usuarios activos */}
+                            {appConfig.showAffinityCarousel && (
+                                <CardCarousel
+                                    title="Almas gemelas"
+                                    subtitle="Perfiles que puntuan parecido a ti."
+                                    viewAllLink={buildCarouselSearchLink('users')}
+                                    items={affinityUsers}
+                                    loading={loadingUsers || loadingOwnTaste}
+                                    itemClassName="min-w-[220px] md:min-w-[250px]"
+                                    icon={<HeartHandshake className="w-5 h-5 text-pink-300" />}
+                                    accentClass="bg-pink-500/20"
+                                    renderItem={(u: any) => (
+                                        <Link
+                                            to={`/profile/${u.uid}`}
+                                            className="block h-36 rounded-md border border-pink-300/15 bg-[var(--lt-card-strong)] p-4 shadow-lg transition-all hover:-translate-y-0.5 hover:border-pink-300/40 hover:bg-white/[0.06]"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <UserAvatar
+                                                    photoUrl={u.photoUrl}
+                                                    displayName={u.displayName}
+                                                    userType={u.userType}
+                                                    size="lg"
+                                                />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="min-w-0">
+                                                            <h4 className="truncate text-sm font-black text-white">{u.displayName || 'Usuario'}</h4>
+                                                            <p className="truncate text-[11px] text-gray-500">@{u.username || 'user'}</p>
+                                                        </div>
+                                                        <span className="shrink-0 rounded-full bg-pink-500/20 px-2 py-1 text-[10px] font-black text-pink-100">
+                                                            {u.affinityScore}%
+                                                        </span>
+                                                    </div>
+                                                    <p className="mt-3 line-clamp-2 text-xs font-semibold leading-snug text-gray-300">
+                                                        {u.affinityReason}
+                                                    </p>
+                                                    <p className="mt-2 text-[10px] font-bold text-[var(--lt-accent)]">
+                                                        {u.reviewsInRangeCount ?? 0} reseña{u.reviewsInRangeCount === 1 ? '' : 's'} en el radar
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    )}
+                                />
+                            )}
+
+                            {/* 5. Usuarios activos */}
                             <CardCarousel
                                 title="Usuarios activos"
                                 viewAllLink={buildCarouselSearchLink('users')}
@@ -1192,7 +1388,7 @@ export const HomePage: React.FC = () => {
                                 )}
                             />
 
-                            {/* 5. Lugares top */}
+                            {/* 6. Lugares top */}
                             <CardCarousel
                                 title={activeTab === 'explore' ? "Lugares top" : "Nuevos Lugares"}
                                 viewAllLink={buildCarouselSearchLink('places', activeTab === 'explore' ? 'rating' : 'latest')}

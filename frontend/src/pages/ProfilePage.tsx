@@ -35,6 +35,7 @@ import {
   TrendingUp,
   Palette,
   Check,
+  HeartHandshake,
 } from "lucide-react";
 import { ReportModal } from "../components/ReportModal";
 import {
@@ -206,6 +207,8 @@ export const ProfilePage: React.FC = () => {
     useState<AdvancedProfileStats>(EMPTY_ADVANCED_STATS);
   const [favoriteReview, setFavoriteReview] =
     useState<FavoriteReviewSummary | null>(null);
+  const [ownAffinityReviews, setOwnAffinityReviews] = useState<any[]>([]);
+  const [affinityLoading, setAffinityLoading] = useState(false);
 
   // Details Modal State
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -393,6 +396,42 @@ export const ProfilePage: React.FC = () => {
       setLocalReviews(fetchedReviews);
     }
   }, [fetchedReviews]);
+
+  useEffect(() => {
+    if (!appConfig.showProfileAffinity || isOwnProfile || !user?.uid || !targetUserId) {
+      setOwnAffinityReviews([]);
+      setAffinityLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchOwnAffinityReviews = async () => {
+      setAffinityLoading(true);
+      try {
+        const snap = await getDocs(query(
+          collectionGroup(db, "reviews"),
+          where("userId", "==", user.uid),
+          limit(80),
+        ));
+        if (cancelled) return;
+        setOwnAffinityReviews(snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          listId: (d.data() as any).listId || d.ref.parent.parent?.id,
+        })));
+      } catch (error) {
+        console.warn("[ProfilePage] Error fetching affinity reviews:", error);
+        if (!cancelled) setOwnAffinityReviews([]);
+      } finally {
+        if (!cancelled) setAffinityLoading(false);
+      }
+    };
+
+    fetchOwnAffinityReviews();
+    return () => {
+      cancelled = true;
+    };
+  }, [appConfig.showProfileAffinity, isOwnProfile, targetUserId, user?.uid]);
 
   const reviewAuthorFallback = useMemo(() => {
     for (const review of localReviews) {
@@ -1027,6 +1066,72 @@ export const ProfilePage: React.FC = () => {
     return "#";
   }, [favoriteReview]);
 
+  const affinitySummary = useMemo(() => {
+    if (!appConfig.showProfileAffinity || isOwnProfile || ownAffinityReviews.length === 0 || localReviews.length === 0) {
+      return null;
+    }
+
+    const normalizeCategory = (review: any) => String(
+      review.listCategoryId ||
+      review.listCategoryName ||
+      review.listCategory ||
+      review.categoryId ||
+      review.category ||
+      ""
+    ).trim().toLowerCase();
+
+    const ownFavorites = ownAffinityReviews.filter((review: any) => Number(review.overallRating || 0) >= 7.5);
+    const ownTaste = ownFavorites.length > 0 ? ownFavorites : ownAffinityReviews;
+    const ownListIds = new Set(ownTaste.map((review: any) => review.listId).filter(Boolean));
+    const ownPlaceIds = new Set(ownTaste.map((review: any) => review.placeId).filter(Boolean));
+    const ownCategories = new Set(ownTaste.map(normalizeCategory).filter(Boolean));
+    const ownPlaceRatings = new Map<string, number>();
+    ownTaste.forEach((review: any) => {
+      if (review.placeId) ownPlaceRatings.set(review.placeId, Number(review.overallRating || 0));
+    });
+
+    const sharedLists = new Set<string>();
+    const sharedPlaces = new Set<string>();
+    const sharedCategories = new Set<string>();
+    let similarRatings = 0;
+
+    localReviews.forEach((review: any) => {
+      const category = normalizeCategory(review);
+      if (review.listId && ownListIds.has(review.listId)) sharedLists.add(review.listId);
+      if (review.placeId && ownPlaceIds.has(review.placeId)) sharedPlaces.add(review.placeId);
+      if (category && ownCategories.has(category)) sharedCategories.add(category);
+      if (review.placeId && ownPlaceRatings.has(review.placeId)) {
+        const diff = Math.abs(Number(review.overallRating || 0) - (ownPlaceRatings.get(review.placeId) || 0));
+        if (diff <= 1.5) similarRatings += 1;
+      }
+    });
+
+    const score = Math.min(100, Math.round(
+      sharedLists.size * 28 +
+      sharedPlaces.size * 22 +
+      sharedCategories.size * 12 +
+      similarRatings * 16 +
+      Math.log1p(localReviews.length) * 5
+    ));
+    if (score <= 0) return null;
+
+    const reasons = [
+      sharedLists.size > 0 ? `${sharedLists.size} lista${sharedLists.size === 1 ? "" : "s"} en comun` : "",
+      sharedCategories.size > 0 ? `${sharedCategories.size} categoria${sharedCategories.size === 1 ? "" : "s"} compartida${sharedCategories.size === 1 ? "" : "s"}` : "",
+      sharedPlaces.size > 0 ? `${sharedPlaces.size} sitio${sharedPlaces.size === 1 ? "" : "s"} favorito${sharedPlaces.size === 1 ? "" : "s"}` : "",
+      similarRatings > 0 ? "notas parecidas" : "",
+    ].filter(Boolean);
+
+    return {
+      score,
+      reason: reasons.length > 0 ? reasons.slice(0, 2).join(" · ") : "gustos cercanos",
+      sharedListsCount: sharedLists.size,
+      sharedPlacesCount: sharedPlaces.size,
+      sharedCategoriesCount: sharedCategories.size,
+      similarRatings,
+    };
+  }, [appConfig.showProfileAffinity, isOwnProfile, localReviews, ownAffinityReviews]);
+
   const renderMinimalListRows = (
     lists: any[],
     emptyMessage: string,
@@ -1512,6 +1617,23 @@ export const ProfilePage: React.FC = () => {
                   <p className="text-sm sm:text-base md:text-lg text-[var(--lt-accent)] font-normal truncate mt-1">
                     @{profile.username}
                   </p>
+                )}
+                {appConfig.showProfileAffinity && !isOwnProfile && affinitySummary && (
+                  <button
+                    type="button"
+                    onClick={() => openDetailsModal("stats")}
+                    className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-pink-300/25 bg-pink-500/10 px-2.5 py-1 text-[11px] font-black text-pink-100 hover:border-pink-300/50 hover:bg-pink-500/20 transition-colors"
+                    title={affinitySummary.reason}
+                  >
+                    <HeartHandshake className="w-3.5 h-3.5" />
+                    {affinitySummary.score}% afinidad
+                  </button>
+                )}
+                {appConfig.showProfileAffinity && !isOwnProfile && affinityLoading && !affinitySummary && (
+                  <div className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-bold text-gray-400">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Calculando afinidad
+                  </div>
                 )}
               </div>
 
@@ -2746,16 +2868,41 @@ export const ProfilePage: React.FC = () => {
               {/* Modal Content */}
               <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-[var(--lt-bg)] flex flex-col">
                 {detailsModalTab === "stats" && (
-                  <ProfileStatsTab
-                    statsLoading={statsLoading}
-                    statsError={statsError}
-                    advancedStats={advancedStats}
-                    sortedStatsPerList={sortedStatsPerList}
-                    statsListSort={statsListSort}
-                    onSortChange={setStatsListSort}
-                    formatStatRating={formatStatRating}
-                    onCloseModal={() => setIsDetailsModalOpen(false)}
-                  />
+                  <>
+                    {appConfig.showProfileAffinity && !isOwnProfile && affinitySummary && (
+                      <div className="mb-4 rounded-2xl border border-pink-300/20 bg-gradient-to-r from-pink-500/10 via-fuchsia-500/10 to-indigo-500/10 p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-2 text-sm font-black text-white">
+                              <HeartHandshake className="w-4 h-4 text-pink-200" />
+                              Afinidad contigo
+                            </div>
+                            <p className="mt-1 text-xs font-semibold text-gray-300">{affinitySummary.reason}</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-3xl font-black text-pink-100">{affinitySummary.score}%</div>
+                            <div className="text-[10px] font-bold uppercase tracking-wide text-pink-200/70">match</div>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-semibold text-gray-300 sm:grid-cols-4">
+                          <div className="rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedListsCount} listas</div>
+                          <div className="rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedCategoriesCount} categorias</div>
+                          <div className="rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedPlacesCount} sitios</div>
+                          <div className="rounded-xl bg-black/20 px-3 py-2">{affinitySummary.similarRatings} notas</div>
+                        </div>
+                      </div>
+                    )}
+                    <ProfileStatsTab
+                      statsLoading={statsLoading}
+                      statsError={statsError}
+                      advancedStats={advancedStats}
+                      sortedStatsPerList={sortedStatsPerList}
+                      statsListSort={statsListSort}
+                      onSortChange={setStatsListSort}
+                      formatStatRating={formatStatRating}
+                      onCloseModal={() => setIsDetailsModalOpen(false)}
+                    />
+                  </>
                 )}
 
                 {detailsModalTab === "level" && (
