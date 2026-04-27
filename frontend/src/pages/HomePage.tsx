@@ -1315,11 +1315,11 @@ export const HomePage: React.FC = () => {
                     <button
                         type="button"
                         onClick={handleSurpriseChoice}
-                        className="fixed bottom-5 right-4 sm:bottom-6 sm:right-5 z-40 h-11 w-11 rounded-full border-2 border-amber-300/90 text-amber-100 shadow-lg shadow-amber-500/25 transition-colors flex items-center justify-center" style={{ backgroundColor: 'var(--lt-accent)' }}
+                        className="fixed bottom-5 right-4 sm:bottom-6 sm:right-5 z-40 h-11 w-11 rounded-full border-2 border-white/80 bg-gradient-to-br from-violet-700 via-fuchsia-700 to-amber-600 text-white shadow-lg shadow-violet-900/25 transition-all flex items-center justify-center hover:scale-105 active:scale-95"
                         title="Plan al azar"
                         aria-label="Plan al azar"
                     >
-                        <Dice5 className="w-4 h-4" />
+                        <Dice5 className="w-4 h-4 text-white" />
                     </button>
                 )}
 
