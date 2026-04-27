@@ -190,7 +190,7 @@ export const PlaceService = {
             // Bias towards user location if available
             const request: PlaceSearchByTextRequest = {
                 textQuery: query,
-                fields: ['id', 'displayName', 'formattedAddress', 'location', 'types', 'photos', 'rating', 'userRatingCount'],
+                fields: ['id', 'displayName', 'formattedAddress', 'location', 'types', 'photos'],
                 maxResultCount: 10,
             };
 

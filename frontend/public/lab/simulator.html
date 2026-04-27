@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#020617">
+    <title>El baile de los apegos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffffff; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); transition: transform 0.1s; }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #4b5563; border-radius: 2px; }
+        input[type=range]:focus { outline: none; }
+        
+        .panel-a { border-top: 4px solid #3b82f6; transition: border-color 1s; } 
+        .panel-e { border-top: 4px solid #a855f7; transition: border-color 1s; } 
+        
+        #canvas-container { position: relative; width: 100%; height: 60vh; min-height: 480px; max-height: 650px; background-color: #0f172a; border-radius: 0.75rem; overflow: hidden; border: 1px solid #334155; transition: background-color 1s; }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        #time-hud { transition: all 0.5s ease; backdrop-filter: blur(4px); z-index: 20;}
+
+        .avatar-label { position: absolute; font-weight: bold; font-size: 1rem; padding: 4px 15px; border-radius: 20px; color: white; backdrop-filter: blur(4px); z-index: 10; transition: background-color 1s; top: 50%; transform: translateY(-50%);}
+        .label-a { left: 5%; background: rgba(59, 130, 246, 0.3); border: 1px solid #3b82f6; }
+        .label-e { right: 5%; background: rgba(168, 85, 247, 0.3); border: 1px solid #a855f7; }
+        
+        .bar-container { position: absolute; width: 10px; height: 140px; background: rgba(0,0,0,0.4); border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); z-index: 10; top: 50%; transform: translateY(-50%);}
+        .bar-a { left: 18%; }
+        .bar-e { right: 18%; }
+        .bar-fill { width: 100%; position: absolute; bottom: 0; transition: height 0.4s ease, background-color 1s; }
+        .fill-a { background-color: #3b82f6; }
+        .fill-e { background-color: #a855f7; }
+        
+        .prob-indicator { position: absolute; font-size: 9px; font-weight: bold; color: #cbd5e1; width: 100px; text-align: center; left: -45px; z-index: 12;}
+
+        .health-bar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 280px; text-align: center; z-index: 10;}
+        .health-fill { height: 12px; background: #10b981; border-radius: 6px; transition: width 0.3s, background-color 0.3s; margin-top: 4px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+        
+        .resent-bar-container { width: 200px; margin: 4px auto 0 auto; }
+        .resent-fill { height: 4px; background: #ef4444; border-radius: 2px; transition: width 0.5s; box-shadow: 0 0 8px rgba(239, 68, 68, 0.6); }
+
+        .legend { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; font-size: 0.7rem; color: #cbd5e1; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 20px; z-index: 10; backdrop-filter: blur(2px);}
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+        #expl-overlay { backdrop-filter: blur(6px); transition: opacity 0.3s ease; }
+        .expl-box { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        
+        .toggle-active { background-color: #10b981 !important; }
+        .toggle-dot-active { transform: translateX(16px); }
+        
+        .secure-glow { box-shadow: 0 0 20px rgba(16, 185, 129, 0.6); border-color: #10b981 !important; }
+        
+        /* Chat Scrollbar */
+        #chat-log::-webkit-scrollbar { width: 6px; }
+        #chat-log::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        #chat-log::-webkit-scrollbar-track { background: #1e293b; border-radius: 4px; }
+
+        .param-group { padding: 2px 8px; margin: -2px -8px; border-radius: 6px; }
+
+        .mini-card { background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.18); border-radius: 0.75rem; padding: 0.7rem; }
+        .mini-select { width: 100%; background: rgba(15,23,42,0.95); border: 1px solid #475569; border-radius: 0.55rem; color: #e2e8f0; padding: 0.45rem 0.6rem; font-size: 0.78rem; }
+        .mini-select:focus { outline: 1px solid #10b981; }
+        .sound-btn-on { background: linear-gradient(135deg, rgba(16,185,129,0.28), rgba(59,130,246,0.20)); border-color: rgba(16,185,129,0.55); }
+        .sound-btn-off { background: rgba(30,41,59,0.8); border-color: rgba(148,163,184,0.24); }
+        .soft-note { font-size: 10px; line-height: 1.3; color: #94a3b8; }
+        .mobile-action-dock { display: none; }
+        .mobile-modal { display: none; }
+        .mobile-modal.is-open { display: flex; }
+        .mobile-modal-body #controls-panel { display: grid !important; }
+        .mobile-modal-body #history-panel, .mobile-modal-body #diag-panel { display: flex !important; height: auto !important; max-height: none; margin-bottom: 0 !important; }
+
+        @media (max-width: 900px) {
+            body { padding: 0 !important; overflow-x: hidden; }
+            .max-w-6xl { max-width: 100% !important; width: 100% !important; }
+            header { display: none; }
+            #canvas-container { height: 100dvh; min-height: 420px; max-height: none; border-radius: 0; margin-bottom: 0 !important; border-left: 0; border-right: 0; }
+            #controls-panel, #history-panel, #diag-panel { display: none; }
+            .health-bar { top: 8px; width: min(64vw, 290px); }
+            #time-hud { top: 64px !important; transform: translateX(-50%) scale(0.92); }
+            .legend { bottom: 72px; font-size: 0.54rem; width: 96%; gap: 7px; }
+            .mobile-action-dock {
+                position: fixed;
+                left: 50%;
+                bottom: max(env(safe-area-inset-bottom, 0px), 6px);
+                transform: translateX(-50%);
+                z-index: 60;
+                width: min(96vw, 720px);
+                display: grid;
+                grid-template-columns: repeat(5, minmax(0,1fr));
+                gap: 7px;
+                padding: 9px;
+                background:
+                    linear-gradient(180deg, rgba(15,23,42,0.92), rgba(2,6,23,0.82)),
+                    radial-gradient(circle at 15% 0%, rgba(59,130,246,0.24), transparent 34%),
+                    radial-gradient(circle at 85% 0%, rgba(16,185,129,0.18), transparent 30%);
+                border: 1px solid rgba(148,163,184,0.32);
+                border-radius: 22px;
+                backdrop-filter: blur(16px);
+                box-shadow: 0 -18px 45px rgba(0,0,0,0.44), inset 0 1px 0 rgba(255,255,255,0.08);
+            }
+            .mobile-action-dock::before {
+                content: "EL BAILE · CONTROLES";
+                position: absolute;
+                left: 16px; top: -18px;
+                color: rgba(148,163,184,0.7);
+                font-size: 8px;
+                font-weight: 900;
+                letter-spacing: 0.2em;
+                text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+            }
+            .mobile-action-dock button {
+                min-height: 48px;
+                border-radius: 14px;
+                font-size: 10px;
+                font-weight: 900;
+                color: #f8fafc;
+                border: 1px solid rgba(255,255,255,0.1);
+                background: linear-gradient(160deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
+                padding: 6px 4px;
+                line-height: 1.05;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 12px rgba(0,0,0,0.3);
+                transition: transform 0.1s, box-shadow 0.1s;
+            }
+            .mobile-action-dock button:active { transform: scale(0.96); box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+            .mobile-action-dock .ico { font-size: 16px; line-height: 1; }
+            .mobile-action-dock .txt { font-size: 9px; white-space: nowrap; }
+            .mobile-action-dock .fullw {
+                grid-column: 1 / -1;
+                min-height: 56px;
+                font-size: 13px;
+                letter-spacing: 0.03em;
+                background: linear-gradient(135deg, #1d4ed8, #0891b2);
+                border-color: rgba(56,189,248,0.3);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 6px 20px rgba(37,99,235,0.35);
+            }
+            .mobile-action-dock .fullw .ico { font-size: 18px; }
+            .mobile-action-dock .fullw .txt { font-size: 12px; }
+            .mobile-action-dock .good { background: linear-gradient(135deg,#059669,#0f766e); border-color: rgba(16,185,129,0.3); }
+            .mobile-action-dock .warn { background: linear-gradient(135deg,#6d28d9,#4f46e5); border-color: rgba(139,92,246,0.3); }
+            .mobile-action-dock .speed { background: linear-gradient(135deg,#0e7490,#0f766e); border-color: rgba(6,182,212,0.25); }
+            .mobile-action-dock .danger { background: linear-gradient(135deg,#991b1b,#7f1d1d); border-color: rgba(239,68,68,0.25); }
+            .mobile-action-dock .ghost { background: linear-gradient(160deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95)); border-color: rgba(148,163,184,0.15); }
+            .mobile-modal {
+                position: fixed; inset: 0; z-index: 90;
+                align-items: center; justify-content: center;
+                background: rgba(2,6,23,0.76);
+                backdrop-filter: blur(10px);
+                padding: 12px;
+            }
+            .mobile-modal-card {
+                width: min(96vw, 820px);
+                max-height: 92dvh;
+                overflow: auto;
+                border-radius: 18px;
+                background: rgba(15,23,42,0.96);
+                border: 1px solid rgba(148,163,184,0.28);
+                box-shadow: 0 30px 90px rgba(0,0,0,0.55);
+            }
+            .mobile-modal-head {
+                position: sticky; top: 0; z-index: 2;
+                display:flex; justify-content:space-between; align-items:center;
+                padding: 12px 14px;
+                background: rgba(15,23,42,0.98);
+                border-bottom: 1px solid rgba(148,163,184,0.2);
+            }
+            .mobile-modal-title { font-weight: 900; color: #e2e8f0; font-size: 14px; }
+            .mobile-modal-close { background:#334155; color:white; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:900; }
+            .mobile-modal-body { padding: 12px; }
+            .theory-card { background: rgba(30,41,59,0.62); border: 1px solid rgba(148,163,184,0.22); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
+            .theory-card h4 { color: #fbbf24; font-size: 13px; font-weight: 900; margin-bottom: 6px; }
+            .theory-card p, .theory-card li { color:#cbd5e1; font-size:12px; line-height:1.45; }
+            .theory-card ul { margin-left: 18px; list-style: disc; }
+        }
+
+        @media (orientation: landscape) and (max-width: 900px) {
+            #canvas-container { height: 100dvh; }
+            .avatar-label { font-size: 0.64rem; padding: 2px 8px; }
+            .bar-container { height: 112px; }
+            .legend { display: none; }
+            .mobile-action-dock {
+                left: auto; right: 10px; top: 50%; bottom: auto;
+                transform: translateY(-50%);
+                width: 162px;
+                grid-template-columns: repeat(2, minmax(0,1fr));
+                gap: 7px;
+                border-radius: 20px;
+                padding: 10px;
+            }
+            .mobile-action-dock::before { top: -16px; left: 10px; font-size: 8px; }
+            .mobile-action-dock button { min-height: 42px; font-size: 9px; }
+            .mobile-action-dock .fullw { min-height: 46px; font-size: 11px; }
+            .mobile-action-dock .ico { font-size: 14px; }
+            .mobile-action-dock .txt { font-size: 8px; }
+            .health-bar { width: 260px; }
+            #time-hud { top: 58px !important; }
+        }
+
+
+
+        /* AJUSTE: el panel móvil ya no tapa el simulador. El escenario reserva su hueco. */
+        @media (max-width: 900px) {
+            :root { --dock-h: 128px; --dock-gap: 8px; }
+            body { min-height: 100dvh; background: #020617; }
+            #canvas-container {
+                height: calc(100dvh - var(--dock-h) - var(--dock-gap));
+                min-height: 310px;
+                width: 100vw;
+                margin-bottom: calc(var(--dock-h) + var(--dock-gap)) !important;
+            }
+            .legend { bottom: 10px; }
+            .mobile-action-dock {
+                bottom: max(env(safe-area-inset-bottom, 0px), 6px);
+                height: var(--dock-h);
+                align-content: center;
+            }
+        }
+
+        @media (orientation: portrait) and (max-width: 900px) {
+            .mobile-action-dock {
+                grid-template-columns: repeat(5, minmax(0,1fr));
+                grid-auto-rows: 50px;
+            }
+            .mobile-action-dock .fullw-land { grid-column: span 2; }
+        }
+
+        @media (orientation: landscape) and (max-width: 900px) {
+            :root { --side-dock-w: 174px; }
+            body { align-items: flex-start !important; }
+            .max-w-6xl { width: calc(100vw - var(--side-dock-w) - 14px) !important; }
+            #canvas-container {
+                width: calc(100vw - var(--side-dock-w) - 14px);
+                height: 100dvh;
+                min-height: 0;
+                margin-bottom: 0 !important;
+            }
+            .mobile-action-dock {
+                right: 7px;
+                width: calc(var(--side-dock-w) - 10px);
+                max-height: calc(100dvh - 12px);
+                overflow: auto;
+                grid-template-columns: repeat(2, minmax(0,1fr));
+                grid-auto-rows: minmax(42px, auto);
+                align-content: center;
+            }
+            .mobile-action-dock .fullw-land { grid-column: span 2; }
+            .health-bar { left: 50%; width: min(46vw, 260px); }
+            #time-hud { top: 58px !important; }
+        }
+
+        @media (max-width: 768px) {
+            .avatar-label { font-size: 0.7rem; padding: 2px 8px; writing-mode: vertical-rl; transform: translateY(-50%) rotate(180deg);}
+            .label-a { left: 2%; } .label-e { right: 2%; }
+            .bar-container { width: 6px; }
+            .bar-a { left: 10%; } .bar-e { right: 10%; }
+            .health-bar { width: 220px; }
+            .resent-bar-container { width: 160px; }
+            .legend { font-size: 0.55rem; width: 95%; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 4px 10px; }
+            #time-hud { top: 75px !important; padding: 4px 10px; }
+            .expl-box { padding: 15px; margin: 10px; max-height: 90vh; overflow-y: auto;}
+            #expl-title { font-size: 1.2rem; }
+            #expl-text { font-size: 0.8rem; }
+        }
+    
+
+        /* Welcome overlay */
+        #welcome-overlay {
+            position: fixed; inset: 0; z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(2,6,23,0.97);
+            backdrop-filter: blur(16px);
+            padding: 1.5rem;
+        }
+        .welcome-card {
+            text-align: center;
+            max-width: 340px;
+            width: 100%;
+            animation: popIn 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .welcome-emoji {
+            font-size: 4.5rem;
+            line-height: 1;
+            margin-bottom: 1.25rem;
+            filter: drop-shadow(0 0 32px rgba(99,102,241,0.55));
+        }
+        .welcome-title {
+            font-size: 2rem; font-weight: 900; color: white;
+            margin-bottom: 0.5rem; line-height: 1.1;
+            background: linear-gradient(135deg, #818cf8, #34d399);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .welcome-subtitle {
+            color: #94a3b8; font-size: 0.84rem; line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+        .welcome-btn {
+            display: block; width: 100%;
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, #4f46e5, #059669);
+            border: 0; border-radius: 18px; cursor: pointer;
+            color: white; font-size: 1rem; font-weight: 900;
+            letter-spacing: 0.03em;
+            box-shadow: 0 8px 32px rgba(79,70,229,0.35), 0 2px 8px rgba(0,0,0,0.4);
+            transition: transform 0.12s, box-shadow 0.12s;
+        }
+        .welcome-btn:active { transform: scale(0.97); box-shadow: 0 4px 16px rgba(79,70,229,0.3); }
+        .welcome-note {
+            color: #475569; font-size: 0.7rem; margin-top: 1rem;
+        }
+
+        /* Modo pantalla completa */
+        body.app-fullscreen-mode {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100dvh !important;
+            overflow: hidden !important;
+            background: #020617 !important;
+        }
+        body.app-fullscreen-mode .max-w-6xl {
+            width: 100vw !important;
+            max-width: none !important;
+            height: 100dvh !important;
+            margin: 0 !important;
+        }
+        body.app-fullscreen-mode header,
+        body.app-fullscreen-mode #controls-panel,
+        body.app-fullscreen-mode #history-panel,
+        body.app-fullscreen-mode #diag-panel {
+            display: none !important;
+        }
+        body.app-fullscreen-mode #canvas-container {
+            border-radius: 0 !important;
+            margin: 0 !important;
+            max-height: none !important;
+            border: 0 !important;
+        }
+        .fullscreen-hint {
+            position: fixed;
+            left: 50%;
+            bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+            transform: translateX(-50%);
+            z-index: 120;
+            background: rgba(15,23,42,0.94);
+            color: #e2e8f0;
+            border: 1px solid rgba(148,163,184,0.35);
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 800;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.35);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s ease;
+        }
+        .fullscreen-hint.show { opacity: 1; }
+        @media (orientation: landscape) and (max-width: 900px) {
+            .fullscreen-hint {
+                left: calc(50% - 56px);
+                bottom: 14px;
+            }
+        }
+
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-2 md:p-6 font-sans flex flex-col items-center">
+
+    <div class="max-w-6xl w-full">
+        <header class="mb-4 text-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-emerald-400 to-purple-400 mb-1">El baile de los apegos</h1>
+            <p class="text-slate-400 text-xs md:text-sm">¿Cómo bailan el ansioso y el evitativo? Ajusta sus parámetros y observa qué ocurre.</p>
+        </header>
+
+        <!-- ZONA VISUAL -->
+        <div id="canvas-container" class="mb-6 shadow-2xl shadow-black/50">
+            
+            <div class="health-bar">
+                <span class="text-[10px] md:text-[11px] font-bold text-slate-200 tracking-wider block">SALUD DE LA RELACIÓN (RESERVA EMOCIONAL)</span>
+                <div class="w-full bg-slate-800 rounded-full h-2 md:h-3 mt-1 border border-slate-700">
+                    <div id="health-bar-fill" class="health-fill" style="width: 100%"></div>
+                </div>
+                <div class="resent-bar-container">
+                    <span class="text-[8px] md:text-[9px] font-bold text-red-400 tracking-wide block mb-0.5">🎒 CARGA ALOSTÁTICA (RESENTIMIENTO)</span>
+                    <div class="w-full bg-slate-800 rounded-full h-1 border border-slate-700">
+                        <div id="resent-bar-fill" class="resent-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="time-hud" class="absolute top-[75px] left-1/2 -translate-x-1/2 bg-slate-800/80 border border-slate-600 rounded-lg px-4 py-1.5 z-20 flex items-center gap-3 shadow-lg pointer-events-none">
+                <span class="text-xs font-bold text-slate-300">Día <span id="hud-dias" class="text-white text-sm font-mono">0</span></span>
+            </div>
+
+            <div id="expl-overlay" class="hidden absolute inset-0 bg-slate-900/80 z-30 flex flex-col justify-center items-center p-4 md:p-6">
+                <div id="expl-box" class="expl-box bg-slate-800 border-2 border-amber-500 rounded-xl p-4 md:p-6 max-w-2xl w-full shadow-2xl text-center flex flex-col items-center max-h-[90vh] overflow-y-auto">
+                    <div id="expl-icon" class="text-3xl md:text-4xl mb-2 md:mb-3">🔍</div>
+                    <h3 id="expl-title" class="text-xl md:text-2xl font-bold mb-2 md:mb-3 text-white">Título</h3>
+                    <div id="expl-text" class="text-slate-300 mb-4 md:mb-6 text-xs md:text-sm leading-relaxed text-left w-full space-y-3">Explicación...</div>
+                    <button onclick="resumeFromExplanation()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg w-full text-sm uppercase tracking-widest transition-colors mt-auto">Comprendido, Continuar</button>
+                </div>
+            </div>
+
+            <div id="label-a" class="avatar-label label-a">Ansioso (A)</div>
+            <div class="bar-container bar-a">
+                <div id="tension-a" class="bar-fill fill-a" style="height: 0%"></div>
+                <div id="prob-a-reac" class="prob-indicator" style="bottom: 5%">Freno Consciente: 50%</div>
+            </div>
+
+            <div id="label-e" class="avatar-label label-e">Evitativo (E)</div>
+            <div class="bar-container bar-e">
+                <div id="tension-e" class="bar-fill fill-e" style="height: 0%"></div>
+                <div id="prob-e-reac" class="prob-indicator" style="bottom: 5%">Freno Consciente: 50%</div>
+            </div>
+
+            <canvas id="sim-canvas"></canvas>
+
+            <div class="legend">
+                <span class="legend-item"><span class="dot bg-red-500"></span> Amenaza (Relato Tóxico)</span>
+                <span class="legend-item"><span class="dot bg-blue-400"></span> Relato Sano</span>
+                <span class="legend-item"><span class="dot bg-emerald-500"></span> Corregulación</span>
+                <span class="legend-item"><span class="dot bg-indigo-400"></span> Alquimia Emocional</span>
+            </div>
+
+            <div class="mobile-action-dock" aria-label="Panel de mandos móvil">
+                <button id="m-btn-play" class="fullw" onclick="toggleSim()"><span class="ico">▶</span><span class="txt">Iniciar</span></button>
+                <button class="good" onclick="useWisdom()"><span class="ico">🛡️</span><span class="txt">Sabiduría</span></button>
+                <button class="warn" onclick="useTherapy()"><span class="ico">🛋️</span><span class="txt">Terapia</span></button>
+                <button class="ghost" onclick="openMobileModal('history')"><span class="ico">💬</span><span class="txt">Historial</span></button>
+                <button class="ghost" onclick="openMobileModal('status')"><span class="ico">📊</span><span class="txt">Estado</span></button>
+                <button class="ghost" onclick="openMobileModal('theory')"><span class="ico">📚</span><span class="txt">Teoría</span></button>
+                <button class="ghost" onclick="openMobileModal('config')"><span class="ico">⚙️</span><span class="txt">Config.</span></button>
+                <button class="ghost" onclick="toggleSound()"><span class="ico">🔊</span><span class="txt">Sonido</span></button>
+                <button id="m-btn-speed" class="speed" onclick="cycleSpeed()"><span class="ico">⏱️</span><span class="txt">x1</span></button>
+                <button class="danger" onclick="resetSim()"><span class="ico">↺</span><span class="txt">Reset</span></button>
+                <button id="m-btn-fullscreen" class="ghost" onclick="toggleFullscreenMode()"><span class="ico">⛶</span><span class="txt">Pantalla</span></button>
+            </div>
+        </div>
+
+        <!-- PANELES DE CONTROL -->
+        <div id="controls-panel" class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-6">
+            <!-- Ansioso -->
+            <div id="panel-a" class="bg-slate-800 rounded-xl p-4 panel-a shadow-lg flex flex-col justify-between">
+                <div>
+                    <h3 class="text-blue-400 font-bold mb-2 flex items-center text-sm"><span class="bg-blue-500/20 p-1 rounded mr-2">🧍</span> Ansioso</h3>
+                    <div class="mb-2 param-group" id="grp-a-sens">
+                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Sensibilidad a la Herida</label><span id="val-a-sens">7/10</span></div>
+                        <input type="range" id="a-sens" min="1" max="10" value="7">
+                    </div>
+                    <div class="mb-2 param-group" id="grp-a-int">
+                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Intensidad del Ataque/Reclamo</label><span id="val-a-int">6/10</span></div>
+                        <input type="range" id="a-int" min="1" max="10" value="6">
+                    </div>
+                    <div class="mb-2 param-group" id="grp-a-res">
+                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Paz Interna (Resiliencia)</label><span id="val-a-res">4/10</span></div>
+                        <input type="range" id="a-res" min="1" max="10" value="4">
+                    </div>
+                </div>
+                <div>
+                    <div class="p-2 bg-blue-900/20 rounded border border-blue-500/30 mt-1 param-group" id="grp-a-sab">
+                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-blue-300 font-bold"><label>🛡️ Sabiduría Pasada (Freno)</label><span id="val-a-sab">5/10</span></div>
+                        <input type="range" id="a-sab" min="1" max="10" value="5">
+                    </div>
+                    <div class="mt-2 flex justify-between text-[10px] bg-slate-900/50 p-2 rounded border border-slate-700 shadow-inner">
+                        <span>⚔️ Daño: <span id="stat-a-dmg" class="text-red-400 font-bold">0</span></span>
+                        <span>💖 Sanó: <span id="stat-a-heal" class="text-emerald-400 font-bold">0</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Entorno y Botones -->
+            <div class="bg-slate-800 rounded-xl p-4 panel-c shadow-lg flex flex-col border-t-4 border-emerald-500">
+                <h3 class="text-emerald-400 font-bold mb-2 flex items-center justify-center text-sm"><span class="bg-emerald-500/20 p-1 rounded mr-2">🌱</span> Dinámica de Pareja</h3>
+                <div class="mb-2 param-group" id="grp-c-estres">
+                    <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Frecuencia de Estresores</label><span id="val-c-estres">5/10</span></div>
+                    <input type="range" id="c-estres" min="1" max="10" value="5">
+                </div>
+                <div class="mb-2 param-group" id="grp-c-com">
+                    <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-emerald-300 font-bold"><label>Capacidad de Corregulación</label><span id="val-c-com">5/10</span></div>
+                    <input type="range" id="c-com" min="1" max="10" value="5">
+                </div>
+                
+                <div class="flex flex-col gap-2 mb-3 mt-2">
+                    <div class="p-2 bg-slate-900/50 rounded border border-slate-600 flex items-center justify-between cursor-pointer hover:bg-slate-800 transition-colors" onclick="toggleModoExplicativo()">
+                        <div>
+                            <span class="text-[10px] font-bold text-amber-400 block">Modo Paso a Paso (Educativo)</span>
+                            <span class="text-[8px] text-slate-400">Pausa para leer el historial</span>
+                        </div>
+                        <div id="toggle-explicativo" class="w-8 h-4 bg-slate-600 rounded-full relative transition-colors"><div id="toggle-dot" class="w-4 h-4 bg-white rounded-full absolute left-0 transition-transform"></div></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="mini-card">
+                            <label class="text-[10px] font-bold text-cyan-300 block mb-1">⏱️ Ritmo</label>
+                            <select id="speed-select" class="mini-select">
+                                <option value="0.75">Lento</option>
+                                <option value="1" selected>Normal</option>
+                                <option value="1.6">Rápido</option>
+                                <option value="2.4">Muy rápido</option>
+                            </select>
+                        </div>
+                        <div class="mini-card">
+                            <div class="text-[10px] font-bold text-emerald-300 mb-1">🔊 Sonido</div>
+                            <button id="btn-sound" onclick="toggleSound()" class="px-2 py-1.5 text-[10px] rounded border text-slate-100 sound-btn-on w-full">ON</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-auto flex flex-col gap-2">
+                    <button id="btn-wisdom" onclick="useWisdom()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] md:text-[11px] font-bold py-2 rounded transition-colors shadow flex items-center justify-center gap-2">
+                        🛡️ Usar Sabiduría para Frenar (T. Fuera)
+                    </button>
+                    <button id="btn-therapy" onclick="useTherapy()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] md:text-[11px] font-bold py-2 rounded transition-colors shadow flex items-center justify-center gap-2">
+                        <span>🆘 Asistir a Terapia de Pareja</span> <span id="therapy-count" class="bg-indigo-900/50 px-1.5 py-0.5 rounded">2</span>
+                    </button>
+                    
+                    <button id="btn-play" onclick="toggleSim()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 rounded transition-colors shadow-lg mt-1">▶ Iniciar Simulador</button>
+                    <button onclick="resetSim()" class="w-full bg-slate-700 hover:bg-slate-600 py-1.5 rounded text-slate-300 text-[9px] font-bold shadow uppercase tracking-wider">Reiniciar desde Cero</button>
+                </div>
+            </div>
+
+            <!-- Evitativo -->
+            <div id="panel-e" class="bg-slate-800 rounded-xl p-4 panel-e shadow-lg flex flex-col justify-between">
+                <div>
+                    <h3 class="text-purple-400 font-bold mb-2 flex items-center justify-end text-sm"><span class="bg-purple-500/20 p-1 rounded mr-2">🧍‍♂️</span> Evitativo</h3>
+                    <div class="mb-2 param-group" id="grp-e-sens">
+                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Sensibilidad a la Herida</label><span id="val-e-sens">7/10</span></div>
+                        <input type="range" id="e-sens" min="1" max="10" value="7" dir="rtl">
+                    </div>
+                    <div class="mb-2 param-group" id="grp-e-int">
+                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Intensidad de la Huida/Apagón</label><span id="val-e-int">6/10</span></div>
+                        <input type="range" id="e-int" min="1" max="10" value="6" dir="rtl">
+                    </div>
+                    <div class="mb-2 param-group" id="grp-e-res">
+                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Paz Interna (Resiliencia)</label><span id="val-e-res">4/10</span></div>
+                        <input type="range" id="e-res" min="1" max="10" value="4" dir="rtl">
+                    </div>
+                </div>
+                <div>
+                    <div class="p-2 bg-purple-900/20 rounded border border-purple-500/30 mt-1 param-group" id="grp-e-sab">
+                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-purple-300 font-bold"><label>🛡️ Sabiduría Pasada (Freno)</label><span id="val-e-sab">5/10</span></div>
+                        <input type="range" id="e-sab" min="1" max="10" value="5" dir="rtl">
+                    </div>
+                    <div class="mt-2 flex justify-between text-[10px] bg-slate-900/50 p-2 rounded border border-slate-700 shadow-inner">
+                        <span>⚔️ Daño: <span id="stat-e-dmg" class="text-red-400 font-bold">0</span></span>
+                        <span>💖 Sanó: <span id="stat-e-heal" class="text-emerald-400 font-bold">0</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NUEVO: CHAT DE HISTORIAL COMPLETO (COMPACTO) -->
+        <div id="history-panel" class="bg-slate-800/80 rounded-xl p-4 md:p-6 shadow-xl border border-slate-700 w-full mb-6 backdrop-blur-sm h-[350px] flex flex-col">
+            <h2 class="text-lg md:text-xl font-bold text-slate-200 mb-3 border-b border-slate-600 pb-2 flex items-center">
+                <span class="bg-slate-700 p-1.5 rounded mr-2">💬</span> Chat de Interacciones
+            </h2>
+            <div id="chat-log" class="flex-1 overflow-y-auto pr-2 space-y-2 flex flex-col p-2">
+                <div class="text-slate-500 italic text-center mt-auto mb-auto text-sm">El chat se llenará cuando inicie la simulación...</div>
+            </div>
+        </div>
+
+        <!-- ANÁLISIS Y DIAGNÓSTICO -->
+        <div id="diag-panel" class="bg-slate-800/80 rounded-xl p-4 md:p-6 shadow-xl border border-slate-700 w-full mb-6 backdrop-blur-sm transition-colors duration-1000">
+            <h2 class="text-lg md:text-xl font-bold text-amber-500 mb-4 flex items-center"><span class="bg-amber-500/20 p-1 rounded mr-2">📊</span> Análisis Clínico y Empático</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+                <!-- Nota -->
+                <div class="lg:col-span-3 flex flex-col justify-center items-center p-4 bg-slate-900/80 rounded-xl border border-slate-700 shadow-inner">
+                    <div class="text-[10px] md:text-xs text-slate-400 mb-1 text-center">Salud del Vínculo</div>
+                    <div id="diag-nota" class="text-4xl md:text-5xl font-black text-white mb-3 transition-colors">0.0</div>
+                    <div id="diag-pronostico" class="text-[8px] md:text-[10px] text-center font-bold px-3 py-1.5 rounded-full uppercase tracking-wider transition-colors">Cargando...</div>
+                </div>
+                <!-- Explicaciones -->
+                <div class="lg:col-span-9 space-y-4">
+                    <div class="p-4 bg-slate-900/50 rounded-lg border border-slate-700 h-full flex flex-col justify-center">
+                        <h4 class="text-sm font-bold text-slate-300 mb-2 flex items-center">🔍 Estado del Sistema Nervioso Relacional</h4>
+                        <p id="diag-explicacion" class="text-[11px] md:text-sm text-slate-400 leading-relaxed mb-3">...</p>
+                        <h4 class="text-sm font-bold text-amber-400 mb-1 flex items-center">💡 Empatía y Solución</h4>
+                        <p id="diag-aprendizaje" class="text-[11px] md:text-sm text-amber-200/80 leading-relaxed">...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <div id="welcome-overlay">
+            <div class="welcome-card">
+                <div class="welcome-emoji">💃🕺</div>
+                <h1 class="welcome-title">El baile de los apegos</h1>
+                <p class="welcome-subtitle">
+                    Un simulador del vínculo entre el apego <strong style="color:#60a5fa">ansioso</strong> y el <strong style="color:#c084fc">evitativo</strong>.<br>
+                    Ajusta los parámetros, intervén y observa cómo evolucionan.
+                </p>
+                <button class="welcome-btn" onclick="startFromWelcome()">
+                    ▶ Comenzar el baile
+                </button>
+                <p class="welcome-note">Simula días de convivencia · Intervén cuando quieras</p>
+            </div>
+        </div>
+
+        <div id="mobile-modal" class="mobile-modal" onclick="if(event.target.id==='mobile-modal') closeMobileModal()">
+            <div class="mobile-modal-card">
+                <div class="mobile-modal-head">
+                    <div id="mobile-modal-title" class="mobile-modal-title">Panel</div>
+                    <button class="mobile-modal-close" onclick="closeMobileModal()">Cerrar</button>
+                </div>
+                <div id="mobile-modal-body" class="mobile-modal-body"></div>
+            </div>
+        </div>
+    <div id="fullscreen-hint" class="fullscreen-hint">Pantalla completa activada</div>
+
+    <script>
+        // --- BASE DE DATOS CLÍNICA (AMPLIADA AL MÁXIMO) ---
+        const CLINICA = {
+          A: {
+            nombre: "Ansioso", color: "#3b82f6",
+            disparadores: [
+              { evento: "Ambigüedad relacional", relato: "Ya no le importo, me va a dejar en cuanto pueda." },
+              { evento: "Distancia física o verbal", relato: "Está enfadado conmigo, seguro que lo he arruinado todo." },
+              { evento: "Petición de espacio del otro", relato: "Se está alejando de forma definitiva. Me quedo solo/a." },
+              { evento: "Silencio prolongado en un chat", relato: "Me está castigando o ignorando a propósito." },
+              { evento: "Cambio de planes de última hora", relato: "No soy una prioridad, me descarta a la mínima." },
+              { evento: "Pareja sale con sus amigos", relato: "Se divierte más sin mí, acabará encontrando a alguien mejor." },
+              { evento: "Falta de validación tras un esfuerzo", relato: "No valora lo que hago, mi amor nunca es suficiente." },
+              { evento: "Pareja mira el móvil mientras hablan", relato: "Se aburre de mí, ya no le intereso en absoluto." },
+              { evento: "Falta del mensaje de 'buenos días'", relato: "Se ha despertado y no ha pensado en mí, el vínculo se enfría." },
+              { evento: "Pareja suspira profundamente", relato: "Está harto/a de mí, soy una carga para su vida." },
+              { evento: "Pareja tarda en confirmar un plan", relato: "Está dudando porque ya no quiere verme." },
+              { evento: "Respuesta corta tipo 'ok'", relato: "Está frío conmigo, algo va mal." },
+              { evento: "Cambio en el tono de voz", relato: "Está molesto, seguro que he hecho algo." },
+              { evento: "Pareja menciona a alguien atractivo", relato: "Se está fijando en otros, no soy suficiente." },
+              { evento: "No responde a una broma", relato: "Ya no conectamos como antes." },
+              { evento: "Menos contacto físico", relato: "Se está desenamorando poco a poco." },
+              { evento: "Olvida un detalle importante", relato: "No le importo de verdad." },
+              { evento: "Está distraído/a en una cita", relato: "Preferiría estar en otro sitio." },
+              { evento: "Comparación con otras parejas", relato: "Nuestra relación es peor, estamos condenados." },
+              { evento: "No comparte algo personal", relato: "Se está cerrando conmigo." },
+              { evento: "Discusión sin cierre claro", relato: "Esto se va a quedar así y nos romperá." },
+              { evento: "Cambio en rutinas de comunicación", relato: "Algo ha cambiado para mal." },
+              { evento: "Pareja parece cansada", relato: "Está cansado de mí." },
+              { evento: "No propone planes", relato: "Ya no tiene interés en la relación." },
+              { evento: "Se muestra independiente", relato: "No me necesita, podría dejarme en cualquier momento." }
+            ],
+            reaccionesToxicas: [
+              "Protesta: Reclama de forma pasivo-agresiva ('Haz lo que quieras, me da igual').", 
+              "Victimismo: 'Siempre soy yo el que da más y sufre por los dos'.", 
+              "Persecución: Envía mensajes compulsivos presa del pánico.",
+              "Ultimátum dramático: Amenaza con romper la relación para forzar retención.",
+              "Triangulación: Menciona a otros para dar celos y comprobar si le importa.",
+              "Inundación emocional: Llora incontrolablemente forzando el rescate.",
+              "Sobreadaptación: Anula sus necesidades para complacer (Falsa calma).",
+              "Control encubierto: Revisa horas de conexión por puro terror.",
+              "Sarcasmo hiriente: 'Claro, como siempre estás TAN ocupado...'",
+              "Preguntas trampa: Busca reaseguramiento donde el otro siempre falla.",
+              "Lectura mental obsesiva: Interpreta cada gesto como señal de abandono.",
+              "Chequeo constante: Pregunta repetidamente '¿estás bien?' buscando calma inmediata.",
+              "Dependencia emocional: Incapacidad de tomar decisiones sin el otro.",
+              "Dramatización: Convierte pequeños conflictos en crisis existenciales.",
+              "Autoabandono: Deja de cuidarse por centrarse en la relación.",
+              "Reproche acumulativo: Saca errores del pasado constantemente.",
+              "Apego al conflicto: Prefiere discutir antes que sentir distancia.",
+              "Comparación destructiva: 'Las otras parejas sí funcionan'.",
+              "Sabotaje: Provoca conflicto para confirmar sus miedos.",
+              "Sobreexplicación: Justifica todo por miedo a ser malinterpretado.",
+              "Ansiedad proyectada: Atribuye al otro emociones que son propias.",
+              "Dependencia digital: Necesita respuestas inmediatas para no colapsar.",
+              "Invalidación indirecta: 'Claro, tú siempre perfecto…'",
+              "Fusión emocional: No distingue entre su emoción y la del otro.",
+              "Rescate constante: Intenta 'arreglar' al otro para sentirse seguro."
+            ],
+            reaccionesSanas: [
+              "✨ Vulnerabilidad: 'Tengo miedo de perderte, ¿me das un abrazo?'",
+              "✨ Sabiduría: Frena, respira, cuestiona su relato y no persigue.",
+              "✨ Habla desde la herida: 'Me siento inseguro', en lugar de culpar.",
+              "✨ Autorregulación: Escribe sus miedos en un diario antes de volcarlos.",
+              "✨ Corregulación: 'Siento que me desconecto, ¿pasamos tiempo de calidad?'",
+              "✨ Resiliencia: Acepta que el otro necesita espacio sin tomárselo a mal.",
+              "✨ Freno Prefrontal: Se da un auto-abrazo (tapping) para regularse.",
+              "✨ Comunicación adulta: 'Mi herida de abandono se ha activado, dame la mano'.",
+              "✨ Metacomunicación: Reconoce: 'Sé que es mi ansiedad hablando, perdona'.",
+              "✨ Aplaza la reacción: Se da tiempo antes de responder impulsivamente.",
+              "✨ Diferencia realidad de interpretación: 'Esto es lo que siento, no lo que sé'.",
+              "✨ Practica autonomía: Hace planes propios sin miedo.",
+              "✨ Refuerza autoestima: Recuerda su propio valor fuera de la relación.",
+              "✨ Pide claridad directa: '¿Puedes decirme cómo estás conmigo?'",
+              "✨ Tolera incertidumbre sin actuar compulsivamente.",
+              "✨ Practica silencio consciente en momentos de ansiedad.",
+              "✨ Identifica patrones repetidos en su conducta.",
+              "✨ Se responsabiliza de su emoción sin culpar.",
+              "✨ Agradece lo positivo en lugar de centrarse en lo que falta.",
+              "✨ Reduce la hipercomunicación impulsiva.",
+              "✨ Practica presencia corporal (respiración, grounding).",
+              "✨ Mantiene límites propios aunque tema perder al otro.",
+              "✨ Aprende a estar solo sin sentir abandono.",
+              "✨ Celebra pequeñas señales de estabilidad en la relación."
+            ]
+          },
+          E: {
+            nombre: "Evitativo", color: "#a855f7",
+            disparadores: [
+              { evento: "Demanda de intimidad o tiempo", relato: "Me exigen algo que no tengo capacidad de dar ahora." },
+              { evento: "Desborde emocional del Ansioso", relato: "Esto es demasiado intenso. Me ahogo, necesito huir." },
+              { evento: "Crítica o reclamo sobre la relación", relato: "Haga lo que haga está mal. Nunca soy suficiente." },
+              { evento: "Mensajes múltiples o persecución", relato: "Me quieren controlar y asfixiar. Voy a perder mi autonomía." },
+              { evento: "Charlas sobre compromiso a largo plazo", relato: "Si acepto, seré prisionero de esta relación para siempre." },
+              { evento: "Invasión de su espacio físico/tiempo libre", relato: "No respetan mis límites, me invaden constantemente." },
+              { evento: "Preguntas constantes sobre sentimientos", relato: "Quieren abrirme a la fuerza; si me abro, me destruirán." },
+              { evento: "Pareja llora por algo que él/ella hizo", relato: "Soy tóxico para el otro, mejor me alejo para no hacer daño." },
+              { evento: "Expectativa de pasar todo el finde juntos", relato: "Me quedaré sin energía vital, no sobreviviré a tanta cercanía." },
+              { evento: "Discusiones circulares", relato: "Esto no tiene arreglo lógico, es un sumidero de energía." },
+              { evento: "Expectativa de expresar emociones profundas", relato: "No sé cómo hacerlo, mejor no entrar ahí." },
+              { evento: "Pareja quiere hablar 'seriamente'", relato: "Se viene un problema que no quiero afrontar." },
+              { evento: "Sentirse observado emocionalmente", relato: "Me están analizando, pierdo control." },
+              { evento: "Dependencia del otro hacia él/ella", relato: "Voy a quedar atrapado en esto." },
+              { evento: "Rutina muy compartida", relato: "Estoy perdiendo mi espacio personal." },
+              { evento: "Necesidad constante del otro", relato: "No puedo con tanta demanda." },
+              { evento: "Mostrar debilidad", relato: "Si me ven vulnerable, pierdo valor." },
+              { evento: "Conflictos emocionales intensos", relato: "Esto es irracional, mejor salir." },
+              { evento: "Expectativa de compromiso explícito", relato: "Estoy firmando una condena." },
+              { evento: "Pareja quiere hablar del pasado", relato: "No quiero remover cosas incómodas." },
+              { evento: "Contacto físico prolongado", relato: "Demasiada cercanía me desregula." },
+              { evento: "Dependencia emocional percibida", relato: "No quiero ser responsable de esto." },
+              { evento: "Pareja busca validación constante", relato: "Nunca será suficiente." },
+              { evento: "Falta de espacio tras discusión", relato: "No me dejan respirar." },
+              { evento: "Expectativa de apertura emocional inmediata", relato: "No puedo cumplir eso." }
+            ],
+            reaccionesToxicas: [
+              "Apagón Dorsal: Se desconecta emocionalmente ('modo robot').",
+              "Evasión: Da respuestas cortantes y frías para crear una barrera.",
+              "Huida Física: Abandona la habitación sin dar explicaciones.",
+              "Intelectualización: Analiza la emoción del otro fríamente sin empatizar.",
+              "Falsa Superioridad: 'Yo no soy tan dramático, tienes un problema'.",
+              "Minimización: 'Tampoco es para tanto, haces una montaña de un grano'.",
+              "Escape Adictivo: Se refugia 10 horas en el trabajo o videojuegos.",
+              "Promesa vacía: Dice que cambiará solo para que le dejen en paz.",
+              "Foco en defectos: Busca fallos menores para justificar su distancia.",
+              "Ocultación: Miente u oculta información para evitar explicaciones.",
+              "Distanciamiento crónico: Mantiene siempre una barrera emocional.",
+              "Ghosting parcial: Desaparece sin explicación durante horas o días.",
+              "Desconexión afectiva: Está físicamente presente pero emocionalmente ausente.",
+              "Cinismo: Ridiculiza la emoción del otro.",
+              "Evitación del conflicto: Hace como si nada pasara.",
+              "Autosuficiencia rígida: Rechaza cualquier ayuda.",
+              "Negación emocional: 'No siento nada'.",
+              "Desplazamiento: Se enfoca en tareas para no sentir.",
+              "Frialdad verbal: Respuestas cortas para cortar conexión.",
+              "Fuga anticipada: Sabotea antes de que el vínculo crezca.",
+              "Ambigüedad constante: No define la relación.",
+              "Comparación despectiva: 'Mi ex no era así'.",
+              "Retirada afectiva como castigo.",
+              "Control pasivo: Decide sin consultar para mantener distancia.",
+              "Desinterés fingido: Actúa como si no le importara nada."
+            ],
+            reaccionesSanas: [
+              "✨ Límite sano: 'Me siento saturado, necesito 1h a solas y vuelvo'.",
+              "✨ Afecto antes de huir: Toca el brazo antes de pedir espacio.",
+              "✨ Comparte su miedo: 'Me cierro por miedo e insuficiencia, no por falta de amor'.",
+              "✨ Autorregulación: Se da permiso para sentir la incomodidad en el cuerpo.",
+              "✨ Corregulación: Da un abrazo por detrás, demostrando presencia en silencio.",
+              "✨ Empatía: 'Entiendo que llores por mi distancia, quiero que sepas que no es tu culpa'.",
+              "✨ Reasegura el vínculo: 'Sigo aquí, no me voy a ir, solo necesito aire'.",
+              "✨ Tolerancia: Se queda respirando profundo, aguantando la incomodidad.",
+              "✨ Iniciativa reparadora: Inicia el contacto físico tras haberse aislado.",
+              "✨ Pide ayuda guiada: '¿Qué necesitas exactamente de mí ahora mismo?'",
+              "✨ Nombra su saturación sin desaparecer.",
+              "✨ Permanece presente aunque incómodo.",
+              "✨ Practica microaperturas emocionales.",
+              "✨ Acepta ayuda sin sentirse débil.",
+              "✨ Explica su necesidad de espacio con claridad.",
+              "✨ Regresa tras retirarse (clave, no huir sin volver).",
+              "✨ Practica contacto físico gradual.",
+              "✨ Escucha sin necesidad de solucionar.",
+              "✨ Reconoce el impacto de su distancia en el otro.",
+              "✨ Se permite sentir sin juzgarse.",
+              "✨ Comunica tiempos concretos ('vuelvo en 30 min').",
+              "✨ Mantiene compromiso incluso con miedo.",
+              "✨ Practica empatía activa aunque no lo sienta natural.",
+              "✨ Valida emociones aunque no las comparta.",
+              "✨ Se entrena en tolerar la cercanía sin huir."
+            ]
+          }
+        };
+        const eventosPositivos = [
+            "Tienen un gesto de cuidado mutuo muy puro y desinteresado.", 
+            "Una carcajada inesperada que resetea el nervio vago de ambos.", 
+            "Apoyo incondicional haciendo equipo ante un problema externo.", 
+            "Validación profunda de los sentimientos del otro sin justificarse.",
+            "Conversación sincera donde ambos se escuchan sin interrumpir.",
+            "Disfrutan del silencio juntos leyendo sin sentir que algo va mal.",
+            "Contacto visual sostenido con una sonrisa compasiva.",
+            "Un acto de servicio inesperado (ej. prepararle su comida favorita).",
+            "Se piden perdón de forma sincera sin justificar el daño.",
+            "Se ríen de un conflicto pasado con perspectiva.",
+            "Uno sostiene al otro en silencio en un momento difícil.",
+            "Se dicen algo bonito mirándose a los ojos sin distracciones.",
+            "Comparten un logro personal como si fuera de ambos.",
+            "Se respetan un límite sin discutirlo.",
+            "Se dan espacio sin que eso genere inseguridad.",
+            "Se sorprenden con un detalle pequeño pero significativo.",
+            "Hablan de un conflicto sin elevar el tono.",
+            "Uno reconoce un error antes de que el otro lo señale.",
+            "Se acompañan en una situación incómoda sin huir.",
+            "Se muestran vulnerables sin miedo al juicio.",
+            "Disfrutan de una actividad sencilla como si fuera especial.",
+            "Se apoyan en silencio en un momento de estrés.",
+            "Se eligen conscientemente después de una dificultad."
+        ];
+
+        const state = {
+            running: false, health: 100, dias: 0,
+            resentment: 0, secureMode: false, corregulations: 0,
+            therapyUses: 2, therapyBuffTicks: 0,
+            wisdomCooldown: 0,
+            ticksSinceLastEvent: 0,
+            speed: 1,
+            soundEnabled: true,
+            flash: 0,
+            ambientClock: 0,
+            toxEventsCount: 0,
+            a: { tension: 0, color: CLINICA.A.color, pendingReaction: null, timer: 0, lastRelato: "", nodes: { disp: 0, center: 0, reac: 0 }, stats: {dmg: 0, heal: 0} },
+            e: { tension: 0, color: CLINICA.E.color, pendingReaction: null, timer: 0, lastRelato: "", nodes: { disp: 0, center: 0, reac: 0 }, stats: {dmg: 0, heal: 0} },
+            particles: [], floatingTexts: [],
+            modoExplicativo: false, esperandoUsuario: false
+        };
+
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let pos = { a: {x:0,y:0}, dispA: {x:0,y:0}, reacA: {x:0,y:0}, e: {x:0,y:0}, dispE: {x:0,y:0}, reacE: {x:0,y:0}, center: {x:0,y:0} };
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            width = canvas.parentElement.clientWidth; height = canvas.parentElement.clientHeight;
+            canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            const gapX = width * 0.25;
+            const gapY = height * 0.3; 
+            pos.center = { x: width / 2, y: height * 0.2 };
+            pos.a = { x: gapX, y: height * 0.5 };
+            pos.dispA = { x: gapX, y: height * 0.5 - gapY };
+            pos.reacA = { x: gapX, y: height * 0.5 + gapY };
+            
+            pos.e = { x: width - gapX, y: height * 0.5 };
+            pos.dispE = { x: width - gapX, y: height * 0.5 - gapY };
+            pos.reacE = { x: width - gapX, y: height * 0.5 + gapY };
+        }
+        window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+        const getVal = (id) => parseFloat(document.getElementById(id).value);
+        const baseLogicDelay = 1500;
+        let audioCtx = null;
+        let activeMobilePanel = null;
+
+        function showFullscreenHint(text) {
+            const hint = document.getElementById('fullscreen-hint');
+            if (!hint) return;
+            hint.textContent = text;
+            hint.classList.add('show');
+            clearTimeout(showFullscreenHint._timer);
+            showFullscreenHint._timer = setTimeout(() => hint.classList.remove('show'), 1800);
+        }
+
+        async function toggleFullscreenMode() {
+            const root = document.documentElement;
+            const isRealFullscreen = !!document.fullscreenElement;
+            try {
+                if (!isRealFullscreen && root.requestFullscreen) {
+                    await root.requestFullscreen({ navigationUI: 'hide' });
+                    document.body.classList.add('app-fullscreen-mode');
+                    showFullscreenHint('Pantalla completa activada');
+                } else if (isRealFullscreen && document.exitFullscreen) {
+                    await document.exitFullscreen();
+                    document.body.classList.remove('app-fullscreen-mode');
+                    showFullscreenHint('Pantalla completa desactivada');
+                } else {
+                    document.body.classList.toggle('app-fullscreen-mode');
+                    showFullscreenHint(document.body.classList.contains('app-fullscreen-mode') ? 'Modo pantalla ampliada' : 'Modo normal');
+                }
+            } catch (err) {
+                document.body.classList.toggle('app-fullscreen-mode');
+                showFullscreenHint(document.body.classList.contains('app-fullscreen-mode') ? 'Modo pantalla ampliada' : 'Modo normal');
+            }
+            setTimeout(() => { resizeCanvas(); if (!state.running) resetSim(); }, 120);
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) document.body.classList.remove('app-fullscreen-mode');
+            setTimeout(() => { resizeCanvas(); }, 120);
+        });
+
+
+        function currentLogicDelay() {
+            return Math.max(260, Math.round(baseLogicDelay / state.speed));
+        }
+
+        function rescheduleLogicInterval() {
+            if (state.running) {
+                clearInterval(logicInterval);
+                logicInterval = setInterval(logicTick, currentLogicDelay());
+            }
+        }
+
+        function ensureAudio() {
+            if (!audioCtx) {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return null;
+                audioCtx = new AC();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        function tone(freq = 440, duration = 0.12, type = 'sine', volume = 0.018, when = 0) {
+            if (!state.soundEnabled) return;
+            const ac = ensureAudio();
+            if (!ac) return;
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, ac.currentTime + when);
+            gain.gain.setValueAtTime(0.0001, ac.currentTime + when);
+            gain.gain.exponentialRampToValueAtTime(volume, ac.currentTime + when + 0.012);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + when + duration);
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(ac.currentTime + when);
+            osc.stop(ac.currentTime + when + duration + 0.03);
+        }
+
+        function playSfx(kind) {
+            if (!state.soundEnabled) return;
+            if (kind === 'birds') { tone(980,0.05,'sine',0.014,0); tone(1260,0.05,'sine',0.012,0.06); tone(1080,0.05,'sine',0.01,0.12); }
+            if (kind === 'heal') { tone(440,0.08,'triangle',0.018,0); tone(554,0.10,'triangle',0.016,0.09); tone(660,0.14,'triangle',0.014,0.18); }
+            if (kind === 'tox') { tone(180,0.08,'square',0.025,0); tone(120,0.12,'sawtooth',0.018,0.05); }
+            if (kind === 'thunder') { tone(80,0.18,'sawtooth',0.03,0); tone(55,0.28,'triangle',0.025,0.08); }
+            if (kind === 'start') { tone(440,0.06,'sine',0.015,0); tone(587,0.08,'sine',0.013,0.08); }
+        }
+
+        function toggleSound() {
+            state.soundEnabled = !state.soundEnabled;
+            const btn = document.getElementById('btn-sound');
+            if (btn) {
+                btn.innerText = state.soundEnabled ? 'ON' : 'OFF';
+                btn.className = 'px-2 py-1.5 text-[10px] rounded border text-slate-100 w-full ' + (state.soundEnabled ? 'sound-btn-on' : 'sound-btn-off');
+            }
+            if (state.soundEnabled) { ensureAudio(); playSfx('birds'); }
+            saveSettings();
+        }
+
+        function vibrate(pattern) {
+            try { if (navigator.vibrate) navigator.vibrate(pattern); } catch(e) {}
+        }
+
+        function saveSettings() {
+            const settings = { sound: state.soundEnabled, speed: state.speed, sliders: {} };
+            ['a-sens','a-sab','a-int','a-res','c-estres','c-com','e-sens','e-sab','e-int','e-res'].forEach(id => {
+                const el = document.getElementById(id); if (el) settings.sliders[id] = el.value;
+            });
+            try { localStorage.setItem('elbaile_settings', JSON.stringify(settings)); } catch(e) {}
+        }
+
+        function loadSettings() {
+            try {
+                const raw = localStorage.getItem('elbaile_settings');
+                if (!raw) return;
+                const s = JSON.parse(raw);
+                if (typeof s.sound === 'boolean') {
+                    state.soundEnabled = s.sound;
+                    const btn = document.getElementById('btn-sound');
+                    if (btn) { btn.innerText = state.soundEnabled ? 'ON' : 'OFF'; btn.className = 'px-2 py-1.5 text-[10px] rounded border text-slate-100 w-full ' + (state.soundEnabled ? 'sound-btn-on' : 'sound-btn-off'); }
+                }
+                if (s.speed && [0.75, 1, 1.6, 2.4].includes(s.speed)) {
+                    state.speed = s.speed;
+                    const sel = document.getElementById('speed-select'); if (sel) sel.value = String(state.speed);
+                }
+                if (s.sliders) {
+                    Object.entries(s.sliders).forEach(([id, val]) => {
+                        const el = document.getElementById(id); const valEl = document.getElementById('val-' + id);
+                        if (el && valEl) { el.value = val; valEl.innerText = val + '/10'; }
+                    });
+                    updateDiagnosis();
+                }
+            } catch(e) {}
+        }
+
+        function maybeTriggerLightning(force = false) {
+            const tensionMedia = (state.a.tension + state.e.tension) / 2;
+            if (force || (tensionMedia > 60 && Math.random() < 0.32)) {
+                state.flash = 12;
+                playSfx('thunder');
+                vibrate(force ? [60, 30, 100] : [30, 20, 50]);
+            }
+        }
+
+        function syncMobileControls() {
+            const p = document.getElementById('m-btn-play');
+            const sp = document.getElementById('m-btn-speed');
+            if (p) p.innerHTML = state.running ? '<span class="ico">⏸</span><span class="txt">Pausar</span>' : '<span class="ico">▶</span><span class="txt">Iniciar</span>';
+            if (sp) sp.innerHTML = '<span class="ico">⏱️</span><span class="txt">x' + (Math.round(state.speed * 10) / 10) + '</span>';
+        }
+
+        function cycleSpeed() {
+            const speeds = [0.8, 1, 1.5, 2.2, 3.2];
+            const idx = speeds.findIndex(v => Math.abs(v - state.speed) < 0.01);
+            state.speed = speeds[(idx + 1) % speeds.length];
+            const sel = document.getElementById('speed-select');
+            if (sel) sel.value = String(state.speed);
+            rescheduleLogicInterval();
+            syncMobileControls();
+        }
+
+        function openMobileModal(kind) {
+            const modal = document.getElementById('mobile-modal');
+            const body = document.getElementById('mobile-modal-body');
+            const title = document.getElementById('mobile-modal-title');
+            if (!modal || !body || !title) return;
+
+            closeMobileModal(false);
+            modal.classList.add('is-open');
+
+            const theory = `
+                <div class="theory-card"><h4>1. La clave: no peleas contra tu pareja, peleas contra el sistema nervioso</h4><p>El ansioso suele sentir abandono donde quizá solo hay distancia. El evitativo suele sentir invasión donde quizá solo hay necesidad de conexión. El trabajo consiste en traducir el ataque visible a la herida invisible.</p></div>
+                <div class="theory-card"><h4>2. Para el perfil ansioso</h4><ul><li>Pedir claridad sin perseguir.</li><li>Separar dato de interpretación: “ha tardado” no significa “no me quiere”.</li><li>Regular el cuerpo antes de enviar el mensaje número doce, ese pequeño ejército de WhatsApp.</li></ul></div>
+                <div class="theory-card"><h4>3. Para el perfil evitativo</h4><ul><li>Pedir espacio con hora de vuelta: “necesito 40 minutos y vuelvo”.</li><li>Dar una señal de vínculo antes de retirarse.</li><li>No confundir calma con hielo. La distancia sin explicación se vive como castigo.</li></ul></div>
+                <div class="theory-card"><h4>4. Reparación práctica</h4><p>La fórmula útil es: “Cuando pasa X, mi cuerpo interpreta Y, me dan ganas de Z, pero en realidad necesito W”. Es sencilla, antigua y eficaz: nombrar, no disparar.</p></div>
+                <div class="theory-card"><h4>5. Botones del simulador</h4><p><strong>Sabiduría</strong> representa un tiempo fuera consciente. <strong>Terapia</strong> aumenta la capacidad de ver la herida del otro. <strong>Ritmo</strong> acelera tanto los días como las bolas: ahora sí corren cuando toca.</p></div>
+            `;
+
+            const map = {
+                config: ['Configuración', 'controls-panel'],
+                history: ['Historial de interacciones', 'history-panel'],
+                status: ['Estado de la relación', 'diag-panel']
+            };
+
+            if (kind === 'theory') {
+                title.innerText = 'Teoría aplicable a los apegos';
+                body.innerHTML = theory;
+                activeMobilePanel = null;
+                return;
+            }
+
+            const item = map[kind];
+            if (!item) return;
+            title.innerText = item[0];
+            const el = document.getElementById(item[1]);
+            if (!el) return;
+            if (!el.dataset.homeId) {
+                const ph = document.createElement('div');
+                ph.id = 'home-' + item[1];
+                el.parentNode.insertBefore(ph, el);
+                el.dataset.homeId = ph.id;
+            }
+            body.innerHTML = '';
+            body.appendChild(el);
+            activeMobilePanel = el;
+        }
+
+        function closeMobileModal(hide = true) {
+            if (activeMobilePanel && activeMobilePanel.dataset.homeId) {
+                const ph = document.getElementById(activeMobilePanel.dataset.homeId);
+                if (ph && ph.parentNode) ph.parentNode.insertBefore(activeMobilePanel, ph.nextSibling);
+                activeMobilePanel = null;
+            }
+            if (hide) {
+                const modal = document.getElementById('mobile-modal');
+                if (modal) modal.classList.remove('is-open');
+            }
+        }
+        
+        ['a-sens','a-sab','a-int','a-res','c-estres','c-com','e-sens','e-sab','e-int','e-res'].forEach(id => {
+            document.getElementById(id).addEventListener('input', (e) => {
+                let val = e.target.value;
+                document.getElementById(`val-${id}`).innerText = val + '/10';
+                updateDiagnosis();
+                saveSettings();
+            });
+        });
+
+        document.getElementById('speed-select').addEventListener('change', (e) => {
+            state.speed = parseFloat(e.target.value) || 1;
+            rescheduleLogicInterval();
+            syncMobileControls();
+            saveSettings();
+        });
+
+        function autoUpgradeParam(id, delta, isGood = true) {
+            const el = document.getElementById(id);
+            let val = parseFloat(el.value) + delta; val = Math.max(1, Math.min(10, val));
+            if(parseFloat(el.value) !== val) {
+                el.value = val; 
+                document.getElementById(`val-${id}`).innerText = val + '/10';
+                const grp = document.getElementById(`grp-${id}`);
+                const colorClass = isGood ? 'bg-emerald-600/40' : 'bg-red-600/40';
+                grp.classList.add(colorClass, 'transition-colors', 'duration-300');
+                setTimeout(() => grp.classList.remove(colorClass), 1500);
+            }
+        }
+
+        function toggleModoExplicativo() {
+            state.modoExplicativo = !state.modoExplicativo;
+            const bg = document.getElementById('toggle-explicativo'); const dot = document.getElementById('toggle-dot');
+            if(state.modoExplicativo) { bg.classList.add('toggle-active'); dot.classList.add('toggle-dot-active'); } 
+            else { bg.classList.remove('toggle-active'); dot.classList.remove('toggle-dot-active'); if(state.esperandoUsuario) resumeFromExplanation(); }
+        }
+
+        // --- SISTEMA DE CHAT (COMPACTO Y EN UNA LÍNEA) ---
+        function logEvent(msg, type, role = 'SYS') {
+            const chatEl = document.getElementById('chat-log');
+            if(chatEl.children[0] && chatEl.children[0].classList.contains('italic')) chatEl.innerHTML = '';
+            
+            const entry = document.createElement('div');
+            let bubbleClass = "px-3 py-1.5 shadow-sm text-[11px] md:text-xs animate-fade-in w-fit max-w-[85%] md:max-w-[75%] ";
+            
+            if (role === 'A' || role === 'a') {
+                bubbleClass += "self-start rounded-br-xl rounded-tr-xl rounded-tl-xl border-l-4 ";
+                if (type.includes('tox') || type.includes('est_a')) bubbleClass += "bg-slate-800/90 border-blue-500 text-slate-200";
+                else if (type.includes('correg') || type.includes('transform') || type === 'pos') bubbleClass += "bg-emerald-900/30 border-emerald-500 text-emerald-100";
+                else if (type.includes('autoreg_fail')) bubbleClass += "bg-slate-800/90 border-orange-500 text-slate-300 opacity-80";
+                else bubbleClass += "bg-slate-800/90 border-blue-500 text-slate-300";
+            } else if (role === 'E' || role === 'e') {
+                bubbleClass += "self-end rounded-bl-xl rounded-tl-xl rounded-tr-xl border-r-4 text-right ";
+                if (type.includes('tox') || type.includes('est_e')) bubbleClass += "bg-slate-800/90 border-purple-500 text-slate-200";
+                else if (type.includes('correg') || type.includes('transform') || type === 'pos') bubbleClass += "bg-emerald-900/30 border-emerald-500 text-emerald-100";
+                else if (type.includes('autoreg_fail')) bubbleClass += "bg-slate-800/90 border-orange-500 text-slate-300 opacity-80";
+                else bubbleClass += "bg-slate-800/90 border-purple-500 text-slate-300";
+            } else {
+                bubbleClass += "self-center rounded-xl text-center border ";
+                if (type === 'pos') bubbleClass += "bg-amber-900/20 border-amber-500 text-amber-200";
+                else if (type === 'boom') bubbleClass += "bg-red-900/40 border-red-600 text-red-200 font-bold";
+                else if (type === 'edu') bubbleClass += "bg-indigo-900/30 border-indigo-500 text-indigo-200";
+                else bubbleClass += "bg-slate-800/90 border-slate-600 text-slate-400";
+            }
+
+            entry.className = bubbleClass;
+            entry.innerHTML = `<span class="opacity-50 font-mono text-[9px] mr-1">[Día ${state.dias}]</span> <span>${msg}</span>`;
+            
+            chatEl.appendChild(entry);
+            chatEl.scrollTop = chatEl.scrollHeight; 
+            
+            if(chatEl.children.length > 50) chatEl.removeChild(chatEl.firstChild);
+        }
+
+        function buildHistoryHTML(chain) {
+            if (!chain || !chain.eventoExterno) return "";
+            let html = `<div class="mt-5 bg-slate-900/80 p-4 rounded-lg text-left border border-slate-700 shadow-inner">
+                <h5 class="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wide border-b border-slate-700 pb-1">📜 Historial de la Bola:</h5>
+                <ul class="text-xs space-y-2">
+                    <li><span class="text-amber-500 font-bold">1. Evento Entrante:</span> <span class="text-slate-300">${chain.eventoExterno}</span></li>`;
+            
+            if (chain.relato) {
+                const relColor = chain.tipoRelato === 'toxico' ? 'text-red-400' : 'text-blue-400';
+                html += `<li><span class="${relColor} font-bold">2. En la Mente (Autorrelato):</span> <span class="text-slate-300">${chain.relato}</span> <br><em class="text-[9px] opacity-60">(Prob. de Relato Tóxico era: ${chain.probToxico}%)</em></li>`;
+            }
+            if (chain.mensajeReaccion) {
+                let reacColor = "";
+                if (chain.decision === 'toxica') reacColor = chain.targetRole === 'a' ? 'text-blue-400' : 'text-purple-400';
+                else if (chain.decisionType === 'autoreg_fallida') reacColor = 'text-red-400';
+                else reacColor = 'text-emerald-400'; 
+                
+                let probText = chain.decision === 'toxica' ? "Sabiduría no logró frenarlo." : "Sabiduría frenó el ataque.";
+                if (chain.decisionType === 'autoreg') probText = "Logró autorregularse en silencio.";
+                if (chain.decisionType === 'autoreg_fallida') probText = "Se tragó la emoción. La tensión sube.";
+                
+                html += `<li><span class="${reacColor} font-bold">3. Reacción (Cuerpo):</span> <span class="text-slate-300">${chain.mensajeReaccion}</span> <br><em class="text-[9px] opacity-60">(${probText})</em></li>`;
+            }
+            html += `</ul></div>`;
+            return html;
+        }
+
+        function useWisdom() {
+            if(state.wisdomCooldown <= 0 && !state.secureMode) {
+                state.wisdomCooldown = 20; 
+                state.a.tension = Math.max(0, state.a.tension - 50); state.e.tension = Math.max(0, state.e.tension - 50);
+                state.a.pendingReaction = null; state.e.pendingReaction = null;
+                state.resentment = Math.max(0, state.resentment - 10);
+                
+                ctx.fillStyle = "rgba(16, 185, 129, 0.2)"; ctx.fillRect(0,0,width,height);
+                spawnText(width/2, height/2, "🛡️ CORTAFUEGOS CONSCIENTE", 'AutoReg');
+                vibrate([10, 8, 20, 8, 10]);
+                logEvent("Habéis usado vuestra experiencia: Tiempo Fuera para no destruiros.", "edu", "SYS");
+
+                triggerExplanation(`🛡️ Consciencia y Autorregulación Aplicada`, `<p><strong>Has frenado el bucle reactivo justo a tiempo.</strong></p><p>Has utilizado todo lo que sabes de tus relaciones anteriores. Te has dado cuenta de que seguir exigiendo (o seguir huyendo) estando tan tensos solo iba a terminar en dolor.</p><p>Has impuesto un <em>"Tiempo Fuera"</em> saludable. Vuestros cuerpos se han relajado de golpe y habéis evitado sumar más resentimiento a la mochila.</p>`, 'border-emerald-400', '🛡️');
+                
+                const btnW = document.getElementById('btn-wisdom');
+                btnW.classList.replace('bg-emerald-600', 'bg-slate-600'); btnW.classList.replace('hover:bg-emerald-500', 'hover:bg-slate-600'); btnW.disabled = true;
+            }
+        }
+
+        function useTherapy() {
+            if(state.therapyUses > 0 && !state.secureMode) {
+                state.therapyUses--; document.getElementById('therapy-count').innerText = state.therapyUses;
+                if(state.therapyUses === 0) document.getElementById('btn-therapy').classList.replace('bg-indigo-600', 'bg-slate-600');
+                
+                state.therapyBuffTicks = 15; state.a.tension = 0; state.e.tension = 0;
+                autoUpgradeParam('c-com', +2, true); autoUpgradeParam('a-sab', +1, true); autoUpgradeParam('e-sab', +1, true);
+                updateDiagnosis();
+
+                ctx.fillStyle = "rgba(99, 102, 241, 0.4)"; ctx.fillRect(0,0,width,height);
+                spawnText(width/2, height/2, "🧠 TERAPIA: APRENDIZAJE EMPÁTICO", 'Correg');
+                vibrate([8, 5, 15, 5, 8, 5, 30]);
+                logEvent("Terapia de Pareja. Habéis aprendido a ver la herida del otro en lugar de su ataque.", "edu", "SYS");
+
+                triggerExplanation(`🆘 Intervención Terapéutica`, `<p><strong>Un profesional os ha ayudado a ver lo que hay debajo del enfado.</strong></p><p>El terapeuta ha creado un espacio seguro. El Evitativo ha podido explicar que se aleja porque se siente insuficiente (no porque no ame al Ansioso), y el Ansioso ha explicado que persigue por puro terror a quedarse solo (no para asfixiar al Evitativo).</p><p>Esta comprensión profunda ha subido vuestros parámetros de Comunicación y Sabiduría <strong>permanentemente</strong>.</p>`, 'border-indigo-500', '🛋️');
+            }
+        }
+
+        function updateDiagnosis() {
+            const p_asab = getVal('a-sab'); const p_esab = getVal('e-sab'); const p_ccom = getVal('c-com');
+            const n_asens = getVal('a-sens'); const n_esens = getVal('e-sens');
+            const n_aint = getVal('a-int'); const n_eint = getVal('e-int'); const n_cestres = getVal('c-estres');
+            
+            document.getElementById('prob-a-reac').innerText = `Freno Consciente: ${p_asab * 10}%`;
+            document.getElementById('prob-e-reac').innerText = `Freno Consciente: ${p_esab * 10}%`;
+
+            let puntos = p_asab + p_esab + p_ccom + (11 - n_asens) + (11 - n_esens) + (11 - n_aint) + (11 - n_eint) + (11 - n_cestres);
+            let nota = ((puntos - 8) / 72) * 10;
+
+            const canvasContainer = document.getElementById('canvas-container');
+            if(state.secureMode) {
+                canvasContainer.style.backgroundColor = '#064e3b'; 
+            } else {
+                const redFactor = Math.floor(15 + (state.resentment * 0.4));
+                canvasContainer.style.backgroundColor = `rgb(${redFactor}, 23, 42)`; 
+            }
+
+            nota = Math.max(0, Math.min(10, nota - (state.resentment * 0.02)));
+            
+            const elNota = document.getElementById('diag-nota'); const elPro = document.getElementById('diag-pronostico');
+            elNota.innerText = state.secureMode ? "10.0" : nota.toFixed(1);
+
+            if(state.secureMode) {
+                elNota.className = "text-4xl md:text-5xl font-black text-emerald-400 mb-3 drop-shadow-[0_0_12px_rgba(16,185,129,0.8)]";
+                elPro.innerText = "APEGO SEGURO 🏆"; elPro.className = "text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-full bg-emerald-900/80 text-emerald-300 border border-emerald-500";
+            } else if(nota < 4) {
+                elNota.className = "text-4xl md:text-5xl font-black text-red-500 mb-3 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]";
+                elPro.innerText = "Alta Reactividad 💥"; elPro.className = "text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-full bg-red-900/60 text-red-300 border border-red-700";
+            } else if(nota < 6.5) {
+                elNota.className = "text-4xl md:text-5xl font-black text-amber-500 mb-3 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]";
+                elPro.innerText = "Vínculo Inestable ⚠️"; elPro.className = "text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-full bg-amber-900/60 text-amber-300 border border-amber-700";
+            } else if(nota < 8.5) {
+                elNota.className = "text-4xl md:text-5xl font-black text-blue-400 mb-3 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]";
+                elPro.innerText = "Regulación Funcional 🌱"; elPro.className = "text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700";
+            } else {
+                elNota.className = "text-4xl md:text-5xl font-black text-emerald-400 mb-3 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]";
+                elPro.innerText = "Conexión Excelente 🌟"; elPro.className = "text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-500";
+            }
+
+            let exp = "";
+            if (state.resentment > 60) exp += "La <strong>Mochila de Resentimiento</strong> está pesadísima. Estais en un estado de alerta donde cualquier cosa inofensiva se malinterpreta como un ataque. ";
+            else if (state.resentment > 20) exp += "Hay heridas no reparadas. El dolor se está acumulando en silencio. ";
+            else exp += "El ambiente emocional está limpio y libre de rencores pasados. ";
+
+            // Añadir feedback de tensiones actuales
+            if (state.a.tension > 80 && state.e.tension > 80) exp += "<br><br><span class='text-red-400 font-bold'>¡Alerta! Ambos sistemas nerviosos están colapsados. La relación está perdiendo salud rápidamente por el desgaste mutuo.</span>";
+            else if (state.a.tension > 80) exp += "<br><br><span class='text-blue-400'>El Ansioso está en pánico total. Necesita señales de seguridad, no frialdad.</span>";
+            else if (state.e.tension > 80) exp += "<br><br><span class='text-purple-400'>El Evitativo está absolutamente saturado. Necesita espacio y calma sin sentirse juzgado.</span>";
+            
+            if(state.therapyBuffTicks > 0) exp += "<br><br><span class='text-indigo-400 font-bold'>¡Tenéis herramientas de Terapia activas! Aprovechad para hablar de vulnerabilidades.</span>";
+
+            document.getElementById('diag-explicacion').innerHTML = state.secureMode ? "Habéis superado el bucle. Ahora el sistema nervioso de ambos entiende que el otro es su hogar, no un enemigo a batir." : exp;
+
+            let apr = state.secureMode ? "El esfuerzo constante ha dado frutos. Habéis sanado." : "Recuerda: <strong>Una comunicación sana reduce las defensas del otro</strong>. Si hablas desde la vulnerabilidad, las probabilidades de que tu pareja distorsione el mensaje caen drásticamente.";
+            if (p_asab >= 8 && p_esab >= 8) apr += "<br><span class='text-emerald-400 mt-2 block'>¡Excelente manejo de la Sabiduría! Estáis usando vuestra experiencia para frenar el bucle antes de que explote.</span>";
+
+            document.getElementById('diag-aprendizaje').innerHTML = apr;
+        } updateDiagnosis();
+
+        function triggerExplanation(title, text, typeColorClass, icon) {
+            if(!state.modoExplicativo || state.esperandoUsuario) return false;
+            state.esperandoUsuario = true; clearInterval(logicInterval);
+            document.getElementById('expl-title').innerText = title; document.getElementById('expl-text').innerHTML = text; document.getElementById('expl-icon').innerText = icon;
+            document.getElementById('expl-box').className = `expl-box bg-slate-800 border-2 rounded-xl p-6 max-w-lg w-full shadow-2xl text-center flex flex-col items-center ${typeColorClass}`;
+            document.getElementById('expl-overlay').classList.remove('hidden');
+            return true;
+        }
+
+        function resumeFromExplanation() {
+            document.getElementById('expl-overlay').classList.add('hidden'); 
+            state.esperandoUsuario = false;
+            if(state.running) logicInterval = setInterval(logicTick, currentLogicDelay());
+        }
+
+        function spawnText(x, y, text, type) {
+            let color = "#ffffff", bg = "rgba(30,41,59,0.8)", border = "#334155";
+            if(type === 'A_tox') { border = "#3b82f6"; bg = "rgba(59,130,246,0.2)"; }
+            if(type === 'E_tox') { border = "#a855f7"; bg = "rgba(168,85,247,0.2)"; }
+            if(type === 'Correg') { border = "#10b981"; bg = "rgba(16,185,129,0.2)"; }
+            if(type === 'Transform') { border = "#818cf8"; bg = "rgba(79,70,229,0.3)"; color = "#e0e7ff"; text = "✨ " + text;}
+            if(type === 'Estres') { border = "#ef4444"; bg = "rgba(239,68,68,0.2)"; }
+            if(type === 'Positivo') { border = "#f59e0b"; bg = "rgba(245,158,11,0.2)"; }
+            if(type === 'Edu') { border = "#fbbf24"; bg = "rgba(251,191,36,0.3)"; color = "#fef3c7";}
+            if(type === 'AutoReg') { border = "#10b981"; bg = "rgba(16,185,129,0.2)"; } 
+            state.floatingTexts.push({ x, y: y-10, text, type, life: 180, maxLife: 180, bg, border, color, offsetY: 0 }); 
+        }
+
+        function spawnParticle(startX, startY, endX, endY, type, power, targetRole, stage, color, chainData, senderRole) {
+            let speed = 0.0085; 
+            let size = type.startsWith('Correg') || type === 'Positivo' ? 7 : 5 + (power/8);
+            const newChain = chainData ? JSON.parse(JSON.stringify(chainData)) : {};
+            state.particles.push({ startX, startY, endX, endY, progress: 0, speed, color, type, power, size, targetRole, stage, chain: newChain, senderRole });
+        }
+
+        function applyImpact(p) {
+            if(state.secureMode && p.type.startsWith('Tox')) return;
+
+            const isA = p.targetRole === 'a';
+            const targetNodeState = isA ? state.a : state.e;
+            const targetName = isA ? 'A' : 'E';
+            const otherName = isA ? 'E' : 'A';
+            const myColor = isA ? CLINICA.A.color : CLINICA.E.color;
+
+            let oldTension = targetNodeState.tension;
+
+            // 1. LLEGA A LA MENTE (DISPARADOR)
+            if (p.stage === 'hit_disp') {
+                targetNodeState.nodes.disp = 20; 
+                
+                let p_toxic = getVal(targetName.toLowerCase() + '-sens') / 10;
+                p_toxic += (state.resentment / 200); 
+
+                if (p.type.startsWith('Correg_')) {
+                    p_toxic *= 0.3;
+                    targetNodeState.tension = Math.max(0, targetNodeState.tension - 10); 
+                } else if (p.type.startsWith('Transform_')) {
+                    p_toxic *= 0.1;
+                    targetNodeState.tension = Math.max(0, targetNodeState.tension - 20); 
+                } else if (p.type.startsWith('Tox_')) {
+                    p_toxic += 0.2; 
+                    targetNodeState.tension = Math.min(100, targetNodeState.tension + 10); 
+                } else if (p.type === 'Positivo') {
+                    p_toxic = 0;
+                }
+
+                p_toxic = Math.min(1.0, Math.max(0.0, p_toxic));
+                p.chain.probToxico = Math.round(p_toxic * 100);
+                
+                const isToxicNarrative = Math.random() < p_toxic;
+                let nextColor = "";
+
+                if (isToxicNarrative) {
+                    const disparador = CLINICA[targetName].disparadores[Math.floor(Math.random() * CLINICA[targetName].disparadores.length)];
+                    p.chain.tipoRelato = "toxico";
+                    
+                    if (p.type.startsWith('Correg_') || p.type.startsWith('Transform_')) {
+                        p.chain.relato = isA ? "Seguro lo dice por compromiso, me dejará." : "Me está manipulando con buenas palabras.";
+                    } else {
+                        p.chain.relato = disparador.relato;
+                    }
+
+                    spawnText(pos['disp'+targetName].x, pos['disp'+targetName].y - 20, "💭 '" + p.chain.relato + "'", 'Estres');
+                    playSfx('tox');
+                    logEvent(`[Mente] Relato tóxico: ${p.chain.relato}`, 'est_'+p.targetRole, targetName);
+                    nextColor = "#ef4444"; 
+                    targetNodeState.tension = Math.min(100, targetNodeState.tension + 15); 
+                } else {
+                    p.chain.tipoRelato = "sano";
+                    
+                    if (p.type.startsWith('Tox_')) {
+                        p.chain.relato = isA ? "Está saturado, no me ataca." : "Tiene miedo, no me rechaza.";
+                        spawnText(pos['disp'+targetName].x, pos['disp'+targetName].y - 20, "💡 '" + p.chain.relato + "'", 'AutoReg'); 
+                        playSfx('heal');
+                        logEvent(`[Mente] Relato empático: ${p.chain.relato}`, 'correg', targetName);
+                    } else {
+                        p.chain.relato = isA ? "Me siento seguro/a." : "Me siento respetado/a.";
+                        spawnText(pos['disp'+targetName].x, pos['disp'+targetName].y - 20, "💖 '" + p.chain.relato + "'", 'Correg'); 
+                        playSfx('heal');
+                        logEvent(`[Mente] Se siente a salvo.`, 'correg', targetName);
+                    }
+                    nextColor = "#10b981"; 
+                }
+
+                spawnParticle(pos['disp'+targetName].x, pos['disp'+targetName].y, pos[p.targetRole].x, pos[p.targetRole].y, 'Disp_to_Center', p.power, p.targetRole, 'hit_center', nextColor, p.chain, p.targetRole);
+            }
+            
+            // 2. LLEGA AL CUERPO (CENTRO) 
+            else if (p.stage === 'hit_center') {
+                targetNodeState.nodes.center = 20; 
+                let impactoBase = p.power;
+                let res = getVal(targetName.toLowerCase() + '-res');
+                let defenseMult = Math.max(0.1, 1.0 - (res * 0.08)); 
+                
+                if (p.chain.tipoRelato === "toxico") {
+                    let dmgGained = impactoBase * defenseMult;
+                    targetNodeState.tension = Math.min(100, targetNodeState.tension + dmgGained);
+                    if(p.type.startsWith('Tox_')) { 
+                        state.health -= (impactoBase * 0.22); 
+                        state.resentment = Math.min(100, state.resentment + (impactoBase * 0.27));
+                    }
+                } else {
+                    if (p.type.startsWith('Tox_') || p.type === 'Estres') {
+                        let dmgGained = impactoBase * 0.1 * defenseMult;
+                        targetNodeState.tension = Math.min(100, targetNodeState.tension + dmgGained);
+                    } else {
+                        let healMult = p.type.startsWith('Transform_') ? 1.15 : 0.72;
+                        let healAmount = impactoBase * healMult;
+                        targetNodeState.tension = Math.max(0, targetNodeState.tension - healAmount);
+                        state.health = Math.min(100, state.health + (2.8 * healMult));
+                        state.resentment = Math.max(0, state.resentment - (5.5 * healMult));
+                    }
+                }
+
+                const intensity = getVal(targetName.toLowerCase() + '-int');
+                const powerOut = 10 + (intensity * 4);
+                let p_wisdom = getVal(targetName.toLowerCase() + '-sab') / 10;
+                if (state.secureMode) p_wisdom = 1.0;
+
+                let decision = '';
+                if (p.chain.tipoRelato === "toxico") {
+                    const isVetoed = Math.random() < p_wisdom;
+                    if (isVetoed) {
+                        let p_com = getVal('c-com') / 10;
+                        if (state.therapyBuffTicks > 0) p_com += 0.3;
+                        if (Math.random() < p_com) decision = 'correg';
+                        else decision = 'autoreg';
+                    } else {
+                        const p_explode = intensity / 10;
+                        if (Math.random() < p_explode) decision = 'toxica';
+                        else decision = 'autoreg_fallida';
+                    }
+                } else {
+                    let p_com = getVal('c-com') / 10;
+                    if (state.therapyBuffTicks > 0) p_com += 0.3;
+                    if (Math.random() < p_com) decision = 'correg';
+                    else decision = 'autoreg';
+                }
+
+                p.chain.decision = decision;
+
+                // EXPLICACIÓN 1
+                const historyHTML = buildHistoryHTML(p.chain);
+                if (p.chain.tipoRelato === "toxico") {
+                    let heridaText = isA ? "el miedo al abandono" : "el miedo a ser invadido y controlado";
+                    
+                    if (p.type.startsWith('Correg_') || p.type.startsWith('Transform_')) {
+                        triggerExplanation(`⚡ Distorsión del Mensaje`, `<p>A pesar de que el acercamiento de tu pareja fue amoroso y vulnerable, tu profunda herida y sensibilidad (<strong>${p.chain.probToxico}% de distorsión</strong>) te han hecho interpretarlo como una amenaza oculta o una falsedad.</p><p>La tensión física de tu cuerpo acaba de subir preparándose para la defensa.</p>${historyHTML}`, 'border-red-500', '⚡');
+                    } else {
+                        triggerExplanation(`⚡ La Herida se abre (Disparador)`, `<p>El evento impactó en <em>${heridaText}</em>.</p><p>El cerebro se miente a sí mismo y se cuenta una historia tóxica. La tensión física del cuerpo acaba de subir rápidamente para prepararse para la defensa.</p>${historyHTML}`, 'border-red-500', '⚡');
+                    }
+                } else {
+                    if (p.type.startsWith('Correg_') || p.type.startsWith('Transform_')) {
+                        triggerExplanation(`💖 Recepción Segura`, `<p>El mensaje empático y vulnerable de tu pareja ha sido recibido correctamente sin que tus defensas lo bloqueen.</p><p>Tu sistema nervioso se siente a salvo. La tensión y el resentimiento caen inmediatamente, curándote.</p>${historyHTML}`, 'border-emerald-400', '💖');
+                    } else {
+                        triggerExplanation(`💡 Empatía Inesperada`, `<p>Esta es la magia de la consciencia. Lograste ver <strong>al niño asustado que hay detrás de la coraza de tu pareja</strong>. Has evaluado la situación con empatía, deteniendo el pánico antes de que llene tu cuerpo de tensión.</p>${historyHTML}`, 'border-blue-400', '💡');
+                    }
+                }
+
+                let nextStage = 'hit_reac';
+                let nextColor = "";
+
+                if (decision === 'toxica') {
+                    p.chain.mensajeReaccion = CLINICA[targetName].reaccionesToxicas[Math.floor(Math.random()*CLINICA[targetName].reaccionesToxicas.length)];
+                    playSfx('tox');
+                    nextColor = CLINICA[targetName].color; 
+                } else if (decision === 'correg') {
+                    p.chain.mensajeReaccion = "✨ " + CLINICA[targetName].reaccionesSanas[Math.floor(Math.random()*CLINICA[targetName].reaccionesSanas.length)];
+                    playSfx((targetNodeState.tension > 40 && p.chain.tipoRelato === "toxico") ? "heal" : "heal");
+                    p.chain.decisionType = (targetNodeState.tension > 40 && p.chain.tipoRelato === "toxico") ? 'transform' : 'correg';
+                    nextColor = p.chain.decisionType === 'transform' ? "#818cf8" : "#10b981"; 
+                } else {
+                    if (targetNodeState.tension < 20 && p.chain.tipoRelato === 'sano') {
+                        p.chain.decisionType = 'autoreg';
+                        p.chain.mensajeReaccion = "Sonríe y se siente en paz.";
+                    } else if (decision === 'autoreg') {
+                        p.chain.mensajeReaccion = "Inhala. Exhala. (Autocontrol Sano)";
+                        p.chain.decisionType = 'autoreg';
+                    } else {
+                        p.chain.mensajeReaccion = "Se traga la rabia en silencio.";
+                        p.chain.decisionType = 'autoreg_fallida';
+                    }
+                    nextStage = 'stop_autoreg';
+                }
+
+                if (nextStage !== 'stop_autoreg') {
+                    spawnParticle(pos[p.targetRole].x, pos[p.targetRole].y, pos['reac'+targetName].x, pos['reac'+targetName].y, 'Center_to_Reac', powerOut, p.targetRole, nextStage, nextColor, p.chain);
+                } else {
+                    if (p.chain.decisionType === 'autoreg_fallida') {
+                        spawnText(pos[p.targetRole].x, pos[p.targetRole].y - 20, "💢 " + p.chain.mensajeReaccion, 'Estres');
+                        logEvent(`[Cuerpo] ${p.chain.mensajeReaccion}`, 'autoreg_fail', targetName);
+                        targetNodeState.tension = Math.min(100, targetNodeState.tension + 10);
+                        state.resentment = Math.min(100, state.resentment + 5);
+                    } else {
+                        spawnText(pos[p.targetRole].x, pos[p.targetRole].y - 20, "🛡️ " + p.chain.mensajeReaccion, 'AutoReg');
+                        logEvent(`[Cuerpo] ${p.chain.mensajeReaccion}`, 'correg', targetName);
+                        let inertiaOut = targetNodeState.tension > 70 ? 0.4 : 1.0;
+                        targetNodeState.tension = Math.max(0, targetNodeState.tension - (8 * inertiaOut));
+                    }
+                }
+            }
+            
+            // 3. LLEGA A LA REACCIÓN
+            else if (p.stage === 'hit_reac') {
+                targetNodeState.nodes.reac = 20; 
+                const decisionType = p.chain.decisionType;
+                const msg = p.chain.mensajeReaccion;
+                let inertiaOut = targetNodeState.tension > 70 ? 0.4 : 1.0;
+                
+                if (p.chain.decision === 'toxica') {
+                    spawnText(pos['reac'+targetName].x, pos['reac'+targetName].y, msg, targetName + '_tox');
+                    logEvent(`[Acción] ${msg}`, 'tox', targetName);
+                    
+                    targetNodeState.tension = Math.max(0, targetNodeState.tension - 2);
+                    
+                    state.toxEventsCount++;
+                    if (state.toxEventsCount % 4 === 0 && state.resentment > 20) {
+                        autoUpgradeParam('c-com', -1, false); updateDiagnosis();
+                        spawnText(pos.center.x, pos.center.y - 30, "🥀 Desgaste por repetición", 'Estres');
+                    }
+                } else {
+                    if (decisionType === 'transform') {
+                        spawnText(pos['reac'+targetName].x, pos['reac'+targetName].y, msg, 'Transform');
+                        logEvent(`[Acción VULNERABLE] ${msg}`, 'transform', targetName);
+                        targetNodeState.tension = Math.max(0, targetNodeState.tension - (22 * inertiaOut)); 
+                        state.corregulations += 2; 
+                    } else {
+                        spawnText(pos['reac'+targetName].x, pos['reac'+targetName].y, msg, 'Correg');
+                        logEvent(`[Acción Sana] ${msg}`, 'correg', targetName);
+                        targetNodeState.tension = Math.max(0, targetNodeState.tension - (6 * inertiaOut)); 
+                        state.corregulations++; 
+                    }
+                }
+
+                // EXPLICACIÓN 2
+                const historyHTML = buildHistoryHTML(p.chain);
+                if (p.chain.decision === 'toxica') {
+                    triggerExplanation(`💥 Reacción Defensiva`, `<p>El cerebro no logró frenar el miedo. El cuerpo ha actuado la emoción para protegerse, atacando o huyendo de la relación.</p><p>A diferencia de la regulación sana, <strong>esta reacción tóxica no alivia tu tensión interna</strong>. Sigues en estado de alerta, y la bola viaja ahora a la mente del otro, convirtiéndose en su nuevo disparador.</p>${historyHTML}`, targetName==='A'?'border-blue-500':'border-purple-500', '💣');
+                } else if (decisionType === 'transform') {
+                    triggerExplanation(`✨ Alquimia de la Vulnerabilidad`, `<p><strong>Esto es lo que cura las relaciones más profundas.</strong></p><p>Estabas muy alterado, pero reuniste valor y elegiste mostrarle a tu pareja el dolor tierno que había debajo del enfado. Esa vulnerabilidad desarmará sus defensas cuando la reciba y le curará la tensión a él/ella.</p>${historyHTML}`, 'border-indigo-400', '✨');
+                } else {
+                    triggerExplanation(`💬 Corregulación`, `<p>Has comunicado tu necesidad con éxito y cuidado. La bola verde que viaja ahora aliviará la tensión de tu pareja drásticamente en cuanto le alcance, porque es casi imposible que se la tome como un ataque.</p>${historyHTML}`, 'border-emerald-500', '🌱');
+                }
+
+                // Disparar al otro
+                const otherRole = isA ? 'e' : 'a'; 
+                let typePath = p.chain.decision === 'toxica' ? `Tox_${targetName}_to_${otherName}` : (decisionType === 'transform' ? `Transform_${targetName}_to_${otherName}` : `Correg_${targetName}_to_${otherName}`);
+                
+                const newChainForOther = { eventoExterno: msg };
+                spawnParticle(pos['reac'+targetName].x, pos['reac'+targetName].y, pos['disp'+otherName].x, pos['disp'+otherName].y, typePath, p.power, otherRole, 'hit_disp', p.color, newChainForOther, targetName.toLowerCase());
+            }
+
+            // --- ACTUALIZACIÓN DE ESTADÍSTICAS DE DAÑO/SANACIÓN ---
+            let tensionAfter = targetNodeState.tension;
+            let diff = tensionAfter - oldTension;
+
+            let sender = p.senderRole; 
+            if (sender && state[sender] && diff !== 0) {
+                if (diff > 0) {
+                    state[sender].stats.dmg += diff;
+                } else if (diff < 0) {
+                    state[sender].stats.heal += Math.abs(diff);
+                }
+            }
+        }
+
+
+        function drawBird(x, y, scale, alpha) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = 'rgba(226,232,240,0.85)';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(-8, 0); ctx.quadraticCurveTo(-3, -6, 0, 0);
+            ctx.quadraticCurveTo(3, -6, 8, 0);
+            ctx.stroke();
+            ctx.restore();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawLightningBolt(x, y, scale = 1, alpha = 1) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = 'rgba(250,204,21,0.95)';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = 'rgba(250,204,21,0.9)';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-12, 24);
+            ctx.lineTo(-1, 22);
+            ctx.lineTo(-18, 54);
+            ctx.lineTo(16, 18);
+            ctx.lineTo(3, 20);
+            ctx.lineTo(13, 0);
+            ctx.stroke();
+            ctx.restore();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
+
+        function drawTensionRays(x, y, color, intensity) {
+            const rayCount = Math.floor(7 + intensity / 8);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = Math.min(0.72, 0.18 + intensity / 170);
+            for (let i = 0; i < rayCount; i++) {
+                const angle = (Math.PI * 2 * i) / rayCount + state.ambientClock * 0.018;
+                const inner = 34;
+                const outer = 48 + (intensity / 3.2) + (i % 2 ? 9 : 0);
+                ctx.lineWidth = i % 2 ? 1.4 : 2.3;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+                ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+                ctx.stroke();
+            }
+            ctx.restore();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawBackgroundScene() {
+            const avgTension = (state.a.tension + state.e.tension) / 2;
+            const storm = Math.min(1, (avgTension + state.resentment * 0.95) / 110);
+            const calm = Math.max(0, 1 - storm);
+            state.ambientClock += 1;
+            if (state.flash > 0) state.flash--;
+
+            const sky = ctx.createLinearGradient(0, 0, 0, height);
+            if (state.secureMode || (avgTension < 20 && state.resentment < 15)) {
+                sky.addColorStop(0, '#155e75');
+                sky.addColorStop(0.45, '#0f766e');
+                sky.addColorStop(1, '#052e2b');
+            } else if (storm > 0.58) {
+                sky.addColorStop(0, '#020617');
+                sky.addColorStop(0.42, '#111827');
+                sky.addColorStop(1, '#1e1b4b');
+            } else {
+                sky.addColorStop(0, '#0f172a');
+                sky.addColorStop(0.55, '#172554');
+                sky.addColorStop(1, '#111827');
+            }
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, width, height);
+
+            const glow = ctx.createRadialGradient(width * 0.5, height * 0.18, 10, width * 0.5, height * 0.18, height * 0.48);
+            glow.addColorStop(0, `rgba(255,255,255,${0.06 + calm * 0.13})`);
+            glow.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = glow;
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.fillStyle = 'rgba(15,23,42,0.42)';
+            ctx.beginPath();
+            ctx.moveTo(0, height * 0.76);
+            ctx.quadraticCurveTo(width * 0.18, height * 0.66, width * 0.38, height * 0.76);
+            ctx.quadraticCurveTo(width * 0.56, height * 0.82, width * 0.72, height * 0.74);
+            ctx.quadraticCurveTo(width * 0.87, height * 0.67, width, height * 0.78);
+            ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(30,41,59,0.68)';
+            ctx.beginPath();
+            ctx.moveTo(0, height * 0.84);
+            ctx.quadraticCurveTo(width * 0.22, height * 0.73, width * 0.52, height * 0.83);
+            ctx.quadraticCurveTo(width * 0.76, height * 0.9, width, height * 0.8);
+            ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath();
+            ctx.fill();
+
+            if (avgTension < 28 && state.resentment < 25) {
+                const t = state.ambientClock * 0.012;
+                drawBird(width * 0.18 + Math.sin(t) * 18, height * 0.16 + Math.cos(t * 0.7) * 7, 1, 0.68);
+                drawBird(width * 0.26 + Math.sin(t + 1.2) * 14, height * 0.12 + Math.cos(t * 0.8) * 8, 0.82, 0.54);
+                drawBird(width * 0.78 + Math.sin(t + 0.6) * 16, height * 0.18 + Math.cos(t * 0.9) * 6, 0.94, 0.58);
+            }
+
+            if (storm > 0.34) {
+                ctx.fillStyle = `rgba(2,6,23,${0.18 + storm * 0.32})`;
+                for (let i = 0; i < 6; i++) {
+                    const cx = width * (0.08 + i * 0.18) + Math.sin((state.ambientClock + i * 17) * 0.012) * 11;
+                    const cy = height * (0.12 + (i % 2) * 0.04);
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, 78, 26, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            if (storm > 0.72 || state.flash > 0) {
+                const flashAlpha = state.flash > 0 ? 0.08 + state.flash * 0.035 : 0.035;
+                ctx.fillStyle = `rgba(255,255,255,${flashAlpha})`;
+                ctx.fillRect(0, 0, width, height);
+                drawLightningBolt(width * 0.18, height * 0.06, 0.9, 0.95);
+                if (avgTension > 76) drawLightningBolt(width * 0.82, height * 0.08, 0.78, 0.9);
+                if (avgTension > 88) drawLightningBolt(width * 0.5, height * 0.04, 0.68, 0.78);
+            }
+        }
+
+        function renderLoop() {
+            ctx.clearRect(0, 0, width, height);
+            drawBackgroundScene();
+
+            ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,0.15)";
+            ctx.beginPath(); ctx.moveTo(pos.a.x, pos.dispA.y); ctx.lineTo(pos.a.x, pos.reacA.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pos.e.x, pos.dispE.y); ctx.lineTo(pos.e.x, pos.reacE.y); ctx.stroke();
+
+            ctx.strokeStyle = `rgba(239, 68, 68, ${0.1 + (state.resentment/400)})`; 
+            ctx.beginPath(); ctx.moveTo(pos.reacE.x, pos.reacE.y); ctx.bezierCurveTo(width/2, pos.reacE.y, width/2, pos.dispA.y, pos.dispA.x, pos.dispA.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pos.reacA.x, pos.reacA.y); ctx.bezierCurveTo(width/2, pos.reacA.y, width/2, pos.dispE.y, pos.dispE.x, pos.dispE.y); ctx.stroke();
+
+            const drawSubNode = (x, y, label, color, shakeTimer) => {
+                let sx = shakeTimer > 0 ? (Math.random()-0.5)*4 : 0;
+                let sy = shakeTimer > 0 ? (Math.random()-0.5)*4 : 0;
+                
+                ctx.beginPath(); ctx.arc(x+sx, y+sy, 12, 0, Math.PI*2);
+                ctx.fillStyle = "#1e293b"; ctx.fill();
+                ctx.lineWidth = 2; ctx.strokeStyle = shakeTimer > 0 ? "#ffffff" : color; ctx.stroke();
+                ctx.fillStyle = "#cbd5e1"; ctx.font = "9px sans-serif"; ctx.textAlign = "center"; ctx.fillText(label, x+sx, y+sy + 22);
+            };
+
+            ['a', 'e'].forEach(role => {
+                let p = state[role]; let c = p.color; let isA = role === 'a';
+                if(p.nodes.disp > 0) p.nodes.disp--;
+                if(p.nodes.center > 0) p.nodes.center--;
+                if(p.nodes.reac > 0) p.nodes.reac--;
+
+                drawSubNode(isA ? pos.dispA.x : pos.dispE.x, isA ? pos.dispA.y : pos.dispE.y, "Mente (Disparador)", c, p.nodes.disp);
+                drawSubNode(isA ? pos.reacA.x : pos.reacE.x, isA ? pos.reacA.y : pos.reacE.y, "Reacción", c, p.nodes.reac);
+            });
+
+            const drawAvatar = (x, y, data, isA) => {
+                let rgbColor = isA ? "59, 130, 246" : "168, 85, 247"; 
+                if(data.tension > 10 && !state.secureMode) {
+                    let auraRadius = Math.min(100, 30 + (data.tension/3));
+                    ctx.beginPath(); ctx.arc(x, y, auraRadius, 0, Math.PI*2);
+                    ctx.fillStyle = `rgba(${rgbColor}, ${Math.min(data.tension/150, 0.6)})`;
+                    ctx.fill();
+                }
+                if(data.tension > 62 && !state.secureMode) {
+                    drawTensionRays(x, y, `rgba(${rgbColor},0.95)`, data.tension);
+                }
+
+                let shakeC = data.nodes.center > 0;
+                let sx = shakeC ? (Math.random()-0.5)*5 : 0;
+                let sy = shakeC ? (Math.random()-0.5)*5 : 0;
+
+                ctx.fillStyle = (data.tension > 80 && !state.secureMode) ? "#f87171" : "#e2e8f0";
+                ctx.beginPath(); ctx.arc(x+sx, y+sy, 22, 0, Math.PI*2); ctx.fill(); 
+                ctx.fillStyle = "#0f172a"; ctx.font = "18px Arial"; ctx.textAlign = "center"; ctx.textBaseline="middle";
+                ctx.fillText(state.secureMode ? "S" : (isA ? "A" : "E"), x+sx, y+sy);
+                
+                ctx.fillStyle = (data.tension > 80 && !state.secureMode) ? "#fca5a5" : "#94a3b8"; ctx.font = "10px sans-serif";
+                ctx.fillText(`Tensión: ${Math.floor(data.tension)}%`, x+sx+45, y+sy);
+            };
+
+            drawAvatar(pos.a.x, pos.a.y, state.a, true); drawAvatar(pos.e.x, pos.e.y, state.e, false);
+
+            for (let i = state.particles.length - 1; i >= 0; i--) {
+                let p = state.particles[i]; 
+                
+                if (!state.esperandoUsuario) { p.progress += p.speed * Math.max(0.85, state.speed * 1.28); }
+                
+                let cx, cy;
+                if (p.startX === pos.center.x || p.startY === -20 || p.stage === 'hit_center' || p.stage === 'hit_reac') {
+                    cx = p.startX + (p.endX - p.startX) * p.progress; cy = p.startY + (p.endY - p.startY) * p.progress;
+                } else {
+                    const cp1 = {x: width/2, y: p.startY}; const cp2 = {x: width/2, y: p.endY};
+                    const t = p.progress; const mt = 1 - t;
+                    cx = mt*mt*mt*p.startX + 3*mt*mt*t*cp1.x + 3*mt*t*t*cp2.x + t*t*t*p.endX;
+                    cy = mt*mt*mt*p.startY + 3*mt*mt*t*cp1.y + 3*mt*t*t*cp2.y + t*t*t*p.endY;
+                }
+
+                ctx.beginPath(); ctx.arc(cx, cy, p.size, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.fill();
+                ctx.shadowBlur = 15; ctx.shadowColor = p.color; ctx.fill(); ctx.shadowBlur = 0;
+                
+                if (p.progress >= 1 && !state.esperandoUsuario) { 
+                    applyImpact(p); 
+                    state.particles.splice(i, 1); 
+                }
+            }
+
+            for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+                let ft = state.floatingTexts[i]; 
+                if (!state.esperandoUsuario) { ft.life--; ft.offsetY -= 0.2; }
+                
+                ctx.globalAlpha = Math.min(1, ft.life / 40); ctx.font = "bold 11px sans-serif"; ctx.textBaseline="middle";
+                let textWidth = ctx.measureText(ft.text).width; let pad = 8;
+                
+                ctx.fillStyle = ft.bg; ctx.strokeStyle = ft.border; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.roundRect(ft.x - textWidth/2 - pad, ft.y + ft.offsetY - 12, textWidth + pad*2, 24, 6);
+                ctx.fill(); ctx.stroke();
+                ctx.fillStyle = ft.color; ctx.textAlign = "center"; ctx.fillText(ft.text, ft.x, ft.y + ft.offsetY);
+                ctx.globalAlpha = 1.0;
+                if (ft.life <= 0) state.floatingTexts.splice(i, 1);
+            }
+
+            document.getElementById('tension-a').style.height = Math.min(100, state.a.tension) + '%';
+            document.getElementById('tension-e').style.height = Math.min(100, state.e.tension) + '%';
+            
+            const hb = document.getElementById('health-bar-fill');
+            hb.style.width = Math.max(0, state.health) + '%';
+            hb.style.backgroundColor = state.health < 30 ? '#ef4444' : state.health < 60 ? '#f59e0b' : '#10b981';
+            
+            document.getElementById('resent-bar-fill').style.width = Math.min(100, state.resentment) + '%';
+
+            // Actualizar contadores de daño/sanación
+            document.getElementById('stat-a-dmg').innerText = Math.floor(state.a.stats.dmg);
+            document.getElementById('stat-a-heal').innerText = Math.floor(state.a.stats.heal);
+            document.getElementById('stat-e-dmg').innerText = Math.floor(state.e.stats.dmg);
+            document.getElementById('stat-e-heal').innerText = Math.floor(state.e.stats.heal);
+
+            if (state.running) requestAnimationFrame(renderLoop);
+        }
+
+        let logicInterval;
+
+        function logicTick() {
+            if(state.esperandoUsuario) return;
+            if (state.health <= 0) { spawnText(width/2, height/2, "💔 LA RELACIÓN SE HA ROTO POR DESGASTE", 'Estres'); playSfx('tox'); vibrate([200, 80, 200, 80, 400]); toggleSim(); return; }
+
+            state.dias++; 
+            state.ticksSinceLastEvent++;
+            if(state.therapyBuffTicks > 0) state.therapyBuffTicks--;
+            
+            let decayA = (getVal('a-res') / 10) * 0.45;
+            let decayE = (getVal('e-res') / 10) * 0.45;
+            
+            if(state.a.tension > 70) decayA *= 0.06;
+            if(state.e.tension > 70) decayE *= 0.06;
+            
+            let oldTA = state.a.tension; let oldTE = state.e.tension;
+            state.a.tension = Math.max(0, state.a.tension - decayA);
+            state.e.tension = Math.max(0, state.e.tension - decayE);
+
+            // DRENAJE DE SALUD ACELERADO SI AMBOS ESTÁN MAL
+            let maxTension = Math.max(state.a.tension, state.e.tension);
+            let minTension = Math.min(state.a.tension, state.e.tension);
+            if (maxTension > 90 && minTension > 60) {
+                state.health -= 2.15; 
+                if (Math.random() < 0.05) { logEvent("Colapso mutuo. La salud de la relación cae en picado.", "boom", "SYS"); vibrate([80, 40, 80]); }
+                maybeTriggerLightning(true);
+            } else if (maxTension > 90) {
+                state.health -= 1.15; 
+                if (Math.random() < 0.05) logEvent("Tensión crítica. Drenaje acelerado de salud.", "boom", "SYS");
+                maybeTriggerLightning();
+            } else if (maxTension > 70) {
+                state.health -= 0.62; 
+                if (Math.random() < 0.02) logEvent("La alta tensión sostenida desgasta la relación.", "est_a", "SYS");
+                if (Math.random() < 0.18) maybeTriggerLightning();
+            }
+
+            if (state.resentment > 35 && maxTension > 55) {
+                state.health -= Math.min(0.55, (state.resentment - 30) / 160);
+            }
+
+            if(state.wisdomCooldown > 0) {
+                state.wisdomCooldown--; const btnW = document.getElementById('btn-wisdom');
+                btnW.innerText = `⏳ Refractario (${state.wisdomCooldown}d)`;
+                if(state.wisdomCooldown <= 0) {
+                    btnW.disabled = false; btnW.innerText = "🛡️ Usar Sabiduría para Frenar (T. Fuera)";
+                    btnW.classList.replace('bg-slate-600', 'bg-emerald-600'); btnW.classList.replace('hover:bg-slate-600', 'hover:bg-emerald-500');
+                }
+            }
+
+            document.getElementById('hud-dias').innerText = state.dias; 
+
+            if (state.health >= 90 && state.resentment === 0 && !state.secureMode && state.dias > 100 && state.corregulations >= 8) {
+                state.secureMode = true;
+                document.getElementById('label-a').innerText = "Apego Seguro (S)"; document.getElementById('label-e').innerText = "Apego Seguro (S)";
+                document.getElementById('label-a').className = "avatar-label label-a bg-emerald-900/50 border-emerald-500";
+                document.getElementById('label-e').className = "avatar-label label-e bg-emerald-900/50 border-emerald-500";
+                document.getElementById('panel-a').className = "bg-slate-800 rounded-xl p-4 md:p-5 panel-a shadow-lg flex flex-col justify-between border-emerald-500 secure-glow";
+                document.getElementById('panel-e').className = "bg-slate-800 rounded-xl p-4 md:p-5 panel-e shadow-lg flex flex-col justify-between border-emerald-500 secure-glow";
+                state.a.color = '#10b981'; state.e.color = '#10b981';
+                
+                logEvent("¡Evolución confirmada! Apego Seguro Ganado.", 'transform', "SYS");
+                updateDiagnosis(); 
+            }
+
+            const freqEventos = Math.max(1, getVal('c-estres') * 0.5);
+            const forceEvent = state.ticksSinceLastEvent > 20;
+
+            if (forceEvent || Math.random() * 20 < freqEventos) {
+                state.ticksSinceLastEvent = 0;
+                let rnd = Math.random();
+                
+                if (rnd < 0.15 && !forceEvent) { 
+                    const msg = eventosPositivos[Math.floor(Math.random()*eventosPositivos.length)];
+                    spawnText(pos.center.x, pos.center.y + 50, msg, 'Positivo');
+                    playSfx(Math.random() < 0.55 ? 'birds' : 'heal');
+                    spawnParticle(pos.center.x, pos.center.y, pos.a.x, pos.a.y, 'Positivo', 20, 'a', 'hit_center', "#f59e0b", {eventoExterno: msg}, null); 
+                    spawnParticle(pos.center.x, pos.center.y, pos.e.x, pos.e.y, 'Positivo', 20, 'e', 'hit_center', "#f59e0b", {eventoExterno: msg}, null);
+                    logEvent(`Interacción nutritiva: ${msg}`, 'pos', "SYS");
+                } 
+                else if (rnd < 0.55) { 
+                    const evt = CLINICA.E.disparadores[Math.floor(Math.random()*CLINICA.E.disparadores.length)];
+                    spawnText(pos.center.x + 100, pos.center.y, "⚡ " + evt.evento, 'Estres');
+                    spawnParticle(pos.center.x + 100, -20, pos.dispE.x, pos.dispE.y, 'Estres', 25, 'e', 'hit_disp', "#ef4444", {eventoExterno: evt.evento}, null);
+                    logEvent(`Disparador externo: ${evt.evento}`, 'est', "SYS");
+                } else { 
+                    const evt = CLINICA.A.disparadores[Math.floor(Math.random()*CLINICA.A.disparadores.length)];
+                    spawnText(pos.center.x - 100, pos.center.y, "⚡ " + evt.evento, 'Estres');
+                    spawnParticle(pos.center.x - 100, -20, pos.dispA.x, pos.dispA.y, 'Estres', 25, 'a', 'hit_disp', "#ef4444", {eventoExterno: evt.evento}, null);
+                    logEvent(`Disparador externo: ${evt.evento}`, 'est', "SYS");
+                }
+            }
+        }
+
+        function toggleSim() {
+            const btn = document.getElementById('btn-play');
+            if (state.running) {
+                state.running = false; clearInterval(logicInterval);
+                syncMobileControls();
+                btn.innerText = "▶ Reanudar Simulador"; btn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 rounded shadow-lg mt-1 transition-colors duration-300";
+            } else {
+                if(state.health <= 0) resetSim();
+                ensureAudio();
+                playSfx('start');
+                state.running = true; 
+                logicInterval = setInterval(logicTick, currentLogicDelay()); 
+                if(!state.esperandoUsuario) renderLoop(); 
+                syncMobileControls();
+                btn.innerText = "⏸ Pausar Simulador"; btn.className = "w-full bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold py-2.5 rounded shadow-lg mt-1 transition-colors duration-300";
+            }
+        }
+
+        function resetSim() {
+            if (state.running) { state.running = false; clearInterval(logicInterval); }
+            const btn = document.getElementById('btn-play');
+            btn.innerText = "▶ Iniciar Simulador"; btn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 rounded shadow-lg mt-1";
+
+            state.health = 100; state.dias = 0; state.resentment = 0;
+            state.therapyUses = 2; state.therapyBuffTicks = 0; state.secureMode = false;
+            state.corregulations = 0; state.wisdomCooldown = 0; state.ticksSinceLastEvent = 0; state.flash = 0; state.ambientClock = 0; state.toxEventsCount = 0;
+            
+            document.getElementById('therapy-count').innerText = "2"; document.getElementById('btn-therapy').classList.replace('bg-slate-600', 'bg-indigo-600');
+            const btnW = document.getElementById('btn-wisdom'); btnW.disabled = false; btnW.innerText = "🛡️ Usar Sabiduría para Frenar (T. Fuera)"; btnW.classList.replace('bg-slate-600', 'bg-emerald-600'); btnW.classList.replace('hover:bg-slate-600', 'hover:bg-emerald-500');
+            document.getElementById('chat-log').innerHTML = '<div class="text-slate-500 italic text-center mt-auto mb-auto text-sm">El chat se llenará cuando inicie la simulación...</div>';
+            
+            document.getElementById('label-a').innerText = "Ansioso (A)"; document.getElementById('label-e').innerText = "Evitativo (E)";
+            state.a.color = '#3b82f6'; state.e.color = '#a855f7';
+
+            state.a.tension = 0; state.e.tension = 0; 
+            state.a.stats = {dmg: 0, heal: 0}; state.e.stats = {dmg: 0, heal: 0};
+            
+            state.particles = []; state.floatingTexts = []; state.esperandoUsuario = false;
+            document.getElementById('expl-overlay').classList.add('hidden');
+            
+            setTimeout(() => { updateDiagnosis(); syncMobileControls(); }, 50);
+
+            ctx.clearRect(0,0,width,height); drawBackgroundScene();
+            document.getElementById('tension-a').style.height = '0%'; document.getElementById('tension-e').style.height = '0%';
+            document.getElementById('health-bar-fill').style.width = '100%'; document.getElementById('resent-bar-fill').style.width = '0%';
+            
+            document.getElementById('stat-a-dmg').innerText = '0'; document.getElementById('stat-a-heal').innerText = '0';
+            document.getElementById('stat-e-dmg').innerText = '0'; document.getElementById('stat-e-heal').innerText = '0';
+
+            ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,0.15)";
+            ctx.beginPath(); ctx.moveTo(pos.a.x, pos.dispA.y); ctx.lineTo(pos.a.x, pos.reacA.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pos.e.x, pos.dispE.y); ctx.lineTo(pos.e.x, pos.reacE.y); ctx.stroke();
+
+            const drawSubNode = (x, y, label, color) => {
+                ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI*2); ctx.fillStyle = "#1e293b"; ctx.fill();
+                ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.stroke();
+                ctx.fillStyle = "#cbd5e1"; ctx.font = "9px sans-serif"; ctx.textAlign = "center"; ctx.fillText(label, x, y + 22);
+            };
+            drawSubNode(pos.dispA.x, pos.dispA.y, "Mente (Disparador)", CLINICA.A.color); drawSubNode(pos.reacA.x, pos.reacA.y, "Cuerpo (Reacción)", CLINICA.A.color);
+            drawSubNode(pos.dispE.x, pos.dispE.y, "Mente (Disparador)", CLINICA.E.color); drawSubNode(pos.reacE.x, pos.reacE.y, "Cuerpo (Reacción)", CLINICA.E.color);
+
+            const drawInitialAvatar = (x, y, isA) => {
+                ctx.fillStyle = "#e2e8f0"; ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI*2); ctx.fill(); 
+                ctx.fillStyle = "#0f172a"; ctx.font = "18px Arial"; ctx.textAlign = "center"; ctx.textBaseline="middle"; ctx.fillText(isA ? "A" : "E", x, y);
+            };
+            drawInitialAvatar(pos.a.x, pos.a.y, true); drawInitialAvatar(pos.e.x, pos.e.y, false);
+        }
+
+        function startFromWelcome() {
+            const ov = document.getElementById('welcome-overlay');
+            if (ov) {
+                ov.style.transition = 'opacity 0.4s ease';
+                ov.style.opacity = '0';
+                vibrate([10, 5, 20]);
+                setTimeout(() => ov.remove(), 420);
+            }
+        }
+
+        window.onload = () => { setTimeout(() => { loadSettings(); resetSim(); syncMobileControls(); }, 100); };
+    </script>
+</body>
+</html>

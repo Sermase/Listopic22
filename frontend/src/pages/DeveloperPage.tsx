@@ -31,7 +31,7 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user, isJefe, loading: loadingAuth } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage'>('console');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'proyectos' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage'>('console');
     // Reactive: un usuario al que se le acaba de quitar el rol 'jefe' pierde
     // acceso inmediatamente sin recargar la página.
     const isAuthorized: boolean | null = loadingAuth ? null : isJefe;
@@ -41,6 +41,7 @@ export const DeveloperPage: React.FC = () => {
         showRandomChoiceButton: true,
         showProfileFavoriteBadge: true,
         homeReviewsMonths: 12,
+        showLab: false,
     });
     const [otherSettingsLoading, setOtherSettingsLoading] = useState(false);
     const [otherSettingsSaving, setOtherSettingsSaving] = useState(false);
@@ -574,6 +575,7 @@ export const DeveloperPage: React.FC = () => {
                 showRandomChoiceButton: typeof data.showRandomChoiceButton === 'boolean' ? data.showRandomChoiceButton : true,
                 showProfileFavoriteBadge: typeof data.showProfileFavoriteBadge === 'boolean' ? data.showProfileFavoriteBadge : true,
                 homeReviewsMonths: typeof data.homeReviewsMonths === 'number' ? data.homeReviewsMonths : 12,
+                showLab: typeof data.showLab === 'boolean' ? data.showLab : false,
             });
         } catch (error: any) {
             console.error('Error fetching other settings:', error);
@@ -591,6 +593,7 @@ export const DeveloperPage: React.FC = () => {
                 showRandomChoiceButton: otherSettings.showRandomChoiceButton,
                 showProfileFavoriteBadge: otherSettings.showProfileFavoriteBadge,
                 homeReviewsMonths: otherSettings.homeReviewsMonths,
+                showLab: otherSettings.showLab,
                 updatedAt: new Date(),
             }, { merge: true });
             setOtherSettingsMessage({ type: 'success', text: 'Ajustes guardados correctamente.' });
@@ -705,6 +708,12 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'others' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <SlidersHorizontal className="w-5 h-5" /> OTROS
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('proyectos'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'proyectos' ? 'border-indigo-400 bg-indigo-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <span className="text-lg">🧪</span> Proyectos
                         </button>
                         <button
                             onClick={() => { setActiveTab('lists'); setIsSidebarOpen(false); }}
@@ -1122,6 +1131,57 @@ export const DeveloperPage: React.FC = () => {
 
                         {activeTab === 'branding' && <BrandingManager />}
 
+                        {activeTab === 'proyectos' && (
+                            <div className="max-w-4xl mx-auto space-y-6">
+                                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
+                                    <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
+                                        <span className="text-2xl">🧪</span> Proyectos Internos
+                                    </h2>
+                                    <p className="text-gray-400 text-sm mb-6">
+                                        Experimentos y herramientas de Istari Core. Accesibles siempre desde aquí; su visibilidad pública se controla en <strong>OTROS → Lab</strong>.
+                                    </p>
+
+                                    {/* Simulador Clínico */}
+                                    <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/5 overflow-hidden">
+                                        <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center text-2xl shrink-0 shadow-lg shadow-indigo-900/30">
+                                                🧠
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-lg font-bold text-white">El baile de los apegos</h3>
+                                                <p className="text-sm text-gray-400 mt-1">
+                                                    Simulación visual de dinámicas de apego ansioso-evitativo. Canvas interactivo con física de relatos, tensión corporal y corregulación emocional. Pantalla de bienvenida, háptica y ajustes persistentes.
+                                                </p>
+                                                <div className="flex flex-wrap gap-2 mt-3">
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/20">Canvas API</span>
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/20">Web Audio</span>
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/20">Fullscreen</span>
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/20">Psicología Clínica</span>
+                                                </div>
+                                            </div>
+                                            <a
+                                                href="/lab"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="shrink-0 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl transition-colors shadow-lg shadow-indigo-900/30 flex items-center gap-2"
+                                            >
+                                                <span>Abrir</span>
+                                                <span className="text-base">↗</span>
+                                            </a>
+                                        </div>
+                                        <div className="border-t border-indigo-500/20 px-5 py-3 flex items-center justify-between">
+                                            <span className="text-xs text-gray-500">
+                                                Ruta: <code className="text-indigo-300">/lab</code> · Archivo: <code className="text-gray-400">public/lab/simulator.html</code>
+                                            </span>
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${otherSettings.showLab ? 'bg-indigo-500/20 text-indigo-300' : 'bg-gray-500/20 text-gray-400'}`}>
+                                                {otherSettings.showLab ? '🌐 Público' : '🔒 Solo admin'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'others' && (
                             <div className="max-w-4xl mx-auto space-y-6">
                                 <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
@@ -1204,6 +1264,27 @@ export const DeveloperPage: React.FC = () => {
                                                     <option value={24}>24 meses</option>
                                                     <option value={0}>Sin límite</option>
                                                 </select>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-black/20">
+                                                <div>
+                                                    <div className="text-sm font-bold text-white flex items-center gap-2">
+                                                        <span>🧪</span> Lab / Proyectos internos
+                                                    </div>
+                                                    <div className="text-xs text-gray-400">
+                                                        Activa el acceso público a <code className="text-indigo-300">/lab</code>. Cuando está inactivo, solo el admin puede acceder desde esta sección.
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOtherSettings((prev) => ({ ...prev, showLab: !prev.showLab }))}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${otherSettings.showLab
+                                                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                                                        : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                                                        }`}
+                                                >
+                                                    {otherSettings.showLab ? 'PÚBLICO' : 'OCULTO'}
+                                                </button>
                                             </div>
 
                                             <div className="pt-2">

@@ -9,7 +9,7 @@ import { useToast } from '../context/ToastContext';
 import { Loader2, X, MapPin as MapPinIcon, CheckCircle2, Lock, Trash2, Star } from 'lucide-react';
 import { PhotoEditorModal, type ProcessedPhoto } from './PhotoEditorModal';
 import { PlaceSearch } from './PlaceSearch';
-import { PlaceService, type PlaceResult, transformToLegacyPlace } from '../services/PlaceService';
+import { PlaceService, type PlaceResult } from '../services/PlaceService';
 import { ListSearch } from './ListSearch';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -279,33 +279,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
                 if (!data.placeId) return;
 
-                try {
-                    const details = await PlaceService.getDetails(data.placeId);
-                    const legacyPlace = transformToLegacyPlace({
-                        id: data.placeId,
-                        name: data.placeName || data.itemName || 'Lugar',
-                        address: data.placeAddress || '',
-                        lat: data.placeLat || 0,
-                        lng: data.placeLng || 0
-                    }, details);
-
-                    setSelectedPlace({
-                        id: legacyPlace.googlePlaceId || data.placeId,
-                        name: legacyPlace.name,
-                        address: legacyPlace.address,
-                        lat: legacyPlace.coordinates.latitude,
-                        lng: legacyPlace.coordinates.longitude,
-                        types: legacyPlace.types || []
-                    });
-                } catch {
-                    setSelectedPlace({
-                        id: data.placeId,
-                        name: data.placeName || data.itemName || 'Lugar',
-                        address: data.placeAddress || '',
-                        lat: data.placeLat || 0,
-                        lng: data.placeLng || 0
-                    });
-                }
+                setSelectedPlace({
+                    id: data.placeId,
+                    name: data.placeName || data.itemName || 'Lugar',
+                    address: data.placeAddress || '',
+                    lat: data.placeLat || 0,
+                    lng: data.placeLng || 0
+                });
             };
 
             try {

@@ -37,11 +37,19 @@ const AboutPage = React.lazy(() => import('./pages/AboutPage').then(m => ({ defa
 const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const IstariCorePage = React.lazy(() => import('./pages/IstariCorePage').then(m => ({ default: m.IstariCorePage })));
 const TermsPage = React.lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const LabPage = React.lazy(() => import('./pages/LabPage').then(m => ({ default: m.LabPage })));
 
 // Activating location request globally
 const LocationActivator = () => {
   useLocation();
   return null;
+};
+
+// Hide Navbar on fullscreen routes like /lab
+const NavbarWrapper = () => {
+  const location = useRouterLocation();
+  if (location.pathname.startsWith('/lab')) return null;
+  return <Navbar />;
 };
 
 // Scroll to top on every route change
@@ -229,6 +237,9 @@ const AppRoutes = () => {
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/istari-core" element={<IstariCorePage />} />
               <Route path="/terms" element={<TermsPage />} />
+
+              {/* Lab / Easter egg — visibility gated by config.showLab */}
+              <Route path="/lab" element={<LabPage />} />
             </Routes>
           </ErrorBoundary>
         </div>
@@ -250,7 +261,7 @@ function App() {
               color: 'var(--lt-text)',
               paddingBottom: 'env(safe-area-inset-bottom)',
             }}>
-            <Navbar />
+            <NavbarWrapper />
             <NotificationBanner />
             <AppRoutes />
             <PushSetup />
