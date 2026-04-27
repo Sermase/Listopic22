@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Sparkles, Target, Heart, ExternalLink } from 'lucide-react';
 import { Footer } from '../components/Footer';
+import { useAppConfig } from '../context/AppConfigContext';
 
 const ValueCard: React.FC<{ emoji: string; title: string; text: string }> = ({ emoji, title, text }) => (
     <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6 flex flex-col gap-3 hover:border-[var(--lt-accent-border)] transition-colors">
@@ -12,6 +13,7 @@ const ValueCard: React.FC<{ emoji: string; title: string; text: string }> = ({ e
 );
 
 export const IstariCorePage: React.FC = () => {
+    const config = useAppConfig();
     return (
         <>
         <div className="min-h-screen bg-[var(--lt-bg)] pb-8">
@@ -103,21 +105,41 @@ export const IstariCorePage: React.FC = () => {
                 {/* Proyectos */}
                 <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6">
                     <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Nuestros proyectos</h2>
-                    <Link
-                        to="/about"
-                        className="flex items-center justify-between group hover:opacity-80 transition-opacity"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shrink-0">
-                                <div className="w-4 h-4 bg-white rounded-full" />
+                    <div className="space-y-4">
+                        <Link
+                            to="/about"
+                            className="flex items-center justify-between group hover:opacity-80 transition-opacity"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shrink-0">
+                                    <div className="w-4 h-4 bg-white rounded-full" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-white">Listopic</p>
+                                    <p className="text-xs text-gray-500">Descubre, lista y comparte lugares</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-bold text-white">Listopic</p>
-                                <p className="text-xs text-gray-500">Descubre, lista y comparte lugares</p>
-                            </div>
-                        </div>
-                        <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
-                    </Link>
+                            <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
+                        </Link>
+
+                        {config.showLab && (
+                            <Link
+                                to="/lab"
+                                className="flex items-center justify-between group hover:opacity-80 transition-opacity pt-4 border-t border-white/5"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center shadow-lg shrink-0 text-xl">
+                                        🧠
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-white">Simulador Clínico</p>
+                                        <p className="text-xs text-gray-500">El Ciclo de la Reactividad · Experimento interactivo</p>
+                                    </div>
+                                </div>
+                                <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
+                            </Link>
+                        )}
+                    </div>
                 </div>
 
                 {/* Contacto */}
