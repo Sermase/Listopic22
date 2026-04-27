@@ -65,42 +65,43 @@ const INDEX_SETTINGS = {
         searchableAttributes: ["unordered(name)", "unordered(description)", "unordered(availableTags)", "unordered(categoryName)", "unordered(categoryAliases)", "unordered(categoryId)"],
         attributesForFaceting: ["filterOnly(categoryId)", "categoryName", "availableTags", "ownerId"],
         replicas: ["lists_by_followers", "lists_by_reviews"],
-        customRanking: ["desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"],
-        numericAttributesForFiltering: ["reviewCount", "followersCount"]
+        customRanking: ["desc(rankingScore)", "desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"],
+        numericAttributesForFiltering: ["rankingScore", "reviewCount", "followersCount", "updatedAtTimestamp"]
     },
     places: {
         searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)"],
         attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibilityOptions", "types", "priceLevel"],
         replicas: ["places_by_rating", "places_by_reviews", "places_by_distance"],
-        customRanking: ["desc(averageRating)", "desc(reviewsCount)"],
-        numericAttributesForFiltering: ["averageRating", "reviewsCount"]
+        customRanking: ["desc(rankingScore)", "desc(averageRating)", "desc(reviewsCount)", "desc(followersCount)"],
+        numericAttributesForFiltering: ["rankingScore", "averageRating", "reviewsCount", "followersCount"]
     },
     users: {
         searchableAttributes: ["unordered(username)", "unordered(bio)"],
         attributesForFaceting: ["userType", "residence", "badges"],
-        replicas: ["users_by_followers", "users_by_reviews"],
-        customRanking: ["desc(followersCount)", "desc(reviewsCount)"],
-        numericAttributesForFiltering: ["followersCount", "reviewsCount"]
+        replicas: ["users_by_followers", "users_by_reviews", "users_by_level"],
+        customRanking: ["desc(rankingScore)", "desc(level)", "desc(followersCount)", "desc(reviewsCount)"],
+        numericAttributesForFiltering: ["rankingScore", "followersCount", "reviewsCount", "level", "xp"]
     },
     grouped_items: {
-        searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(groupTags)"],
-        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "filterOnly(listAvailableTags)", "groupTags", "placeCity", "placeProvince", "authorUserType"],
+        searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(listCategoryName)", "unordered(groupTags)"],
+        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "placeCity", "placeProvince", "authorUserType"],
         replicas: ["grouped_items_by_score", "grouped_items_by_reviews"],
-        customRanking: ["desc(avgGeneralScore)", "desc(reviewCount)"],
-        numericAttributesForFiltering: ["avgGeneralScore", "reviewCount"]
+        customRanking: ["desc(rankingScore)", "desc(avgGeneralScore)", "desc(reviewCount)"],
+        numericAttributesForFiltering: ["rankingScore", "avgGeneralScore", "reviewCount"]
     }
 };
 
 const REPLICA_SETTINGS = {
     lists_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewCount)", "desc(updatedAtTimestamp)"] },
     lists_by_reviews: { customRanking: ["desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"] },
-    places_by_rating: { customRanking: ["desc(averageRating)", "desc(reviewsCount)"] },
-    places_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(averageRating)"] },
-    places_by_distance: { customRanking: ["desc(reviewsCount)", "desc(averageRating)"] },
-    users_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewsCount)"] },
-    users_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(followersCount)"] },
-    grouped_items_by_score: { customRanking: ["desc(avgGeneralScore)", "desc(reviewCount)"] },
-    grouped_items_by_reviews: { customRanking: ["desc(reviewCount)", "desc(avgGeneralScore)"] }
+    places_by_rating: { customRanking: ["desc(averageRating)", "desc(reviewsCount)", "desc(rankingScore)"] },
+    places_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(averageRating)", "desc(rankingScore)"] },
+    places_by_distance: { customRanking: ["desc(rankingScore)", "desc(reviewsCount)", "desc(averageRating)"] },
+    users_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewsCount)", "desc(level)"] },
+    users_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(followersCount)", "desc(level)"] },
+    users_by_level: { customRanking: ["desc(level)", "desc(xp)", "desc(followersCount)", "desc(reviewsCount)"] },
+    grouped_items_by_score: { customRanking: ["desc(avgGeneralScore)", "desc(reviewCount)", "desc(rankingScore)"] },
+    grouped_items_by_reviews: { customRanking: ["desc(reviewCount)", "desc(avgGeneralScore)", "desc(rankingScore)"] }
 };
 
 async function getIndexWithSettings(indexName) {
@@ -141,6 +142,54 @@ async function ensureIndexSettings(indexName, index) {
 
 function isNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
+}
+
+function safeNumber(value, fallback = 0) {
+    return isNumber(value) ? Number(value) : fallback;
+}
+
+function logBoost(value) {
+    return Math.log1p(Math.max(0, safeNumber(value)));
+}
+
+function bayesianRating(average, count, priorAverage = 7, priorWeight = 5) {
+    const reviewCount = Math.max(0, safeNumber(count));
+    if (reviewCount <= 0) {
+        return 0;
+    }
+    const rating = Math.max(0, Math.min(10, safeNumber(average)));
+    return ((rating * reviewCount) + (priorAverage * priorWeight)) / (reviewCount + priorWeight);
+}
+
+function roundScore(value) {
+    return Number(Math.max(0, value).toFixed(4));
+}
+
+function calculateListRankingScore(data) {
+    const reviewCount = safeNumber(data?.reviewCount ?? data?.reviewsCount);
+    const followersCount = safeNumber(data?.followersCount);
+    return roundScore((logBoost(reviewCount) * 5) + (logBoost(followersCount) * 4));
+}
+
+function calculatePlaceRankingScore(data) {
+    const reviewsCount = safeNumber(data?.reviewsCount);
+    const followersCount = safeNumber(data?.followersCount);
+    const averageRating = safeNumber(data?.averageRating);
+    return roundScore((bayesianRating(averageRating, reviewsCount) * 8) + (logBoost(reviewsCount) * 4) + (logBoost(followersCount) * 1.5));
+}
+
+function calculateUserRankingScore(data) {
+    const followersCount = safeNumber(data?.followersCount);
+    const reviewsCount = safeNumber(data?.reviewsCount);
+    const xp = safeNumber(data?.xp);
+    const level = safeNumber(data?.level, 1);
+    return roundScore((logBoost(followersCount) * 5) + (logBoost(reviewsCount) * 4) + (level * 1.5) + (logBoost(xp) * 0.5));
+}
+
+function calculateGroupedItemRankingScore(group) {
+    const reviewCount = safeNumber(group?.itemCount ?? group?.reviewCount);
+    const avgGeneralScore = safeNumber(group?.avgGeneralScore);
+    return roundScore((bayesianRating(avgGeneralScore, reviewCount) * 8) + (logBoost(reviewCount) * 4));
 }
 
 function trueObjectKeys(value) {
@@ -389,6 +438,8 @@ function transformPlaceRecord(data, docId) {
         accessibilityOptions: trueObjectKeys(data.accessibilityOptions || data.accessibility),
         averageRating: typeof data.averageRating === "number" ? data.averageRating : 0,
         reviewsCount: typeof data.reviewsCount === "number" ? data.reviewsCount : 0,
+        followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
+        rankingScore: calculatePlaceRankingScore(data),
         priceLevel: typeof data.priceLevel === "number" ? data.priceLevel : null,
         mainImageUrl: coverImage,
         thumbnailUrl: coverImage,
@@ -426,6 +477,8 @@ async function transformListRecord(data, docId) {
         availableTags: tags,
         reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
         followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
+        rankingScore: calculateListRankingScore(data),
+        updatedAtTimestamp: toUnixSeconds(data.updatedAt || data.createdAt) || 0,
         authorName: ownerName,
         authorUsername: ownerUsername,
         thumbnailUrl: coverImage,
@@ -459,6 +512,9 @@ function transformUserRecord(data, docId) {
         followingCount: typeof data.followingCount === "number" ? data.followingCount : 0,
         reviewsCount: typeof data.reviewsCount === "number" ? data.reviewsCount : 0,
         commentsCount: typeof data.commentsCount === "number" ? data.commentsCount : 0,
+        xp: typeof data.xp === "number" ? data.xp : 0,
+        level: typeof data.level === "number" ? data.level : 1,
+        rankingScore: calculateUserRankingScore(data),
         createdAtISO: toIsoString(data.createdAt),
         updatedAtISO: toIsoString(data.updatedAt),
         photoUrl: normalizeImageUrl(data.photoUrl)
@@ -466,17 +522,20 @@ function transformUserRecord(data, docId) {
     return compactRecord(record);
 }
 
-function mapGroupToAlgoliaRecord(listId, listData, group) {
+function mapGroupToAlgoliaRecord(listId, listData, group, category = null) {
     const slug = group.objectSlug || `${group.establishmentName || 'item'}__${group.itemName || 'general'}`;
     const objectID = `${listId}__${slug}`;
     const listTags = Array.isArray(listData?.availableTags) ? listData.availableTags.filter(isNonEmptyString) : [];
     const listOwnerName = resolveGroupedListOwnerName(listData) || null;
+    const categoryName = category?.categoryName || listData?.categoryName || null;
     const record = {
         objectID,
         entityType: "item",
         listId,
         listName: listData?.name || "",
         listCategoryId: listData?.categoryId || null,
+        listCategoryName: categoryName,
+        listCategoryAliases: Array.isArray(category?.categoryAliases) ? category.categoryAliases : [],
         listAvailableTags: listTags,
         listOwnerId: listData?.userId || null,
         listOwnerName: listOwnerName || undefined,
@@ -493,6 +552,7 @@ function mapGroupToAlgoliaRecord(listId, listData, group) {
         reviewCount: typeof group.itemCount === "number" ? group.itemCount : 0,
         itemCount: typeof group.itemCount === "number" ? group.itemCount : 0,
         averageRating: typeof group.avgGeneralScore === "number" ? group.avgGeneralScore : 0,
+        rankingScore: calculateGroupedItemRankingScore(group),
         groupTags: Array.isArray(group.groupTags) ? group.groupTags : [],
         authorUserType: Array.isArray(group.authorUserType) ? group.authorUserType : [],
         thumbnailUrl: firstImageUrl(group.thumbnailUrl, group.placeThumbnailUrl, group.mainImageUrl, group.photoUrl),
@@ -559,7 +619,8 @@ async function rebuildGroupedItemsForList(listId) {
         if (!listData || listData.isPublic === false) {
             return null;
         }
-        const records = (groupedReviews || []).map((group) => mapGroupToAlgoliaRecord(listId, listData, group));
+        const category = await resolveCategoryMetadata(listData.categoryId || null, listData);
+        const records = (groupedReviews || []).map((group) => mapGroupToAlgoliaRecord(listId, listData, group, category));
         if (records.length === 0) {
             return null;
         }
@@ -766,8 +827,9 @@ async function backfillGroupedItems() {
             if (!aggregation.listData || aggregation.listData.isPublic === false) {
                 continue;
             }
+            const category = await resolveCategoryMetadata(aggregation.listData.categoryId || null, aggregation.listData);
             for (const group of aggregation.groupedReviews || []) {
-                records.push(mapGroupToAlgoliaRecord(doc.id, aggregation.listData, group));
+                records.push(mapGroupToAlgoliaRecord(doc.id, aggregation.listData, group, category));
             }
         } catch (error) {
             logger.error(`Algolia: error aggregating grouped items for list ${doc.id}`, error);

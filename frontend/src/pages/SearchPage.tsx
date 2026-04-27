@@ -9,8 +9,6 @@ import {
     useCurrentRefinements,
     useClearRefinements,
     useStats,
-    useSortBy,
-    useInstantSearch,
     Index
 } from 'react-instantsearch';
 import { Link } from 'react-router-dom';
@@ -54,6 +52,11 @@ const USER_TYPE_LABELS: Record<string, string> = {
     jefe: 'Equipo',
     admin: 'Admin',
     user: 'Usuarios',
+};
+
+const FACET_VALUE_ALLOWLIST: Record<string, string[]> = {
+    userType: ['bot', 'jefe', 'critico', 'critic'],
+    authorUserType: ['bot', 'jefe', 'critico', 'critic', 'experto'],
 };
 
 const FACET_VALUE_LABELS: Record<string, Record<string, string>> = {
@@ -115,9 +118,13 @@ type SearchHit = {
     ownerPhoto?: string;
     listName?: string;
     listId?: string;
+    categoryName?: string;
+    listCategoryName?: string;
     groupTags?: string[];
     types?: string[];
     availableTags?: string[];
+    level?: number;
+    xp?: number;
 };
 
 interface FilterSectionConfig {
@@ -126,37 +133,37 @@ interface FilterSectionConfig {
     icon: React.ElementType;
     limit?: number;
     defaultOpen?: boolean;
+    dependsOn?: string;
 }
 
 const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
     lists: [
+        { attribute: 'categoryName', label: 'Categoría', icon: ListIcon, defaultOpen: true },
         { attribute: 'availableTags', label: 'Etiquetas', icon: Tags, defaultOpen: true },
-        { attribute: 'categoryId', label: 'Categoría', icon: ListIcon, defaultOpen: true },
     ],
     places: [
         { attribute: 'city', label: 'Ciudad', icon: MapPin, defaultOpen: true },
+        { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'types', label: 'Tipo', icon: Utensils, defaultOpen: true },
         { attribute: 'priceLevel', label: 'Precio', icon: CircleDollarSign },
         { attribute: 'serviceOptions', label: 'Servicios', icon: Coffee },
-        { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility },
     ],
     users: [
         { attribute: 'userType', label: 'Tipo', icon: ShieldCheck, defaultOpen: true },
-        { attribute: 'badges', label: 'Insignias', icon: Star },
         { attribute: 'residence', label: 'Ciudad', icon: MapPin },
     ],
     items: [
-        { attribute: 'listCategoryId', label: 'Categoría', icon: Tags, defaultOpen: true },
+        { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
+        { attribute: 'listName', label: 'Lista', icon: ListIcon, dependsOn: 'listCategoryName' },
         { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
         { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
-        { attribute: 'listName', label: 'Lista', icon: ListIcon },
         { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
     ],
     grouped_items: [
-        { attribute: 'listCategoryId', label: 'Categoría', icon: Tags, defaultOpen: true },
+        { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
+        { attribute: 'listName', label: 'Lista', icon: ListIcon, dependsOn: 'listCategoryName' },
         { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
         { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
-        { attribute: 'listName', label: 'Lista', icon: ListIcon },
         { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
     ],
 };
@@ -164,29 +171,95 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
 // Opciones de ordenación por pestaña
 // NOTA: los valores que no son el índice base requieren réplicas en Algolia.
 // Crear desde el dashboard: Algolia → Index → Replicas con los nombres indicados.
-const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+type SortOption = {
+    value: string;
+    indexName: string;
+    label: string;
+    requiresLocation?: boolean;
+};
+
+const SORT_OPTIONS: Record<string, SortOption[]> = {
     lists: [
-        { value: 'lists', label: 'Relevancia' },
-        { value: 'lists_by_followers', label: '↓ Seguidores' },
-        { value: 'lists_by_reviews', label: '↓ Reseñas' },
+        { value: 'lists', indexName: 'lists', label: 'Destacadas' },
+        { value: 'lists_by_followers', indexName: 'lists_by_followers', label: 'Seguidores' },
+        { value: 'lists_by_reviews', indexName: 'lists_by_reviews', label: 'Reseñas' },
     ],
     places: [
-        { value: 'places', label: 'Relevancia' },
-        { value: 'places_by_rating', label: '↓ Valoración' },
-        { value: 'places_by_reviews', label: '↓ Reseñas' },
-        { value: 'places_by_distance', label: '↓ Distancia' },
+        { value: 'places', indexName: 'places', label: 'Destacados' },
+        { value: 'places_by_rating', indexName: 'places_by_rating', label: 'Valoración' },
+        { value: 'places_by_reviews', indexName: 'places_by_reviews', label: 'Reseñas' },
+        { value: 'places_distance', indexName: 'places', label: 'Más cerca', requiresLocation: true },
     ],
     users: [
-        { value: 'users', label: 'Relevancia' },
-        { value: 'users_by_followers', label: '↓ Seguidores' },
-        { value: 'users_by_reviews', label: '↓ Reseñas' },
+        { value: 'users', indexName: 'users', label: 'Destacados' },
+        { value: 'users_by_level', indexName: 'users_by_level', label: 'Nivel' },
+        { value: 'users_by_followers', indexName: 'users_by_followers', label: 'Seguidores' },
+        { value: 'users_by_reviews', indexName: 'users_by_reviews', label: 'Reseñas' },
     ],
     items: [
-        { value: 'grouped_items', label: 'Relevancia' },
-        { value: 'grouped_items_by_score', label: 'Mejor puntuación' },
-        { value: 'grouped_items_by_reviews', label: 'Más reseñas' },
+        { value: 'grouped_items', indexName: 'grouped_items', label: 'Destacados' },
+        { value: 'grouped_items_by_score', indexName: 'grouped_items_by_score', label: 'Puntuación' },
+        { value: 'grouped_items_by_reviews', indexName: 'grouped_items_by_reviews', label: 'Reseñas' },
+        { value: 'items_distance', indexName: 'grouped_items', label: 'Más cerca', requiresLocation: true },
     ],
 };
+
+const SORT_PARAM_ALIASES: Record<string, Record<string, string>> = {
+    lists: {
+        popular: 'lists_by_followers',
+        followers: 'lists_by_followers',
+        most_reviewed: 'lists_by_reviews',
+        reviews: 'lists_by_reviews',
+        latest: 'lists',
+    },
+    places: {
+        rating: 'places_by_rating',
+        top_rated: 'places_by_rating',
+        most_reviewed: 'places_by_reviews',
+        reviews: 'places_by_reviews',
+        distance: 'places_distance',
+        nearby: 'places_distance',
+        latest: 'places',
+    },
+    users: {
+        followers: 'users_by_followers',
+        most_reviewed: 'users_by_reviews',
+        reviews: 'users_by_reviews',
+        level: 'users_by_level',
+    },
+    items: {
+        top_rated: 'grouped_items_by_score',
+        top_liked: 'grouped_items_by_score',
+        score: 'grouped_items_by_score',
+        most_reviewed: 'grouped_items_by_reviews',
+        reviews: 'grouped_items_by_reviews',
+        distance: 'items_distance',
+        nearby: 'items_distance',
+        latest: 'grouped_items',
+    },
+};
+
+function getDefaultSortValue(tab: string) {
+    return SORT_OPTIONS[tab]?.[0]?.value || INDEX_NAMES.lists;
+}
+
+function resolveSortValue(tab: string, requested?: string | null) {
+    const options = SORT_OPTIONS[tab] || [];
+    const aliased = requested ? (SORT_PARAM_ALIASES[tab]?.[requested] || requested) : null;
+    return options.some(option => option.value === aliased) ? aliased as string : getDefaultSortValue(tab);
+}
+
+function getSortOption(tab: string, value?: string | null) {
+    const options = SORT_OPTIONS[tab] || SORT_OPTIONS.lists;
+    const resolved = resolveSortValue(tab, value);
+    return options.find(option => option.value === resolved) || options[0];
+}
+
+function normalizeSearchTab(tab: string) {
+    if (tab === 'grouped_items') return 'items';
+    if (tab === 'all' || Object.prototype.hasOwnProperty.call(INDEX_NAMES, tab)) return tab;
+    return 'all';
+}
 
 type GeoRadius = number | 'all';
 
@@ -210,26 +283,45 @@ const saveRecentSearch = (term: string) => {
 
 // ─── Search Box ───────────────────────────────────────────────────────────────
 
-const CustomSearchBox = (props: Record<string, unknown>) => {
-    const { query, refine } = useSearchBox(props);
-    const [val, setVal] = useState(query);
+type CustomSearchBoxProps = Record<string, unknown> & {
+    rawQuery?: string;
+    onQueryChange?: (query: string) => void;
+};
+
+const CustomSearchBox = ({ rawQuery = '', onQueryChange, ...props }: CustomSearchBoxProps) => {
+    const { refine } = useSearchBox(props);
+    const [val, setVal] = useState(rawQuery);
     const [focused, setFocused] = useState(false);
     const [recents, setRecents] = useState<string[]>([]);
     const ref = useRef<HTMLInputElement>(null);
 
-    useEffect(() => { if (query !== val) setVal(query); }, [query]); // eslint-disable-line
+    useEffect(() => { if (rawQuery !== val) setVal(rawQuery); }, [rawQuery]); // eslint-disable-line
     useEffect(() => {
-        const t = setTimeout(() => { if (val !== query) refine(val); }, 300);
+        const t = setTimeout(() => {
+            refine(SearchQueryParser.parse(val).cleanedQuery);
+            onQueryChange?.(val);
+        }, 300);
         return () => clearTimeout(t);
-    }, [val, refine, query]);
+    }, [val, refine, onQueryChange]);
 
-    const select = (term: string) => { setVal(term); saveRecentSearch(term); setRecents(getRecentSearches()); refine(term); };
+    const select = (term: string) => {
+        setVal(term);
+        saveRecentSearch(term);
+        setRecents(getRecentSearches());
+        refine(SearchQueryParser.parse(term).cleanedQuery);
+        onQueryChange?.(term);
+    };
     const showRecent = focused && !val && recents.length > 0;
     const matchRecent = focused && val ? recents.filter(s => s.toLowerCase().includes(val.toLowerCase())) : [];
 
     return (
         <div className="relative w-full">
-            <form onSubmit={e => { e.preventDefault(); saveRecentSearch(val); refine(val); }}>
+            <form onSubmit={e => {
+                e.preventDefault();
+                saveRecentSearch(val);
+                refine(SearchQueryParser.parse(val).cleanedQuery);
+                onQueryChange?.(val);
+            }}>
                 <input ref={ref} type="text" value={val}
                     onChange={e => setVal(e.target.value)}
                     onFocus={() => { setRecents(getRecentSearches()); setFocused(true); }}
@@ -239,7 +331,7 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
                 />
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 {val && (
-                    <button type="button" onClick={() => { setVal(''); refine(''); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                    <button type="button" onClick={() => { setVal(''); refine(''); onQueryChange?.(''); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
                         <X className="w-4 h-4" />
                     </button>
                 )}
@@ -264,21 +356,24 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
 
 // ─── Sort Control ─────────────────────────────────────────────────────────────
 
-const SortControl = ({ activeTab }: { activeTab: string }) => {
+const SortControl = ({
+    activeTab,
+    value,
+    onChange,
+}: {
+    activeTab: string;
+    value: string;
+    onChange: (value: string) => void;
+}) => {
     const opts = SORT_OPTIONS[activeTab] || [];
-    const { currentRefinement, refine } = useSortBy({ items: opts });
-    const { error } = useInstantSearch();
     if (opts.length <= 1) return null;
     return (
-        <div
-            className="flex items-center gap-1.5"
-            title={error ? 'Réplica no disponible — crear índice en Algolia' : undefined}
-        >
-            <ArrowUpDown className={`w-3.5 h-3.5 shrink-0 ${error ? 'text-amber-500' : 'text-gray-500'}`} />
+        <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="w-3.5 h-3.5 shrink-0 text-gray-500" />
             <select
-                value={currentRefinement}
-                onChange={e => refine(e.target.value)}
-                className={`bg-transparent border-0 text-sm focus:outline-none cursor-pointer pr-1 ${error ? 'text-amber-400' : 'text-gray-400 hover:text-white'}`}
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                className="bg-transparent border-0 text-sm focus:outline-none cursor-pointer pr-1 text-gray-400 hover:text-white"
             >
                 {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -341,11 +436,23 @@ function formatFacetLabel(attribute: string, label: string) {
     return label;
 }
 
-const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, defaultOpen = false }: FilterSectionConfig) => {
+function hasActiveRefinement(refinements: ReturnType<typeof useCurrentRefinements>['items'], attribute: string) {
+    return refinements.some(item => item.attribute === attribute && item.refinements.length > 0);
+}
+
+const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, defaultOpen = false, dependsOn }: FilterSectionConfig) => {
     const { items, refine } = useRefinementList({ attribute, limit, showMore: true, showMoreLimit: 24 });
+    const { items: currentRefinements } = useCurrentRefinements();
     const [isOpen, setIsOpen] = useState(defaultOpen);
-    if (items.length === 0) return null;
-    const selectedCount = items.filter(item => item.isRefined).length;
+    if (dependsOn && !hasActiveRefinement(currentRefinements, dependsOn)) return null;
+
+    const allowlist = FACET_VALUE_ALLOWLIST[attribute];
+    const visibleItems = allowlist
+        ? items.filter(item => allowlist.includes(String(item.value)))
+        : items;
+
+    if (visibleItems.length === 0) return null;
+    const selectedCount = visibleItems.filter(item => item.isRefined).length;
 
     return (
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
@@ -360,17 +467,17 @@ const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, default
                 <span className="min-w-0 flex-1">
                     <span className="block text-sm font-bold text-white leading-tight">{label}</span>
                     <span className="block text-[11px] text-gray-500">
-                        {selectedCount > 0 ? `${selectedCount} activo${selectedCount > 1 ? 's' : ''}` : `${items.length} opciones`}
+                        {selectedCount > 0 ? `${selectedCount} activo${selectedCount > 1 ? 's' : ''}` : `${visibleItems.length} opciones`}
                     </span>
                 </span>
                 <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
                 <div className="px-3.5 pb-3 flex flex-wrap gap-2">
-                {items.map(item => (
+                {visibleItems.map(item => (
                     <button
                         type="button"
-                        key={item.label}
+                        key={String(item.value)}
                         onClick={() => refine(item.value)}
                         className={`min-h-9 rounded-full border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
                             item.isRefined
@@ -430,6 +537,7 @@ const EmptyState = ({ activeTab, onTabChange }: { activeTab: string; onTabChange
 
 const UserHitCard = ({ hit, selected, onHover }: { hit: SearchHit; selected: boolean; onHover: (id: string | null) => void }) => {
     const displayName = hit.displayName || hit.username || '?';
+    const level = Math.max(1, hit.level || 1);
     return (
         <Link to={`/profile/${hit.objectID}`}
             id={`hit-${hit.objectID}`}
@@ -444,9 +552,12 @@ const UserHitCard = ({ hit, selected, onHover }: { hit: SearchHit; selected: boo
                     <p className="text-[var(--lt-accent)]/70 text-xs truncate">@{hit.username}</p>
                 )}
                 {hit.bio && <p className="text-gray-400 text-xs line-clamp-1 mt-0.5">{hit.bio}</p>}
-                <div className="flex gap-3 mt-1.5 text-xs text-gray-600">
+                <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-gray-500">
+                    <span className="flex items-center gap-0.5 rounded-full bg-white/5 border border-white/10 px-2 py-0.5">
+                        Nv. {level}
+                    </span>
                     <span className="flex items-center gap-0.5"><Users className="w-3 h-3" /> {hit.followersCount || 0}</span>
-                    {(hit.reviewsCount || 0) > 0 && <span className="flex items-center gap-0.5"><Star className="w-3 h-3" /> {hit.reviewsCount}</span>}
+                    <span className="flex items-center gap-0.5"><Star className="w-3 h-3" /> {hit.reviewsCount || 0}</span>
                 </div>
             </div>
             <ChevronRight className="w-4 h-4 text-gray-700 shrink-0" />
@@ -526,9 +637,9 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                                     followersCount: hit.followersCount,
                                     itemCount: hit.itemCount,
                                     tags: (activeTab === 'grouped_items' || activeTab === 'items')
-                                        ? (hit.groupTags || [])
+                                        ? [hit.listCategoryName, ...(hit.groupTags || [])].filter((tag): tag is string => Boolean(tag))
                                         : activeTab === 'places' ? getPlaceTypeLabels(hit.types || [], 4)
-                                        : (hit.availableTags || []),
+                                        : [hit.categoryName, ...(hit.availableTags || [])].filter((tag): tag is string => Boolean(tag)),
                                 }}
                                 isGrid={!listLayout}
                                 groupingMode={
@@ -574,9 +685,25 @@ const FedSectionContent = ({ title, type, icon: Icon, onViewAll }: { title: stri
     );
 };
 
-const FederatedSection = ({ indexName, title, type, icon, onViewAll, filters }: { indexName: string; title: string; type: string; icon: React.ElementType; onViewAll: () => void; filters?: string }) => (
+const FederatedSection = ({
+    indexName,
+    title,
+    type,
+    icon,
+    onViewAll,
+    filters,
+    query,
+}: {
+    indexName: string;
+    title: string;
+    type: string;
+    icon: React.ElementType;
+    onViewAll: () => void;
+    filters?: string;
+    query?: string;
+}) => (
     <Index indexName={indexName}>
-        <Configure hitsPerPage={3} filters={filters} />
+        <Configure hitsPerPage={3} filters={filters} query={query} />
         <FedSectionContent title={title} type={type} icon={icon} onViewAll={onViewAll} />
     </Index>
 );
@@ -729,9 +856,12 @@ const QuickFilters = ({
 export const SearchPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const queryParam = searchParams.get('q') || '';
-    const typeParam = searchParams.get('type') || 'all';
+    const typeParam = normalizeSearchTab(searchParams.get('type') || 'all');
+    const sortParam = searchParams.get('sort') || '';
 
-    const [activeTab, setActiveTab] = useState(typeParam);
+    const [sortByTab, setSortByTab] = useState<Record<string, string>>(() => (
+        typeParam === 'all' ? {} : { [typeParam]: resolveSortValue(typeParam, sortParam) }
+    ));
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const [geoActive, setGeoActive] = useState(false);
     const [geoRadius, setGeoRadius] = useState<GeoRadius>(10000);
@@ -740,16 +870,47 @@ export const SearchPage: React.FC = () => {
     const [hoveredHitId, setHoveredHitId] = useState<string | null>(null);
 
     const { location, error: locError, loading: locLoading, requestLocation } = useLocation();
+    const activeTab = typeParam;
     const isGeoTab = activeTab === 'places' || activeTab === 'items';
+    const activeSortOption = getSortOption(activeTab, sortParam || sortByTab[activeTab]);
+    const activeIndexName = activeSortOption?.indexName || INDEX_NAMES.lists;
+    const effectiveGeoActive = geoActive || Boolean(activeSortOption?.requiresLocation);
 
     const handleTabChange = useCallback((tab: string) => {
-        setActiveTab(tab);
-        setSearchParams({ q: queryParam, type: tab });
+        const sortValue = resolveSortValue(tab, sortByTab[tab]);
+        const nextParams: Record<string, string> = { type: tab };
+        if (queryParam) nextParams.q = queryParam;
+        if (tab !== 'all' && sortValue !== getDefaultSortValue(tab)) nextParams.sort = sortValue;
+        setSearchParams(nextParams);
         // Solo cerrar el mapa si pasamos a una pestaña sin geo (users, lists)
         const newIsGeoTab = tab === 'places' || tab === 'items';
         if (!newIsGeoTab) setMapExpanded(false);
         setSelectedHitId(null);
-    }, [queryParam, setSearchParams]);
+    }, [queryParam, setSearchParams, sortByTab]);
+
+    const handleSortChange = useCallback((value: string) => {
+        const option = getSortOption(activeTab, value);
+        setSortByTab(prev => ({ ...prev, [activeTab]: option.value }));
+        if (option.requiresLocation) {
+            if (!location) requestLocation();
+            setGeoActive(true);
+        }
+        const nextParams: Record<string, string> = { type: activeTab };
+        if (queryParam) nextParams.q = queryParam;
+        if (option.value !== getDefaultSortValue(activeTab)) nextParams.sort = option.value;
+        setSearchParams(nextParams);
+        setSelectedHitId(null);
+    }, [activeTab, location, queryParam, requestLocation, setSearchParams]);
+
+    const handleQueryChange = useCallback((nextQuery: string) => {
+        const nextParams: Record<string, string> = { type: activeTab };
+        const trimmedQuery = nextQuery.trim();
+        if (trimmedQuery) nextParams.q = trimmedQuery;
+        if (activeTab !== 'all' && activeSortOption.value !== getDefaultSortValue(activeTab)) {
+            nextParams.sort = activeSortOption.value;
+        }
+        setSearchParams(nextParams, { replace: true });
+    }, [activeSortOption.value, activeTab, setSearchParams]);
 
     const handleMarkerClick = useCallback((id: string) => {
         setSelectedHitId(prev => prev === id ? null : id);
@@ -762,17 +923,22 @@ export const SearchPage: React.FC = () => {
         setGeoActive(p => !p);
     }, [geoActive, location, requestLocation]);
 
+    useEffect(() => {
+        if (!activeSortOption?.requiresLocation || location) return;
+        if (!location) requestLocation();
+    }, [activeSortOption?.requiresLocation, location, requestLocation]);
+
     const parsedQuery = useMemo(() => SearchQueryParser.parse(queryParam), [queryParam]);
     const algoliaFilters = useMemo(() => {
         const parts: string[] = [];
         Object.entries(parsedQuery.filters).forEach(([key, values]) => {
             let field = key;
-            if (activeTab === 'lists' && key === 'category') field = 'categoryId';
+            if (activeTab === 'lists' && key === 'category') field = 'categoryName';
             if (activeTab === 'places') { if (key === 'service') field = 'serviceOptions'; if (key === 'price') field = 'priceLevel'; }
             if (activeTab === 'items') {
                 if (key === 'city') field = 'placeCity';
                 if (key === 'userType') field = 'authorUserType';
-                if (key === 'category') field = 'listCategoryId';
+                if (key === 'category') field = 'listCategoryName';
             }
             const g = values.map(v => `${field}:"${v}"`).join(' OR ');
             if (g) parts.push(`(${g})`);
@@ -780,13 +946,23 @@ export const SearchPage: React.FC = () => {
         return parts.join(' AND ');
     }, [parsedQuery, activeTab]);
 
+    const activeGeoConfig = useMemo(() => {
+        if (!isGeoTab || !effectiveGeoActive || !location) {
+            return {};
+        }
+        return {
+            aroundLatLng: `${location.latitude},${location.longitude}`,
+            aroundRadius: geoRadius === 'all' ? ('all' as const) : geoRadius,
+        };
+    }, [effectiveGeoActive, geoRadius, isGeoTab, location]);
+
     // Props comunes para SearchMapView
     const mapSharedProps = {
         activeTab,
         selectedHitId,
         hoveredHitId,
         onMarkerClick: handleMarkerClick,
-        geoActive,
+        geoActive: effectiveGeoActive,
         geoRadius,
         location,
         onLocate: toggleGeo,
@@ -800,16 +976,10 @@ export const SearchPage: React.FC = () => {
                 indexName={INDEX_NAMES.lists}
                 future={{ preserveSharedStateOnUnmount: true }}
             >
-                <Configure
-                    query={parsedQuery.cleanedQuery}
-                    filters={activeTab === 'all' ? '' : algoliaFilters}
-                    hitsPerPage={20}
-                />
-
                 {/* ── Header: search + tabs ────────────────────────────────── */}
                 <div className="px-4 lg:px-8 mb-6">
                     <div className="flex items-center gap-4 mb-4">
-                        <div className="flex-1"><CustomSearchBox /></div>
+                        <div className="flex-1"><CustomSearchBox rawQuery={queryParam} onQueryChange={handleQueryChange} /></div>
                     </div>
 
                     {/* Tabs */}
@@ -833,20 +1003,19 @@ export const SearchPage: React.FC = () => {
                 {/* ── Federated: "Todo" ─────────────────────────────────────── */}
                 {activeTab === 'all' ? (
                     <div className="px-4 lg:px-8">
-                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} onViewAll={() => handleTabChange('lists')} />
-                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} onViewAll={() => handleTabChange('places')} />
-                        <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} onViewAll={() => handleTabChange('users')} />
-                        <FederatedSection indexName={INDEX_NAMES.items} title="Items" type="grouped_items" icon={MessageCircle} onViewAll={() => handleTabChange('items')} />
+                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />
+                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('places')} />
+                        <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('users')} />
+                        <FederatedSection indexName={INDEX_NAMES.items} title="Items" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('items')} />
                     </div>
                 ) : (
-                    <Index indexName={INDEX_NAMES[activeTab as keyof typeof INDEX_NAMES]}>
-                        {/* Geo override */}
-                        {isGeoTab && geoActive && location && (
-                            <Configure
-                                aroundLatLng={`${location.latitude},${location.longitude}`}
-                                aroundRadius={geoRadius === 'all' ? 'all' : geoRadius}
-                            />
-                        )}
+                    <Index indexName={activeIndexName}>
+                        <Configure
+                            query={parsedQuery.cleanedQuery}
+                            filters={algoliaFilters}
+                            hitsPerPage={20}
+                            {...activeGeoConfig}
+                        />
 
                         {/* ── Mobile filter modal ───────────────────────────── */}
                         {mobileFiltersOpen && (
@@ -880,8 +1049,8 @@ export const SearchPage: React.FC = () => {
                             <div className="hidden lg:flex gap-4 px-4 lg:px-8" style={{ height: 'calc(100vh - 9rem)' }}>
 
                                 {/* Panel izquierdo: filtros */}
-                                <aside className="w-56 xl:w-64 flex-shrink-0 flex flex-col overflow-hidden">
-                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto flex-1">
+                                <aside className="w-56 xl:w-64 flex-shrink-0 flex flex-col overflow-hidden min-h-0">
+                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto flex-1 min-h-0">
                                         <h3 className="text-white font-bold text-sm mb-1 flex items-center gap-2">
                                             <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
                                             Filtros
@@ -896,14 +1065,14 @@ export const SearchPage: React.FC = () => {
                                     <QuickFilters
                                         activeTab={activeTab}
                                         isGeoTab={isGeoTab}
-                                        geoActive={geoActive}
+                                        geoActive={effectiveGeoActive}
                                         locLoading={locLoading}
                                         onToggleGeo={toggleGeo}
                                     />
                                     <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
                                         <GeoControls
                                             isGeoTab={isGeoTab}
-                                            geoActive={geoActive}
+                                            geoActive={effectiveGeoActive}
                                             geoRadius={geoRadius}
                                             locLoading={locLoading}
                                             locError={locError}
@@ -912,7 +1081,7 @@ export const SearchPage: React.FC = () => {
                                         />
                                         <div className="ml-auto flex items-center gap-4">
                                             <ResultsCount />
-                                            <SortControl activeTab={activeTab} />
+                                            <SortControl activeTab={activeTab} value={activeSortOption.value} onChange={handleSortChange} />
                                         </div>
                                     </div>
                                     <div className="flex-1 min-h-0">
@@ -948,7 +1117,7 @@ export const SearchPage: React.FC = () => {
 
                             {/* LEFT PANEL: mini-map + filtros */}
                             <aside className="hidden lg:flex flex-col gap-4 w-64 xl:w-72 flex-shrink-0 mr-6">
-                                <div className="sticky top-24 flex flex-col gap-4">
+                                <div className="sticky top-24 flex h-[calc(100vh-7rem)] flex-col gap-4 overflow-hidden">
 
                                     {/* Mini-map (solo tabs geo, solo cuando NO está expandido) */}
                                     {isGeoTab && !mapExpanded && (
@@ -960,7 +1129,7 @@ export const SearchPage: React.FC = () => {
                                     )}
 
                                     {/* Filtros */}
-                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto max-h-[calc(100vh-12rem)]">
+                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto flex-1 min-h-0">
                                         <h3 className="text-white font-bold text-sm mb-1 flex items-center gap-2">
                                             <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
                                             Filtros
@@ -976,7 +1145,7 @@ export const SearchPage: React.FC = () => {
                                 <QuickFilters
                                     activeTab={activeTab}
                                     isGeoTab={isGeoTab}
-                                    geoActive={geoActive}
+                                    geoActive={effectiveGeoActive}
                                     locLoading={locLoading}
                                     onToggleGeo={toggleGeo}
                                 />
@@ -998,7 +1167,7 @@ export const SearchPage: React.FC = () => {
                                     {/* Geo: cerca de mí */}
                                     <GeoControls
                                         isGeoTab={isGeoTab}
-                                        geoActive={geoActive}
+                                        geoActive={effectiveGeoActive}
                                         geoRadius={geoRadius}
                                         locLoading={locLoading}
                                         locError={locError}
@@ -1009,7 +1178,7 @@ export const SearchPage: React.FC = () => {
                                     {/* Ordenar + Contador */}
                                     <div className="ml-auto flex items-center gap-4">
                                         <ResultsCount />
-                                        <SortControl activeTab={activeTab} />
+                                        <SortControl activeTab={activeTab} value={activeSortOption.value} onChange={handleSortChange} />
                                     </div>
                                 </div>
 

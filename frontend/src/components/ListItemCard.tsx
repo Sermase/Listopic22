@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-import { MapPin, ChevronRight, Users } from 'lucide-react';
+import { MapPin, ChevronRight, Users, Star } from 'lucide-react';
 
 type CriteriaDefinitionEntry = {
     id?: string;
@@ -62,6 +62,11 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
         // For Lists
         return (
             <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 font-medium">
+                {item.reviewCount !== undefined && (
+                    <span className="flex items-center gap-1">
+                        <Star className="w-3 h-3" /> {item.reviewCount} reseñas
+                    </span>
+                )}
                 {item.itemCount !== undefined && (
                     <span className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" /> {item.itemCount} lugares
@@ -223,11 +228,22 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
 
                         {/* Stats + Score */}
                         <div className="flex items-center justify-between border-t border-white/5 pt-1.5 mt-auto">
-                            <div className="flex items-center gap-2.5 text-xs text-gray-500 font-medium">
-                                {(item.reviewCount > 0 || (groupingMode !== 'place' && groupingMode !== 'dish')) && (
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 font-medium">
+                                {groupingMode === 'list' ? (
+                                    <>
+                                        <span className="flex items-center gap-0.5">
+                                            <Star className="w-3 h-3 text-[var(--lt-accent)]" /> {item.reviewCount}
+                                        </span>
+                                        {item.followersCount !== undefined && (
+                                            <span className="flex items-center gap-0.5">
+                                                <Users className="w-3 h-3 text-[var(--lt-accent)]" /> {item.followersCount}
+                                            </span>
+                                        )}
+                                    </>
+                                ) : item.reviewCount > 0 && (
                                     <span className="flex items-center gap-0.5">
-                                        <Users className="w-3 h-3 text-[var(--lt-accent)]" />
-                                        {item.followersCount !== undefined ? item.followersCount : item.reviewCount}
+                                        <Star className="w-3 h-3 text-[var(--lt-accent)]" />
+                                        {item.reviewCount}
                                     </span>
                                 )}
                                 {item.itemCount !== undefined && (
@@ -335,9 +351,11 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                             </div>
 
                             {/* Score Box - Visible on Mobile List View now */}
-                            <div className={`flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg ${getScoreColor(item.avgRating)} shadow-lg shrink-0`}>
-                                <span className="font-display font-bold text-base sm:text-lg text-white">{item.avgRating.toFixed(1)}</span>
-                            </div>
+                            {groupingMode !== 'list' && (
+                                <div className={`flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg ${getScoreColor(item.avgRating)} shadow-lg shrink-0`}>
+                                    <span className="font-display font-bold text-base sm:text-lg text-white">{item.avgRating.toFixed(1)}</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Tags */}
