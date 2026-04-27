@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { db } from '../../firebase';
 import { collection, query, getDocs, limit as firestoreLimit, deleteDoc, doc, getDoc } from 'firebase/firestore';
-import { useAuth } from '../../context/AuthContext';
-import { PlaceService } from '../../services/PlaceService';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
     Search, RefreshCw, AlertTriangle, CheckSquare, Square, MapPin,
@@ -12,8 +10,17 @@ import {
 const FUNCTIONS_REGION = 'europe-west1';
 import { DeveloperItemModal } from './DeveloperItemModal';
 
-type FilterMode = 'all' | 'corrupt' | 'no-image' | 'no-coords' | 'no-google-id' | 'duplicate' | 'wrong-id' | 'closed';
-type SortField = 'name' | 'reviewsCount' | 'updatedAt';
+type FilterMode = 'all' | 'corrupt' | 'no-image' | 'no-coords' | 'no-google-id' | 'duplicate' | 'wrong-id' | 'closed' | 'incomplete-google' | 'no-rating' | 'no-contact' | 'no-price' | 'no-accessibility' | 'never-synced' | 'stale-sync';
+type SortField = 'name' | 'reviewsCount' | 'updatedAt' | 'completeness';
+
+const GOOGLE_SYNC_STALE_DAYS = 30;
+const ACCESSIBILITY_KEYS = [
+    'wheelchairAccessibleEntrance',
+    'wheelchairAccessibleParking',
+    'wheelchairAccessibleRestroom',
+    'wheelchairAccessibleSeating',
+    'hearingLoop',
+] as const;
 
 interface PlaceIssues {
     noImage: boolean;
@@ -22,7 +29,45 @@ interface PlaceIssues {
     noName: boolean;
 }
 
-const getIssues = (place: any): PlaceIssues => ({
+interface PlaceRecord extends Record<string, unknown> {
+    id: string;
+    name?: string;
+    googlePlaceId?: string;
+    address?: string;
+    formatted_address?: string;
+    city?: string;
+    province?: string;
+    mainImageUrl?: string | null;
+    mainImagePhotoReference?: string | null;
+    coordinates?: unknown;
+    location?: unknown;
+    reviewsCount?: number;
+    updatedAt?: unknown;
+    lastGoogleSync?: unknown;
+    closedStatus?: string;
+    googleBusinessStatus?: string;
+    googleRating?: number;
+    googleUserRatingsTotal?: number;
+    website?: string | null;
+    phone?: string | null;
+    international_phone_number?: string | null;
+    priceLevel?: number | null;
+}
+
+interface FixPlaceSummary {
+    sourceId: string;
+    targetId: string;
+    reviewsToUpdate: number;
+    followersToMove: number;
+}
+
+const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+    return 'Error desconocido';
+};
+
+const getIssues = (place: PlaceRecord): PlaceIssues => ({
     noImage: !place.mainImageUrl,
     noCoords: !place.coordinates && !place.location,
     noGoogleId: !place.googlePlaceId,
@@ -31,10 +76,70 @@ const getIssues = (place: any): PlaceIssues => ({
 
 const hasIssues = (issues: PlaceIssues) => Object.values(issues).some(Boolean);
 
-const formatDate = (place: any): string => {
-    const ts = place.updatedAt || place.lastGoogleSync;
-    if (!ts?.seconds) return '-';
-    return new Date(ts.seconds * 1000).toLocaleDateString('es-ES', {
+const timestampToMillis = (value: unknown): number | null => {
+    if (!value) return null;
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+        const parsed = Date.parse(value);
+        return Number.isNaN(parsed) ? null : parsed;
+    }
+    if (typeof value === 'object') {
+        const maybeTimestamp = value as { seconds?: number; toMillis?: () => number };
+        if (typeof maybeTimestamp.toMillis === 'function') return maybeTimestamp.toMillis();
+        if (typeof maybeTimestamp.seconds === 'number') return maybeTimestamp.seconds * 1000;
+    }
+    return null;
+};
+
+const hasKnownAccessibility = (place: PlaceRecord): boolean => {
+    const accessibility = place.accessibility || place.accessibilityOptions;
+    if (!accessibility || typeof accessibility !== 'object') return false;
+    return ACCESSIBILITY_KEYS.some(key => typeof (accessibility as Record<string, unknown>)[key] === 'boolean');
+};
+
+const hasGoogleRating = (place: PlaceRecord): boolean => {
+    const rating = place.googleRating;
+    const count = place.googleUserRatingsTotal;
+    return typeof rating === 'number' && rating > 0 && typeof count === 'number' && count > 0;
+};
+
+const hasContactInfo = (place: PlaceRecord): boolean =>
+    Boolean(place.website || place.phone || place.international_phone_number);
+
+const hasPriceLevel = (place: PlaceRecord): boolean =>
+    typeof place.priceLevel === 'number';
+
+const isNeverSynced = (place: PlaceRecord): boolean =>
+    !timestampToMillis(place.lastGoogleSync);
+
+const isStaleSync = (place: PlaceRecord): boolean => {
+    const lastSync = timestampToMillis(place.lastGoogleSync);
+    if (!lastSync) return false;
+    return Date.now() - lastSync > GOOGLE_SYNC_STALE_DAYS * 24 * 60 * 60 * 1000;
+};
+
+const getGoogleCompleteness = (place: PlaceRecord): { score: number; missing: string[] } => {
+    const checks = [
+        { ok: hasGoogleRating(place), label: 'sin rating Google' },
+        { ok: hasContactInfo(place), label: 'sin web/teléfono' },
+        { ok: hasPriceLevel(place), label: 'sin precio' },
+        { ok: hasKnownAccessibility(place), label: 'sin accesibilidad' },
+        { ok: Boolean(place.mainImageUrl || place.mainImagePhotoReference), label: 'sin foto Google' },
+        { ok: !isNeverSynced(place), label: 'sin sincronizar' },
+        { ok: !isStaleSync(place), label: 'sync viejo' },
+    ];
+    const missing = checks.filter(check => !check.ok).map(check => check.label);
+    return {
+        score: Math.round(((checks.length - missing.length) / checks.length) * 100),
+        missing,
+    };
+};
+
+const formatDate = (place: PlaceRecord): string => {
+    const millis = timestampToMillis(place.updatedAt || place.lastGoogleSync);
+    if (!millis) return '-';
+    return new Date(millis).toLocaleDateString('es-ES', {
         day: '2-digit', month: '2-digit', year: '2-digit'
     });
 };
@@ -48,9 +153,16 @@ const FILTER_LABELS: Record<FilterMode, string> = {
     duplicate: 'Duplicados',
     'wrong-id': 'ID incorrecto',
     closed: 'Cerrados',
+    'incomplete-google': 'Datos Google incompletos',
+    'no-rating': 'Sin rating Google',
+    'no-contact': 'Sin web/teléfono',
+    'no-price': 'Sin precio',
+    'no-accessibility': 'Sin accesibilidad',
+    'never-synced': 'Nunca sincronizados',
+    'stale-sync': `Sync > ${GOOGLE_SYNC_STALE_DAYS}d`,
 };
 
-const getClosedLabel = (place: any): { label: string; color: string } | null => {
+const getClosedLabel = (place: PlaceRecord): { label: string; color: string } | null => {
     const s = place.closedStatus || place.googleBusinessStatus;
     if (s === 'permanently_closed' || s === 'CLOSED_PERMANENTLY')
         return { label: 'Cerrado perm.', color: 'bg-red-500/20 text-red-400' };
@@ -60,10 +172,8 @@ const getClosedLabel = (place: any): { label: string; color: string } | null => 
 };
 
 export const PlacesManagerTab: React.FC = () => {
-    const { user } = useAuth();
-
     // Data
-    const [places, setPlaces] = useState<any[]>([]);
+    const [places, setPlaces] = useState<PlaceRecord[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Selection & filters
@@ -86,7 +196,7 @@ export const PlacesManagerTab: React.FC = () => {
 
     // Modal (embedded)
     const [modalOpen, setModalOpen] = useState(false);
-    const [modalItem, setModalItem] = useState<any | null>(null);
+    const [modalItem, setModalItem] = useState<PlaceRecord | null>(null);
 
     const addLog = (msg: string) =>
         setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev]);
@@ -107,10 +217,23 @@ export const PlacesManagerTab: React.FC = () => {
 
     const filteredPlaces = useMemo(() => {
         return places.filter(p => {
-            if (searchTerm && !(p.name || '').toLowerCase().includes(searchTerm.toLowerCase())) return false;
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                const haystack = [
+                    p.name,
+                    p.address,
+                    p.formatted_address,
+                    p.city,
+                    p.province,
+                    p.googlePlaceId,
+                    p.id,
+                ].filter(Boolean).join(' ').toLowerCase();
+                if (!haystack.includes(term)) return false;
+            }
             const issues = getIssues(p);
             const imageBroken = brokenImages.has(p.id);
-            const isDuplicate = duplicateGoogleIds.has(p.googlePlaceId);
+            const isDuplicate = Boolean(p.googlePlaceId && duplicateGoogleIds.has(p.googlePlaceId));
+            const completeness = getGoogleCompleteness(p);
             if (filterMode === 'corrupt') return hasIssues(issues) || imageBroken;
             if (filterMode === 'no-image') return !p.mainImageUrl || imageBroken;
             if (filterMode === 'no-coords') return issues.noCoords;
@@ -118,13 +241,21 @@ export const PlacesManagerTab: React.FC = () => {
             if (filterMode === 'duplicate') return isDuplicate;
             if (filterMode === 'wrong-id') return p.googlePlaceId && p.id !== p.googlePlaceId;
             if (filterMode === 'closed') return !!getClosedLabel(p);
+            if (filterMode === 'incomplete-google') return completeness.missing.length > 0;
+            if (filterMode === 'no-rating') return !hasGoogleRating(p);
+            if (filterMode === 'no-contact') return !hasContactInfo(p);
+            if (filterMode === 'no-price') return !hasPriceLevel(p);
+            if (filterMode === 'no-accessibility') return !hasKnownAccessibility(p);
+            if (filterMode === 'never-synced') return isNeverSynced(p);
+            if (filterMode === 'stale-sync') return isStaleSync(p);
             return true;
         });
     }, [places, searchTerm, filterMode, brokenImages, duplicateGoogleIds]);
 
     const sortedPlaces = useMemo(() => {
         return [...filteredPlaces].sort((a, b) => {
-            let aVal: any, bVal: any;
+            let aVal: string | number = '';
+            let bVal: string | number = '';
             if (sortField === 'name') {
                 aVal = (a.name || '').toLowerCase();
                 bVal = (b.name || '').toLowerCase();
@@ -132,8 +263,11 @@ export const PlacesManagerTab: React.FC = () => {
                 aVal = a.reviewsCount || 0;
                 bVal = b.reviewsCount || 0;
             } else if (sortField === 'updatedAt') {
-                aVal = a.updatedAt?.seconds || a.lastGoogleSync?.seconds || 0;
-                bVal = b.updatedAt?.seconds || b.lastGoogleSync?.seconds || 0;
+                aVal = timestampToMillis(a.updatedAt || a.lastGoogleSync) || 0;
+                bVal = timestampToMillis(b.updatedAt || b.lastGoogleSync) || 0;
+            } else if (sortField === 'completeness') {
+                aVal = getGoogleCompleteness(a).score;
+                bVal = getGoogleCompleteness(b).score;
             }
             if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
             if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
@@ -146,7 +280,7 @@ export const PlacesManagerTab: React.FC = () => {
         [places, brokenImages]
     );
     const duplicateCount = useMemo(
-        () => places.filter(p => duplicateGoogleIds.has(p.googlePlaceId)).length,
+        () => places.filter(p => p.googlePlaceId && duplicateGoogleIds.has(p.googlePlaceId)).length,
         [places, duplicateGoogleIds]
     );
     const wrongIdCount = useMemo(
@@ -157,7 +291,49 @@ export const PlacesManagerTab: React.FC = () => {
         () => places.filter(p => !!getClosedLabel(p)).length,
         [places]
     );
+    const incompleteGoogleCount = useMemo(
+        () => places.filter(p => getGoogleCompleteness(p).missing.length > 0).length,
+        [places]
+    );
+    const noRatingCount = useMemo(
+        () => places.filter(p => !hasGoogleRating(p)).length,
+        [places]
+    );
+    const noContactCount = useMemo(
+        () => places.filter(p => !hasContactInfo(p)).length,
+        [places]
+    );
+    const noPriceCount = useMemo(
+        () => places.filter(p => !hasPriceLevel(p)).length,
+        [places]
+    );
+    const noAccessibilityCount = useMemo(
+        () => places.filter(p => !hasKnownAccessibility(p)).length,
+        [places]
+    );
+    const neverSyncedCount = useMemo(
+        () => places.filter(p => isNeverSynced(p)).length,
+        [places]
+    );
+    const staleSyncCount = useMemo(
+        () => places.filter(p => isStaleSync(p)).length,
+        [places]
+    );
     const allSortedSelected = sortedPlaces.length > 0 && sortedPlaces.every(p => selected.has(p.id));
+    const getFilterCount = (filter: FilterMode): number | null => {
+        if (filter === 'corrupt') return corruptCount;
+        if (filter === 'duplicate') return duplicateCount;
+        if (filter === 'wrong-id') return wrongIdCount;
+        if (filter === 'closed') return closedCount;
+        if (filter === 'incomplete-google') return incompleteGoogleCount;
+        if (filter === 'no-rating') return noRatingCount;
+        if (filter === 'no-contact') return noContactCount;
+        if (filter === 'no-price') return noPriceCount;
+        if (filter === 'no-accessibility') return noAccessibilityCount;
+        if (filter === 'never-synced') return neverSyncedCount;
+        if (filter === 'stale-sync') return staleSyncCount;
+        return null;
+    };
 
     // ── Sort header helper ────────────────────────────────────────────────────
 
@@ -188,12 +364,12 @@ export const PlacesManagerTab: React.FC = () => {
         try {
             const q = query(collection(db, 'places'), firestoreLimit(fetchLimit));
             const snap = await getDocs(q);
-            const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const docs: PlaceRecord[] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             setPlaces(docs);
             setSelected(new Set());
             addLog(`Cargados ${docs.length} lugares`);
-        } catch (err: any) {
-            addLog(`Error al cargar: ${err.message}`);
+        } catch (err: unknown) {
+            addLog(`Error al cargar: ${getErrorMessage(err)}`);
         } finally {
             setLoading(false);
         }
@@ -226,25 +402,35 @@ export const PlacesManagerTab: React.FC = () => {
         addLog(`Seleccionados ${ids.length} lugares con problemas`);
     };
 
+    const selectGoogleIncomplete = () => {
+        const ids = places
+            .filter(p => getGoogleCompleteness(p).missing.length > 0)
+            .map(p => p.id);
+        setSelected(new Set(ids));
+        addLog(`Seleccionados ${ids.length} lugares con datos Google incompletos`);
+    };
+
     // ── Update from Google ────────────────────────────────────────────────────
 
-    const doUpdate = async (place: any) => {
-        if (!user) throw new Error('Sin autenticación');
-        const idToken = await user.getIdToken();
-        await PlaceService.ensurePlaceSyncedWithBackend(place.googlePlaceId || place.id, idToken);
+    const doUpdate = async (place: PlaceRecord) => {
+        const googlePlaceId = place.googlePlaceId || place.id;
+        if (!googlePlaceId) throw new Error('Este lugar no tiene Google Place ID.');
+        const fns = getFunctions(undefined, FUNCTIONS_REGION);
+        const updateFn = httpsCallable(fns, 'adminUpdateSinglePlace');
+        await updateFn({ documentId: place.id, googlePlaceId });
     };
 
     const refreshPlaceInList = async (placeId: string) => {
         const snap = await getDoc(doc(db, 'places', placeId));
         if (snap.exists()) {
-            const updated = { id: snap.id, ...snap.data() };
+            const updated: PlaceRecord = { id: snap.id, ...snap.data() };
             setPlaces(prev => prev.map(p => p.id === placeId ? updated : p));
             return updated;
         }
         return null;
     };
 
-    const handleUpdateSingle = async (place: any, e?: React.MouseEvent) => {
+    const handleUpdateSingle = async (place: PlaceRecord, e?: React.MouseEvent) => {
         e?.stopPropagation();
         setUpdatingIds(prev => new Set([...prev, place.id]));
         addLog(`Actualizando ${place.name || place.id}...`);
@@ -253,8 +439,8 @@ export const PlacesManagerTab: React.FC = () => {
             await refreshPlaceInList(place.id);
             addLog(`✅ ${place.name || place.id} actualizado`);
             setBrokenImages(prev => { const next = new Set(prev); next.delete(place.id); return next; });
-        } catch (err: any) {
-            addLog(`❌ ${place.name || place.id}: ${err.message}`);
+        } catch (err: unknown) {
+            addLog(`❌ ${place.name || place.id}: ${getErrorMessage(err)}`);
         } finally {
             setUpdatingIds(prev => { const next = new Set(prev); next.delete(place.id); return next; });
         }
@@ -279,8 +465,8 @@ export const PlacesManagerTab: React.FC = () => {
                 addLog(`✅ ${place.name || id} actualizado`);
                 success++;
                 setBrokenImages(prev => { const next = new Set(prev); next.delete(id); return next; });
-            } catch (err: any) {
-                addLog(`❌ ${place.name || id}: ${err.message}`);
+            } catch (err: unknown) {
+                addLog(`❌ ${place.name || id}: ${getErrorMessage(err)}`);
                 errors++;
             } finally {
                 setUpdatingIds(prev => { const next = new Set(prev); next.delete(id); return next; });
@@ -293,9 +479,9 @@ export const PlacesManagerTab: React.FC = () => {
 
     // ── Delete ────────────────────────────────────────────────────────────────
 
-    const handleDeletePlace = async (place: any, e: React.MouseEvent) => {
+    const handleDeletePlace = async (place: PlaceRecord, e: React.MouseEvent) => {
         e.stopPropagation();
-        const isDuplicate = duplicateGoogleIds.has(place.googlePlaceId);
+        const isDuplicate = Boolean(place.googlePlaceId && duplicateGoogleIds.has(place.googlePlaceId));
         const msg = isDuplicate
             ? `⚠️ Eliminar "${place.name || place.id}" (duplicado de Google ID: ${place.googlePlaceId})?\n\nEsto NO elimina reseñas ni referencias en listas.`
             : `⚠️ Eliminar PERMANENTEMENTE "${place.name || place.id}"?\n\nEsto NO elimina reseñas ni referencias en listas.`;
@@ -307,8 +493,8 @@ export const PlacesManagerTab: React.FC = () => {
             addLog(`🗑️ Eliminado: ${place.name || place.id} (${place.id})`);
             setPlaces(prev => prev.filter(p => p.id !== place.id));
             setSelected(prev => { const next = new Set(prev); next.delete(place.id); return next; });
-        } catch (err: any) {
-            addLog(`❌ Error al eliminar: ${err.message}`);
+        } catch (err: unknown) {
+            addLog(`❌ Error al eliminar: ${getErrorMessage(err)}`);
         } finally {
             setDeletingIds(prev => { const next = new Set(prev); next.delete(place.id); return next; });
         }
@@ -316,7 +502,7 @@ export const PlacesManagerTab: React.FC = () => {
 
     // ── Merge duplicate → correct document ───────────────────────────────────
 
-    const handleMergePlace = async (place: any, e: React.MouseEvent) => {
+    const handleMergePlace = async (place: PlaceRecord, e: React.MouseEvent) => {
         e.stopPropagation();
         const targetId = place.googlePlaceId;
         if (!targetId || targetId === place.id) return;
@@ -325,9 +511,12 @@ export const PlacesManagerTab: React.FC = () => {
         setMergingIds(prev => new Set([...prev, place.id]));
         try {
             const fns = getFunctions(undefined, FUNCTIONS_REGION);
-            const fixFn = httpsCallable(fns, 'adminFixPlaceDocument');
+            const fixFn = httpsCallable<
+                { sourceId: string; targetId: string; dryRun: boolean },
+                { summary: FixPlaceSummary }
+            >(fns, 'adminFixPlaceDocument');
 
-            const dryResult: any = await fixFn({ sourceId: place.id, targetId, dryRun: true });
+            const dryResult = await fixFn({ sourceId: place.id, targetId, dryRun: true });
             const s = dryResult.data.summary;
 
             const msg = [
@@ -349,8 +538,8 @@ export const PlacesManagerTab: React.FC = () => {
             setSelected(prev => { const next = new Set(prev); next.delete(place.id); return next; });
             // Refresh target doc in the list
             await refreshPlaceInList(targetId);
-        } catch (err: any) {
-            addLog(`❌ Error al fusionar: ${err.message}`);
+        } catch (err: unknown) {
+            addLog(`❌ Error al fusionar: ${getErrorMessage(err)}`);
         } finally {
             setMergingIds(prev => { const next = new Set(prev); next.delete(place.id); return next; });
         }
@@ -367,21 +556,26 @@ export const PlacesManagerTab: React.FC = () => {
 
         setFixingAll(true);
         const fns = getFunctions(undefined, FUNCTIONS_REGION);
-        const fixFn = httpsCallable(fns, 'adminFixPlaceDocument');
+        const fixFn = httpsCallable<
+            { sourceId: string; targetId: string; dryRun: boolean },
+            { summary?: FixPlaceSummary }
+        >(fns, 'adminFixPlaceDocument');
         let success = 0;
         let errors = 0;
 
         for (const place of wrongOnes) {
+            const targetId = place.googlePlaceId;
+            if (!targetId) continue;
             addLog(`Procesando ${place.name || place.id}...`);
             setMergingIds(prev => new Set([...prev, place.id]));
             try {
-                await fixFn({ sourceId: place.id, targetId: place.googlePlaceId, dryRun: false });
-                addLog(`✅ ${place.name || place.id} → ${place.googlePlaceId}`);
+                await fixFn({ sourceId: place.id, targetId, dryRun: false });
+                addLog(`✅ ${place.name || place.id} → ${targetId}`);
                 success++;
                 setPlaces(prev => prev.filter(p => p.id !== place.id));
-                await refreshPlaceInList(place.googlePlaceId);
-            } catch (err: any) {
-                addLog(`❌ ${place.name || place.id}: ${err.message}`);
+                await refreshPlaceInList(targetId);
+            } catch (err: unknown) {
+                addLog(`❌ ${place.name || place.id}: ${getErrorMessage(err)}`);
                 errors++;
             } finally {
                 setMergingIds(prev => { const next = new Set(prev); next.delete(place.id); return next; });
@@ -394,7 +588,7 @@ export const PlacesManagerTab: React.FC = () => {
 
     // ── Modal (embedded) ──────────────────────────────────────────────────────
 
-    const openModal = (place: any, e?: React.MouseEvent) => {
+    const openModal = (place: PlaceRecord, e?: React.MouseEvent) => {
         e?.stopPropagation();
         setModalItem(place);
         setModalOpen(true);
@@ -407,9 +601,8 @@ export const PlacesManagerTab: React.FC = () => {
     };
 
     const handleModalUpdateFromGoogle = async () => {
-        if (!modalItem || !user) throw new Error('Sin autenticación');
-        const idToken = await user.getIdToken();
-        await PlaceService.ensurePlaceSyncedWithBackend(modalItem.googlePlaceId || modalItem.id, idToken);
+        if (!modalItem) throw new Error('No hay lugar seleccionado.');
+        await doUpdate(modalItem);
         const updated = await refreshPlaceInList(modalItem.id);
         if (updated) {
             setModalItem(updated);
@@ -439,7 +632,7 @@ export const PlacesManagerTab: React.FC = () => {
                     <input
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        placeholder="Buscar por nombre..."
+                        placeholder="Buscar por nombre, ciudad, dirección o Google ID..."
                         className="flex-1 min-w-[160px] bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
                     />
                     <button
@@ -459,6 +652,12 @@ export const PlacesManagerTab: React.FC = () => {
                             <span className={corruptCount > 0 ? 'text-red-400' : 'text-green-400'}>
                                 {corruptCount} con problemas
                             </span>
+                            {incompleteGoogleCount > 0 && (
+                                <> · <span className="text-sky-400">{incompleteGoogleCount} incompletos Google</span></>
+                            )}
+                            {staleSyncCount > 0 && (
+                                <> · <span className="text-violet-400">{staleSyncCount} sync viejo</span></>
+                            )}
                             {duplicateCount > 0 && (
                                 <> · <span className="text-amber-400">{duplicateCount} duplicados</span></>
                             )}
@@ -470,33 +669,38 @@ export const PlacesManagerTab: React.FC = () => {
                             )}
                         </span>
 
-                        {(['all', 'corrupt', 'duplicate', 'wrong-id', 'closed', 'no-image', 'no-coords', 'no-google-id'] as FilterMode[]).map(f => (
-                            <button
-                                key={f}
-                                onClick={() => setFilterMode(f)}
-                                className={`px-3 py-1 text-xs rounded-lg font-bold transition-colors ${
-                                    filterMode === f
-                                        ? f === 'corrupt' ? 'bg-red-600 text-white'
-                                        : f === 'duplicate' ? 'bg-amber-600 text-white'
-                                        : f === 'wrong-id' ? 'bg-orange-600 text-white'
-                                        : f === 'closed' ? 'bg-gray-600 text-white'
-                                        : 'bg-[var(--lt-accent)] text-white'
-                                        : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                                }`}
-                            >
-                                {f === 'corrupt'
-                                    ? `${FILTER_LABELS[f]} (${corruptCount})`
-                                    : f === 'duplicate'
-                                        ? `${FILTER_LABELS[f]} (${duplicateCount})`
-                                        : f === 'wrong-id'
-                                            ? `${FILTER_LABELS[f]} (${wrongIdCount})`
-                                            : f === 'closed'
-                                                ? `${FILTER_LABELS[f]} (${closedCount})`
-                                                : FILTER_LABELS[f]}
-                            </button>
-                        ))}
+                        {(['all', 'incomplete-google', 'no-rating', 'no-contact', 'no-price', 'no-accessibility', 'never-synced', 'stale-sync', 'corrupt', 'duplicate', 'wrong-id', 'closed', 'no-image', 'no-coords', 'no-google-id'] as FilterMode[]).map(f => {
+                            const count = getFilterCount(f);
+                            return (
+                                <button
+                                    key={f}
+                                    onClick={() => setFilterMode(f)}
+                                    className={`px-3 py-1 text-xs rounded-lg font-bold transition-colors ${
+                                        filterMode === f
+                                            ? f === 'corrupt' ? 'bg-red-600 text-white'
+                                            : f === 'duplicate' ? 'bg-amber-600 text-white'
+                                            : f === 'wrong-id' ? 'bg-orange-600 text-white'
+                                            : f === 'closed' ? 'bg-gray-600 text-white'
+                                            : f === 'incomplete-google' || f === 'no-rating' || f === 'no-contact' || f === 'no-price' || f === 'no-accessibility' ? 'bg-sky-600 text-white'
+                                            : f === 'never-synced' || f === 'stale-sync' ? 'bg-violet-600 text-white'
+                                            : 'bg-[var(--lt-accent)] text-white'
+                                            : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                                    }`}
+                                >
+                                    {count === null ? FILTER_LABELS[f] : `${FILTER_LABELS[f]} (${count})`}
+                                </button>
+                            );
+                        })}
 
                         <div className="flex gap-2 ml-auto flex-wrap justify-end">
+                            <button
+                                onClick={selectGoogleIncomplete}
+                                disabled={incompleteGoogleCount === 0}
+                                className="px-3 py-1 text-xs rounded-lg font-bold bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 disabled:opacity-40 transition-colors"
+                                title="Selecciona lugares con huecos detectados. Actualizarlos sí consume Google Places."
+                            >
+                                Sel. incompletos
+                            </button>
                             <button
                                 onClick={selectCorrupt}
                                 disabled={corruptCount === 0}
@@ -529,6 +733,11 @@ export const PlacesManagerTab: React.FC = () => {
                         </div>
                     </div>
                 )}
+                {places.length > 0 && (
+                    <div className="mt-4 rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">
+                        Estos filtros leen solo Firestore. Google Places se consume únicamente al pulsar Actualizar o al actualizar seleccionados.
+                    </div>
+                )}
             </div>
 
             {/* Table */}
@@ -559,6 +768,9 @@ export const PlacesManagerTab: React.FC = () => {
                                     <th className="p-3">
                                         <SortHeader label="Actualizado" field="updatedAt" />
                                     </th>
+                                    <th className="p-3">
+                                        <SortHeader label="Google" field="completeness" />
+                                    </th>
                                     <th className="p-3">Problemas</th>
                                     <th className="p-3 w-28">Acciones</th>
                                 </tr>
@@ -567,13 +779,15 @@ export const PlacesManagerTab: React.FC = () => {
                                 {sortedPlaces.map(place => {
                                     const issues = getIssues(place);
                                     const imageBroken = brokenImages.has(place.id);
-                                    const isDuplicate = duplicateGoogleIds.has(place.googlePlaceId);
+                                    const isDuplicate = Boolean(place.googlePlaceId && duplicateGoogleIds.has(place.googlePlaceId));
                                     const corrupt = hasIssues(issues) || imageBroken;
                                     const isUpdating = updatingIds.has(place.id);
                                     const isDeleting = deletingIds.has(place.id);
                                     const isMerging = mergingIds.has(place.id);
                                     const canMerge = place.googlePlaceId && place.id !== place.googlePlaceId;
                                     const closedInfo = getClosedLabel(place);
+                                    const googleCompleteness = getGoogleCompleteness(place);
+                                    const googleComplete = googleCompleteness.missing.length === 0;
 
                                     return (
                                         <tr
@@ -635,6 +849,30 @@ export const PlacesManagerTab: React.FC = () => {
                                             </td>
                                             <td className="p-3 text-xs text-gray-400 whitespace-nowrap">
                                                 {formatDate(place)}
+                                            </td>
+                                            <td className="p-3 min-w-[160px]">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className={`text-xs font-bold ${googleCompleteness.score >= 85 ? 'text-green-400' : googleCompleteness.score >= 55 ? 'text-amber-400' : 'text-red-400'}`}>
+                                                        {googleCompleteness.score}%
+                                                    </span>
+                                                    {googleComplete && (
+                                                        <span className="text-green-500 text-xs">completo</span>
+                                                    )}
+                                                </div>
+                                                {!googleComplete && (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {googleCompleteness.missing.slice(0, 4).map(label => (
+                                                            <span key={label} className="px-1.5 py-0.5 bg-sky-500/15 text-sky-300 text-xs rounded">
+                                                                {label}
+                                                            </span>
+                                                        ))}
+                                                        {googleCompleteness.missing.length > 4 && (
+                                                            <span className="px-1.5 py-0.5 bg-white/5 text-gray-400 text-xs rounded">
+                                                                +{googleCompleteness.missing.length - 4}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="p-3">
                                                 <div className="flex flex-wrap gap-1">

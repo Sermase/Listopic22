@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#020617">
-    <title>El baile de los apegos</title>
+    <title>Simulador Clínico: El Ciclo de la Reactividad</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
@@ -105,23 +105,23 @@
                 box-shadow: 0 -18px 45px rgba(0,0,0,0.44), inset 0 1px 0 rgba(255,255,255,0.08);
             }
             .mobile-action-dock::before {
-                content: "EL BAILE · CONTROLES";
+                content: "PANEL DE MANDOS";
                 position: absolute;
                 left: 16px; top: -18px;
-                color: rgba(148,163,184,0.7);
-                font-size: 8px;
+                color: rgba(203,213,225,0.8);
+                font-size: 9px;
                 font-weight: 900;
-                letter-spacing: 0.2em;
-                text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+                letter-spacing: 0.16em;
+                text-shadow: 0 2px 8px rgba(0,0,0,0.6);
             }
             .mobile-action-dock button {
                 min-height: 48px;
-                border-radius: 14px;
+                border-radius: 15px;
                 font-size: 10px;
                 font-weight: 900;
                 color: #f8fafc;
-                border: 1px solid rgba(255,255,255,0.1);
-                background: linear-gradient(160deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
+                border: 1px solid rgba(255,255,255,0.13);
+                background: linear-gradient(180deg, rgba(30,41,59,0.94), rgba(15,23,42,0.94));
                 padding: 6px 4px;
                 line-height: 1.05;
                 display: flex;
@@ -129,28 +129,18 @@
                 align-items: center;
                 justify-content: center;
                 gap: 3px;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 12px rgba(0,0,0,0.3);
-                transition: transform 0.1s, box-shadow 0.1s;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 6px 14px rgba(0,0,0,0.24);
             }
-            .mobile-action-dock button:active { transform: scale(0.96); box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-            .mobile-action-dock .ico { font-size: 16px; line-height: 1; }
+            .mobile-action-dock button:active { transform: translateY(1px) scale(0.985); }
+            .mobile-action-dock .ico { font-size: 15px; line-height: 1; }
             .mobile-action-dock .txt { font-size: 9px; white-space: nowrap; }
-            .mobile-action-dock .fullw {
-                grid-column: 1 / -1;
-                min-height: 56px;
-                font-size: 13px;
-                letter-spacing: 0.03em;
-                background: linear-gradient(135deg, #1d4ed8, #0891b2);
-                border-color: rgba(56,189,248,0.3);
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 6px 20px rgba(37,99,235,0.35);
-            }
-            .mobile-action-dock .fullw .ico { font-size: 18px; }
-            .mobile-action-dock .fullw .txt { font-size: 12px; }
-            .mobile-action-dock .good { background: linear-gradient(135deg,#059669,#0f766e); border-color: rgba(16,185,129,0.3); }
-            .mobile-action-dock .warn { background: linear-gradient(135deg,#6d28d9,#4f46e5); border-color: rgba(139,92,246,0.3); }
-            .mobile-action-dock .speed { background: linear-gradient(135deg,#0e7490,#0f766e); border-color: rgba(6,182,212,0.25); }
-            .mobile-action-dock .danger { background: linear-gradient(135deg,#991b1b,#7f1d1d); border-color: rgba(239,68,68,0.25); }
-            .mobile-action-dock .ghost { background: linear-gradient(160deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95)); border-color: rgba(148,163,184,0.15); }
+            .mobile-action-dock .primary { background: linear-gradient(135deg,#2563eb,#0891b2); }
+            .mobile-action-dock .primary.big { grid-column: span 2; }
+            .mobile-action-dock .good { background: linear-gradient(135deg,#059669,#0f766e); }
+            .mobile-action-dock .warn { background: linear-gradient(135deg,#7c3aed,#4f46e5); }
+            .mobile-action-dock .speed { background: linear-gradient(135deg,#0f766e,#155e75); }
+            .mobile-action-dock .danger { background: linear-gradient(135deg,#b91c1c,#7f1d1d); }
+            .mobile-action-dock .ghost { background: linear-gradient(180deg, rgba(30,41,59,0.94), rgba(15,23,42,0.94)); }
             .mobile-modal {
                 position: fixed; inset: 0; z-index: 90;
                 align-items: center; justify-content: center;
@@ -198,8 +188,8 @@
                 padding: 10px;
             }
             .mobile-action-dock::before { top: -16px; left: 10px; font-size: 8px; }
+            .mobile-action-dock .primary.big { grid-column: span 2; }
             .mobile-action-dock button { min-height: 42px; font-size: 9px; }
-            .mobile-action-dock .fullw { min-height: 46px; font-size: 11px; }
             .mobile-action-dock .ico { font-size: 14px; }
             .mobile-action-dock .txt { font-size: 8px; }
             .health-bar { width: 260px; }
@@ -231,7 +221,7 @@
                 grid-template-columns: repeat(5, minmax(0,1fr));
                 grid-auto-rows: 50px;
             }
-            .mobile-action-dock .fullw-land { grid-column: span 2; }
+            .mobile-action-dock .primary.big { grid-column: span 2; }
         }
 
         @media (orientation: landscape) and (max-width: 900px) {
@@ -253,7 +243,7 @@
                 grid-auto-rows: minmax(42px, auto);
                 align-content: center;
             }
-            .mobile-action-dock .fullw-land { grid-column: span 2; }
+            .mobile-action-dock .primary.big { grid-column: span 2; }
             .health-bar { left: 50%; width: min(46vw, 260px); }
             #time-hud { top: 58px !important; }
         }
@@ -272,52 +262,6 @@
             #expl-text { font-size: 0.8rem; }
         }
     
-
-        /* Welcome overlay */
-        #welcome-overlay {
-            position: fixed; inset: 0; z-index: 200;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(2,6,23,0.97);
-            backdrop-filter: blur(16px);
-            padding: 1.5rem;
-        }
-        .welcome-card {
-            text-align: center;
-            max-width: 340px;
-            width: 100%;
-            animation: popIn 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .welcome-emoji {
-            font-size: 4.5rem;
-            line-height: 1;
-            margin-bottom: 1.25rem;
-            filter: drop-shadow(0 0 32px rgba(99,102,241,0.55));
-        }
-        .welcome-title {
-            font-size: 2rem; font-weight: 900; color: white;
-            margin-bottom: 0.5rem; line-height: 1.1;
-            background: linear-gradient(135deg, #818cf8, #34d399);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        .welcome-subtitle {
-            color: #94a3b8; font-size: 0.84rem; line-height: 1.6;
-            margin-bottom: 2rem;
-        }
-        .welcome-btn {
-            display: block; width: 100%;
-            padding: 1rem 1.5rem;
-            background: linear-gradient(135deg, #4f46e5, #059669);
-            border: 0; border-radius: 18px; cursor: pointer;
-            color: white; font-size: 1rem; font-weight: 900;
-            letter-spacing: 0.03em;
-            box-shadow: 0 8px 32px rgba(79,70,229,0.35), 0 2px 8px rgba(0,0,0,0.4);
-            transition: transform 0.12s, box-shadow 0.12s;
-        }
-        .welcome-btn:active { transform: scale(0.97); box-shadow: 0 4px 16px rgba(79,70,229,0.3); }
-        .welcome-note {
-            color: #475569; font-size: 0.7rem; margin-top: 1rem;
-        }
 
         /* Modo pantalla completa */
         body.app-fullscreen-mode {
@@ -378,8 +322,8 @@
 
     <div class="max-w-6xl w-full">
         <header class="mb-4 text-center">
-            <h1 class="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-emerald-400 to-purple-400 mb-1">El baile de los apegos</h1>
-            <p class="text-slate-400 text-xs md:text-sm">¿Cómo bailan el ansioso y el evitativo? Ajusta sus parámetros y observa qué ocurre.</p>
+            <h1 class="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-emerald-400 to-purple-400 mb-1">Simulador Clínico: El Ciclo de la Reactividad</h1>
+            <p class="text-slate-400 text-xs md:text-sm">Si ambos colapsan a la vez, la salud cae en picado. Observa el historial en formato chat abajo.</p>
         </header>
 
         <!-- ZONA VISUAL -->
@@ -433,16 +377,16 @@
             </div>
 
             <div class="mobile-action-dock" aria-label="Panel de mandos móvil">
-                <button id="m-btn-play" class="fullw" onclick="toggleSim()"><span class="ico">▶</span><span class="txt">Iniciar</span></button>
+                <button id="m-btn-play" class="primary big" onclick="toggleSim()"><span class="ico">▶</span><span class="txt">Iniciar</span></button>
                 <button class="good" onclick="useWisdom()"><span class="ico">🛡️</span><span class="txt">Sabiduría</span></button>
                 <button class="warn" onclick="useTherapy()"><span class="ico">🛋️</span><span class="txt">Terapia</span></button>
+                <button id="m-btn-speed" class="speed" onclick="cycleSpeed()"><span class="ico">⏱️</span><span class="txt">x1</span></button>
+                <button class="ghost" onclick="openMobileModal('config')"><span class="ico">⚙️</span><span class="txt">Config.</span></button>
                 <button class="ghost" onclick="openMobileModal('history')"><span class="ico">💬</span><span class="txt">Historial</span></button>
                 <button class="ghost" onclick="openMobileModal('status')"><span class="ico">📊</span><span class="txt">Estado</span></button>
                 <button class="ghost" onclick="openMobileModal('theory')"><span class="ico">📚</span><span class="txt">Teoría</span></button>
-                <button class="ghost" onclick="openMobileModal('config')"><span class="ico">⚙️</span><span class="txt">Config.</span></button>
-                <button class="ghost" onclick="toggleSound()"><span class="ico">🔊</span><span class="txt">Sonido</span></button>
-                <button id="m-btn-speed" class="speed" onclick="cycleSpeed()"><span class="ico">⏱️</span><span class="txt">x1</span></button>
                 <button class="danger" onclick="resetSim()"><span class="ico">↺</span><span class="txt">Reset</span></button>
+                <button class="ghost" onclick="toggleSound()"><span class="ico">🔊</span><span class="txt">Sonido</span></button>
                 <button id="m-btn-fullscreen" class="ghost" onclick="toggleFullscreenMode()"><span class="ico">⛶</span><span class="txt">Pantalla</span></button>
             </div>
         </div>
@@ -591,21 +535,6 @@
             </div>
         </div>
     </div>
-
-        <div id="welcome-overlay">
-            <div class="welcome-card">
-                <div class="welcome-emoji">💃🕺</div>
-                <h1 class="welcome-title">El baile de los apegos</h1>
-                <p class="welcome-subtitle">
-                    Un simulador del vínculo entre el apego <strong style="color:#60a5fa">ansioso</strong> y el <strong style="color:#c084fc">evitativo</strong>.<br>
-                    Ajusta los parámetros, intervén y observa cómo evolucionan.
-                </p>
-                <button class="welcome-btn" onclick="startFromWelcome()">
-                    ▶ Comenzar el baile
-                </button>
-                <p class="welcome-note">Simula días de convivencia · Intervén cuando quieras</p>
-            </div>
-        </div>
 
         <div id="mobile-modal" class="mobile-modal" onclick="if(event.target.id==='mobile-modal') closeMobileModal()">
             <div class="mobile-modal-card">
@@ -838,10 +767,8 @@
         let pos = { a: {x:0,y:0}, dispA: {x:0,y:0}, reacA: {x:0,y:0}, e: {x:0,y:0}, dispE: {x:0,y:0}, reacE: {x:0,y:0}, center: {x:0,y:0} };
 
         function resizeCanvas() {
-            const dpr = window.devicePixelRatio || 1;
             width = canvas.parentElement.clientWidth; height = canvas.parentElement.clientHeight;
-            canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            canvas.width = width; canvas.height = height;
             const gapX = width * 0.25;
             const gapY = height * 0.3; 
             pos.center = { x: width / 2, y: height * 0.2 };
@@ -953,43 +880,6 @@
                 btn.className = 'px-2 py-1.5 text-[10px] rounded border text-slate-100 w-full ' + (state.soundEnabled ? 'sound-btn-on' : 'sound-btn-off');
             }
             if (state.soundEnabled) { ensureAudio(); playSfx('birds'); }
-            saveSettings();
-        }
-
-        function vibrate(pattern) {
-            try { if (navigator.vibrate) navigator.vibrate(pattern); } catch(e) {}
-        }
-
-        function saveSettings() {
-            const settings = { sound: state.soundEnabled, speed: state.speed, sliders: {} };
-            ['a-sens','a-sab','a-int','a-res','c-estres','c-com','e-sens','e-sab','e-int','e-res'].forEach(id => {
-                const el = document.getElementById(id); if (el) settings.sliders[id] = el.value;
-            });
-            try { localStorage.setItem('elbaile_settings', JSON.stringify(settings)); } catch(e) {}
-        }
-
-        function loadSettings() {
-            try {
-                const raw = localStorage.getItem('elbaile_settings');
-                if (!raw) return;
-                const s = JSON.parse(raw);
-                if (typeof s.sound === 'boolean') {
-                    state.soundEnabled = s.sound;
-                    const btn = document.getElementById('btn-sound');
-                    if (btn) { btn.innerText = state.soundEnabled ? 'ON' : 'OFF'; btn.className = 'px-2 py-1.5 text-[10px] rounded border text-slate-100 w-full ' + (state.soundEnabled ? 'sound-btn-on' : 'sound-btn-off'); }
-                }
-                if (s.speed && [0.75, 1, 1.6, 2.4].includes(s.speed)) {
-                    state.speed = s.speed;
-                    const sel = document.getElementById('speed-select'); if (sel) sel.value = String(state.speed);
-                }
-                if (s.sliders) {
-                    Object.entries(s.sliders).forEach(([id, val]) => {
-                        const el = document.getElementById(id); const valEl = document.getElementById('val-' + id);
-                        if (el && valEl) { el.value = val; valEl.innerText = val + '/10'; }
-                    });
-                    updateDiagnosis();
-                }
-            } catch(e) {}
         }
 
         function maybeTriggerLightning(force = false) {
@@ -997,7 +887,6 @@
             if (force || (tensionMedia > 60 && Math.random() < 0.32)) {
                 state.flash = 12;
                 playSfx('thunder');
-                vibrate(force ? [60, 30, 100] : [30, 20, 50]);
             }
         }
 
@@ -1081,7 +970,6 @@
                 let val = e.target.value;
                 document.getElementById(`val-${id}`).innerText = val + '/10';
                 updateDiagnosis();
-                saveSettings();
             });
         });
 
@@ -1089,7 +977,6 @@
             state.speed = parseFloat(e.target.value) || 1;
             rescheduleLogicInterval();
             syncMobileControls();
-            saveSettings();
         });
 
         function autoUpgradeParam(id, delta, isGood = true) {
@@ -1185,7 +1072,6 @@
                 
                 ctx.fillStyle = "rgba(16, 185, 129, 0.2)"; ctx.fillRect(0,0,width,height);
                 spawnText(width/2, height/2, "🛡️ CORTAFUEGOS CONSCIENTE", 'AutoReg');
-                vibrate([10, 8, 20, 8, 10]);
                 logEvent("Habéis usado vuestra experiencia: Tiempo Fuera para no destruiros.", "edu", "SYS");
 
                 triggerExplanation(`🛡️ Consciencia y Autorregulación Aplicada`, `<p><strong>Has frenado el bucle reactivo justo a tiempo.</strong></p><p>Has utilizado todo lo que sabes de tus relaciones anteriores. Te has dado cuenta de que seguir exigiendo (o seguir huyendo) estando tan tensos solo iba a terminar en dolor.</p><p>Has impuesto un <em>"Tiempo Fuera"</em> saludable. Vuestros cuerpos se han relajado de golpe y habéis evitado sumar más resentimiento a la mochila.</p>`, 'border-emerald-400', '🛡️');
@@ -1206,7 +1092,6 @@
 
                 ctx.fillStyle = "rgba(99, 102, 241, 0.4)"; ctx.fillRect(0,0,width,height);
                 spawnText(width/2, height/2, "🧠 TERAPIA: APRENDIZAJE EMPÁTICO", 'Correg');
-                vibrate([8, 5, 15, 5, 8, 5, 30]);
                 logEvent("Terapia de Pareja. Habéis aprendido a ver la herida del otro en lugar de su ataque.", "edu", "SYS");
 
                 triggerExplanation(`🆘 Intervención Terapéutica`, `<p><strong>Un profesional os ha ayudado a ver lo que hay debajo del enfado.</strong></p><p>El terapeuta ha creado un espacio seguro. El Evitativo ha podido explicar que se aleja porque se siente insuficiente (no porque no ame al Ansioso), y el Ansioso ha explicado que persigue por puro terror a quedarse solo (no para asfixiar al Evitativo).</p><p>Esta comprensión profunda ha subido vuestros parámetros de Comunicación y Sabiduría <strong>permanentemente</strong>.</p>`, 'border-indigo-500', '🛋️');
@@ -1814,7 +1699,7 @@
 
         function logicTick() {
             if(state.esperandoUsuario) return;
-            if (state.health <= 0) { spawnText(width/2, height/2, "💔 LA RELACIÓN SE HA ROTO POR DESGASTE", 'Estres'); playSfx('tox'); vibrate([200, 80, 200, 80, 400]); toggleSim(); return; }
+            if (state.health <= 0) { spawnText(width/2, height/2, "💔 LA RELACIÓN SE HA ROTO POR DESGASTE", 'Estres'); playSfx('tox'); toggleSim(); return; }
 
             state.dias++; 
             state.ticksSinceLastEvent++;
@@ -1835,7 +1720,7 @@
             let minTension = Math.min(state.a.tension, state.e.tension);
             if (maxTension > 90 && minTension > 60) {
                 state.health -= 2.15; 
-                if (Math.random() < 0.05) { logEvent("Colapso mutuo. La salud de la relación cae en picado.", "boom", "SYS"); vibrate([80, 40, 80]); }
+                if (Math.random() < 0.05) logEvent("Colapso mutuo. La salud de la relación cae en picado.", "boom", "SYS");
                 maybeTriggerLightning(true);
             } else if (maxTension > 90) {
                 state.health -= 1.15; 
@@ -1972,17 +1857,7 @@
             drawInitialAvatar(pos.a.x, pos.a.y, true); drawInitialAvatar(pos.e.x, pos.e.y, false);
         }
 
-        function startFromWelcome() {
-            const ov = document.getElementById('welcome-overlay');
-            if (ov) {
-                ov.style.transition = 'opacity 0.4s ease';
-                ov.style.opacity = '0';
-                vibrate([10, 5, 20]);
-                setTimeout(() => ov.remove(), 420);
-            }
-        }
-
-        window.onload = () => { setTimeout(() => { loadSettings(); resetSim(); syncMobileControls(); }, 100); };
+        window.onload = () => { setTimeout(() => { resetSim(); syncMobileControls(); }, 100); };
     </script>
 </body>
 </html>

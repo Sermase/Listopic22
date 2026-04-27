@@ -1148,9 +1148,9 @@ export const DeveloperPage: React.FC = () => {
                                                 🧠
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="text-lg font-bold text-white">Simulador Clínico: El Ciclo de la Reactividad</h3>
+                                                <h3 className="text-lg font-bold text-white">El baile de los apegos</h3>
                                                 <p className="text-sm text-gray-400 mt-1">
-                                                    Simulación visual de dinámicas de apego ansioso-evitativo. Canvas interactivo con física de relatos, tensión corporal y correglación emocional. Modo educativo paso a paso.
+                                                    Simulación visual de dinámicas de apego ansioso-evitativo. Canvas interactivo con física de relatos, tensión corporal y corregulación emocional. Pantalla de bienvenida, háptica y ajustes persistentes.
                                                 </p>
                                                 <div className="flex flex-wrap gap-2 mt-3">
                                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/20">Canvas API</span>

@@ -34,7 +34,7 @@ export const LabPage: React.FC = () => {
             <iframe
                 src="/lab/simulator.html"
                 className="w-full h-full border-0"
-                title="Simulador Clínico: El Ciclo de la Reactividad"
+                title="El baile de los apegos"
                 allow="fullscreen"
             />
         </div>

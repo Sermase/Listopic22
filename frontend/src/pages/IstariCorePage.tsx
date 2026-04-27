@@ -132,8 +132,8 @@ export const IstariCorePage: React.FC = () => {
                                         🧠
                                     </div>
                                     <div>
-                                        <p className="text-sm font-bold text-white">Simulador Clínico</p>
-                                        <p className="text-xs text-gray-500">El Ciclo de la Reactividad · Experimento interactivo</p>
+                                        <p className="text-sm font-bold text-white">El baile de los apegos</p>
+                                        <p className="text-xs text-gray-500">Experimento interactivo · Apego ansioso & evitativo</p>
                                     </div>
                                 </div>
                                 <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
