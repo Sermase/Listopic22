@@ -11,7 +11,7 @@ import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
 import { UserAvatar } from '../components/UserAvatar';
 import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Dice5, Star, Clock, Flame, TrendingUp } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, query, getDocs, limit, doc, getDoc, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -125,6 +125,7 @@ export const HomePage: React.FC = () => {
     const { location, calculateDistance, requestLocation } = useLocation();
     const { showToast } = useToast();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     // UI State
     const [activeTab, setActiveTab] = useState<'explore' | 'news'>('explore');
@@ -768,7 +769,7 @@ export const HomePage: React.FC = () => {
         return candidates;
     }, [filteredItems, filteredPlaces, listsWithRangeStats]);
 
-    const handleSurpriseChoice = () => {
+    const handleSurpriseChoice = useCallback(() => {
         if (surpriseCandidates.length === 0) {
             showToast({
                 variant: 'info',
@@ -786,7 +787,15 @@ export const HomePage: React.FC = () => {
             durationMs: 2200,
         });
         navigate(randomChoice.route);
-    };
+    }, [navigate, showToast, surpriseCandidates]);
+
+    useEffect(() => {
+        if (searchParams.get('surprise') !== '1' || !appConfig.showRandomChoiceButton || surpriseCandidates.length === 0) return;
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('surprise');
+        setSearchParams(nextParams, { replace: true });
+        handleSurpriseChoice();
+    }, [appConfig.showRandomChoiceButton, handleSurpriseChoice, searchParams, setSearchParams, surpriseCandidates.length]);
 
 
     const handleToggleRange = () => {

@@ -138,6 +138,16 @@ function aggregateGroupTags(collectedTags, itemCount) {
         .sort();
 }
 
+function normalizeUserTypes(userType) {
+    if (Array.isArray(userType)) {
+        return userType.filter(tag => typeof tag === 'string' && tag.trim()).map(tag => tag.trim());
+    }
+    if (typeof userType === 'string' && userType.trim()) {
+        return [userType.trim()];
+    }
+    return [];
+}
+
 async function buildGroupedItemsForList(listId) {
     if (!listId) {
         throw new Error('listId is required');
@@ -184,6 +194,7 @@ async function buildGroupedItemsForList(listId) {
                 itemCount: 0,
                 totalGeneralScore: 0,
                 allTags: [],
+                authorUserTypes: new Set(),
                 criteriaTotals: {},
                 criteriaCounts: {},
                 reviewIds: [],
@@ -216,6 +227,7 @@ async function buildGroupedItemsForList(listId) {
         if (Array.isArray(review.userTags)) {
             group.allTags.push(...review.userTags.filter(tag => typeof tag === 'string'));
         }
+        normalizeUserTypes(review.authorUserType).forEach(type => group.authorUserTypes.add(type));
         if (review.scores && typeof review.scores === 'object') {
             Object.entries(review.scores).forEach(([criterion, score]) => {
                 if (typeof score === 'number') {
@@ -252,6 +264,7 @@ async function buildGroupedItemsForList(listId) {
             avgGeneralScore,
             avgScores,
             groupTags,
+            authorUserType: Array.from(group.authorUserTypes).sort(),
             thumbnailUrl: group.thumbnailUrl || group.placeThumbnailUrl || null,
             googleMapsUrl: group.googleMapsUrl,
             placeCity: group.placeCity,

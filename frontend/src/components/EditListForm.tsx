@@ -10,13 +10,45 @@ import {
     query,
     where,
     getDocs,
-    writeBatch
+    writeBatch,
+    type DocumentData,
+    type DocumentReference,
+    type QueryDocumentSnapshot,
+    type QuerySnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader, X, Smile } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
+
+type CriteriaDefinitionValue = {
+    type?: string;
+    label?: string;
+    min?: number;
+    max?: number;
+    labelMin?: string;
+    labelMax?: string;
+    ponderable?: boolean;
+    step?: number;
+};
+
+type CriteriaDefinitionMap = Record<string, CriteriaDefinitionValue>;
+
+interface EditableListData {
+    userId?: string;
+    name?: string;
+    description?: string;
+    isPublic?: boolean;
+    publicAccess?: 'reader' | 'writer';
+    parentListId?: string | null;
+    availableTags?: string[];
+    criteriaDefinition?: CriteriaDefinitionMap;
+}
+
+const isPermissionDenied = (error: unknown): boolean => {
+    return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'permission-denied');
+};
 
 interface EditListFormProps {
     listId: string;
@@ -71,7 +103,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     return;
                 }
 
-                const data = docSnap.data();
+                const data = docSnap.data() as EditableListData;
 
                 // Permission check: jefe can edit any list; for sublists owner can edit
                 const isOwner = user && data.userId === user.uid;
@@ -81,7 +113,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     return;
                 }
 
-                setName(data.name);
+                setName(data.name || '');
                 setDescription(data.description || '');
                 setIsPublic(data.isPublic !== false);
                 setPublicAccess(data.publicAccess || 'reader');
@@ -93,7 +125,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     try {
                         const parentSnap = await getDoc(doc(db, 'lists', pListId));
                         if (parentSnap.exists()) {
-                            const parentData = parentSnap.data();
+                            const parentData = parentSnap.data() as EditableListData;
                             if (parentData.availableTags) setInheritedTags(parentData.availableTags);
                             if (parentData.criteriaDefinition) setInheritedCriteriaIds(Object.keys(parentData.criteriaDefinition));
                         }
@@ -104,11 +136,11 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 if (data.criteriaDefinition) {
                     const loadedCriteria: Criterion[] = [];
-                    Object.entries(data.criteriaDefinition).forEach(([key, val]: [string, any]) => {
+                    Object.entries(data.criteriaDefinition).forEach(([key, val]) => {
                         if (val.type === 'slider') {
                             loadedCriteria.push({
                                 id: key,
-                                label: val.label,
+                                label: val.label || key,
                                 minLabel: val.labelMin || 'Malo',
                                 maxLabel: val.labelMax || 'Excelente',
                                 isPonderable: val.ponderable !== false,
@@ -125,7 +157,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             }
         };
         fetchList();
-    }, [listId, loadingProfile, isJefe]);
+    }, [listId, loadingProfile, isJefe, onCancel, user]);
 
     const addTag = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && tagInput.trim()) {
@@ -200,7 +232,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             const docRef = doc(db, 'lists', listId);
             const newVisibility = isPublic ? 'public' : 'private';
 
-            const criteriaDefinitionMap: Record<string, any> = {};
+            const criteriaDefinitionMap: CriteriaDefinitionMap = {};
             criteria.forEach(c => {
                 criteriaDefinitionMap[c.id] = {
                     type: 'slider',
@@ -227,7 +259,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             // Propagate tag renames to reviews
             if (tagRenames.size > 0) {
                 const renameEntries = Array.from(tagRenames.entries());
-                const safeQuery = async (load: () => Promise<any>) => {
+                const safeQuery = async (load: () => Promise<QuerySnapshot<DocumentData>>) => {
                     try { return await load(); } catch { return null; }
                 };
 
@@ -240,17 +272,17 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     ] : [])
                 ]);
 
-                const reviewDocs = new Map<string, any>();
+                const reviewDocs = new Map<string, QueryDocumentSnapshot<DocumentData>>();
                 reviewSnapshots.forEach(snap => {
                     if (!snap) return;
-                    snap.docs.forEach((d: any) => reviewDocs.set(d.ref.path, d));
+                    snap.docs.forEach((d) => reviewDocs.set(d.ref.path, d));
                 });
 
-                const toUpdate: { ref: any; newTags: string[] }[] = [];
+                const toUpdate: { ref: DocumentReference<DocumentData>; newTags: string[] }[] = [];
                 reviewDocs.forEach((d) => {
                     const data = d.data();
                     const currentTags: string[] = data.tags || data.userTags || [];
-                    let updated = [...currentTags];
+                    const updated = [...currentTags];
                     let changed = false;
                     renameEntries.forEach(([oldTag, newTag]) => {
                         const idx = updated.indexOf(oldTag);
@@ -269,9 +301,9 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             }
 
             // Sync visibility to reviews
-            const safeGetDocs = async (load: () => Promise<any>) => {
-                try { return await load(); } catch (e: any) {
-                    if (e?.code !== 'permission-denied') console.warn('Failed to query reviews', e);
+            const safeGetDocs = async (load: () => Promise<QuerySnapshot<DocumentData>>) => {
+                try { return await load(); } catch (e: unknown) {
+                    if (!isPermissionDenied(e)) console.warn('Failed to query reviews', e);
                     return null;
                 }
             };
@@ -289,16 +321,16 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('parentListId', '==', listId))))
                 ]);
 
-            const reviewDocs = new Map<string, any>();
+            const reviewDocs = new Map<string, QueryDocumentSnapshot<DocumentData>>();
             snapshots.forEach(snap => {
                 if (!snap) return;
-                snap.docs.forEach((d: any) => reviewDocs.set(d.ref.path, d));
+                snap.docs.forEach((d) => reviewDocs.set(d.ref.path, d));
             });
 
-            const toUpdate = Array.from(reviewDocs.values()).filter((d: any) => d.data().visibility !== newVisibility);
+            const toUpdate = Array.from(reviewDocs.values()).filter((d) => d.data().visibility !== newVisibility);
             for (let i = 0; i < toUpdate.length; i += 450) {
                 const batch = writeBatch(db);
-                toUpdate.slice(i, i + 450).forEach((d: any) => batch.update(d.ref, { visibility: newVisibility }));
+                toUpdate.slice(i, i + 450).forEach((d) => batch.update(d.ref, { visibility: newVisibility }));
                 await batch.commit();
             }
 

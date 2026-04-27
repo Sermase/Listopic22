@@ -1,17 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Archive, Bell, Compass, Info, Menu, MessageSquare, Plus, Search, Share2, User, X } from 'lucide-react';
+import { Archive, Bell, Dice5, Home, Info, Menu, MessageSquare, Plus, Search, User, X } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
 import { useTheme } from '../context/ThemeContext';
 import type { ThemeId } from '../context/ThemeContext';
 import { db } from '../firebase';
-import { usePwaInstall } from '../hooks/usePwaInstall';
 import { Capacitor } from '@capacitor/core';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { NotificationModal } from './NotificationModal';
-import { ShareModal } from './ShareModal';
 
 const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string; icon: React.ElementType; label: string; badge?: boolean; count?: number; isActive: boolean }) => {
     return (
@@ -44,11 +42,14 @@ export const Navbar: React.FC = () => {
     const { theme } = useTheme();
     const location = useLocation();
 
-    const themeLogoKey = `logoUrl${theme.charAt(0).toUpperCase()}${theme.slice(1)}` as `logoUrl${Capitalize<ThemeId>}`;
-    const activeLogoUrl = (config as any)[themeLogoKey] || config.logoUrl;
+    const themeLogoUrls: Record<ThemeId, string | undefined> = {
+        dark: config.logoUrlDark,
+        light: config.logoUrlLight,
+        warm: config.logoUrlWarm,
+        cool: config.logoUrlCool,
+    };
+    const activeLogoUrl = themeLogoUrls[theme] || config.logoUrl;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isAppShareOpen, setIsAppShareOpen] = useState(false);
-    const [showInstallHelp, setShowInstallHelp] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [notificationPanelMode, setNotificationPanelMode] = useState<'desktop' | 'mobile'>('desktop');
@@ -58,16 +59,6 @@ export const Navbar: React.FC = () => {
     const [unreadChatCount, setUnreadChatCount] = useState(0);
     const [profileUsername, setProfileUsername] = useState('');
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
-    const {
-        installMethod,
-        isInstallVisible,
-        installButtonLabel,
-        installHelpText,
-        manualInstallSteps,
-        triggerInstall,
-    } = usePwaInstall();
-    const appShareUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const appShareText = `Descubre ${config.appName} y comparte tus reseñas favoritas`;
 
     useEffect(() => {
         const handleScroll = () => {
@@ -87,8 +78,8 @@ export const Navbar: React.FC = () => {
             limit(50),
         );
 
-        const unsubscribe = onSnapshot(notificationsQuery, (snap: any) => {
-            const validDocs = snap.docs.filter((d: any) => d.data().type !== 'new_message');
+        const unsubscribe = onSnapshot(notificationsQuery, (snap) => {
+            const validDocs = snap.docs.filter((d) => d.data().type !== 'new_message');
             setUnreadCount(validDocs.length);
         }, (error) => {
             console.error('Navbar notifications snapshot error:', error);
@@ -98,11 +89,7 @@ export const Navbar: React.FC = () => {
     }, [user]);
 
     useEffect(() => {
-        if (!user) {
-            setProfileUsername('');
-            setProfilePhotoUrl('');
-            return;
-        }
+        if (!user) return;
 
         const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
             if (!snap.exists()) {
@@ -125,8 +112,11 @@ export const Navbar: React.FC = () => {
     }, [user]);
 
     useEffect(() => {
-        setIsMenuOpen(false);
-        setShowNotifications(false);
+        const timeoutId = window.setTimeout(() => {
+            setIsMenuOpen(false);
+            setShowNotifications(false);
+        }, 0);
+        return () => window.clearTimeout(timeoutId);
     }, [location.pathname]);
 
     // Click-outside: close desktop dropdown when clicking outside bell+panel
@@ -150,13 +140,14 @@ export const Navbar: React.FC = () => {
             limit(50),
         );
 
-        const unsubscribe = onSnapshot(chatsQuery, (snapshot: any) => {
+        const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
             let total = 0;
 
-            snapshot.docs.forEach((chatDoc: any) => {
-                const data = chatDoc.data();
-                if (data.unreadCount && typeof data.unreadCount[user.uid] === 'number') {
-                    total += data.unreadCount[user.uid];
+            snapshot.docs.forEach((chatDoc) => {
+                const data = chatDoc.data() as { unreadCount?: Record<string, unknown> };
+                const unreadForUser = data.unreadCount?.[user.uid];
+                if (typeof unreadForUser === 'number') {
+                    total += unreadForUser;
                 }
             });
 
@@ -167,13 +158,6 @@ export const Navbar: React.FC = () => {
 
         return () => unsubscribe();
     }, [user]);
-
-    const handleInstallClick = async () => {
-        const result = await triggerInstall();
-        if (result !== 'native') {
-            setShowInstallHelp(true);
-        }
-    };
 
     const profileLabel = profileUsername ? `@${profileUsername}` : (user?.displayName || 'Mi cuenta');
     const mobileCreateButtonClass = "w-full flex items-center justify-center gap-3 rounded-2xl px-5 py-4 text-lg font-bold text-white shadow-lg transition-all";
@@ -337,11 +321,11 @@ export const Navbar: React.FC = () => {
                         </div>
 
                         <div className="space-y-2">
+                            <Link to="/" className="flex items-center gap-3 p-4 rounded-xl bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-text)]">
+                                <Home className="w-5 h-5 text-[var(--lt-accent)]" /> Inicio
+                            </Link>
                             <Link to="/search" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
                                 <Search className="w-5 h-5 text-[var(--lt-accent)]" /> Buscar
-                            </Link>
-                            <Link to="/" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
-                                <Compass className="w-5 h-5 text-[var(--lt-accent)]" /> Explorar
                             </Link>
                             <Link to="/chats" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between">
                                 <div className="flex items-center gap-3">
@@ -380,31 +364,6 @@ export const Navbar: React.FC = () => {
                                 type="button"
                                 onClick={() => {
                                     setIsMenuOpen(false);
-                                    setIsAppShareOpen(true);
-                                }}
-                                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]"
-                            >
-                                <Share2 className="w-5 h-5 text-[var(--lt-accent)]" /> Compartir App
-                            </button>
-                            {isInstallVisible && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsMenuOpen(false);
-                                        void handleInstallClick();
-                                    }}
-                                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 font-bold mt-2"
-                                >
-                                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 16V17H11V16H10.5C10.22 16 10 15.78 10 15.5V13.5C10 13.22 10.22 13 10.5 13H13V12H10V10H11V9H13V10H13.5C13.78 10 14 10.22 14 10.5V12.5C14 12.78 13.78 13 13.5 13H11V14H14V16H13ZM12 4C7.58 4 4 7.58 4 12C4 16.42 7.58 20 12 20C16.42 20 20 16.42 20 12C20 7.58 16.42 4 12 4ZM10 6L8 8H11V13H13V8H16L14 6H10Z" />
-                                    </svg>
-                                    {installButtonLabel}
-                                </button>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsMenuOpen(false);
                                     if (Capacitor.isNativePlatform()) {
                                         window.open('https://listopic.es/about', '_blank', 'noopener noreferrer');
                                     } else {
@@ -415,6 +374,14 @@ export const Navbar: React.FC = () => {
                             >
                                 <Info className="w-5 h-5 text-[var(--lt-accent)]" /> Sobre Listopic
                             </button>
+                            {config.showRandomChoiceButton && (
+                                <Link
+                                    to="/?surprise=1"
+                                    className="mt-3 w-full flex items-center justify-center gap-3 p-4 rounded-2xl border border-amber-300/40 bg-amber-400/10 text-amber-100 font-black shadow-lg shadow-amber-500/10"
+                                >
+                                    <Dice5 className="w-5 h-5" /> Voy a tener suerte
+                                </Link>
+                            )}
                         </div>
                     </div>
 
@@ -437,58 +404,7 @@ export const Navbar: React.FC = () => {
 
             {showHistory && <NotificationHistoryModal onClose={() => setShowHistory(false)} />}
 
-            <ShareModal
-                isOpen={isAppShareOpen}
-                onClose={() => setIsAppShareOpen(false)}
-                title={`Compartir ${config.appName}`}
-                url={appShareUrl}
-                text={appShareText}
-                shareEntity={{
-                    type: 'app',
-                    id: 'listopic-app',
-                    title: config.appName || 'Listopic',
-                    subtitle: 'Descubre lugares, listas y reseñas',
-                    route: '/',
-                    url: appShareUrl,
-                    imageUrl: config.logoType === 'image' ? (config.logoUrl || undefined) : undefined,
-                }}
-            />
 
-            {showInstallHelp && (
-                <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-auto">
-                    <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[var(--lt-card-strong)] p-6 shadow-2xl">
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <h3 className="text-lg font-bold text-white">Instalar app</h3>
-                                <p className="mt-1 text-sm text-[var(--lt-text-muted)]">
-                                    {installHelpText}
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowInstallHelp(false)}
-                                className="p-2 rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/10 transition-colors"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        <div className="mt-4 space-y-2 text-sm text-[var(--lt-text)]">
-                            {manualInstallSteps.map((step) => (
-                                <p key={step}>{step}</p>
-                            ))}
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => setShowInstallHelp(false)}
-                            className="mt-6 w-full rounded-2xl px-4 py-3 font-bold text-white transition-colors" style={{ backgroundColor: 'var(--lt-accent)' }}
-                        >
-                            Cerrar
-                        </button>
-                    </div>
-                </div>
-            )}
         </header>
     );
 };

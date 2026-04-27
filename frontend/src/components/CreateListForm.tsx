@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment } from 'firebase/firestore';
@@ -9,11 +9,35 @@ import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker'
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { type ListEntity } from '../hooks/useLists';
 
+type CriteriaDefinitionValue = {
+    type?: string;
+    label?: string;
+    min?: number;
+    max?: number;
+    labelMin?: string;
+    labelMax?: string;
+    ponderable?: boolean;
+    step?: number;
+};
+
+type CriteriaDefinitionMap = Record<string, CriteriaDefinitionValue>;
+
+interface CategoryDoc {
+    id: string;
+    name?: string;
+    'fixed-tags'?: string[];
+    defaultCriteria?: CriteriaDefinitionMap;
+}
+
+const isSliderCriterion = (value: unknown): value is CriteriaDefinitionValue => {
+    return Boolean(value && typeof value === 'object' && (value as CriteriaDefinitionValue).type === 'slider');
+};
+
 interface CreateListFormProps {
     parentListId?: string; // If creating a sublist
     parentListName?: string; // Name of parent list for display
     parentListImage?: string; // Image of parent list for display
-    parentCriteria?: Record<string, any>; // Criteria from parent list
+    parentCriteria?: CriteriaDefinitionMap; // Criteria from parent list
     parentTags?: string[]; // Tags from parent list
     initialData?: Partial<ListEntity>; // For editing in the future
     onSuccess: (newListId: string) => void;
@@ -33,7 +57,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
     // We construct the categoryId if needed, but for now let's just use empty or what's passed
     // NOTE: In the original page, categoryId helps prefill tags/criteria.
     const [categoryId, setCategoryId] = useState('');
-    const [categories, setCategories] = useState<any[]>([]);
+    const [categories, setCategories] = useState<CategoryDoc[]>([]);
 
     // Image
     const [imagePreview, setImagePreview] = useState<string | null>(initialData?.photoUrl || initialData?.mainImageUrl || null);
@@ -44,13 +68,13 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
         if (parentCriteria) {
             // Convert parent map to array
             const inherited: Criterion[] = [];
-            Object.entries(parentCriteria).forEach(([key, val]: [string, any]) => {
-                if (val.type === 'slider') {
+            Object.entries(parentCriteria).forEach(([key, val]) => {
+                if (isSliderCriterion(val)) {
                     inherited.push({
                         id: key,
-                        label: val.label,
-                        minLabel: val.labelMin,
-                        maxLabel: val.labelMax,
+                        label: val.label || key,
+                        minLabel: val.labelMin || 'Malo',
+                        maxLabel: val.labelMax || 'Excelente',
                         isPonderable: val.ponderable !== false,
                         step: val.step ?? 0.5
                     });
@@ -64,14 +88,14 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
     });
 
     // Calculate locked IDs
-    const lockedCriteriaIds = React.useMemo(() => {
+    const lockedCriteriaIds = useMemo(() => {
         return parentCriteria ? Object.keys(parentCriteria) : [];
     }, [parentCriteria]);
 
     const [customTags, setCustomTags] = useState<string[]>(initialData?.availableTags || []);
     const [tagIcon, setTagIcon] = useState('');
     const [showTagEmojiPicker, setShowTagEmojiPicker] = useState(false);
-    const [fixedTags, setFixedTags] = useState<string[]>(parentTags || initialData?.fixedTags || []);
+    const [fixedTags] = useState<string[]>(parentTags || initialData?.fixedTags || []);
     const [tagInput, setTagInput] = useState('');
 
     const [loading, setLoading] = useState(false);
@@ -82,7 +106,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             try {
                 const snapshot = await getDocs(collection(db, 'categories'));
                 if (!snapshot.empty) {
-                    setCategories(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+                    setCategories(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CategoryDoc)));
                 }
             } catch (e) {
                 console.error("Error fetching categories", e);
@@ -109,12 +133,12 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             // 2. Prefill Criteria
             if (selectedCat.defaultCriteria) {
                 const newCriteria: Criterion[] = [];
-                Object.entries(selectedCat.defaultCriteria).forEach(([key, val]: [string, any]) => {
+                Object.entries(selectedCat.defaultCriteria).forEach(([key, val]) => {
                     // Skip 'like'/'dislike' non-slider keys if present
-                    if (val.type === 'slider') {
+                    if (isSliderCriterion(val)) {
                         newCriteria.push({
                             id: key,
-                            label: val.label,
+                            label: val.label || key,
                             minLabel: val.labelMin || 'Mina',
                             maxLabel: val.labelMax || 'Max',
                             isPonderable: val.ponderable !== false // default true
@@ -126,7 +150,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 }
             }
         }
-    }, [categoryId, categories]);
+    }, [categoryId, categories, fixedTags]);
 
     // Image Handlers
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,7 +197,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             const finalPhotoUrl = imagePreview || '';
 
             // Transform criteria array back to Map/Object for DB
-            const criteriaDefinitionMap: Record<string, any> = {};
+            const criteriaDefinitionMap: CriteriaDefinitionMap = {};
             criteria.forEach(c => {
                 criteriaDefinitionMap[c.id] = {
                     type: 'slider',
@@ -362,7 +386,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     <h3 className="text-lg font-bold text-white mb-2">Etiquetas (Tags)</h3>
                     <p className="text-sm text-gray-400 mb-4">
                         Ayuda a otros a filtrar tu lista.
-                        {categoryId && categories.find(c => c.id === categoryId)?.['fixed-tags']?.length > 0 && (
+                        {categoryId && (categories.find(c => c.id === categoryId)?.['fixed-tags']?.length ?? 0) > 0 && (
                             <span className="text-[var(--lt-accent)] ml-1">Se han preseleccionado las etiquetas sugeridas de la categoría — puedes quitarlas o añadir más.</span>
                         )}
                     </p>

@@ -9,15 +9,14 @@ import {
     useCurrentRefinements,
     useClearRefinements,
     useStats,
-    useSortBy,
-    useInstantSearch,
     Index
 } from 'react-instantsearch';
 import { Link } from 'react-router-dom';
 import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
-    Filter, X, Clock, ChevronRight, Star, LocateFixed, Loader2,
-    ArrowUpDown
+    X, Clock, ChevronRight, Star, LocateFixed, Loader2,
+    ArrowUpDown, ChevronDown, SlidersHorizontal, ShieldCheck, Bot, Utensils,
+    Coffee, Wine, Accessibility, Tags, MapPin, CircleDollarSign
 } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
@@ -25,6 +24,7 @@ import { SearchQueryParser } from '../services/SearchQueryParser';
 import { ListItemCard } from '../components/ListItemCard';
 import { SearchMapView } from '../components/SearchMapView';
 import { useLocation } from '../hooks/useLocation';
+import { getPlaceTypeLabel, getPlaceTypeLabels } from '../utils/placeTypeLabels';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,10 +38,46 @@ const TAB_ICONS: Record<string, React.ElementType> = {
 };
 
 const FILTER_LABELS: Record<string, string> = {
-    availableTags: 'Etiqueta', categories: 'Categoría', city: 'Ciudad',
+    availableTags: 'Etiqueta', categoryId: 'Categoría', categoryName: 'Categoría', city: 'Ciudad',
     types: 'Tipo', priceLevel: 'Precio', serviceOptions: 'Servicio',
     accessibilityOptions: 'Accesibilidad', userType: 'Tipo', badges: 'Insignia',
-    placeCity: 'Ciudad', listName: 'Lista', groupTags: 'Tag', residence: 'Ciudad',
+    listCategoryId: 'Categoría', authorUserType: 'Tipo de usuario', placeCity: 'Ciudad', listName: 'Lista', groupTags: 'Tag', residence: 'Ciudad',
+};
+
+const USER_TYPE_LABELS: Record<string, string> = {
+    bot: 'Bots',
+    critico: 'Críticos',
+    critic: 'Críticos',
+    experto: 'Expertos',
+    jefe: 'Equipo',
+    admin: 'Admin',
+    user: 'Usuarios',
+};
+
+const FACET_VALUE_ALLOWLIST: Record<string, string[]> = {
+    userType: ['bot', 'jefe', 'critico', 'critic'],
+    authorUserType: ['bot', 'jefe', 'critico', 'critic', 'experto'],
+};
+
+const FACET_VALUE_LABELS: Record<string, Record<string, string>> = {
+    serviceOptions: {
+        delivery: 'A domicilio',
+        takeout: 'Para llevar',
+        dineIn: 'Comer allí',
+        reservable: 'Reservable',
+        servesBeer: 'Cerveza',
+        servesWine: 'Vino',
+        servesBreakfast: 'Desayuno',
+        servesLunch: 'Comida',
+        servesDinner: 'Cena',
+    },
+    accessibilityOptions: {
+        wheelchairAccessibleEntrance: 'Entrada accesible',
+        wheelchairAccessibleSeating: 'Asientos accesibles',
+        wheelchairAccessibleParking: 'Parking accesible',
+        wheelchairAccessibleRestroom: 'Baño accesible',
+        hearingLoop: 'Bucle auditivo',
+    },
 };
 
 const EMPTY_MESSAGES: Record<string, { title: string; hint: string }> = {
@@ -82,42 +118,155 @@ type SearchHit = {
     ownerPhoto?: string;
     listName?: string;
     listId?: string;
+    categoryName?: string;
+    listCategoryName?: string;
     groupTags?: string[];
     types?: string[];
     availableTags?: string[];
+    level?: number;
+    xp?: number;
+};
+
+interface FilterSectionConfig {
+    attribute: string;
+    label: string;
+    icon: React.ElementType;
+    limit?: number;
+    defaultOpen?: boolean;
+    dependsOn?: string;
+}
+
+const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
+    lists: [
+        { attribute: 'categoryName', label: 'Categoría', icon: ListIcon, defaultOpen: true },
+        { attribute: 'availableTags', label: 'Etiquetas', icon: Tags, defaultOpen: true },
+    ],
+    places: [
+        { attribute: 'city', label: 'Ciudad', icon: MapPin, defaultOpen: true },
+        { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
+        { attribute: 'types', label: 'Tipo', icon: Utensils, defaultOpen: true },
+        { attribute: 'priceLevel', label: 'Precio', icon: CircleDollarSign },
+        { attribute: 'serviceOptions', label: 'Servicios', icon: Coffee },
+    ],
+    users: [
+        { attribute: 'userType', label: 'Tipo', icon: ShieldCheck, defaultOpen: true },
+        { attribute: 'residence', label: 'Ciudad', icon: MapPin },
+    ],
+    items: [
+        { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
+        { attribute: 'listName', label: 'Lista', icon: ListIcon, dependsOn: 'listCategoryName' },
+        { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
+        { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
+        { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
+    ],
+    grouped_items: [
+        { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
+        { attribute: 'listName', label: 'Lista', icon: ListIcon, dependsOn: 'listCategoryName' },
+        { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
+        { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
+        { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
+    ],
 };
 
 // Opciones de ordenación por pestaña
 // NOTA: los valores que no son el índice base requieren réplicas en Algolia.
 // Crear desde el dashboard: Algolia → Index → Replicas con los nombres indicados.
-const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+type SortOption = {
+    value: string;
+    indexName: string;
+    label: string;
+    requiresLocation?: boolean;
+};
+
+const SORT_OPTIONS: Record<string, SortOption[]> = {
     lists: [
-        { value: 'lists', label: 'Relevancia' },
-        { value: 'lists_by_followers', label: '↓ Seguidores' },
-        { value: 'lists_by_reviews', label: '↓ Reseñas' },
+        { value: 'lists', indexName: 'lists', label: 'Destacadas' },
+        { value: 'lists_by_followers', indexName: 'lists_by_followers', label: 'Seguidores' },
+        { value: 'lists_by_reviews', indexName: 'lists_by_reviews', label: 'Reseñas' },
     ],
     places: [
-        { value: 'places', label: 'Relevancia' },
-        { value: 'places_by_rating', label: '↓ Valoración' },
-        { value: 'places_by_reviews', label: '↓ Reseñas' },
-        { value: 'places_by_distance', label: '↓ Distancia' },
+        { value: 'places', indexName: 'places', label: 'Destacados' },
+        { value: 'places_by_rating', indexName: 'places_by_rating', label: 'Valoración' },
+        { value: 'places_by_reviews', indexName: 'places_by_reviews', label: 'Reseñas' },
+        { value: 'places_distance', indexName: 'places', label: 'Más cerca', requiresLocation: true },
     ],
     users: [
-        { value: 'users', label: 'Relevancia' },
-        { value: 'users_by_followers', label: '↓ Seguidores' },
-        { value: 'users_by_reviews', label: '↓ Reseñas' },
+        { value: 'users', indexName: 'users', label: 'Destacados' },
+        { value: 'users_by_level', indexName: 'users_by_level', label: 'Nivel' },
+        { value: 'users_by_followers', indexName: 'users_by_followers', label: 'Seguidores' },
+        { value: 'users_by_reviews', indexName: 'users_by_reviews', label: 'Reseñas' },
     ],
     items: [
-        { value: 'grouped_items', label: 'Relevancia' },
-        { value: 'grouped_items_by_score', label: '↓ Puntuación' },
-        { value: 'grouped_items_by_reviews', label: '↓ Reseñas' },
+        { value: 'grouped_items', indexName: 'grouped_items', label: 'Destacados' },
+        { value: 'grouped_items_by_score', indexName: 'grouped_items_by_score', label: 'Puntuación' },
+        { value: 'grouped_items_by_reviews', indexName: 'grouped_items_by_reviews', label: 'Reseñas' },
+        { value: 'items_distance', indexName: 'grouped_items', label: 'Más cerca', requiresLocation: true },
     ],
 };
+
+const SORT_PARAM_ALIASES: Record<string, Record<string, string>> = {
+    lists: {
+        popular: 'lists_by_followers',
+        followers: 'lists_by_followers',
+        most_reviewed: 'lists_by_reviews',
+        reviews: 'lists_by_reviews',
+        latest: 'lists',
+    },
+    places: {
+        rating: 'places_by_rating',
+        top_rated: 'places_by_rating',
+        most_reviewed: 'places_by_reviews',
+        reviews: 'places_by_reviews',
+        distance: 'places_distance',
+        nearby: 'places_distance',
+        latest: 'places',
+    },
+    users: {
+        followers: 'users_by_followers',
+        most_reviewed: 'users_by_reviews',
+        reviews: 'users_by_reviews',
+        level: 'users_by_level',
+    },
+    items: {
+        top_rated: 'grouped_items_by_score',
+        top_liked: 'grouped_items_by_score',
+        score: 'grouped_items_by_score',
+        most_reviewed: 'grouped_items_by_reviews',
+        reviews: 'grouped_items_by_reviews',
+        distance: 'items_distance',
+        nearby: 'items_distance',
+        latest: 'grouped_items',
+    },
+};
+
+function getDefaultSortValue(tab: string) {
+    return SORT_OPTIONS[tab]?.[0]?.value || INDEX_NAMES.lists;
+}
+
+function resolveSortValue(tab: string, requested?: string | null) {
+    const options = SORT_OPTIONS[tab] || [];
+    const aliased = requested ? (SORT_PARAM_ALIASES[tab]?.[requested] || requested) : null;
+    return options.some(option => option.value === aliased) ? aliased as string : getDefaultSortValue(tab);
+}
+
+function getSortOption(tab: string, value?: string | null) {
+    const options = SORT_OPTIONS[tab] || SORT_OPTIONS.lists;
+    const resolved = resolveSortValue(tab, value);
+    return options.find(option => option.value === resolved) || options[0];
+}
+
+function normalizeSearchTab(tab: string) {
+    if (tab === 'grouped_items') return 'items';
+    if (tab === 'all' || Object.prototype.hasOwnProperty.call(INDEX_NAMES, tab)) return tab;
+    return 'all';
+}
+
+type GeoRadius = number | 'all';
 
 const GEO_RADIUS_OPTIONS = [
     { value: 2000, label: '2 km' }, { value: 5000, label: '5 km' },
     { value: 10000, label: '10 km' }, { value: 20000, label: '20 km' },
-    { value: 50000, label: '50 km' },
+    { value: 50000, label: '50 km' }, { value: 'all', label: 'Sin límite' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -134,26 +283,45 @@ const saveRecentSearch = (term: string) => {
 
 // ─── Search Box ───────────────────────────────────────────────────────────────
 
-const CustomSearchBox = (props: Record<string, unknown>) => {
-    const { query, refine } = useSearchBox(props);
-    const [val, setVal] = useState(query);
+type CustomSearchBoxProps = Record<string, unknown> & {
+    rawQuery?: string;
+    onQueryChange?: (query: string) => void;
+};
+
+const CustomSearchBox = ({ rawQuery = '', onQueryChange, ...props }: CustomSearchBoxProps) => {
+    const { refine } = useSearchBox(props);
+    const [val, setVal] = useState(rawQuery);
     const [focused, setFocused] = useState(false);
     const [recents, setRecents] = useState<string[]>([]);
     const ref = useRef<HTMLInputElement>(null);
 
-    useEffect(() => { if (query !== val) setVal(query); }, [query]); // eslint-disable-line
+    useEffect(() => { if (rawQuery !== val) setVal(rawQuery); }, [rawQuery]); // eslint-disable-line
     useEffect(() => {
-        const t = setTimeout(() => { if (val !== query) refine(val); }, 300);
+        const t = setTimeout(() => {
+            refine(SearchQueryParser.parse(val).cleanedQuery);
+            onQueryChange?.(val);
+        }, 300);
         return () => clearTimeout(t);
-    }, [val, refine, query]);
+    }, [val, refine, onQueryChange]);
 
-    const select = (term: string) => { setVal(term); saveRecentSearch(term); setRecents(getRecentSearches()); refine(term); };
+    const select = (term: string) => {
+        setVal(term);
+        saveRecentSearch(term);
+        setRecents(getRecentSearches());
+        refine(SearchQueryParser.parse(term).cleanedQuery);
+        onQueryChange?.(term);
+    };
     const showRecent = focused && !val && recents.length > 0;
     const matchRecent = focused && val ? recents.filter(s => s.toLowerCase().includes(val.toLowerCase())) : [];
 
     return (
         <div className="relative w-full">
-            <form onSubmit={e => { e.preventDefault(); saveRecentSearch(val); refine(val); }}>
+            <form onSubmit={e => {
+                e.preventDefault();
+                saveRecentSearch(val);
+                refine(SearchQueryParser.parse(val).cleanedQuery);
+                onQueryChange?.(val);
+            }}>
                 <input ref={ref} type="text" value={val}
                     onChange={e => setVal(e.target.value)}
                     onFocus={() => { setRecents(getRecentSearches()); setFocused(true); }}
@@ -163,7 +331,7 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
                 />
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 {val && (
-                    <button type="button" onClick={() => { setVal(''); refine(''); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                    <button type="button" onClick={() => { setVal(''); refine(''); onQueryChange?.(''); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
                         <X className="w-4 h-4" />
                     </button>
                 )}
@@ -188,21 +356,24 @@ const CustomSearchBox = (props: Record<string, unknown>) => {
 
 // ─── Sort Control ─────────────────────────────────────────────────────────────
 
-const SortControl = ({ activeTab }: { activeTab: string }) => {
+const SortControl = ({
+    activeTab,
+    value,
+    onChange,
+}: {
+    activeTab: string;
+    value: string;
+    onChange: (value: string) => void;
+}) => {
     const opts = SORT_OPTIONS[activeTab] || [];
-    const { currentRefinement, refine } = useSortBy({ items: opts });
-    const { error } = useInstantSearch();
     if (opts.length <= 1) return null;
     return (
-        <div
-            className="flex items-center gap-1.5"
-            title={error ? 'Réplica no disponible — crear índice en Algolia' : undefined}
-        >
-            <ArrowUpDown className={`w-3.5 h-3.5 shrink-0 ${error ? 'text-amber-500' : 'text-gray-500'}`} />
+        <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="w-3.5 h-3.5 shrink-0 text-gray-500" />
             <select
-                value={currentRefinement}
-                onChange={e => refine(e.target.value)}
-                className={`bg-transparent border-0 text-sm focus:outline-none cursor-pointer pr-1 ${error ? 'text-amber-400' : 'text-gray-400 hover:text-white'}`}
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                className="bg-transparent border-0 text-sm focus:outline-none cursor-pointer pr-1 text-gray-400 hover:text-white"
             >
                 {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -223,7 +394,7 @@ const ActiveFiltersChips = () => {
                     onClick={() => item.refine(r)}
                     className="flex items-center gap-1 px-2.5 py-1 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-full text-xs text-[var(--lt-accent)] hover:bg-[var(--lt-accent)]/40 transition-colors">
                     <span className="font-semibold text-[var(--lt-accent)]">{FILTER_LABELS[item.attribute] || item.attribute}:</span>
-                    {r.label}
+                    {formatFacetLabel(item.attribute, r.label)}
                     <X className="w-3 h-3 ml-0.5" />
                 </button>
             )))}
@@ -249,54 +420,95 @@ const ResultsCount = () => {
 
 // ─── Refinement List ──────────────────────────────────────────────────────────
 
-const CustomRefinementList = (props: Record<string, unknown> & { attribute: string; label: string }) => {
-    const { items, refine } = useRefinementList(props);
-    if (items.length === 0) return null;
+function formatFacetLabel(attribute: string, label: string) {
+    if (attribute === 'authorUserType' || attribute === 'userType') {
+        return USER_TYPE_LABELS[label] || label;
+    }
+    if (FACET_VALUE_LABELS[attribute]?.[label]) {
+        return FACET_VALUE_LABELS[attribute][label];
+    }
+    if (attribute === 'types') {
+        return getPlaceTypeLabel(label);
+    }
+    if (attribute === 'priceLevel') {
+        return label === '0' ? 'Gratis' : '€'.repeat(Math.max(1, Math.min(4, Number(label) || 1)));
+    }
+    return label;
+}
+
+function hasActiveRefinement(refinements: ReturnType<typeof useCurrentRefinements>['items'], attribute: string) {
+    return refinements.some(item => item.attribute === attribute && item.refinements.length > 0);
+}
+
+const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, defaultOpen = false, dependsOn }: FilterSectionConfig) => {
+    const { items, refine } = useRefinementList({ attribute, limit, showMore: true, showMoreLimit: 24 });
+    const { items: currentRefinements } = useCurrentRefinements();
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+    if (dependsOn && !hasActiveRefinement(currentRefinements, dependsOn)) return null;
+
+    const allowlist = FACET_VALUE_ALLOWLIST[attribute];
+    const visibleItems = allowlist
+        ? items.filter(item => allowlist.includes(String(item.value)))
+        : items;
+
+    if (visibleItems.length === 0) return null;
+    const selectedCount = visibleItems.filter(item => item.isRefined).length;
+
     return (
-        <div className="mb-5">
-            <h4 className="text-gray-500 font-bold mb-2 uppercase text-[10px] tracking-widest">{props.label}</h4>
-            <div className="space-y-1.5">
-                {items.map(item => (
-                    <label key={item.label} className="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" checked={item.isRefined} onChange={() => refine(item.value)}
-                            className="w-3.5 h-3.5 rounded border-white/20 bg-black/30 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] focus:ring-offset-transparent" />
-                        <span className={`text-xs leading-tight ${item.isRefined ? 'text-[var(--lt-accent)] font-semibold' : 'text-gray-400 group-hover:text-gray-300'}`}>
-                            {item.label} <span className="text-gray-700">({item.count})</span>
+        <section className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+            <button
+                type="button"
+                onClick={() => setIsOpen(open => !open)}
+                className="w-full flex items-center gap-3 px-3.5 py-3 text-left"
+            >
+                <span className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[var(--lt-accent)] shrink-0">
+                    <Icon className="w-4 h-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-white leading-tight">{label}</span>
+                    <span className="block text-[11px] text-gray-500">
+                        {selectedCount > 0 ? `${selectedCount} activo${selectedCount > 1 ? 's' : ''}` : `${visibleItems.length} opciones`}
+                    </span>
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen && (
+                <div className="px-3.5 pb-3 flex flex-wrap gap-2">
+                {visibleItems.map(item => (
+                    <button
+                        type="button"
+                        key={String(item.value)}
+                        onClick={() => refine(item.value)}
+                        className={`min-h-9 rounded-full border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                            item.isRefined
+                                ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
+                                : 'bg-white/5 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
+                        }`}
+                    >
+                        {formatFacetLabel(attribute, item.label)}
+                        <span className={item.isRefined ? 'ml-1 text-white/70' : 'ml-1 text-gray-600'}>
+                            {item.count}
                         </span>
-                    </label>
+                    </button>
                 ))}
-            </div>
-        </div>
+                </div>
+            )}
+        </section>
     );
 };
 
 // ─── Filter Content ───────────────────────────────────────────────────────────
 
-const FilterContent = ({ activeTab }: { activeTab: string }) => (
-    <>
-        {activeTab === 'lists' && (<>
-            <CustomRefinementList attribute="availableTags" label="Etiquetas" />
-            <CustomRefinementList attribute="categories" label="Categoría" />
-        </>)}
-        {activeTab === 'places' && (<>
-            <CustomRefinementList attribute="city" label="Ciudad" />
-            <CustomRefinementList attribute="types" label="Tipo" />
-            <CustomRefinementList attribute="priceLevel" label="Precio" />
-            <CustomRefinementList attribute="serviceOptions" label="Servicios" />
-            <CustomRefinementList attribute="accessibilityOptions" label="Accesibilidad" />
-        </>)}
-        {activeTab === 'users' && (<>
-            <CustomRefinementList attribute="userType" label="Tipo" />
-            <CustomRefinementList attribute="badges" label="Insignias" />
-            <CustomRefinementList attribute="residence" label="Ciudad" />
-        </>)}
-        {(activeTab === 'grouped_items' || activeTab === 'items') && (<>
-            <CustomRefinementList attribute="placeCity" label="Ciudad" />
-            <CustomRefinementList attribute="listName" label="Lista" />
-            <CustomRefinementList attribute="groupTags" label="Etiquetas" />
-        </>)}
-    </>
-);
+const FilterContent = ({ activeTab }: { activeTab: string }) => {
+    const sections = FILTER_SECTIONS[activeTab] || [];
+    return (
+        <div className="space-y-3">
+            {sections.map(section => (
+                <CustomRefinementList key={section.attribute} {...section} />
+            ))}
+        </div>
+    );
+};
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
@@ -325,6 +537,7 @@ const EmptyState = ({ activeTab, onTabChange }: { activeTab: string; onTabChange
 
 const UserHitCard = ({ hit, selected, onHover }: { hit: SearchHit; selected: boolean; onHover: (id: string | null) => void }) => {
     const displayName = hit.displayName || hit.username || '?';
+    const level = Math.max(1, hit.level || 1);
     return (
         <Link to={`/profile/${hit.objectID}`}
             id={`hit-${hit.objectID}`}
@@ -339,9 +552,12 @@ const UserHitCard = ({ hit, selected, onHover }: { hit: SearchHit; selected: boo
                     <p className="text-[var(--lt-accent)]/70 text-xs truncate">@{hit.username}</p>
                 )}
                 {hit.bio && <p className="text-gray-400 text-xs line-clamp-1 mt-0.5">{hit.bio}</p>}
-                <div className="flex gap-3 mt-1.5 text-xs text-gray-600">
+                <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-gray-500">
+                    <span className="flex items-center gap-0.5 rounded-full bg-white/5 border border-white/10 px-2 py-0.5">
+                        Nv. {level}
+                    </span>
                     <span className="flex items-center gap-0.5"><Users className="w-3 h-3" /> {hit.followersCount || 0}</span>
-                    {(hit.reviewsCount || 0) > 0 && <span className="flex items-center gap-0.5"><Star className="w-3 h-3" /> {hit.reviewsCount}</span>}
+                    <span className="flex items-center gap-0.5"><Star className="w-3 h-3" /> {hit.reviewsCount || 0}</span>
                 </div>
             </div>
             <ChevronRight className="w-4 h-4 text-gray-700 shrink-0" />
@@ -367,6 +583,11 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const sentinelRef = useRef<HTMLDivElement>(null);
     const hover = onHoverHit ?? (() => {});
+    const visibleHits = useMemo(() => {
+        const typedHits = hits as SearchHit[];
+        if (activeTab !== 'places') return typedHits;
+        return typedHits.filter(hit => (hit.reviewsCount ?? hit.reviewCount ?? 0) > 0);
+    }, [activeTab, hits]);
 
     useEffect(() => {
         if (noInfiniteScroll) return;
@@ -377,7 +598,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
         return () => obs.disconnect();
     }, [noInfiniteScroll, isLastPage, showMore]);
 
-    if (hits.length === 0) {
+    if (visibleHits.length === 0) {
         if (activeTab === 'all') return null;
         return <EmptyState activeTab={activeTab} onTabChange={onTabChange} />;
     }
@@ -385,7 +606,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
     return (
         <div>
             <div className={listLayout ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'}>
-                {(hits as SearchHit[]).map(hit => {
+                {visibleHits.map(hit => {
                     const selected = selectedHitId === hit.objectID;
                     if (activeTab === 'users') {
                         return <UserHitCard key={hit.objectID} hit={hit} selected={selected} onHover={hover} />;
@@ -416,9 +637,9 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                                     followersCount: hit.followersCount,
                                     itemCount: hit.itemCount,
                                     tags: (activeTab === 'grouped_items' || activeTab === 'items')
-                                        ? (hit.groupTags || [])
-                                        : activeTab === 'places' ? (hit.types || [])
-                                        : (hit.availableTags || []),
+                                        ? [hit.listCategoryName, ...(hit.groupTags || [])].filter((tag): tag is string => Boolean(tag))
+                                        : activeTab === 'places' ? getPlaceTypeLabels(hit.types || [], 4)
+                                        : [hit.categoryName, ...(hit.availableTags || [])].filter((tag): tag is string => Boolean(tag)),
                                 }}
                                 isGrid={!listLayout}
                                 groupingMode={
@@ -443,14 +664,17 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
 
 const FedSectionContent = ({ title, type, icon: Icon, onViewAll }: { title: string; type: string; icon: React.ElementType; onViewAll: () => void }) => {
     const { hits } = useInfiniteHits();
-    if (hits.length === 0) return null;
+    const visibleCount = type === 'places'
+        ? (hits as SearchHit[]).filter(hit => (hit.reviewsCount ?? hit.reviewCount ?? 0) > 0).length
+        : hits.length;
+    if (visibleCount === 0) return null;
     return (
         <div className="mb-10">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <Icon className="w-4 h-4 text-[var(--lt-accent)]" />
                     <h3 className="text-lg font-bold text-white">{title}</h3>
-                    <span className="text-xs text-gray-700">({hits.length})</span>
+                    <span className="text-xs text-gray-700">({visibleCount})</span>
                 </div>
                 <button onClick={onViewAll} className="flex items-center gap-1 text-sm text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">
                     Ver todos <ChevronRight className="w-4 h-4" />
@@ -461,9 +685,25 @@ const FedSectionContent = ({ title, type, icon: Icon, onViewAll }: { title: stri
     );
 };
 
-const FederatedSection = ({ indexName, title, type, icon, onViewAll }: { indexName: string; title: string; type: string; icon: React.ElementType; onViewAll: () => void }) => (
+const FederatedSection = ({
+    indexName,
+    title,
+    type,
+    icon,
+    onViewAll,
+    filters,
+    query,
+}: {
+    indexName: string;
+    title: string;
+    type: string;
+    icon: React.ElementType;
+    onViewAll: () => void;
+    filters?: string;
+    query?: string;
+}) => (
     <Index indexName={indexName}>
-        <Configure hitsPerPage={3} />
+        <Configure hitsPerPage={3} filters={filters} query={query} />
         <FedSectionContent title={title} type={type} icon={icon} onViewAll={onViewAll} />
     </Index>
 );
@@ -476,11 +716,11 @@ const GeoControls = ({
 }: {
     isGeoTab: boolean;
     geoActive: boolean;
-    geoRadius: number;
+    geoRadius: GeoRadius;
     locLoading: boolean;
     locError: string | null;
     onToggleGeo: () => void;
-    onRadiusChange: (v: number) => void;
+    onRadiusChange: (v: GeoRadius) => void;
 }) => {
     if (!isGeoTab) return null;
     return (
@@ -496,7 +736,7 @@ const GeoControls = ({
             {geoActive && !locError && (
                 <select
                     value={geoRadius}
-                    onChange={e => onRadiusChange(Number(e.target.value))}
+                    onChange={e => onRadiusChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
                     className="bg-[var(--lt-card-strong)] border border-white/10 rounded-full px-3 py-1.5 text-xs text-white focus:outline-none"
                 >
                     {GEO_RADIUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -507,32 +747,170 @@ const GeoControls = ({
     );
 };
 
+const FilterTrigger = ({ onClick }: { onClick: () => void }) => {
+    const { items } = useCurrentRefinements();
+    const activeCount = items.reduce((total, item) => total + item.refinements.length, 0);
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-bold transition-all active:scale-95 ${
+                activeCount > 0
+                    ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
+                    : 'bg-white/5 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
+            }`}
+        >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filtros
+            {activeCount > 0 && (
+                <span className="min-w-5 h-5 rounded-full bg-white/20 px-1.5 text-[11px] flex items-center justify-center">
+                    {activeCount}
+                </span>
+            )}
+        </button>
+    );
+};
+
+const QuickFacetButton = ({ attribute, value, label, icon: Icon }: { attribute: string; value: string; label: string; icon: React.ElementType }) => {
+    const { items, refine } = useRefinementList({ attribute, limit: 30 });
+    const item = items.find(option => option.value === value || option.label === value);
+    const isActive = Boolean(item?.isRefined);
+    const isAvailable = Boolean(item);
+
+    return (
+        <button
+            type="button"
+            disabled={!isAvailable}
+            onClick={() => item && refine(item.value)}
+            className={`shrink-0 flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition-all active:scale-95 ${
+                isActive
+                    ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
+                    : isAvailable
+                        ? 'bg-white/5 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
+                        : 'bg-white/[0.02] border-white/5 text-gray-700 cursor-not-allowed'
+            }`}
+        >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+            {item && <span className={isActive ? 'text-white/70' : 'text-gray-600'}>{item.count}</span>}
+        </button>
+    );
+};
+
+const QuickFilters = ({
+    activeTab,
+    isGeoTab,
+    geoActive,
+    locLoading,
+    onToggleGeo,
+}: {
+    activeTab: string;
+    isGeoTab: boolean;
+    geoActive: boolean;
+    locLoading: boolean;
+    onToggleGeo: () => void;
+}) => {
+    const showReviewUserTypes = activeTab === 'items' || activeTab === 'grouped_items';
+    const showPlaceTypes = activeTab === 'places';
+
+    if (!isGeoTab && !showReviewUserTypes && !showPlaceTypes) return null;
+
+    return (
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+            {isGeoTab && (
+                <button
+                    type="button"
+                    onClick={onToggleGeo}
+                    disabled={locLoading}
+                    className={`shrink-0 flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition-all active:scale-95 ${
+                        geoActive
+                            ? 'bg-emerald-600/90 border-emerald-400/50 text-white shadow-lg shadow-emerald-900/30'
+                            : 'bg-white/5 border-white/10 text-gray-300 hover:border-emerald-400/40 hover:text-white'
+                    }`}
+                >
+                    {locLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LocateFixed className="w-3.5 h-3.5" />}
+                    Cerca de mí
+                </button>
+            )}
+            {showReviewUserTypes && (
+                <>
+                    <QuickFacetButton attribute="authorUserType" value="critico" label="Críticos" icon={ShieldCheck} />
+                    <QuickFacetButton attribute="authorUserType" value="bot" label="Bots" icon={Bot} />
+                    <QuickFacetButton attribute="authorUserType" value="experto" label="Expertos" icon={Star} />
+                </>
+            )}
+            {showPlaceTypes && (
+                <>
+                    <QuickFacetButton attribute="types" value="restaurant" label="Restaurantes" icon={Utensils} />
+                    <QuickFacetButton attribute="types" value="cafe" label="Cafés" icon={Coffee} />
+                    <QuickFacetButton attribute="types" value="bar" label="Bares" icon={Wine} />
+                </>
+            )}
+        </div>
+    );
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export const SearchPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const queryParam = searchParams.get('q') || '';
-    const typeParam = searchParams.get('type') || 'all';
+    const typeParam = normalizeSearchTab(searchParams.get('type') || 'all');
+    const sortParam = searchParams.get('sort') || '';
 
-    const [activeTab, setActiveTab] = useState(typeParam);
+    const [sortByTab, setSortByTab] = useState<Record<string, string>>(() => (
+        typeParam === 'all' ? {} : { [typeParam]: resolveSortValue(typeParam, sortParam) }
+    ));
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const [geoActive, setGeoActive] = useState(false);
-    const [geoRadius, setGeoRadius] = useState(10000);
+    const [geoRadius, setGeoRadius] = useState<GeoRadius>(10000);
     const [mapExpanded, setMapExpanded] = useState(false);
     const [selectedHitId, setSelectedHitId] = useState<string | null>(null);
     const [hoveredHitId, setHoveredHitId] = useState<string | null>(null);
 
     const { location, error: locError, loading: locLoading, requestLocation } = useLocation();
+    const activeTab = typeParam;
     const isGeoTab = activeTab === 'places' || activeTab === 'items';
+    const activeSortOption = getSortOption(activeTab, sortParam || sortByTab[activeTab]);
+    const activeIndexName = activeSortOption?.indexName || INDEX_NAMES.lists;
+    const effectiveGeoActive = geoActive || Boolean(activeSortOption?.requiresLocation);
 
     const handleTabChange = useCallback((tab: string) => {
-        setActiveTab(tab);
-        setSearchParams({ q: queryParam, type: tab });
+        const sortValue = resolveSortValue(tab, sortByTab[tab]);
+        const nextParams: Record<string, string> = { type: tab };
+        if (queryParam) nextParams.q = queryParam;
+        if (tab !== 'all' && sortValue !== getDefaultSortValue(tab)) nextParams.sort = sortValue;
+        setSearchParams(nextParams);
         // Solo cerrar el mapa si pasamos a una pestaña sin geo (users, lists)
         const newIsGeoTab = tab === 'places' || tab === 'items';
         if (!newIsGeoTab) setMapExpanded(false);
         setSelectedHitId(null);
-    }, [queryParam, setSearchParams]);
+    }, [queryParam, setSearchParams, sortByTab]);
+
+    const handleSortChange = useCallback((value: string) => {
+        const option = getSortOption(activeTab, value);
+        setSortByTab(prev => ({ ...prev, [activeTab]: option.value }));
+        if (option.requiresLocation) {
+            if (!location) requestLocation();
+            setGeoActive(true);
+        }
+        const nextParams: Record<string, string> = { type: activeTab };
+        if (queryParam) nextParams.q = queryParam;
+        if (option.value !== getDefaultSortValue(activeTab)) nextParams.sort = option.value;
+        setSearchParams(nextParams);
+        setSelectedHitId(null);
+    }, [activeTab, location, queryParam, requestLocation, setSearchParams]);
+
+    const handleQueryChange = useCallback((nextQuery: string) => {
+        const nextParams: Record<string, string> = { type: activeTab };
+        const trimmedQuery = nextQuery.trim();
+        if (trimmedQuery) nextParams.q = trimmedQuery;
+        if (activeTab !== 'all' && activeSortOption.value !== getDefaultSortValue(activeTab)) {
+            nextParams.sort = activeSortOption.value;
+        }
+        setSearchParams(nextParams, { replace: true });
+    }, [activeSortOption.value, activeTab, setSearchParams]);
 
     const handleMarkerClick = useCallback((id: string) => {
         setSelectedHitId(prev => prev === id ? null : id);
@@ -545,18 +923,38 @@ export const SearchPage: React.FC = () => {
         setGeoActive(p => !p);
     }, [geoActive, location, requestLocation]);
 
+    useEffect(() => {
+        if (!activeSortOption?.requiresLocation || location) return;
+        if (!location) requestLocation();
+    }, [activeSortOption?.requiresLocation, location, requestLocation]);
+
     const parsedQuery = useMemo(() => SearchQueryParser.parse(queryParam), [queryParam]);
     const algoliaFilters = useMemo(() => {
         const parts: string[] = [];
         Object.entries(parsedQuery.filters).forEach(([key, values]) => {
             let field = key;
+            if (activeTab === 'lists' && key === 'category') field = 'categoryName';
             if (activeTab === 'places') { if (key === 'service') field = 'serviceOptions'; if (key === 'price') field = 'priceLevel'; }
-            if (activeTab === 'items') { if (key === 'city') field = 'placeCity'; }
+            if (activeTab === 'items') {
+                if (key === 'city') field = 'placeCity';
+                if (key === 'userType') field = 'authorUserType';
+                if (key === 'category') field = 'listCategoryName';
+            }
             const g = values.map(v => `${field}:"${v}"`).join(' OR ');
             if (g) parts.push(`(${g})`);
         });
         return parts.join(' AND ');
     }, [parsedQuery, activeTab]);
+
+    const activeGeoConfig = useMemo(() => {
+        if (!isGeoTab || !effectiveGeoActive || !location) {
+            return {};
+        }
+        return {
+            aroundLatLng: `${location.latitude},${location.longitude}`,
+            aroundRadius: geoRadius === 'all' ? ('all' as const) : geoRadius,
+        };
+    }, [effectiveGeoActive, geoRadius, isGeoTab, location]);
 
     // Props comunes para SearchMapView
     const mapSharedProps = {
@@ -564,7 +962,7 @@ export const SearchPage: React.FC = () => {
         selectedHitId,
         hoveredHitId,
         onMarkerClick: handleMarkerClick,
-        geoActive,
+        geoActive: effectiveGeoActive,
         geoRadius,
         location,
         onLocate: toggleGeo,
@@ -578,16 +976,10 @@ export const SearchPage: React.FC = () => {
                 indexName={INDEX_NAMES.lists}
                 future={{ preserveSharedStateOnUnmount: true }}
             >
-                <Configure
-                    query={parsedQuery.cleanedQuery}
-                    filters={activeTab === 'all' ? '' : algoliaFilters}
-                    hitsPerPage={20}
-                />
-
                 {/* ── Header: search + tabs ────────────────────────────────── */}
                 <div className="px-4 lg:px-8 mb-6">
                     <div className="flex items-center gap-4 mb-4">
-                        <div className="flex-1"><CustomSearchBox /></div>
+                        <div className="flex-1"><CustomSearchBox rawQuery={queryParam} onQueryChange={handleQueryChange} /></div>
                     </div>
 
                     {/* Tabs */}
@@ -611,28 +1003,41 @@ export const SearchPage: React.FC = () => {
                 {/* ── Federated: "Todo" ─────────────────────────────────────── */}
                 {activeTab === 'all' ? (
                     <div className="px-4 lg:px-8">
-                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} onViewAll={() => handleTabChange('lists')} />
-                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} onViewAll={() => handleTabChange('places')} />
-                        <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} onViewAll={() => handleTabChange('users')} />
-                        <FederatedSection indexName={INDEX_NAMES.items} title="Items" type="grouped_items" icon={MessageCircle} onViewAll={() => handleTabChange('items')} />
+                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />
+                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('places')} />
+                        <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('users')} />
+                        <FederatedSection indexName={INDEX_NAMES.items} title="Items" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('items')} />
                     </div>
                 ) : (
-                    <Index indexName={INDEX_NAMES[activeTab as keyof typeof INDEX_NAMES]}>
-                        {/* Geo override */}
-                        {isGeoTab && geoActive && location && (
-                            <Configure aroundLatLng={`${location.latitude},${location.longitude}`} aroundRadius={geoRadius} />
-                        )}
+                    <Index indexName={activeIndexName}>
+                        <Configure
+                            query={parsedQuery.cleanedQuery}
+                            filters={algoliaFilters}
+                            hitsPerPage={20}
+                            {...activeGeoConfig}
+                        />
 
                         {/* ── Mobile filter modal ───────────────────────────── */}
                         {mobileFiltersOpen && (
                             <div className="fixed inset-0 z-[2000] lg:hidden">
                                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileFiltersOpen(false)} />
-                                <div className="absolute right-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--lt-card-strong)] border-l border-white/10 p-5 overflow-y-auto shadow-2xl">
-                                    <div className="flex justify-between items-center mb-5">
-                                        <h3 className="text-white font-bold">Filtros</h3>
-                                        <button onClick={() => setMobileFiltersOpen(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+                                <div className="absolute inset-x-0 bottom-0 max-h-[82dvh] rounded-t-3xl bg-[var(--lt-card-strong)] border-t border-white/10 shadow-2xl overflow-hidden animate-slide-up-modal">
+                                    <div className="px-5 pt-3 pb-4 border-b border-white/10 bg-white/[0.03]">
+                                        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <h3 className="text-white font-bold flex items-center gap-2">
+                                                    <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
+                                                    Filtros
+                                                </h3>
+                                                <p className="text-xs text-gray-500 mt-0.5">Afina la búsqueda sin salir de la lista.</p>
+                                            </div>
+                                            <button onClick={() => setMobileFiltersOpen(false)} className="p-2 rounded-full bg-white/5 text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+                                        </div>
                                     </div>
-                                    <FilterContent activeTab={activeTab} />
+                                    <div className="p-4 overflow-y-auto max-h-[calc(82dvh-88px)]">
+                                        <FilterContent activeTab={activeTab} />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -644,19 +1049,30 @@ export const SearchPage: React.FC = () => {
                             <div className="hidden lg:flex gap-4 px-4 lg:px-8" style={{ height: 'calc(100vh - 9rem)' }}>
 
                                 {/* Panel izquierdo: filtros */}
-                                <aside className="w-56 xl:w-64 flex-shrink-0 flex flex-col overflow-hidden">
-                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto flex-1">
-                                        <h3 className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-4">Filtros</h3>
+                                <aside className="w-56 xl:w-64 flex-shrink-0 flex flex-col overflow-hidden min-h-0">
+                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto flex-1 min-h-0">
+                                        <h3 className="text-white font-bold text-sm mb-1 flex items-center gap-2">
+                                            <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
+                                            Filtros
+                                        </h3>
+                                        <p className="text-xs text-gray-500 mb-4">Combina tipo, ciudad y autor.</p>
                                         <FilterContent activeTab={activeTab} />
                                     </div>
                                 </aside>
 
                                 {/* Panel central: controles + mapa */}
                                 <div className="flex-1 min-w-0 flex flex-col gap-2 overflow-hidden">
+                                    <QuickFilters
+                                        activeTab={activeTab}
+                                        isGeoTab={isGeoTab}
+                                        geoActive={effectiveGeoActive}
+                                        locLoading={locLoading}
+                                        onToggleGeo={toggleGeo}
+                                    />
                                     <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
                                         <GeoControls
                                             isGeoTab={isGeoTab}
-                                            geoActive={geoActive}
+                                            geoActive={effectiveGeoActive}
                                             geoRadius={geoRadius}
                                             locLoading={locLoading}
                                             locError={locError}
@@ -665,7 +1081,7 @@ export const SearchPage: React.FC = () => {
                                         />
                                         <div className="ml-auto flex items-center gap-4">
                                             <ResultsCount />
-                                            <SortControl activeTab={activeTab} />
+                                            <SortControl activeTab={activeTab} value={activeSortOption.value} onChange={handleSortChange} />
                                         </div>
                                     </div>
                                     <div className="flex-1 min-h-0">
@@ -701,7 +1117,7 @@ export const SearchPage: React.FC = () => {
 
                             {/* LEFT PANEL: mini-map + filtros */}
                             <aside className="hidden lg:flex flex-col gap-4 w-64 xl:w-72 flex-shrink-0 mr-6">
-                                <div className="sticky top-24 flex flex-col gap-4">
+                                <div className="sticky top-24 flex h-[calc(100vh-7rem)] flex-col gap-4 overflow-hidden">
 
                                     {/* Mini-map (solo tabs geo, solo cuando NO está expandido) */}
                                     {isGeoTab && !mapExpanded && (
@@ -713,8 +1129,12 @@ export const SearchPage: React.FC = () => {
                                     )}
 
                                     {/* Filtros */}
-                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto max-h-[calc(100vh-12rem)]">
-                                        <h3 className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-4">Filtros</h3>
+                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto flex-1 min-h-0">
+                                        <h3 className="text-white font-bold text-sm mb-1 flex items-center gap-2">
+                                            <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
+                                            Filtros
+                                        </h3>
+                                        <p className="text-xs text-gray-500 mb-4">Combina varias señales.</p>
                                         <FilterContent activeTab={activeTab} />
                                     </div>
                                 </div>
@@ -722,15 +1142,19 @@ export const SearchPage: React.FC = () => {
 
                             {/* MAIN CONTENT */}
                             <div className="flex-1 min-w-0">
+                                <QuickFilters
+                                    activeTab={activeTab}
+                                    isGeoTab={isGeoTab}
+                                    geoActive={effectiveGeoActive}
+                                    locLoading={locLoading}
+                                    onToggleGeo={toggleGeo}
+                                />
 
                                 {/* Controls bar */}
-                                <div className="flex flex-wrap items-center gap-3 mb-3">
+                                <div className="flex flex-wrap items-center gap-3 mb-3 mt-3">
                                     {/* Mobile: filtros + mapa */}
                                     <div className="flex items-center gap-2 lg:hidden">
-                                        <button onClick={() => setMobileFiltersOpen(true)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-400">
-                                            <Filter className="w-4 h-4" /> Filtros
-                                        </button>
+                                        <FilterTrigger onClick={() => setMobileFiltersOpen(true)} />
                                         {isGeoTab && (
                                             <button
                                                 onClick={() => setMapExpanded(p => !p)}
@@ -743,7 +1167,7 @@ export const SearchPage: React.FC = () => {
                                     {/* Geo: cerca de mí */}
                                     <GeoControls
                                         isGeoTab={isGeoTab}
-                                        geoActive={geoActive}
+                                        geoActive={effectiveGeoActive}
                                         geoRadius={geoRadius}
                                         locLoading={locLoading}
                                         locError={locError}
@@ -754,7 +1178,7 @@ export const SearchPage: React.FC = () => {
                                     {/* Ordenar + Contador */}
                                     <div className="ml-auto flex items-center gap-4">
                                         <ResultsCount />
-                                        <SortControl activeTab={activeTab} />
+                                        <SortControl activeTab={activeTab} value={activeSortOption.value} onChange={handleSortChange} />
                                     </div>
                                 </div>
 
