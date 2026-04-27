@@ -17,6 +17,7 @@ export interface AppConfig {
     showRandomChoiceButton: boolean;
     showProfileFavoriteBadge: boolean;
     homeReviewsMonths: number; // 0 = sin límite de tiempo, >0 = meses hacia atrás
+    showLab: boolean;
 }
 
 interface AppConfigContextValue {
@@ -33,6 +34,7 @@ const defaultConfig: AppConfig = {
     showRandomChoiceButton: true,
     showProfileFavoriteBadge: true,
     homeReviewsMonths: 12,
+    showLab: false,
 };
 
 const AppConfigContext = createContext<AppConfigContextValue>({
@@ -62,6 +64,9 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     homeReviewsMonths: typeof data.homeReviewsMonths === 'number'
                         ? data.homeReviewsMonths
                         : defaultConfig.homeReviewsMonths,
+                    showLab: typeof data.showLab === 'boolean'
+                        ? data.showLab
+                        : defaultConfig.showLab,
                 } as AppConfig);
             }
             setIsConfigLoading(false);
