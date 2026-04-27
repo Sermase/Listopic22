@@ -1881,7 +1881,7 @@
                 ctx.fillStyle = (data.tension > 80 && !state.secureMode) ? "#f87171" : "#e2e8f0";
                 ctx.beginPath(); ctx.arc(x+sx, y+sy, 22, 0, Math.PI*2); ctx.fill(); 
                 ctx.fillStyle = "#0f172a"; ctx.font = "18px Arial"; ctx.textAlign = "center"; ctx.textBaseline="middle";
-                ctx.fillText(state.secureMode ? "S" : (isA ? "A" : "E"), x+sx, y+sy);
+                ctx.fillText(state.secureMode ? "S" : (isA ? (state.nameA[0] || 'A').toUpperCase() : (state.nameE[0] || 'E').toUpperCase()), x+sx, y+sy);
                 
                 ctx.fillStyle = (data.tension > 80 && !state.secureMode) ? "#fca5a5" : "#94a3b8"; ctx.font = "10px sans-serif";
                 ctx.fillText(`Tensión: ${Math.floor(data.tension)}%`, x+sx+45, y+sy);

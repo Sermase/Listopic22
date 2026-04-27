@@ -10,7 +10,7 @@ import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
 import { UserAvatar } from '../components/UserAvatar';
-import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Dice5, Star, Clock, Flame, TrendingUp } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Dice5, Star, Clock, Flame, TrendingUp, Gem } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, query, getDocs, limit, doc, getDoc, onSnapshot, where } from 'firebase/firestore';
@@ -125,6 +125,7 @@ const toSafeNumber = (value: unknown): number => {
 };
 
 const clampScore = (value: number): number => Math.max(0, Math.min(100, Math.round(value)));
+const HIDDEN_GEM_MIN_RATING = 8.4;
 
 export const HomePage: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
@@ -661,6 +662,35 @@ export const HomePage: React.FC = () => {
         return reviewCandidates || extraPlaceCandidates;
     }, [reviews, extraPlaces, activeFilter]);
 
+    const hiddenGemPlaces = useMemo(() => {
+        return filteredPlaces
+            .map((place: any) => {
+                const rating = toSafeNumber(place.rating || place.averageRating || place.googleRating);
+                const reviewsCount = toSafeNumber(place.reviewsCount || place.reviewCount);
+                const distanceKm = location && place.lat && place.lng ? calculateDistance(place.lat, place.lng) : null;
+                const gemScore =
+                    rating * 16 +
+                    Math.max(0, 5 - reviewsCount) * 9 +
+                    (distanceKm !== null ? Math.max(0, 12 - distanceKm) : 0);
+
+                return {
+                    ...place,
+                    rating,
+                    reviewsCount,
+                    distanceKm,
+                    gemScore,
+                };
+            })
+            .filter((place: any) =>
+                place.rating >= HIDDEN_GEM_MIN_RATING &&
+                place.reviewsCount > 0 &&
+                place.reviewsCount <= 5 &&
+                place.closedStatus !== 'permanently_closed'
+            )
+            .sort((a: any, b: any) => b.gemScore - a.gemScore)
+            .slice(0, 12);
+    }, [calculateDistance, filteredPlaces, location]);
+
     useEffect(() => {
         if (activeTab !== 'explore') return;
         if (range === null || !location) return;
@@ -781,7 +811,7 @@ export const HomePage: React.FC = () => {
             if (!placeId) return;
             const rating = toSafeNumber(place.rating || place.averageRating || place.googleRating);
             const reviewsCount = toSafeNumber(place.reviewsCount || place.reviewCount);
-            const isHiddenGem = rating >= 4.2 && reviewsCount > 0 && reviewsCount <= 4;
+            const isHiddenGem = rating >= HIDDEN_GEM_MIN_RATING && reviewsCount > 0 && reviewsCount <= 4;
             const distanceKm = location && place.lat && place.lng ? calculateDistance(place.lat, place.lng) : null;
             const distanceBoost = distanceKm !== null ? Math.max(0, 18 - distanceKm * 2) : 0;
             const score = rating * 10 + Math.log1p(reviewsCount) * 10 + distanceBoost + (isHiddenGem ? 18 : 0);
@@ -1046,6 +1076,67 @@ export const HomePage: React.FC = () => {
                                 renderItem={(item: any) => (
                                     <ReviewCarouselItem review={item} variant="item" />
                                 )}
+                            />
+
+                            {/* 2b. Joyas ocultas */}
+                            <CardCarousel
+                                title="Joyas ocultas"
+                                subtitle="Sitios con muy buena nota que todavía no están masificados."
+                                viewAllLink="/search?type=places&sort=rating"
+                                items={hiddenGemPlaces}
+                                loading={loadingReviews}
+                                icon={<Gem className="w-5 h-5 text-emerald-300" />}
+                                accentClass="bg-emerald-500/20"
+                                itemClassName="min-w-[82vw] sm:min-w-[320px] md:min-w-[270px]"
+                                renderItem={(place: any) => {
+                                    const placeId = place.placeId || place.id;
+                                    return (
+                                        <Link
+                                            to={`/place/${placeId}`}
+                                            className="group block h-32 sm:h-44 md:h-56 rounded-md overflow-hidden border border-emerald-300/15 bg-[var(--lt-card-strong)] shadow-lg transition-all duration-300 hover:scale-105 hover:border-emerald-300/40 hover:shadow-emerald-500/10"
+                                        >
+                                            <div className="relative h-full">
+                                                {place.photoUrl ? (
+                                                    <ProgressiveImage
+                                                        src={place.photoUrl}
+                                                        alt={place.name}
+                                                        containerClassName="absolute inset-0"
+                                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                    />
+                                                ) : (
+                                                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-slate-900 to-black" />
+                                                )}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-black/10" />
+                                                <div className="absolute left-2.5 top-2.5 rounded-full border border-emerald-200/30 bg-emerald-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-100 backdrop-blur sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[10px]">
+                                                    Joya oculta
+                                                </div>
+                                                <div className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[11px] font-black text-white backdrop-blur sm:right-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs">
+                                                    <Star className="w-3 h-3 fill-amber-300 text-amber-300 sm:w-3.5 sm:h-3.5" />
+                                                    {place.rating.toFixed(1)}
+                                                </div>
+                                                <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+                                                    <h3 className="line-clamp-1 text-sm font-black leading-tight text-white drop-shadow sm:line-clamp-2 sm:text-base">
+                                                        {place.name || 'Lugar por descubrir'}
+                                                    </h3>
+                                                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-gray-200 sm:mt-2 sm:gap-2 sm:text-xs">
+                                                        <span>{place.reviewsCount} reseña{place.reviewsCount === 1 ? '' : 's'}</span>
+                                                        {place.distanceKm !== null && (
+                                                            <>
+                                                                <span className="text-gray-500">·</span>
+                                                                <span>{place.distanceKm.toFixed(place.distanceKm < 10 ? 1 : 0)} km</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    {place.address && (
+                                                        <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-400 sm:mt-1 sm:text-xs">
+                                                            {place.address}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    );
+                                }}
                             />
 
                             {/* 3. Reseñas Recientes */}
