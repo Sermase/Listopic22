@@ -1093,7 +1093,7 @@ export const HomePage: React.FC = () => {
                             {/* 2b. Joyas ocultas */}
                             <CardCarousel
                                 title="Joyas ocultas"
-                                subtitle="Sitios con muy buena nota que todavía no están masificados."
+                                subtitle="Buena nota y pocas reseñas."
                                 viewAllLink={buildCarouselSearchLink('places', 'rating')}
                                 items={hiddenGemPlaces}
                                 loading={loadingReviews}
@@ -1154,7 +1154,7 @@ export const HomePage: React.FC = () => {
                             {/* 3. Reseñas Recientes */}
                             <CardCarousel
                                 title="Reseñas recientes"
-                                viewAllLink="/search?type=items&sort=latest"
+                                viewAllLink={buildCarouselSearchLink('items', 'latest')}
                                 items={recentReviewsInRange}
                                 loading={loadingReviews}
                                 icon={<Clock className="w-5 h-5 text-cyan-400" />}
@@ -1167,7 +1167,7 @@ export const HomePage: React.FC = () => {
                             {/* 4. Usuarios activos */}
                             <CardCarousel
                                 title="Usuarios activos"
-                                viewAllLink="/search?type=users"
+                                viewAllLink={buildCarouselSearchLink('users')}
                                 items={activeUsersInRange}
                                 loading={loadingUsers}
                                 itemClassName="w-auto mr-3"
@@ -1195,7 +1195,7 @@ export const HomePage: React.FC = () => {
                             {/* 5. Lugares top */}
                             <CardCarousel
                                 title={activeTab === 'explore' ? "Lugares top" : "Nuevos Lugares"}
-                                viewAllLink={`/search?type=places&sort=${activeTab === 'explore' ? 'rating' : 'latest'}`}
+                                viewAllLink={buildCarouselSearchLink('places', activeTab === 'explore' ? 'rating' : 'latest')}
                                 items={filteredPlaces}
                                 loading={loadingReviews}
                                 icon={<Flame className="w-5 h-5 text-rose-400" />}
@@ -1296,7 +1296,7 @@ export const HomePage: React.FC = () => {
 
                             <CardCarousel
                                 title="Reseñas que gustan"
-                                viewAllLink="/search?type=items&sort=top_liked"
+                                viewAllLink={buildCarouselSearchLink('items', 'top_liked')}
                                 items={carouselReviews}
                                 loading={loadingReviews}
                                 itemClassName="w-auto"
