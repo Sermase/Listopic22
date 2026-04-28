@@ -1,7 +1,8 @@
 import React from 'react';
-import { Star, MapPin } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getPlaceTypeLabel } from '../utils/placeTypeLabels';
+import { PlacePhotoPlaceholder } from './PlacePhotoPlaceholder';
 
 interface PlaceCardProps {
     place: {
@@ -31,9 +32,7 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
                     {place.photoUrl ? (
                         <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover" />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-600 bg-gray-900">
-                            <MapPin className="w-8 h-8 opacity-20" />
-                        </div>
+                        <PlacePhotoPlaceholder compact />
                     )}
                     {rating > 0 && (
                         <div className="absolute top-2 right-2 bg-black/60 backdrop-blur px-2 py-0.5 rounded text-xs font-bold text-white flex items-center gap-1">

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { collection, getDocs, orderBy, query, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { MapView } from '../components/MapView';
+import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import type { MapItem } from '../components/MapView';
 
 const COLOR_OPTIONS = [
@@ -451,9 +452,7 @@ export const ArchivePage: React.FC = () => {
                                                                     {item.photoUrl ? (
                                                                         <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
                                                                     ) : (
-                                                                        <div className="w-full h-full flex items-center justify-center text-2xl">
-                                                                            {arch.emoji || '📍'}
-                                                                        </div>
+                                                                        <PlacePhotoPlaceholder compact />
                                                                     )}
                                                                     {/* Badge de tipo */}
                                                                     <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide ${tc.bg} ${tc.color}`}>

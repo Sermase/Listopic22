@@ -422,6 +422,14 @@ async function refreshPlaceMainImageFromSnapshot(docSnapshot, apiKey, { force = 
     };
   }
 
+  // Google Places Photo desactivado temporalmente por estrategia de coste/producto.
+  // Mantenemos la firma y devolvemos "skipped" para no romper consumidores existentes.
+  return {
+    skipped: true,
+    photoUrl: placeData.mainImageUrl || null,
+    photoReference: placeData.mainImagePhotoReference || null
+  };
+
   const fields = "photos";
   const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${googlePlaceId}&key=${apiKey}&fields=${fields}&language=es`;
 
@@ -1186,7 +1194,7 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
 
     // Añadimos campos de accesibilidad y opciones de servicio (si el endpoint legacy los soporta, serán devueltos)
     // Usamos solo campos soportados por el endpoint legacy de Place Details
-    const fields = "name,place_id,formatted_address,geometry,url,photos,price_level,website,international_phone_number,address_components,rating,user_ratings_total,types,business_status";
+    const fields = "name,place_id,formatted_address,geometry,url,price_level,website,international_phone_number,address_components,rating,user_ratings_total,types,business_status";
     const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeid}&key=${apiKey}&fields=${fields}&language=es`;
 
     try {
@@ -1218,19 +1226,8 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
 
         const existingData = docSnapshot.exists ? (docSnapshot.data() || {}) : {};
         const accessibilityOptions = await fetchPlaceAccessibilityOptions(result.place_id, apiKey);
-        const previousMainImageUrl = existingData.mainImageUrl || null;
-        const previousPhotoReference = existingData.mainImagePhotoReference || null;
-        const primaryPhotoReference = (result.photos && result.photos.length > 0) ? result.photos[0].photo_reference : null;
-        let resolvedMainImageUrl = previousMainImageUrl;
-        let mainImagePhotoReference = previousPhotoReference;
-
-        if (primaryPhotoReference) {
-          const candidatePhotoUrl = await resolveGooglePhotoUrl(primaryPhotoReference, apiKey, 800);
-          if (candidatePhotoUrl) {
-            resolvedMainImageUrl = candidatePhotoUrl;
-            mainImagePhotoReference = primaryPhotoReference;
-          }
-        }
+        const resolvedMainImageUrl = existingData.mainImageUrl || null;
+        const mainImagePhotoReference = existingData.mainImagePhotoReference || null;
 
         const placeDoc = {
           name: result.name,
@@ -2492,19 +2489,8 @@ const adminUpdateAllPlaces = onCall(async (request) => {
           const resolvedProvince = resolveText(addressFields.province, placeData.province);
           const resolvedCountry = resolveText(addressFields.country, placeData.country);
           const resolvedPostalCode = resolveText(addressFields.postalCode, placeData.postalCode);
-          const previousPhotoReference = placeData.mainImagePhotoReference || null;
-          const previousMainImageUrl = placeData.mainImageUrl || null;
-          const primaryPhotoReference = (result.photos && result.photos.length > 0) ? result.photos[0].photo_reference : null;
-          let resolvedMainImageUrl = previousMainImageUrl;
-          let mainImagePhotoReference = previousPhotoReference;
-
-          if (primaryPhotoReference) {
-            const candidatePhotoUrl = await resolveGooglePhotoUrl(primaryPhotoReference, apiKey, 400);
-            if (candidatePhotoUrl) {
-              resolvedMainImageUrl = candidatePhotoUrl;
-              mainImagePhotoReference = primaryPhotoReference;
-            }
-          }
+          const resolvedMainImageUrl = placeData.mainImageUrl || null;
+          const mainImagePhotoReference = placeData.mainImagePhotoReference || null;
 
           const updateData = {
             name: resolvedName,
@@ -2641,19 +2627,8 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
       const resolvedProvince = resolveText(addressFields.province, existingData.province);
       const resolvedCountry = resolveText(addressFields.country, existingData.country);
       const resolvedPostalCode = resolveText(addressFields.postalCode, existingData.postalCode);
-      const previousMainImageUrl = existingData.mainImageUrl || null;
-      const previousPhotoReference = existingData.mainImagePhotoReference || null;
-      const primaryPhotoReference = (result.photos && result.photos.length > 0) ? result.photos[0].photo_reference : null;
-      let resolvedMainImageUrl = previousMainImageUrl;
-      let mainImagePhotoReference = previousPhotoReference;
-
-      if (primaryPhotoReference) {
-        const candidatePhotoUrl = await resolveGooglePhotoUrl(primaryPhotoReference, apiKey, 400);
-        if (candidatePhotoUrl) {
-          resolvedMainImageUrl = candidatePhotoUrl;
-          mainImagePhotoReference = primaryPhotoReference;
-        }
-      }
+      const resolvedMainImageUrl = existingData.mainImageUrl || null;
+      const mainImagePhotoReference = existingData.mainImagePhotoReference || null;
 
       const updateData = {
         name: resolvedName,
@@ -2766,6 +2741,9 @@ const refreshStalePlacePhotos = onSchedule(
     timeZone: 'Europe/Madrid'
   },
   async () => {
+    logger.info("refreshStalePlacePhotos: deshabilitada (estrategia sin fotos de Google Places).");
+    return;
+
     const apiKey = await getGooglePlacesApiKey();
     if (!apiKey) {
       logger.error("refreshStalePlacePhotos: GOOGLE_PLACES_API_KEY no está configurada.");

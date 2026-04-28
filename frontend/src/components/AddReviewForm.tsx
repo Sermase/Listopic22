@@ -814,6 +814,23 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 await Promise.allSettled(updates);
             }
 
+            // Si el lugar no tiene portada, usamos la primera foto de reseña del usuario.
+            if (finalPlaceId && finalPhotoUrl) {
+                try {
+                    const placeRef = doc(db, 'places', finalPlaceId);
+                    const placeSnap = await getDoc(placeRef);
+                    const currentMainImageUrl = placeSnap.exists() ? ((placeSnap.data() as Record<string, unknown>)?.mainImageUrl as string | undefined) : undefined;
+                    if (!currentMainImageUrl) {
+                        await setDoc(placeRef, {
+                            mainImageUrl: finalPhotoUrl,
+                            updatedAt: serverTimestamp()
+                        }, { merge: true });
+                    }
+                } catch (placeImageErr) {
+                    console.warn("No se pudo establecer portada del lugar desde la reseña:", placeImageErr);
+                }
+            }
+
             // Optimistic cache update — avoids Firestore local-cache latency on refetch
             const optimisticReview = {
                 id: newReviewId ?? editReviewId ?? '',
