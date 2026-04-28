@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 import { MapPin, ChevronRight, Users, Star } from 'lucide-react';
+import { PlacePhotoPlaceholder } from './PlacePhotoPlaceholder';
 
 type CriteriaDefinitionEntry = {
     id?: string;
@@ -143,9 +144,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                         {item.photoUrl ? (
                             <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-700">
-                                <MapPin className="w-8 h-8 opacity-20" />
-                            </div>
+                            <PlacePhotoPlaceholder compact />
                         )}
                         {rank && (
                             <div className="absolute top-0 left-0 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-br-lg">
@@ -280,9 +279,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                         {item.photoUrl ? (
                             <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-600 bg-gray-200 dark:bg-gray-800">
-                                <MapPin className="w-8 h-8 opacity-50" />
-                            </div>
+                            <PlacePhotoPlaceholder compact />
                         )}
                     </div>
 

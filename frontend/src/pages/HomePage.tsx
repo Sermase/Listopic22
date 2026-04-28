@@ -19,6 +19,7 @@ import { updateProfile } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { Footer } from '../components/Footer';
+import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import {
     completeUserProfileSetup,
     getUsernameGateStatus,
@@ -1267,7 +1268,9 @@ export const HomePage: React.FC = () => {
                                                         className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
                                                     />
                                                 ) : (
-                                                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-slate-900 to-black" />
+                                                    <div className="absolute inset-0">
+                                                        <PlacePhotoPlaceholder />
+                                                    </div>
                                                 )}
                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
                                                 <div className="absolute left-2.5 top-2.5 rounded-full border border-emerald-200/30 bg-emerald-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-100 backdrop-blur sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[10px]">
@@ -1404,7 +1407,7 @@ export const HomePage: React.FC = () => {
                                                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
                                             </div>
                                         ) : (
-                                            <div className="w-full h-full bg-blue-900/20" />
+                                            <PlacePhotoPlaceholder compact />
                                         )}
 
                                         <div className="absolute top-2 right-2 bg-teal-600 px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-sm">

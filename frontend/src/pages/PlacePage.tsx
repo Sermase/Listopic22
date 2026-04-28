@@ -17,6 +17,7 @@ import { db } from '../firebase';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { ReportModal } from '../components/ReportModal';
 import { Lightbox } from '../components/Lightbox';
+import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import type { ReviewEntity } from '../hooks/useListDetails';
 
 type PlaceReview = ReviewEntity & {
@@ -342,9 +343,7 @@ export const PlacePage: React.FC = () => {
                 {place.photoUrl ? (
                     <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="absolute inset-0" className="w-full h-full object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-700" onLoad={() => setHeroReady(true)} />
                 ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-indigo-900 to-gray-900 flex items-center justify-center">
-                        <MapPin className="w-20 h-20 text-white/20" />
-                    </div>
+                    <PlacePhotoPlaceholder />
                 )}
 
                 <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 pb-12 sm:pb-16 z-20 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-transparent pt-20">
@@ -417,6 +416,22 @@ export const PlacePage: React.FC = () => {
                                     <Plus className="w-4 h-4" />
                                     <span>Añadir Reseña</span>
                                 </button>
+                                {!place.photoUrl && (
+                                    <button
+                                        onClick={() => {
+                                            if (fromListId) {
+                                                setSelectedListId(fromListId);
+                                            } else {
+                                                setSelectedListId(null);
+                                            }
+                                            setIsFlowOpen(true);
+                                        }}
+                                        className="px-4 py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
+                                    >
+                                        <ImageIcon className="w-4 h-4 text-[var(--lt-accent)]" />
+                                        <span>Sube la primera foto</span>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

@@ -66,7 +66,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     });
 }
 
-async function applyCrop(imageSrc: string, pixelCrop: Area, maxSize = 1920): Promise<{ dataUrl: string; blob: Blob }> {
+async function applyCrop(imageSrc: string, pixelCrop: Area, maxSize = 1600): Promise<{ dataUrl: string; blob: Blob }> {
     const image = await loadImage(imageSrc);
     const scale = Math.min(1, maxSize / Math.max(pixelCrop.width, pixelCrop.height));
     const outW = Math.round(pixelCrop.width * scale);
@@ -75,8 +75,8 @@ async function applyCrop(imageSrc: string, pixelCrop: Area, maxSize = 1920): Pro
     canvas.width = outW;
     canvas.height = outH;
     canvas.getContext('2d')!.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, outW, outH);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-    const blob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), 'image/jpeg', 0.88));
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    const blob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), 'image/jpeg', 0.82));
     return { dataUrl, blob };
 }
 
