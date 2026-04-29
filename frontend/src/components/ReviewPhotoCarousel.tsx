@@ -51,6 +51,11 @@ export const ReviewPhotoCarousel: React.FC<ReviewPhotoCarouselProps> = ({
                         alt={itemName}
                         containerClassName="w-full h-auto"
                         className="w-full h-auto object-cover block"
+                        fallback={
+                            <div className="h-32 sm:h-40 w-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/40">
+                                <MapPin className="w-8 h-8 mb-1 opacity-20" />
+                            </div>
+                        }
                     />
                     {allPhotos.length > 1 && (
                         <>
@@ -79,6 +84,11 @@ export const ReviewPhotoCarousel: React.FC<ReviewPhotoCarouselProps> = ({
                         alt={placeName}
                         containerClassName="w-full h-full"
                         className="w-full h-full object-cover object-center opacity-60 group-hover/image:scale-105 transition-transform duration-700"
+                        fallback={
+                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
+                                <MapPin className="w-8 h-8 mb-1 opacity-20" />
+                            </div>
+                        }
                     />
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">

@@ -6,6 +6,7 @@ import L from 'leaflet';
 import { Maximize2, Minimize2, LocateFixed, Loader2, Layers } from 'lucide-react';
 import { MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
 import type { MapLayerId, MapLayerConfig } from '../utils/mapUtils';
+import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
 
 type SearchMapHit = {
     objectID: string;
@@ -23,6 +24,12 @@ type SearchMapHit = {
     reviewsCount?: number;
     reviewCount?: number;
     placeId?: string;
+    closedStatus?: string | null;
+    placeClosedStatus?: string | null;
+    googleBusinessStatus?: string | null;
+    businessStatus?: string | null;
+    placeGoogleBusinessStatus?: string | null;
+    placeBusinessStatus?: string | null;
 };
 
 type GeoSearchMapHit = SearchMapHit & {
@@ -34,6 +41,10 @@ type GeoSearchMapHit = SearchMapHit & {
 
 function hasGeoloc(hit: SearchMapHit): hit is GeoSearchMapHit {
     return typeof hit._geoloc?.lat === 'number' && typeof hit._geoloc?.lng === 'number';
+}
+
+function isClosedStatus(value?: string | null) {
+    return isClosedPlaceStatus(value);
 }
 
 // Icono de marcador para búsqueda — normal y resaltado
@@ -131,6 +142,7 @@ interface SearchMapViewProps {
     location?: { latitude: number; longitude: number } | null;
     onLocate?: () => void;
     locLoading?: boolean;
+    includeClosed?: boolean;
 }
 
 export const SearchMapView: React.FC<SearchMapViewProps> = ({
@@ -145,6 +157,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
     location,
     onLocate,
     locLoading = false,
+    includeClosed = false,
 }) => {
     const { hits } = useInfiniteHits();
 
@@ -152,14 +165,47 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
         (localStorage.getItem(MAP_LAYER_STORAGE_KEY) as MapLayerId) || DEFAULT_MAP_LAYER
     );
     const [layerPanelOpen, setLayerPanelOpen] = useState(false);
+    const rawHits = useMemo(() => hits as SearchMapHit[], [hits]);
+    const placeIdsKey = useMemo(() => {
+        if (includeClosed) return '';
+        const ids = rawHits
+            .map(hit => activeTab === 'places' ? hit.objectID : hit.placeId)
+            .filter((id): id is string => Boolean(id));
+        return Array.from(new Set(ids)).sort().join('|');
+    }, [activeTab, includeClosed, rawHits]);
+    const [closedPlaceIds, setClosedPlaceIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!placeIdsKey) {
+            queueMicrotask(() => setClosedPlaceIds(new Set()));
+            return;
+        }
+        let cancelled = false;
+        fetchClosedStatusesForPlaceIds(placeIdsKey.split('|').filter(Boolean))
+            .then(statuses => {
+                if (!cancelled) setClosedPlaceIds(new Set(statuses.keys()));
+            })
+            .catch(() => {
+                if (!cancelled) setClosedPlaceIds(new Set());
+            });
+        return () => { cancelled = true; };
+    }, [placeIdsKey]);
 
     const geoHits = useMemo(
-        () => (hits as SearchMapHit[]).filter((h): h is GeoSearchMapHit => {
+        () => rawHits.filter((h): h is GeoSearchMapHit => {
             if (!hasGeoloc(h)) return false;
+            if (!includeClosed) {
+                const statuses = activeTab === 'places'
+                    ? [h.closedStatus, h.googleBusinessStatus, h.businessStatus]
+                    : [h.placeClosedStatus, h.placeGoogleBusinessStatus, h.placeBusinessStatus];
+                if (statuses.some(status => isClosedStatus(status))) return false;
+                const placeId = activeTab === 'places' ? h.objectID : h.placeId;
+                if (placeId && closedPlaceIds.has(placeId)) return false;
+            }
             if (activeTab !== 'places') return true;
             return (h.reviewsCount ?? h.reviewCount ?? 0) > 0;
         }),
-        [activeTab, hits]
+        [activeTab, closedPlaceIds, includeClosed, rawHits]
     );
     const mapItems = useMemo(
         () => geoHits.map(h => ({ lat: h._geoloc.lat, lng: h._geoloc.lng, id: h.objectID })),
@@ -316,12 +362,17 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                                             boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
                                             fontFamily: "'Poppins', system-ui, sans-serif"
                                         }}>
-                                            {photo
-                                                ? <img src={photo} alt={name} style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
-                                                : <div style={{ width: '100%', height: 70, background: '#1e2a45', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <span style={{ color: '#4b5563', fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>Sin foto</span>
-                                                  </div>
-                                            }
+                                            <div style={{ width: '100%', height: photo ? 90 : 70, background: '#1e2a45', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                                                <span style={{ color: '#4b5563', fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>Sin foto</span>
+                                                {photo && (
+                                                    <img
+                                                        src={photo}
+                                                        alt={name}
+                                                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                    />
+                                                )}
+                                            </div>
                                             <div style={{ padding: '10px 12px 12px' }}>
                                                 <div style={{ fontWeight: 700, fontSize: 13, color: '#f9fafb', marginBottom: 5, lineHeight: 1.3 }}>{name}</div>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>

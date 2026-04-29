@@ -577,7 +577,18 @@ export const GroupPage: React.FC = () => {
             <div className={`relative h-[40vh] min-h-[300px] w-full overflow-hidden group ${heroReady || !stats?.mainPhoto ? 'animate-hero-from-right' : ''}`}>
                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
                 {stats?.mainPhoto ? (
-                    <ProgressiveImage src={stats.mainPhoto} alt={decodedName} containerClassName="absolute inset-0" className="w-full h-full object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-700" onLoad={() => setHeroReady(true)} />
+                    <ProgressiveImage
+                        src={stats.mainPhoto}
+                        alt={decodedName}
+                        containerClassName="absolute inset-0"
+                        className="w-full h-full object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-700"
+                        onLoad={() => setHeroReady(true)}
+                        fallback={
+                            <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                <MessageSquare className="w-20 h-20 text-white/20" />
+                            </div>
+                        }
+                    />
                 ) : (
                     <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                         <MessageSquare className="w-20 h-20 text-white/20" />
@@ -793,7 +804,17 @@ export const GroupPage: React.FC = () => {
                                             {/* Thumbnail */}
                                             <div className={`w-12 h-12 shrink-0 rounded overflow-hidden flex items-center justify-center transition-colors bg-gray-800`}>
                                                 {l.photoUrl ? (
-                                                    <img src={l.photoUrl} className="w-full h-full object-cover" />
+                                                    <ProgressiveImage
+                                                        src={l.photoUrl}
+                                                        alt={l.name}
+                                                        containerClassName="w-full h-full"
+                                                        className="w-full h-full object-cover"
+                                                        fallback={
+                                                            <div className="w-full h-full flex items-center justify-center">
+                                                                <ListIcon className={`w-5 h-5 ${l.parentListId ? 'text-[var(--lt-accent-2)]' : 'text-gray-500'}`} />
+                                                            </div>
+                                                        }
+                                                    />
                                                 ) : (
                                                     <ListIcon className={`w-5 h-5 ${l.parentListId ? 'text-[var(--lt-accent-2)]' : 'text-gray-500'}`} />
                                                 )}
@@ -857,7 +878,17 @@ export const GroupPage: React.FC = () => {
                                         onClick={() => { setLightboxIndex(i); setIsLightboxOpen(true); }}
                                         className="aspect-square rounded-xl overflow-hidden cursor-pointer bg-gray-800 relative group border border-white/10"
                                     >
-                                        <ProgressiveImage src={url} alt={`Foto ${i}`} containerClassName="w-full h-full" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                        <ProgressiveImage
+                                            src={url}
+                                            alt={`Foto ${i}`}
+                                            containerClassName="w-full h-full"
+                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                            fallback={
+                                                <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                                                    <ImageIcon className="w-6 h-6 text-gray-600" />
+                                                </div>
+                                            }
+                                        />
                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                             <ZoomIn className="w-6 h-6 text-white drop-shadow-md" />
                                         </div>
@@ -929,10 +960,16 @@ export const GroupPage: React.FC = () => {
                                                 className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors"
                                             >
                                                 {photoSrc ? (
-                                                    <img
+                                                    <ProgressiveImage
                                                         src={photoSrc}
                                                         alt={(review as any).authorName || ''}
+                                                        containerClassName="w-full h-full"
                                                         className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-40 saturate-50' : ''}`}
+                                                        fallback={
+                                                            <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">
+                                                                <MessageSquare className="w-6 h-6 text-gray-600" />
+                                                            </div>
+                                                        }
                                                     />
                                                 ) : (
                                                     <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">

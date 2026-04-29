@@ -341,7 +341,14 @@ export const PlacePage: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
 
                 {place.photoUrl ? (
-                    <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="absolute inset-0" className="w-full h-full object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-700" onLoad={() => setHeroReady(true)} />
+                    <ProgressiveImage
+                        src={place.photoUrl}
+                        alt={place.name}
+                        containerClassName="absolute inset-0"
+                        className="w-full h-full object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-700"
+                        onLoad={() => setHeroReady(true)}
+                        fallback={<PlacePhotoPlaceholder />}
+                    />
                 ) : (
                     <PlacePhotoPlaceholder />
                 )}
@@ -720,10 +727,16 @@ export const PlacePage: React.FC = () => {
                                                 className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors"
                                             >
                                                 {photoSrc ? (
-                                                    <img
+                                                    <ProgressiveImage
                                                         src={photoSrc}
                                                         alt={typedReview.authorName || ''}
+                                                        containerClassName="w-full h-full"
                                                         className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-40 saturate-50' : ''}`}
+                                                        fallback={
+                                                            <div className="w-full h-full bg-gradient-to-br from-[var(--lt-card-strong)] to-[var(--lt-bg)] flex items-center justify-center">
+                                                                <MessageSquare className="w-6 h-6 text-gray-600" />
+                                                            </div>
+                                                        }
                                                     />
                                                 ) : (
                                                     <div className="w-full h-full bg-gradient-to-br from-[var(--lt-card-strong)] to-[var(--lt-bg)] flex items-center justify-center">
@@ -792,7 +805,17 @@ export const PlacePage: React.FC = () => {
                                                     {/* Photo thumbnail */}
                                                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-800 overflow-hidden shrink-0">
                                                         {dish.photo ? (
-                                                            <img src={dish.photo} alt={dish.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                            <ProgressiveImage
+                                                                src={dish.photo}
+                                                                alt={dish.name}
+                                                                containerClassName="w-full h-full"
+                                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                                fallback={
+                                                                    <div className="w-full h-full flex items-center justify-center">
+                                                                        <Utensils className="w-4 h-4 text-gray-600" />
+                                                                    </div>
+                                                                }
+                                                            />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center">
                                                                 <Utensils className="w-4 h-4 text-gray-600" />
@@ -854,7 +877,17 @@ export const PlacePage: React.FC = () => {
                                                             <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-[var(--lt-accent-border)] transition-all h-full flex flex-col">
                                                                 <div className="h-32 bg-gray-800 relative">
                                                                     {list.photoUrl ? (
-                                                                        <img src={list.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                                        <ProgressiveImage
+                                                                            src={list.photoUrl}
+                                                                            alt={list.name}
+                                                                            containerClassName="w-full h-full"
+                                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                                            fallback={
+                                                                                <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                                                                                    <ListIcon className="w-10 h-10 text-gray-600" />
+                                                                                </div>
+                                                                            }
+                                                                        />
                                                                     ) : (
                                                                         <div className="w-full h-full flex items-center justify-center bg-gray-800">
                                                                             <ListIcon className="w-10 h-10 text-gray-600" />
@@ -891,7 +924,17 @@ export const PlacePage: React.FC = () => {
                                                             <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-[var(--lt-accent-border)] transition-all h-full flex flex-col relative">
                                                                 <div className="h-32 bg-gray-800 relative">
                                                                     {list.photoUrl ? (
-                                                                        <img src={list.photoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                                        <ProgressiveImage
+                                                                            src={list.photoUrl}
+                                                                            alt={list.name}
+                                                                            containerClassName="w-full h-full"
+                                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                                            fallback={
+                                                                                <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                                                                                    <ListIcon className="w-10 h-10 text-gray-600" />
+                                                                                </div>
+                                                                            }
+                                                                        />
                                                                     ) : (
                                                                         <div className="w-full h-full flex items-center justify-center bg-gray-800">
                                                                             <ListIcon className="w-10 h-10 text-gray-600" />
@@ -939,7 +982,17 @@ export const PlacePage: React.FC = () => {
                                                 }}
                                                 className="aspect-square rounded-xl overflow-hidden bg-gray-800 cursor-pointer group relative border border-white/5 hover:border-[var(--lt-accent-border)] transition-all"
                                             >
-                                                <ProgressiveImage src={photo} alt="Lugar" containerClassName="w-full h-full" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                <ProgressiveImage
+                                                    src={photo}
+                                                    alt="Lugar"
+                                                    containerClassName="w-full h-full"
+                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                    fallback={
+                                                        <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                                                            <ImageIcon className="w-6 h-6 text-gray-600" />
+                                                        </div>
+                                                    }
+                                                />
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                                     <div className="bg-black/50 backdrop-blur-sm p-2 rounded-full text-white">
                                                         <ZoomIn className="w-5 h-5" />

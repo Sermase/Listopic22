@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronUp } from 'lucide-react';
+import { ChevronUp, MessageSquare } from 'lucide-react';
 import { ProgressiveImage } from './ProgressiveImage';
 import { ReviewCard } from './ReviewCard';
 import { type ReviewEntity } from '../hooks/useListDetails';
@@ -64,6 +64,14 @@ export const ReviewGalleryGrid: React.FC<ReviewGalleryGridProps> = ({
                                 alt={review.placeName || review.itemName || 'Lugar'}
                                 containerClassName="w-full h-full"
                                 className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImage ? 'opacity-40 saturate-50' : ''}`}
+                                fallback={
+                                    <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-gradient-to-br from-[var(--lt-card-strong)] to-[var(--lt-bg)]">
+                                        <MessageSquare className="w-5 h-5 text-gray-600 mb-1" />
+                                        <span className="text-[10px] sm:text-xs font-bold text-gray-300 line-clamp-1">
+                                            {review.placeName || review.itemName || 'Lugar'}
+                                        </span>
+                                    </div>
+                                }
                             />
                             <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
                                 <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight drop-shadow-md">

@@ -2304,8 +2304,8 @@ const updatePlaceAggregates = onDocumentWritten("reviews/{reviewId}", async (eve
     const beforeData = event.data.before.data() || {};
     const afterData = event.data.after.data() || {};
 
-    // Si se crea/borra o si la puntuación general cambia, recalculamos.
-    if (beforeData.overallRating !== afterData.overallRating) {
+    // Si se crea/borra o cambia una señal usada por el agregado, recalculamos.
+    if (!event.data.before.exists || !event.data.after.exists || hasPlaceAggregateSignalChanged(beforeData, afterData)) {
       needsRecalculation = true;
     }
     placeId = afterData.placeId || beforeData.placeId;
@@ -2327,7 +2327,9 @@ const updatePlaceAggregates = onDocumentWritten("reviews/{reviewId}", async (eve
     // Si no quedan reseñas, reseteamos los contadores
     await db.collection('places').doc(placeId).update({
       reviewsCount: 0,
-      averageRating: null // O 0, como prefieras
+      averageRating: null, // O 0, como prefieras
+      itemTags: [],
+      hasReviewedPhoto: false
     });
     logger.info(`No quedan reseñas para ${placeId}. Contadores reseteados.`);
     return null;
@@ -2337,16 +2339,44 @@ const updatePlaceAggregates = onDocumentWritten("reviews/{reviewId}", async (eve
   const totalRating = reviews.reduce((sum, review) => sum + (review.overallRating || 0), 0);
   const averageRating = totalRating / reviews.length;
   const reviewsCount = reviews.length;
+  const itemTags = collectPlaceReviewTags(reviews);
+  const hasReviewedPhoto = reviews.some(review => !!(review.photoUrl || review.placeMainImage));
 
   // 3. Actualizamos el documento del lugar
   await db.collection('places').doc(placeId).update({
     reviewsCount: reviewsCount,
-    averageRating: parseFloat(averageRating.toFixed(2)) // Guardamos con 2 decimales
+    averageRating: parseFloat(averageRating.toFixed(2)), // Guardamos con 2 decimales
+    itemTags,
+    hasReviewedPhoto
   });
 
   logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseñas, valoración media ${averageRating.toFixed(2)}.`);
   return null;
 });
+
+function collectPlaceReviewTags(reviews) {
+  const tags = new Set();
+  for (const review of reviews || []) {
+    for (const field of ['tags', 'userTags']) {
+      const values = Array.isArray(review?.[field]) ? review[field] : [];
+      values.forEach(tag => {
+        if (typeof tag === 'string' && tag.trim()) {
+          tags.add(tag.trim());
+        }
+      });
+    }
+  }
+  return Array.from(tags).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+function hasPlaceAggregateSignalChanged(beforeData, afterData) {
+  const fields = ['overallRating', 'photoUrl', 'placeMainImage', 'placeId'];
+  if (fields.some(field => beforeData?.[field] !== afterData?.[field])) {
+    return true;
+  }
+  return JSON.stringify(beforeData?.tags || []) !== JSON.stringify(afterData?.tags || [])
+    || JSON.stringify(beforeData?.userTags || []) !== JSON.stringify(afterData?.userTags || []);
+}
 
 /**
  * Trigger que se dispara cuando una reseña cambia en CUALQUIER lista,
@@ -2362,10 +2392,10 @@ const updatePlaceAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/re
   // Si el placeId no ha cambiado (solo se ha editado el texto, por ejemplo),
   // pero la puntuación sí, recalculamos para ese único lugar.
   if (placeIdToDecrement && placeIdToDecrement === placeIdToIncrement) {
-    if (beforeData.overallRating !== afterData.overallRating) {
+    if (hasPlaceAggregateSignalChanged(beforeData, afterData)) {
       await recalculateAggregatesForPlace(placeIdToIncrement);
     } else {
-      logger.info(`La reseña ${event.params.reviewId} se actualizó sin cambiar la puntuación. No se requiere recálculo.`);
+      logger.info(`La reseña ${event.params.reviewId} se actualizó sin cambiar agregados del lugar. No se requiere recálculo.`);
     }
   } else {
     // Si el placeId ha cambiado, se ha creado o se ha borrado una reseña,
@@ -2399,12 +2429,16 @@ async function recalculateAggregatesForPlace(placeId) {
     const totalRating = reviews.reduce((sum, review) => sum + (review.overallRating || 0), 0);
     averageRating = parseFloat((totalRating / reviewsCount).toFixed(2));
   }
+  const itemTags = collectPlaceReviewTags(reviews);
+  const hasReviewedPhoto = reviews.some(review => !!(review.photoUrl || review.placeMainImage));
 
   const placeRef = db.collection('places').doc(placeId);
   try {
     await placeRef.update({
       reviewsCount: reviewsCount,
-      averageRating: averageRating
+      averageRating: averageRating,
+      itemTags,
+      hasReviewedPhoto
     });
     logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseñas, valoración media ${averageRating}.`);
   } catch (error) {

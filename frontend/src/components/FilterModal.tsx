@@ -2,6 +2,14 @@ import React from 'react';
 import { X, Sliders, Star, Trash2, Check, ArrowUpDown, EyeOff } from 'lucide-react';
 import type { FilterState } from '../pages/ListPage';
 
+const ACCESSIBILITY_FILTER_LABELS: Record<string, string> = {
+    wheelchairAccessibleEntrance: 'Entrada accesible',
+    wheelchairAccessibleSeating: 'Asientos accesibles',
+    wheelchairAccessibleParking: 'Parking accesible',
+    wheelchairAccessibleRestroom: 'Baño accesible',
+    hearingLoop: 'Bucle auditivo',
+};
+
 type SortMode = 'rating' | 'newest' | 'oldest' | 'count';
 
 interface FilterModalProps {
@@ -51,7 +59,9 @@ export const FilterModal: React.FC<FilterModalProps> = ({
         setFilters({
             minRating: 0,
             hasPhoto: false,
+            glutenFree: false,
             visited: false,
+            accessibility: {},
             criteriaMin: {}
         });
         setSelectedTags([]);
@@ -203,6 +213,13 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.hasPhoto ? 'translate-x-6' : 'translate-x-1'}`}></div>
                                     </div>
                                 </label>
+                                <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
+                                    <span className="text-gray-300 text-sm font-medium">Sin gluten</span>
+                                    <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.glutenFree ? 'bg-[var(--lt-accent)]' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
+                                        <input type="checkbox" className="hidden" checked={filters.glutenFree} onChange={(e) => setFilters(prev => ({ ...prev, glutenFree: e.target.checked }))} />
+                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.glutenFree ? 'translate-x-6' : 'translate-x-1'}`}></div>
+                                    </div>
+                                </label>
                                 {setShowUnavailable && (
                                     <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
                                         <span className="text-gray-300 text-sm font-medium flex items-center gap-2">
@@ -214,6 +231,35 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                         </div>
                                     </label>
                                 )}
+                            </div>
+
+                            <div>
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 border-b border-white/5 pb-2">Accesibilidad</h3>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {Object.entries(ACCESSIBILITY_FILTER_LABELS).map(([key, label]) => {
+                                        const active = Boolean(filters.accessibility?.[key]);
+                                        return (
+                                            <button
+                                                type="button"
+                                                key={key}
+                                                onClick={() => setFilters(prev => ({
+                                                    ...prev,
+                                                    accessibility: {
+                                                        ...(prev.accessibility || {}),
+                                                        [key]: !active,
+                                                    }
+                                                }))}
+                                                className={`w-full rounded-xl border px-3 py-2.5 text-left text-sm font-bold transition-all ${
+                                                    active
+                                                        ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
+                                                        : 'bg-white/5 border-white/10 text-gray-300 hover:border-white/30 hover:text-white'
+                                                }`}
+                                            >
+                                                {label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </>
                     ) : (

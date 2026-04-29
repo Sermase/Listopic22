@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { MapPin, ChevronRight, Users, Star } from 'lucide-react';
 import { PlacePhotoPlaceholder } from './PlacePhotoPlaceholder';
+import { ProgressiveImage } from './ProgressiveImage';
 
 type CriteriaDefinitionEntry = {
     id?: string;
@@ -35,9 +36,12 @@ interface ListItemCardProps {
     isGrid?: boolean;
     groupingMode?: 'place' | 'dish' | 'list';
     listId?: string; // Outer phrasing, maybe redundant with item.listId but keeping for compat
+    disableLift?: boolean;
 }
 
-export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, groupingMode = 'place', listId }) => {
+export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, groupingMode = 'place', listId, disableLift = false }) => {
+    const normalizedClosedStatus = String(item.placeClosedStatus || '').trim().toLowerCase();
+    const isPermanentlyClosed = normalizedClosedStatus === 'permanently_closed' || normalizedClosedStatus === 'closed_permanently';
 
     // Helper for score colors (Legacy logic)
     const getScoreColor = (score: number) => {
@@ -131,7 +135,9 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
 
     // --- Render Content ---
     return (
-        <article className={`group relative glass-card
+        <article className={`group relative ${disableLift
+            ? 'bg-[var(--card-bg)] border border-[var(--glass-border)] backdrop-blur-2xl rounded-2xl md:rounded-3xl overflow-hidden transition-colors duration-200 ring-1 ring-white/5 active:scale-[0.98]'
+            : 'glass-card'}
             ${isGrid
                 ? 'flex flex-row min-h-[120px] md:min-h-[148px]'
                 : 'flex flex-row min-h-[120px]'}`}>
@@ -142,7 +148,13 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                     {/* Thumbnail */}
                     <div className="w-28 md:w-36 shrink-0 self-stretch relative bg-gray-800">
                         {item.photoUrl ? (
-                            <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                            <ProgressiveImage
+                                src={item.photoUrl}
+                                alt={item.name}
+                                containerClassName="w-full h-full"
+                                className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                                fallback={<PlacePhotoPlaceholder compact />}
+                            />
                         ) : (
                             <PlacePhotoPlaceholder compact />
                         )}
@@ -196,11 +208,11 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                             </h3>
                             {item.placeClosedStatus && (
                                 <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border mt-0.5 ${
-                                    item.placeClosedStatus === 'permanently_closed'
+                                    isPermanentlyClosed
                                         ? 'bg-red-500/15 border-red-500/30 text-red-400'
                                         : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
                                 }`}>
-                                    {item.placeClosedStatus === 'permanently_closed' ? '🔒 Cerrado' : '⏰ Temp.'}
+                                    {isPermanentlyClosed ? '🔒 Cerrado' : '⏰ Temp.'}
                                 </span>
                             )}
                         </div>
@@ -277,7 +289,13 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                     {/* Image Section */}
                     <div className="relative shrink-0 bg-gray-800 w-24 h-24 sm:w-32 sm:h-32">
                         {item.photoUrl ? (
-                            <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                            <ProgressiveImage
+                                src={item.photoUrl}
+                                alt={item.name}
+                                containerClassName="w-full h-full"
+                                className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                                fallback={<PlacePhotoPlaceholder compact />}
+                            />
                         ) : (
                             <PlacePhotoPlaceholder compact />
                         )}

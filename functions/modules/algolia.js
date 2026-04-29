@@ -63,14 +63,14 @@ const COLLECTION_CONFIGS = {
 const INDEX_SETTINGS = {
     lists: {
         searchableAttributes: ["unordered(name)", "unordered(description)", "unordered(availableTags)", "unordered(categoryName)", "unordered(categoryAliases)", "unordered(categoryId)"],
-        attributesForFaceting: ["filterOnly(categoryId)", "categoryName", "availableTags", "ownerId"],
+        attributesForFaceting: ["filterOnly(categoryId)", "categoryName", "availableTags", "ownerId", "hasPhoto"],
         replicas: ["lists_by_followers", "lists_by_reviews"],
         customRanking: ["desc(rankingScore)", "desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"],
         numericAttributesForFiltering: ["rankingScore", "reviewCount", "followersCount", "updatedAtTimestamp"]
     },
     places: {
-        searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)"],
-        attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibilityOptions", "types", "priceLevel"],
+        searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)", "unordered(itemTags)"],
+        attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibilityOptions", "types", "priceLevel", "closedStatus", "googleBusinessStatus", "businessStatus", "hasPhoto", "itemTags", "isGlutenFree"],
         replicas: ["places_by_rating", "places_by_reviews", "places_by_distance"],
         customRanking: ["desc(rankingScore)", "desc(averageRating)", "desc(reviewsCount)", "desc(followersCount)"],
         numericAttributesForFiltering: ["rankingScore", "averageRating", "reviewsCount", "followersCount"]
@@ -83,8 +83,8 @@ const INDEX_SETTINGS = {
         numericAttributesForFiltering: ["rankingScore", "followersCount", "reviewsCount", "level", "xp"]
     },
     grouped_items: {
-        searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(listCategoryName)", "unordered(groupTags)"],
-        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "placeCity", "placeProvince", "authorUserType"],
+        searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(listCategoryName)", "unordered(groupTags)", "unordered(itemTags)"],
+        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "itemTags", "placeCity", "placeProvince", "authorUserType", "accessibilityOptions", "placeClosedStatus", "placeGoogleBusinessStatus", "placeBusinessStatus", "hasPhoto", "isGlutenFree"],
         replicas: ["grouped_items_by_score", "grouped_items_by_reviews"],
         customRanking: ["desc(rankingScore)", "desc(avgGeneralScore)", "desc(reviewCount)"],
         numericAttributesForFiltering: ["rankingScore", "avgGeneralScore", "reviewCount"]
@@ -231,6 +231,78 @@ function firstImageUrl(...values) {
         }
     }
     return null;
+}
+
+function normalizeClosedStatus(value) {
+    if (!isNonEmptyString(value)) {
+        return null;
+    }
+    const status = value.trim();
+    if (status === "CLOSED_PERMANENTLY") return "permanently_closed";
+    if (status === "CLOSED_TEMPORARILY") return "temporarily_closed";
+    return status;
+}
+
+function collectTagsFromData(...values) {
+    return uniqueStrings(values.flatMap((value) => Array.isArray(value) ? value : []));
+}
+
+function normalizeSearchToken(value) {
+    return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+}
+
+function hasGlutenFreeTag(tags) {
+    return (Array.isArray(tags) ? tags : []).some((tag) => {
+        const normalized = normalizeSearchToken(tag);
+        return normalized === "sin gluten"
+            || normalized === "gluten free"
+            || normalized === "gluten-free"
+            || normalized.includes("sin gluten")
+            || normalized.includes("gluten free")
+            || normalized.includes("gluten-free")
+            || normalized.includes("celiaco")
+            || normalized.includes("celiaca")
+            || normalized.includes("celiac");
+    });
+}
+
+async function collectPlaceReviewSignals(placeId) {
+    if (!isNonEmptyString(placeId)) {
+        return { itemTags: [], hasReviewedPhoto: false };
+    }
+    try {
+        const snapshot = await admin.firestore()
+            .collectionGroup("reviews")
+            .where("placeId", "==", placeId)
+            .get();
+        const tags = new Set();
+        let hasReviewedPhoto = false;
+        snapshot.forEach((doc) => {
+            const data = doc.data() || {};
+            if (data.photoUrl || data.placeMainImage) {
+                hasReviewedPhoto = true;
+            }
+            ["tags", "userTags"].forEach((field) => {
+                const values = Array.isArray(data[field]) ? data[field] : [];
+                values.forEach((tag) => {
+                    if (isNonEmptyString(tag)) {
+                        tags.add(tag.trim());
+                    }
+                });
+            });
+        });
+        return {
+            itemTags: Array.from(tags).sort(),
+            hasReviewedPhoto
+        };
+    } catch (error) {
+        logger.warn(`Algolia: no se pudieron leer etiquetas de reviews para place ${placeId}`, { error: error.message || String(error) });
+        return { itemTags: [], hasReviewedPhoto: false };
+    }
 }
 
 async function resolveCategoryMetadata(categoryId, listData = {}) {
@@ -422,9 +494,15 @@ function hasGroupedListMetadataChanged(beforeData, afterData) {
     return false;
 }
 
-function transformPlaceRecord(data, docId) {
+async function transformPlaceRecord(data, docId) {
     if (!data) return null;
     const coverImage = firstImageUrl(data.thumbnailUrl, data.mainImageUrl, data.photoUrl, data.coverUrl, data.imageUrl);
+    const hasStoredReviewSignals = Array.isArray(data.itemTags) && typeof data.hasReviewedPhoto === "boolean";
+    const reviewSignals = hasStoredReviewSignals
+        ? { itemTags: data.itemTags, hasReviewedPhoto: data.hasReviewedPhoto }
+        : await collectPlaceReviewSignals(docId);
+    const itemTags = collectTagsFromData(reviewSignals.itemTags, data.itemTags, data.placeTags, data.groupTags, data.availableTags, data.tags);
+    const closedStatus = normalizeClosedStatus(data.closedStatus || data.businessStatus || data.googleBusinessStatus);
     const record = {
         objectID: docId,
         entityType: "place",
@@ -436,6 +514,12 @@ function transformPlaceRecord(data, docId) {
         types: Array.isArray(data.types) ? data.types : [],
         serviceOptions: trueObjectKeys(data.serviceOptions),
         accessibilityOptions: trueObjectKeys(data.accessibilityOptions || data.accessibility),
+        closedStatus,
+        googleBusinessStatus: data.googleBusinessStatus || null,
+        businessStatus: data.businessStatus || null,
+        hasPhoto: Boolean(coverImage || data.hasReviewedPhoto || reviewSignals.hasReviewedPhoto),
+        itemTags,
+        isGlutenFree: hasGlutenFreeTag(itemTags),
         averageRating: typeof data.averageRating === "number" ? data.averageRating : 0,
         reviewsCount: typeof data.reviewsCount === "number" ? data.reviewsCount : 0,
         followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
@@ -483,6 +567,7 @@ async function transformListRecord(data, docId) {
         authorUsername: ownerUsername,
         thumbnailUrl: coverImage,
         mainImageUrl: coverImage,
+        hasPhoto: Boolean(coverImage),
     }
     if (!record.country) {
         delete record.country;
@@ -528,6 +613,9 @@ function mapGroupToAlgoliaRecord(listId, listData, group, category = null) {
     const listTags = Array.isArray(listData?.availableTags) ? listData.availableTags.filter(isNonEmptyString) : [];
     const listOwnerName = resolveGroupedListOwnerName(listData) || null;
     const categoryName = category?.categoryName || listData?.categoryName || null;
+    const thumbnailUrl = firstImageUrl(group.thumbnailUrl, group.placeThumbnailUrl, group.mainImageUrl, group.photoUrl);
+    const itemTags = collectTagsFromData(group.itemTags, group.groupTags);
+    const placeClosedStatus = normalizeClosedStatus(group.placeClosedStatus);
     const record = {
         objectID,
         entityType: "item",
@@ -554,8 +642,15 @@ function mapGroupToAlgoliaRecord(listId, listData, group, category = null) {
         averageRating: typeof group.avgGeneralScore === "number" ? group.avgGeneralScore : 0,
         rankingScore: calculateGroupedItemRankingScore(group),
         groupTags: Array.isArray(group.groupTags) ? group.groupTags : [],
+        itemTags,
+        isGlutenFree: hasGlutenFreeTag(itemTags),
         authorUserType: Array.isArray(group.authorUserType) ? group.authorUserType : [],
-        thumbnailUrl: firstImageUrl(group.thumbnailUrl, group.placeThumbnailUrl, group.mainImageUrl, group.photoUrl),
+        thumbnailUrl,
+        hasPhoto: Boolean(thumbnailUrl),
+        accessibilityOptions: trueObjectKeys(group.accessibilityOptions || group.placeAccessibilityOptions || group.accessibility),
+        placeClosedStatus,
+        placeGoogleBusinessStatus: group.placeGoogleBusinessStatus || null,
+        placeBusinessStatus: group.placeBusinessStatus || null,
         googleMapsUrl: group.googleMapsUrl || null,
         _geoloc: group.geoloc && isNumber(group.geoloc.lat) && isNumber(group.geoloc.lng) ? { lat: group.geoloc.lat, lng: group.geoloc.lng } : undefined,
         updatedAtISO: new Date().toISOString()

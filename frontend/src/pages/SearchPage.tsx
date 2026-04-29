@@ -16,7 +16,7 @@ import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
     X, Clock, ChevronRight, Star, LocateFixed, Loader2,
     ArrowUpDown, ChevronDown, SlidersHorizontal, ShieldCheck, Bot, Utensils,
-    Coffee, Wine, Accessibility, Tags, MapPin, CircleDollarSign
+    Coffee, Wine, Accessibility, Tags, MapPin, CircleDollarSign, Camera, EyeOff
 } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
@@ -25,6 +25,7 @@ import { ListItemCard } from '../components/ListItemCard';
 import { SearchMapView } from '../components/SearchMapView';
 import { useLocation } from '../hooks/useLocation';
 import { getPlaceTypeLabel, getPlaceTypeLabels } from '../utils/placeTypeLabels';
+import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ const FILTER_LABELS: Record<string, string> = {
     types: 'Tipo', priceLevel: 'Precio', serviceOptions: 'Servicio',
     accessibilityOptions: 'Accesibilidad', userType: 'Tipo', badges: 'Insignia',
     listCategoryId: 'Categoría', authorUserType: 'Tipo de usuario', placeCity: 'Ciudad', listName: 'Lista', groupTags: 'Tag', residence: 'Ciudad',
+    itemTags: 'Etiqueta', hasPhoto: 'Fotos', isGlutenFree: 'Sin gluten', closedStatus: 'Estado', placeClosedStatus: 'Estado',
 };
 
 const USER_TYPE_LABELS: Record<string, string> = {
@@ -57,6 +59,8 @@ const USER_TYPE_LABELS: Record<string, string> = {
 const FACET_VALUE_ALLOWLIST: Record<string, string[]> = {
     userType: ['bot', 'jefe', 'critico', 'critic'],
     authorUserType: ['bot', 'jefe', 'critico', 'critic', 'experto'],
+    hasPhoto: ['true'],
+    isGlutenFree: ['true'],
 };
 
 const FACET_VALUE_LABELS: Record<string, Record<string, string>> = {
@@ -78,6 +82,16 @@ const FACET_VALUE_LABELS: Record<string, Record<string, string>> = {
         wheelchairAccessibleRestroom: 'Baño accesible',
         hearingLoop: 'Bucle auditivo',
     },
+    closedStatus: {
+        permanently_closed: 'Cerrado permanente',
+        temporarily_closed: 'Cerrado temporal',
+    },
+    placeClosedStatus: {
+        permanently_closed: 'Cerrado permanente',
+        temporarily_closed: 'Cerrado temporal',
+    },
+    hasPhoto: { true: 'Con fotos' },
+    isGlutenFree: { true: 'Sin gluten' },
 };
 
 const EMPTY_MESSAGES: Record<string, { title: string; hint: string }> = {
@@ -121,8 +135,15 @@ type SearchHit = {
     categoryName?: string;
     listCategoryName?: string;
     groupTags?: string[];
+    itemTags?: string[];
     types?: string[];
     availableTags?: string[];
+    closedStatus?: string | null;
+    placeClosedStatus?: string | null;
+    googleBusinessStatus?: string | null;
+    businessStatus?: string | null;
+    placeGoogleBusinessStatus?: string | null;
+    placeBusinessStatus?: string | null;
     level?: number;
     xp?: number;
 };
@@ -138,13 +159,18 @@ interface FilterSectionConfig {
 
 const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
     lists: [
+        { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
         { attribute: 'categoryName', label: 'Categoría', icon: ListIcon, defaultOpen: true },
         { attribute: 'availableTags', label: 'Etiquetas', icon: Tags, defaultOpen: true },
     ],
     places: [
         { attribute: 'city', label: 'Ciudad', icon: MapPin, defaultOpen: true },
+        { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
+        { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
         { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'types', label: 'Tipo', icon: Utensils, defaultOpen: true },
+        { attribute: 'itemTags', label: 'Etiquetas de items', icon: Tags },
+        { attribute: 'closedStatus', label: 'Estado del lugar', icon: EyeOff },
         { attribute: 'priceLevel', label: 'Precio', icon: CircleDollarSign },
         { attribute: 'serviceOptions', label: 'Servicios', icon: Coffee },
     ],
@@ -157,14 +183,24 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'listName', label: 'Lista', icon: ListIcon, dependsOn: 'listCategoryName' },
         { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
         { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
+        { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
+        { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
+        { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
+        { attribute: 'itemTags', label: 'Todas las etiquetas', icon: Tags },
+        { attribute: 'placeClosedStatus', label: 'Estado del lugar', icon: EyeOff },
     ],
     grouped_items: [
         { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
         { attribute: 'listName', label: 'Lista', icon: ListIcon, dependsOn: 'listCategoryName' },
         { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
         { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
+        { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
+        { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
+        { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
+        { attribute: 'itemTags', label: 'Todas las etiquetas', icon: Tags },
+        { attribute: 'placeClosedStatus', label: 'Estado del lugar', icon: EyeOff },
     ],
 };
 
@@ -451,6 +487,35 @@ function hasActiveRefinement(refinements: ReturnType<typeof useCurrentRefinement
     return refinements.some(item => item.attribute === attribute && item.refinements.length > 0);
 }
 
+function shouldFilterClosed(tab: string) {
+    return tab === 'places' || tab === 'items' || tab === 'grouped_items';
+}
+
+function getDefaultClosedFilter(tab: string) {
+    if (tab === 'places') {
+        return 'NOT closedStatus:permanently_closed AND NOT closedStatus:temporarily_closed AND NOT closedStatus:CLOSED_PERMANENTLY AND NOT closedStatus:CLOSED_TEMPORARILY AND NOT googleBusinessStatus:CLOSED_PERMANENTLY AND NOT googleBusinessStatus:CLOSED_TEMPORARILY AND NOT businessStatus:CLOSED_PERMANENTLY AND NOT businessStatus:CLOSED_TEMPORARILY';
+    }
+    if (tab === 'items' || tab === 'grouped_items') {
+        return 'NOT placeClosedStatus:permanently_closed AND NOT placeClosedStatus:temporarily_closed AND NOT placeClosedStatus:CLOSED_PERMANENTLY AND NOT placeClosedStatus:CLOSED_TEMPORARILY AND NOT placeGoogleBusinessStatus:CLOSED_PERMANENTLY AND NOT placeGoogleBusinessStatus:CLOSED_TEMPORARILY AND NOT placeBusinessStatus:CLOSED_PERMANENTLY AND NOT placeBusinessStatus:CLOSED_TEMPORARILY';
+    }
+    return '';
+}
+
+function isClosedStatus(value?: string | null) {
+    return isClosedPlaceStatus(value);
+}
+
+function getHitClosedStatus(activeTab: string, hit: SearchHit) {
+    const values = activeTab === 'places'
+        ? [hit.closedStatus, hit.googleBusinessStatus, hit.businessStatus]
+        : [hit.placeClosedStatus, hit.placeGoogleBusinessStatus, hit.placeBusinessStatus];
+    return values.find(value => isClosedStatus(value)) || null;
+}
+
+function joinAlgoliaFilters(parts: Array<string | null | undefined>) {
+    return parts.filter((part): part is string => Boolean(part && part.trim())).join(' AND ');
+}
+
 const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, defaultOpen = false, dependsOn }: FilterSectionConfig) => {
     const { items, refine } = useRefinementList({ attribute, limit, showMore: true, showMoreLimit: 24 });
     const { items: currentRefinements } = useCurrentRefinements();
@@ -490,14 +555,14 @@ const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, default
                         type="button"
                         key={String(item.value)}
                         onClick={() => refine(item.value)}
-                        className={`min-h-9 rounded-full border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                        className={`min-h-9 max-w-full overflow-hidden box-border rounded-full border px-3 py-1.5 text-xs font-bold leading-none transition-colors active:scale-95 ${
                             item.isRefined
-                                ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                : 'bg-white/5 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
+                                ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white'
+                                : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:border-[var(--lt-accent-border)] hover:text-white'
                         }`}
                     >
-                        {formatFacetLabel(attribute, item.label)}
-                        <span className={item.isRefined ? 'ml-1 text-white/70' : 'ml-1 text-gray-600'}>
+                        <span className="inline-block max-w-36 truncate align-middle">{formatFacetLabel(attribute, item.label)}</span>
+                        <span className={item.isRefined ? 'ml-1 text-white/70 align-middle' : 'ml-1 text-gray-600 align-middle'}>
                             {item.count}
                         </span>
                     </button>
@@ -510,13 +575,56 @@ const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, default
 
 // ─── Filter Content ───────────────────────────────────────────────────────────
 
-const FilterContent = ({ activeTab }: { activeTab: string }) => {
+const ClosedPlacesToggle = ({
+    activeTab,
+    includeClosed,
+    onIncludeClosedChange,
+}: {
+    activeTab: string;
+    includeClosed: boolean;
+    onIncludeClosedChange: (value: boolean) => void;
+}) => {
+    if (!shouldFilterClosed(activeTab)) return null;
+
+    return (
+        <section className="rounded-xl border border-white/10 bg-white/[0.025] p-2.5">
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+                <span className="flex items-center gap-2 min-w-0">
+                    <EyeOff className="w-3.5 h-3.5 text-red-300 shrink-0" />
+                    <span className="min-w-0">
+                        <span className="block text-xs font-bold text-white leading-tight">Incluir cerrados</span>
+                    </span>
+                </span>
+                <span className={`relative h-5 w-9 rounded-full transition-colors ${includeClosed ? 'bg-red-600' : 'bg-gray-700'}`}>
+                    <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={includeClosed}
+                        onChange={event => onIncludeClosedChange(event.target.checked)}
+                    />
+                    <span className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${includeClosed ? 'translate-x-5' : 'translate-x-1'}`} />
+                </span>
+            </label>
+        </section>
+    );
+};
+
+const FilterContent = ({
+    activeTab,
+    includeClosed,
+    onIncludeClosedChange,
+}: {
+    activeTab: string;
+    includeClosed: boolean;
+    onIncludeClosedChange: (value: boolean) => void;
+}) => {
     const sections = FILTER_SECTIONS[activeTab] || [];
     return (
         <div className="space-y-3">
             {sections.map(section => (
                 <CustomRefinementList key={section.attribute} {...section} />
             ))}
+            <ClosedPlacesToggle activeTab={activeTab} includeClosed={includeClosed} onIncludeClosedChange={onIncludeClosedChange} />
         </div>
     );
 };
@@ -588,17 +696,51 @@ interface HitsProps {
     listLayout?: boolean;
     /** Desactiva el scroll infinito (usado en sección federated) */
     noInfiniteScroll?: boolean;
+    includeClosed?: boolean;
 }
 
-const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false }) => {
+const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, includeClosed = false }) => {
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const sentinelRef = useRef<HTMLDivElement>(null);
     const hover = onHoverHit ?? (() => {});
+    const typedHits = useMemo(() => hits as SearchHit[], [hits]);
+    const placeIdsKey = useMemo(() => {
+        if (!shouldFilterClosed(activeTab) || includeClosed) return '';
+        const ids = typedHits
+            .map(hit => activeTab === 'places' ? hit.objectID : hit.placeId)
+            .filter((id): id is string => Boolean(id));
+        return Array.from(new Set(ids)).sort().join('|');
+    }, [activeTab, includeClosed, typedHits]);
+    const [closedPlaceIds, setClosedPlaceIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!placeIdsKey) {
+            queueMicrotask(() => setClosedPlaceIds(new Set()));
+            return;
+        }
+        let cancelled = false;
+        const placeIds = placeIdsKey.split('|').filter(Boolean);
+        fetchClosedStatusesForPlaceIds(placeIds)
+            .then(statuses => {
+                if (!cancelled) setClosedPlaceIds(new Set(statuses.keys()));
+            })
+            .catch(() => {
+                if (!cancelled) setClosedPlaceIds(new Set());
+            });
+        return () => { cancelled = true; };
+    }, [placeIdsKey]);
+
     const visibleHits = useMemo(() => {
-        const typedHits = hits as SearchHit[];
-        if (activeTab !== 'places') return typedHits;
-        return typedHits.filter(hit => (hit.reviewsCount ?? hit.reviewCount ?? 0) > 0);
-    }, [activeTab, hits]);
+        const openHits = includeClosed || !shouldFilterClosed(activeTab)
+            ? typedHits
+            : typedHits.filter(hit => {
+                if (isClosedStatus(getHitClosedStatus(activeTab, hit))) return false;
+                const placeId = activeTab === 'places' ? hit.objectID : hit.placeId;
+                return !placeId || !closedPlaceIds.has(placeId);
+            });
+        if (activeTab !== 'places') return openHits;
+        return openHits.filter(hit => (hit.reviewsCount ?? hit.reviewCount ?? 0) > 0);
+    }, [activeTab, closedPlaceIds, includeClosed, typedHits]);
 
     useEffect(() => {
         if (noInfiniteScroll) return;
@@ -629,7 +771,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                             onMouseEnter={() => hover(hit.objectID)}
                             onMouseLeave={() => hover(null)}
                             onClick={() => onSelectHit?.(hit.objectID)}
-                            className={`rounded-2xl transition-all duration-200 cursor-pointer ${selected ? 'ring-2 ring-[var(--lt-accent)] ring-offset-2 ring-offset-transparent' : ''}`}
+                            className={`rounded-2xl transition-colors duration-200 cursor-pointer ${selected ? 'outline outline-2 outline-[var(--lt-accent)] outline-offset-0' : ''}`}
                         >
                             <ListItemCard
                                 item={{
@@ -647,12 +789,14 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                                     listId: hit.listId,
                                     followersCount: hit.followersCount,
                                     itemCount: hit.itemCount,
+                                    placeClosedStatus: getHitClosedStatus(activeTab, hit),
                                     tags: (activeTab === 'grouped_items' || activeTab === 'items')
-                                        ? [hit.listCategoryName, ...(hit.groupTags || [])].filter((tag): tag is string => Boolean(tag))
+                                        ? [hit.listCategoryName, ...(hit.groupTags || []), ...(hit.itemTags || [])].filter((tag): tag is string => Boolean(tag))
                                         : activeTab === 'places' ? getPlaceTypeLabels(hit.types || [], 4)
                                         : [hit.categoryName, ...(hit.availableTags || [])].filter((tag): tag is string => Boolean(tag)),
                                 }}
                                 isGrid={!listLayout}
+                                disableLift={listLayout}
                                 groupingMode={
                                     activeTab === 'lists' ? 'list' :
                                     (activeTab === 'grouped_items' || activeTab === 'items') ? 'dish' : 'place'
@@ -876,6 +1020,7 @@ export const SearchPage: React.FC = () => {
         typeParam === 'all' ? {} : { [typeParam]: resolveSortValue(typeParam, sortParam) }
     ));
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+    const [includeClosedPlaces, setIncludeClosedPlaces] = useState(false);
     const [geoActive, setGeoActive] = useState(() => (
         (typeParam === 'places' || typeParam === 'items') && geoParam
     ));
@@ -996,7 +1141,7 @@ export const SearchPage: React.FC = () => {
     }, [activeSortOption?.requiresLocation, location, requestLocation]);
 
     const parsedQuery = useMemo(() => SearchQueryParser.parse(queryParam), [queryParam]);
-    const algoliaFilters = useMemo(() => {
+    const parsedAlgoliaFilters = useMemo(() => {
         const parts: string[] = [];
         Object.entries(parsedQuery.filters).forEach(([key, values]) => {
             let field = key;
@@ -1012,6 +1157,14 @@ export const SearchPage: React.FC = () => {
         });
         return parts.join(' AND ');
     }, [parsedQuery, activeTab]);
+
+    const defaultClosedFilter = useMemo(() => (
+        includeClosedPlaces ? '' : getDefaultClosedFilter(activeTab)
+    ), [activeTab, includeClosedPlaces]);
+
+    const algoliaFilters = useMemo(() => (
+        joinAlgoliaFilters([parsedAlgoliaFilters, defaultClosedFilter])
+    ), [parsedAlgoliaFilters, defaultClosedFilter]);
 
     const activeGeoConfig = useMemo(() => {
         if (!isGeoTab || !effectiveGeoActive || !location) {
@@ -1034,6 +1187,7 @@ export const SearchPage: React.FC = () => {
         location,
         onLocate: toggleGeo,
         locLoading,
+        includeClosed: includeClosedPlaces,
     };
 
     return (
@@ -1071,9 +1225,9 @@ export const SearchPage: React.FC = () => {
                 {activeTab === 'all' ? (
                     <div className="px-4 lg:px-8">
                         <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />
-                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('places')} />
+                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} filters={getDefaultClosedFilter('places')} onViewAll={() => handleTabChange('places')} />
                         <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('users')} />
-                        <FederatedSection indexName={INDEX_NAMES.items} title="Items" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('items')} />
+                        <FederatedSection indexName={INDEX_NAMES.items} title="Items" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={getDefaultClosedFilter('items')} onViewAll={() => handleTabChange('items')} />
                     </div>
                 ) : (
                     <Index indexName={activeIndexName}>
@@ -1102,8 +1256,8 @@ export const SearchPage: React.FC = () => {
                                             <button onClick={() => setMobileFiltersOpen(false)} className="p-2 rounded-full bg-white/5 text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
                                         </div>
                                     </div>
-                                    <div className="p-4 overflow-y-auto max-h-[calc(82dvh-88px)]">
-                                        <FilterContent activeTab={activeTab} />
+                                    <div className="p-4 overflow-y-auto overscroll-contain subtle-scrollbar max-h-[calc(82dvh-88px)]">
+                                        <FilterContent activeTab={activeTab} includeClosed={includeClosedPlaces} onIncludeClosedChange={setIncludeClosedPlaces} />
                                     </div>
                                 </div>
                             </div>
@@ -1117,13 +1271,13 @@ export const SearchPage: React.FC = () => {
 
                                 {/* Panel izquierdo: filtros */}
                                 <aside className="w-56 xl:w-64 flex-shrink-0 flex flex-col overflow-hidden min-h-0">
-                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto flex-1 min-h-0">
+                                    <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/75 backdrop-blur-xl p-4 flex-1 min-h-0 h-full overflow-y-auto overscroll-contain subtle-scrollbar [scrollbar-gutter:stable]">
                                         <h3 className="text-white font-bold text-sm mb-1 flex items-center gap-2">
                                             <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
                                             Filtros
                                         </h3>
                                         <p className="text-xs text-gray-500 mb-4">Combina tipo, ciudad y autor.</p>
-                                        <FilterContent activeTab={activeTab} />
+                                        <FilterContent activeTab={activeTab} includeClosed={includeClosedPlaces} onIncludeClosedChange={setIncludeClosedPlaces} />
                                     </div>
                                 </aside>
 
@@ -1171,6 +1325,7 @@ export const SearchPage: React.FC = () => {
                                             onHoverHit={setHoveredHitId}
                                             onSelectHit={id => setSelectedHitId(prev => prev === id ? null : id)}
                                             listLayout={true}
+                                            includeClosed={includeClosedPlaces}
                                         />
                                     </div>
                                 </div>
@@ -1196,13 +1351,13 @@ export const SearchPage: React.FC = () => {
                                     )}
 
                                     {/* Filtros */}
-                                    <div className="glass-card rounded-2xl border border-white/10 p-4 overflow-y-auto flex-1 min-h-0">
+                                    <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/75 backdrop-blur-xl p-4 flex-1 min-h-0 overflow-y-auto overscroll-contain subtle-scrollbar [scrollbar-gutter:stable]">
                                         <h3 className="text-white font-bold text-sm mb-1 flex items-center gap-2">
                                             <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
                                             Filtros
                                         </h3>
                                         <p className="text-xs text-gray-500 mb-4">Combina varias señales.</p>
-                                        <FilterContent activeTab={activeTab} />
+                                        <FilterContent activeTab={activeTab} includeClosed={includeClosedPlaces} onIncludeClosedChange={setIncludeClosedPlaces} />
                                     </div>
                                 </div>
                             </aside>
@@ -1271,6 +1426,7 @@ export const SearchPage: React.FC = () => {
                                         selectedHitId={selectedHitId}
                                         onHoverHit={setHoveredHitId}
                                         onSelectHit={id => setSelectedHitId(prev => prev === id ? null : id)}
+                                        includeClosed={includeClosedPlaces}
                                     />
                                 </div>
                             </div>

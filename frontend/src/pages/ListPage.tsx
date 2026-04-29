@@ -25,8 +25,59 @@ import { buildCriteriaStats } from '../utils/shareCriteria';
 export interface FilterState {
     minRating: number;
     hasPhoto: boolean;
+    glutenFree: boolean;
     visited: boolean;
+    accessibility: Record<string, boolean>;
     criteriaMin: Record<string, number>;
+}
+
+function normalizeFilterToken(value: unknown) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+function hasGlutenFreeTag(tags: unknown) {
+    return (Array.isArray(tags) ? tags : []).some(tag => {
+        const normalized = normalizeFilterToken(tag);
+        return normalized === 'sin gluten'
+            || normalized === 'gluten free'
+            || normalized === 'gluten-free'
+            || normalized.includes('sin gluten')
+            || normalized.includes('gluten free')
+            || normalized.includes('gluten-free')
+            || normalized.includes('celiaco')
+            || normalized.includes('celiaca')
+            || normalized.includes('celiac');
+    });
+}
+
+function isClosedPlaceStatus(value: unknown) {
+    const normalized = normalizeFilterToken(value);
+    return normalized === 'permanently_closed'
+        || normalized === 'temporarily_closed'
+        || normalized === 'closed_permanently'
+        || normalized === 'closed_temporarily';
+}
+
+function extractAccessibilityKeys(...values: unknown[]) {
+    const keys = new Set<string>();
+    values.forEach(value => {
+        if (Array.isArray(value)) {
+            value.forEach(item => {
+                if (typeof item === 'string' && item.trim()) keys.add(item.trim());
+            });
+            return;
+        }
+        if (value && typeof value === 'object') {
+            Object.entries(value as Record<string, unknown>).forEach(([key, enabled]) => {
+                if (enabled === true || enabled === 'true') keys.add(key);
+            });
+        }
+    });
+    return Array.from(keys).sort();
 }
 
 export const ListPage: React.FC = () => {
@@ -76,7 +127,9 @@ export const ListPage: React.FC = () => {
     const [filters, setFilters] = useState<FilterState>({
         minRating: 0,
         hasPhoto: false,
+        glutenFree: false,
         visited: false,
+        accessibility: {},
         criteriaMin: {}
     });
     const [viewMode, setViewMode] = useState<'list' | 'gallery'>('gallery');
@@ -220,6 +273,7 @@ export const ListPage: React.FC = () => {
             count: number;
             criteriaSums: Record<string, number>;
             placeClosedStatus?: string | null;
+            accessibilityOptions: string[];
             lat?: number;
             lng?: number;
             latestReviewAt: number; // Timestamp for sorting
@@ -261,7 +315,13 @@ export const ListPage: React.FC = () => {
                     maxScore: 0,
                     allTags: [],
                     tags: [],
-                    placeClosedStatus: (review as any).placeClosedStatus || null,
+                    placeClosedStatus: review.placeClosedStatus || null,
+                    accessibilityOptions: extractAccessibilityKeys(
+                        review.accessibilityOptions,
+                        review.accessibility,
+                        review.placeAccessibilityOptions,
+                        review.placeAccessibility
+                    ),
                 };
             }
 
@@ -319,6 +379,18 @@ export const ListPage: React.FC = () => {
             if (review.tags && Array.isArray(review.tags)) {
                 g.allTags.push(...review.tags);
             }
+            if (review.userTags && Array.isArray(review.userTags)) {
+                g.allTags.push(...review.userTags);
+            }
+
+            extractAccessibilityKeys(
+                review.accessibilityOptions,
+                review.accessibility,
+                review.placeAccessibilityOptions,
+                review.placeAccessibility
+            ).forEach(key => {
+                if (!g.accessibilityOptions.includes(key)) g.accessibilityOptions.push(key);
+            });
 
             if ((!g.lat || !g.lng) && review.lat && review.lng) {
                 g.lat = review.lat;
@@ -376,7 +448,7 @@ export const ListPage: React.FC = () => {
     // Unique Tags for Filter UI
     const availableGroupTags = useMemo(() => {
         const set = new Set<string>();
-        groupedItems.forEach(g => g.tags.forEach(t => set.add(t)));
+        groupedItems.forEach(g => (g.allTags || g.tags).forEach(t => set.add(t)));
         return Array.from(set).sort();
     }, [groupedItems]);
 
@@ -386,7 +458,7 @@ export const ListPage: React.FC = () => {
     // Filter Items by Tag
     const filteredByTagItems = useMemo(() => {
         if (selectedTags.length === 0) return groupedItems;
-        return groupedItems.filter(item => item.tags.some(t => selectedTags.includes(t)));
+        return groupedItems.filter(item => (item.allTags || item.tags).some(t => selectedTags.includes(t)));
     }, [groupedItems, selectedTags]);
 
 
@@ -394,7 +466,20 @@ export const ListPage: React.FC = () => {
     // Map Specific Data - Always grouped by Place, always has Items list
     const mapItems = useMemo(() => {
         if (!reviews.length) return [];
-        const placeGroups: Record<string, any> = {};
+        const placeGroups: Record<string, {
+            id: string;
+            placeId: string;
+            name: string;
+            lat?: number;
+            lng?: number;
+            photoUrl?: string;
+            maxScore: number;
+            items: { name: string; score: number }[];
+            allTags: string[];
+            accessibilityOptions: string[];
+            reviewsCount: number;
+            placeClosedStatus?: string | null;
+        }> = {};
 
         reviews.forEach(review => {
             if (!review.placeId) return; // Skip items without placeId for map
@@ -409,8 +494,15 @@ export const ListPage: React.FC = () => {
                     photoUrl: review.placeMainImage || review.photoUrl,
                     maxScore: 0,
                     items: [],
+                    allTags: [],
+                    accessibilityOptions: extractAccessibilityKeys(
+                        review.accessibilityOptions,
+                        review.accessibility,
+                        review.placeAccessibilityOptions,
+                        review.placeAccessibility
+                    ),
                     reviewsCount: 0,
-                    placeClosedStatus: (review as any).placeClosedStatus || null,
+                    placeClosedStatus: review.placeClosedStatus || null,
                 };
             }
 
@@ -418,6 +510,16 @@ export const ListPage: React.FC = () => {
             // Accumulate Items
             g.items.push({ name: review.itemName, score: review.overallRating });
             g.reviewsCount++;
+            if (Array.isArray(review.tags)) g.allTags.push(...review.tags);
+            if (Array.isArray(review.userTags)) g.allTags.push(...review.userTags);
+            extractAccessibilityKeys(
+                review.accessibilityOptions,
+                review.accessibility,
+                review.placeAccessibilityOptions,
+                review.placeAccessibility
+            ).forEach(key => {
+                if (!g.accessibilityOptions.includes(key)) g.accessibilityOptions.push(key);
+            });
 
             if (review.overallRating > g.maxScore) {
                 g.maxScore = review.overallRating;
@@ -439,7 +541,7 @@ export const ListPage: React.FC = () => {
         return Object.values(placeGroups).map(g => ({
             ...g,
             rating: g.maxScore, // Override rating for Pin Color with Max Score
-            items: g.items.sort((a: any, b: any) => b.score - a.score) // Sort items descending
+            items: g.items.sort((a, b) => b.score - a.score) // Sort items descending
         }));
     }, [reviews]);
 
@@ -455,8 +557,17 @@ export const ListPage: React.FC = () => {
         if (filters.hasPhoto) {
             result = result.filter(item => !!item.photoUrl);
         }
+        if (filters.glutenFree) {
+            result = result.filter(item => hasGlutenFreeTag(item.allTags || item.tags));
+        }
         if (filters.visited) {
             result = result.filter(item => item.userHasReviewed);
+        }
+        const selectedAccessibility = Object.entries(filters.accessibility || {})
+            .filter(([, enabled]) => enabled)
+            .map(([key]) => key);
+        if (selectedAccessibility.length > 0) {
+            result = result.filter(item => selectedAccessibility.every(key => item.accessibilityOptions?.includes(key)));
         }
         if (Object.keys(filters.criteriaMin).length > 0) {
             result = result.filter(item => {
@@ -469,7 +580,7 @@ export const ListPage: React.FC = () => {
 
         // Filter permanently closed places (unless toggle enabled)
         if (!showUnavailable) {
-            result = result.filter(item => (item as any).placeClosedStatus !== 'permanently_closed');
+            result = result.filter(item => !isClosedPlaceStatus(item.placeClosedStatus));
         }
 
         // 2. Apply Search
@@ -509,7 +620,7 @@ export const ListPage: React.FC = () => {
 
         // Hide permanently closed places from map
         if (!showUnavailable) {
-            result = result.filter(item => (item as any).placeClosedStatus !== 'permanently_closed');
+            result = result.filter(item => !isClosedPlaceStatus(item.placeClosedStatus));
         }
 
         if (filters.minRating > 0) {
@@ -519,6 +630,15 @@ export const ListPage: React.FC = () => {
 
         if (filters.hasPhoto) {
             result = result.filter(item => !!item.photoUrl);
+        }
+        if (filters.glutenFree) {
+            result = result.filter(item => hasGlutenFreeTag(item.allTags));
+        }
+        const selectedAccessibility = Object.entries(filters.accessibility || {})
+            .filter(([, enabled]) => enabled)
+            .map(([key]) => key);
+        if (selectedAccessibility.length > 0) {
+            result = result.filter(item => selectedAccessibility.every(key => item.accessibilityOptions?.includes(key)));
         }
 
         if (searchQuery) {
@@ -957,7 +1077,7 @@ export const ListPage: React.FC = () => {
                             <button
                                 onClick={() => setIsFilterModalOpen(true)}
                                 className={`h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
-                                    filters.minRating > 0 || filters.hasPhoto || filters.visited || selectedTags.length > 0 || Object.values(filters.criteriaMin || {}).some(v => v > 0)
+                                    filters.minRating > 0 || filters.hasPhoto || filters.glutenFree || filters.visited || selectedTags.length > 0 || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some(v => v > 0)
                                         ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
                                         : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
                                 }`}
@@ -1056,6 +1176,11 @@ export const ListPage: React.FC = () => {
                                                         alt={primaryName}
                                                         containerClassName="w-full h-full"
                                                         className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-70 saturate-[0.6]' : ''}`}
+                                                        fallback={
+                                                            <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">
+                                                                <Store className="w-8 h-8 text-gray-600" />
+                                                            </div>
+                                                        }
                                                     />
                                                 ) : (
                                                     <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">
@@ -1081,7 +1206,7 @@ export const ListPage: React.FC = () => {
                                                 )}
                                             </>
                                         );
-                                        const cardClass = "group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors";
+                                        const cardClass = "group relative isolate aspect-square bg-gray-900 rounded-lg overflow-hidden cursor-pointer border border-white/10 hover:border-[var(--lt-accent-border)] transition-colors shadow-sm";
                                         return href ? (
                                             <Link key={item.id} to={href} className={cardClass}>{cardContent}</Link>
                                         ) : (

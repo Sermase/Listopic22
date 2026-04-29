@@ -148,6 +148,14 @@ function normalizeUserTypes(userType) {
     return [];
 }
 
+function uniqueTags(values) {
+    return Array.from(new Set(
+        (Array.isArray(values) ? values : [])
+            .filter(tag => typeof tag === 'string' && tag.trim())
+            .map(tag => tag.trim())
+    )).sort();
+}
+
 async function buildGroupedItemsForList(listId) {
     if (!listId) {
         throw new Error('listId is required');
@@ -205,6 +213,12 @@ async function buildGroupedItemsForList(listId) {
                 placeProvince: placeInfo && typeof placeInfo.province === 'string' ? placeInfo.province : (placeInfo && typeof placeInfo.region === 'string' ? placeInfo.region : null),
                 placeCountry: placeInfo && typeof placeInfo.country === 'string' ? placeInfo.country : null,
                 placeAddress: placeInfo && (placeInfo.address || placeInfo.formatted_address) ? (placeInfo.address || placeInfo.formatted_address) : null,
+                placeClosedStatus: placeInfo && typeof placeInfo.closedStatus === 'string'
+                    ? placeInfo.closedStatus
+                    : (placeInfo && typeof placeInfo.googleBusinessStatus === 'string' ? placeInfo.googleBusinessStatus : null),
+                placeGoogleBusinessStatus: placeInfo && typeof placeInfo.googleBusinessStatus === 'string' ? placeInfo.googleBusinessStatus : null,
+                placeBusinessStatus: placeInfo && typeof placeInfo.businessStatus === 'string' ? placeInfo.businessStatus : null,
+                placeAccessibilityOptions: placeInfo ? (placeInfo.accessibilityOptions || placeInfo.accessibility || null) : null,
                 geoloc,
                 thumbnailMaxLikes: -1 // Track max likes for thumbnail selection
             };
@@ -226,6 +240,9 @@ async function buildGroupedItemsForList(listId) {
         }
         if (Array.isArray(review.userTags)) {
             group.allTags.push(...review.userTags.filter(tag => typeof tag === 'string'));
+        }
+        if (Array.isArray(review.tags)) {
+            group.allTags.push(...review.tags.filter(tag => typeof tag === 'string'));
         }
         normalizeUserTypes(review.authorUserType).forEach(type => group.authorUserTypes.add(type));
         if (review.scores && typeof review.scores === 'object') {
@@ -271,8 +288,13 @@ async function buildGroupedItemsForList(listId) {
             placeProvince: group.placeProvince,
             placeCountry: group.placeCountry,
             placeAddress: group.placeAddress,
+            placeClosedStatus: group.placeClosedStatus,
+            placeGoogleBusinessStatus: group.placeGoogleBusinessStatus,
+            placeBusinessStatus: group.placeBusinessStatus,
+            placeAccessibilityOptions: group.placeAccessibilityOptions,
             geoloc: group.geoloc,
             reviewIds: group.reviewIds,
+            itemTags: uniqueTags(group.allTags),
             objectSlug
         };
     });

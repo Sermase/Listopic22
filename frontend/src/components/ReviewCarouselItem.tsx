@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, User } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import { getUserTypeGradient } from './UserAvatar';
+import { ProgressiveImage } from './ProgressiveImage';
 
 interface ReviewCarouselItemProps {
     review: ReviewEntity;
@@ -19,16 +20,23 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
     };
 
     const scoreColorClass = getScoreColor(review.overallRating || 0);
+    const imageSrc = review.photoUrl || review.placeMainImage || '';
 
     return (
         <article style={{ willChange: 'transform' }} className="lt-media-card relative w-[220px] h-[160px] md:w-[260px] md:h-[190px] rounded-3xl overflow-hidden shadow-lg border border-white/5 group bg-gray-900 flex-shrink-0 transition-transform hover:scale-105 duration-300">
             {/* Background Image */}
             <div className="absolute inset-0">
-                {review.photoUrl || review.placeMainImage ? (
-                    <img
-                        src={review.photoUrl || review.placeMainImage}
+                {imageSrc ? (
+                    <ProgressiveImage
+                        src={imageSrc}
                         alt={review.itemName}
+                        containerClassName="w-full h-full"
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        fallback={
+                            <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                                <MapPin className="w-10 h-10 text-gray-700" />
+                            </div>
+                        }
                     />
                 ) : (
                     <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">

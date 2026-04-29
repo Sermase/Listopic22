@@ -33,6 +33,11 @@ export interface ReviewEntity {
     placeAddress?: string;
     placeCity?: string;
     placeMainImage?: string;
+    placeClosedStatus?: string | null;
+    accessibilityOptions?: Record<string, unknown> | string[];
+    accessibility?: Record<string, unknown> | string[];
+    placeAccessibilityOptions?: Record<string, unknown> | string[];
+    placeAccessibility?: Record<string, unknown> | string[];
     placeAverageRating?: number;
     criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number; ponderable?: boolean }>;
     authorId?: string;
@@ -165,7 +170,7 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
             placeCity: city,
             placeMainImage: place?.mainImageUrl || place?.photos?.[0],
             placeAverageRating: place?.rating || place?.avgScore,
-            placeClosedStatus: place?.closedStatus || null,
+            placeClosedStatus: place?.closedStatus || place?.googleBusinessStatus || place?.businessStatus || null,
             authorName: user?.username || user?.displayName || user?.name || review.authorName,
             authorPhoto: user?.photoUrl || user?.photoURL || review.authorPhoto,
             lat: place?.location?.latitude || legacyReview.lat || review.lat,

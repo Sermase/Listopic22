@@ -3,6 +3,7 @@ import { Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getPlaceTypeLabel } from '../utils/placeTypeLabels';
 import { PlacePhotoPlaceholder } from './PlacePhotoPlaceholder';
+import { ProgressiveImage } from './ProgressiveImage';
 
 interface PlaceCardProps {
     place: {
@@ -30,7 +31,13 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
                 {/* Image Placeholder or Actual Image */}
                 <div className="h-32 bg-gray-800 relative">
                     {place.photoUrl ? (
-                        <img src={place.photoUrl} alt={place.name} className="w-full h-full object-cover" />
+                        <ProgressiveImage
+                            src={place.photoUrl}
+                            alt={place.name}
+                            containerClassName="w-full h-full"
+                            className="w-full h-full object-cover"
+                            fallback={<PlacePhotoPlaceholder compact />}
+                        />
                     ) : (
                         <PlacePhotoPlaceholder compact />
                     )}
