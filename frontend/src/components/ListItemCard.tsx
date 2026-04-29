@@ -42,6 +42,7 @@ interface ListItemCardProps {
 export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, groupingMode = 'place', listId, disableLift = false }) => {
     const normalizedClosedStatus = String(item.placeClosedStatus || '').trim().toLowerCase();
     const isPermanentlyClosed = normalizedClosedStatus === 'permanently_closed' || normalizedClosedStatus === 'closed_permanently';
+    const photoPlaceholderVariant = groupingMode === 'dish' ? 'group' : 'place';
 
     // Helper for score colors (Legacy logic)
     const getScoreColor = (score: number) => {
@@ -153,10 +154,10 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                 alt={item.name}
                                 containerClassName="w-full h-full"
                                 className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                                fallback={<PlacePhotoPlaceholder compact />}
+                                fallback={<PlacePhotoPlaceholder compact variant={photoPlaceholderVariant} />}
                             />
                         ) : (
-                            <PlacePhotoPlaceholder compact />
+                            <PlacePhotoPlaceholder compact variant={photoPlaceholderVariant} />
                         )}
                         {rank && (
                             <div className="absolute top-0 left-0 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-br-lg">
@@ -294,10 +295,10 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                 alt={item.name}
                                 containerClassName="w-full h-full"
                                 className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                                fallback={<PlacePhotoPlaceholder compact />}
+                                fallback={<PlacePhotoPlaceholder compact variant={photoPlaceholderVariant} />}
                             />
                         ) : (
-                            <PlacePhotoPlaceholder compact />
+                            <PlacePhotoPlaceholder compact variant={photoPlaceholderVariant} />
                         )}
                     </div>
 

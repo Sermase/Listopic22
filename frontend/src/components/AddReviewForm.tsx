@@ -12,6 +12,7 @@ import { PlaceSearch } from './PlaceSearch';
 import { PlaceService, type PlaceResult } from '../services/PlaceService';
 import { ListSearch } from './ListSearch';
 import { useQueryClient } from '@tanstack/react-query';
+import { isGooglePlacePhotoUrl } from '../utils/placeImages';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -820,10 +821,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     const placeRef = doc(db, 'places', finalPlaceId);
                     const placeSnap = await getDoc(placeRef);
                     const currentMainImageUrl = placeSnap.exists() ? ((placeSnap.data() as Record<string, unknown>)?.mainImageUrl as string | undefined) : undefined;
-                    if (!currentMainImageUrl) {
+                    const currentUserPhotoUrl = placeSnap.exists() ? ((placeSnap.data() as Record<string, unknown>)?.userPhotoUrl as string | undefined) : undefined;
+                    if (!currentUserPhotoUrl && (!currentMainImageUrl || isGooglePlacePhotoUrl(currentMainImageUrl))) {
                         await setDoc(placeRef, {
-                            mainImageUrl: finalPhotoUrl,
-                            updatedAt: serverTimestamp()
+                            userPhotoUrl: finalPhotoUrl,
+                            lastUserPhotoAt: serverTimestamp()
                         }, { merge: true });
                     }
                 } catch (placeImageErr) {

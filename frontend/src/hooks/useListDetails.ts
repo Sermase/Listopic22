@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { doc, getDoc, query, where, getDocs, Timestamp, collection } from 'firebase/firestore';
 import { db } from '../firebase';
+import { firstUsablePlaceImage } from '../utils/placeImages';
 import { type ListEntity } from './useLists';
 
 export interface ReviewEntity {
@@ -168,7 +169,7 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
             placeName: place?.name || legacyReview.establishmentName || review.placeName,
             placeAddress: place?.address || place?.formattedAddress || place?.vicinity,
             placeCity: city,
-            placeMainImage: place?.mainImageUrl || place?.photos?.[0],
+            placeMainImage: firstUsablePlaceImage(place?.userPhotoUrl, place?.mainImageUrl, place?.photos),
             placeAverageRating: place?.rating || place?.avgScore,
             placeClosedStatus: place?.closedStatus || place?.googleBusinessStatus || place?.businessStatus || null,
             authorName: user?.username || user?.displayName || user?.name || review.authorName,

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -18,6 +18,7 @@ import { AddReviewForm } from '../components/AddReviewForm';
 import { ReportModal } from '../components/ReportModal';
 import { Lightbox } from '../components/Lightbox';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
+import { PlacePhotoUploadModal } from '../components/PlacePhotoUploadModal';
 import type { ReviewEntity } from '../hooks/useListDetails';
 
 type PlaceReview = ReviewEntity & {
@@ -35,6 +36,12 @@ type RelatedList = {
 
 type PlaceWithPhotos = {
     photos?: string[];
+};
+
+type GalleryPhotoItem = {
+    url: string;
+    caption?: string;
+    source: 'place' | 'review' | 'legacy';
 };
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
@@ -85,6 +92,7 @@ export const PlacePage: React.FC = () => {
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+    const [isPlacePhotoUploadOpen, setIsPlacePhotoUploadOpen] = useState(false);
 
     // Review Creation State
     const [isFlowOpen, setIsFlowOpen] = useState(false);
@@ -106,6 +114,15 @@ export const PlacePage: React.FC = () => {
         if (loadMoreRef.current) observer.observe(loadMoreRef.current);
         return () => observer.disconnect();
     }, [activeTab, visibleCount]);
+
+    useEffect(() => {
+        if (!expandedReviewId) return;
+        requestAnimationFrame(() => {
+            document
+                .getElementById(`expanded-review-${expandedReviewId}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, [expandedReviewId]);
 
     // Compute suggested list IDs where this place is already present
     const suggestedListIds = useMemo(() => {
@@ -218,27 +235,46 @@ export const PlacePage: React.FC = () => {
 
 
     // Aggregate Photos for Gallery
-    const galleryPhotos = useMemo(() => {
+    const galleryItems = useMemo<GalleryPhotoItem[]>(() => {
         if (!place) return [];
-        const set = new Set<string>();
+        const items = new Map<string, GalleryPhotoItem>();
+        const addPhoto = (url: unknown, item: Omit<GalleryPhotoItem, 'url'>) => {
+            if (typeof url !== 'string' || !url.trim()) return;
+            const cleanUrl = url.trim();
+            if (!items.has(cleanUrl)) items.set(cleanUrl, { url: cleanUrl, ...item });
+        };
 
-        // 1. Place Photos
+        place.placePhotos?.forEach(photo => {
+            addPhoto(photo.url, {
+                caption: photo.caption || (photo.userName ? `Foto de ${photo.userName}` : undefined),
+                source: 'place',
+            });
+        });
+
         const placeWithPhotos = place as typeof place & PlaceWithPhotos;
         if (placeWithPhotos.photos && Array.isArray(placeWithPhotos.photos)) {
-            placeWithPhotos.photos.forEach((p) => p && set.add(p));
+            placeWithPhotos.photos.forEach((p) => addPhoto(p, { source: 'legacy' }));
         } else if (place.photoUrl) {
-            set.add(place.photoUrl);
+            addPhoto(place.photoUrl, { source: 'legacy' });
         }
 
-        // 2. Review Photos
         if (place.reviews) {
             place.reviews.forEach(r => {
-                if (r.photoUrl) set.add(r.photoUrl);
+                const reviewPhotos = Array.isArray(r.photoUrls) && r.photoUrls.length > 0
+                    ? r.photoUrls
+                    : [r.photoUrl];
+                reviewPhotos.forEach(photoUrl => {
+                    addPhoto(photoUrl, {
+                        caption: r.itemName || r.authorName || 'Foto de reseña',
+                        source: 'review',
+                    });
+                });
             });
         }
 
-        return Array.from(set);
+        return Array.from(items.values());
     }, [place]);
+    const galleryPhotos = useMemo(() => galleryItems.map(item => item.url), [galleryItems]);
 
 
 
@@ -423,22 +459,13 @@ export const PlacePage: React.FC = () => {
                                     <Plus className="w-4 h-4" />
                                     <span>Añadir Reseña</span>
                                 </button>
-                                {!place.photoUrl && (
-                                    <button
-                                        onClick={() => {
-                                            if (fromListId) {
-                                                setSelectedListId(fromListId);
-                                            } else {
-                                                setSelectedListId(null);
-                                            }
-                                            setIsFlowOpen(true);
-                                        }}
-                                        className="px-4 py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
-                                    >
-                                        <ImageIcon className="w-4 h-4 text-[var(--lt-accent)]" />
-                                        <span>Sube la primera foto</span>
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => setIsPlacePhotoUploadOpen(true)}
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
+                                >
+                                    <ImageIcon className="w-4 h-4 text-[var(--lt-accent)]" />
+                                    <span>{place.photoUrl ? 'Añadir fotos' : 'Sube la primera foto'}</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -702,13 +729,14 @@ export const PlacePage: React.FC = () => {
 
                                         if (isExpanded) {
                                             return (
-                                                <div key={typedReview.id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[var(--lt-card-strong)] rounded-xl border border-[var(--lt-accent-border)] mb-2 shadow-2xl animate-fade-in">
+                                                <div id={`expanded-review-${typedReview.id}`} key={typedReview.id} className="col-span-3 sm:col-span-4 lg:col-span-5 scroll-mt-24 mb-4 animate-fade-in flex flex-col">
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
-                                                        className="w-full flex justify-center pt-2 pb-1"
+                                                        className="self-center mb-3 flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-[var(--lt-accent-border)] shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
                                                         aria-label="Plegar reseña"
                                                     >
-                                                        <div className="w-10 h-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
+                                                        <ChevronUp className="w-4 h-4" />
+                                                        <span>Cerrar reseña</span>
                                                     </button>
                                                     <ReviewCard
                                                         review={review}
@@ -971,9 +999,9 @@ export const PlacePage: React.FC = () => {
                     {
                         activeTab === 'photos' && (
                             <div className="animate-fade-in">
-                                {galleryPhotos.length > 0 ? (
+                                {galleryItems.length > 0 ? (
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                        {galleryPhotos.map((photo, idx) => (
+                                        {galleryItems.map((photo, idx) => (
                                             <div
                                                 key={idx}
                                                 onClick={() => {
@@ -983,7 +1011,7 @@ export const PlacePage: React.FC = () => {
                                                 className="aspect-square rounded-xl overflow-hidden bg-gray-800 cursor-pointer group relative border border-white/5 hover:border-[var(--lt-accent-border)] transition-all"
                                             >
                                                 <ProgressiveImage
-                                                    src={photo}
+                                                    src={photo.url}
                                                     alt="Lugar"
                                                     containerClassName="w-full h-full"
                                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
@@ -998,6 +1026,16 @@ export const PlacePage: React.FC = () => {
                                                         <ZoomIn className="w-5 h-5" />
                                                     </div>
                                                 </div>
+                                                {photo.caption && (
+                                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 py-2">
+                                                        <p className="text-[11px] text-white font-semibold line-clamp-2">{photo.caption}</p>
+                                                    </div>
+                                                )}
+                                                {photo.source === 'place' && (
+                                                    <span className="absolute left-2 top-2 rounded-full bg-[var(--lt-accent)] px-2 py-0.5 text-[9px] font-bold text-white shadow">
+                                                        Lugar
+                                                    </span>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -1005,6 +1043,12 @@ export const PlacePage: React.FC = () => {
                                     <div className="py-16 text-center bg-[var(--lt-card-strong)] rounded-xl border border-dashed border-white/10">
                                         <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                                         <h3 className="text-white font-bold">Sin fotos</h3>
+                                        <button
+                                            onClick={() => setIsPlacePhotoUploadOpen(true)}
+                                            className="mt-4 px-4 py-2 rounded-xl bg-[var(--lt-accent)] text-white text-sm font-bold"
+                                        >
+                                            Subir fotos
+                                        </button>
                                         <p className="text-gray-500 text-sm">Aún no hay fotos de este lugar.</p>
                                     </div>
                                 )}
@@ -1031,6 +1075,18 @@ export const PlacePage: React.FC = () => {
                     subtitle: place.address,
                     route: `/place/${place.placeId}`,
                     photoUrl: place.photoUrl || undefined
+                }}
+            />
+
+            <PlacePhotoUploadModal
+                isOpen={isPlacePhotoUploadOpen}
+                placeId={place.placeId}
+                placeName={place.name}
+                user={user}
+                onClose={() => setIsPlacePhotoUploadOpen(false)}
+                onUploaded={() => {
+                    refresh();
+                    setActiveTab('photos');
                 }}
             />
 

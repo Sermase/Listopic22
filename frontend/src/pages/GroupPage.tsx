@@ -3,7 +3,7 @@ import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, MoreVertical, Flag, Image as ImageIcon, ZoomIn, LayoutGrid } from 'lucide-react';
+import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, MoreVertical, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp } from 'lucide-react';
 import { Lightbox } from '../components/Lightbox';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import { NonPonderableGauge } from '../components/NonPonderableGauge';
@@ -12,6 +12,7 @@ import { ReviewCard } from '../components/ReviewCard';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { ShareModal } from '../components/ShareModal';
+import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { type ReviewEntity } from '../hooks/useListDetails';
 
 // Helper for Criteria Colors
@@ -90,6 +91,15 @@ export const GroupPage: React.FC = () => {
         if (loadMoreRef.current) observer.observe(loadMoreRef.current);
         return () => observer.disconnect();
     }, [reviews, visibleCount]);
+
+    useEffect(() => {
+        if (!expandedReviewId) return;
+        requestAnimationFrame(() => {
+            document
+                .getElementById(`expanded-review-${expandedReviewId}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, [expandedReviewId]);
 
     const handleEditReview = (review: ReviewEntity) => {
         setEditingReviewId(review.id);
@@ -583,16 +593,10 @@ export const GroupPage: React.FC = () => {
                         containerClassName="absolute inset-0"
                         className="w-full h-full object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-700"
                         onLoad={() => setHeroReady(true)}
-                        fallback={
-                            <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                                <MessageSquare className="w-20 h-20 text-white/20" />
-                            </div>
-                        }
+                        fallback={<PlacePhotoPlaceholder variant="group" />}
                     />
                 ) : (
-                    <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                        <MessageSquare className="w-20 h-20 text-white/20" />
-                    </div>
+                    <PlacePhotoPlaceholder variant="group" />
                 )}
 
                 {/* Back to list button */}
@@ -940,13 +944,14 @@ export const GroupPage: React.FC = () => {
 
                                         if (isExpanded) {
                                             return (
-                                                <div key={review.id} className="col-span-3 sm:col-span-4 lg:col-span-5 bg-[var(--lt-card-strong)] rounded-xl border border-[var(--lt-accent-border)] mb-2 shadow-2xl animate-fade-in">
+                                                <div id={`expanded-review-${review.id}`} key={review.id} className="col-span-3 sm:col-span-4 lg:col-span-5 scroll-mt-24 mb-4 animate-fade-in flex flex-col">
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
-                                                        className="w-full flex justify-center pt-2 pb-1"
+                                                        className="self-center mb-3 flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-[var(--lt-accent-border)] shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
                                                         aria-label="Plegar reseña"
                                                     >
-                                                        <div className="w-10 h-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
+                                                        <ChevronUp className="w-4 h-4" />
+                                                        <span>Cerrar reseña</span>
                                                     </button>
                                                     <ReviewCard review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
                                                 </div>

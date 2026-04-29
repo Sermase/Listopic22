@@ -207,7 +207,7 @@ async function buildGroupedItemsForList(listId) {
                 criteriaCounts: {},
                 reviewIds: [],
                 thumbnailUrl: null,
-                placeThumbnailUrl: placeInfo && placeInfo.mainImageUrl ? placeInfo.mainImageUrl : null,
+                placeThumbnailUrl: placeInfo ? (placeInfo.userPhotoUrl || placeInfo.mainImageUrl || null) : null,
                 googleMapsUrl: placeInfo && placeInfo.googleMapsUrl ? placeInfo.googleMapsUrl : null,
                 placeCity: placeInfo && typeof placeInfo.city === 'string' ? placeInfo.city : null,
                 placeProvince: placeInfo && typeof placeInfo.province === 'string' ? placeInfo.province : (placeInfo && typeof placeInfo.region === 'string' ? placeInfo.region : null),

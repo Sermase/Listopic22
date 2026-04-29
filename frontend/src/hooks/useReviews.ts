@@ -4,6 +4,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { collection, collectionGroup, query, orderBy, limit, getDocs, where, startAfter, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
+import { firstUsablePlaceImage } from '../utils/placeImages';
 import { getCachedDoc } from '../lib/queryCache';
 
 // ---------------------------------------------------------------------------
@@ -46,7 +47,7 @@ const enrichRawReviews = async (rawReviews: ReviewEntity[]): Promise<ReviewEntit
             listName: list?.name,
             criteriaDefinition: list?.criteriaDefinition,
             placeName: place?.name || reviewAny.establishmentName,
-            placeMainImage: place?.mainImageUrl || place?.photos?.[0],
+            placeMainImage: firstUsablePlaceImage(place?.userPhotoUrl, place?.mainImageUrl, place?.photos),
             placeAverageRating: place?.averageRating,
             placeAddress: place?.address,
             authorName: user?.username || user?.displayName || user?.name || reviewAny.authorName,

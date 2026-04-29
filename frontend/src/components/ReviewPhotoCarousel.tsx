@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProgressiveImage } from './ProgressiveImage';
+import { PlacePhotoPlaceholder } from './PlacePhotoPlaceholder';
 
 interface ReviewPhotoCarouselProps {
     photoUrls?: string[];
@@ -51,11 +52,7 @@ export const ReviewPhotoCarousel: React.FC<ReviewPhotoCarouselProps> = ({
                         alt={itemName}
                         containerClassName="w-full h-auto"
                         className="w-full h-auto object-cover block"
-                        fallback={
-                            <div className="h-32 sm:h-40 w-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/40">
-                                <MapPin className="w-8 h-8 mb-1 opacity-20" />
-                            </div>
-                        }
+                        fallback={<PlacePhotoPlaceholder variant="review" className="h-32 sm:h-40" />}
                     />
                     {allPhotos.length > 1 && (
                         <>
@@ -91,9 +88,7 @@ export const ReviewPhotoCarousel: React.FC<ReviewPhotoCarouselProps> = ({
                         }
                     />
                 ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-700 bg-gray-800/10">
-                        <MapPin className="w-8 h-8 mb-1 opacity-20" />
-                    </div>
+                    <PlacePhotoPlaceholder variant="review" />
                 )
             )}
 

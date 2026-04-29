@@ -223,10 +223,23 @@ function normalizeImageUrl(value) {
     return url.length <= 2048 ? url : null;
 }
 
+function isGooglePlacePhotoUrl(value) {
+    if (!isNonEmptyString(value)) return false;
+    const url = value.toLowerCase();
+    return url.includes("maps.googleapis.com/maps/api/place/photo")
+        || (url.includes("places.googleapis.com") && url.includes("/photos/"))
+        || (url.includes("googleapis.com") && url.includes("place/photo"));
+}
+
 function firstImageUrl(...values) {
     for (const value of values) {
+        if (Array.isArray(value)) {
+            const found = firstImageUrl(...value);
+            if (found) return found;
+            continue;
+        }
         const url = normalizeImageUrl(value);
-        if (url) {
+        if (url && !isGooglePlacePhotoUrl(url)) {
             return url;
         }
     }
@@ -496,7 +509,7 @@ function hasGroupedListMetadataChanged(beforeData, afterData) {
 
 async function transformPlaceRecord(data, docId) {
     if (!data) return null;
-    const coverImage = firstImageUrl(data.thumbnailUrl, data.mainImageUrl, data.photoUrl, data.coverUrl, data.imageUrl);
+    const coverImage = firstImageUrl(data.userPhotoUrl, data.thumbnailUrl, data.mainImageUrl, data.photoUrl, data.coverUrl, data.imageUrl, data.photos);
     const hasStoredReviewSignals = Array.isArray(data.itemTags) && typeof data.hasReviewedPhoto === "boolean";
     const reviewSignals = hasStoredReviewSignals
         ? { itemTags: data.itemTags, hasReviewedPhoto: data.hasReviewedPhoto }

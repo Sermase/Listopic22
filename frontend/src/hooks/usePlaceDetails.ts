@@ -1,8 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, limit, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
+import { firstUsablePlaceImage } from '../utils/placeImages';
+
+export interface PlacePhoto {
+    id: string;
+    url: string;
+    caption?: string;
+    userId?: string;
+    userName?: string;
+    userPhoto?: string;
+    createdAt?: unknown;
+}
 
 export interface PlaceDetails {
     placeId: string;
@@ -41,6 +52,7 @@ export interface PlaceDetails {
     category?: string;
     closedStatus?: string;
     googleBusinessStatus?: string;
+    placePhotos?: PlacePhoto[];
 }
 
 const toMillis = (value: any): number => {
@@ -53,6 +65,12 @@ const toMillis = (value: any): number => {
 async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     const placeDocSnap = await getDoc(doc(db, 'places', placeId));
     const placeData = placeDocSnap.exists() ? placeDocSnap.data() : null;
+    const placePhotosSnapPromise = getDocs(
+        query(collection(db, 'places', placeId, 'photos'), orderBy('createdAt', 'desc'), limit(40))
+    ).catch(e => {
+        console.warn('Failed to fetch place photos', e);
+        return { docs: [] };
+    });
 
     const { getAuth } = await import('firebase/auth');
     const currentUser = getAuth().currentUser;
@@ -82,6 +100,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     const globalReviewsSnap = await getDocs(
         query(collection(db, 'reviews'), where('placeId', '==', placeId), limit(50))
     ).catch(e => { console.warn('Failed to fetch global reviews for place', e); return { docs: [] }; });
+    const placePhotosSnap = await placePhotosSnapPromise;
 
     reviewsByList.push(
         globalReviewsSnap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) } as ReviewEntity))
@@ -95,6 +114,22 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     }
 
     const reviews = Array.from(reviewMap.values()).sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+    const placePhotos = placePhotosSnap.docs
+        .map((photoDoc): PlacePhoto | null => {
+            const data = photoDoc.data() as Record<string, unknown>;
+            const url = firstUsablePlaceImage(data.url);
+            if (!url) return null;
+            return {
+                id: photoDoc.id,
+                url,
+                caption: typeof data.caption === 'string' ? data.caption : undefined,
+                userId: typeof data.userId === 'string' ? data.userId : undefined,
+                userName: typeof data.userName === 'string' ? data.userName : undefined,
+                userPhoto: typeof data.userPhoto === 'string' ? data.userPhoto : undefined,
+                createdAt: data.createdAt,
+            };
+        })
+        .filter((photo): photo is PlacePhoto => photo !== null);
 
     if (reviews.length === 0 && !placeData) {
         throw new Error('No se encontraron datos para este lugar.');
@@ -145,7 +180,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
             listName: listData?.name || r.listName,
             criteriaDefinition: listData?.criteriaDefinition || r.criteriaDefinition,
-            placeMainImage: placeData?.mainImageUrl || placeData?.photos?.[0],
+            placeMainImage: firstUsablePlaceImage(placeData?.userPhotoUrl, placePhotos[0]?.url, placeData?.mainImageUrl, placeData?.photos),
             placeName: placeData?.name || r.placeName,
             placeCity: placeData?.city || r.placeCity,
             placeClosedStatus: placeData?.closedStatus || null,
@@ -169,7 +204,13 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     return {
         placeId,
         name: placeData?.name || reviews[0]?.itemName || 'Lugar',
-        photoUrl: placeData?.mainImageUrl || placeData?.photos?.[0] || reviews.find(r => r.photoUrl)?.photoUrl,
+        photoUrl: firstUsablePlaceImage(
+            placeData?.userPhotoUrl,
+            placePhotos[0]?.url,
+            reviews.find(r => r.photoUrl)?.photoUrl,
+            placeData?.mainImageUrl,
+            placeData?.photos
+        ),
         address: placeData?.formattedAddress || placeData?.address,
         city: placeData?.city || reviews.find(r => r.placeCity)?.placeCity,
         avgScore,
@@ -202,6 +243,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         category: placeData?.category || placeData?.types?.[0],
         closedStatus: placeData?.closedStatus || undefined,
         googleBusinessStatus: placeData?.googleBusinessStatus || undefined,
+        placePhotos,
     };
 }
 
