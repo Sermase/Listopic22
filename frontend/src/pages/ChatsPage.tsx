@@ -8,6 +8,7 @@ import { db } from '../firebase';
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import type { ShareEntityPayload } from '../types/share';
 import { getShareEntityLabel } from '../types/share';
+import { getLocalRouteFromUrl } from '../utils/publicUrl';
 
 export const ChatsPage: React.FC = () => {
     const { user } = useAuth();
@@ -243,11 +244,12 @@ export const ChatsPage: React.FC = () => {
         }
 
         try {
-            const parsedUrl = new URL(shared.url, window.location.origin);
-            if (parsedUrl.origin === window.location.origin) {
-                navigate(`${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`);
+            const localRoute = getLocalRouteFromUrl(shared.url);
+            if (localRoute) {
+                navigate(localRoute);
                 return;
             }
+            const parsedUrl = new URL(shared.url, window.location.origin);
             window.open(parsedUrl.toString(), '_blank', 'noopener,noreferrer');
         } catch {
             window.open(shared.url, '_blank', 'noopener,noreferrer');

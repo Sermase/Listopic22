@@ -12,6 +12,7 @@ import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import type { ShareEntityPayload } from '../types/share';
 import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
+import { buildPublicUrl, getLocalRouteFromUrl } from '../utils/publicUrl';
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -45,7 +46,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 }) => {
     const { user } = useAuth();
     const shareCardTriggerRef = React.useRef<() => void>(() => { });
-    const fallbackUrl = url || (typeof window !== 'undefined' ? window.location.href : '');
+    const fallbackUrl = buildPublicUrl(url || (typeof window !== 'undefined' ? window.location.href : '/'));
 
     const [isChatPanelOpen, setIsChatPanelOpen] = React.useState(false);
     const [chats, setChats] = React.useState<Chat[]>([]);
@@ -115,17 +116,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     ];
 
     const inferLocalRoute = (rawUrl: string): string | undefined => {
-        if (!rawUrl) return undefined;
-        try {
-            const baseOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
-            const parsed = new URL(rawUrl, baseOrigin);
-            if (typeof window !== 'undefined' && parsed.origin === window.location.origin) {
-                return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-            }
-        } catch {
-            return undefined;
-        }
-        return undefined;
+        return getLocalRouteFromUrl(rawUrl);
     };
 
     const resolvedShareEntity = React.useMemo<ShareEntityPayload>(() => {
@@ -133,7 +124,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             return {
                 ...shareEntity,
                 title: shareEntity.title || title,
-                url: shareEntity.url || fallbackUrl,
+                url: buildPublicUrl(shareEntity.url || fallbackUrl),
                 route: shareEntity.route || inferLocalRoute(shareEntity.url || fallbackUrl),
             };
         }

@@ -87,6 +87,7 @@ import {
   getLevelInfo,
   normalizeEarnedBadgeIds,
 } from "../utils/gamification";
+import { buildPublicRouteUrl } from "../utils/publicUrl";
 
 interface ListRatingStats {
   listId: string;
@@ -1523,7 +1524,7 @@ export const ProfilePage: React.FC = () => {
     );
   }
 
-  const profileShareUrl = `${window.location.origin}/profile/${targetUserId}`;
+  const profileShareUrl = buildPublicRouteUrl(`/profile/${targetUserId}`);
   const profileShareTitle = profile.displayName || profile.username || "Perfil";
   const profileShareSubtitle = profile.username ? `@${profile.username}` : "";
   const profileShareText = `Mira este perfil en Listopic: ${profileShareTitle}`;

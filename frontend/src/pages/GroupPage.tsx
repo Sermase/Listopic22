@@ -14,6 +14,8 @@ import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { ShareModal } from '../components/ShareModal';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { type ReviewEntity } from '../hooks/useListDetails';
+import { firstUsablePlaceImage } from '../utils/placeImages';
+import { buildPublicRouteUrl } from '../utils/publicUrl';
 
 // Helper for Criteria Colors
 const getScoreColor = (score: number) => {
@@ -267,7 +269,7 @@ export const GroupPage: React.FC = () => {
                     criteriaDefinition: listData?.criteriaDefinition || r.criteriaDefinition,
                     tags: (r as any).userTags || r.tags || [],
                     // Enrich Place Data
-                    placeMainImage: placeData?.mainImageUrl || placeData?.photos?.[0],
+                    placeMainImage: firstUsablePlaceImage(placeData?.userPhotoUrl, placeData?.mainImageUrl, placeData?.photos),
                     placeName: placeData?.name || r.placeName,
                     placeCity: placeData?.city || (r as any).placeCity
                 };
@@ -379,7 +381,10 @@ export const GroupPage: React.FC = () => {
             .map(([tag]) => tag).sort();
 
         // Collect Photos
-        const photos = reviews.map(r => r.photoUrl).filter(Boolean) as string[];
+        const photos = reviews.flatMap((r) => {
+            if (Array.isArray(r.photoUrls) && r.photoUrls.length > 0) return r.photoUrls;
+            return r.photoUrl ? [r.photoUrl] : [];
+        }).filter(Boolean) as string[];
 
         return {
             avg,
@@ -580,6 +585,9 @@ export const GroupPage: React.FC = () => {
             }
         }
     };
+
+    const groupRoute = `/group/${placeId}/${encodeURIComponent(decodedName)}`;
+    const groupShareUrl = buildPublicRouteUrl(groupRoute);
 
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
@@ -1053,7 +1061,7 @@ export const GroupPage: React.FC = () => {
                     type: 'group',
                     name: decodedName,
                     subtitle: placeName,
-                    route: `/group/${placeId}/${encodeURIComponent(decodedName)}`,
+                    route: groupRoute,
                     photoUrl: stats?.mainPhoto || undefined,
                     placeId: placeId
                 }}
@@ -1064,14 +1072,14 @@ export const GroupPage: React.FC = () => {
                 onClose={() => setIsShareModalOpen(false)}
                 title={`Compartir ${decodedName}`}
                 text={`Mira lo que dicen sobre ${decodedName} en ${placeName}!`}
-                url={`${window.location.origin}/group/${placeId}/${encodeURIComponent(decodedName)}`}
+                url={groupShareUrl}
                 shareEntity={{
                     type: 'group',
                     id: `${placeId}_${decodedName}`,
                     title: decodedName,
                     subtitle: placeName || 'Grupo',
-                    route: `/group/${placeId}/${encodeURIComponent(decodedName)}`,
-                    url: `${window.location.origin}/group/${placeId}/${encodeURIComponent(decodedName)}`,
+                    route: groupRoute,
+                    url: groupShareUrl,
                     imageUrl: stats?.mainPhoto || undefined,
                     score: stats?.avg,
                     reviewCount: stats?.count,

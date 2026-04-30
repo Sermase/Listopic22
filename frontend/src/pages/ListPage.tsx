@@ -21,6 +21,7 @@ import { useLocation } from '../hooks/useLocation';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
+import { buildPublicRouteUrl } from '../utils/publicUrl';
 
 export interface FilterState {
     minRating: number;
@@ -778,7 +779,7 @@ export const ListPage: React.FC = () => {
         );
     }
 
-    const listShareUrl = `${window.location.origin}/list/${list.id}`;
+    const listShareUrl = buildPublicRouteUrl(`/list/${list.id}`);
     const listTypeLabel = list.parentListId ? 'Sublista' : 'Lista';
     const listShareSubtitle = list.parentListId && parentListName
         ? `${listTypeLabel} de ${parentListName}`

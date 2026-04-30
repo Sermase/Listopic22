@@ -480,7 +480,7 @@ export const PlacePage: React.FC = () => {
                 <div className="order-1 lg:col-span-4 lg:order-last space-y-4 sm:space-y-6">
 
                     {/* 1. Actions Row */}
-                    <div className="glass-card p-3 rounded-2xl grid grid-cols-4 gap-2 sm:gap-3 shadow-lg">
+                    <div className="glass-card p-3 rounded-2xl grid grid-cols-5 gap-2 sm:gap-3 shadow-lg">
                         <button
                             onClick={() => setIsSaveModalOpen(true)}
                             className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
@@ -502,6 +502,13 @@ export const PlacePage: React.FC = () => {
                         >
                             <Share2 className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Compartir</span>
+                        </button>
+                        <button
+                            onClick={() => setIsPlacePhotoUploadOpen(true)}
+                            className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                        >
+                            <ImageIcon className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
+                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Fotos</span>
                         </button>
                         <button
                             onClick={() => setShowReportModal(true)}

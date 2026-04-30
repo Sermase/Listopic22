@@ -11,6 +11,7 @@ import { getShareEntityLabel, type ShareCriteriaStat, type ShareEntityPayload, t
 import { useAppConfig } from '../context/AppConfigContext';
 import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
+import { buildPublicRouteUrl, buildPublicUrl, PUBLIC_ORIGIN } from '../utils/publicUrl';
 
 export type ShareCardVariant = 'story' | 'post' | 'editorial' | 'clean' | 'neon' | 'signal' | 'aura' | 'metro';
 
@@ -206,7 +207,7 @@ const DEFAULT_ENTITY: ShareEntityPayload = {
     type: 'link',
     title: 'Listopic',
     subtitle: 'Comparte recomendaciones reales',
-    url: typeof window !== 'undefined' ? window.location.origin : '',
+    url: PUBLIC_ORIGIN,
 };
 
 const VARIANT_DIMENSIONS: Record<ShareCardVariant, { width: number; height: number; previewRatio: string }> = {
@@ -462,9 +463,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
     const entity = useMemo<ShareEntityPayload>(() => {
         if (shareEntity && isSupportedEntityType(shareEntity.type)) return shareEntity;
         if (review) {
-            const reviewUrl = typeof window !== 'undefined'
-                ? `${window.location.origin}/group/${review.placeId || ''}/${encodeURIComponent(review.itemName || '')}`
-                : '';
+            const reviewUrl = buildPublicRouteUrl(`/group/${review.placeId || ''}/${encodeURIComponent(review.itemName || '')}`);
             return {
                 type: 'review',
                 id: review.id,
@@ -485,7 +484,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             };
         }
         if (place) {
-            const placeUrl = typeof window !== 'undefined' ? `${window.location.origin}/place/${place.placeId}` : '';
+            const placeUrl = buildPublicRouteUrl(`/place/${place.placeId}`);
             return {
                 type: 'place',
                 id: place.placeId,
@@ -822,7 +821,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({
                 return;
             }
 
-            const fallbackUrl = entity.url || (typeof window !== 'undefined' ? window.location.href : '');
+            const fallbackUrl = buildPublicUrl(entity.url || (typeof window !== 'undefined' ? window.location.href : '/'));
             if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(fallbackUrl);
                 setShareFeedback('Tu dispositivo no soporta compartir imagen. Copiamos el enlace.');

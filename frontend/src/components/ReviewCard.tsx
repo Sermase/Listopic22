@@ -18,6 +18,7 @@ import { es } from 'date-fns/locale';
 import { db } from '../firebase';
 import { NonPonderableGauge } from './NonPonderableGauge';
 import { buildCriteriaStats } from '../utils/shareCriteria';
+import { buildPublicRouteUrl } from '../utils/publicUrl';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -227,6 +228,11 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleCommentChange = (increment: number) => {
         setCommentCount(prev => Math.max(0, prev + increment));
     };
+
+    const reviewRoute = review.placeId && review.itemName
+        ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}`
+        : '/';
+    const reviewShareUrl = buildPublicRouteUrl(reviewRoute);
 
     return (
         <>
@@ -481,7 +487,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 isOpen={isShareOpen}
                 onClose={() => setIsShareOpen(false)}
                 title={`Compartir Reseña`}
-                url={`${window.location.origin}/group/${review.placeId}/${encodeURIComponent(review.itemName || '')}`}
+                url={reviewShareUrl}
                 text={`¡Mira esta reseña de ${review.itemName} en ${review.placeName}!`}
                 review={review}
                 shareEntity={{
@@ -489,8 +495,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     id: review.id,
                     title: review.itemName || 'Reseña',
                     subtitle: review.placeName || 'Lugar',
-                    route: review.placeId && review.itemName ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}` : undefined,
-                    url: `${window.location.origin}/group/${review.placeId}/${encodeURIComponent(review.itemName || '')}`,
+                    route: review.placeId && review.itemName ? reviewRoute : undefined,
+                    url: reviewShareUrl,
                     imageUrl: review.photoUrl || review.placeMainImage,
                     badgeLabel: review.listName,
                     score: review.overallRating,
