@@ -54,7 +54,14 @@ service firebase.storage {
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // --- Fotos de perfil (ruta usada por el frontend). ---
+    // --- Fotos de perfil (ruta historica usada por el frontend). ---
+    match /profile-photos/{userId}/{allPaths=**} {
+      allow read;
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- Ruta alternativa que se mantiene por compatibilidad. ---
     match /profile_images/{userId}/{allPaths=**} {
       allow read;
       allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();

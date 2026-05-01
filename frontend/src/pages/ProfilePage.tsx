@@ -183,6 +183,27 @@ const getImageExtension = (file: File): string => {
   return nameExtension && /^[a-z0-9]+$/.test(nameExtension) ? nameExtension : "jpg";
 };
 
+const normalizeStoragePath = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  if (trimmed.startsWith("gs://")) {
+    return trimmed.replace(/^gs:\/\/[^/]+\//, "");
+  }
+
+  const storageObjectMatch = trimmed.match(/\/o\/([^?]+)/);
+  if (storageObjectMatch?.[1]) {
+    try {
+      return decodeURIComponent(storageObjectMatch[1]);
+    } catch {
+      return storageObjectMatch[1];
+    }
+  }
+
+  return trimmed;
+};
+
 export const ProfilePage: React.FC = () => {
   const { user } = useAuth();
   const { theme: activeTheme, setTheme: applyTheme, themes: availableThemes } = useTheme();
@@ -290,6 +311,7 @@ export const ProfilePage: React.FC = () => {
   const [dominantColor, setDominantColor] = useState<string | null>(null);
   const [heroProfileReady, setHeroProfileReady] = useState(false);
   const [failedProfilePhotoUrl, setFailedProfilePhotoUrl] = useState<string | null>(null);
+  const [profileStoragePhotoUrl, setProfileStoragePhotoUrl] = useState<string | null>(null);
 
   // Hooks need to be before effects
   const {
@@ -313,6 +335,7 @@ export const ProfilePage: React.FC = () => {
     setIsAvatarModalOpen(false);
     setDominantColor(null);
     setFailedProfilePhotoUrl(null);
+    setProfileStoragePhotoUrl(null);
   }, [targetUserId]);
 
   const {
@@ -505,12 +528,40 @@ export const ProfilePage: React.FC = () => {
     return { displayName: "", photoUrl: "" };
   }, [localReviews, targetUserId]);
 
+  useEffect(() => {
+    const rawProfileAny = rawProfile as (UserProfileEntity & Record<string, unknown>) | null;
+    const storagePath = normalizeStoragePath(rawProfileAny?.photoStoragePath);
+
+    if (!storagePath) {
+      setProfileStoragePhotoUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+    getDownloadURL(ref(storage, storagePath))
+      .then((url) => {
+        if (!cancelled) setProfileStoragePhotoUrl(url);
+      })
+      .catch((error) => {
+        console.warn("ProfilePage: could not resolve profile photo storage path", error);
+        if (!cancelled) setProfileStoragePhotoUrl(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rawProfile]);
+
   const profile = useMemo<UserProfileEntity | null>(() => {
     if (!rawProfile) return null;
     const rawProfileAny = rawProfile as UserProfileEntity & Record<string, unknown>;
     const ownAuthDisplayName = isOwnProfile ? user?.displayName?.trim() || "" : "";
     const ownAuthPhotoUrl = isOwnProfile ? user?.photoURL?.trim() || "" : "";
     const fullName = [rawProfile.name, rawProfile.surnames].filter(Boolean).join(" ").trim();
+    const currentPhotoUrl = rawProfile.photoUrl?.trim() || "";
+    const storagePhotoUrl = profileStoragePhotoUrl?.trim() || "";
+    const shouldPreferStoragePhoto =
+      storagePhotoUrl && (!currentPhotoUrl || currentPhotoUrl.includes("googleusercontent.com"));
     const legacyPhotoUrl =
       typeof rawProfileAny.photoURL === "string" && rawProfileAny.photoURL.trim()
         ? rawProfileAny.photoURL.trim()
@@ -527,23 +578,29 @@ export const ProfilePage: React.FC = () => {
         reviewAuthorFallback.displayName ||
         ownAuthDisplayName,
       photoUrl:
-        rawProfile.photoUrl ||
+        (shouldPreferStoragePhoto ? storagePhotoUrl : "") ||
+        currentPhotoUrl ||
         legacyPhotoUrl ||
+        storagePhotoUrl ||
         reviewAuthorFallback.photoUrl ||
         ownAuthPhotoUrl,
     };
-  }, [isOwnProfile, rawProfile, reviewAuthorFallback.displayName, reviewAuthorFallback.photoUrl, user?.displayName, user?.photoURL]);
+  }, [isOwnProfile, profileStoragePhotoUrl, rawProfile, reviewAuthorFallback.displayName, reviewAuthorFallback.photoUrl, user?.displayName, user?.photoURL]);
 
   useEffect(() => {
     if (!isOwnProfile || !user || !targetUserId || !rawProfile) return;
 
     const patch: Record<string, unknown> = {};
     const rawProfileAny = rawProfile as UserProfileEntity & Record<string, unknown>;
+    const rawPhotoUrl = rawProfile.photoUrl?.trim() || "";
+    const storagePhotoUrl = profileStoragePhotoUrl?.trim() || "";
     const legacyPhotoUrl = typeof rawProfileAny.photoURL === "string" ? rawProfileAny.photoURL.trim() : "";
-    const nextPhotoUrl = rawProfile.photoUrl || legacyPhotoUrl || user.photoURL?.trim() || "";
+    const nextPhotoUrl = storagePhotoUrl || rawPhotoUrl || legacyPhotoUrl || user.photoURL?.trim() || "";
     const nextDisplayName = rawProfile.displayName || user.displayName?.trim() || "";
 
-    if (!rawProfile.photoUrl && nextPhotoUrl) patch.photoUrl = nextPhotoUrl;
+    if ((!rawPhotoUrl || (storagePhotoUrl && rawPhotoUrl !== storagePhotoUrl)) && nextPhotoUrl) {
+      patch.photoUrl = nextPhotoUrl;
+    }
     if (!rawProfile.displayName && nextDisplayName) patch.displayName = nextDisplayName;
     if (!Object.keys(patch).length) return;
 
@@ -554,7 +611,12 @@ export const ProfilePage: React.FC = () => {
     ).catch((error) => {
       console.warn("ProfilePage: could not repair missing profile identity fields", error);
     });
-  }, [isOwnProfile, rawProfile, targetUserId, user]);
+    if (storagePhotoUrl && user.photoURL !== storagePhotoUrl) {
+      void updateProfile(user, { photoURL: storagePhotoUrl }).catch((error) => {
+        console.warn("ProfilePage: could not repair auth profile photo", error);
+      });
+    }
+  }, [isOwnProfile, profileStoragePhotoUrl, rawProfile, targetUserId, user]);
 
   useEffect(() => {
     const photoUrl = profile?.photoUrl?.trim();
