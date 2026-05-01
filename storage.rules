@@ -45,7 +45,7 @@ service firebase.storage {
     // aunque contentType venga vacío en clientes móviles concretos.
     function isValidPlaceImageFallback() {
       return request.resource.size < 10 * 1024 * 1024 &&
-             request.resource.name.matches('.*\.(jpg|jpeg|png|JPG|JPEG|PNG)$');
+             request.resource.name.matches('.*[.](jpg|jpeg|png|JPG|JPEG|PNG)$');
     }
 
     // --- Reseñas: el dueño del uid del path puede escribir, todos pueden leer. ---
