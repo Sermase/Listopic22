@@ -14,6 +14,8 @@ interface AdvancedProfileStats {
   ratedListsCount: number;
   uniquePlacesCount: number;
   reviewsWithPhotoCount: number;
+  reviewPhotosCount: number;
+  placePhotosCount: number;
   statsByList: Record<
     string,
     {
@@ -87,6 +89,25 @@ const ProfileStatsTab: React.FC<Props> = ({
           </div>
           <div className="text-3xl font-black text-white mt-1">
             {advancedStats.ratedListsCount}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
+          <div className="text-[11px] uppercase tracking-wider text-gray-400">
+            Fotos en reseñas
+          </div>
+          <div className="text-3xl font-black text-white mt-1">
+            {advancedStats.reviewPhotosCount}
+          </div>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
+          <div className="text-[11px] uppercase tracking-wider text-gray-400">
+            Fotos de lugares
+          </div>
+          <div className="text-3xl font-black text-white mt-1">
+            {advancedStats.placePhotosCount}
           </div>
         </div>
       </div>

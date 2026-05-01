@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useArchives, type SavedItemEntity } from '../hooks/useArchives';
-import { Folder, MapPin, MessageSquare, List as ListIcon, Trash2, Map as MapIcon, X, Filter, Edit2, Search, Check } from 'lucide-react';
+import { Folder, MapPin, MessageSquare, List as ListIcon, Trash2, Map as MapIcon, X, Filter, Edit2, Search, Check, MoreVertical, Image as ImageIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, getDocs, orderBy, query, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, collectionGroup, deleteDoc, deleteField, getDocs, limit, orderBy, query, doc, getDoc, updateDoc, where } from 'firebase/firestore';
+import { deleteObject, ref } from 'firebase/storage';
+import { db, storage } from '../firebase';
 import { MapView } from '../components/MapView';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
+import { AddReviewForm } from '../components/AddReviewForm';
 import type { MapItem } from '../components/MapView';
 
 const COLOR_OPTIONS = [
@@ -62,16 +64,69 @@ function extractCoords(data: Record<string, any>): { lat: number; lng: number } 
     return null;
 }
 
+interface UploadedPlacePhoto {
+    id: string;
+    docPath: string;
+    placeId: string;
+    placeName: string;
+    caption?: string;
+    url: string;
+    storagePath?: string;
+    createdAt?: unknown;
+}
+
+interface UploadedReviewPhoto {
+    id: string;
+    docPath: string;
+    reviewId: string;
+    listId?: string;
+    placeId?: string;
+    itemName: string;
+    placeName?: string;
+    url: string;
+    storagePath?: string;
+    createdAt?: unknown;
+}
+
+function toMillis(value: any): number {
+    if (!value) return 0;
+    if (typeof value?.toMillis === 'function') return value.toMillis();
+    if (typeof value?.seconds === 'number') return value.seconds * 1000;
+    if (value instanceof Date) return value.getTime();
+    return 0;
+}
+
+function getStoragePathFromUrl(url: string): string | undefined {
+    try {
+        const parsed = new URL(url);
+        const match = parsed.pathname.match(/\/o\/([^/]+)$/);
+        return match ? decodeURIComponent(match[1]) : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 export const ArchivePage: React.FC = () => {
     const { user } = useAuth();
     const { archives, fetchArchives, toggleItemInArchive, createArchive, updateArchive, deleteArchive } = useArchives();
 
     const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
+    const [activeSection, setActiveSection] = useState<'collections' | 'photos'>('collections');
+    const [photoFilter, setPhotoFilter] = useState<'all' | 'place' | 'review'>('all');
     const [filterType, setFilterType] = useState<'all' | 'place' | 'list' | 'review' | 'group'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
     const [archiveItems, setArchiveItems] = useState<Record<string, SavedItemEntity[]>>({});
     const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({});
+    const [uploadedPlacePhotos, setUploadedPlacePhotos] = useState<UploadedPlacePhoto[]>([]);
+    const [uploadedReviewPhotos, setUploadedReviewPhotos] = useState<UploadedReviewPhoto[]>([]);
+    const [loadingPlacePhotos, setLoadingPlacePhotos] = useState(false);
+    const [loadingReviewPhotos, setLoadingReviewPhotos] = useState(false);
+    const [openPhotoMenu, setOpenPhotoMenu] = useState<string | null>(null);
+    const [editingPlacePhoto, setEditingPlacePhoto] = useState<UploadedPlacePhoto | null>(null);
+    const [editingCaption, setEditingCaption] = useState('');
+    const [editingReviewPhoto, setEditingReviewPhoto] = useState<UploadedReviewPhoto | null>(null);
+    const [photoReloadKey, setPhotoReloadKey] = useState(0);
 
     // Mapa
     const [mapItems, setMapItems] = useState<MapItem[]>([]);
@@ -88,6 +143,136 @@ export const ArchivePage: React.FC = () => {
     const [editColor, setEditColor] = useState(COLOR_OPTIONS[0]);
 
     useEffect(() => { fetchArchives(); }, [fetchArchives]);
+
+    useEffect(() => {
+        if (!user) return;
+        let cancelled = false;
+
+        const loadUploadedPlacePhotos = async () => {
+            setLoadingPlacePhotos(true);
+            try {
+                const snap = await getDocs(query(
+                    collectionGroup(db, 'photos'),
+                    where('userId', '==', user.uid),
+                    limit(120),
+                ));
+                if (cancelled) return;
+
+                const photos = snap.docs
+                    .map((photoDoc): UploadedPlacePhoto | null => {
+                        const pathSegments = photoDoc.ref.path.split('/');
+                        if (pathSegments.length !== 4 || pathSegments[0] !== 'places' || pathSegments[2] !== 'photos') {
+                            return null;
+                        }
+                        const data = photoDoc.data() as Record<string, any>;
+                        if (typeof data.url !== 'string' || !data.url.trim()) return null;
+                        const placeId = typeof data.placeId === 'string' && data.placeId.trim()
+                            ? data.placeId.trim()
+                            : pathSegments[1];
+
+                        return {
+                            id: photoDoc.id,
+                            docPath: photoDoc.ref.path,
+                            placeId,
+                            placeName: typeof data.placeName === 'string' && data.placeName.trim() ? data.placeName.trim() : 'Lugar',
+                            caption: typeof data.caption === 'string' && data.caption.trim() ? data.caption.trim() : undefined,
+                            url: data.url.trim(),
+                            storagePath: typeof data.storagePath === 'string' && data.storagePath.trim() ? data.storagePath.trim() : undefined,
+                            createdAt: data.createdAt,
+                        };
+                    })
+                    .filter((photo): photo is UploadedPlacePhoto => photo !== null)
+                    .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+
+                setUploadedPlacePhotos(photos);
+            } catch (error) {
+                console.error('Error loading uploaded place photos', error);
+                if (!cancelled) setUploadedPlacePhotos([]);
+            } finally {
+                if (!cancelled) setLoadingPlacePhotos(false);
+            }
+        };
+
+        void loadUploadedPlacePhotos();
+        return () => {
+            cancelled = true;
+        };
+    }, [user, photoReloadKey]);
+
+    useEffect(() => {
+        if (!user) return;
+        let cancelled = false;
+
+        const loadUploadedReviewPhotos = async () => {
+            setLoadingReviewPhotos(true);
+            try {
+                const snap = await getDocs(query(
+                    collectionGroup(db, 'reviews'),
+                    where('userId', '==', user.uid),
+                    orderBy('createdAt', 'desc'),
+                    limit(160),
+                ));
+                if (cancelled) return;
+
+                const seen = new Set<string>();
+                const photos = snap.docs.flatMap((reviewDoc): UploadedReviewPhoto[] => {
+                    const data = reviewDoc.data() as Record<string, any>;
+                    const pathSegments = reviewDoc.ref.path.split('/');
+                    const inferredListId = pathSegments.length === 4 && pathSegments[0] === 'lists'
+                        ? pathSegments[1]
+                        : undefined;
+                    const listId = typeof data.listId === 'string' && data.listId.trim()
+                        ? data.listId.trim()
+                        : inferredListId;
+                    const reviewKey = `${listId || 'root'}:${reviewDoc.id}`;
+
+                    const urls = Array.isArray(data.photoUrls) && data.photoUrls.length > 0
+                        ? data.photoUrls
+                        : (typeof data.photoUrl === 'string' && data.photoUrl.trim() ? [data.photoUrl] : []);
+                    const storagePaths = Array.isArray(data.photoStoragePaths) ? data.photoStoragePaths : [];
+
+                    return urls
+                        .filter((url: unknown): url is string => typeof url === 'string' && url.trim().length > 0)
+                        .map((url, index) => {
+                            const trimmedUrl = url.trim();
+                            const key = `${reviewKey}:${trimmedUrl}`;
+                            if (seen.has(key)) return null;
+                            seen.add(key);
+
+                            const explicitStoragePath = typeof storagePaths[index] === 'string' && storagePaths[index].trim()
+                                ? storagePaths[index].trim()
+                                : undefined;
+
+                            return {
+                                id: `${reviewDoc.id}-${index}`,
+                                docPath: reviewDoc.ref.path,
+                                reviewId: reviewDoc.id,
+                                listId,
+                                placeId: typeof data.placeId === 'string' ? data.placeId : undefined,
+                                itemName: typeof data.itemName === 'string' && data.itemName.trim() ? data.itemName.trim() : 'Reseña',
+                                placeName: typeof data.placeName === 'string' && data.placeName.trim() ? data.placeName.trim() : undefined,
+                                url: trimmedUrl,
+                                storagePath: explicitStoragePath || getStoragePathFromUrl(trimmedUrl),
+                                createdAt: data.createdAt,
+                            } as UploadedReviewPhoto;
+                        })
+                        .filter((photo): photo is UploadedReviewPhoto => photo !== null);
+                }).sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+
+                setUploadedReviewPhotos(photos);
+            } catch (error) {
+                console.error('Error loading uploaded review photos', error);
+                if (!cancelled) setUploadedReviewPhotos([]);
+            } finally {
+                if (!cancelled) setLoadingReviewPhotos(false);
+            }
+        };
+
+        void loadUploadedReviewPhotos();
+        return () => {
+            cancelled = true;
+        };
+    }, [user, photoReloadKey]);
 
     useEffect(() => {
         if (archives.length > 0 && expandedIds.length === 0) {
@@ -238,6 +423,120 @@ export const ArchivePage: React.FC = () => {
         } catch { alert('Error al guardar.'); }
     };
 
+    const makeDocRefFromPath = (path: string) => {
+        const [firstPathSegment, ...remainingPathSegments] = path.split('/');
+        return doc(db, firstPathSegment, ...remainingPathSegments);
+    };
+
+    const photosForGrid = useMemo(() => {
+        const placePhotos = uploadedPlacePhotos.map(photo => ({ kind: 'place' as const, photo }));
+        const reviewPhotos = uploadedReviewPhotos.map(photo => ({ kind: 'review' as const, photo }));
+        const merged = [
+            ...(photoFilter === 'review' ? [] : placePhotos),
+            ...(photoFilter === 'place' ? [] : reviewPhotos),
+        ];
+
+        return merged
+            .filter(item => {
+                if (!searchTerm.trim()) return true;
+                const needle = searchTerm.trim().toLowerCase();
+                if (item.kind === 'place') {
+                    return item.photo.placeName.toLowerCase().includes(needle) ||
+                        (item.photo.caption || '').toLowerCase().includes(needle);
+                }
+                return item.photo.itemName.toLowerCase().includes(needle) ||
+                    (item.photo.placeName || '').toLowerCase().includes(needle);
+            })
+            .sort((a, b) => toMillis(b.photo.createdAt) - toMillis(a.photo.createdAt));
+    }, [photoFilter, searchTerm, uploadedPlacePhotos, uploadedReviewPhotos]);
+
+    const openPlacePhotoEdit = (photo: UploadedPlacePhoto) => {
+        setOpenPhotoMenu(null);
+        setEditingPlacePhoto(photo);
+        setEditingCaption(photo.caption || '');
+    };
+
+    const savePlacePhotoCaption = async () => {
+        if (!editingPlacePhoto) return;
+        try {
+            const caption = editingCaption.trim();
+            await updateDoc(makeDocRefFromPath(editingPlacePhoto.docPath), { caption });
+            setUploadedPlacePhotos(prev => prev.map(photo =>
+                photo.docPath === editingPlacePhoto.docPath
+                    ? { ...photo, caption: caption || undefined }
+                    : photo
+            ));
+            setEditingPlacePhoto(null);
+            setEditingCaption('');
+        } catch (error) {
+            console.error('Error updating place photo caption', error);
+            alert('No se pudo editar la foto.');
+        }
+    };
+
+    const deleteUploadedPlacePhoto = async (photo: UploadedPlacePhoto) => {
+        if (!confirm('¿Borrar esta foto del lugar?')) return;
+        try {
+            if (photo.storagePath) {
+                await deleteObject(ref(storage, photo.storagePath)).catch((error: any) => {
+                    if (error?.code !== 'storage/object-not-found') throw error;
+                });
+            }
+            await deleteDoc(makeDocRefFromPath(photo.docPath));
+            setUploadedPlacePhotos(prev => prev.filter(item => item.docPath !== photo.docPath));
+            setOpenPhotoMenu(null);
+        } catch (error) {
+            console.error('Error deleting uploaded place photo', error);
+            alert('No se pudo borrar la foto.');
+        }
+    };
+
+    const deleteUploadedReviewPhoto = async (photo: UploadedReviewPhoto) => {
+        if (!confirm('¿Borrar esta foto de la reseña?')) return;
+        try {
+            if (photo.storagePath) {
+                await deleteObject(ref(storage, photo.storagePath)).catch((error: any) => {
+                    if (error?.code !== 'storage/object-not-found') throw error;
+                });
+            }
+
+            const reviewRef = makeDocRefFromPath(photo.docPath);
+            const reviewSnap = await getDoc(reviewRef);
+            if (!reviewSnap.exists()) {
+                setUploadedReviewPhotos(prev => prev.filter(item => item.docPath !== photo.docPath || item.url !== photo.url));
+                return;
+            }
+
+            const data = reviewSnap.data() as Record<string, any>;
+            const existingUrls = Array.isArray(data.photoUrls) && data.photoUrls.length > 0
+                ? data.photoUrls.filter((url: unknown): url is string => typeof url === 'string' && url.trim().length > 0)
+                : (typeof data.photoUrl === 'string' && data.photoUrl.trim() ? [data.photoUrl] : []);
+            const removeIndex = existingUrls.findIndex(url => url === photo.url);
+            const nextUrls = removeIndex >= 0
+                ? existingUrls.filter((_, index) => index !== removeIndex)
+                : existingUrls.filter(url => url !== photo.url);
+
+            const existingStoragePaths = Array.isArray(data.photoStoragePaths)
+                ? data.photoStoragePaths.filter((path: unknown): path is string => typeof path === 'string' && path.trim().length > 0)
+                : [];
+            const nextStoragePaths = removeIndex >= 0
+                ? existingStoragePaths.filter((_, index) => index !== removeIndex)
+                : existingStoragePaths.filter(path => path !== photo.storagePath);
+
+            await updateDoc(reviewRef, {
+                photoUrl: nextUrls[0] || deleteField(),
+                photoUrls: nextUrls.length > 0 ? nextUrls : deleteField(),
+                photoStoragePaths: nextStoragePaths.length > 0 ? nextStoragePaths : deleteField(),
+            });
+
+            setUploadedReviewPhotos(prev => prev.filter(item => item.docPath !== photo.docPath || item.url !== photo.url));
+            setOpenPhotoMenu(null);
+        } catch (error) {
+            console.error('Error deleting uploaded review photo', error);
+            alert('No se pudo borrar la foto.');
+        }
+    };
+
     if (!user) return <div className="pt-safe-32 text-center text-gray-500">Inicia sesión para ver tu archivo.</div>;
 
     // ── VISTA MAPA ────────────────────────────────────────────────────────────
@@ -321,11 +620,30 @@ export const ArchivePage: React.FC = () => {
                 <header className="mb-6">
                     <div className="flex justify-between items-center mb-4">
                         <h1 className="text-3xl font-bold text-white">Mi Archivo</h1>
+                        {activeSection === 'collections' && (
+                            <button
+                                onClick={() => setViewMode('map')}
+                                className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white text-sm font-bold rounded-xl shadow-lg transition-colors"
+                            >
+                                <MapIcon className="w-4 h-4" /> Mapa
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="mb-4 inline-flex rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-1">
                         <button
-                            onClick={() => setViewMode('map')}
-                            className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white text-sm font-bold rounded-xl shadow-lg transition-colors"
+                            type="button"
+                            onClick={() => setActiveSection('collections')}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${activeSection === 'collections' ? 'bg-[var(--lt-accent)] text-white' : 'text-gray-400 hover:text-white'}`}
                         >
-                            <MapIcon className="w-4 h-4" /> Mapa
+                            Colecciones
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveSection('photos')}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${activeSection === 'photos' ? 'bg-[var(--lt-accent)] text-white' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Fotos
                         </button>
                     </div>
 
@@ -334,24 +652,28 @@ export const ArchivePage: React.FC = () => {
                             <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                             <input
                                 type="text"
-                                placeholder="Buscar en tus colecciones..."
+                                placeholder={activeSection === 'photos' ? 'Buscar en tus fotos...' : 'Buscar en tus colecciones...'}
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 className="w-full bg-[var(--lt-card-strong)] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                             />
                         </div>
                         <div className="flex gap-1.5 overflow-x-auto custom-scrollbar shrink-0">
-                            {[
+                            {(activeSection === 'photos' ? [
+                                { id: 'all', label: 'Todas' },
+                                { id: 'place', label: 'Lugares' },
+                                { id: 'review', label: 'Reseñas' },
+                            ] : [
                                 { id: 'all', label: 'Todo' },
                                 { id: 'place', label: 'Lugares' },
                                 { id: 'list', label: 'Listas' },
                                 { id: 'group', label: 'Platos' },
                                 { id: 'review', label: 'Reseñas' },
-                            ].map(f => (
+                            ]).map(f => (
                                 <button
                                     key={f.id}
-                                    onClick={() => setFilterType(f.id as any)}
-                                    className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterType === f.id
+                                    onClick={() => activeSection === 'photos' ? setPhotoFilter(f.id as any) : setFilterType(f.id as any)}
+                                    className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${(activeSection === 'photos' ? photoFilter : filterType) === f.id
                                         ? 'bg-[var(--lt-accent)] text-white'
                                         : 'bg-[var(--lt-card-strong)] border border-white/10 text-gray-400 hover:text-white'}`}
                                 >
@@ -362,8 +684,100 @@ export const ArchivePage: React.FC = () => {
                     </div>
                 </header>
 
+                {activeSection === 'photos' && (
+                    <section className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] overflow-hidden">
+                        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <h2 className="text-sm font-bold text-white">Fotos</h2>
+                                <p className="text-xs text-gray-500">Fotos que has subido a reseñas y lugares</p>
+                            </div>
+                            <span className="text-xs font-bold text-gray-300 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1">
+                                {uploadedPlacePhotos.length + uploadedReviewPhotos.length}
+                            </span>
+                        </div>
+                        {loadingPlacePhotos || loadingReviewPhotos ? (
+                            <div className="flex items-center justify-center gap-2 py-8 text-gray-500 text-sm">
+                                <div className="animate-spin w-4 h-4 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full" />
+                                Cargando fotos...
+                            </div>
+                        ) : photosForGrid.length === 0 ? (
+                            <div className="px-4 py-12 text-center text-sm text-gray-500">
+                                <ImageIcon className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+                                No hay fotos que coincidan.
+                            </div>
+                        ) : (
+                            <div className="p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                                {photosForGrid.map(item => {
+                                    const menuId = item.kind === 'place'
+                                        ? `place:${item.photo.docPath}`
+                                        : `review:${item.photo.docPath}:${item.photo.url}`;
+                                    const title = item.kind === 'place' ? item.photo.placeName : item.photo.itemName;
+                                    const subtitle = item.kind === 'place' ? item.photo.caption : item.photo.placeName;
+                                    const route = item.kind === 'place'
+                                        ? `/place/${item.photo.placeId}`
+                                        : (item.photo.placeId ? `/place/${item.photo.placeId}` : '#');
+
+                                    return (
+                                        <div
+                                            key={menuId}
+                                            className="group relative rounded-xl overflow-visible border border-white/5 hover:border-white/20 transition-all bg-[var(--lt-card)] flex flex-col"
+                                        >
+                                            <Link to={route} className="aspect-square bg-gray-800/60 relative block rounded-t-xl overflow-hidden">
+                                                <img src={item.photo.url} alt={title} className="w-full h-full object-cover" />
+                                                <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide ${item.kind === 'place' ? 'bg-blue-500/20 text-blue-300' : 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)]'}`}>
+                                                    {item.kind === 'place' ? <MapPin className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
+                                                    {item.kind === 'place' ? 'Lugar' : 'Reseña'}
+                                                </span>
+                                            </Link>
+                                            <div className="absolute top-1.5 right-1.5 z-20">
+                                                <button
+                                                    type="button"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setOpenPhotoMenu(prev => prev === menuId ? null : menuId);
+                                                    }}
+                                                    className="p-1 rounded-md bg-black/65 text-gray-200 hover:text-white transition-colors"
+                                                    title="Opciones"
+                                                >
+                                                    <MoreVertical className="w-3.5 h-3.5" />
+                                                </button>
+                                                {openPhotoMenu === menuId && (
+                                                    <div className="absolute right-0 mt-1 w-32 rounded-xl border border-white/10 bg-[var(--lt-card-strong)] shadow-2xl overflow-hidden">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => item.kind === 'place'
+                                                                ? openPlacePhotoEdit(item.photo)
+                                                                : (setOpenPhotoMenu(null), setEditingReviewPhoto(item.photo))}
+                                                            className="w-full px-3 py-2 text-left text-xs font-bold text-gray-200 hover:bg-white/10 flex items-center gap-2"
+                                                        >
+                                                            <Edit2 className="w-3.5 h-3.5" /> Editar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => item.kind === 'place'
+                                                                ? deleteUploadedPlacePhoto(item.photo)
+                                                                : deleteUploadedReviewPhoto(item.photo)}
+                                                            className="w-full px-3 py-2 text-left text-xs font-bold text-red-300 hover:bg-red-500/10 flex items-center gap-2"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <Link to={route} className="p-2 flex-1 hover:bg-white/5 transition-colors rounded-b-xl">
+                                                <p className="text-white text-xs font-semibold leading-tight line-clamp-2">{title}</p>
+                                                {subtitle && <p className="text-[var(--lt-accent)] text-[10px] truncate mt-0.5">{subtitle}</p>}
+                                            </Link>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </section>
+                )}
+
                 {/* Colecciones */}
-                {archives.length === 0 ? (
+                {activeSection === 'collections' && (archives.length === 0 ? (
                     <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-2xl">
                         <Folder className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                         <p className="text-gray-500 mb-4">No tienes colecciones aún.</p>
@@ -504,7 +918,7 @@ export const ArchivePage: React.FC = () => {
                             );
                         })}
                     </div>
-                )}
+                ))}
             </div>
 
             {/* Modal crear/editar colección */}
@@ -577,6 +991,48 @@ export const ArchivePage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {editingPlacePhoto && (
+                <div className="fixed inset-0 z-[101] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditingPlacePhoto(null)}>
+                    <div className="bg-[var(--lt-card-strong)] w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-5" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-bold text-white">Editar foto</h2>
+                            <button onClick={() => setEditingPlacePhoto(null)} className="text-gray-500 hover:text-white">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <img src={editingPlacePhoto.url} alt="" className="w-full aspect-video object-cover rounded-xl bg-gray-900 mb-4" />
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Pie de foto</label>
+                        <input
+                            value={editingCaption}
+                            maxLength={120}
+                            onChange={event => setEditingCaption(event.target.value)}
+                            className="w-full bg-[var(--lt-card)] border border-white/10 rounded-xl px-4 py-3 text-[var(--lt-text)] focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors text-sm"
+                            placeholder="Añade un pie de foto..."
+                            autoFocus
+                        />
+                        <button
+                            onClick={savePlacePhotoCaption}
+                            className="mt-4 w-full bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold py-3 rounded-xl transition-all"
+                        >
+                            Guardar
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {editingReviewPhoto && (
+                <AddReviewForm
+                    listId={editingReviewPhoto.listId || null}
+                    editReviewId={editingReviewPhoto.reviewId}
+                    lockList={false}
+                    onClose={() => setEditingReviewPhoto(null)}
+                    onSuccess={() => {
+                        setEditingReviewPhoto(null);
+                        setPhotoReloadKey(value => value + 1);
+                    }}
+                />
             )}
         </div>
     );

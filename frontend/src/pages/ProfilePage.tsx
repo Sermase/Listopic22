@@ -102,6 +102,8 @@ interface AdvancedProfileStats {
   ratedListsCount: number;
   uniquePlacesCount: number;
   reviewsWithPhotoCount: number;
+  reviewPhotosCount: number;
+  placePhotosCount: number;
   // Map of listId to stats
   statsByList: Record<
     string,
@@ -133,6 +135,8 @@ const EMPTY_ADVANCED_STATS: AdvancedProfileStats = {
   ratedListsCount: 0,
   uniquePlacesCount: 0,
   reviewsWithPhotoCount: 0,
+  reviewPhotosCount: 0,
+  placePhotosCount: 0,
   statsByList: {},
 };
 
@@ -642,6 +646,7 @@ export const ProfilePage: React.FC = () => {
         let totalScore = 0;
         let scoredReviewsCount = 0;
         let reviewsWithPhotoCount = 0;
+        let reviewPhotosCount = 0;
         const perListMap = new Map<
           string,
           { listName: string; reviewsCount: number; totalScore: number }
@@ -668,24 +673,42 @@ export const ProfilePage: React.FC = () => {
           return 0;
         };
 
-        const reviewHasPhoto = (review: Record<string, any>): boolean => {
-          const singlePhoto =
-            typeof review.photoUrl === "string" && review.photoUrl.trim().length > 0;
-          const photoArray =
-            Array.isArray(review.photos) &&
-            review.photos.some(
-              (photo: unknown) =>
-                typeof photo === "string" && photo.trim().length > 0,
-            );
-          const imagesArray =
-            Array.isArray(review.images) &&
-            review.images.some(
-              (photo: unknown) =>
-                typeof photo === "string" && photo.trim().length > 0,
-            );
+        const getReviewPhotoUrls = (review: Record<string, any>): string[] => {
+          const urls = new Set<string>();
+          const addPhoto = (photo: unknown) => {
+            if (typeof photo !== "string") return;
+            const trimmed = photo.trim();
+            if (trimmed) urls.add(trimmed);
+          };
 
-          return singlePhoto || photoArray || imagesArray;
+          addPhoto(review.photoUrl);
+          if (Array.isArray(review.photoUrls)) review.photoUrls.forEach(addPhoto);
+          if (Array.isArray(review.photos)) review.photos.forEach(addPhoto);
+          if (Array.isArray(review.images)) review.images.forEach(addPhoto);
+
+          return Array.from(urls);
         };
+
+        let placePhotosCount = 0;
+        if (targetUserId === user?.uid) {
+          try {
+            const placePhotosSnapshot = await getDocs(
+              query(
+                collectionGroup(db, "photos"),
+                where("userId", "==", targetUserId),
+                limit(3000),
+              ),
+            );
+            placePhotosCount = placePhotosSnapshot.docs.filter((photoDoc) => {
+              const pathSegments = photoDoc.ref.path.split("/");
+              return pathSegments.length === 4 &&
+                pathSegments[0] === "places" &&
+                pathSegments[2] === "photos";
+            }).length;
+          } catch (placePhotosError) {
+            console.warn("Error loading user place photo stats", placePhotosError);
+          }
+        }
 
         canonicalReviews.forEach((review) => {
           const rawScore = review.overallRating ?? review.rating ?? review.avgRating;
@@ -698,8 +721,10 @@ export const ProfilePage: React.FC = () => {
             uniquePlaceIds.add(placeId);
           }
 
-          if (reviewHasPhoto(review)) {
+          const reviewPhotoUrls = getReviewPhotoUrls(review);
+          if (reviewPhotoUrls.length > 0) {
             reviewsWithPhotoCount += 1;
+            reviewPhotosCount += reviewPhotoUrls.length;
           }
 
           if (hasScore) {
@@ -818,6 +843,8 @@ export const ProfilePage: React.FC = () => {
             ratedListsCount: perList.length,
             uniquePlacesCount: uniquePlaceIds.size,
             reviewsWithPhotoCount,
+            reviewPhotosCount,
+            placePhotosCount,
             statsByList,
           });
           setFavoriteReview(favorite);
@@ -840,7 +867,7 @@ export const ProfilePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [targetUserId, statsLoadedUserId]);
+  }, [targetUserId, statsLoadedUserId, user?.uid]);
 
   const handleDeleteReview = (id: string) => {
     setLocalReviews((prev) => prev.filter((r) => r.id !== id));
@@ -931,7 +958,7 @@ export const ProfilePage: React.FC = () => {
             : undefined,
         photosCount:
           statsLoadedUserId === targetUserId
-            ? advancedStats.reviewsWithPhotoCount
+            ? advancedStats.reviewPhotosCount + advancedStats.placePhotosCount
             : undefined,
         placeCount:
           statsLoadedUserId === targetUserId

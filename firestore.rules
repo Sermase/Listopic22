@@ -103,6 +103,13 @@ service cloud.firestore {
       );
     }
 
+    // Consulta de grupo para las fotos de lugar subidas por el usuario.
+    // Las fotos se siguen leyendo públicamente desde places/{placeId}/photos,
+    // pero las vistas de perfil/archivo solo pueden listar las propias por userId.
+    match /{path=**}/photos/{photoId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
     // ===============================================
     // REGLAS PARA USUARIOS (`users`) (ACTUALIZADAS)
     // ===============================================

@@ -72,6 +72,7 @@ interface ReviewFormData {
     userTags?: string[];
     photoUrl?: string;
     photoUrls?: string[];
+    photoStoragePaths?: string[];
     listId?: string;
     parentListId?: string;
     placeId?: string;
@@ -611,6 +612,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             let finalPlaceLng = selectedPlace?.lng || 0;
             let finalPhotoUrl = ''; // Declared here
             let finalPhotoUrls: string[] = [];
+            let finalPhotoStoragePaths: string[] = [];
 
             if (selectedPlace) {
                 // Transform Place Data
@@ -624,9 +626,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     try {
                         for (let pi = 0; pi < photosToUpload.length; pi++) {
                             const fileName = `${user.uid}_${Date.now()}_${pi}.jpg`;
-                            const storageRef = ref(storage, `reviews/${user.uid}/${fileName}`);
-                            const snapshot = await uploadBytes(storageRef, photosToUpload[pi].blob);
+                            const storagePath = `reviews/${user.uid}/${fileName}`;
+                            const storageRef = ref(storage, storagePath);
+                            const snapshot = await uploadBytes(storageRef, photosToUpload[pi].blob, { contentType: 'image/jpeg' });
                             finalPhotoUrls.push(await getDownloadURL(snapshot.ref));
+                            finalPhotoStoragePaths.push(storagePath);
                         }
                     } catch (uploadErr) {
                         console.error("Upload failed", uploadErr);
@@ -734,6 +738,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 reactionCounts: { like: 0, dislike: 0 },
                 photoUrl: finalPhotoUrl,
                 photoUrls: finalPhotoUrls.length > 0 ? finalPhotoUrls : (finalPhotoUrl ? [finalPhotoUrl] : []),
+                ...(finalPhotoStoragePaths.length > 0 ? { photoStoragePaths: finalPhotoStoragePaths } : {}),
                 updatedAt: serverTimestamp(),
 
                 // Location Details

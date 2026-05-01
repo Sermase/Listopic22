@@ -43,25 +43,29 @@ service firebase.storage {
     // --- Reseñas: el dueño del uid del path puede escribir, todos pueden leer. ---
     match /reviews/{userId}/{allPaths=**} {
       allow read;
-      allow write: if isSignedIn() && request.auth.uid == userId && isValidImage();
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // --- Fotos propias de lugares: cualquier usuario puede aportar sus fotos. ---
     match /places/{placeId}/{userId}/{allPaths=**} {
       allow read;
-      allow write: if isSignedIn() && request.auth.uid == userId && isValidImage();
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // --- Fotos de perfil (ruta usada por el frontend). ---
     match /profile_images/{userId}/{allPaths=**} {
       allow read;
-      allow write: if isSignedIn() && request.auth.uid == userId && isValidImage();
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // --- Ruta heredada (se mantiene por si hay URLs antiguas). ---
     match /user-profiles/{userId}/{imageName} {
       allow read;
-      allow write: if isSignedIn() && request.auth.uid == userId && isValidImage();
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // --- Imágenes de listas: solo propietario de la lista o jefe. ---
